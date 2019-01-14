@@ -1,0 +1,6 @@
+flask
+requests
+cryptography
+PyJWT
+cachetools
+uwsgi
