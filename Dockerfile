@@ -17,4 +17,4 @@ ENV UWSGI_PROCESSES=2
 ENV UWSGI_OFFLOAD_THREADS=10
 ENV UWSGI_MODULE=authorizer:app
 
-CMD ["uwsgi", "--ini", "/app/uwsgi.ini", "--pyargv", "-c /etc/jwt-authorizer/authorizer.cfg"]
+CMD ["uwsgi", "--ini", "/etc/uwsgi/uwsgi.ini", "--pyargv", "-c /etc/jwt-authorizer/authorizer.cfg"]
