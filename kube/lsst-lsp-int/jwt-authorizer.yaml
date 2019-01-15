@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    k8s-app: lsst-jwt-authorizer
+  name: lsst-jwt-authorizer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: lsst-jwt-authorizer
+  template:
+    metadata:
+      labels:
+        k8s-app: lsst-jwt-authorizer
+    spec:
+      containers:
+      - image: lsstdm/jwt_authorizer
+        imagePullPolicy: Always
+        name: lsst-jwt-authorizer
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        volumeMounts:
+        - name: jwt-authorizer
+          mountPath: "/etc/jwt-authorizer"
+          readOnly: true
+      volumes:
+      - name: jwt-authorizer
+        secret:
+          # kubectl create secret generic jwt-authorizer-config --from-file=./authorizer.cfg
+          secretName: jwt-authorizer-config
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    k8s-app: lsst-jwt-authorizer
+  name: lsst-jwt-authorizer
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    k8s-app: lsst-jwt-authorizer
