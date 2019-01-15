@@ -74,9 +74,10 @@ kind: Ingress
 metadata:
   name: oauth2-proxy
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    # nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     # nginx.ingress.kubernetes.io/configuration-snippet: |
+      # 
 spec:
   rules:
   - host: lsst-lsp-int.ncsa.illinois.edu
@@ -89,4 +90,4 @@ spec:
   tls:
   - hosts:
     - lsst-lsp-int.ncsa.illinois.edu
-    secretName: lsst-lsp-int-tls
+    secretName: tls-certificate-lsp-int
