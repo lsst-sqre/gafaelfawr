@@ -160,10 +160,12 @@ def _find_token():
     """
     auth_type, auth_blob = request.headers['Authorization'].split(" ")
     encoded_token = None
-    if "x-forwarded-id-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-id-token"]
-    elif auth_type.lower() == "bearer":
+    if auth_type.lower() == "bearer":
         encoded_token = auth_blob
+    elif "x-forwarded-access-token" in request.headers:
+        encoded_token = request.headers["x-forwarded-access-token"]
+    elif "x-forwarded-id-token" in request.headers:
+        encoded_token = request.headers["x-forwarded-id-token"]
     elif auth_type.lower() == "basic":
         logger.debug("Using OAuth with Basic")
         # We fallback to user:token. We ignore the user.
