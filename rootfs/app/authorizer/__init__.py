@@ -25,7 +25,6 @@ import logging
 import os
 import struct
 from typing import Dict, Any, Tuple, Optional, Callable, List
-import pwd
 
 import jwt
 import requests
@@ -133,14 +132,15 @@ def flask_listener():
 
     if success:
         response.status_code = 200
-        if Config.REMOTE_USER_KEY and Config.REMOTE_USER_SET_HEADERS:
-            remote_user = verified_token[Config.REMOTE_USER_KEY]
-            entry = pwd.getpwnam(remote_user)
-            uid = entry.pw_uid
-            response.headers['REMOTE_USER'] = remote_user
-            response.headers['X-UID'] = uid
+        if Config.SET_USER_HEADERS:
+            user = verified_token.get(Config.JWT_USERNAME_KEY)
+            uid = verified_token.get(Config.JWT_UID_KEY)
+            if user:
+                response.headers['X-Auth-Request-User'] = user
+            if uid:
+                response.headers['X-Auth-Request-Uid'] = uid
         if jti:
-            logger.info(f"Allowed token with Token ID: {jti} from issuer {iss}")
+            logger.info(f"Allowed token with Token ID: {jti} from issuer {issuer_url}")
         return response
 
     if jti:

@@ -42,8 +42,9 @@ class Config:
     WWW_AUTHENTICATE = "Bearer"
 
     CAPABILITY_FROM_METHOD = True
-    REMOTE_USER_KEY = "sub"
-    REMOTE_USER_SET_HEADERS = True
+    JWT_USERNAME_KEY = "uid"
+    JWT_UID_KEY = "uidNumber"
+    SET_USER_HEADERS = True
     GROUP_DEPLOYMENT_PREFIX = "lsst_"
     GROUP_MAPPING = {}
 
@@ -85,6 +86,15 @@ class Config:
             logger = logging.getLogger(__name__)
             if level == "DEBUG":
                 logging.getLogger('werkzeug').setLevel(level)
+
+        if 'jwt_username_key' in cp.options('Global'):
+            Config.JWT_USERNAME_KEY = cp.get("Global", "jwt_username_key")
+
+        if 'jwt_uid_key' in cp.options('Global'):
+            Config.JWT_UID_KEY = cp.get("Global", "jwt_uid_key")
+
+        if "set_user_headers" in cp.options("Global"):
+            Config.SET_USER_HEADERS = cp.getboolean("Global", "set_user_headers")
 
         if 'default_resource' in cp.options("Global"):
             Config.DEFAULT_RESOURCE = cp.get("Global", "default_resource")
