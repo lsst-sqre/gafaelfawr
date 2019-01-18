@@ -21,18 +21,18 @@ spec:
         args:
         - -provider=oidc
         - -oidc-issuer-url=https://cilogon.org
+        - -scope=openid email org.cilogon.userinfo
         - -email-domain=*
         - -cookie-secure=true
         - -upstream=http://lsst-jwt-authorizer.lsst-pdac.svc.cluster.local:8080/
         - -http-address=0.0.0.0:4180
         - -set-xauthrequest
         - -cookie-refresh=10m
-        - -pass-access-token
-        - -pass-refresh-token
+        - -pass-authorization-header
+        - -set-authorization-header
         - -pass-user-headers
-        - -pass-id-token
         - -skip-jwt-bearer
-        - -jwt-bearer-verifiers=https://cilogon.org
+        - -jwt-bearer-verifiers=https://cilogon.org=cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
           value: cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75
@@ -76,8 +76,10 @@ metadata:
   annotations:
     # nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    # nginx.ingress.kubernetes.io/configuration-snippet: |
-      # 
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "256k"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      large_client_header_buffers 4 64k;
+      client_header_buffer_size 8k;
 spec:
   rules:
   - host: lsst-lsp-int.ncsa.illinois.edu
