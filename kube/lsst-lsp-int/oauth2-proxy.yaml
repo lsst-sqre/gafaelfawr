@@ -15,7 +15,7 @@ spec:
         k8s-app: oauth2-proxy
     spec:
       containers:
-      - image: lsstdm/oauth2_proxy:oidc
+      - image: lsstdm/oauth2_proxy
         imagePullPolicy: Always
         name: oauth2-proxy
         args:
