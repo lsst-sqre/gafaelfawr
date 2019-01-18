@@ -32,7 +32,7 @@ spec:
         - -set-authorization-header
         - -pass-user-headers
         - -skip-jwt-bearer
-        - -jwt-bearer-verifiers=https://cilogon.org=cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75
+        - -jwt-bearer-issuers=https://cilogon.org=cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
           value: cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75
