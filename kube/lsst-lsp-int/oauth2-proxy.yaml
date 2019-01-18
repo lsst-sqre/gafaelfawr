@@ -75,7 +75,7 @@ metadata:
   name: oauth2-proxy
   annotations:
     # nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-buffer-size: "256k"
     nginx.ingress.kubernetes.io/server-snippet: |
       large_client_header_buffers 4 64k;
