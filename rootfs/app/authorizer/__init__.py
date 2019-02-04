@@ -196,7 +196,7 @@ def _find_token():
 
 
 def _needs_authentication(response: Response, error: str, message: str) -> Response:
-    """Modify request for a 401 as appropriate"""
+    """Modify response for a 401 as appropriate"""
     response.status_code = 401
     response.set_data(error)
     if not Config.WWW_AUTHENTICATE:
