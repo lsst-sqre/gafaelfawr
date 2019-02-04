@@ -76,8 +76,9 @@ metadata:
   annotations:
     # nginx.ingress.kubernetes.io/rewrite-target: /
     # nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-buffer-size: "256k"
     nginx.ingress.kubernetes.io/server-snippet: |
+      proxy_buffer_size 64k;
+      proxy_buffers 4 64k;
       large_client_header_buffers 4 64k;
       client_header_buffer_size 8k;
 spec:

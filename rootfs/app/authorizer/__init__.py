@@ -95,22 +95,19 @@ def flask_listener():
     if Config.NO_AUTHORIZE:
         response.set_data("Authorization is Ok")
         response.status_code = 200
+        set_headers(response, verified_token, encoded_token)
         return response
 
     # Authorization Checks
     request_method = request.headers.get('X-Original-Method')
     request_path = request.headers.get('X-Original-URI')
-    resource = request.args.get("resource") or Config.DEFAULT_RESOURCE
-
     capabilities = request.args.getlist("capability")
     satisfy = request.args.get("satisfy") or "all"
 
     # If no capability have been explicitly delineated in the URI,
     # get them from the request method
-    if not capabilities and Config.CAPABILITY_FROM_METHOD:
-        capabilities = [get_capability_from_request_method(resource, request_method)]
-        assert satisfy != "any", "ERROR: Logic Error, check nginx configuration"
-    assert capabilities, "ERROR: Check nginx configuration for this resource"
+    assert satisfy != "any", "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
+    assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
 
     jti = str(verified_token['jti']) if "jti" in verified_token else None
 
@@ -132,13 +129,7 @@ def flask_listener():
 
     if success:
         response.status_code = 200
-        if Config.SET_USER_HEADERS:
-            user = verified_token.get(Config.JWT_USERNAME_KEY)
-            uid = verified_token.get(Config.JWT_UID_KEY)
-            if user:
-                response.headers['X-Auth-Request-User'] = user
-            if uid:
-                response.headers['X-Auth-Request-Uid'] = uid
+        set_headers(response, verified_token, encoded_token)
         if jti:
             logger.info(f"Allowed token with Token ID: {jti} from issuer {issuer_url}")
         return response
@@ -148,6 +139,24 @@ def flask_listener():
     else:
         logger.error(f"Failed to authenticate Token because {message}")
     response.status_code = 403
+    return response
+
+
+def set_headers(response: Response, verified_token: TokenDict, encoded_token: str) -> Response:
+    """Set Headers that will be returned in a successful response.
+    :return: The mutated response object.
+    """
+    if Config.SET_USER_HEADERS:
+        email = verified_token.get("email")
+        user = verified_token.get(Config.JWT_USERNAME_KEY)
+        uid = verified_token.get(Config.JWT_UID_KEY)
+        if email:
+            response.headers['X-Auth-Request-Email'] = uid
+        if user:
+            response.headers['X-Auth-Request-User'] = user
+        if uid:
+            response.headers['X-Auth-Request-Uid'] = uid
+    response.headers["X-Auth-Request-Token"] = encoded_token
     return response
 
 
@@ -187,7 +196,7 @@ def _find_token():
 
 
 def _needs_authentication(response: Response, error: str, message: str) -> Response:
-    """Modify request for a 401 as appropriate"""
+    """Modify response for a 401 as appropriate"""
     response.status_code = 401
     response.set_data(error)
     if not Config.WWW_AUTHENTICATE:
@@ -200,21 +209,6 @@ def _needs_authentication(response: Response, error: str, message: str) -> Respo
         response.headers['WWW-Authenticate'] = \
             f'Bearer realm="{Config.REALM}",error="{error}",error_description="{message}"'
     return response
-
-
-def get_capability_from_request_method(resource: str, request_method: str) -> str:
-    """
-    Get the capability for the request method.
-    :param resource: Resource for the request
-    :param request_method: Original request method
-    :return: A string if we were able to determin the capability, or None
-    """
-    op = ""
-    if request_method in ["HEAD", "GET", "OPTIONS", "PROPFIND"]:
-        op = 'read'
-    elif request_method in ["PUT", "POST", "DELETE", "MKCOL", "COPY", "MOVE", "PATCH"]:
-        op = 'write'
-    return f"{op}:{resource}"
 
 
 def check_authorization(capability: str, request_method: str, request_path: str,

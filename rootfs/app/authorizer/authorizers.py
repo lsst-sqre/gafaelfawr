@@ -61,11 +61,13 @@ def group_membership_check_access(capability: str, request_method: str, request_
     return (False, message)
     """
     user_groups_list: List[Dict[str, str]] = token.get("isMemberOf")
+    if user_groups_list is None:
+        return False, "claim `isMemberOf` not found"
     user_groups_map = {group["name"]: group for group in user_groups_list}
     capability_group = _group_membership_get_group(capability)
     if capability_group in user_groups_map:
         return True, "Success"
-    return False, "No Capability group found in user's `isMemberOfGroups`"
+    return False, "No Capability group found in user's `isMemberOf`"
 
 
 def _group_membership_get_group(capability: str) -> str:
@@ -76,4 +78,5 @@ def _group_membership_get_group(capability: str) -> str:
     """
     group = Config.GROUP_MAPPING.get(capability)
     assert capability is not None, "Error: Capability not found in group mapping"
+    assert group is not None, "Error: No group mapping for capability"
     return group
