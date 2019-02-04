@@ -95,6 +95,7 @@ def flask_listener():
     if Config.NO_AUTHORIZE:
         response.set_data("Authorization is Ok")
         response.status_code = 200
+        set_headers(response, verified_token, encoded_token)
         return response
 
     # Authorization Checks
@@ -132,13 +133,7 @@ def flask_listener():
 
     if success:
         response.status_code = 200
-        if Config.SET_USER_HEADERS:
-            user = verified_token.get(Config.JWT_USERNAME_KEY)
-            uid = verified_token.get(Config.JWT_UID_KEY)
-            if user:
-                response.headers['X-Auth-Request-User'] = user
-            if uid:
-                response.headers['X-Auth-Request-Uid'] = uid
+        set_headers(response, verified_token, encoded_token)
         if jti:
             logger.info(f"Allowed token with Token ID: {jti} from issuer {issuer_url}")
         return response
@@ -148,6 +143,24 @@ def flask_listener():
     else:
         logger.error(f"Failed to authenticate Token because {message}")
     response.status_code = 403
+    return response
+
+
+def set_headers(response: Response, verified_token: TokenDict, encoded_token: str) -> Response:
+    """Set Headers that will be returned in a successful response.
+    :return: The mutated response object.
+    """
+    if Config.SET_USER_HEADERS:
+        email = verified_token.get("email")
+        user = verified_token.get(Config.JWT_USERNAME_KEY)
+        uid = verified_token.get(Config.JWT_UID_KEY)
+        if email:
+            response.headers['X-Auth-Request-Email'] = uid
+        if user:
+            response.headers['X-Auth-Request-User'] = user
+        if uid:
+            response.headers['X-Auth-Request-Uid'] = uid
+    response.headers["X-Auth-Request-Token"] = encoded_token
     return response
 
 
