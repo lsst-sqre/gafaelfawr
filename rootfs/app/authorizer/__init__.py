@@ -101,17 +101,13 @@ def flask_listener():
     # Authorization Checks
     request_method = request.headers.get('X-Original-Method')
     request_path = request.headers.get('X-Original-URI')
-    resource = request.args.get("resource") or Config.DEFAULT_RESOURCE
-
     capabilities = request.args.getlist("capability")
     satisfy = request.args.get("satisfy") or "all"
 
     # If no capability have been explicitly delineated in the URI,
     # get them from the request method
-    if not capabilities and Config.CAPABILITY_FROM_METHOD:
-        capabilities = [get_capability_from_request_method(resource, request_method)]
-        assert satisfy != "any", "ERROR: Logic Error, check nginx configuration"
-    assert capabilities, "ERROR: Check nginx configuration for this resource"
+    assert satisfy != "any", "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
+    assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
 
     jti = str(verified_token['jti']) if "jti" in verified_token else None
 
@@ -213,21 +209,6 @@ def _needs_authentication(response: Response, error: str, message: str) -> Respo
         response.headers['WWW-Authenticate'] = \
             f'Bearer realm="{Config.REALM}",error="{error}",error_description="{message}"'
     return response
-
-
-def get_capability_from_request_method(resource: str, request_method: str) -> str:
-    """
-    Get the capability for the request method.
-    :param resource: Resource for the request
-    :param request_method: Original request method
-    :return: A string if we were able to determin the capability, or None
-    """
-    op = ""
-    if request_method in ["HEAD", "GET", "OPTIONS", "PROPFIND"]:
-        op = 'read'
-    elif request_method in ["PUT", "POST", "DELETE", "MKCOL", "COPY", "MOVE", "PATCH"]:
-        op = 'write'
-    return f"{op}:{resource}"
 
 
 def check_authorization(capability: str, request_method: str, request_path: str,
