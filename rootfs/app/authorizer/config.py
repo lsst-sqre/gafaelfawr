@@ -19,65 +19,45 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 
 
-import configparser
-import errno
-import json
 import logging
-import re
-from typing import Dict, List
+import os
+from dynaconf import FlaskDynaconf, Validator
 
 logger = logging.getLogger(__name__)
 
 
 class Config:
-    GLOBAL_AUDIENCE = ""
-    AUTHORIZED_ISSUERS = {}
-    DEFAULT_RESOURCE = ""
-    ALGORITHM = "RS256"
-    JWT_OPTIONS = {}
-    RESOURCE_CHECKS: Dict[str, List] = {"default": ["group_membership"]}
-    NO_VERIFY = False
-    NO_AUTHORIZE = False
-    REALM = "tokens"
-    WWW_AUTHENTICATE = "Bearer"
-
-    CAPABILITY_FROM_METHOD = True
-    JWT_USERNAME_KEY = "uid"
-    JWT_UID_KEY = "uidNumber"
-    SET_USER_HEADERS = True
-    GROUP_DEPLOYMENT_PREFIX = "lsst_"
-    GROUP_MAPPING = {}
-
-    CHECK_ACCESS_CALLABLES = {}
 
     @staticmethod
-    def configure_plugins():
+    def configure_plugins(app):
         from .authorizers import scp_check_access, group_membership_check_access
-        from .lsst import lsst_group_membership_check_access
+        from .lsst import lsst_group_membership_check_access, lsst_users_membership_check_access
 
-        Config.CHECK_ACCESS_CALLABLES = {
+        app.ACCESS_CHECK_CALLABLES = {
             "scp": scp_check_access,
             "group_membership": group_membership_check_access,
-            "lsst_group_membership": lsst_group_membership_check_access
+            "lsst_group_membership": lsst_group_membership_check_access,
+            "lsst_users_membership": lsst_users_membership_check_access,
         }
 
     @staticmethod
-    def load(fname):
+    def validate(app, user_config):
         global logger
-        Config.configure_plugins()
-        logger.info("Loading configuration from %s" % fname)
-        cp = configparser.ConfigParser()
-        try:
-            with open(fname, "r") as fp:
-                cp.read_file(fp)
-        except IOError as ie:
-            if ie.errno == errno.ENOENT:
-                return
-            raise
+        Config.configure_plugins(app)
+        defaults_file = os.path.join(os.path.dirname(__file__), "defaults.yaml")
 
-        # Logging
-        if "loglevel" in cp.options("Global"):
-            level = cp.get("Global", "loglevel")
+        settings_module = f"{defaults_file},{user_config}"
+        print(settings_module)
+        dynaconf = FlaskDynaconf(app, SETTINGS_MODULE_FOR_DYNACONF=settings_module)
+        settings = dynaconf.settings
+        settings.validators.register(
+            Validator('NO_VERIFY', 'NO_AUTHORIZE', is_type_of=bool),
+            Validator('GROUP_MAPPING', is_type_of=dict),
+            Validator('ISSUERS', is_type_of=dict, must_exist=True)
+        )
+
+        if settings.get("LOGLEVEL"):
+            level = settings["LOGLEVEL"]
             logger.info(f"Reconfiguring log, level={level}")
             # Reconfigure logging
             for handler in logging.root.handlers[:]:
@@ -87,87 +67,33 @@ class Config:
             if level == "DEBUG":
                 logging.getLogger('werkzeug').setLevel(level)
 
-        if 'jwt_username_key' in cp.options('Global'):
-            Config.JWT_USERNAME_KEY = cp.get("Global", "jwt_username_key")
+        logger.info(f"Configured realm {settings['REALM']}")
+        logger.info(f"Configured WWW-Authenticate type: {settings['WWW_AUTHENTICATE']}")
 
-        if 'jwt_uid_key' in cp.options('Global'):
-            Config.JWT_UID_KEY = cp.get("Global", "jwt_uid_key")
-
-        if "set_user_headers" in cp.options("Global"):
-            Config.SET_USER_HEADERS = cp.getboolean("Global", "set_user_headers")
-
-        if 'default_resource' in cp.options("Global"):
-            Config.DEFAULT_RESOURCE = cp.get("Global", "default_resource")
-
-        if 'realm' in cp.options("Global"):
-            Config.REALM = cp.get("Global", "realm")
-            logger.info(f"Configured realm {Config.REALM}")
-
-        if 'www_authenticate' in cp.options("Global"):
-            Config.WWW_AUTHENTICATE = cp.get("Global", "www_authenticate")
-            logger.info(f"Configured WWW-Authenticate type: {Config.WWW_AUTHENTICATE}")
-
-        if "no_verify" in cp.options("Global"):
-            Config.NO_VERIFY = cp.getboolean("Global", "no_verify")
+        if settings["NO_VERIFY"]:
             logger.warning("Authentication verification is disabled")
 
-        if "no_authorize" in cp.options("Global"):
-            Config.NO_AUTHORIZE = cp.getboolean("Global", "no_authorize")
+        if settings["NO_AUTHORIZE"]:
             logger.warning("Authorization is disabled")
 
-        if 'group_deployment_prefix' in cp.options("Global"):
-            prefix = cp.get("Global", "group_deployment_prefix")
-            Config.GROUP_DEPLOYMENT_PREFIX = prefix
-            logger.info(f"Configured LSST Group Deployment Prefix: {prefix}")
+        if settings.get('GROUP_DEPLOYMENT_PREFIX'):
+            logger.info(f"Configured LSST Group Deployment Prefix: "
+                        f"{settings['GROUP_DEPLOYMENT_PREFIX']}")
 
-        if 'group_mapping' in cp.options("Global"):
-            mapping = json.loads(cp.get("Global", "group_mapping"))
-            for key, value in mapping.items():
+        if settings.get('GROUP_MAPPING'):
+            for key, value in settings["GROUP_MAPPING"].items():
                 assert isinstance(key, str) and isinstance(value, str), "Mapping is malformed"
-            Config.GROUP_MAPPING = mapping
-            logger.info(f"Configured Group Mapping: {mapping}")
-
-        # Find JWT options
-        for option_name in cp.options("Global"):
-            if option_name.startswith("jwt_"):
-                key = option_name[len("jwt_"):]
-                value = cp.get("Global", option_name)
-                Config.JWT_OPTIONS[key] = value
+            logger.info(f"Configured Group Mapping: {settings['GROUP_MAPPING']}")
 
         # Find Resource Check Callables
-        for option_name in cp.options("Global"):
-            if option_name.startswith("resource_checks_"):
-                key = option_name[len("resource_checks_"):]
-                values = json.loads(cp.get("Global", option_name))
-                if not isinstance(values, list):
-                    raise Exception("Resource checks not a list:")
-                for callable_name in values:
-                    if callable_name not in Config.CHECK_ACCESS_CALLABLES:
-                        raise Exception(f"No access checker for id {callable_name}")
-                Config.RESOURCE_CHECKS[key] = values
-        for resource, callables in Config.RESOURCE_CHECKS.items():
-            logger.info(f"Configured resource checks: {resource} - {callables}")
+        for access_check_name in settings['ACCESS_CHECKS']:
+            if access_check_name not in Config.ACCESS_CHECK_CALLABLES:
+                raise Exception(f"No access checker for id {access_check_name}")
+            logger.info(f"Configured default access checks: {access_check_name}")
 
         # Sections
-        for section in cp.sections():
-            logger.debug(f"Processing Section {section}")
-            if not section.lower().startswith("issuer "):
-                continue
-            if 'issuer' not in cp.options(section):
-                logger.warning(f"Ignore section {section} as it has no `issuer`")
-                continue
-            issuer = cp.get(section, 'issuer')
-            if issuer in Config.AUTHORIZED_ISSUERS:
-                logger.warning(f"Overwriting config for issuer {issuer}")
-
-            info = {}
-            info["url"] = issuer
-            info['audience'] = cp.get(section, 'audience')
-            if cp.has_option(section, "issuer_key_ids"):
-                info["issuer_key_ids"] = json.loads(cp.get(section, "issuer_key_ids"))
-
-            Config.AUTHORIZED_ISSUERS[issuer] = info
+        for issuer_url, issuer_info in settings["ISSUERS"].items():
             # if 'map_subject' in cp.options(section):
             #     issuer_info['map_subject'] = cp.getboolean(section, 'map_subject')
-            logger.info(f"Configured token access for {section} (issuer {issuer}): {info}")
+            logger.info(f"Configured token access for {issuer_url}: {issuer_info}")
         logger.info("Configured Issuers")

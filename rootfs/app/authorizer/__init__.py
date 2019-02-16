@@ -24,7 +24,7 @@ import base64
 import logging
 import os
 import struct
-from typing import Dict, Any, Tuple, Optional, Callable, List
+from typing import Dict, Any, Tuple, Callable, List
 
 import jwt
 import requests
@@ -32,7 +32,7 @@ from cachetools import TTLCache, cached
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
-from flask import Flask, request, Response
+from flask import Flask, request, Response, current_app
 from jwt import InvalidTokenError, InvalidIssuerError
 from requests import HTTPError
 
@@ -42,9 +42,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
+ALGORITHM = 'RS256'
+
 
 @app.route('/auth')
-def flask_listener():
+def authnz_token():
     """
     Authenticate and authorize a token.
     """
@@ -70,19 +72,19 @@ def flask_listener():
     logging.debug("Received Unverified Token: " + str(unverified_token))
     try:
         issuer_url = unverified_token['iss']
-        if Config.NO_VERIFY:
+        if current_app.config["NO_VERIFY"] is True:
             logger.debug("Skipping Verification of the token")
             verified_token = unverified_token
         else:
-            if issuer_url not in Config.AUTHORIZED_ISSUERS:
+            if issuer_url not in current_app.config['ISSUERS']:
                 raise InvalidIssuerError(f"Unauthorized Issuer: {issuer_url}")
-            issuer = Config.AUTHORIZED_ISSUERS[issuer_url]
+            issuer = current_app.config['ISSUERS'][issuer_url]
             key = get_key_as_pem(issuer_url, unverified_header["kid"])
             verified_token = jwt.decode(encoded_token,
                                         key,
-                                        algorithm=Config.ALGORITHM,
+                                        algorithm=ALGORITHM,
                                         audience=issuer['audience'],
-                                        options=Config.JWT_OPTIONS)
+                                        options=current_app.config['JWT_VERIFICATION_OPTIONS'])
     except Exception as e:
         response = _needs_authentication(response, "Invalid Token", str(e))
         logger.exception("Failed to deserialize Token")
@@ -92,15 +94,13 @@ def flask_listener():
     if "Basic" in request.headers["Authorization"] and "x-oauth-basic" not in request.cookies:
         response.set_cookie("x-oauth-basic", encoded_token)
 
-    if Config.NO_AUTHORIZE:
+    if current_app.config['NO_AUTHORIZE'] is True:
         response.set_data("Authorization is Ok")
         response.status_code = 200
         set_headers(response, verified_token, encoded_token)
         return response
 
     # Authorization Checks
-    request_method = request.headers.get('X-Original-Method')
-    request_path = request.headers.get('X-Original-URI')
     capabilities = request.args.getlist("capability")
     satisfy = request.args.get("satisfy") or "all"
 
@@ -110,7 +110,8 @@ def flask_listener():
     assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
 
     jti = str(verified_token['jti']) if "jti" in verified_token else None
-
+    request_method = request.headers.get('X-Original-Method')
+    request_path = request.headers.get('X-Original-URI')
     successes = []
     message = ""
     for capability in capabilities:
@@ -142,14 +143,15 @@ def flask_listener():
     return response
 
 
-def set_headers(response: Response, verified_token: TokenDict, encoded_token: str) -> Response:
+def set_headers(response: Response, verified_token: Dict[str, Any],
+                encoded_token: str) -> Response:
     """Set Headers that will be returned in a successful response.
     :return: The mutated response object.
     """
-    if Config.SET_USER_HEADERS:
+    if current_app.config["SET_USER_HEADERS"]:
         email = verified_token.get("email")
-        user = verified_token.get(Config.JWT_USERNAME_KEY)
-        uid = verified_token.get(Config.JWT_UID_KEY)
+        user = verified_token.get(current_app.config["JWT_USERNAME_KEY"])
+        uid = verified_token.get(current_app.config["JWT_UID_KEY"])
         if email:
             response.headers['X-Auth-Request-Email'] = uid
         if user:
@@ -199,15 +201,16 @@ def _needs_authentication(response: Response, error: str, message: str) -> Respo
     """Modify response for a 401 as appropriate"""
     response.status_code = 401
     response.set_data(error)
-    if not Config.WWW_AUTHENTICATE:
+    if not current_app.config.get("WWW_AUTHENTICATE"):
         return response
-    if Config.WWW_AUTHENTICATE.lower() == "basic":
+    realm = current_app.config["REALM"]
+    if current_app.config["WWW_AUTHENTICATE"].lower() == "basic":
         # Otherwise, send Bearer
         response.headers['WWW-Authenticate'] = \
-            f'Basic realm="{Config.REALM}"'
+            f'Basic realm="{realm}"'
     else:
         response.headers['WWW-Authenticate'] = \
-            f'Bearer realm="{Config.REALM}",error="{error}",error_description="{message}"'
+            f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
     return response
 
 
@@ -225,8 +228,7 @@ def check_authorization(capability: str, request_method: str, request_path: str,
     all checks pass, otherwiss returns (False, message)
     """
 
-    (op, resource) = capability.split(":")
-    check_access_callables = get_check_access_functions(resource)
+    check_access_callables = get_check_access_functions()
 
     successes = []
     message = ""
@@ -242,18 +244,14 @@ def check_authorization(capability: str, request_method: str, request_path: str,
     return success, message
 
 
-def get_check_access_functions(resource: str) -> List[Callable]:
+def get_check_access_functions() -> List[Callable]:
     """
-    Return the check access callable for a resource
-    :param resource:
+    Return the check access callable for a resource.
     :return: A callable for check access
     """
-    checker_names = Config.RESOURCE_CHECKS.get(resource)
-    if not checker_names:
-        checker_names = Config.RESOURCE_CHECKS.get("default")
     callables = []
-    for checker_name in checker_names:
-        callables.append(Config.CHECK_ACCESS_CALLABLES[checker_name])
+    for checker_name in current_app.config['ACCESS_CHECKS']:
+        callables.append(current_app.ACCESS_CHECK_CALLABLES[checker_name])
     return callables
 
 
@@ -273,7 +271,7 @@ def get_key_as_pem(issuer_url, request_key_id):
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
-    issuer = Config.AUTHORIZED_ISSUERS[issuer_url]
+    issuer = current_app.config["ISSUERS"][issuer_url]
     logging.debug(f"Getting keys for: {issuer_url}")
     oidc_config = os.path.join(issuer_url, ".well-known/openid-configuration")
     try:
@@ -294,7 +292,7 @@ def get_key_as_pem(issuer_url, request_key_id):
         if not key:
             raise KeyError(f"Issuer may have removed kid={request_key_id}")
 
-        if key["alg"] != Config.ALGORITHM:
+        if key["alg"] != ALGORITHM:
             raise Exception("Bad Issuer Key and Global Algorithm Configuration")
         e = _base64_to_long(key['e'])
         m = _base64_to_long(key['n'])
@@ -308,13 +306,13 @@ def get_key_as_pem(issuer_url, request_key_id):
 def configure():
     parser = argparse.ArgumentParser(description='Authenticate HTTP Requests')
     parser.add_argument('-c', '--config', dest='config', type=str,
-                        default="/etc/authorizer.cfg",
-                        help="Location of the configuration file")
+                        default="/etc/jwt-authorizer/authorizer.yaml",
+                        help="Location of the yaml configuration file")
 
     args = parser.parse_args()
 
     # Read in configuration
-    Config.load(args.config)
+    Config.validate(app, args.config)
 
 
 configure()

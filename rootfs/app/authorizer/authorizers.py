@@ -21,19 +21,15 @@
 import logging
 from typing import Dict, Any, Tuple, List
 
-from .config import Config
+from flask import current_app
 
 logger = logging.getLogger(__name__)
 
 
-# noinspection PyUnusedLocal
-def scp_check_access(capability: str, request_method: str, request_path: str,
-                     token: Dict[str, Any]) -> Tuple[bool, str]:
+def scp_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this
     service based on the assumption the token has a "scp" claim.
     :param capability: The capability we are checking against
-    :param request_method: The operation requested for this service
-    :param request_path: The uri that will be tested
     :param token: The token necessary
     :rtype: Tuple[bool, str]
     :returns: (successful, message) with successful as True if the
@@ -46,14 +42,10 @@ def scp_check_access(capability: str, request_method: str, request_path: str,
     return False, f"No capability found: {capability}"
 
 
-# noinspection PyUnusedLocal
-def group_membership_check_access(capability: str, request_method: str, request_path: str,
-                                  token: Dict[str, Any]) -> Tuple[bool, str]:
+def group_membership_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this service
     based on some form of group membership.
     :param capability: The capability we are checking against
-    :param request_method: The operation requested for this service
-    :param request_path: The uri that will be tested
     :param token: The token necessary
     :rtype: Tuple[bool, str]
     :returns: (successful, message) with successful as True if the
@@ -76,7 +68,7 @@ def _group_membership_get_group(capability: str) -> str:
     :param capability: The capability in question
     :return: A string value of the group for this capability.
     """
-    group = Config.GROUP_MAPPING.get(capability)
+    group = current_app.config['GROUP_MAPPING'].get(capability)
     assert capability is not None, "Error: Capability not found in group mapping"
     assert group is not None, "Error: No group mapping for capability"
     return group
