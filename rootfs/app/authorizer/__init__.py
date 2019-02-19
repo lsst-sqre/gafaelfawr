@@ -69,7 +69,6 @@ def authnz_token():
 
     # Authorization
     success, message = authorize(verified_token)
-    response.set_data(message)
 
     if success:
         response.status_code = 200
@@ -78,6 +77,7 @@ def authnz_token():
                     f"from issuer {verified_token['iss']}")
         return response
 
+    response.set_data(message)
     # All authorization failures get 403s
     response.status_code = 403
     logger.error(f"Failed to authenticate Token ID {verified_token['jti']} because {message}")
@@ -309,15 +309,20 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
 
     issuer = current_app.config["ISSUERS"][issuer_url]
     logging.debug(f"Getting keys for: {issuer_url}")
-    oidc_config = os.path.join(issuer_url, ".well-known/openid-configuration")
     try:
         info_key_ids = issuer.get("issuer_key_ids")
         if info_key_ids and request_key_id not in info_key_ids:
             raise KeyError(f"kid {request_key_id} not found in issuer configuration")
 
+        # Try OIDC first
+        oidc_config = os.path.join(issuer_url, ".well-known/openid-configuration")
         oidc_resp = requests.get(oidc_config)
-        oidc_resp.raise_for_status()
-        jwks_uri = oidc_resp.json()["jwks_uri"]
+        if oidc_resp.ok:
+            jwks_uri = oidc_resp.json()["jwks_uri"]
+        else:
+            # Assume jwks.json is available
+            jwks_uri = os.path.join(issuer_url, ".well-known/jwks.json")
+
         keys_resp = requests.get(jwks_uri)
         keys_resp.raise_for_status()
         keys = keys_resp.json()["keys"]
