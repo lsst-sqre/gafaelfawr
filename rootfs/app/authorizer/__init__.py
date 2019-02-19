@@ -33,16 +33,14 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from flask import Flask, request, Response, current_app
-from jwt import InvalidTokenError, InvalidIssuerError
-from requests import HTTPError
+from jwt import InvalidIssuerError, PyJWTError
 
-from .config import Config
+from .token import reissue_token
+from .config import Config, ALGORITHM
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = Flask(__name__)
-
-ALGORITHM = 'RS256'
 
 
 @app.route('/auth')
@@ -54,112 +52,138 @@ def authnz_token():
     # if it's okay.
     response = Response(status=500)
     if 'Authorization' not in request.headers and "x-oauth-basic" not in request.cookies:
-        response = _needs_authentication(response, "No Authorization header", "")
+        _make_needs_authentication(response, "No Authorization header", "")
         return response
 
     encoded_token = _find_token()
 
-    # Convert the token
-    # Send a 401 error code if there is any problem
+    # Authentication
     try:
-        unverified_header = jwt.get_unverified_header(encoded_token)
-        unverified_token = jwt.decode(encoded_token, verify=False)
-    except InvalidTokenError as e:
-        response = _needs_authentication(response, "Invalid Token", str(e))
-        logger.exception("Failed to decode Token")
-        logger.exception(e)
-        return response
-    logging.debug("Received Unverified Token: " + str(unverified_token))
-    try:
-        issuer_url = unverified_token['iss']
-        if current_app.config["NO_VERIFY"] is True:
-            logger.debug("Skipping Verification of the token")
-            verified_token = unverified_token
-        else:
-            if issuer_url not in current_app.config['ISSUERS']:
-                raise InvalidIssuerError(f"Unauthorized Issuer: {issuer_url}")
-            issuer = current_app.config['ISSUERS'][issuer_url]
-            key = get_key_as_pem(issuer_url, unverified_header["kid"])
-            verified_token = jwt.decode(encoded_token,
-                                        key,
-                                        algorithm=ALGORITHM,
-                                        audience=issuer['audience'],
-                                        options=current_app.config['JWT_VERIFICATION_OPTIONS'])
-    except Exception as e:
-        response = _needs_authentication(response, "Invalid Token", str(e))
-        logger.exception("Failed to deserialize Token")
+        verified_token = authenticate(encoded_token)
+    except PyJWTError as e:
+        # All JWT failures get 401s and are logged.
+        _make_needs_authentication(response, "Invalid Token", str(e))
+        logger.exception("Failed to authenticate Token")
         logger.exception(e)
         return response
 
-    if "Basic" in request.headers["Authorization"] and "x-oauth-basic" not in request.cookies:
-        response.set_cookie("x-oauth-basic", encoded_token)
+    # Authorization
+    success, message = authorize(verified_token)
+    response.set_data(message)
 
-    if current_app.config['NO_AUTHORIZE'] is True:
-        response.set_data("Authorization is Ok")
+    if success:
         response.status_code = 200
-        set_headers(response, verified_token, encoded_token)
+        _make_success_headers(response, encoded_token)
+        logger.info(f"Allowed token with Token ID: {verified_token['jti']} "
+                    f"from issuer {verified_token['iss']}")
         return response
+
+    # All authorization failures get 403s
+    response.status_code = 403
+    logger.error(f"Failed to authenticate Token ID {verified_token['jti']} because {message}")
+    return response
+
+
+def authenticate(encoded_token: str) -> Dict[str, Any]:
+    """
+    Authenticate the token.
+    Upon successful authentication, the decoded token is returned.
+    Otherwise, an exception is thrown.
+    :param encoded_token: The encoded token in string form
+    :return: The verified token
+    :raises PyJWTError: if there's an issue decoding the token
+    :raises Exception: if there's some other issue
+    """
+    unverified_token = jwt.decode(encoded_token, verify=False)
+    unverified_headers = jwt.get_unverified_header(encoded_token)
+    if current_app.config["NO_VERIFY"] is True:
+        logger.debug("Skipping Verification of the token")
+        return unverified_token
+
+    issuer_url = unverified_token['iss']
+    if issuer_url not in current_app.config['ISSUERS']:
+        raise InvalidIssuerError(f"Unauthorized Issuer: {issuer_url}")
+    issuer = current_app.config['ISSUERS'][issuer_url]
+
+    # This can throw an InvalidIssuerError as well,
+    # though it may be a server-side issue
+    key = get_key_as_pem(issuer_url, unverified_headers["kid"])
+    return jwt.decode(encoded_token,
+                      key,
+                      algorithm=ALGORITHM,
+                      audience=issuer['audience'],
+                      options=current_app.config.get('JWT_VERIFICATION_OPTIONS'))
+
+
+def authorize(verified_token: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Authorize the request based on the token.
+    From the set of capabilities declared via the request,
+    This method will gather the capabilities that need to be satisfied
+    and determine the criteria for satisfaction.
+    It will then, one by one, check authorization for each capability.
+    :param verified_token: The decoded token used for authorization
+    :return: A (success, message) pair. Success is true
+    """
+    if current_app.config['NO_AUTHORIZE'] is True:
+        return True, ""
 
     # Authorization Checks
     capabilities = request.args.getlist("capability")
     satisfy = request.args.get("satisfy") or "all"
 
     # If no capability have been explicitly delineated in the URI,
-    # get them from the request method
-    assert satisfy != "any", "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
+    # get them from the request method. These shouldn't happen for properly
+    # configured applications
+    assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
     assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
 
-    jti = str(verified_token['jti']) if "jti" in verified_token else None
     request_method = request.headers.get('X-Original-Method')
     request_path = request.headers.get('X-Original-URI')
     successes = []
-    message = ""
+    messages = []
     for capability in capabilities:
         logger.debug(f"Checking authorization for capability: {capability}")
         (success, message) = check_authorization(capability, request_method, request_path,
                                                  verified_token)
         successes.append(success)
-        if satisfy == "any":
+        if message:
+            messages.append(message)
+        if success and satisfy == "any":
             break
 
-    response.set_data(message)
     if satisfy == "any":
-        success = len(successes)
+        success = True in successes
     else:
         success = sum(successes) == len(capabilities)
-
-    if success:
-        response.status_code = 200
-        set_headers(response, verified_token, encoded_token)
-        if jti:
-            logger.info(f"Allowed token with Token ID: {jti} from issuer {issuer_url}")
-        return response
-
-    if jti:
-        logger.error(f"Failed to authenticate Token ID {jti} because {message}")
-    else:
-        logger.error(f"Failed to authenticate Token because {message}")
-    response.status_code = 403
-    return response
+    message = ", ".join(messages)
+    return success, message
 
 
-def set_headers(response: Response, verified_token: Dict[str, Any],
-                encoded_token: str) -> Response:
+def _make_success_headers(response: Response, encoded_token: str):
     """Set Headers that will be returned in a successful response.
     :return: The mutated response object.
     """
+    decoded_token = jwt.decode(encoded_token, verify=False)
+    decoded_token_headers = jwt.get_unverified_header(encoded_token)
     if current_app.config["SET_USER_HEADERS"]:
-        email = verified_token.get("email")
-        user = verified_token.get(current_app.config["JWT_USERNAME_KEY"])
-        uid = verified_token.get(current_app.config["JWT_UID_KEY"])
+        email = decoded_token.get("email")
+        user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
+        uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
         if email:
             response.headers['X-Auth-Request-Email'] = uid
         if user:
             response.headers['X-Auth-Request-User'] = user
         if uid:
             response.headers['X-Auth-Request-Uid'] = uid
+
+    # Only reissue token if it's requested and if it's a different key ID than
+    # this applications uses to reissue a token
+    if (request.args.get("reissue_token", "").lower() == "true" and
+            decoded_token_headers.get("kid") != current_app.config.get('OAUTH2_JWT_KEY_ID')):
+        encoded_token = reissue_token(decoded_token, aud=decoded_token['aud'])
+
     response.headers["X-Auth-Request-Token"] = encoded_token
-    return response
 
 
 def _find_token():
@@ -197,12 +221,12 @@ def _find_token():
     return encoded_token
 
 
-def _needs_authentication(response: Response, error: str, message: str) -> Response:
+def _make_needs_authentication(response: Response, error: str, message: str):
     """Modify response for a 401 as appropriate"""
     response.status_code = 401
     response.set_data(error)
     if not current_app.config.get("WWW_AUTHENTICATE"):
-        return response
+        return
     realm = current_app.config["REALM"]
     if current_app.config["WWW_AUTHENTICATE"].lower() == "basic":
         # Otherwise, send Bearer
@@ -211,14 +235,15 @@ def _needs_authentication(response: Response, error: str, message: str) -> Respo
     else:
         response.headers['WWW-Authenticate'] = \
             f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
-    return response
 
 
 def check_authorization(capability: str, request_method: str, request_path: str,
                         verified_token: Dict[str, Any]) -> Tuple[bool, str]:
     """
-    Check the authorization of the request based on the original method,
-    request path, and token.
+    Check the authorization for a given capability.
+    A given capability may be authorized by zero, one, or more criteria,
+    modeled as a callables. All callables MUST pass, returning True,
+    for authorization on the given capability to succeed.
     :param capability: The capability we are authorizing
     :param request_method: Original HTTP method
     :param request_path: The Original request path
@@ -256,7 +281,18 @@ def get_check_access_functions() -> List[Callable]:
 
 
 @cached(cache=TTLCache(maxsize=16, ttl=600))
-def get_key_as_pem(issuer_url, request_key_id):
+def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
+    """
+    Gets a key as PEM, given the issuer and the request key id.
+    This function is intended to help with the caching of keys, as
+    we always get them dynamically.
+    :param issuer_url: The URL of the issuer
+    :param request_key_id: The key id for the issuer in question
+    :return: the key in a PEM format
+    :raises Exception: if there's an issue with the key id, the
+    issuer's .well-known/openid-configuration or JWKS URI, or if
+    there's an obvious configuration issue
+    """
     def _base64_to_long(data):
         data = data.encode('ascii')
         decoded = base64.urlsafe_b64decode(bytes(data) + b'==')
@@ -277,7 +313,7 @@ def get_key_as_pem(issuer_url, request_key_id):
     try:
         info_key_ids = issuer.get("issuer_key_ids")
         if info_key_ids and request_key_id not in info_key_ids:
-            raise KeyError(f"kid {request_key_id} not found in Issuer configuration")
+            raise KeyError(f"kid {request_key_id} not found in issuer configuration")
 
         oidc_resp = requests.get(oidc_config)
         oidc_resp.raise_for_status()
@@ -297,10 +333,11 @@ def get_key_as_pem(issuer_url, request_key_id):
         e = _base64_to_long(key['e'])
         m = _base64_to_long(key['n'])
         return _convert(e, m)
-    except (KeyError, HTTPError) as e:
+    except Exception as e:
+        # HTTPError, KeyError, or Exception
         logger.error(f"Unable to retrieve and store key for issuer: {issuer_url} ")
         logger.error(e)
-        raise e
+        raise Exception(f"Unable to interace with issuer: {issuer_url}") from e
 
 
 def configure():

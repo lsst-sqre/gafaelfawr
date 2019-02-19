@@ -25,6 +25,8 @@ from dynaconf import FlaskDynaconf, Validator
 
 logger = logging.getLogger(__name__)
 
+ALGORITHM = 'RS256'
+
 
 class Config:
 
