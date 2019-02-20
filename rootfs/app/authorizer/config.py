@@ -21,6 +21,7 @@
 
 import logging
 import os
+
 from dynaconf import FlaskDynaconf, Validator
 
 logger = logging.getLogger(__name__)

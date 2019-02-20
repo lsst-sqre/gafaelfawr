@@ -35,8 +35,8 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from flask import Flask, request, Response, current_app
 from jwt import InvalidIssuerError, PyJWTError
 
-from .token import reissue_token
 from .config import Config, ALGORITHM
+from .token import reissue_token
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -311,6 +311,7 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     issuer's .well-known/openid-configuration or JWKS URI, or if
     there's an obvious configuration issue
     """
+
     def _base64_to_long(data):
         data = data.encode('ascii')
         decoded = base64.urlsafe_b64decode(bytes(data) + b'==')
