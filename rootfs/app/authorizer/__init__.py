@@ -47,6 +47,24 @@ app = Flask(__name__)
 def authnz_token():
     """
     Authenticate and authorize a token.
+    :query capability: one or more capabilities to check.
+    :query satisfy: satisfy ``all`` (default) or ``any`` of the
+    capability checks.
+    :query reissue_token: if ``true``, then reissue token before
+    setting the user headers.
+    :>header Authorization: The token should be in this header as
+    type ``Bearer``, but it may be type ``Basic`` if ``x-oauth-basic``
+    is the username or password.
+    :<header X-Auth-Request-Email: If enabled and email is available,
+    this will be set based on the ``email`` claim.
+    :<header X-Auth-Request-User: If enabled and the field is available,
+    this will be set from token based on the ``JWT_USERNAME_KEY`` field
+    :<header X-Auth-Request-Uid: If enabled and the field is available,
+    this will be set from token based on the ``JWT_UID_KEY`` field
+    :<header X-Auth-Request-Token: If enabled, the encoded token will
+    be set. If ``reissue_token`` is true, the token is reissued first
+    :<header WWW-Authenticate: If the request is unauthenticated, this
+    header will be set.
     """
     # Default to Server Error for safety, so we must always set it to 200
     # if it's okay.
