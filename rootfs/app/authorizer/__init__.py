@@ -98,7 +98,7 @@ def authnz_token():
     response.set_data(message)
     # All authorization failures get 403s
     response.status_code = 403
-    logger.error(f"Failed to authenticate Token ID {verified_token['jti']} because {message}")
+    logger.error(f"Failed to authorize Token ID {verified_token['jti']} because {message}")
     return response
 
 
