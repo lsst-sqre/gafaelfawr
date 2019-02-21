@@ -90,7 +90,7 @@ class Config:
 
         # Find Resource Check Callables
         for access_check_name in settings['ACCESS_CHECKS']:
-            if access_check_name not in Config.ACCESS_CHECK_CALLABLES:
+            if access_check_name not in app.ACCESS_CHECK_CALLABLES:
                 raise Exception(f"No access checker for id {access_check_name}")
             logger.info(f"Configured default access checks: {access_check_name}")
 
