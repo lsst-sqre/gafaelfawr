@@ -32,13 +32,12 @@ from .config import ALGORITHM
 def reissue_token(token: Mapping[str, Any], aud=None):
     reissued_token = dict(token)
     reissued_token.update(
-        exp=datetime.utcnow() + timedelta(current_app.config['OAUTH2_JWT_EXP']),
+        exp=datetime.utcnow() + timedelta(seconds=current_app.config['OAUTH2_JWT_EXP']),
         iss=current_app.config["OAUTH2_JWT_ISS"],
         aud=aud,
         iat=datetime.utcnow(),
     )
     private_key = current_app.config['OAUTH2_JWT_KEY']
-    headers = {}
-    if current_app.config.get('OAUTH2_JWT_KEY_ID'):
-        headers['kid'] = current_app.config.get('OAUTH2_JWT_KEY_ID')
+    headers = {"kid": current_app.config['OAUTH2_JWT_KEY_ID']}
+    assert headers
     return jwt.encode(reissued_token, private_key, algorithm=ALGORITHM, headers=headers)
