@@ -1,0 +1,12 @@
+{
+    "keys": [
+        {
+            "alg": "RS256",
+            "e": "AQAB",
+            "kid": "lsst-reissuer",
+            "kty": "RSA",
+            "n": "vHpIt0lLog6zAR4uUEobP19NJIN8QPVV4QbZhAtWZKwyMdv0iAAqW_voOcl-8EXu5mdCzY6w3Ev2mJJYocrfVGzEeyRfuzRsUe4pHiqJ9r3OCrVRl1IYXuo6uuyO4BLIi2nl6vFbiusOWG3AorxW2slE_EzGgme9dKman0RMRc3DkxSZ0uDvo89svWCGRwo77rbCOxNySHrQLw_cZODJxRy8Lwa_-HIwIPNPJiGn0rckD3g4FIdsP5IaA84xL1K5q0IVrESA0zfGg7wR9C8VHZ0IDZmqP2d_NrFmlvShK-uN1cK-abYDH8ouKLS5m8HZ7r3lS18aBSqgzWfgWrZDBw",
+            "use": "sig"
+        }
+    ]
+}
