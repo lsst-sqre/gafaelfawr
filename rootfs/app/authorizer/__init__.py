@@ -24,14 +24,14 @@ import base64
 import logging
 import os
 import struct
-from typing import Dict, Any, Tuple, Callable, List
+from typing import Any, Tuple, Callable, List, Mapping
 
 import jwt
 import requests
-from cachetools import TTLCache, cached
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cachetools import TTLCache, cached  # type: ignore
+from cryptography.hazmat.backends import default_backend  # type: ignore
+from cryptography.hazmat.primitives import serialization  # type: ignore
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers  # type: ignore
 from flask import Flask, request, Response, current_app
 from jwt import InvalidIssuerError, PyJWTError
 
@@ -102,7 +102,7 @@ def authnz_token():
     return response
 
 
-def authenticate(encoded_token: str) -> Dict[str, Any]:
+def authenticate(encoded_token: str) -> Mapping[str, Any]:
     """
     Authenticate the token.
     Upon successful authentication, the decoded token is returned.
@@ -133,7 +133,7 @@ def authenticate(encoded_token: str) -> Dict[str, Any]:
                       options=current_app.config.get('JWT_VERIFICATION_OPTIONS'))
 
 
-def authorize(verified_token: Dict[str, Any]) -> Tuple[bool, str]:
+def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     """
     Authorize the request based on the token.
     From the set of capabilities declared via the request,
@@ -156,14 +156,13 @@ def authorize(verified_token: Dict[str, Any]) -> Tuple[bool, str]:
     assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
     assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
 
-    request_method = request.headers.get('X-Original-Method')
-    request_path = request.headers.get('X-Original-URI')
+    request_method = request.headers['X-Original-Method']
+    request_path = request.headers['X-Original-URI']
     successes = []
     messages = []
     for capability in capabilities:
         logger.debug(f"Checking authorization for capability: {capability}")
-        (success, message) = check_authorization(capability, request_method, request_path,
-                                                 verified_token)
+        (success, message) = check_authorization(capability, verified_token)
         successes.append(success)
         if message:
             messages.append(message)
@@ -255,16 +254,13 @@ def _make_needs_authentication(response: Response, error: str, message: str):
             f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
 
 
-def check_authorization(capability: str, request_method: str, request_path: str,
-                        verified_token: Dict[str, Any]) -> Tuple[bool, str]:
+def check_authorization(capability: str, verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     """
     Check the authorization for a given capability.
     A given capability may be authorized by zero, one, or more criteria,
     modeled as a callables. All callables MUST pass, returning True,
     for authorization on the given capability to succeed.
     :param capability: The capability we are authorizing
-    :param request_method: Original HTTP method
-    :param request_path: The Original request path
     :param verified_token: The verified token
     :rtype: Tuple[bool, str]
     :returns: (True, message) with successful as True if the
@@ -277,8 +273,7 @@ def check_authorization(capability: str, request_method: str, request_path: str,
     message = ""
     for check_access in check_access_callables:
         logger.debug(f"Checking access using {check_access.__name__}")
-        (successful, message) = check_access(capability, request_method, request_path,
-                                             verified_token)
+        (successful, message) = check_access(capability, verified_token)
         if not successful:
             break
         successes.append(successful)

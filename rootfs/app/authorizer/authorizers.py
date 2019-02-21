@@ -36,7 +36,7 @@ def scp_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]
     scitoken allows for op and the user can read/write the file, otherwise
     return (False, message)
     """
-    capabilites = set(token.get("scp"))
+    capabilites = set(token.get("scp", list()))
     if capability in capabilites:
         return True, "Success"
     return False, f"No capability found: {capability}"
@@ -52,7 +52,7 @@ def group_membership_check_access(capability: str, token: Dict[str, Any]) -> Tup
     scitoken allows for op and the user can read/write the file, otherwise
     return (False, message)
     """
-    user_groups_list: List[Dict[str, str]] = token.get("isMemberOf")
+    user_groups_list: List[Dict[str, str]] = token.get("isMemberOf", dict())
     if user_groups_list is None:
         return False, "claim `isMemberOf` not found"
     user_groups_map = {group["name"]: group for group in user_groups_list}

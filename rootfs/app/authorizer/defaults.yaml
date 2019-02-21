@@ -1,4 +1,5 @@
 global:
+  # Defaults
   ACCESS_CHECKS: ["group_membership"]
   NO_VERIFY: False
   NO_AUTHORIZE: false
@@ -9,3 +10,4 @@ global:
   SET_USER_HEADERS: true
   GROUP_DEPLOYMENT_PREFIX: "lsst_"
   JWT_VERIFICATION_OPTIONS: {}
+  OAUTH2_JWT_EXP: 86400 # 1 day

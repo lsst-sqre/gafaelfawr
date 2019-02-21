@@ -21,7 +21,7 @@
 
 
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any, Mapping
 
 import jwt
 from flask import current_app
@@ -29,8 +29,8 @@ from flask import current_app
 from .config import ALGORITHM
 
 
-def reissue_token(token: Dict[str, Any], aud=None):
-    reissued_token = token.copy()
+def reissue_token(token: Mapping[str, Any], aud=None):
+    reissued_token = dict(token)
     reissued_token.update(
         exp=datetime.utcnow() + timedelta(current_app.config['OAUTH2_JWT_EXP']),
         iss=current_app.config["OAUTH2_JWT_ISS"],
