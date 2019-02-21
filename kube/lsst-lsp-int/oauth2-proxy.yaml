@@ -23,16 +23,16 @@ spec:
         - -oidc-issuer-url=https://cilogon.org
         - -scope=openid email org.cilogon.userinfo
         - -email-domain=*
+        - -cookie-domain=lsst-lsp-int.ncsa.illinois.edu
         - -cookie-secure=true
         - -upstream=http://lsst-jwt-authorizer.lsst-pdac.svc.cluster.local:8080/
         - -http-address=0.0.0.0:4180
-        - -set-xauthrequest
         - -cookie-refresh=10m
+        - -cookie-expire=8h
         - -pass-authorization-header
-        - -set-authorization-header
-        - -pass-user-headers
+        - -server-cookies-path=/tmp
         - -skip-jwt-bearer
-        - -jwt-bearer-issuers=https://cilogon.org=cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75
+        - -extra-jwt-issuers=https://lsst-lsp-int.ncsa.illinois.edu=cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
           value: cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75
@@ -79,8 +79,9 @@ metadata:
     nginx.ingress.kubernetes.io/server-snippet: |
       proxy_buffer_size 64k;
       proxy_buffers 4 64k;
-      large_client_header_buffers 4 64k;
-      client_header_buffer_size 8k;
+      large_client_header_buffers 4 32k;
+      client_header_buffer_size 32k;
+
 spec:
   rules:
   - host: lsst-lsp-int.ncsa.illinois.edu
