@@ -91,7 +91,8 @@ def authnz_token():
     if success:
         response.status_code = 200
         _make_success_headers(response, encoded_token)
-        logger.info(f"Allowed token with Token ID: {verified_token['jti']} "
+        jti = verified_token.get("jti", "UNKNOWN")
+        logger.info(f"Allowed token with Token ID: {jti} "
                     f"from issuer {verified_token['iss']}")
         return response
 
