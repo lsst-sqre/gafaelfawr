@@ -1,0 +1,44 @@
+global:
+  REALM: example.com
+
+  # Options are Bearer, Basic, none
+  WWW_AUTHENTICATE: Basic
+  LOGLEVEL: DEBUG
+
+  # Authorizer Configurations
+  # NO_AUTHORIZE: True
+
+  # Resource Checkers
+  # Options are `group_membership`, `scp`, `lsst_group_membership` Must be a list
+  RESOURCE_CHECKS_DEFAULT:
+    - group_membership
+
+  # group_membership options
+  GROUP_MAPPING:
+    read:workspace: lsst_int_ws_r
+    exec:portal: lsst_int_portal_x
+    exec:notebook: lsst_int_notebook_x
+    read:tap: lsst_int_tap_r
+    read:image: lsst_int_image_r
+
+
+  OAUTH2_JWT_ISS: https://example.com
+  OAUTH2_JWT_KEY_ID: reissuer-key-id
+  OAUTH2_JWT_KEY: |
+    -----BEGIN RSA PRIVATE KEY-----
+    ...
+    ...
+    ...
+    ...
+    -----END RSA PRIVATE KEY-----
+
+  # lsst_group_membership options
+  # GROUP_DEPLOYMENT_PREFIX: lsst_int_lsp_int_
+
+  ISSUERS:
+    https://cilogon.org:
+      audience: cilogon:/client_id/...
+      issuer_key_ids: ["244B235F6B28E34108D101EAC7362C4E"]
+    https://example.com:
+      audience: cilogon:/client_id/...  # Maybe you keep the original client id
+      issuer_key_ids: ["reissuer-key-id"]
