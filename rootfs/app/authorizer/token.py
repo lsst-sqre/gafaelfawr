@@ -39,5 +39,4 @@ def reissue_token(token: Mapping[str, Any], aud: str):
     )
     private_key = current_app.config['OAUTH2_JWT_KEY']
     headers = {"kid": current_app.config['OAUTH2_JWT_KEY_ID']}
-    assert headers
     return jwt.encode(reissued_token, private_key, algorithm=ALGORITHM, headers=headers)
