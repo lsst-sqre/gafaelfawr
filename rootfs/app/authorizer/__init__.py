@@ -194,10 +194,10 @@ def _make_success_headers(response: Response, encoded_token: str):
         if uid:
             response.headers['X-Auth-Request-Uid'] = uid
 
-    # Only reissue token if it's requested and if it's a different key ID than
-    # this applications uses to reissue a token
+    # Only reissue token if it's requested and if it's a different issuer than
+    # this application uses to reissue a token
     if (request.args.get("reissue_token", "").lower() == "true" and
-            decoded_token_headers.get("kid") != current_app.config.get('OAUTH2_JWT_KEY_ID')):
+            decoded_token_headers['iss'] != current_app.config.get("OAUTH2_JWT_ISS")):
         encoded_token = reissue_token(decoded_token, aud=decoded_token['aud'])
 
     response.headers["X-Auth-Request-Token"] = encoded_token
