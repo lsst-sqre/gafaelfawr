@@ -29,10 +29,10 @@ from typing import Any, Mapping
 
 import jwt
 import requests
-from cachetools import cached, TTLCache
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cachetools import cached, TTLCache  # type: ignore
+from cryptography.hazmat.backends import default_backend  # type: ignore
+from cryptography.hazmat.primitives import serialization  # type: ignore
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers  # type: ignore
 from flask import current_app
 
 from .config import ALGORITHM
@@ -59,7 +59,8 @@ def reissue_token(token: Mapping[str, Any], aud: str) -> str:
     )
     private_key = current_app.config['OAUTH2_JWT_KEY']
     headers = {"kid": current_app.config['OAUTH2_JWT_KEY_ID']}
-    return jwt.encode(reissued_token, private_key, algorithm=ALGORITHM, headers=headers)
+    return jwt.encode(reissued_token, private_key,
+                      algorithm=ALGORITHM, headers=headers).decode("utf-8")
 
 
 @cached(cache=TTLCache(maxsize=16, ttl=600))
