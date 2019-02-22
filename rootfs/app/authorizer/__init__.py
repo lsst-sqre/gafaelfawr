@@ -158,8 +158,6 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
     assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
 
-    request_method = request.headers['X-Original-Method']
-    request_path = request.headers['X-Original-URI']
     successes = []
     messages = []
     for capability in capabilities:
