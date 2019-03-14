@@ -6,3 +6,4 @@ cachetools
 uwsgi
 pyyaml
 dynaconf
+redis

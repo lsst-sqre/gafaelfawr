@@ -20,7 +20,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import argparse
 import base64
 import logging
 from typing import Any, Tuple, Callable, List, Mapping
@@ -190,8 +189,14 @@ def _make_success_headers(response: Response, encoded_token: str):
     # Only reissue token if it's requested and if it's a different issuer than
     # this application uses to reissue a token
     if (request.args.get("reissue_token", "").lower() == "true" and
-            decoded_token_headers['iss'] != current_app.config.get("OAUTH2_JWT_ISS")):
-        encoded_token = reissue_token(decoded_token, aud=decoded_token['aud'])
+            decoded_token["iss"] != current_app.config.get("OAUTH2_JWT_ISS")):
+        oauth2_proxy_cookie = request.cookies["_oauth2_proxy"]
+        encoded_token = reissue_token(
+            decoded_token,
+            aud=decoded_token["aud"],
+            oauth2_proxy_cookie=oauth2_proxy_cookie
+        )
+        response.headers["X-Auth-Request-Token-Handle"] = oauth2_proxy_cookie
 
     response.headers["X-Auth-Request-Token"] = encoded_token
 

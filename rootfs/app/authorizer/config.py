@@ -24,6 +24,7 @@ import logging
 import os
 from typing import Callable, Dict, Tuple
 
+import redis  # type: ignore
 from dynaconf import FlaskDynaconf, Validator  # type: ignore
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,16 @@ class Config:
             for key, value in settings["GROUP_MAPPING"].items():
                 assert isinstance(key, str) and isinstance(value, str), "Mapping is malformed"
             logger.info(f"Configured Group Mapping: {settings['GROUP_MAPPING']}")
+
+        if settings.get("OAUTH2_STORE_SESSION"):
+            proxy_config = settings["OAUTH2_STORE_SESSION"]
+            key_prefix = proxy_config["KEY_PREFIX"]
+            secret = proxy_config["OAUTH2_PROXY_SECRET"]
+            app.redis_pool = redis.ConnectionPool.from_url(url=proxy_config["REDIS_URL"])
+            logger.info(
+                f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
+                f"with prefix: {key_prefix}"
+            )
 
         # Find Resource Check Callables
         for access_check_name in settings['ACCESS_CHECKS']:

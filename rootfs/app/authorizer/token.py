@@ -21,18 +21,23 @@
 
 
 import base64
+import hashlib
+import hmac
 import logging
 import os
 import struct
+from calendar import timegm
 from datetime import datetime, timedelta
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 import jwt
+import redis  # type: ignore
 import requests
 from cachetools import cached, TTLCache  # type: ignore
 from cryptography.hazmat.backends import default_backend  # type: ignore
 from cryptography.hazmat.primitives import serialization  # type: ignore
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers  # type: ignore
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # type: ignore
 from flask import current_app
 
 from .config import ALGORITHM
@@ -40,7 +45,7 @@ from .config import ALGORITHM
 logger = logging.getLogger(__name__)
 
 
-def reissue_token(token: Mapping[str, Any], aud: str) -> str:
+def reissue_token(token: Mapping[str, Any], aud: str, oauth2_proxy_cookie: str) -> str:
     """
     Reissue a token.
     This makes a copy of the token, adjusts the audience, expiration,
@@ -48,19 +53,42 @@ def reissue_token(token: Mapping[str, Any], aud: str) -> str:
     token in encoded form.
     :param token: The token to reissues
     :param aud: The new audience for the token.
+    :param oauth2_proxy_cookie: The value of the oauth2_proxy_cookie
     :return: Encoded token
     """
     reissued_token = dict(token)
+    expires = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+
+    # Some fields may need to be masked from reissued_token
     reissued_token.update(
-        exp=datetime.utcnow() + timedelta(seconds=current_app.config['OAUTH2_JWT_EXP']),
+        exp=expires,
         iss=current_app.config["OAUTH2_JWT_ISS"],
         aud=aud,
         iat=datetime.utcnow(),
     )
-    private_key = current_app.config['OAUTH2_JWT_KEY']
-    headers = {"kid": current_app.config['OAUTH2_JWT_KEY_ID']}
-    return jwt.encode(reissued_token, private_key,
-                      algorithm=ALGORITHM, headers=headers).decode("utf-8")
+
+    private_key = current_app.config["OAUTH2_JWT_KEY"]
+    headers = {"kid": current_app.config["OAUTH2_JWT_KEY_ID"]}
+    encoded_reissued_token = jwt.encode(
+        reissued_token,
+        private_key,
+        algorithm=ALGORITHM,
+        headers=headers
+    ).decode("utf-8")
+
+    if current_app.config.get("OAUTH2_STORE_SESSION") and oauth2_proxy_cookie:
+        # Use the same email field as oauth2_proxy, if available
+        email = reissued_token.get("email")
+        # Use our definition of username, if possible
+        user = reissued_token.get(current_app.config["JWT_USERNAME_KEY"])
+        o2proxy_store_token_redis(
+            user,
+            email,
+            expires,
+            encoded_reissued_token,
+            oauth2_proxy_cookie
+        )
+    return encoded_reissued_token
 
 
 @cached(cache=TTLCache(maxsize=16, ttl=600))
@@ -127,3 +155,115 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
         logger.error(f"Unable to retrieve and store key for issuer: {issuer_url} ")
         logger.error(e)
         raise Exception(f"Unable to interace with issuer: {issuer_url}") from e
+
+
+def o2proxy_store_token_redis(
+        user: Optional[str],
+        email: Optional[str],
+        expires: datetime,
+        token: str,
+        session_handle: str
+) -> None:
+    """
+    Store a token in redis in the oauth2_proxy encoded token format.
+    :param user: The username, if available
+    :param email: The email, if available
+    :param expires: When this token expires.
+    :param token: The token to encode.
+    :param session_handle: A period-delimited pair of [handle].[initialization vector]
+    """
+    session_key, iv_encoded = session_handle.split(".")
+    iv = base64.b64decode(iv_encoded)
+    encrypted_oauth2_session = _o2proxy_encrypted_session(
+        iv,
+        email,
+        user,
+        expires,
+        token
+    )
+    redis_pool = current_app.redis_pool
+    redis_client = redis.Redis(connection_pool=redis_pool)
+    key_prefix = current_app.config["OAUTH2_STORE_SESSION"]["KEY_PREFIX"]
+    key = key_prefix + ":" + session_key
+    expires_delta = expires - datetime.utcnow()
+    redis_client.setex(key, expires_delta, encrypted_oauth2_session)
+
+
+def _o2proxy_encrypted_session(
+        iv: bytes,
+        user: Optional[str],
+        email: Optional[str],
+        expires: datetime,
+        token: str
+) -> bytes:
+    """
+    Take in the data for an encrypting an oauth2_proxy session and
+    return the encrypted session and handle.
+    :param user: username, if any
+    :param email: email, if any
+    :param expires: expiration of the token
+    :param token: The encoded JWT.
+    :return: encrypted session bytes
+    """
+    user = user or ""
+    email = email or ""
+    account_info = f"email:{email} user:{user}"
+    access_token = ""
+    id_token = _o2proxy_encrypt_field(token).decode("utf-8")
+    refresh_token = ""
+    expires_int = timegm(expires.utctimetuple())
+    session_payload = f"{account_info}|{access_token}|{id_token}|{expires_int}|{refresh_token}"
+    signed_session = _o2proxy_signed_session(session_payload)
+    return _o2proxy_encrypt_string(iv, signed_session)
+
+
+def _o2proxy_encrypt_field(field: str) -> bytes:
+    """
+    Encrypt a field. This form generates the initialization vector and
+    stores it with the field.
+    :param field: The field to encrypt
+    :return: The 16-byte initialization vector and encrypted bytes.
+    """
+    iv = os.urandom(16)
+    cipher_text = _o2proxy_encrypt_string(iv, field)
+    encrypted_field = iv + cipher_text
+    return base64.b64encode(encrypted_field)
+
+
+def _o2proxy_encrypt_string(iv: bytes, field: str) -> bytes:
+    """
+    Build the cipher from the configuration and encode the string in
+    Cipher Feedback Mode.
+    :param iv: Initialization vector
+    :param field: The field to encrypt.
+    :return: The encrypted bytes only.
+    """
+    secret_key_encoded = current_app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    secret_key = base64.b64decode(secret_key_encoded)
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(secret_key), modes.CFB(iv), backend=backend)
+    encryptor = cipher.encryptor()
+    cipher_text: bytes = encryptor.update(field.encode("utf-8")) + encryptor.finalize()
+    return cipher_text
+
+
+def _o2proxy_signed_session(session_payload: str) -> str:
+    """
+    Perform an HMAC signature on the session payload with oauth2_proxy's
+    secret key.
+    :param session_payload: The payload to sign.
+    :return: The signed session with the time and signature in the
+    format oauth2_proxy is expecting.
+    """
+    secret_key_string = current_app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    secret_key = secret_key_string.encode()
+    encoded_session_payload: bytes = base64.b64encode(session_payload.encode())
+    now_str = str(timegm(datetime.utcnow().utctimetuple()))
+
+    h = hmac.new(secret_key, digestmod=hashlib.sha1)
+    h.update("_oauth2_proxy".encode())
+    h.update(encoded_session_payload)
+    h.update(now_str.encode())
+    sig_base64: bytes = base64.b64encode(h.digest())
+    return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
+
