@@ -81,6 +81,7 @@ def authnz_token():
     # Authorization
     success, message = authorize(verified_token)
 
+    jti = verified_token.get("jti", "UNKNOWN")
     if success:
         response.status_code = 200
         _make_success_headers(response, encoded_token)
@@ -92,7 +93,7 @@ def authnz_token():
     response.set_data(message)
     # All authorization failures get 403s
     response.status_code = 403
-    logger.error(f"Failed to authorize Token ID {verified_token['jti']} because {message}")
+    logger.error(f"Failed to authorize Token ID {jti} because {message}")
     return response
 
 
@@ -291,25 +292,9 @@ def get_check_access_functions() -> List[Callable]:
     return callables
 
 
-def configure():
-    parser = argparse.ArgumentParser(description='Authenticate HTTP Requests')
-    parser.add_argument('-c', '--config', dest='config', type=str,
-                        default="/etc/jwt-authorizer/authorizer.yaml",
-                        help="Location of the yaml configuration file")
-
-    args = parser.parse_args()
-
-    # Read in configuration
-    Config.validate(app, args.config)
+def configure(settings_path=None):
+    settings_path = settings_path or "/etc/jwt-authorizer/authorizer.yaml"
+    Config.validate(app, settings_path)
 
 
 configure()
-
-
-def main():
-    # Set up listener for events
-    app.run(host='localhost', port=8080)
-
-
-if __name__ == "__main__":
-    main()
