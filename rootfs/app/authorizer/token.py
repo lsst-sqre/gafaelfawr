@@ -106,10 +106,10 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     """
 
     def _base64_to_long(data):
-        data = data.encode('ascii')
-        decoded = base64.urlsafe_b64decode(bytes(data) + b'==')
-        unpacked = struct.unpack('%sB' % len(decoded), decoded)
-        key_as_long = int(''.join(['{:02x}'.format(b) for b in unpacked]), 16)
+        data = data.encode("ascii")
+        decoded = base64.urlsafe_b64decode(bytes(data) + b"==")
+        unpacked = struct.unpack("%sB" % len(decoded), decoded)
+        key_as_long = int("".join(["{:02x}".format(b) for b in unpacked]), 16)
         return key_as_long
 
     def _convert(exponent, modulus):
@@ -117,7 +117,8 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
         pub = components.public_key(backend=default_backend())
         return pub.public_bytes(
             encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo)
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
 
     issuer = current_app.config["ISSUERS"][issuer_url]
     logger.debug(f"Getting keys for: {issuer_url}")
@@ -140,15 +141,15 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
         keys = keys_resp.json()["keys"]
         key = None
         for k in keys:
-            if request_key_id == k['kid'] and request_key_id:
+            if request_key_id == k["kid"] and request_key_id:
                 key = k
         if not key:
             raise KeyError(f"Issuer may have removed kid={request_key_id}")
 
         if key["alg"] != ALGORITHM:
             raise Exception("Bad Issuer Key and Global Algorithm Configuration")
-        e = _base64_to_long(key['e'])
-        m = _base64_to_long(key['n'])
+        e = _base64_to_long(key["e"])
+        m = _base64_to_long(key["n"])
         return _convert(e, m)
     except Exception as e:
         # HTTPError, KeyError, or Exception

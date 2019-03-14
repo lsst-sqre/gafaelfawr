@@ -29,11 +29,10 @@ from dynaconf import FlaskDynaconf, Validator  # type: ignore
 
 logger = logging.getLogger(__name__)
 
-ALGORITHM = 'RS256'
+ALGORITHM = "RS256"
 
 
 class Config:
-
     @staticmethod
     def configure_plugins(app):
         from .authorizers import scp_check_access, group_membership_check_access
@@ -57,9 +56,9 @@ class Config:
         dynaconf = FlaskDynaconf(app, SETTINGS_MODULE_FOR_DYNACONF=settings_module)
         settings = dynaconf.settings
         settings.validators.register(
-            Validator('NO_VERIFY', 'NO_AUTHORIZE', is_type_of=bool),
-            Validator('GROUP_MAPPING', is_type_of=dict),
-            Validator('ISSUERS', is_type_of=dict, must_exist=True)
+            Validator("NO_VERIFY", "NO_AUTHORIZE", is_type_of=bool),
+            Validator("GROUP_MAPPING", is_type_of=dict),
+            Validator("ISSUERS", is_type_of=dict, must_exist=True),
         )
 
         if settings.get("LOGLEVEL"):
@@ -71,7 +70,7 @@ class Config:
             logging.basicConfig(level=level)
             logger = logging.getLogger(__name__)
             if level == "DEBUG":
-                logging.getLogger('werkzeug').setLevel(level)
+                logging.getLogger("werkzeug").setLevel(level)
 
         logger.info(f"Configured realm {settings['REALM']}")
         logger.info(f"Configured WWW-Authenticate type: {settings['WWW_AUTHENTICATE']}")
@@ -82,11 +81,13 @@ class Config:
         if settings["NO_AUTHORIZE"]:
             logger.warning("Authorization is disabled")
 
-        if settings.get('GROUP_DEPLOYMENT_PREFIX'):
-            logger.info(f"Configured LSST Group Deployment Prefix: "
-                        f"{settings['GROUP_DEPLOYMENT_PREFIX']}")
+        if settings.get("GROUP_DEPLOYMENT_PREFIX"):
+            logger.info(
+                f"Configured LSST Group Deployment Prefix: "
+                f"{settings['GROUP_DEPLOYMENT_PREFIX']}"
+            )
 
-        if settings.get('GROUP_MAPPING'):
+        if settings.get("GROUP_MAPPING"):
             for key, value in settings["GROUP_MAPPING"].items():
                 assert isinstance(key, str) and isinstance(value, str), "Mapping is malformed"
             logger.info(f"Configured Group Mapping: {settings['GROUP_MAPPING']}")
@@ -102,7 +103,7 @@ class Config:
             )
 
         # Find Resource Check Callables
-        for access_check_name in settings['ACCESS_CHECKS']:
+        for access_check_name in settings["ACCESS_CHECKS"]:
             if access_check_name not in app.ACCESS_CHECK_CALLABLES:
                 raise Exception(f"No access checker for id {access_check_name}")
             logger.info(f"Configured default access checks: {access_check_name}")

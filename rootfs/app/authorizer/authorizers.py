@@ -69,7 +69,7 @@ def _group_membership_get_group(capability: str) -> str:
     :param capability: The capability in question
     :return: A string value of the group for this capability.
     """
-    group = current_app.config['GROUP_MAPPING'].get(capability)
+    group = current_app.config["GROUP_MAPPING"].get(capability)
     assert capability is not None, "Error: Capability not found in group mapping"
     assert group is not None, "Error: No group mapping for capability"
     return group

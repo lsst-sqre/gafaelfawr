@@ -34,13 +34,13 @@ RESOURCE_TO_ABSTRACT_GROUP_PREFIX = {
     "workspace": "ws",
     "workspace/user": "ws_usr",
     "portal": "portal",
-    "notebook": "nb"
+    "notebook": "nb",
 }
 
 OP_TO_ABSTRACT_GROUP_POSTFIX = {
     "read": "_r",
     "write": "_w",
-    "exec": "_x"
+    "exec": "_x",
 }
 
 

@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
-@app.route('/auth')
+@app.route("/auth")
 def authnz_token():
     """
     Authenticate and authorize a token.
@@ -62,7 +62,7 @@ def authnz_token():
     # Default to Server Error for safety, so we must always set it to 200
     # if it's okay.
     response = Response(status=500)
-    if 'Authorization' not in request.headers and "x-oauth-basic" not in request.cookies:
+    if "Authorization" not in request.headers and "x-oauth-basic" not in request.cookies:
         _make_needs_authentication(response, "No Authorization header", "")
         return response
 
@@ -85,9 +85,10 @@ def authnz_token():
     if success:
         response.status_code = 200
         _make_success_headers(response, encoded_token)
-        jti = verified_token.get("jti", "UNKNOWN")
-        logger.info(f"Allowed token with Token ID: {jti} "
-                    f"from issuer {verified_token['iss']}")
+        logger.info(
+            f"Allowed token with Token ID: {jti} "
+            f"from issuer {verified_token['iss']}"
+        )
         return response
 
     response.set_data(message)
@@ -113,19 +114,21 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
         logger.debug("Skipping Verification of the token")
         return unverified_token
 
-    issuer_url = unverified_token['iss']
-    if issuer_url not in current_app.config['ISSUERS']:
+    issuer_url = unverified_token["iss"]
+    if issuer_url not in current_app.config["ISSUERS"]:
         raise InvalidIssuerError(f"Unauthorized Issuer: {issuer_url}")
-    issuer = current_app.config['ISSUERS'][issuer_url]
+    issuer = current_app.config["ISSUERS"][issuer_url]
 
     # This can throw an InvalidIssuerError as well,
     # though it may be a server-side issue
     key = get_key_as_pem(issuer_url, unverified_headers["kid"])
-    return jwt.decode(encoded_token,
-                      key,
-                      algorithm=ALGORITHM,
-                      audience=issuer['audience'],
-                      options=current_app.config.get('JWT_VERIFICATION_OPTIONS'))
+    return jwt.decode(
+        encoded_token,
+        key,
+        algorithm=ALGORITHM,
+        audience=issuer["audience"],
+        options=current_app.config.get("JWT_VERIFICATION_OPTIONS"),
+    )
 
 
 def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
@@ -138,7 +141,7 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     :param verified_token: The decoded token used for authorization
     :return: A (success, message) pair. Success is true
     """
-    if current_app.config['NO_AUTHORIZE'] is True:
+    if current_app.config["NO_AUTHORIZE"] is True:
         return True, ""
 
     # Authorization Checks
@@ -148,7 +151,10 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     # If no capability have been explicitly delineated in the URI,
     # get them from the request method. These shouldn't happen for properly
     # configured applications
-    assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
+    assert satisfy in (
+        "any",
+        "all",
+    ), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
     assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
 
     successes = []
@@ -181,11 +187,11 @@ def _make_success_headers(response: Response, encoded_token: str):
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
         uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
         if email:
-            response.headers['X-Auth-Request-Email'] = uid
+            response.headers["X-Auth-Request-Email"] = uid
         if user:
-            response.headers['X-Auth-Request-User'] = user
+            response.headers["X-Auth-Request-User"] = user
         if uid:
-            response.headers['X-Auth-Request-Uid'] = uid
+            response.headers["X-Auth-Request-Uid"] = uid
 
     # Only reissue token if it's requested and if it's a different issuer than
     # this application uses to reissue a token
@@ -209,7 +215,7 @@ def _find_token():
     be of type Basic for clients that don't support OAuth.
     :return: The token
     """
-    auth_type, auth_blob = request.headers['Authorization'].split(" ")
+    auth_type, auth_blob = request.headers["Authorization"].split(" ")
     encoded_token = None
     if auth_type.lower() == "bearer":
         encoded_token = auth_blob
@@ -246,11 +252,11 @@ def _make_needs_authentication(response: Response, error: str, message: str):
     realm = current_app.config["REALM"]
     if current_app.config["WWW_AUTHENTICATE"].lower() == "basic":
         # Otherwise, send Bearer
-        response.headers['WWW-Authenticate'] = \
-            f'Basic realm="{realm}"'
+        response.headers["WWW-Authenticate"] = f'Basic realm="{realm}"'
     else:
-        response.headers['WWW-Authenticate'] = \
-            f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
+        response.headers[
+            "WWW-Authenticate"
+        ] = f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
 
 
 def check_authorization(capability: str, verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
@@ -287,7 +293,7 @@ def get_check_access_functions() -> List[Callable]:
     :return: A callable for check access
     """
     callables = []
-    for checker_name in current_app.config['ACCESS_CHECKS']:
+    for checker_name in current_app.config["ACCESS_CHECKS"]:
         callables.append(current_app.ACCESS_CHECK_CALLABLES[checker_name])
     return callables
 
