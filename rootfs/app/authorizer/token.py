@@ -259,5 +259,6 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     h.update("_oauth2_proxy".encode())
     h.update(encoded_session_payload)
     h.update(now_str.encode())
-    sig_base64: bytes = base64.b64encode(h.digest())
+    # Use URL Safe base64 encode
+    sig_base64: bytes = base64.urlsafe_b64encode(h.digest())
     return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
