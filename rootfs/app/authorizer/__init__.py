@@ -91,10 +91,7 @@ def authnz_token():
     if success:
         response.status_code = 200
         _make_success_headers(response, encoded_token)
-        logger.info(
-            f"Allowed token with Token ID: {jti} "
-            f"from issuer {verified_token['iss']}"
-        )
+        logger.info(f"Allowed token with Token ID: {jti} " f"from issuer {verified_token['iss']}")
         return response
 
     response.set_data(message)
@@ -213,11 +210,8 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     # If no capability have been explicitly delineated in the URI,
     # get them from the request method. These shouldn't happen for properly
     # configured applications
-    assert satisfy in (
-        "any",
-        "all",
-    ), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
-    assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
+    assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
+    assert capabilities, "ERROR: Check nginx auth_request url (capability_names)"
 
     successes = []
     messages = []
@@ -256,8 +250,8 @@ def _make_success_headers(response: Response, encoded_token: str):
 
     # Only reissue token if it's requested and if it's a different issuer than
     # this application uses to reissue a token
-    if (request.args.get("reissue_token", "").lower() == "true" and
-            decoded_token["iss"] != current_app.config.get("OAUTH2_JWT_ISS")):
+    reissue_token = request.args.get("reissue_token", "").lower() == "true"
+    if reissue_token and decoded_token["iss"] != current_app.config.get("OAUTH2_JWT_ISS"):
         oauth2_proxy_cookie = request.cookies["_oauth2_proxy"]
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
         encoded_token = issue_token(

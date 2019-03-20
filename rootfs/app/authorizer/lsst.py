@@ -37,11 +37,7 @@ RESOURCE_TO_ABSTRACT_GROUP_PREFIX = {
     "notebook": "nb",
 }
 
-OP_TO_ABSTRACT_GROUP_POSTFIX = {
-    "read": "_r",
-    "write": "_w",
-    "exec": "_x",
-}
+OP_TO_ABSTRACT_GROUP_POSTFIX = {"read": "_r", "write": "_w", "exec": "_x"}
 
 
 # noinspection PyUnusedLocal

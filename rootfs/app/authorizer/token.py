@@ -64,19 +64,13 @@ def issue_token(token: Mapping[str, Any], aud: str, exp: datetime, oauth2_proxy_
 
     # Some fields may need to be masked from reissued_token
     reissued_token.update(
-        exp=expires,
-        iss=current_app.config["OAUTH2_JWT_ISS"],
-        aud=aud,
-        iat=datetime.utcnow(),
+        exp=exp, iss=current_app.config["OAUTH2_JWT_ISS"], aud=aud, iat=datetime.utcnow()
     )
 
     private_key = current_app.config["OAUTH2_JWT_KEY"]
     headers = {"kid": current_app.config["OAUTH2_JWT_KEY_ID"]}
     encoded_reissued_token = jwt.encode(
-        reissued_token,
-        private_key,
-        algorithm=ALGORITHM,
-        headers=headers
+        reissued_token, private_key, algorithm=ALGORITHM, headers=headers
     ).decode("utf-8")
 
     if current_app.config.get("OAUTH2_STORE_SESSION") and oauth2_proxy_cookie:
@@ -84,13 +78,7 @@ def issue_token(token: Mapping[str, Any], aud: str, exp: datetime, oauth2_proxy_
         email = reissued_token.get("email")
         # Use our definition of username, if possible
         user = reissued_token.get(current_app.config["JWT_USERNAME_KEY"])
-        o2proxy_store_token_redis(
-            user,
-            email,
-            expires,
-            encoded_reissued_token,
-            oauth2_proxy_cookie
-        )
+        o2proxy_store_token_redis(user, email, exp, encoded_reissued_token, oauth2_proxy_cookie)
     return encoded_reissued_token
 
 
@@ -179,11 +167,7 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
 
 
 def o2proxy_store_token_redis(
-        user: Optional[str],
-        email: Optional[str],
-        expires: datetime,
-        token: str,
-        session_handle: str
+    user: Optional[str], email: Optional[str], expires: datetime, token: str, session_handle: str
 ) -> None:
     """
     Store a token in redis in the oauth2_proxy encoded token format.
@@ -195,13 +179,7 @@ def o2proxy_store_token_redis(
     """
     session_key, iv_encoded = session_handle.split(".")
     iv = base64.b64decode(iv_encoded)
-    encrypted_oauth2_session = _o2proxy_encrypted_session(
-        iv,
-        email,
-        user,
-        expires,
-        token
-    )
+    encrypted_oauth2_session = _o2proxy_encrypted_session(iv, email, user, expires, token)
     redis_pool = current_app.redis_pool
     redis_client = redis.Redis(connection_pool=redis_pool)
     key_prefix = current_app.config["OAUTH2_STORE_SESSION"]["KEY_PREFIX"]
@@ -211,11 +189,7 @@ def o2proxy_store_token_redis(
 
 
 def _o2proxy_encrypted_session(
-        iv: bytes,
-        user: Optional[str],
-        email: Optional[str],
-        expires: datetime,
-        token: str
+    iv: bytes, user: Optional[str], email: Optional[str], expires: datetime, token: str
 ) -> bytes:
     """
     Take in the data for an encrypting an oauth2_proxy session and
@@ -287,4 +261,3 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     h.update(now_str.encode())
     sig_base64: bytes = base64.b64encode(h.digest())
     return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
-
