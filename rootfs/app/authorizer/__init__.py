@@ -21,15 +21,18 @@
 
 
 import base64
+import hashlib
+from datetime import datetime, timedelta
 import logging
-from typing import Any, Tuple, Callable, List, Mapping
+import os
+from typing import Any, Tuple, Callable, List, Mapping, Optional
 
 import jwt
-from flask import Flask, request, Response, current_app
+from flask import Flask, request, Response, current_app, render_template, flash, redirect, url_for
 from jwt import InvalidIssuerError, PyJWTError
 
 from .config import Config, ALGORITHM
-from .token import reissue_token, get_key_as_pem
+from .token import issue_token, get_key_as_pem, api_capabilities_token_form
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -67,6 +70,9 @@ def authnz_token():
         return response
 
     encoded_token = _find_token()
+    if not encoded_token:
+        _make_needs_authentication(response, "Unable to find token", "")
+        return response
 
     # Authentication
     try:
@@ -96,6 +102,62 @@ def authnz_token():
     response.status_code = 403
     logger.error(f"Failed to authorize Token ID {jti} because {message}")
     return response
+
+
+@app.route("/auth/tokens/new", methods=["GET", "POST"])
+def new_tokens():
+    try:
+        encoded_token = request.headers["X-Auth-Request-Token"]
+        decoded_token = authenticate(encoded_token)
+    except PyJWTError as e:
+        response = Response()
+        _make_needs_authentication(response, "Invalid Token", str(e))
+        logger.exception("Failed to authenticate Token")
+        logger.exception(e)
+        return response
+
+    capabilities = current_app.config["KNOWN_CAPABILITIES"]
+    form = api_capabilities_token_form(capabilities)
+
+    if request.method == "POST" and form.validate():
+        new_capabilities = []
+        for capability in capabilities:
+            if form[capability].data:
+                new_capabilities.append(capability)
+
+        new_token = {"scp": new_capabilities}
+        email = decoded_token.get("email")
+        user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
+        uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
+        if email:
+            new_token["email"] = email
+        if user:
+            new_token[current_app.config["JWT_USERNAME_KEY"]] = user
+        if uid:
+            new_token[current_app.config["JWT_UID_KEY"]] = uid
+
+        # FIXME: Copies groups. Useful for WebDAV, maybe not necessary
+        #
+        # new_token['isMemberOf'] = decoded_token['isMemberOf']
+
+        exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+        handle = hashlib.sha1(os.urandom(16)).hexdigest()
+        iv = base64.b64encode(os.urandom(16)).decode("utf-8")
+        oauth2_proxy_cookie = f"{handle}.{iv}"
+
+        _ = issue_token(
+            new_token, aud=decoded_token["aud"], exp=exp, oauth2_proxy_cookie=oauth2_proxy_cookie
+        )
+
+        flash(
+            f"Your Newly Created Token. Keep these Secret!<br>\n"
+            f"Token: {oauth2_proxy_cookie} <br>"
+        )
+        return redirect(url_for("new_tokens"))
+
+    return render_template(
+        "new_token.html", title="New Token", form=form, capabilities=capabilities
+    )
 
 
 def authenticate(encoded_token: str) -> Mapping[str, Any]:
@@ -181,7 +243,6 @@ def _make_success_headers(response: Response, encoded_token: str):
     :return: The mutated response object.
     """
     decoded_token = jwt.decode(encoded_token, verify=False)
-    decoded_token_headers = jwt.get_unverified_header(encoded_token)
     if current_app.config["SET_USER_HEADERS"]:
         email = decoded_token.get("email")
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
@@ -198,22 +259,24 @@ def _make_success_headers(response: Response, encoded_token: str):
     if (request.args.get("reissue_token", "").lower() == "true" and
             decoded_token["iss"] != current_app.config.get("OAUTH2_JWT_ISS")):
         oauth2_proxy_cookie = request.cookies["_oauth2_proxy"]
-        encoded_token = reissue_token(
+        exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+        encoded_token = issue_token(
             decoded_token,
             aud=decoded_token["aud"],
-            oauth2_proxy_cookie=oauth2_proxy_cookie
+            exp=exp,
+            oauth2_proxy_cookie=oauth2_proxy_cookie,
         )
         response.headers["X-Auth-Request-Token-Handle"] = oauth2_proxy_cookie
 
     response.headers["X-Auth-Request-Token"] = encoded_token
 
 
-def _find_token():
+def _find_token() -> Optional[str]:
     """
     From the request, find the token we need. Normally it should
     be in the Authorization header of type ``Bearer``, but it may
     be of type Basic for clients that don't support OAuth.
-    :return: The token
+    :return: The token, if found, otherwise None.
     """
     auth_type, auth_blob = request.headers["Authorization"].split(" ")
     encoded_token = None

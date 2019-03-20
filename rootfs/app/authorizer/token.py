@@ -27,8 +27,8 @@ import logging
 import os
 import struct
 from calendar import timegm
-from datetime import datetime, timedelta
-from typing import Any, Mapping, Optional
+from datetime import datetime
+from typing import Any, Mapping, Optional, Dict
 
 import jwt
 import redis  # type: ignore
@@ -39,25 +39,28 @@ from cryptography.hazmat.primitives import serialization  # type: ignore
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers  # type: ignore
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # type: ignore
 from flask import current_app
+from flask_wtf import FlaskForm
+from wtforms import BooleanField, SubmitField
 
 from .config import ALGORITHM
 
 logger = logging.getLogger(__name__)
 
 
-def reissue_token(token: Mapping[str, Any], aud: str, oauth2_proxy_cookie: str) -> str:
+def issue_token(token: Mapping[str, Any], aud: str, exp: datetime, oauth2_proxy_cookie: str) -> str:
     """
-    Reissue a token.
-    This makes a copy of the token, adjusts the audience, expiration,
+    Issue a token.
+    This makes a copy of the token, sets the audience, expiration,
     issuer, and issue time as appropriate, and then returns the
-    token in encoded form.
+    token in encoded form. If configured, it will also store the
+    newly issued token a oauth2_proxy redis session store.
+    :param exp: The time of expiration.
     :param token: The token to reissues
     :param aud: The new audience for the token.
     :param oauth2_proxy_cookie: The value of the oauth2_proxy_cookie
     :return: Encoded token
     """
     reissued_token = dict(token)
-    expires = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
 
     # Some fields may need to be masked from reissued_token
     reissued_token.update(
@@ -89,6 +92,23 @@ def reissue_token(token: Mapping[str, Any], aud: str, oauth2_proxy_cookie: str) 
             oauth2_proxy_cookie
         )
     return encoded_reissued_token
+
+
+def api_capabilities_token_form(capabilities: Dict[str, Dict]):
+    """
+    Dynamically generates a form based on capability_names.
+    :param capabilities: A grouping of capability_names.
+    :return:
+    """
+
+    class NewCapabilitiesToken(FlaskForm):
+        submit = SubmitField("Generate New Token")
+
+    NewCapabilitiesToken.capability_names = list(capabilities)
+    for capability, description in capabilities.items():
+        field = BooleanField(label=capability, description=description)
+        setattr(NewCapabilitiesToken, capability, field)
+    return NewCapabilitiesToken()
 
 
 @cached(cache=TTLCache(maxsize=16, ttl=600))

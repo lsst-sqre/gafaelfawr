@@ -61,6 +61,9 @@ class Config:
             Validator("ISSUERS", is_type_of=dict, must_exist=True),
         )
 
+        if settings.get("SECRET_KEY"):
+            app.secret_key = settings["SECRET_KEY"]
+
         if settings.get("LOGLEVEL"):
             level = settings["LOGLEVEL"]
             logger.info(f"Reconfiguring log, level={level}")
@@ -96,6 +99,7 @@ class Config:
             proxy_config = settings["OAUTH2_STORE_SESSION"]
             key_prefix = proxy_config["KEY_PREFIX"]
             secret = proxy_config["OAUTH2_PROXY_SECRET"]
+            assert len(secret), "OAUTH2_PROXY_SECRET must be set"
             app.redis_pool = redis.ConnectionPool.from_url(url=proxy_config["REDIS_URL"])
             logger.info(
                 f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
