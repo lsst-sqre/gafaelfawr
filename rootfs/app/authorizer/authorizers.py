@@ -44,8 +44,9 @@ def scp_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]
 
 
 def group_membership_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]:
-    """Check that a user has access with the following operation to this service
-    based on some form of group membership.
+    """Check that a user has access with the following operation to this
+    service based on some form of group membership.
+    Also checks `scp` as in :py:func:`scp_check_access`.
     :param capability: The capability we are checking against
     :param token: The token necessary
     :rtype: Tuple[bool, str]
@@ -53,6 +54,7 @@ def group_membership_check_access(capability: str, token: Dict[str, Any]) -> Tup
     scitoken allows for op and the user can read/write the file, otherwise
     return (False, message)
     """
+    # Check `isMemberOf` first
     user_groups_list: List[Dict[str, str]] = token.get("isMemberOf", dict())
     if user_groups_list is None:
         return False, "claim `isMemberOf` not found"
@@ -60,7 +62,13 @@ def group_membership_check_access(capability: str, token: Dict[str, Any]) -> Tup
     capability_group = _group_membership_get_group(capability)
     if capability_group in user_groups_map:
         return True, "Success"
-    return False, "No Capability group found in user's `isMemberOf`"
+
+    # Check `scp` next
+    capabilites = set(token.get("scp", list()))
+    if capability in capabilites:
+        return True, "Success"
+
+    return False, "No Capability group found in user's `isMemberOf` or capability in `scp`"
 
 
 def _group_membership_get_group(capability: str) -> str:
