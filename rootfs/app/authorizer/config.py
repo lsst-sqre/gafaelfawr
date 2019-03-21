@@ -35,7 +35,7 @@ ALGORITHM = "RS256"
 class Config:
     @staticmethod
     def configure_plugins(app):
-        from .authorizers import scp_check_access, group_membership_check_access
+        from .authnz import scp_check_access, group_membership_check_access
         from .lsst import lsst_group_membership_check_access, lsst_users_membership_check_access
 
         app.ACCESS_CHECK_CALLABLES: Dict[str, Callable[[str, Dict], Tuple[bool, str]]] = {
