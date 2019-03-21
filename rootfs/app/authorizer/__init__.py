@@ -31,9 +31,7 @@ import jwt
 from flask import Flask, request, Response, current_app, render_template, flash, redirect, url_for
 from jwt import PyJWTError
 
-from rootfs.app.authorizer import authenticate
-from rootfs.app.authorizer.authnz import authenticate, authorize
-
+from .authnz import authenticate, authorize
 from .config import Config, ALGORITHM
 from .token import issue_token, get_key_as_pem, api_capabilities_token_form
 
