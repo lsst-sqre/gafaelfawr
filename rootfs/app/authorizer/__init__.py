@@ -20,24 +20,26 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import argparse
 import base64
+import hashlib
+from datetime import datetime, timedelta
 import logging
-from typing import Any, Tuple, Callable, List, Mapping
+import os
+from typing import Any, Tuple, Callable, List, Mapping, Optional
 
 import jwt
-from flask import Flask, request, Response, current_app
+from flask import Flask, request, Response, current_app, render_template, flash, redirect, url_for
 from jwt import InvalidIssuerError, PyJWTError
 
 from .config import Config, ALGORITHM
-from .token import reissue_token, get_key_as_pem
+from .token import issue_token, get_key_as_pem, api_capabilities_token_form
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
-@app.route('/auth')
+@app.route("/auth")
 def authnz_token():
     """
     Authenticate and authorize a token.
@@ -63,11 +65,14 @@ def authnz_token():
     # Default to Server Error for safety, so we must always set it to 200
     # if it's okay.
     response = Response(status=500)
-    if 'Authorization' not in request.headers and "x-oauth-basic" not in request.cookies:
+    if "Authorization" not in request.headers and "x-oauth-basic" not in request.cookies:
         _make_needs_authentication(response, "No Authorization header", "")
         return response
 
     encoded_token = _find_token()
+    if not encoded_token:
+        _make_needs_authentication(response, "Unable to find token", "")
+        return response
 
     # Authentication
     try:
@@ -82,19 +87,74 @@ def authnz_token():
     # Authorization
     success, message = authorize(verified_token)
 
+    jti = verified_token.get("jti", "UNKNOWN")
     if success:
         response.status_code = 200
         _make_success_headers(response, encoded_token)
-        jti = verified_token.get("jti", "UNKNOWN")
-        logger.info(f"Allowed token with Token ID: {jti} "
-                    f"from issuer {verified_token['iss']}")
+        logger.info(f"Allowed token with Token ID: {jti} " f"from issuer {verified_token['iss']}")
         return response
 
     response.set_data(message)
     # All authorization failures get 403s
     response.status_code = 403
-    logger.error(f"Failed to authorize Token ID {verified_token['jti']} because {message}")
+    logger.error(f"Failed to authorize Token ID {jti} because {message}")
     return response
+
+
+@app.route("/auth/tokens/new", methods=["GET", "POST"])
+def new_tokens():
+    try:
+        encoded_token = request.headers["X-Auth-Request-Token"]
+        decoded_token = authenticate(encoded_token)
+    except PyJWTError as e:
+        response = Response()
+        _make_needs_authentication(response, "Invalid Token", str(e))
+        logger.exception("Failed to authenticate Token")
+        logger.exception(e)
+        return response
+
+    capabilities = current_app.config["KNOWN_CAPABILITIES"]
+    form = api_capabilities_token_form(capabilities)
+
+    if request.method == "POST" and form.validate():
+        new_capabilities = []
+        for capability in capabilities:
+            if form[capability].data:
+                new_capabilities.append(capability)
+
+        new_token = {"scp": new_capabilities}
+        email = decoded_token.get("email")
+        user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
+        uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
+        if email:
+            new_token["email"] = email
+        if user:
+            new_token[current_app.config["JWT_USERNAME_KEY"]] = user
+        if uid:
+            new_token[current_app.config["JWT_UID_KEY"]] = uid
+
+        # FIXME: Copies groups. Useful for WebDAV, maybe not necessary
+        #
+        # new_token['isMemberOf'] = decoded_token['isMemberOf']
+
+        exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+        handle = hashlib.sha1(os.urandom(16)).hexdigest()
+        iv = base64.b64encode(os.urandom(16)).decode("utf-8")
+        oauth2_proxy_cookie = f"{handle}.{iv}"
+
+        _ = issue_token(
+            new_token, aud=decoded_token["aud"], exp=exp, oauth2_proxy_cookie=oauth2_proxy_cookie
+        )
+
+        flash(
+            f"Your Newly Created Token. Keep these Secret!<br>\n"
+            f"Token: {oauth2_proxy_cookie} <br>"
+        )
+        return redirect(url_for("new_tokens"))
+
+    return render_template(
+        "new_token.html", title="New Token", form=form, capabilities=capabilities
+    )
 
 
 def authenticate(encoded_token: str) -> Mapping[str, Any]:
@@ -113,19 +173,21 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
         logger.debug("Skipping Verification of the token")
         return unverified_token
 
-    issuer_url = unverified_token['iss']
-    if issuer_url not in current_app.config['ISSUERS']:
+    issuer_url = unverified_token["iss"]
+    if issuer_url not in current_app.config["ISSUERS"]:
         raise InvalidIssuerError(f"Unauthorized Issuer: {issuer_url}")
-    issuer = current_app.config['ISSUERS'][issuer_url]
+    issuer = current_app.config["ISSUERS"][issuer_url]
 
     # This can throw an InvalidIssuerError as well,
     # though it may be a server-side issue
     key = get_key_as_pem(issuer_url, unverified_headers["kid"])
-    return jwt.decode(encoded_token,
-                      key,
-                      algorithm=ALGORITHM,
-                      audience=issuer['audience'],
-                      options=current_app.config.get('JWT_VERIFICATION_OPTIONS'))
+    return jwt.decode(
+        encoded_token,
+        key,
+        algorithm=ALGORITHM,
+        audience=issuer["audience"],
+        options=current_app.config.get("JWT_VERIFICATION_OPTIONS"),
+    )
 
 
 def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
@@ -138,7 +200,7 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     :param verified_token: The decoded token used for authorization
     :return: A (success, message) pair. Success is true
     """
-    if current_app.config['NO_AUTHORIZE'] is True:
+    if current_app.config["NO_AUTHORIZE"] is True:
         return True, ""
 
     # Authorization Checks
@@ -149,7 +211,7 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     # get them from the request method. These shouldn't happen for properly
     # configured applications
     assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
-    assert capabilities, "ERROR: Check nginx auth_request url (capabilities)"
+    assert capabilities, "ERROR: Check nginx auth_request url (capability_names)"
 
     successes = []
     messages = []
@@ -175,35 +237,42 @@ def _make_success_headers(response: Response, encoded_token: str):
     :return: The mutated response object.
     """
     decoded_token = jwt.decode(encoded_token, verify=False)
-    decoded_token_headers = jwt.get_unverified_header(encoded_token)
     if current_app.config["SET_USER_HEADERS"]:
         email = decoded_token.get("email")
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
         uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
         if email:
-            response.headers['X-Auth-Request-Email'] = uid
+            response.headers["X-Auth-Request-Email"] = uid
         if user:
-            response.headers['X-Auth-Request-User'] = user
+            response.headers["X-Auth-Request-User"] = user
         if uid:
-            response.headers['X-Auth-Request-Uid'] = uid
+            response.headers["X-Auth-Request-Uid"] = uid
 
     # Only reissue token if it's requested and if it's a different issuer than
     # this application uses to reissue a token
-    if (request.args.get("reissue_token", "").lower() == "true" and
-            decoded_token_headers['iss'] != current_app.config.get("OAUTH2_JWT_ISS")):
-        encoded_token = reissue_token(decoded_token, aud=decoded_token['aud'])
+    reissue_token = request.args.get("reissue_token", "").lower() == "true"
+    if reissue_token and decoded_token["iss"] != current_app.config.get("OAUTH2_JWT_ISS"):
+        oauth2_proxy_cookie = request.cookies["_oauth2_proxy"]
+        exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+        encoded_token = issue_token(
+            decoded_token,
+            aud=decoded_token["aud"],
+            exp=exp,
+            oauth2_proxy_cookie=oauth2_proxy_cookie,
+        )
+        response.headers["X-Auth-Request-Token-Handle"] = oauth2_proxy_cookie
 
     response.headers["X-Auth-Request-Token"] = encoded_token
 
 
-def _find_token():
+def _find_token() -> Optional[str]:
     """
     From the request, find the token we need. Normally it should
     be in the Authorization header of type ``Bearer``, but it may
     be of type Basic for clients that don't support OAuth.
-    :return: The token
+    :return: The token, if found, otherwise None.
     """
-    auth_type, auth_blob = request.headers['Authorization'].split(" ")
+    auth_type, auth_blob = request.headers["Authorization"].split(" ")
     encoded_token = None
     if auth_type.lower() == "bearer":
         encoded_token = auth_blob
@@ -240,11 +309,11 @@ def _make_needs_authentication(response: Response, error: str, message: str):
     realm = current_app.config["REALM"]
     if current_app.config["WWW_AUTHENTICATE"].lower() == "basic":
         # Otherwise, send Bearer
-        response.headers['WWW-Authenticate'] = \
-            f'Basic realm="{realm}"'
+        response.headers["WWW-Authenticate"] = f'Basic realm="{realm}"'
     else:
-        response.headers['WWW-Authenticate'] = \
-            f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
+        response.headers[
+            "WWW-Authenticate"
+        ] = f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
 
 
 def check_authorization(capability: str, verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
@@ -281,30 +350,14 @@ def get_check_access_functions() -> List[Callable]:
     :return: A callable for check access
     """
     callables = []
-    for checker_name in current_app.config['ACCESS_CHECKS']:
+    for checker_name in current_app.config["ACCESS_CHECKS"]:
         callables.append(current_app.ACCESS_CHECK_CALLABLES[checker_name])
     return callables
 
 
-def configure():
-    parser = argparse.ArgumentParser(description='Authenticate HTTP Requests')
-    parser.add_argument('-c', '--config', dest='config', type=str,
-                        default="/etc/jwt-authorizer/authorizer.yaml",
-                        help="Location of the yaml configuration file")
-
-    args = parser.parse_args()
-
-    # Read in configuration
-    Config.validate(app, args.config)
+def configure(settings_path=None):
+    settings_path = settings_path or "/etc/jwt-authorizer/authorizer.yaml"
+    Config.validate(app, settings_path)
 
 
 configure()
-
-
-def main():
-    # Set up listener for events
-    app.run(host='localhost', port=8080)
-
-
-if __name__ == "__main__":
-    main()

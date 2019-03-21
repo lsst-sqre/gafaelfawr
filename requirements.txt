@@ -6,3 +6,6 @@ cachetools
 uwsgi
 pyyaml
 dynaconf
+redis
+flask_wtf
+wtforms
