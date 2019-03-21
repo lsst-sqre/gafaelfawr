@@ -28,7 +28,7 @@ import os
 import struct
 from calendar import timegm
 from datetime import datetime
-from typing import Any, Mapping, Optional, Dict
+from typing import Any, Mapping, Optional, Dict, Union
 
 import jwt
 import redis  # type: ignore
@@ -39,8 +39,8 @@ from cryptography.hazmat.primitives import serialization  # type: ignore
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers  # type: ignore
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # type: ignore
 from flask import current_app
-from flask_wtf import FlaskForm
-from wtforms import BooleanField, SubmitField
+from flask_wtf import FlaskForm  # type: ignore
+from wtforms import BooleanField, SubmitField  # type: ignore
 
 from .config import ALGORITHM
 
@@ -115,7 +115,7 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
 
     def _base64_to_long(data):
         data = data.encode("ascii")
-        decoded = base64.urlsafe_b64decode(bytes(data) + b"==")
+        decoded = base64.urlsafe_b64decode(add_padding(bytes(data)))
         unpacked = struct.unpack("%sB" % len(decoded), decoded)
         key_as_long = int("".join(["{:02x}".format(b) for b in unpacked]), 16)
         return key_as_long
@@ -178,7 +178,7 @@ def o2proxy_store_token_redis(
     :param session_handle: A period-delimited pair of [handle].[initialization vector]
     """
     session_key, iv_encoded = session_handle.split(".")
-    iv = base64.b64decode(iv_encoded)
+    iv = base64.urlsafe_b64decode(add_padding(iv_encoded.encode()))
     encrypted_oauth2_session = _o2proxy_encrypted_session(iv, email, user, expires, token)
     redis_pool = current_app.redis_pool
     redis_client = redis.Redis(connection_pool=redis_pool)
@@ -262,3 +262,9 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     # Use URL Safe base64 encode
     sig_base64: bytes = base64.urlsafe_b64encode(h.digest())
     return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
+
+
+def add_padding(encoded: bytes) -> bytes:
+    """Add padding to base64 encoded bytes"""
+    underflow = len(encoded) % 4
+    return encoded + (b"=" * underflow)

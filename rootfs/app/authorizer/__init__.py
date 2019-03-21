@@ -141,10 +141,10 @@ def new_tokens():
         # new_token['isMemberOf'] = decoded_token['isMemberOf']
 
         jti = hashlib.sha1(os.urandom(16)).hexdigest()
-        new_token['jti'] = jti
+        new_token["jti"] = jti
 
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
-        iv = base64.b64encode(os.urandom(16)).decode("utf-8")
+        iv = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
         oauth2_proxy_cookie = f"{jti}.{iv}"
 
         _ = issue_token(
@@ -182,16 +182,14 @@ def _make_success_headers(response: Response, encoded_token: str):
     # this application uses to reissue a token
     reissue_token = request.args.get("reissue_token", "").lower() == "true"
     if reissue_token and decoded_token["iss"] != current_app.config.get("OAUTH2_JWT_ISS"):
+        new_token = dict(decoded_token)
         oauth2_proxy_cookie = request.cookies["_oauth2_proxy"]
-        jti = oauth2_proxy_cookie.split(".")[0]
+        handle = oauth2_proxy_cookie.split(".")[0]
         # Use token handle as `jti`
-        decoded_token['jti'] = jti
+        new_token["jti"] = handle
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
         encoded_token = issue_token(
-            decoded_token,
-            aud=decoded_token["aud"],
-            exp=exp,
-            oauth2_proxy_cookie=oauth2_proxy_cookie,
+            new_token, aud=new_token["aud"], exp=exp, oauth2_proxy_cookie=oauth2_proxy_cookie
         )
         response.headers["X-Auth-Request-Token-Handle"] = oauth2_proxy_cookie
 
