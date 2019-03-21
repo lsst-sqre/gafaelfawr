@@ -28,7 +28,7 @@ import os
 import struct
 from calendar import timegm
 from datetime import datetime
-from typing import Any, Mapping, Optional, Dict, Union
+from typing import Any, Mapping, Optional, Dict
 
 import jwt
 import redis  # type: ignore
