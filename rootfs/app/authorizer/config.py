@@ -116,13 +116,13 @@ class Config:
 
         if settings.get("OAUTH2_STORE_SESSION"):
             proxy_config = settings["OAUTH2_STORE_SESSION"]
-            key_prefix = proxy_config["KEY_PREFIX"]
+            ticket_prefix = proxy_config["TICKET_PREFIX"]
             secret = proxy_config["OAUTH2_PROXY_SECRET"]
             assert len(secret), "OAUTH2_PROXY_SECRET must be set"
             app.redis_pool = redis.ConnectionPool.from_url(url=proxy_config["REDIS_URL"])
             logger.info(
                 f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
-                f"with prefix: {key_prefix}"
+                f"with prefix: {ticket_prefix}"
             )
 
         # Find Resource Check Callables

@@ -79,15 +79,7 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
         return True, ""
 
     # Authorization Checks
-    capabilities = request.args.getlist("capability")
-    satisfy = request.args.get("satisfy") or "all"
-
-    # If no capability have been explicitly delineated in the URI,
-    # get them from the request method. These shouldn't happen for properly
-    # configured applications
-    assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
-    assert capabilities, "ERROR: Check nginx auth_request url (capability_names)"
-
+    capabilities, satisfy = verify_authorization_strategy()
     successes = []
     messages = []
     for capability in capabilities:
@@ -200,3 +192,21 @@ def _group_membership_get_group(capability: str) -> str:
     assert capability, "Error: Capability not found in group mapping"
     assert isinstance(group, str) and group, "Error: No group mapping for capability"
     return group
+
+
+def verify_authorization_strategy() -> Tuple[List[str], str]:
+    """
+    Build the authorization strategy for the request.
+    :return: A list of capabilities to check, and the strategy to check
+    them by.
+    """
+    # Authorization Checks
+    capabilities = request.args.getlist("capability")
+    satisfy = request.args.get("satisfy") or "all"
+
+    # If no capability have been explicitly delineated in the URI,
+    # get them from the request method. These shouldn't happen for properly
+    # configured applications
+    assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
+    assert capabilities, "ERROR: Check nginx auth_request url (capability_names)"
+    return capabilities, satisfy

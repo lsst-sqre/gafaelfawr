@@ -31,7 +31,7 @@ import jwt
 from flask import request, Response, current_app, render_template, flash, redirect, url_for
 from jwt import PyJWTError
 
-from .authnz import authenticate, authorize
+from .authnz import authenticate, authorize, verify_authorization_strategy
 from .config import Config, AuthorizerApp
 from .token import issue_token, api_capabilities_token_form, new_oauth2_proxy_ticket
 
@@ -40,6 +40,8 @@ logger = logging.getLogger(__name__)
 
 app = AuthorizerApp(__name__)
 
+
+ORIGINAL_TOKEN_HEADER = "X-Orig-Authorization"
 
 
 @app.route("/auth")
@@ -72,7 +74,7 @@ def authnz_token():  # type: ignore
         _make_needs_authentication(response, "No Authorization header", "")
         return response
 
-    encoded_token = _find_token()
+    encoded_token = _find_token("Authorization")
     if not encoded_token:
         _make_needs_authentication(response, "Unable to find token", "")
         return response
@@ -89,6 +91,9 @@ def authnz_token():  # type: ignore
 
     # Authorization
     success, message = authorize(verified_token)
+
+    # Add info about authorization whether or not authorization succeeded
+    _make_capability_headers(response, encoded_token)
 
     jti = verified_token.get("jti", "UNKNOWN")
     if success:
@@ -166,10 +171,24 @@ def new_tokens():  # type: ignore
     )
 
 
-def _make_success_headers(response: Response, encoded_token: str):
+def _make_capability_headers(response: Response, encoded_token: str) -> None:
+    """Set Headers scope headers that can be returned in the case of
+    API authorization failure due to required capabiliites.
+    :return: The mutated response object.
+    """
+    decoded_token = jwt.decode(encoded_token, verify=False)
+    capabilities, satisfy = verify_authorization_strategy()
+    response.headers["X-Auth-Request-Token-Capabilities"] = decoded_token.get("scope")
+    response.headers["X-Auth-Request-Capabilities-Accepted"] = capabilities
+    response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
+
+
+def _make_success_headers(response: Response, encoded_token: str) -> None:
     """Set Headers that will be returned in a successful response.
     :return: The mutated response object.
     """
+    _make_capability_headers(response, encoded_token)
+
     decoded_token = jwt.decode(encoded_token, verify=False)
     if current_app.config["SET_USER_HEADERS"]:
         email = decoded_token.get("email")
@@ -258,12 +277,13 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     return encoded_token, oauth2_proxy_ticket
 
 
-def _find_token() -> Optional[str]:
+def _find_token(header: str) -> Optional[str]:
     """
     From the request, find the token we need. Normally it should
     be in the Authorization header of type ``Bearer``, but it may
     be of type Basic for clients that don't support OAuth.
-    :return: The token, if found, otherwise None.
+    :type header: HTTP Header to check for token
+    :return: The token text, if found, otherwise None.
     """
     header_value = request.headers.get(header, "")
     if not header_value or " " not in header_value:
