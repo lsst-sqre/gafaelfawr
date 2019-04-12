@@ -22,26 +22,28 @@
 
 import base64
 import hashlib
-from datetime import datetime, timedelta
 import logging
 import os
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Optional, Any, Dict, Mapping, Tuple
 
 import jwt
-from flask import Flask, request, Response, current_app, render_template, flash, redirect, url_for
+from flask import request, Response, current_app, render_template, flash, redirect, url_for
 from jwt import PyJWTError
 
 from .authnz import authenticate, authorize
-from .config import Config, ALGORITHM
-from .token import issue_token, get_key_as_pem, api_capabilities_token_form
+from .config import Config, AuthorizerApp
+from .token import issue_token, api_capabilities_token_form, new_oauth2_proxy_ticket
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-app = Flask(__name__)
+
+app = AuthorizerApp(__name__)
+
 
 
 @app.route("/auth")
-def authnz_token():
+def authnz_token():  # type: ignore
     """
     Authenticate and authorize a token.
     :query capability: one or more capabilities to check.
@@ -103,7 +105,7 @@ def authnz_token():
 
 
 @app.route("/auth/tokens/new", methods=["GET", "POST"])
-def new_tokens():
+def new_tokens():  # type: ignore
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
         decoded_token = authenticate(encoded_token)
@@ -123,7 +125,7 @@ def new_tokens():
             if form[capability].data:
                 new_capabilities.append(capability)
 
-        new_token = {"scp": new_capabilities}
+        new_token: Dict[str, Any] = {"scp": new_capabilities}
         email = decoded_token.get("email")
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
         uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
@@ -263,7 +265,10 @@ def _find_token() -> Optional[str]:
     be of type Basic for clients that don't support OAuth.
     :return: The token, if found, otherwise None.
     """
-    auth_type, auth_blob = request.headers["Authorization"].split(" ")
+    header_value = request.headers.get(header, "")
+    if not header_value or " " not in header_value:
+        return None
+    auth_type, auth_blob = header_value.split(" ")
     encoded_token = None
     if auth_type.lower() == "bearer":
         encoded_token = auth_blob
@@ -280,18 +285,17 @@ def _find_token() -> Optional[str]:
         user, password = basic_auth.strip().split(b":")
         if password == "x-oauth-basic":
             # Recommended default
-            encoded_token = user
+            encoded_token = user.decode()
         elif user == "x-oauth-basic":
             # ... Could be this though
-            logger.warning("Protocol `x-oauth-basic` should be in password field")
-            encoded_token = password
+            encoded_token = password.decode()
         else:
             logger.info("No protocol for token specified")
-            encoded_token = user
+            encoded_token = user.decode()
     return encoded_token
 
 
-def _make_needs_authentication(response: Response, error: str, message: str):
+def _make_needs_authentication(response: Response, error: str, message: str) -> None:
     """Modify response for a 401 as appropriate"""
     response.status_code = 401
     response.set_data(error)
@@ -307,7 +311,7 @@ def _make_needs_authentication(response: Response, error: str, message: str):
         ] = f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
 
 
-def configure(settings_path=None):
+def configure(settings_path: Optional[str] = None) -> None:
     settings_path = settings_path or "/etc/jwt-authorizer/authorizer.yaml"
     Config.validate(app, settings_path)
 

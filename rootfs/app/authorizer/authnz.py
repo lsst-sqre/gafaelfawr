@@ -20,12 +20,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
-from typing import Dict, Any, Tuple, List, Mapping, Callable
+from typing import Dict, Any, Tuple, List, Mapping
 
 import jwt
 from flask import current_app, request
 from jwt import InvalidIssuerError
 
+from .config import AccessT
 from .token import get_key_as_pem, ALGORITHM
 
 logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ def check_authorization(capability: str, verified_token: Mapping[str, Any]) -> T
     return success, message
 
 
-def get_check_access_functions() -> List[Callable]:
+def get_check_access_functions() -> List[AccessT]:
     """
     Return the check access callable for a resource.
     :return: A callable for check access
@@ -145,7 +146,7 @@ def get_check_access_functions() -> List[Callable]:
     return callables
 
 
-def scp_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]:
+def scp_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this
     service based on the assumption the token has a "scp" claim.
     :param capability: The capability we are checking against
@@ -161,7 +162,7 @@ def scp_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]
     return False, f"No capability found: {capability}"
 
 
-def group_membership_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]:
+def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this
     service based on some form of group membership.
     Also checks `scp` as in :py:func:`scp_check_access`.
@@ -196,6 +197,6 @@ def _group_membership_get_group(capability: str) -> str:
     :return: A string value of the group for this capability.
     """
     group = current_app.config["GROUP_MAPPING"].get(capability)
-    assert capability is not None, "Error: Capability not found in group mapping"
-    assert group is not None, "Error: No group mapping for capability"
+    assert capability, "Error: Capability not found in group mapping"
+    assert isinstance(group, str) and group, "Error: No group mapping for capability"
     return group

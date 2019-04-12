@@ -22,23 +22,29 @@
 
 import logging
 import os
-from typing import Callable, Dict, Tuple
+from typing import Callable, Tuple, Mapping, Any
 
 import redis  # type: ignore
 from dynaconf import FlaskDynaconf, Validator  # type: ignore
+from flask import Flask
 
 logger = logging.getLogger(__name__)
 
 ALGORITHM = "RS256"
+AccessT = Callable[[str, Mapping[str, Any]], Tuple[bool, str]]
+
+
+class AuthorizerApp(Flask):
+    ACCESS_CHECK_CALLABLES: Mapping[str, AccessT] = {}
 
 
 class Config:
     @staticmethod
-    def configure_plugins(app):
+    def configure_plugins(app: AuthorizerApp) -> None:
         from .authnz import scp_check_access, group_membership_check_access
         from .lsst import lsst_group_membership_check_access, lsst_users_membership_check_access
 
-        app.ACCESS_CHECK_CALLABLES: Dict[str, Callable[[str, Dict], Tuple[bool, str]]] = {
+        app.ACCESS_CHECK_CALLABLES = {
             "scp": scp_check_access,
             "group_membership": group_membership_check_access,
             "lsst_group_membership": lsst_group_membership_check_access,
@@ -46,7 +52,7 @@ class Config:
         }
 
     @staticmethod
-    def validate(app, user_config):
+    def validate(app: AuthorizerApp, user_config: str) -> None:
         global logger
         Config.configure_plugins(app)
         defaults_file = os.path.join(os.path.dirname(__file__), "defaults.yaml")
