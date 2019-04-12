@@ -23,12 +23,13 @@
 import base64
 import hashlib
 import hmac
+import json
 import logging
 import os
 import struct
 from calendar import timegm
 from datetime import datetime
-from typing import Any, Mapping, Optional, Dict
+from typing import Any, Mapping, Optional, Dict, cast
 
 import jwt
 import redis  # type: ignore
@@ -47,59 +48,67 @@ from .config import ALGORITHM
 logger = logging.getLogger(__name__)
 
 
-def issue_token(token: Mapping[str, Any], aud: str, exp: datetime, oauth2_proxy_cookie: str) -> str:
+def issue_token(
+    payload: Mapping[str, Any],
+    aud: str,
+    exp: datetime,
+    jti: str,
+    store_user_info: bool,
+    oauth2_proxy_ticket: str,
+) -> str:
     """
     Issue a token.
     This makes a copy of the token, sets the audience, expiration,
     issuer, and issue time as appropriate, and then returns the
     token in encoded form. If configured, it will also store the
     newly issued token a oauth2_proxy redis session store.
-    :param exp: The time of expiration.
-    :param token: The token to reissues
+    :param payload: The payload of claims for the token.
     :param aud: The new audience for the token.
-    :param oauth2_proxy_cookie: The value of the oauth2_proxy_cookie
+    :param exp: The time of expiration.
+    :param jti: The token's identity
+    :param store_user_info: Store info about this token for the user.
+    :param oauth2_proxy_ticket: The value of the oauth2_proxy_cookie
     :return: Encoded token
     """
-    reissued_token = dict(token)
+    # Make a copy first
+    payload = dict(payload)
 
-    # Some fields may need to be masked from reissued_token
-    reissued_token.update(
-        exp=exp, iss=current_app.config["OAUTH2_JWT_ISS"], aud=aud, iat=datetime.utcnow()
+    # Overwrite relevant claims from previous issuer
+    payload.update(
+        exp=exp, iss=current_app.config["OAUTH2_JWT_ISS"], aud=aud, iat=datetime.utcnow(), jti=jti
     )
 
     private_key = current_app.config["OAUTH2_JWT_KEY"]
     headers = {"kid": current_app.config["OAUTH2_JWT_KEY_ID"]}
     encoded_reissued_token = jwt.encode(
-        reissued_token, private_key, algorithm=ALGORITHM, headers=headers
+        payload, private_key, algorithm=ALGORITHM, headers=headers
     ).decode("utf-8")
 
-    if current_app.config.get("OAUTH2_STORE_SESSION") and oauth2_proxy_cookie:
-        # Use the same email field as oauth2_proxy, if available
-        email = reissued_token.get("email")
-        # Use our definition of username, if possible
-        user = reissued_token.get(current_app.config["JWT_USERNAME_KEY"])
-        o2proxy_store_token_redis(user, email, exp, encoded_reissued_token, oauth2_proxy_cookie)
+    if current_app.config.get("OAUTH2_STORE_SESSION") and oauth2_proxy_ticket:
+        o2proxy_store_token_redis(
+            payload, exp, encoded_reissued_token, store_user_info, oauth2_proxy_ticket
+        )
     return encoded_reissued_token
 
 
-def api_capabilities_token_form(capabilities: Dict[str, Dict]):
+def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> FlaskForm:
     """
     Dynamically generates a form based on capability_names.
     :param capabilities: A grouping of capability_names.
     :return:
     """
 
-    class NewCapabilitiesToken(FlaskForm):
+    class NewCapabilitiesToken(FlaskForm):  # type: ignore
         submit = SubmitField("Generate New Token")
 
     NewCapabilitiesToken.capability_names = list(capabilities)
     for capability, description in capabilities.items():
         field = BooleanField(label=capability, description=description)
         setattr(NewCapabilitiesToken, capability, field)
-    return NewCapabilitiesToken()
+    return cast(FlaskForm, NewCapabilitiesToken())
 
 
-@cached(cache=TTLCache(maxsize=16, ttl=600))
+@cached(cache=TTLCache(maxsize=16, ttl=600))  # type: ignore
 def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     """
     Gets a key as PEM, given the issuer and the request key id.
@@ -113,20 +122,20 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     there's an obvious configuration issue
     """
 
-    def _base64_to_long(data):
-        data = data.encode("ascii")
-        decoded = base64.urlsafe_b64decode(add_padding(bytes(data)))
+    def _base64_to_long(data: bytearray) -> int:
+        decoded = base64.urlsafe_b64decode(add_padding(data))
         unpacked = struct.unpack("%sB" % len(decoded), decoded)
         key_as_long = int("".join(["{:02x}".format(b) for b in unpacked]), 16)
         return key_as_long
 
-    def _convert(exponent, modulus):
+    def _convert(exponent: int, modulus: int) -> bytearray:
         components = RSAPublicNumbers(exponent, modulus)
         pub = components.public_key(backend=default_backend())
-        return pub.public_bytes(
+        key_bytes = pub.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
+        return cast(bytearray, key_bytes)
 
     issuer = current_app.config["ISSUERS"][issuer_url]
     logger.debug(f"Getting keys for: {issuer_url}")
@@ -167,29 +176,37 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
 
 
 def o2proxy_store_token_redis(
-    user: Optional[str], email: Optional[str], expires: datetime, token: str, session_handle: str
+    payload: Dict[str, Any],
+    expires: datetime,
+    token: str,
+    store_user_info: bool,
+    oauth2_proxy_ticket: str,
 ) -> None:
     """
     Store a token in redis in the oauth2_proxy encoded token format.
-    :param user: The username, if available
-    :param email: The email, if available
+    :param payload: The JWT payload
     :param expires: When this token expires.
     :param token: The token to encode.
-    :param session_handle: A period-delimited pair of [handle].[initialization vector]
+    :param oauth2_proxy_ticket: A period-delimited pair of [handle].[initialization vector]
     """
-    session_key, iv_encoded = session_handle.split(".")
+    # Use the same email field as oauth2_proxy
+    email = payload["email"]
+    # Use our definition of username, if possible
+    user = payload.get(current_app.config["JWT_USERNAME_KEY"])
+    handle, iv_encoded = oauth2_proxy_ticket.split(".")
     iv = base64.urlsafe_b64decode(add_padding(iv_encoded.encode()))
-    encrypted_oauth2_session = _o2proxy_encrypted_session(iv, email, user, expires, token)
+    encrypted_oauth2_session = _o2proxy_encrypted_session(iv, user, email, expires, token)
     redis_pool = current_app.redis_pool
     redis_client = redis.Redis(connection_pool=redis_pool)
-    key_prefix = current_app.config["OAUTH2_STORE_SESSION"]["KEY_PREFIX"]
-    key = key_prefix + ":" + session_key
     expires_delta = expires - datetime.utcnow()
-    redis_client.setex(key, expires_delta, encrypted_oauth2_session)
+    with redis_client.pipeline() as pipeline:
+        pipeline.setex(handle, expires_delta, encrypted_oauth2_session)
+        if store_user_info:
+            pipeline.rpush(user_tokens_redis_key(email), json.dumps(payload))
 
 
 def _o2proxy_encrypted_session(
-    iv: bytes, user: Optional[str], email: Optional[str], expires: datetime, token: str
+    iv: bytes, user: Optional[str], email: str, expires: datetime, token: str
 ) -> bytes:
     """
     Take in the data for an encrypting an oauth2_proxy session and
@@ -264,7 +281,18 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
 
 
+def new_oauth2_proxy_ticket(jti: str) -> str:
+    iv = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
+    ticket_prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    handle = f"{ticket_prefix}:{jti}"
+    return f"{handle}.{iv}"
+
+
 def add_padding(encoded: bytes) -> bytes:
     """Add padding to base64 encoded bytes"""
     underflow = len(encoded) % 4
     return encoded + (b"=" * underflow)
+
+
+def user_tokens_redis_key(email: str) -> str:
+    return f"tokens:{email}"

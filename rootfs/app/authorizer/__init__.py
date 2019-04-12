@@ -66,7 +66,7 @@ def authnz_token():
     # Default to Server Error for safety, so we must always set it to 200
     # if it's okay.
     response = Response(status=500)
-    if "Authorization" not in request.headers and "x-oauth-basic" not in request.cookies:
+    if "Authorization" not in request.headers:
         _make_needs_authentication(response, "No Authorization header", "")
         return response
 
@@ -142,16 +142,20 @@ def new_tokens():
         new_token["jti"] = jti
 
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
-        iv = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
-        oauth2_proxy_cookie = f"{jti}.{iv}"
 
+        oauth2_proxy_ticket = new_oauth2_proxy_ticket(jti)
         _ = issue_token(
-            new_token, aud=decoded_token["aud"], exp=exp, oauth2_proxy_cookie=oauth2_proxy_cookie
+            new_token,
+            aud=decoded_token["aud"],
+            exp=exp,
+            jti=jti,
+            store_user_info=True,
+            oauth2_proxy_ticket=oauth2_proxy_ticket,
         )
 
         flash(
             f"Your Newly Created Token. Keep these Secret!<br>\n"
-            f"Token: {oauth2_proxy_cookie} <br>"
+            f"Token: {oauth2_proxy_ticket} <br>"
         )
         return redirect(url_for("new_tokens"))
 
@@ -169,29 +173,87 @@ def _make_success_headers(response: Response, encoded_token: str):
         email = decoded_token.get("email")
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
         uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
+        groups_list = decoded_token.get("isMemberOf", list())
         if email:
-            response.headers["X-Auth-Request-Email"] = uid
+            response.headers["X-Auth-Request-Email"] = email
         if user:
             response.headers["X-Auth-Request-User"] = user
         if uid:
             response.headers["X-Auth-Request-Uid"] = uid
+        if groups_list:
+            groups = ",".join([g["name"] for g in groups_list])
+            response.headers["X-Auth-Request-Groups"] = groups
 
+    ticket_prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    original_auth = _find_token(ORIGINAL_TOKEN_HEADER) or ""
+    oauth2_proxy_ticket = original_auth if original_auth.startswith(f"{ticket_prefix}:") else ""
+    reissue_requested = request.args.get("reissue_token", "").lower() == "true"
+    if reissue_requested:
+        encoded_token, oauth2_proxy_ticket = _check_reissue_token(encoded_token, decoded_token)
+    response.headers["X-Auth-Request-Token"] = encoded_token
+    response.headers["X-Auth-Request-Token-Ticket"] = oauth2_proxy_ticket
+
+
+def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -> Tuple[str, str]:
+    """
+    Reissue the token under two scenarios.
+    The first scenario is a newly logged in session with a cookie,
+    indicated by the token being issued from another issuer.
+    We reissue the token with a default audience.
+    The second scenario is a request to an internal resource, as
+    indicated by the `audience` parameter being equal to the
+    configured internal audience, where the current token's audience
+    is from the default audience.
+    :param encoded_token: The current token, encoded
+    :param decoded_token: The current token, decoded
+    :return: An encoded token, which may have been reissued.
+    """
     # Only reissue token if it's requested and if it's a different issuer than
     # this application uses to reissue a token
-    reissue_token = request.args.get("reissue_token", "").lower() == "true"
-    if reissue_token and decoded_token["iss"] != current_app.config.get("OAUTH2_JWT_ISS"):
-        new_token = dict(decoded_token)
-        oauth2_proxy_cookie = request.cookies["_oauth2_proxy"]
-        handle = oauth2_proxy_cookie.split(".")[0]
-        # Use token handle as `jti`
-        new_token["jti"] = handle
+    iss = current_app.config.get("OAUTH2_JWT_ISS", "")
+    assert len(iss), "ERROR: Reissue requested but no Issuer Configured"
+    default_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
+    internal_audience = current_app.config.get("OAUTH2_JWT.AUD.INTERNAL", "")
+    to_internal_audience = request.args.get("audience") == internal_audience
+    from_this_issuer = decoded_token["iss"] == iss
+    from_default_audience = decoded_token["aud"] == default_audience
+    oauth2_proxy_ticket = request.cookies.get("_oauth2_proxy", "")
+
+    if not from_this_issuer:
+        # These are inherently new sessions
+        # This should happen only once, after initial login.
+        # We transform the external provider tokens to internal tokens
+        # with a fixed lifetime
+        assert len(oauth2_proxy_ticket), "ERROR: OAuth2 Proxy ticket must exist"
+        # If we are here, we haven't reissued a token and we're using Cookies
+        # Since we already had a ticket, use token handle as `jti`
+        jti = oauth2_proxy_ticket.split(".")[0]
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
         encoded_token = issue_token(
-            new_token, aud=new_token["aud"], exp=exp, oauth2_proxy_cookie=oauth2_proxy_cookie
+            decoded_token,
+            aud=default_audience,
+            exp=exp,
+            jti=jti,
+            store_user_info=False,
+            oauth2_proxy_ticket=oauth2_proxy_ticket,
         )
-        response.headers["X-Auth-Request-Token-Handle"] = oauth2_proxy_cookie
+    elif from_this_issuer and from_default_audience and to_internal_audience:
+        # Requests to Internal Audiences
+        # We should always have a `jti`
+        jti = decoded_token["jti"]
+        exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+        # Note: Internal audiences should not need the ticket
+        oauth2_proxy_ticket = new_oauth2_proxy_ticket(jti)
+        encoded_token = issue_token(
+            decoded_token,
+            aud=internal_audience,
+            exp=exp,
+            jti=jti,
+            store_user_info=False,
+            oauth2_proxy_ticket=oauth2_proxy_ticket,
+        )
 
-    response.headers["X-Auth-Request-Token"] = encoded_token
+    return encoded_token, oauth2_proxy_ticket
 
 
 def _find_token() -> Optional[str]:
