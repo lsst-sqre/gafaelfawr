@@ -61,6 +61,19 @@ class Config:
             Validator("ISSUERS", is_type_of=dict, must_exist=True),
         )
 
+        if settings.get("OAUTH2_JWT.ISS"):
+            iss = settings["OAUTH2_JWT.ISS"]
+            kid = settings["OAUTH2_JWT.KEY_ID"]
+            logger.info(f"Configuring Token Issuer: {iss} with Key ID {kid}")
+
+            if settings.get("OAUTH2_JWT.AUD.DEFAULT"):
+                aud = settings.get("OAUTH2_JWT.AUD.DEFAULT")
+                logger.info(f"Configured Default Audience: {aud}")
+
+            if settings.get("OAUTH2_JWT.AUD.INTERNAL"):
+                aud = settings.get("OAUTH2_JWT.AUD.DEFAULT")
+                logger.info(f"Configured Internal Audience: {aud}")
+
         if settings.get("SECRET_KEY"):
             app.secret_key = settings["SECRET_KEY"]
 
@@ -112,7 +125,7 @@ class Config:
                 raise Exception(f"No access checker for id {access_check_name}")
             logger.info(f"Configured default access checks: {access_check_name}")
 
-        # Sections
+        # Issuers
         for issuer_url, issuer_info in settings["ISSUERS"].items():
             # if 'map_subject' in cp.options(section):
             #     issuer_info['map_subject'] = cp.getboolean(section, 'map_subject')
