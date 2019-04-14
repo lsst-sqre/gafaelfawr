@@ -138,9 +138,9 @@ def get_check_access_functions() -> List[AccessT]:
     return callables
 
 
-def scp_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, str]:
+def scope_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this
-    service based on the assumption the token has a "scp" claim.
+    service based on the assumption the token has a "scope" claim.
     :param capability: The capability we are checking against
     :param token: The token necessary
     :rtype: Tuple[bool, str]
@@ -148,7 +148,7 @@ def scp_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, s
     scitoken allows for op and the user can read/write the file, otherwise
     return (False, message)
     """
-    capabilites = set(token.get("scp", list()))
+    capabilites = set(token.get("scope", "").split(" "))
     if capability in capabilites:
         return True, "Success"
     return False, f"No capability found: {capability}"
@@ -157,7 +157,7 @@ def scp_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, s
 def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this
     service based on some form of group membership.
-    Also checks `scp` as in :py:func:`scp_check_access`.
+    Also checks `scope` as in :py:func:`scope_check_access`.
     :param capability: The capability we are checking against
     :param token: The token necessary
     :rtype: Tuple[bool, str]
@@ -174,12 +174,12 @@ def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> 
     if capability_group in user_groups_map:
         return True, "Success"
 
-    # Check `scp` next
-    capabilites = set(token.get("scp", list()))
+    # Check `scope` next
+    capabilites = set(token.get("scope", "").split(" "))
     if capability in capabilites:
         return True, "Success"
 
-    return False, "No Capability group found in user's `isMemberOf` or capability in `scp`"
+    return False, "No Capability group found in user's `isMemberOf` or capability in `scope`"
 
 
 def _group_membership_get_group(capability: str) -> str:
