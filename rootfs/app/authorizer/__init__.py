@@ -21,9 +21,7 @@
 
 
 import base64
-import hashlib
 import logging
-import os
 from datetime import datetime, timedelta
 from typing import Optional, Any, Dict, Mapping, Tuple
 
@@ -33,7 +31,12 @@ from jwt import PyJWTError
 
 from .authnz import authenticate, authorize, verify_authorization_strategy
 from .config import Config, AuthorizerApp
-from .token import issue_token, api_capabilities_token_form, new_oauth2_proxy_ticket
+from .token import (
+    issue_token,
+    api_capabilities_token_form,
+    new_oauth2_proxy_ticket,
+    new_oauth2_proxy_handle,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -129,8 +132,9 @@ def new_tokens():  # type: ignore
         for capability in capabilities:
             if form[capability].data:
                 new_capabilities.append(capability)
-
-        new_token: Dict[str, Any] = {"scp": new_capabilities}
+        scope = " ".join(new_capabilities)
+        aud = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", decoded_token["aud"])
+        new_token: Dict[str, Any] = {"scope": scope, "aud": aud}
         email = decoded_token.get("email")
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
         uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
@@ -145,19 +149,13 @@ def new_tokens():  # type: ignore
         #
         # new_token['isMemberOf'] = decoded_token['isMemberOf']
 
-        jti = hashlib.sha1(os.urandom(16)).hexdigest()
-        new_token["jti"] = jti
+        ticket_handle = new_oauth2_proxy_handle()
+        new_token["jti"] = ticket_handle
 
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
-
-        oauth2_proxy_ticket = new_oauth2_proxy_ticket(jti)
+        oauth2_proxy_ticket = new_oauth2_proxy_ticket(ticket_handle)
         _ = issue_token(
-            new_token,
-            aud=decoded_token["aud"],
-            exp=exp,
-            jti=jti,
-            store_user_info=True,
-            oauth2_proxy_ticket=oauth2_proxy_ticket,
+            new_token, exp=exp, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket
         )
 
         flash(
@@ -178,8 +176,8 @@ def _make_capability_headers(response: Response, encoded_token: str) -> None:
     """
     decoded_token = jwt.decode(encoded_token, verify=False)
     capabilities, satisfy = verify_authorization_strategy()
-    response.headers["X-Auth-Request-Token-Capabilities"] = decoded_token.get("scope")
-    response.headers["X-Auth-Request-Capabilities-Accepted"] = capabilities
+    response.headers["X-Auth-Request-Token-Capabilities"] = decoded_token.get("scope", "")
+    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities)
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
 
 
@@ -231,7 +229,7 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     """
     # Only reissue token if it's requested and if it's a different issuer than
     # this application uses to reissue a token
-    iss = current_app.config.get("OAUTH2_JWT_ISS", "")
+    iss = current_app.config.get("OAUTH2_JWT.ISS", "")
     assert len(iss), "ERROR: Reissue requested but no Issuer Configured"
     default_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
     internal_audience = current_app.config.get("OAUTH2_JWT.AUD.INTERNAL", "")
@@ -241,6 +239,7 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     oauth2_proxy_ticket = request.cookies.get("_oauth2_proxy", "")
 
     if not from_this_issuer:
+        payload = dict(decoded_token)
         # These are inherently new sessions
         # This should happen only once, after initial login.
         # We transform the external provider tokens to internal tokens
@@ -248,30 +247,49 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
         assert len(oauth2_proxy_ticket), "ERROR: OAuth2 Proxy ticket must exist"
         # If we are here, we haven't reissued a token and we're using Cookies
         # Since we already had a ticket, use token handle as `jti`
-        jti = oauth2_proxy_ticket.split(".")[0]
+        previous_jti = decoded_token.get("jti", "")
+        previous_iss = decoded_token["iss"]
+        previous_aud = decoded_token["aud"]
+        logger.debug(f"Exchanging from iss={previous_iss}, aud={previous_aud}, jti={previous_jti}")
+        payload["jti"] = oauth2_proxy_ticket.split(".")[0]
+        payload["aud"] = default_audience
+        actor_claim = {
+            "aud": previous_aud,
+            "iss": previous_iss,
+        }
+        if previous_jti:
+            actor_claim["jti"] = previous_jti
+        payload["act"] = actor_claim
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
         encoded_token = issue_token(
-            decoded_token,
-            aud=default_audience,
-            exp=exp,
-            jti=jti,
-            store_user_info=False,
-            oauth2_proxy_ticket=oauth2_proxy_ticket,
+            decoded_token, exp=exp, store_user_info=False, oauth2_proxy_ticket=oauth2_proxy_ticket
         )
     elif from_this_issuer and from_default_audience and to_internal_audience:
+        payload = dict(decoded_token)
         # Requests to Internal Audiences
         # We should always have a `jti`
-        jti = decoded_token["jti"]
+        ticket_handle = new_oauth2_proxy_handle()
+        oauth2_proxy_ticket = new_oauth2_proxy_ticket(ticket_handle)
+        previous_jti = decoded_token.get("jti", "")
+        previous_iss = decoded_token["iss"]
+        previous_aud = decoded_token["aud"]
+        logger.debug(f"Exchanging from iss={previous_iss}, aud={previous_aud}, jti={previous_jti}")
+        payload["jti"] = ticket_handle
+        payload["aud"] = internal_audience
+        # Store previous token information
+        actor_claim = {
+            "aud": previous_aud,
+            "iss": previous_iss,
+        }
+        if previous_jti:
+            actor_claim["jti"] = previous_jti
+        if "act" in decoded_token:
+            actor_claim["act"] = decoded_token["act"]
+        payload["act"] = actor_claim
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
         # Note: Internal audiences should not need the ticket
-        oauth2_proxy_ticket = new_oauth2_proxy_ticket(jti)
         encoded_token = issue_token(
-            decoded_token,
-            aud=internal_audience,
-            exp=exp,
-            jti=jti,
-            store_user_info=False,
-            oauth2_proxy_ticket=oauth2_proxy_ticket,
+            payload, exp=exp, store_user_info=False, oauth2_proxy_ticket=oauth2_proxy_ticket
         )
 
     return encoded_token, oauth2_proxy_ticket

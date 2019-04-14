@@ -44,8 +44,10 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
     """
     unverified_token = jwt.decode(encoded_token, verify=False)
     unverified_headers = jwt.get_unverified_header(encoded_token)
+    jti = unverified_token.get("jti", "UNKNOWN")
+    logger.debug(f"Authenticating token with jti: {jti}")
     if current_app.config["NO_VERIFY"] is True:
-        logger.debug("Skipping Verification of the token")
+        logger.debug(f"Skipping Verification of the token with jti: {jti}")
         return unverified_token
 
     issuer_url = unverified_token["iss"]
@@ -75,7 +77,10 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     :param verified_token: The decoded token used for authorization
     :return: A (success, message) pair. Success is true
     """
+    jti = verified_token.get("jti", "UNKNOWN")
+    logger.debug(f"Authorizing token with jti: {jti}")
     if current_app.config["NO_AUTHORIZE"] is True:
+        logger.debug(f"Skipping authorizatino for token with jti: {jti}")
         return True, ""
 
     # Authorization Checks
@@ -83,7 +88,7 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     successes = []
     messages = []
     for capability in capabilities:
-        logger.debug(f"Checking authorization for capability: {capability}")
+        logger.debug(f"Checking authorization for capability: '{capability}' for jti: {jti}")
         (success, message) = check_authorization(capability, verified_token)
         successes.append(success)
         if message:

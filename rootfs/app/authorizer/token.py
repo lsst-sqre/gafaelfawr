@@ -49,12 +49,7 @@ logger = logging.getLogger(__name__)
 
 
 def issue_token(
-    payload: Mapping[str, Any],
-    aud: str,
-    exp: datetime,
-    jti: str,
-    store_user_info: bool,
-    oauth2_proxy_ticket: str,
+    payload: Mapping[str, Any], exp: datetime, store_user_info: bool, oauth2_proxy_ticket: str
 ) -> str:
     """
     Issue a token.
@@ -63,23 +58,18 @@ def issue_token(
     token in encoded form. If configured, it will also store the
     newly issued token a oauth2_proxy redis session store.
     :param payload: The payload of claims for the token.
-    :param aud: The new audience for the token.
     :param exp: The time of expiration.
-    :param jti: The token's identity
     :param store_user_info: Store info about this token for the user.
     :param oauth2_proxy_ticket: The value of the oauth2_proxy_cookie
     :return: Encoded token
     """
     # Make a copy first
     payload = dict(payload)
-
     # Overwrite relevant claims from previous issuer
-    payload.update(
-        exp=exp, iss=current_app.config["OAUTH2_JWT_ISS"], aud=aud, iat=datetime.utcnow(), jti=jti
-    )
+    payload.update(iss=current_app.config["OAUTH2_JWT.ISS"], iat=datetime.utcnow(), exp=exp)
 
-    private_key = current_app.config["OAUTH2_JWT_KEY"]
-    headers = {"kid": current_app.config["OAUTH2_JWT_KEY_ID"]}
+    private_key = current_app.config["OAUTH2_JWT.KEY"]
+    headers = {"kid": current_app.config["OAUTH2_JWT.KEY_ID"]}
     encoded_reissued_token = jwt.encode(
         payload, private_key, algorithm=ALGORITHM, headers=headers
     ).decode("utf-8")
@@ -122,7 +112,7 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     there's an obvious configuration issue
     """
 
-    def _base64_to_long(data: bytearray) -> int:
+    def _base64_to_long(data: str) -> int:
         decoded = base64.urlsafe_b64decode(add_padding(data))
         unpacked = struct.unpack("%sB" % len(decoded), decoded)
         key_as_long = int("".join(["{:02x}".format(b) for b in unpacked]), 16)
@@ -187,14 +177,16 @@ def o2proxy_store_token_redis(
     :param payload: The JWT payload
     :param expires: When this token expires.
     :param token: The token to encode.
-    :param oauth2_proxy_ticket: A period-delimited pair of [handle].[initialization vector]
+    :param store_user_info: If true, store info user's issued token
+    :param oauth2_proxy_ticket: A period-delimited pair of
+    [handle].[initialization vector]
     """
     # Use the same email field as oauth2_proxy
     email = payload["email"]
     # Use our definition of username, if possible
     user = payload.get(current_app.config["JWT_USERNAME_KEY"])
     handle, iv_encoded = oauth2_proxy_ticket.split(".")
-    iv = base64.urlsafe_b64decode(add_padding(iv_encoded.encode()))
+    iv = base64.urlsafe_b64decode(add_padding(iv_encoded).encode())
     encrypted_oauth2_session = _o2proxy_encrypted_session(iv, user, email, expires, token)
     redis_pool = current_app.redis_pool
     redis_client = redis.Redis(connection_pool=redis_pool)
@@ -203,6 +195,7 @@ def o2proxy_store_token_redis(
         pipeline.setex(handle, expires_delta, encrypted_oauth2_session)
         if store_user_info:
             pipeline.rpush(user_tokens_redis_key(email), json.dumps(payload))
+        pipeline.execute()
 
 
 def _o2proxy_encrypted_session(
@@ -281,17 +274,21 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
 
 
-def new_oauth2_proxy_ticket(jti: str) -> str:
-    iv = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
+def new_oauth2_proxy_handle() -> str:
+    ticket_id = hashlib.sha1(os.urandom(16)).hexdigest()
     ticket_prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    handle = f"{ticket_prefix}:{jti}"
+    return f"{ticket_prefix}-{ticket_id}"
+
+
+def new_oauth2_proxy_ticket(handle: str) -> str:
+    iv = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
     return f"{handle}.{iv}"
 
 
-def add_padding(encoded: bytes) -> bytes:
+def add_padding(encoded: str) -> str:
     """Add padding to base64 encoded bytes"""
     underflow = len(encoded) % 4
-    return encoded + (b"=" * underflow)
+    return encoded + ("=" * underflow)
 
 
 def user_tokens_redis_key(email: str) -> str:
