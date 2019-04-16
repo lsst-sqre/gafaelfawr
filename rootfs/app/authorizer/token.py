@@ -302,6 +302,25 @@ def _get_tokens(user_id: str) -> Tuple[List[Mapping[str, Any]], List[str]]:
     return user_tokens, valid_serialized_user_tokens
 
 
+def revoke_token(user_id: str, handle: str) -> bool:
+    tokens, serialized_tokens = _get_tokens(user_id)
+    token_to_revoke: str = ""
+    for token, serialized_token in zip(tokens, serialized_tokens):
+        if token["jti"] == handle:
+            token_to_revoke = serialized_token
+    key = user_tokens_redis_key(user_id)
+    redis_pool = current_app.redis_pool
+    redis_client = redis.Redis(connection_pool=redis_pool)
+    serialized_user_tokens = redis_client.smembers(key)
+    # Clear out expired token references
+    if token_to_revoke:
+        with redis_client.pipeline() as pipeline:
+            pipeline.delete(handle)
+            pipeline.srem(key, token_to_revoke)
+        return True
+    return False
+
+
 def _o2proxy_encrypted_session(
     iv: bytes, user: Optional[str], email: str, expires: datetime, token: str
 ) -> bytes:
