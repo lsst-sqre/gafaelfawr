@@ -41,7 +41,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers  # ty
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # type: ignore
 from flask import current_app
 from flask_wtf import FlaskForm  # type: ignore
-from wtforms import BooleanField, SubmitField  # type: ignore
+from wtforms import BooleanField, SubmitField, HiddenField  # type: ignore
 
 from .config import ALGORITHM
 
@@ -169,6 +169,10 @@ def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> Flas
         field = BooleanField(label=capability, description=description)
         setattr(NewCapabilitiesToken, capability, field)
     return cast(FlaskForm, NewCapabilitiesToken())
+
+
+class AlterTokenForm(FlaskForm):
+    method_ = HiddenField("method_")
 
 
 @cached(cache=TTLCache(maxsize=16, ttl=600))  # type: ignore
@@ -317,6 +321,7 @@ def revoke_token(user_id: str, handle: str) -> bool:
         with redis_client.pipeline() as pipeline:
             pipeline.delete(handle)
             pipeline.srem(key, token_to_revoke)
+            pipeline.execute()
         return True
     return False
 

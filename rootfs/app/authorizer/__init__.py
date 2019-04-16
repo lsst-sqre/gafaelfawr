@@ -29,13 +29,18 @@ import jwt
 from flask import request, Response, current_app, render_template, flash, redirect, url_for
 from jwt import PyJWTError
 
-from .authnz import authenticate, authorize, verify_authorization_strategy
+from .authnz import authenticate, authorize, verify_authorization_strategy, capabilities_from_groups
 from .config import Config, AuthorizerApp
 from .token import (
     issue_token,
     api_capabilities_token_form,
     new_oauth2_proxy_ticket,
     new_oauth2_proxy_handle,
+    issue_default_token,
+    issue_internal_token,
+    get_tokens,
+    revoke_token,
+    AlterTokenForm,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -51,22 +56,43 @@ ORIGINAL_TOKEN_HEADER = "X-Orig-Authorization"
 def authnz_token():  # type: ignore
     """
     Authenticate and authorize a token.
-    :query capability: one or more capabilities to check.
+    :query capability: One or more capabilities to check
     :query satisfy: satisfy ``all`` (default) or ``any`` of the
     capability checks.
-    :query reissue_token: if ``true``, then reissue token before
+    :query reissue_token: If ``true``, then reissue token before
     setting the user headers.
-    :>header Authorization: The token should be in this header as
+    :>header Authorization: The JWT token. This must always be the
+    full JWT token. The token should be in this  header as
     type ``Bearer``, but it may be type ``Basic`` if ``x-oauth-basic``
     is the username or password.
+    :>header X-Orig-Authorization: The Authorization header as it was
+    received before processing by oauth2_proxy. This is useful when
+    the original header was an oauth2_proxy ticket, as this gives
+    access to the ticket.
     :<header X-Auth-Request-Email: If enabled and email is available,
     this will be set based on the ``email`` claim.
     :<header X-Auth-Request-User: If enabled and the field is available,
     this will be set from token based on the ``JWT_USERNAME_KEY`` field
     :<header X-Auth-Request-Uid: If enabled and the field is available,
     this will be set from token based on the ``JWT_UID_KEY`` field
+    :<header X-Auth-Request-Groups: When a token has groups available
+    in the ``isMemberOf`` claim, the names of the groups will be
+    returned, comma-separated, in this header.
     :<header X-Auth-Request-Token: If enabled, the encoded token will
     be set. If ``reissue_token`` is true, the token is reissued first
+    :<header X-Auth-Request-Token-Ticket: When a ticket is available
+    for the token, we will return it under this header.
+    :<header X-Auth-Request-Token-Capabilities: If the token has
+    capabilities in the ``scope`` claim, they will be returned in this
+    header. If the token has
+    :<header X-Auth-Request-Token-Groups-Capabilities: If the token has
+    groups in the ``isMemberOf`` claim, that can map to capabilities,
+    those mapped capabilities are returned in this header.
+    :<header X-Auth-Request-Token-Capabilities-Accepted: A
+    space-separated list of token capabilities the reliant resource
+    accepts
+    :<header X-Auth-Request-Token-Capabilities-Satisfy: The strategy
+    the reliant resource uses to accept a capability. ``any`` or ``all``
     :<header WWW-Authenticate: If the request is unauthenticated, this
     header will be set.
     """
@@ -110,6 +136,53 @@ def authnz_token():  # type: ignore
     response.status_code = 403
     logger.error(f"Failed to authorize Token ID {jti} because {message}")
     return response
+
+
+@app.route("/auth/tokens", methods=["GET"])
+def tokens():  # type: ignore
+    try:
+        encoded_token = request.headers["X-Auth-Request-Token"]
+        decoded_token = authenticate(encoded_token)
+    except PyJWTError as e:
+        response = Response()
+        _make_needs_authentication(response, "Invalid Token", str(e))
+        logger.exception("Failed to authenticate Token")
+        logger.exception(e)
+        return response
+    user_id = decoded_token[current_app.config["JWT_UID_KEY"]]
+    user_tokens = get_tokens(user_id)
+    forms = {}
+    for user_token in user_tokens:
+        forms[user_token["jti"]] = AlterTokenForm()
+    return render_template("tokens.html", title="Tokens", tokens=user_tokens, forms=forms)
+
+
+@app.route("/auth/tokens/<handle>", methods=["GET", "POST"])  # type: ignore
+def token_for_handle(handle: str):  # type: ignore
+    try:
+        encoded_token = request.headers["X-Auth-Request-Token"]
+        decoded_token = authenticate(encoded_token)
+    except PyJWTError as e:
+        response = Response()
+        _make_needs_authentication(response, "Invalid Token", str(e))
+        logger.exception("Failed to authenticate Token")
+        logger.exception(e)
+        return response
+    user_id = decoded_token[current_app.config["JWT_UID_KEY"]]
+    user_tokens = {t["jti"]: t for t in get_tokens(user_id)}
+    user_token = user_tokens[handle]
+
+    form = AlterTokenForm()
+    if request.method == "POST" and form.validate():
+        if form.method_.data == "DELETE":
+            success = revoke_token(user_id, handle)
+            if success:
+                flash(f"Your token with the id {handle} was deleted")
+            if not success:
+                flash(f"An error was encountered when deleting your token.")
+            return redirect(url_for("tokens"))
+
+    return render_template("token.html", title="Tokens", token=user_token)
 
 
 @app.route("/auth/tokens/new", methods=["GET", "POST"])
@@ -162,7 +235,7 @@ def new_tokens():  # type: ignore
             f"Your Newly Created Token. Keep these Secret!<br>\n"
             f"Token: {oauth2_proxy_ticket} <br>"
         )
-        return redirect(url_for("new_tokens"))
+        return redirect(url_for("tokens"))
 
     return render_template(
         "new_token.html", title="New Token", form=form, capabilities=capabilities
@@ -176,6 +249,8 @@ def _make_capability_headers(response: Response, encoded_token: str) -> None:
     """
     decoded_token = jwt.decode(encoded_token, verify=False)
     capabilities, satisfy = verify_authorization_strategy()
+    group_capabilities_set = capabilities_from_groups(decoded_token)
+    capabilities = group_capabilities_set.union(capabilities)
     response.headers["X-Auth-Request-Token-Capabilities"] = decoded_token.get("scope", "")
     response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities)
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
@@ -239,58 +314,16 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     oauth2_proxy_ticket = request.cookies.get("_oauth2_proxy", "")
 
     if not from_this_issuer:
-        payload = dict(decoded_token)
-        # These are inherently new sessions
-        # This should happen only once, after initial login.
+        # If we didn't issue it, it came from a provider, and it is
+        # inherently a new session, and this happens only once, after
+        # initial login.
+        assert len(oauth2_proxy_ticket), "ERROR: OAuth2 Proxy cookie must be present"
         # We transform the external provider tokens to internal tokens
         # with a fixed lifetime
-        assert len(oauth2_proxy_ticket), "ERROR: OAuth2 Proxy ticket must exist"
-        # If we are here, we haven't reissued a token and we're using Cookies
-        # Since we already had a ticket, use token handle as `jti`
-        previous_jti = decoded_token.get("jti", "")
-        previous_iss = decoded_token["iss"]
-        previous_aud = decoded_token["aud"]
-        logger.debug(f"Exchanging from iss={previous_iss}, aud={previous_aud}, jti={previous_jti}")
-        payload["jti"] = oauth2_proxy_ticket.split(".")[0]
-        payload["aud"] = default_audience
-        actor_claim = {
-            "aud": previous_aud,
-            "iss": previous_iss,
-        }
-        if previous_jti:
-            actor_claim["jti"] = previous_jti
-        payload["act"] = actor_claim
-        exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
-        encoded_token = issue_token(
-            decoded_token, exp=exp, store_user_info=False, oauth2_proxy_ticket=oauth2_proxy_ticket
-        )
+        encoded_token = issue_default_token(decoded_token, oauth2_proxy_ticket)
     elif from_this_issuer and from_default_audience and to_internal_audience:
-        payload = dict(decoded_token)
-        # Requests to Internal Audiences
-        # We should always have a `jti`
-        ticket_handle = new_oauth2_proxy_handle()
-        oauth2_proxy_ticket = new_oauth2_proxy_ticket(ticket_handle)
-        previous_jti = decoded_token.get("jti", "")
-        previous_iss = decoded_token["iss"]
-        previous_aud = decoded_token["aud"]
-        logger.debug(f"Exchanging from iss={previous_iss}, aud={previous_aud}, jti={previous_jti}")
-        payload["jti"] = ticket_handle
-        payload["aud"] = internal_audience
-        # Store previous token information
-        actor_claim = {
-            "aud": previous_aud,
-            "iss": previous_iss,
-        }
-        if previous_jti:
-            actor_claim["jti"] = previous_jti
-        if "act" in decoded_token:
-            actor_claim["act"] = decoded_token["act"]
-        payload["act"] = actor_claim
-        exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
-        # Note: Internal audiences should not need the ticket
-        encoded_token = issue_token(
-            payload, exp=exp, store_user_info=False, oauth2_proxy_ticket=oauth2_proxy_ticket
-        )
+        # Internal tokens should not be reissued
+        encoded_token, oauth2_proxy_ticket = issue_internal_token(decoded_token)
 
     return encoded_token, oauth2_proxy_ticket
 
