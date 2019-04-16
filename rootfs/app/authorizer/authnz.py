@@ -20,7 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
-from typing import Dict, Any, Tuple, List, Mapping
+from typing import Dict, Any, Tuple, List, Mapping, Set
 
 import jwt
 from flask import current_app, request
@@ -161,8 +161,8 @@ def scope_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool,
 
 def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this
-    service based on some form of group membership.
-    Also checks `scope` as in :py:func:`scope_check_access`.
+    service based on some form of group membership or explicitly, by
+    checking ``scope`` as in :py:func:`scope_check_access`.
     :param capability: The capability we are checking against
     :param token: The token necessary
     :rtype: Tuple[bool, str]
@@ -171,20 +171,23 @@ def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> 
     return (False, message)
     """
     # Check `isMemberOf` first
-    user_groups_list: List[Dict[str, str]] = token.get("isMemberOf", dict())
-    if user_groups_list is None:
-        return False, "claim `isMemberOf` not found"
-    user_groups_map = {group["name"]: group for group in user_groups_list}
-    capability_group = _group_membership_get_group(capability)
-    if capability_group in user_groups_map:
-        return True, "Success"
-
-    # Check `scope` next
-    capabilites = set(token.get("scope", "").split(" "))
-    if capability in capabilites:
+    group_capabilities = capabilities_from_groups(token)
+    scope_capabilites = set(token.get("scope", "").split(" "))
+    capabilities = group_capabilities.union(scope_capabilites)
+    if capability in capabilities:
         return True, "Success"
 
     return False, "No Capability group found in user's `isMemberOf` or capability in `scope`"
+
+
+def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
+    user_groups_list: List[Dict[str, str]] = token.get("isMemberOf", dict())
+    user_groups_set = {group["name"] for group in user_groups_list}
+    group_derived_capbilities = set()
+    for capability, group in current_app.config["GROUP_MAPPING"].items():
+        if group in user_groups_set:
+            group_derived_capbilities.add(capability)
+    return group_derived_capbilities
 
 
 def _group_membership_get_group(capability: str) -> str:
