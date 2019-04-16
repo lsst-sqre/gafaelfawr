@@ -28,8 +28,8 @@ import logging
 import os
 import struct
 from calendar import timegm
-from datetime import datetime
-from typing import Any, Mapping, Optional, Dict, cast
+from datetime import datetime, timedelta
+from typing import Any, Mapping, Optional, Dict, cast, Tuple, List
 
 import jwt
 import redis  # type: ignore
@@ -79,6 +79,79 @@ def issue_token(
             payload, exp, encoded_reissued_token, store_user_info, oauth2_proxy_ticket
         )
     return encoded_reissued_token
+
+
+def issue_default_token(decoded_token: Mapping[str, Any], oauth2_proxy_ticket: str) -> str:
+    """
+    Issue a new default token. This happens when we see a new session.
+    We replace the oauth2_proxy session, via `oauth2_proxy_ticket`, in
+    Redis with our new oauth2_proxy session.
+    :param decoded_token: Decoded token representing the token we will
+    replace.
+    :param oauth2_proxy_ticket: The current ticket for the session
+    with that token.
+    :return: A new encoded token
+    """
+    default_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
+    payload = dict(decoded_token)
+    # If we are here, we haven't reissued a token and we're using Cookies
+    # Since we already had a ticket, use token handle as `jti`
+    previous_jti = decoded_token.get("jti", "")
+    previous_iss = decoded_token["iss"]
+    previous_aud = decoded_token["aud"]
+
+    logger.debug(f"Exchanging from iss={previous_iss}, aud={previous_aud}, jti={previous_jti}")
+    payload["iss"] = current_app.config["OAUTH2_JWT.ISS"]
+    payload["jti"] = oauth2_proxy_ticket.split(".")[0]
+    payload["aud"] = default_audience
+    actor_claim = {"aud": previous_aud, "iss": previous_iss}
+    if previous_jti:
+        actor_claim["jti"] = previous_jti
+    payload["act"] = actor_claim
+    exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+    return issue_token(
+        payload, exp=exp, store_user_info=False, oauth2_proxy_ticket=oauth2_proxy_ticket
+    )
+
+
+def issue_internal_token(decoded_token: Mapping[str, Any]) -> Tuple[str, str]:
+    """
+    Issue a new internal token. This should only be done when calling
+    to to internal resources.
+    We create a new oauth2_proxy session, with a new ticket, in
+    Redis with our new oauth2_proxy session.
+    :param decoded_token: Decoded token representing the token we will
+    replace.
+    :return The new token, encoded, as well as an oauth2_proxy ticket
+    for that token.
+    """
+    internal_audience = current_app.config.get("OAUTH2_JWT.AUD.INTERNAL", "")
+    payload = dict(decoded_token)
+    # Requests to Internal Audiences
+    # We should always have a `jti`
+    ticket_handle = new_oauth2_proxy_handle()
+    oauth2_proxy_ticket = new_oauth2_proxy_ticket(ticket_handle)
+    previous_jti = decoded_token.get("jti", "")
+    previous_iss = decoded_token["iss"]
+    previous_aud = decoded_token["aud"]
+
+    logger.debug(f"Exchanging from iss={previous_iss}, aud={previous_aud}, jti={previous_jti}")
+    payload["iss"] = current_app.config["OAUTH2_JWT.ISS"]
+    payload["jti"] = ticket_handle
+    payload["aud"] = internal_audience
+    # Store previous token information
+    actor_claim = {"aud": previous_aud, "iss": previous_iss}
+    if previous_jti:
+        actor_claim["jti"] = previous_jti
+    if "act" in decoded_token:
+        actor_claim["act"] = decoded_token["act"]
+    payload["act"] = actor_claim
+    exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+    # Note: Internal audiences should not need the ticket
+    encoded_token = issue_token(
+        payload, exp=exp, store_user_info=False, oauth2_proxy_ticket=oauth2_proxy_ticket
+    )
+    return encoded_token, oauth2_proxy_ticket
 
 
 def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> FlaskForm:
@@ -185,6 +258,8 @@ def o2proxy_store_token_redis(
     email = payload["email"]
     # Use our definition of username, if possible
     user = payload.get(current_app.config["JWT_USERNAME_KEY"])
+    user_id_raw = payload[current_app.config["JWT_UID_KEY"]]
+    user_id = str(user_id_raw)
     handle, iv_encoded = oauth2_proxy_ticket.split(".")
     iv = base64.urlsafe_b64decode(add_padding(iv_encoded).encode())
     encrypted_oauth2_session = _o2proxy_encrypted_session(iv, user, email, expires, token)
@@ -194,8 +269,37 @@ def o2proxy_store_token_redis(
     with redis_client.pipeline() as pipeline:
         pipeline.setex(handle, expires_delta, encrypted_oauth2_session)
         if store_user_info:
-            pipeline.rpush(user_tokens_redis_key(email), json.dumps(payload))
+            pipeline.sadd(user_tokens_redis_key(user_id), json.dumps(payload))
         pipeline.execute()
+
+
+def get_tokens(user_id: str) -> List[Mapping[str, Any]]:
+    user_tokens, _ = _get_tokens(user_id)
+    return user_tokens
+
+
+def _get_tokens(user_id: str) -> Tuple[List[Mapping[str, Any]], List[str]]:
+    redis_pool = current_app.redis_pool
+    redis_client = redis.Redis(connection_pool=redis_pool)
+    user_tokens = []
+    expired_tokens = []
+    key = user_tokens_redis_key(user_id)
+    serialized_user_tokens = redis_client.smembers(key)
+    valid_serialized_user_tokens = []
+    # Clear out expired token references
+    for serialized_token in serialized_user_tokens:
+        token = json.loads(serialized_token)
+        exp = datetime.utcfromtimestamp(token["exp"])
+        if exp < datetime.now():
+            expired_tokens.append(serialized_token)
+        else:
+            user_tokens.append(token)
+            valid_serialized_user_tokens.append(serialized_token)
+    with redis_client.pipeline() as pipeline:
+        for expired_token in expired_tokens:
+            pipeline.srem(key, expired_token)
+        pipeline.execute()
+    return user_tokens, valid_serialized_user_tokens
 
 
 def _o2proxy_encrypted_session(
@@ -291,5 +395,5 @@ def add_padding(encoded: str) -> str:
     return encoded + ("=" * underflow)
 
 
-def user_tokens_redis_key(email: str) -> str:
-    return f"tokens:{email}"
+def user_tokens_redis_key(user_id: str) -> str:
+    return f"tokens:{user_id}"
