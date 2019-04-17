@@ -171,7 +171,7 @@ def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> Flas
     return cast(FlaskForm, NewCapabilitiesToken())
 
 
-class AlterTokenForm(FlaskForm):
+class AlterTokenForm(FlaskForm):  # type: ignore
     method_ = HiddenField("method_")
 
 

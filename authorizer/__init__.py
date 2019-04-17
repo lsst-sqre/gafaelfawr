@@ -157,7 +157,7 @@ def tokens():  # type: ignore
     return render_template("tokens.html", title="Tokens", tokens=user_tokens, forms=forms)
 
 
-@app.route("/auth/tokens/<handle>", methods=["GET", "POST"])  # type: ignore
+@app.route("/auth/tokens/<handle>", methods=["GET", "POST"])
 def token_for_handle(handle: str):  # type: ignore
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
@@ -250,9 +250,9 @@ def _make_capability_headers(response: Response, encoded_token: str) -> None:
     decoded_token = jwt.decode(encoded_token, verify=False)
     capabilities, satisfy = verify_authorization_strategy()
     group_capabilities_set = capabilities_from_groups(decoded_token)
-    capabilities = group_capabilities_set.union(capabilities)
+    capabilities_set = group_capabilities_set.union(capabilities)
     response.headers["X-Auth-Request-Token-Capabilities"] = decoded_token.get("scope", "")
-    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities)
+    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities_set)
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
 
 
