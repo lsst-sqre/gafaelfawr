@@ -25,7 +25,7 @@
 
 
     <div class="form-group row">
-        <div class="col-md-8">
+        <div class="col-md-12">
             {% block content %}
                 <h2>Download Token</h2>
 
@@ -33,9 +33,14 @@
                     {{ form.hidden_tag() }}
                     <h3>API Capabilities</h3>
                     {% for capability in capabilities %}
-                        <div class="form-group form-check">
-                            {{ form[capability](class="form-check-input") }}
-                            {{ form[capability].label(class="form-check-label") }}
+                        <div class="form-group row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    {{ form[capability](class="form-check-input") }}
+                                    {{ form[capability].label(class="form-check-label") }}
+                                </div>
+                            </div>
+                            <div class="col-md-8 text-dark">{{ form[capability].description }}</div>
                         </div>
                     {% endfor %}
                     <p>{{ form.submit() }}</p>

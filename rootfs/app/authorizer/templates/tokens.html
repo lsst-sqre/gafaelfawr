@@ -23,44 +23,44 @@
         {% endif %}
     {% endwith %}
 
-
-    <div class="form-group row">
+    {% block content %}
+    <div class="row">
         <div class="col-md-12">
-            {% block content %}
-                <h2>User Tokens</h2>
-                <div class="list-group">
-                {% for token in tokens %}
-                    {% set form=forms[token.jti] %}
-                    <form action="/auth/tokens/{{  token.jti }}" method="POST" novalidate>
+            <div class="float-right">
+                <a class="btn btn-sm btn-primary" href="/auth/tokens/new"> Generate new token</a>
+            </div>
+
+            <h2>Personal access tokens</h2>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="list-group">
+                {% for token in tokens %} {% set form=forms[token.jti] %}
+                <form action="/auth/tokens/{{ token.jti }}" method="POST" novalidate>
                     {{ form.csrf_token }}
                     {{ form.method_(value="DELETE") }}
                     <div class="list-group-item">
                         <div class="float-right">
-                            <button class="btn btn-sm btn-danger" aria-haspopup="dialog" type="submit">
-                                Revoke
-                            </button>
+                            <button class="btn btn-sm btn-danger" aria-haspopup="dialog" type="submit">Revoke</button>
                         </div>
                         <!--Extra use information <small class="last-used float-right"></small> -->
                         <span class="token-description">
-                      <strong>
-                        <a href="/auth/tokens/{{ token.jti }}">
-                          {{ token.jti }}
-                        </a>
-                      </strong>
-                      <span class="text-gray">
-                          <br/>
-                          Scope:
-                        <em><span class="tooltipped tooltipped-s" aria-label="Token scope">
-                            {{ token.scope }}</span></em>
-                      </span>
-                    </span>
+                          <strong>
+                            <a href="/auth/tokens/{{ token.jti }}">{{ token.jti }}</a>
+                          </strong>
+                          <span>
+                              <br/>
+                              Scope: <em><span class="text-dark" aria-label="Token scope">{{ token.scope}}</span></em>
+                          </span>
+                        </span>
                     </div>
-                    </form>
+                </form>
                 {% endfor %}
-            {% endblock %}
             </div>
         </div>
     </div>
+    {% endblock %}
 </div>
 </body>
 </html>
