@@ -248,11 +248,12 @@ def _make_capability_headers(response: Response, encoded_token: str) -> None:
     :return: The mutated response object.
     """
     decoded_token = jwt.decode(encoded_token, verify=False)
-    capabilities, satisfy = verify_authorization_strategy()
+    capabilities_required, satisfy = verify_authorization_strategy()
     group_capabilities_set = capabilities_from_groups(decoded_token)
-    capabilities_set = group_capabilities_set.union(capabilities)
-    response.headers["X-Auth-Request-Token-Capabilities"] = decoded_token.get("scope", "")
-    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities_set)
+    scope_capabilities_set = set(decoded_token.get("scope", "").split(" "))
+    user_capabilities_set = group_capabilities_set.union(scope_capabilities_set)
+    response.headers["X-Auth-Request-Token-Capabilities"] = " ".join(user_capabilities_set)
+    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities_required)
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
 
 
