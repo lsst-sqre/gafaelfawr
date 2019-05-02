@@ -372,7 +372,7 @@ def _o2proxy_encrypt_string(iv: bytes, field: str) -> bytes:
     :return: The encrypted bytes only.
     """
     secret_key_encoded = current_app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
-    secret_key = base64.b64decode(secret_key_encoded)
+    secret_key = base64.urlsafe_b64decode(secret_key_encoded)
     backend = default_backend()
     cipher = Cipher(algorithms.AES(secret_key), modes.CFB(iv), backend=backend)
     encryptor = cipher.encryptor()
@@ -394,7 +394,7 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     now_str = str(timegm(datetime.utcnow().utctimetuple()))
 
     h = hmac.new(secret_key, digestmod=hashlib.sha1)
-    h.update("_oauth2_proxy".encode())
+    h.update(current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"].encode())
     h.update(encoded_session_payload)
     h.update(now_str.encode())
     # Use URL Safe base64 encode

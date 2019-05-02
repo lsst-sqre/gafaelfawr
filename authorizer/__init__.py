@@ -85,9 +85,6 @@ def authnz_token():  # type: ignore
     :<header X-Auth-Request-Token-Capabilities: If the token has
     capabilities in the ``scope`` claim, they will be returned in this
     header. If the token has
-    :<header X-Auth-Request-Token-Groups-Capabilities: If the token has
-    groups in the ``isMemberOf`` claim, that can map to capabilities,
-    those mapped capabilities are returned in this header.
     :<header X-Auth-Request-Token-Capabilities-Accepted: A
     space-separated list of token capabilities the reliant resource
     accepts
@@ -312,7 +309,8 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     to_internal_audience = request.args.get("audience") == internal_audience
     from_this_issuer = decoded_token["iss"] == iss
     from_default_audience = decoded_token["aud"] == default_audience
-    oauth2_proxy_ticket = request.cookies.get("_oauth2_proxy", "")
+    cookie_name = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    oauth2_proxy_ticket = request.cookies.get(cookie_name, "")
 
     if not from_this_issuer:
         # If we didn't issue it, it came from a provider, and it is
