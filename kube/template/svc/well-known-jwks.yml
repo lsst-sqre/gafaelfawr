@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+  labels:
+    k8s-app: well-known-jwks
+  name: well-known-jwks
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    k8s-app: well-known-jwks
+  sessionAffinity: None
+  type: ClusterIP

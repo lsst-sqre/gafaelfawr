@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+  labels:
+    k8s-app: jwt-authorizer
+  name: jwt-authorizer
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    k8s-app: jwt-authorizer
+  sessionAffinity: None
+  type: ClusterIP

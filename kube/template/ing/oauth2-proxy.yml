@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 256k
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location @Basic401 {
+          add_header 'WWW-Authenticate' 'Basic' always;
+          return 401;
+      }
+      proxy_buffer_size 64k;
+      proxy_buffers 4 64k;
+      large_client_header_buffers 4 32k;
+      client_header_buffer_size 32k;
+  name: oauth2-proxy
+spec:
+  rules:
+  - host: {{ HOSTNAME }}
+    http:
+      paths:
+      - backend:
+          serviceName: oauth2-proxy
+          servicePort: 4180
+        path: /oauth2
+  tls:
+  - hosts:
+    - {{ HOSTNAME }}
+    secretName: tls
