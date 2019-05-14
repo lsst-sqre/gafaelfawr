@@ -23,6 +23,7 @@
 import base64
 import logging
 from datetime import datetime, timedelta
+import os
 from typing import Optional, Any, Dict, Mapping, Tuple
 
 import jwt
@@ -31,7 +32,7 @@ from jwt import PyJWTError
 
 from .authnz import authenticate, authorize, verify_authorization_strategy, capabilities_from_groups
 from .config import Config, AuthorizerApp
-from .token import (
+from .tokens import (
     issue_token,
     api_capabilities_token_form,
     new_oauth2_proxy_ticket,
@@ -381,8 +382,8 @@ def _make_needs_authentication(response: Response, error: str, message: str) -> 
         ] = f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
 
 
-def configure(settings_path: Optional[str] = None) -> None:
-    settings_path = settings_path or "/etc/jwt-authorizer/authorizer.yaml"
+def configure() -> None:
+    settings_path = os.environ.get("SETTINGS_PATH", "/etc/jwt-authorizer/authorizer.yaml")
     Config.validate(app, settings_path)
 
 

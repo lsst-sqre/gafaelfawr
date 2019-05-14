@@ -27,7 +27,7 @@ from flask import current_app, request
 from jwt import InvalidIssuerError
 
 from .config import AccessT
-from .token import get_key_as_pem, ALGORITHM
+from .tokens import get_key_as_pem, ALGORITHM
 
 logger = logging.getLogger(__name__)
 
