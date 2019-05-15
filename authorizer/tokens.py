@@ -27,8 +27,10 @@ import json
 import logging
 import os
 import struct
+from binascii import Error
 from calendar import timegm
 from datetime import datetime, timedelta
+from dataclasses import dataclass, field as dc_field
 from typing import Any, Mapping, Optional, Dict, cast, Tuple, List
 
 import jwt
@@ -48,8 +50,59 @@ from .config import ALGORITHM
 logger = logging.getLogger(__name__)
 
 
+def new_id() -> str:
+    return hashlib.sha1(os.urandom(16)).hexdigest()
+
+
+def new_secret() -> bytes:
+    return os.urandom(16)
+
+
+@dataclass
+class Ticket:
+    """A class represeting an oauth2_proxy ticket"""
+
+    ticket_id: str = dc_field(default_factory=new_id)
+    secret: bytes = dc_field(default_factory=new_secret)
+
+    def as_handle(self, prefix: str) -> str:
+        return f"{prefix}-{self.ticket_id}"
+
+    def encode(self, prefix: str) -> str:
+        secret_b64 = base64.urlsafe_b64encode(self.secret).decode().rstrip("=")
+        return f"{prefix}-{self.ticket_id}.{secret_b64}"
+
+
+def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
+    """
+    A function to parse an oauth2_proxy ticket string to a Ticket
+    :param prefix: The prefix used for the ticket
+    :param ticket: The encoded ticket string
+    :return: The decoded ticket, or None if there was an error
+    """
+    full_prefix = f"{prefix}-"
+    if not ticket.startswith(full_prefix):
+        print(1)
+        return None
+    trimmed_ticket = ticket[len(full_prefix) :]
+    if "." not in trimmed_ticket:
+        print(2)
+        return None
+    ticket_id, secret_b64 = trimmed_ticket.split(".")
+    try:
+        int(ticket_id, 16)  # Check hex
+        secret = base64.urlsafe_b64decode(add_padding(secret_b64))
+        return Ticket(ticket_id=ticket_id, secret=secret)
+    except (ValueError, Error) as e:
+        print(e)
+        return None
+
+
 def issue_token(
-    payload: Mapping[str, Any], exp: datetime, store_user_info: bool, oauth2_proxy_ticket: str
+    payload: Mapping[str, Any],
+    exp: datetime,
+    store_user_info: bool,
+    oauth2_proxy_ticket: Ticket,
 ) -> str:
     """
     Issue a token.
@@ -74,18 +127,18 @@ def issue_token(
         payload, private_key, algorithm=ALGORITHM, headers=headers
     ).decode("utf-8")
 
-    if current_app.config.get("OAUTH2_STORE_SESSION") and oauth2_proxy_ticket:
+    if current_app.config.get("OAUTH2_STORE_SESSION"):
         o2proxy_store_token_redis(
             payload, exp, encoded_reissued_token, store_user_info, oauth2_proxy_ticket
         )
     return encoded_reissued_token
 
 
-def issue_default_token(decoded_token: Mapping[str, Any], oauth2_proxy_ticket: str) -> str:
+def issue_default_token(decoded_token: Mapping[str, Any], oauth2_proxy_ticket: Ticket) -> str:
     """
     Issue a new default token. This happens when we see a new session.
-    We replace the oauth2_proxy session, via `oauth2_proxy_ticket`, in
-    Redis with our new oauth2_proxy session.
+    We **replace** the oauth2_proxy session, via `oauth2_proxy_ticket`,
+    in Redis with our new oauth2_proxy session.
     :param decoded_token: Decoded token representing the token we will
     replace.
     :param oauth2_proxy_ticket: The current ticket for the session
@@ -93,6 +146,7 @@ def issue_default_token(decoded_token: Mapping[str, Any], oauth2_proxy_ticket: s
     :return: A new encoded token
     """
     default_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
+    prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
     payload = dict(decoded_token)
     # If we are here, we haven't reissued a token and we're using Cookies
     # Since we already had a ticket, use token handle as `jti`
@@ -102,7 +156,7 @@ def issue_default_token(decoded_token: Mapping[str, Any], oauth2_proxy_ticket: s
 
     logger.debug(f"Exchanging from iss={previous_iss}, aud={previous_aud}, jti={previous_jti}")
     payload["iss"] = current_app.config["OAUTH2_JWT.ISS"]
-    payload["jti"] = oauth2_proxy_ticket.split(".")[0]
+    payload["jti"] = oauth2_proxy_ticket.as_handle(prefix)
     payload["aud"] = default_audience
     actor_claim = {"aud": previous_aud, "iss": previous_iss}
     if previous_jti:
@@ -114,7 +168,7 @@ def issue_default_token(decoded_token: Mapping[str, Any], oauth2_proxy_ticket: s
     )
 
 
-def issue_internal_token(decoded_token: Mapping[str, Any]) -> Tuple[str, str]:
+def issue_internal_token(decoded_token: Mapping[str, Any]) -> Tuple[str, Ticket]:
     """
     Issue a new internal token. This should only be done when calling
     to to internal resources.
@@ -129,8 +183,9 @@ def issue_internal_token(decoded_token: Mapping[str, Any]) -> Tuple[str, str]:
     payload = dict(decoded_token)
     # Requests to Internal Audiences
     # We should always have a `jti`
-    ticket_handle = new_oauth2_proxy_handle()
-    oauth2_proxy_ticket = new_oauth2_proxy_ticket(ticket_handle)
+    oauth2_proxy_ticket = Ticket()
+    prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    ticket_handle = oauth2_proxy_ticket.as_handle(prefix)
     previous_jti = decoded_token.get("jti", "")
     previous_iss = decoded_token["iss"]
     previous_aud = decoded_token["aud"]
@@ -178,13 +233,13 @@ class AlterTokenForm(FlaskForm):  # type: ignore
 @cached(cache=TTLCache(maxsize=16, ttl=600))  # type: ignore
 def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     """
-    Gets a key as PEM, given the issuer and the request key id.
+    Gets a key as PEM, given the issuer and the request key ticket_id.
     This function is intended to help with the caching of keys, as
     we always get them dynamically.
     :param issuer_url: The URL of the issuer
-    :param request_key_id: The key id for the issuer in question
+    :param request_key_id: The key ticket_id for the issuer in question
     :return: the key in a PEM format
-    :raises Exception: if there's an issue with the key id, the
+    :raises Exception: if there's an issue with the key ticket_id, the
     issuer's .well-known/openid-configuration or JWKS URI, or if
     there's an obvious configuration issue
     """
@@ -247,7 +302,7 @@ def o2proxy_store_token_redis(
     expires: datetime,
     token: str,
     store_user_info: bool,
-    oauth2_proxy_ticket: str,
+    oauth2_proxy_ticket: Ticket,
 ) -> None:
     """
     Store a token in redis in the oauth2_proxy encoded token format.
@@ -264,9 +319,11 @@ def o2proxy_store_token_redis(
     user = payload.get(current_app.config["JWT_USERNAME_KEY"])
     user_id_raw = payload[current_app.config["JWT_UID_KEY"]]
     user_id = str(user_id_raw)
-    handle, iv_encoded = oauth2_proxy_ticket.split(".")
-    iv = base64.urlsafe_b64decode(add_padding(iv_encoded).encode())
-    encrypted_oauth2_session = _o2proxy_encrypted_session(iv, user, email, expires, token)
+    prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    handle = oauth2_proxy_ticket.as_handle(prefix)
+    encrypted_oauth2_session = _o2proxy_encrypted_session(
+        oauth2_proxy_ticket.secret, user, email, expires, token
+    )
     redis_pool = current_app.redis_pool
     redis_client = redis.Redis(connection_pool=redis_pool)
     expires_delta = expires - datetime.utcnow()
@@ -327,7 +384,7 @@ def revoke_token(user_id: str, handle: str) -> bool:
 
 
 def _o2proxy_encrypted_session(
-    iv: bytes, user: Optional[str], email: str, expires: datetime, token: str
+    secret: bytes, user: Optional[str], email: str, expires: datetime, token: str
 ) -> bytes:
     """
     Take in the data for an encrypting an oauth2_proxy session and
@@ -347,7 +404,7 @@ def _o2proxy_encrypted_session(
     expires_int = timegm(expires.utctimetuple())
     session_payload = f"{account_info}|{access_token}|{id_token}|{expires_int}|{refresh_token}"
     signed_session = _o2proxy_signed_session(session_payload)
-    return _o2proxy_encrypt_string(iv, signed_session)
+    return _o2proxy_encrypt_string(secret, signed_session)
 
 
 def _o2proxy_encrypt_field(field: str) -> bytes:
@@ -400,17 +457,6 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     # Use URL Safe base64 encode
     sig_base64: bytes = base64.urlsafe_b64encode(h.digest())
     return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
-
-
-def new_oauth2_proxy_handle() -> str:
-    ticket_id = hashlib.sha1(os.urandom(16)).hexdigest()
-    ticket_prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    return f"{ticket_prefix}-{ticket_id}"
-
-
-def new_oauth2_proxy_ticket(handle: str) -> str:
-    iv = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
-    return f"{handle}.{iv}"
 
 
 def add_padding(encoded: str) -> str:

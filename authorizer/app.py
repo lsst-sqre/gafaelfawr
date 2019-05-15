@@ -12,8 +12,8 @@ from .config import AuthorizerApp
 from .tokens import (
     issue_token,
     api_capabilities_token_form,
-    new_oauth2_proxy_ticket,
-    new_oauth2_proxy_handle,
+    Ticket,
+    parse_ticket,
     issue_default_token,
     issue_internal_token,
     get_tokens,
@@ -153,7 +153,7 @@ def token_for_handle(handle: str):  # type: ignore
         if form.method_.data == "DELETE":
             success = revoke_token(user_id, handle)
             if success:
-                flash(f"Your token with the id {handle} was deleted")
+                flash(f"Your token with the ticket_id {handle} was deleted")
             if not success:
                 flash(f"An error was encountered when deleting your token.")
             return redirect(url_for("tokens"))
@@ -197,12 +197,12 @@ def new_tokens():  # type: ignore
         # FIXME: Copies groups. Useful for WebDAV, maybe not necessary
         #
         # new_token['isMemberOf'] = decoded_token['isMemberOf']
-
-        ticket_handle = new_oauth2_proxy_handle()
+        oauth2_proxy_ticket = Ticket()
+        ticket_prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+        ticket_handle = oauth2_proxy_ticket.as_handle(ticket_prefix)
         new_token["jti"] = ticket_handle
 
         exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
-        oauth2_proxy_ticket = new_oauth2_proxy_ticket(ticket_handle)
         _ = issue_token(
             new_token, exp=exp, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket
         )
@@ -289,21 +289,24 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     from_this_issuer = decoded_token["iss"] == iss
     from_default_audience = decoded_token["aud"] == default_audience
     cookie_name = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    oauth2_proxy_ticket = request.cookies.get(cookie_name, "")
+    oauth2_proxy_ticket_str = request.cookies.get(cookie_name, "")
 
     if not from_this_issuer:
+        ticket = parse_ticket(cookie_name, oauth2_proxy_ticket_str)
         # If we didn't issue it, it came from a provider, and it is
         # inherently a new session, and this happens only once, after
-        # initial login.
-        assert len(oauth2_proxy_ticket), "ERROR: OAuth2 Proxy cookie must be present"
+        # initial login. If there's no cookie, or we failed to
+        # parse it, there's something funny going on.
+        assert ticket, "ERROR: OAuth2 Proxy cookie must be present"
         # We transform the external provider tokens to internal tokens
         # with a fixed lifetime
-        encoded_token = issue_default_token(decoded_token, oauth2_proxy_ticket)
+        encoded_token = issue_default_token(decoded_token, ticket)
     elif from_this_issuer and from_default_audience and to_internal_audience:
         # Internal tokens should not be reissued
         encoded_token, oauth2_proxy_ticket = issue_internal_token(decoded_token)
+        oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(cookie_name)
 
-    return encoded_token, oauth2_proxy_ticket
+    return encoded_token, oauth2_proxy_ticket_str
 
 
 def _find_token(header: str) -> Optional[str]:
@@ -323,8 +326,8 @@ def _find_token(header: str) -> Optional[str]:
         encoded_token = auth_blob
     elif "x-forwarded-access-token" in request.headers:
         encoded_token = request.headers["x-forwarded-access-token"]
-    elif "x-forwarded-id-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-id-token"]
+    elif "x-forwarded-ticket_id-token" in request.headers:
+        encoded_token = request.headers["x-forwarded-ticket_id-token"]
     elif auth_type.lower() == "basic":
         logger.debug("Using OAuth with Basic")
         # We fallback to user:token. We ignore the user.
