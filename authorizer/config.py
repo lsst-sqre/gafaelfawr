@@ -31,6 +31,7 @@ from flask import Flask
 logger = logging.getLogger(__name__)
 
 ALGORITHM = "RS256"
+
 AccessT = Callable[[str, Mapping[str, Any]], Tuple[bool, str]]
 
 

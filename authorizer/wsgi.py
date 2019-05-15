@@ -18,3 +18,17 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+import os
+
+from .app import app
+from .config import Config
+
+
+def configure() -> None:
+    settings_path = os.environ.get("SETTINGS_PATH", "/etc/jwt-authorizer/authorizer.yaml")
+    Config.validate(app, settings_path)
+
+
+configure()
