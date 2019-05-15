@@ -185,14 +185,13 @@ def issue_internal_token(decoded_token: Mapping[str, Any]) -> Tuple[str, Ticket]
     # We should always have a `jti`
     oauth2_proxy_ticket = Ticket()
     prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    ticket_handle = oauth2_proxy_ticket.as_handle(prefix)
     previous_jti = decoded_token.get("jti", "")
     previous_iss = decoded_token["iss"]
     previous_aud = decoded_token["aud"]
 
     logger.debug(f"Exchanging from iss={previous_iss}, aud={previous_aud}, jti={previous_jti}")
     payload["iss"] = current_app.config["OAUTH2_JWT.ISS"]
-    payload["jti"] = ticket_handle
+    payload["jti"] = oauth2_proxy_ticket.as_handle(prefix)
     payload["aud"] = internal_audience
     # Store previous token information
     actor_claim = {"aud": previous_aud, "iss": previous_iss}
