@@ -146,8 +146,8 @@ def issue_default_token(decoded_token: Mapping[str, Any], oauth2_proxy_ticket: T
     :return: A new encoded token
     """
     default_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
-    prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
     payload = dict(decoded_token)
+    prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
     # If we are here, we haven't reissued a token and we're using Cookies
     # Since we already had a ticket, use token handle as `jti`
     previous_jti = decoded_token.get("jti", "")
