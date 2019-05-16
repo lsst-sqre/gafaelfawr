@@ -40,7 +40,9 @@ TLS certificates need to be added under the secret `tls` as a TLS secret.
 This will gather required input and write out YAML files to a directory for 
 your workspace. Those yaml files must be applied.
 
-**Note**: init.sh relies on mustache. You can `gem install mustache`.
+**Note**: init.sh relies on mustache. By default it will use a version of
+mustache in docker. If you would like to override that, you can 
+`gem install mustache` and set the `MUSTACHE_BIN` environment variable.
 
 # Protecting services
 
@@ -89,11 +91,10 @@ be set. If `reissue_token` is true, the token is reissued first
 for the token, we will return it under this header.
 * `X-Auth-Request-Token-Capabilities`: If the token has
 capabilities in the `scope` claim, they will be returned in this
-header. If the token has
+header.
 * `X-Auth-Request-Token-Capabilities-Accepted`: A space-separated 
 list of token capabilities the reliant resource accepts
 * `X-Auth-Request-Token-Capabilities-Satisfy`: The strategy
 the reliant resource uses to accept a capability. `any` or `all`
-WWW-Authenticate: If the request is unauthenticated, this
-header will be set.
-
+* `WWW-Authenticate`: If the request is unauthenticated, this
+header will be set according to the configuration.
