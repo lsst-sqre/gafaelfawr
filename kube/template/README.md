@@ -10,7 +10,7 @@ https://cilogon.org/oauth2/register
 1. Add Client Name, e.g. "LSST LSP instance SSO"
 2. Contact Email
 3. Add hostname for Home URL
-  - http://lsst-lsp-instance.example.com`)
+  - `http://lsst-lsp-instance.example.com`
 4. Add callback URL for oauth2_proxy
   - `http://lsst-lsp-instance.example.com/oauth2/callback`
 5. This is a private client
