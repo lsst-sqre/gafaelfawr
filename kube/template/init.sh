@@ -42,7 +42,7 @@ OAUTH2_PROXY_CLIENT_SECRET_B64: ${OAUTH2_PROXY_CLIENT_SECRET_B64}
 OAUTH2_PROXY_COOKIE_SECRET_B64: ${OAUTH2_PROXY_COOKIE_SECRET_B64} 
 EOF
 
-mustache="docker run toolbelt/mustache"
+mustache="mustache"
 mkdir -p $NAMESPACE
 for f in $(find . -type f -name "*.yml")
 do
