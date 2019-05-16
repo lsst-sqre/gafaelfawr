@@ -40,9 +40,7 @@ TLS certificates need to be added under the secret `tls` as a TLS secret.
 This will gather required input and write out YAML files to a directory for 
 your workspace. Those yaml files must be applied.
 
-**Note**: init.sh relies on docker to pull down the templating application,
-mustache. You may `gem install mustache` and edit the mustache variable in
-init.sh to point to that executable instead.
+**Note**: init.sh relies on mustache. You can `gem install mustache`.
 
 # Protecting services
 
