@@ -44,7 +44,8 @@ your workspace. Those yaml files must be applied.
 then fall back to a version in in docker. If you would like to override that.
 You can override with the J2_BIN for with your own executable. 
 
-You can `pip install j2cli` otherwise and it should work too.
+You can `pip install j2cli[yaml]` otherwise and it should work too, but it may try to
+install an old version of pyyaml.
 
 # Protecting services
 
