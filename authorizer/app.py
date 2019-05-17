@@ -63,7 +63,7 @@ def authnz_token():  # type: ignore
     for the token, we will return it under this header.
     :<header X-Auth-Request-Token-Capabilities: If the token has
     capabilities in the ``scope`` claim, they will be returned in this
-    header. If the token has
+    header.
     :<header X-Auth-Request-Token-Capabilities-Accepted: A
     space-separated list of token capabilities the reliant resource
     accepts
