@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    k8s-app: well-known-jwks
+  name: well-known-jwks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: well-known-jwks
+  template:
+    metadata:
+      labels:
+        k8s-app: well-known-jwks
+    spec:
+      containers:
+      - image: nginx:latest
+        imagePullPolicy: Always
+        name: well-known-jwks
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        volumeMounts:
+        - name: well-known-jwks-volume
+          mountPath: "/usr/share/nginx/html/.well-known"
+          readOnly: true
+      volumes:
+      - name: well-known-jwks-volume
+        configMap:
+          name: well-known-jwks-config
