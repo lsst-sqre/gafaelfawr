@@ -40,9 +40,11 @@ TLS certificates need to be added under the secret `tls` as a TLS secret.
 This will gather required input and write out YAML files to a directory for 
 your workspace. Those yaml files must be applied.
 
-**Note**: init.sh relies on mustache. By default it will use a version of
-mustache in docker. If you would like to override that, you can 
-`gem install mustache` and set the `MUSTACHE_BIN` environment variable.
+**Note**: init.sh relies on j2cli. By default it will try to use a local version
+then fall back to a version in in docker. If you would like to override that.
+You can override with the J2_BIN for with your own executable. 
+
+You can `pip install j2cli` otherwise and it should work too.
 
 # Protecting services
 

@@ -54,9 +54,18 @@ OAUTH2_PROXY_CLIENT_SECRET_B64: ${OAUTH2_PROXY_CLIENT_SECRET_B64}
 OAUTH2_PROXY_COOKIE_SECRET_B64: ${OAUTH2_PROXY_COOKIE_SECRET_B64} 
 EOF
 
-mustache="docker run -v `pwd`/${NAMESPACE}:/${NAMESPACE} toolbelt/mustache"
-if [[ -n ${MUSTACHE_BIN} ]]; then
-    mustache=${MUSTACHE_BIN}
+j2="j2"
+
+j2 --version > /dev/null
+has_j2_rc=$?
+
+if [[ $has_j2_rc -ne 0 ]]; then
+    volumes=$(for dir in configmap deployment ing secret svc ${NAMESPACE}; do echo "-v `pwd`/$dir:/$dir"; done)
+    j2="docker run $volumes -w / danielpanzella/j2cli"
+fi
+
+if [[ -n ${J2_BIN} ]]; then
+    j2=${J2_BIN}
 fi
 
 for dir in configmap deployment ing secret svc
@@ -64,7 +73,7 @@ do
     for f in $(find $dir -type f -name "*.yml")
     do
         mkdir -p $(dirname ${NAMESPACE}/${f})
-        $mustache ${NAMESPACE}/data.yml ${f} > ${NAMESPACE}/${f}
+        $j2 ${f} ${NAMESPACE}/data.yml > ${NAMESPACE}/${f}
     done
 done
 
