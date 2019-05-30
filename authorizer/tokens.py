@@ -84,7 +84,7 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
     if not ticket.startswith(full_prefix):
         print(1)
         return None
-    trimmed_ticket = ticket[len(full_prefix):]
+    trimmed_ticket = ticket[len(full_prefix) :]
     if "." not in trimmed_ticket:
         print(2)
         return None
@@ -99,10 +99,7 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
 
 
 def issue_token(
-    payload: Mapping[str, Any],
-    exp: datetime,
-    store_user_info: bool,
-    oauth2_proxy_ticket: Ticket,
+    payload: Mapping[str, Any], exp: datetime, store_user_info: bool, oauth2_proxy_ticket: Ticket
 ) -> str:
     """
     Issue a token.
@@ -176,9 +173,7 @@ def issue_internal_token(decoded_token: Mapping[str, Any]) -> Tuple[str, Ticket]
 
 
 def _build_payload(
-        audience: str,
-        decoded_token: Mapping[str, Any],
-        ticket: Ticket
+    audience: str, decoded_token: Mapping[str, Any], ticket: Ticket
 ) -> Mapping[str, Any]:
     """
     Build a new token payload.
@@ -375,8 +370,6 @@ def revoke_token(user_id: str, handle: str) -> bool:
     key = user_tokens_redis_key(user_id)
     redis_pool = current_app.redis_pool
     redis_client = redis.Redis(connection_pool=redis_pool)
-    serialized_user_tokens = redis_client.smembers(key)
-    # Clear out expired token references
     if token_to_revoke:
         with redis_client.pipeline() as pipeline:
             pipeline.delete(handle)
