@@ -13,7 +13,3 @@ spec:
           serviceName: well-known-jwks
           servicePort: 80
         path: /.well-known/jwks.json
-  tls:
-  - hosts:
-    - {{ HOSTNAME }}
-    secretName: tls

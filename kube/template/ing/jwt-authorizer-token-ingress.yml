@@ -19,7 +19,3 @@ spec:
           serviceName: jwt-authorizer
           servicePort: 8080
         path: /auth/token
-  tls:
-  - hosts:
-    - {{ HOSTNAME }}
-    secretName: tls

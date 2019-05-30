@@ -22,7 +22,3 @@ spec:
           serviceName: oauth2-proxy
           servicePort: 4180
         path: /oauth2
-  tls:
-  - hosts:
-    - {{ HOSTNAME }}
-    secretName: tls
