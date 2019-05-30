@@ -49,8 +49,8 @@ def lsst_users_membership_check_access(
     :param token: The token necessary
     :rtype: Tuple[bool, str]
     :returns: (successful, message) with successful as True if the
-    scitoken allows for op and the user can read/write the file, otherwise
-    return (False, message)
+     scitoken allows for op and the user can read/write the file,
+     otherwise return (False, message)
     """
     user_group = "lsst_users"
     groups_for_user = token.get("isMemberOf")
@@ -65,14 +65,14 @@ def lsst_users_membership_check_access(
 def lsst_group_membership_check_access(
     capability: str, token: Mapping[str, Any]
 ) -> Tuple[bool, str]:
-    """Check that a user has access with the following operation to this service
-    based on some form of group membership.
+    """Check that a user has access with the following operation to
+    this service based on some form of group membership.
     :param capability: The capability we are checking against
     :param token: The token necessary
     :rtype: Tuple[bool, str]
     :returns: (successful, message) with successful as True if the
-    scitoken allows for op and the user can read/write the file, otherwise
-    return (False, message)
+     scitoken allows for op and the user can read/write the file,
+     otherwise return (False, message)
     """
     groups_for_user = token.get("isMemberOf")
     if not groups_for_user:

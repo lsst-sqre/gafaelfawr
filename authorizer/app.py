@@ -67,13 +67,14 @@ def authnz_token():  # type: ignore
      space-separated list of token capabilities the reliant resource
      accepts
     :>header X-Auth-Request-Token-Capabilities-Satisfy: The strategy
-     the reliant resource uses to accept a capability. ``any`` or ``all``
+     the reliant resource uses to accept a capability.
+     Values include ``any`` or ``all``
     :>header WWW-Authenticate: If the request is unauthenticated, this
      header will be set.
 
     """
-    # Default to Server Error for safety, so we must always set it to 200
-    # if it's okay.
+    # Default to Server Error for safety, so we must always set it to
+    # 200 if it's okay.
     response = Response(status=500)
     if "Authorization" not in request.headers:
         _make_needs_authentication(response, "No Authorization header", "")
@@ -97,7 +98,7 @@ def authnz_token():  # type: ignore
     # Authorization
     success, message = authorize(verified_token)
 
-    # Add info about authorization whether or not authorization succeeded
+    # Always add info about authorization
     _make_capability_headers(response, encoded_token)
 
     jti = verified_token.get("jti", "UNKNOWN")
@@ -279,8 +280,8 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     :param decoded_token: The current token, decoded
     :return: An encoded token, which may have been reissued.
     """
-    # Only reissue token if it's requested and if it's a different issuer than
-    # this application uses to reissue a token
+    # Only reissue token if it's requested and if it's a different
+    # issuer than this application uses to reissue a token
     iss = current_app.config.get("OAUTH2_JWT.ISS", "")
     assert len(iss), "ERROR: Reissue requested but no Issuer Configured"
     default_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")

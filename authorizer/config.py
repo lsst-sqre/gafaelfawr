@@ -136,8 +136,6 @@ class Config:
         if settings.get("ISSUERS"):
             # Issuers
             for issuer_url, issuer_info in settings["ISSUERS"].items():
-                # if 'map_subject' in cp.options(section):
-                #     issuer_info['map_subject'] = cp.getboolean(section, 'map_subject')
                 logger.info(f"Configured token access for {issuer_url}: {issuer_info}")
             logger.info("Configured Issuers")
         else:

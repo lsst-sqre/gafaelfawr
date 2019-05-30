@@ -150,8 +150,8 @@ def scope_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool,
     :param token: The token necessary
     :rtype: Tuple[bool, str]
     :returns: (successful, message) with successful as True if the
-    scitoken allows for op and the user can read/write the file, otherwise
-    return (False, message)
+     scitoken allows for op and the user can read/write the file,
+     otherwise return (False, message)
     """
     capabilites = set(token.get("scope", "").split(" "))
     if capability in capabilites:
@@ -167,8 +167,8 @@ def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> 
     :param token: The token necessary
     :rtype: Tuple[bool, str]
     :returns: (successful, message) with successful as True if the
-    scitoken allows for op and the user can read/write the file, otherwise
-    return (False, message)
+     scitoken allows for op and the user can read/write the file,
+     otherwise return (False, message)
     """
     # Check `isMemberOf` first
     group_capabilities = capabilities_from_groups(token)
@@ -191,8 +191,7 @@ def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
 
 
 def _group_membership_get_group(capability: str) -> str:
-    """
-    Given a capability, find a group that represents this capability.
+    """Given a capability, find a group that represents this capability.
     :param capability: The capability in question
     :return: A string value of the group for this capability.
     """
@@ -203,8 +202,7 @@ def _group_membership_get_group(capability: str) -> str:
 
 
 def verify_authorization_strategy() -> Tuple[List[str], str]:
-    """
-    Build the authorization strategy for the request.
+    """Build the authorization strategy for the request.
     :return: A list of capabilities to check, and the strategy to check
     them by.
     """
@@ -213,8 +211,8 @@ def verify_authorization_strategy() -> Tuple[List[str], str]:
     satisfy = request.args.get("satisfy") or "all"
 
     # If no capability have been explicitly delineated in the URI,
-    # get them from the request method. These shouldn't happen for properly
-    # configured applications
+    # get them from the request method. These shouldn't happen for
+    # properly configured applications
     assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
     assert capabilities, "ERROR: Check nginx auth_request url (capability_names)"
     return capabilities, satisfy
