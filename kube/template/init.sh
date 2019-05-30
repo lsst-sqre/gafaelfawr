@@ -20,16 +20,16 @@ read OAUTH2_PROXY_CLIENT_ID
 echo "CILogon Client Secret:"
 read OAUTH2_PROXY_CLIENT_SECRET
 
-OAUTH2_PROXY_COOKIE_SECRET=$(dd if=/dev/urandom bs=32 count=1 2> /dev/null | $b64)
-
-OAUTH2_PROXY_COOKIE_SECRET_B64=$(echo $OAUTH2_PROXY_COOKIE_SECRET | $b64)
 OAUTH2_PROXY_CLIENT_SECRET_B64=$(echo $OAUTH2_PROXY_CLIENT_SECRET | $b64)
+
+OAUTH2_PROXY_COOKIE_SECRET=$(dd if=/dev/urandom bs=32 count=1 2> /dev/null | $b64 | sed 's/+/-/g;s/\//_/g')
+OAUTH2_PROXY_COOKIE_SECRET_B64=$(echo $OAUTH2_PROXY_COOKIE_SECRET | $b64)
 
 echo "Generating Issuer Keypair... private.pem, public.pem"
 openssl genrsa -out private.pem 2048 2> /dev/null
 openssl rsa -in private.pem -outform PEM -pubout -out public.pem
 modulus_hex=$(openssl rsa -pubin -inform PEM -modulus -noout -in public.pem | sed 's/Modulus=//')
-modulus_urlsafe_b64=$(echo $modulus_hex | xxd -r -p | $b64 | sed 's/+/-/g;s/\//_/g;s/=//g')
+modulus_urlsafe_b64=$(echo $modulus_hex | xxd -r -p | $b64 | sed 's/+/-/g;s/\//_/g')
 
 ISSUER_PRIVATE_KEY=$(cat private.pem)
 ISSUER_PRIVATE_KEY_INDENT_10=$(echo "$ISSUER_PRIVATE_KEY" | sed 's/^/          /')
@@ -51,6 +51,7 @@ NAMESPACE: ${NAMESPACE}
 OAUTH2_PROXY_CLIENT_ID: ${OAUTH2_PROXY_CLIENT_ID} 
 OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_PROXY_CLIENT_SECRET} 
 OAUTH2_PROXY_CLIENT_SECRET_B64: ${OAUTH2_PROXY_CLIENT_SECRET_B64} 
+OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET} 
 OAUTH2_PROXY_COOKIE_SECRET_B64: ${OAUTH2_PROXY_COOKIE_SECRET_B64} 
 EOF
 
