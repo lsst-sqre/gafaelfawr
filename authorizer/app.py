@@ -33,44 +33,44 @@ ORIGINAL_TOKEN_HEADER = "X-Orig-Authorization"
 
 @app.route("/auth")
 def authnz_token():  # type: ignore
-    """
-    Authenticate and authorize a token.
+    """Authenticate and authorize a token.
     :query capability: One or more capabilities to check
     :query satisfy: satisfy ``all`` (default) or ``any`` of the
-    capability checks.
+     capability checks.
     :query reissue_token: If ``true``, then reissue token before
-    setting the user headers.
-    :>header Authorization: The JWT token. This must always be the
-    full JWT token. The token should be in this  header as
-    type ``Bearer``, but it may be type ``Basic`` if ``x-oauth-basic``
-    is the username or password.
-    :>header X-Orig-Authorization: The Authorization header as it was
-    received before processing by oauth2_proxy. This is useful when
-    the original header was an oauth2_proxy ticket, as this gives
-    access to the ticket.
-    :<header X-Auth-Request-Email: If enabled and email is available,
-    this will be set based on the ``email`` claim.
-    :<header X-Auth-Request-User: If enabled and the field is available,
-    this will be set from token based on the ``JWT_USERNAME_KEY`` field
-    :<header X-Auth-Request-Uid: If enabled and the field is available,
-    this will be set from token based on the ``JWT_UID_KEY`` field
-    :<header X-Auth-Request-Groups: When a token has groups available
-    in the ``isMemberOf`` claim, the names of the groups will be
-    returned, comma-separated, in this header.
-    :<header X-Auth-Request-Token: If enabled, the encoded token will
-    be set. If ``reissue_token`` is true, the token is reissued first
-    :<header X-Auth-Request-Token-Ticket: When a ticket is available
-    for the token, we will return it under this header.
-    :<header X-Auth-Request-Token-Capabilities: If the token has
-    capabilities in the ``scope`` claim, they will be returned in this
-    header.
-    :<header X-Auth-Request-Token-Capabilities-Accepted: A
-    space-separated list of token capabilities the reliant resource
-    accepts
-    :<header X-Auth-Request-Token-Capabilities-Satisfy: The strategy
-    the reliant resource uses to accept a capability. ``any`` or ``all``
-    :<header WWW-Authenticate: If the request is unauthenticated, this
-    header will be set.
+     setting the user headers.
+    :<header Authorization: The JWT token. This must always be the
+     full JWT token. The token should be in this  header as
+     type ``Bearer``, but it may be type ``Basic`` if ``x-oauth-basic``
+     is the username or password.
+    :<header X-Orig-Authorization: The Authorization header as it was
+     received before processing by ``oauth2_proxy``. This is useful when
+     the original header was an ``oauth2_proxy`` ticket, as this gives
+     access to the ticket.
+    :>header X-Auth-Request-Email: If enabled and email is available,
+     this will be set based on the ``email`` claim.
+    :>header X-Auth-Request-User: If enabled and the field is available,
+     this will be set from token based on the ``JWT_USERNAME_KEY`` field
+    :>header X-Auth-Request-Uid: If enabled and the field is available,
+     this will be set from token based on the ``JWT_UID_KEY`` field
+    :>header X-Auth-Request-Groups: When a token has groups available
+     in the ``isMemberOf`` claim, the names of the groups will be
+     returned, comma-separated, in this header.
+    :>header X-Auth-Request-Token: If enabled, the encoded token will
+     be set. If ``reissue_token`` is true, the token is reissued first
+    :>header X-Auth-Request-Token-Ticket: When a ticket is available
+     for the token, we will return it under this header.
+    :>header X-Auth-Request-Token-Capabilities: If the token has
+     capabilities in the ``scope`` claim, they will be returned in this
+     header.
+    :>header X-Auth-Request-Token-Capabilities-Accepted: A
+     space-separated list of token capabilities the reliant resource
+     accepts
+    :>header X-Auth-Request-Token-Capabilities-Satisfy: The strategy
+     the reliant resource uses to accept a capability. ``any`` or ``all``
+    :>header WWW-Authenticate: If the request is unauthenticated, this
+     header will be set.
+
     """
     # Default to Server Error for safety, so we must always set it to 200
     # if it's okay.

@@ -65,8 +65,9 @@ class Config:
         settings.validators.register(
             Validator("NO_VERIFY", "NO_AUTHORIZE", is_type_of=bool),
             Validator("GROUP_MAPPING", is_type_of=dict),
-            Validator("ISSUERS", is_type_of=dict, must_exist=True),
         )
+
+        settings.validators.validate()
 
         if settings.get("OAUTH2_JWT.ISS"):
             iss = settings["OAUTH2_JWT.ISS"]
@@ -132,9 +133,12 @@ class Config:
                 raise Exception(f"No access checker for id {access_check_name}")
             logger.info(f"Configured default access checks: {access_check_name}")
 
-        # Issuers
-        for issuer_url, issuer_info in settings["ISSUERS"].items():
-            # if 'map_subject' in cp.options(section):
-            #     issuer_info['map_subject'] = cp.getboolean(section, 'map_subject')
-            logger.info(f"Configured token access for {issuer_url}: {issuer_info}")
-        logger.info("Configured Issuers")
+        if settings.get("ISSUERS"):
+            # Issuers
+            for issuer_url, issuer_info in settings["ISSUERS"].items():
+                # if 'map_subject' in cp.options(section):
+                #     issuer_info['map_subject'] = cp.getboolean(section, 'map_subject')
+                logger.info(f"Configured token access for {issuer_url}: {issuer_info}")
+            logger.info("Configured Issuers")
+        else:
+            logger.warn("No Issuers Configures")
