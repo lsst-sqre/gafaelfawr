@@ -10,4 +10,4 @@ install:
 script:
   - mypy --strict -m authorizer
   - black --check -l 100 --target-version=py37 -v authorizer
-  - flake8 --max-line-length=100 authorizer
+  - flake8 authorizer
