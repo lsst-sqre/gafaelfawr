@@ -108,7 +108,7 @@ def check_authorization(capability: str, verified_token: Mapping[str, Any]) -> T
     """
     Check the authorization for a given capability.
     A given capability may be authorized by zero, one, or more criteria,
-    modeled as a callables. All callables MUST pass, returning True,
+    modeled as callables. All callables MUST pass, returning True,
     for authorization on the given capability to succeed.
     :param capability: The capability we are authorizing
     :param verified_token: The verified token
