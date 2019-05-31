@@ -9,7 +9,7 @@ global:
   # NO_AUTHORIZE: True
 
   # Resource Checkers
-  # Options are `group_membership`, `scp`, `lsst_group_membership` Must be a list
+  # Options are `group_membership`, `scope`, `lsst_group_membership` Must be a list
   RESOURCE_CHECKS_DEFAULT:
     - group_membership
 

@@ -13,6 +13,15 @@ global:
   # Options are `group_membership`, `scp`, `lsst_group_membership` Must be a list
   RESOURCE_CHECKS_DEFAULT: []
 
+  # KNOWN_CAPABILITIES:
+  #   - notebook:
+  #     - exec:lsp
+  #   - api:
+  #     - read:tap
+  #     - read:workspace
+  #   - portal:
+  #     - exec:workspace
+
   # Demo SciTokens Issuer
   ISSUERS:
     https://demo.scitokens.org:
