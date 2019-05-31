@@ -99,7 +99,7 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
 
 
 def issue_token(
-    payload: Mapping[str, Any], exp: datetime, store_user_info: bool, oauth2_proxy_ticket: Ticket
+    payload: Mapping[str, Any], aud: str, store_user_info: bool, oauth2_proxy_ticket: Ticket
 ) -> str:
     """
     Issue a token.
@@ -108,15 +108,14 @@ def issue_token(
     token in encoded form. If configured, it will also store the
     newly issued token a oauth2_proxy redis session store.
     :param payload: The payload of claims for the token.
-    :param exp: The time of expiration.
+    :param aud: The desired audience for the new token
     :param store_user_info: Store info about this token for the user.
     :param oauth2_proxy_ticket: The value of the oauth2_proxy_cookie
     :return: Encoded token
     """
     # Make a copy first
-    payload = dict(payload)
-    # Overwrite relevant claims from previous issuer
-    payload.update(iss=current_app.config["OAUTH2_JWT.ISS"], iat=datetime.utcnow(), exp=exp)
+    exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+    payload = _build_payload(aud, exp, payload, oauth2_proxy_ticket)
 
     private_key = current_app.config["OAUTH2_JWT.KEY"]
     headers = {"kid": current_app.config["OAUTH2_JWT.KEY_ID"]}
@@ -131,74 +130,39 @@ def issue_token(
     return encoded_reissued_token
 
 
-def issue_default_token(decoded_token: Mapping[str, Any], oauth2_proxy_ticket: Ticket) -> str:
-    """
-    Issue a new default token. This happens when we see a new session.
-    We **replace** the oauth2_proxy session, via `oauth2_proxy_ticket`,
-    in Redis with our new oauth2_proxy session.
-    :param decoded_token: Decoded token representing the token we will
-    replace.
-    :param oauth2_proxy_ticket: The current ticket for the session
-    with that token.
-    :return: A new encoded token
-    """
-    default_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
-    payload = _build_payload(default_audience, decoded_token, oauth2_proxy_ticket)
-    exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
-    return issue_token(
-        payload, exp=exp, store_user_info=False, oauth2_proxy_ticket=oauth2_proxy_ticket
-    )
-
-
-def issue_internal_token(decoded_token: Mapping[str, Any]) -> Tuple[str, Ticket]:
-    """
-    Issue a new internal token. This should only be done when calling
-    to to internal resources.
-    We create a new oauth2_proxy session, with a new ticket, in
-    Redis with our new oauth2_proxy session.
-    :param decoded_token: Decoded token representing the token we will
-    replace.
-    :return The new token, encoded, as well as an oauth2_proxy ticket
-    for that token.
-    """
-    internal_audience = current_app.config.get("OAUTH2_JWT.AUD.INTERNAL", "")
-    oauth2_proxy_ticket = Ticket()
-    payload = _build_payload(internal_audience, decoded_token, oauth2_proxy_ticket)
-    exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
-    # Note: Internal audiences should not need the ticket
-    encoded_token = issue_token(
-        payload, exp=exp, store_user_info=False, oauth2_proxy_ticket=oauth2_proxy_ticket
-    )
-    return encoded_token, oauth2_proxy_ticket
-
-
 def _build_payload(
-    audience: str, decoded_token: Mapping[str, Any], ticket: Ticket
-) -> Mapping[str, Any]:
+    audience: str, expires: datetime, decoded_token: Mapping[str, Any], ticket: Ticket
+) -> Dict[str, Any]:
     """
     Build a new token payload.
     iat, exp, etc... claims are handled at token issuance.
     :param audience: The new token audience
+    :param expires: When this token expires.
     :param decoded_token: The previous decoded token
     :param ticket: The ticket to use (ticket handle used with JTI)
     :return: A new payload for issuing the new ticket.
     """
-    payload = dict(decoded_token)
     prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    previous_jti = decoded_token.get("jti", "")
-    previous_act = decoded_token.get("act", "")
-    previous_iss = decoded_token["iss"]
-    previous_aud = decoded_token["aud"]
 
+    previous_jti = decoded_token.get("jti")
+    previous_act = decoded_token.get("act")
+    previous_aud = decoded_token.get("aud")
+    previous_iss = decoded_token.get("iss")
+
+    payload = dict(decoded_token)
     payload["iss"] = current_app.config["OAUTH2_JWT.ISS"]
+    payload["iat"] = datetime.utcnow()
+    payload["exp"] = expires
     payload["jti"] = ticket.as_handle(prefix)
     payload["aud"] = audience
-    actor_claim = {"aud": previous_aud, "iss": previous_iss}
-    if previous_jti:
-        actor_claim["jti"] = previous_jti
-    if previous_act:
-        actor_claim["act"] = previous_act
-    payload["act"] = actor_claim
+
+    if previous_aud and previous_iss:
+        actor_claim = {"aud": previous_aud, "iss": previous_iss}
+        if previous_jti:
+            actor_claim["jti"] = previous_jti
+        if previous_act:
+            actor_claim["act"] = previous_act
+        payload["act"] = actor_claim
     return payload
 
 
