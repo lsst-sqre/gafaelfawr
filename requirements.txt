@@ -9,3 +9,5 @@ dynaconf
 redis
 flask_wtf
 wtforms
+fakeredis
+pytest_bdd

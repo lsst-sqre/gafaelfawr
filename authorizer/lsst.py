@@ -20,7 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-from typing import Dict, Tuple, Any
+from typing import Tuple, Any, Mapping
 
 from flask import current_app
 
@@ -41,14 +41,16 @@ OP_TO_ABSTRACT_GROUP_POSTFIX = {"read": "_r", "write": "_w", "exec": "_x"}
 
 
 # noinspection PyUnusedLocal
-def lsst_users_membership_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]:
+def lsst_users_membership_check_access(
+    capability: str, token: Mapping[str, Any]
+) -> Tuple[bool, str]:
     """Check that a user is in the lsst_users group.
     :param capability: The capability we are checking against (Ignored)
     :param token: The token necessary
     :rtype: Tuple[bool, str]
     :returns: (successful, message) with successful as True if the
-    scitoken allows for op and the user can read/write the file, otherwise
-    return (False, message)
+     scitoken allows for op and the user can read/write the file,
+     otherwise return (False, message)
     """
     user_group = "lsst_users"
     groups_for_user = token.get("isMemberOf")
@@ -60,15 +62,17 @@ def lsst_users_membership_check_access(capability: str, token: Dict[str, Any]) -
     return False, f"No group {user_group} found in user's `isMemberOf`: user is not an LSST user"
 
 
-def lsst_group_membership_check_access(capability: str, token: Dict[str, Any]) -> Tuple[bool, str]:
-    """Check that a user has access with the following operation to this service
-    based on some form of group membership.
+def lsst_group_membership_check_access(
+    capability: str, token: Mapping[str, Any]
+) -> Tuple[bool, str]:
+    """Check that a user has access with the following operation to
+    this service based on some form of group membership.
     :param capability: The capability we are checking against
     :param token: The token necessary
     :rtype: Tuple[bool, str]
     :returns: (successful, message) with successful as True if the
-    scitoken allows for op and the user can read/write the file, otherwise
-    return (False, message)
+     scitoken allows for op and the user can read/write the file,
+     otherwise return (False, message)
     """
     groups_for_user = token.get("isMemberOf")
     if not groups_for_user:

@@ -22,31 +22,38 @@
 
 import logging
 import os
-from typing import Callable, Dict, Tuple
+from typing import Callable, Tuple, Mapping, Any
 
 import redis  # type: ignore
 from dynaconf import FlaskDynaconf, Validator  # type: ignore
+from flask import Flask
 
 logger = logging.getLogger(__name__)
 
 ALGORITHM = "RS256"
 
+AccessT = Callable[[str, Mapping[str, Any]], Tuple[bool, str]]
+
+
+class AuthorizerApp(Flask):
+    ACCESS_CHECK_CALLABLES: Mapping[str, AccessT] = {}
+
 
 class Config:
     @staticmethod
-    def configure_plugins(app):
-        from .authorizers import scp_check_access, group_membership_check_access
+    def configure_plugins(app: AuthorizerApp) -> None:
+        from .authnz import scope_check_access, group_membership_check_access
         from .lsst import lsst_group_membership_check_access, lsst_users_membership_check_access
 
-        app.ACCESS_CHECK_CALLABLES: Dict[str, Callable[[str, Dict], Tuple[bool, str]]] = {
-            "scp": scp_check_access,
+        app.ACCESS_CHECK_CALLABLES = {
+            "scope": scope_check_access,
             "group_membership": group_membership_check_access,
             "lsst_group_membership": lsst_group_membership_check_access,
             "lsst_users_membership": lsst_users_membership_check_access,
         }
 
     @staticmethod
-    def validate(app, user_config):
+    def validate(app: AuthorizerApp, user_config: str) -> None:
         global logger
         Config.configure_plugins(app)
         defaults_file = os.path.join(os.path.dirname(__file__), "defaults.yaml")
@@ -58,8 +65,22 @@ class Config:
         settings.validators.register(
             Validator("NO_VERIFY", "NO_AUTHORIZE", is_type_of=bool),
             Validator("GROUP_MAPPING", is_type_of=dict),
-            Validator("ISSUERS", is_type_of=dict, must_exist=True),
         )
+
+        settings.validators.validate()
+
+        if settings.get("OAUTH2_JWT.ISS"):
+            iss = settings["OAUTH2_JWT.ISS"]
+            kid = settings["OAUTH2_JWT.KEY_ID"]
+            logger.info(f"Configuring Token Issuer: {iss} with Key ID {kid}")
+
+            if settings.get("OAUTH2_JWT.AUD.DEFAULT"):
+                aud = settings.get("OAUTH2_JWT.AUD.DEFAULT")
+                logger.info(f"Configured Default Audience: {aud}")
+
+            if settings.get("OAUTH2_JWT.AUD.INTERNAL"):
+                aud = settings.get("OAUTH2_JWT.AUD.DEFAULT")
+                logger.info(f"Configured Internal Audience: {aud}")
 
         if settings.get("SECRET_KEY"):
             app.secret_key = settings["SECRET_KEY"]
@@ -97,13 +118,13 @@ class Config:
 
         if settings.get("OAUTH2_STORE_SESSION"):
             proxy_config = settings["OAUTH2_STORE_SESSION"]
-            key_prefix = proxy_config["KEY_PREFIX"]
+            ticket_prefix = proxy_config["TICKET_PREFIX"]
             secret = proxy_config["OAUTH2_PROXY_SECRET"]
             assert len(secret), "OAUTH2_PROXY_SECRET must be set"
             app.redis_pool = redis.ConnectionPool.from_url(url=proxy_config["REDIS_URL"])
             logger.info(
                 f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
-                f"with prefix: {key_prefix}"
+                f"with prefix: {ticket_prefix}"
             )
 
         # Find Resource Check Callables
@@ -112,9 +133,10 @@ class Config:
                 raise Exception(f"No access checker for id {access_check_name}")
             logger.info(f"Configured default access checks: {access_check_name}")
 
-        # Sections
-        for issuer_url, issuer_info in settings["ISSUERS"].items():
-            # if 'map_subject' in cp.options(section):
-            #     issuer_info['map_subject'] = cp.getboolean(section, 'map_subject')
-            logger.info(f"Configured token access for {issuer_url}: {issuer_info}")
-        logger.info("Configured Issuers")
+        if settings.get("ISSUERS"):
+            # Issuers
+            for issuer_url, issuer_info in settings["ISSUERS"].items():
+                logger.info(f"Configured token access for {issuer_url}: {issuer_info}")
+            logger.info("Configured Issuers")
+        else:
+            logger.warn("No Issuers Configures")

@@ -1,0 +1,9 @@
+# Ignore everything
+**
+
+# Allow only these directories
+!authorizer
+!rootfs
+
+# Allow only these files
+!requirements.txt
