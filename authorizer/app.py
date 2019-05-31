@@ -3,7 +3,6 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Any, Dict, Mapping, Tuple
 
-import jwt
 from flask import request, Response, current_app, render_template, flash, redirect, url_for
 from jwt import PyJWTError
 
@@ -99,12 +98,12 @@ def authnz_token():  # type: ignore
     success, message = authorize(verified_token)
 
     # Always add info about authorization
-    _make_capability_headers(response, encoded_token)
+    _make_capability_headers(response, verified_token)
 
     jti = verified_token.get("jti", "UNKNOWN")
     if success:
         response.status_code = 200
-        _make_success_headers(response, encoded_token)
+        _make_success_headers(response, encoded_token, verified_token)
         logger.info(f"Allowed token with Token ID: {jti} " f"from issuer {verified_token['iss']}")
         return response
 
@@ -219,33 +218,33 @@ def new_tokens():  # type: ignore
     )
 
 
-def _make_capability_headers(response: Response, encoded_token: str) -> None:
+def _make_capability_headers(response: Response, verified_token: Mapping[str, Any]) -> None:
     """Set Headers scope headers that can be returned in the case of
     API authorization failure due to required capabiliites.
     :return: The mutated response object.
     """
-    decoded_token = jwt.decode(encoded_token, verify=False)
     capabilities_required, satisfy = verify_authorization_strategy()
-    group_capabilities_set = capabilities_from_groups(decoded_token)
-    scope_capabilities_set = set(decoded_token.get("scope", "").split(" "))
+    group_capabilities_set = capabilities_from_groups(verified_token)
+    scope_capabilities_set = set(verified_token.get("scope", "").split(" "))
     user_capabilities_set = group_capabilities_set.union(scope_capabilities_set)
     response.headers["X-Auth-Request-Token-Capabilities"] = " ".join(user_capabilities_set)
     response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities_required)
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
 
 
-def _make_success_headers(response: Response, encoded_token: str) -> None:
+def _make_success_headers(
+    response: Response, encoded_token: str, verified_token: Mapping[str, Any]
+) -> None:
     """Set Headers that will be returned in a successful response.
     :return: The mutated response object.
     """
-    _make_capability_headers(response, encoded_token)
+    _make_capability_headers(response, verified_token)
 
-    decoded_token = jwt.decode(encoded_token, verify=False)
     if current_app.config["SET_USER_HEADERS"]:
-        email = decoded_token.get("email")
-        user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
-        uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
-        groups_list = decoded_token.get("isMemberOf", list())
+        email = verified_token.get("email")
+        user = verified_token.get(current_app.config["JWT_USERNAME_KEY"])
+        uid = verified_token.get(current_app.config["JWT_UID_KEY"])
+        groups_list = verified_token.get("isMemberOf", list())
         if email:
             response.headers["X-Auth-Request-Email"] = email
         if user:
@@ -261,7 +260,7 @@ def _make_success_headers(response: Response, encoded_token: str) -> None:
     oauth2_proxy_ticket = original_auth if original_auth.startswith(f"{ticket_prefix}:") else ""
     reissue_requested = request.args.get("reissue_token", "").lower() == "true"
     if reissue_requested:
-        encoded_token, oauth2_proxy_ticket = _check_reissue_token(encoded_token, decoded_token)
+        encoded_token, oauth2_proxy_ticket = _check_reissue_token(encoded_token, verified_token)
     response.headers["X-Auth-Request-Token"] = encoded_token
     response.headers["X-Auth-Request-Token-Ticket"] = oauth2_proxy_ticket
 
