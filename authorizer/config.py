@@ -139,4 +139,4 @@ class Config:
                 logger.info(f"Configured token access for {issuer_url}: {issuer_info}")
             logger.info("Configured Issuers")
         else:
-            logger.warn("No Issuers Configures")
+            logger.warning("No Issuers Configures")
