@@ -7,7 +7,7 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
             integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
             crossorigin="anonymous"></script>
-    <title>Token Creation Page</title>
+    <title>Token {{ token.jti }}</title>
 </head>
 <body>
 
@@ -24,27 +24,10 @@
     {% endwith %}
 
 
-    <div class="form-group row">
+    <div class="row">
         <div class="col-md-12">
             {% block content %}
-                <h2>Download Token</h2>
-
-                <form action="" method="post" novalidate>
-                    {{ form.hidden_tag() }}
-                    <h3>API Capabilities</h3>
-                    {% for capability in capabilities %}
-                        <div class="form-group row">
-                            <div class="col-md-4">
-                                <div class="form-check">
-                                    {{ form[capability](class="form-check-input") }}
-                                    {{ form[capability].label(class="form-check-label") }}
-                                </div>
-                            </div>
-                            <div class="col-md-8 text-dark">{{ form[capability].description }}</div>
-                        </div>
-                    {% endfor %}
-                    <p>{{ form.submit() }}</p>
-                </form>
+                <h2>Token {{ token.jti }}</h2>
             {% endblock %}
         </div>
     </div>
