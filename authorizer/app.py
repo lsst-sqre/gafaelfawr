@@ -1,6 +1,5 @@
 import base64
 import logging
-from datetime import datetime, timedelta
 from typing import Optional, Any, Dict, Mapping, Tuple
 
 from flask import request, Response, current_app, render_template, flash, redirect, url_for
@@ -13,8 +12,6 @@ from .tokens import (
     api_capabilities_token_form,
     Ticket,
     parse_ticket,
-    issue_default_token,
-    issue_internal_token,
     get_tokens,
     revoke_token,
     AlterTokenForm,
@@ -182,8 +179,8 @@ def new_tokens():  # type: ignore
             if form[capability].data:
                 new_capabilities.append(capability)
         scope = " ".join(new_capabilities)
-        aud = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", decoded_token["aud"])
-        new_token: Dict[str, Any] = {"scope": scope, "aud": aud}
+        audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", decoded_token["aud"])
+        new_token: Dict[str, Any] = {"scope": scope}
         email = decoded_token.get("email")
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
         uid = decoded_token.get(current_app.config["JWT_UID_KEY"])
@@ -198,13 +195,8 @@ def new_tokens():  # type: ignore
         #
         # new_token['isMemberOf'] = decoded_token['isMemberOf']
         oauth2_proxy_ticket = Ticket()
-        ticket_prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-        ticket_handle = oauth2_proxy_ticket.as_handle(ticket_prefix)
-        new_token["jti"] = ticket_handle
-
-        exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
         _ = issue_token(
-            new_token, exp=exp, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket
+            new_token, aud=audience, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket
         )
 
         flash(
@@ -290,22 +282,27 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     from_default_audience = decoded_token["aud"] == default_audience
     cookie_name = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
     oauth2_proxy_ticket_str = request.cookies.get(cookie_name, "")
+    ticket = None
+    new_audience = None
 
     if not from_this_issuer:
+        new_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
         ticket = parse_ticket(cookie_name, oauth2_proxy_ticket_str)
         # If we didn't issue it, it came from a provider, and it is
         # inherently a new session, and this happens only once, after
         # initial login. If there's no cookie, or we failed to
         # parse it, there's something funny going on.
         assert ticket, "ERROR: OAuth2 Proxy cookie must be present"
-        # We transform the external provider tokens to internal tokens
-        # with a fixed lifetime
-        encoded_token = issue_default_token(decoded_token, ticket)
     elif from_this_issuer and from_default_audience and to_internal_audience:
-        # Internal tokens should not be reissued
-        encoded_token, oauth2_proxy_ticket = issue_internal_token(decoded_token)
-        oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(cookie_name)
+        # In this case, we only reissue tokens from a default audience
+        new_audience = current_app.config.get("OAUTH2_JWT.AUD.INTERNAL", "")
+        ticket = Ticket()
 
+    if new_audience:
+        encoded_token = issue_token(
+            decoded_token, new_audience, store_user_info=True, oauth2_proxy_ticket=ticket
+        )
+        oauth2_proxy_ticket_str = ticket.encode(cookie_name)
     return encoded_token, oauth2_proxy_ticket_str
 
 
