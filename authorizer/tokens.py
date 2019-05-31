@@ -82,11 +82,11 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
     """
     full_prefix = f"{prefix}-"
     if not ticket.startswith(full_prefix):
-        print(1)
+        logger.info("error decoding ticket: Ticket not in expected format")
         return None
     trimmed_ticket = ticket[len(full_prefix) :]
     if "." not in trimmed_ticket:
-        print(2)
+        logger.info("error decoding ticket: Ticket not in expected format")
         return None
     ticket_id, secret_b64 = trimmed_ticket.split(".")
     try:
@@ -94,7 +94,7 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
         secret = base64.urlsafe_b64decode(add_padding(secret_b64))
         return Ticket(ticket_id=ticket_id, secret=secret)
     except (ValueError, Error) as e:
-        print(e)
+        logger.info("error decoding ticket:", e)
         return None
 
 
