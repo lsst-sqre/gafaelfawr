@@ -13,6 +13,9 @@ with oauth2_proxy (in proxy mode) and Redis. This allows oauth2_proxy
 to handle authentication and JWT Authorizer to handle authorization and
 token management.
 
+## Deploying
+See the [deployment README](./kube/template/README.md).
+
 ## Token and Ticket Issuance
 
 JWT Authorizer is itself a token issuer which oauth2_proxy is typically
