@@ -15,7 +15,7 @@ spec:
         k8s-app: jwt-authorizer
     spec:
       containers:
-      - image: lsstdm/jwt_authorizer
+      - image: lsstdm/jwt_authorizer:stable
         imagePullPolicy: Always
         name: jwt-authorizer
         ports:

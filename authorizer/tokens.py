@@ -355,16 +355,20 @@ def _o2proxy_encrypted_session(
     :param token: The encoded JWT.
     :return: encrypted session bytes
     """
-    user = user or ""
     email = email or ""
-    account_info = f"email:{email} user:{user}"
-    access_token = ""
-    id_token = _o2proxy_encrypt_field(token).decode("utf-8")
-    refresh_token = ""
-    expires_int = timegm(expires.utctimetuple())
-    session_payload = f"{account_info}|{access_token}|{id_token}|{expires_int}|{refresh_token}"
-    signed_session = _o2proxy_signed_session(session_payload)
-    return _o2proxy_encrypt_string(secret, signed_session)
+    session_obj = dict(
+        IDToken=_o2proxy_encrypt_field(token).decode(),
+        Email=_o2proxy_encrypt_field(email).decode(),
+        User=_o2proxy_encrypt_field(email).decode(),
+        CreatedAt=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        ExpiresOn=expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+    session_payload_str = json.dumps(session_obj)
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(secret), modes.CFB(secret), backend=backend)
+    encryptor = cipher.encryptor()
+    cipher_text = encryptor.update(session_payload_str.encode()) + encryptor.finalize()
+    return cipher_text
 
 
 def _o2proxy_encrypt_field(field: str) -> bytes:
