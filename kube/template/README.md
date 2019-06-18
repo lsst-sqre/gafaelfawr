@@ -1,8 +1,12 @@
 # Deploying
 
-## Client Information
+## Prerequisites
+This process assumes your ingress for the hostname has already been set up.
+We do not rely on tls secrets for any deployments under that assumptions
 
-You first need a CILogon OAuth2 Client ID and secret.
+### Getting Client Information
+
+If you do not have a client as secret, you first need to obtain one from CILogon OAuth2 Client ID and secret.
 
 Go here:
 https://cilogon.org/oauth2/register
@@ -33,10 +37,9 @@ A separate email is required to CILogonhelp address to apply the client configur
 from the client `cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75` to your new
 client.
 
-## Add TLS certificates
-TLS certificates need to be added under the secret `tls` as a TLS secret.
+## Configuring Auth Services
 
-## Run ./init.sh
+### Run ./init.sh
 This will gather required input and write out YAML files to a directory for 
 your workspace. Those yaml files must be applied.
 
@@ -47,7 +50,13 @@ You can override with the J2_BIN for with your own executable.
 You can `pip install j2cli[yaml]` otherwise and it should work too, but it may try to
 install an old version of pyyaml.
 
-# Protecting services
+### Applying the Config and Cleanup
+You can `kubectl apply -R -f .` the config. You have some secrets in the clear,
+you may want to save those somewhere safe (or delete them, if appropriate).
+
+## Configuring Applications
+
+### Protecting services
 
 Services behind the proxy are configured at the ingress level.
 
@@ -71,7 +80,7 @@ this domain.
 Tokens will be signed by the token reissuer. The audience in the reissued tokens
 is the domain name for most requests.
 
-## Headers from proxy
+### Headers from proxy
 
 The following headers are available from the proxy, any of these can be
 added to the `nginx.ingress.kubernetes.io/auth-response-headers` annotation
