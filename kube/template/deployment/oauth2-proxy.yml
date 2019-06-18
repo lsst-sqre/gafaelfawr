@@ -34,6 +34,7 @@ spec:
         - -http-address=0.0.0.0:4180
         - -cookie-expire=24h
         - -pass-authorization-header
+        - -session-store-type=redis
         - -redis-connection-url=redis://redis-service.{{ NAMESPACE }}.svc.cluster.local:6379/0
         - -skip-jwt-bearer-tokens
         - -extra-jwt-issuers=https://{{ HOSTNAME }}=https://{{ HOSTNAME }}
