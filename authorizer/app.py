@@ -323,7 +323,7 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
 
     if new_audience:
         encoded_token = issue_token(
-            decoded_token, new_audience, store_user_info=True, oauth2_proxy_ticket=ticket
+            decoded_token, new_audience, store_user_info=False, oauth2_proxy_ticket=ticket
         )
         oauth2_proxy_ticket_str = ticket.encode(cookie_name)
     return encoded_token, oauth2_proxy_ticket_str
