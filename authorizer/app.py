@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import base64
+import binascii
 import logging
 from typing import Optional, Any, Dict, Mapping, Tuple
 
@@ -302,7 +303,8 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     from_this_issuer = decoded_token["iss"] == iss
     from_default_audience = decoded_token["aud"] == default_audience
     cookie_name = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    oauth2_proxy_ticket_str = request.cookies.get(cookie_name, "")
+    oauth2_proxy_cookie_val = request.cookies.get(cookie_name, "")
+    oauth2_proxy_ticket_str = _ticket_str_from_cookie(oauth2_proxy_cookie_val)
     ticket = None
     new_audience = None
 
@@ -344,8 +346,8 @@ def _find_token(header: str) -> Optional[str]:
         encoded_token = auth_blob
     elif "x-forwarded-access-token" in request.headers:
         encoded_token = request.headers["x-forwarded-access-token"]
-    elif "x-forwarded-ticket_id-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-ticket_id-token"]
+    elif "x-forwarded-ticket-id-token" in request.headers:
+        encoded_token = request.headers["x-forwarded-ticket-id-token"]
     elif auth_type.lower() == "basic":
         logger.debug("Using OAuth with Basic")
         # We fallback to user:token. We ignore the user.
@@ -379,3 +381,17 @@ def _make_needs_authentication(response: Response, error: str, message: str) -> 
         response.headers[
             "WWW-Authenticate"
         ] = f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
+
+
+def _ticket_str_from_cookie(cookie_val: str) -> str:
+    """
+    Get a ticket from an oauth2_proxy cookie value
+    :param cookie_val: Value of the oauth2_proxy cookie
+    :return: The ticket value
+    """
+    cookie_parts = cookie_val.split("|")
+    ticket_part = cookie_parts[0]
+    try:
+        return base64.urlsafe_b64decode(ticket_part).decode()
+    except binascii.Error:
+        return ""
