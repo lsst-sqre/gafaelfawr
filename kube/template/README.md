@@ -39,16 +39,39 @@ client.
 
 ## Configuring Auth Services
 
-### Run ./init.sh
-This will gather required input and write out YAML files to a directory for 
-your workspace. Those yaml files must be applied.
+### Prerequisites
 
-**Note**: init.sh relies on j2cli. By default it will try to use a local version
+- git, to clone this repo
+- pip, or
+- curl, in case you don't have pip
+
+#### Source
+Clone this repo, switch to this directory (kube/template)
+
+#### Running the init scripts
+init.sh relies on j2cli. By default it will try to use a local version
 then fall back to a version in in docker. If you would like to override that.
 You can override with the J2_BIN for with your own executable. 
 
 You can `pip install j2cli[yaml]` otherwise and it should work too, but it may try to
 install an old version of pyyaml.
+
+If you don't have pip on the system, but at least have python installed, you should be
+able to bootstrap everything, as long as you at least have curl:
+
+```
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+python get-pip.py --user
+pip install --user j2cli[yaml]
+```
+
+You will want to modify your PATH too:
+`PATH=$PATH:$HOME/.local/bin:$HOME/bin`
+
+### Run ./init.sh
+This will gather required input and write out YAML files to a directory for 
+your workspace. Those yaml files must be applied.
+
 
 ### Applying the Config and Cleanup
 You can `kubectl apply -R -f .` the config. You have some secrets in the clear,
