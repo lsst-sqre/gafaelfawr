@@ -61,7 +61,7 @@ j2 --version > /dev/null
 has_j2_rc=$?
 
 if [[ $has_j2_rc -ne 0 ]]; then
-    volumes=$(for dir in configmap deployment ing secret svc ${NAMESPACE}; do echo -n "-v `pwd`/$dir:/$dir"; done)
+    volumes=$(for dir in configmap deployment ing secret svc ${NAMESPACE}; do printf "-v `pwd`/$dir:/$dir "; done)
     j2="docker run $volumes -w / danielpanzella/j2cli"
 fi
 
