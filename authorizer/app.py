@@ -220,10 +220,11 @@ def new_tokens():  # type: ignore
         _ = issue_token(
             new_token, aud=audience, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket
         )
-
+        prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+        oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(prefix)
         flash(
             f"Your Newly Created Token. Keep these Secret!<br>\n"
-            f"Token: {oauth2_proxy_ticket} <br>"
+            f"Token: {oauth2_proxy_ticket_str} <br>"
         )
         return redirect(url_for("tokens"))
 
