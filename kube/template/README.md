@@ -84,10 +84,18 @@ You will want to modify your PATH too:
 This will gather required input and write out YAML files to a directory for 
 your workspace. Those yaml files must be applied.
 
-
 ### Applying the Config and Cleanup
-You can `kubectl apply -R -f .` the config. You have some secrets in the clear,
-you may want to save those somewhere safe (or delete them, if appropriate).
+You can `kubectl apply -R -f .` the config.
+
+The output of this step will, by necessity, contain secrets in the output
+directory. You have some secrets in the clear, you may want to save those 
+somewhere safe (or delete them, if appropriate). The public signing key that
+jwt_authorizer uses to sign tokens is available in a PEM format under
+`public.pem`. *Applications that validate the JWT tokens,
+such as the notebook may need this file*. Other application may rely on the
+JWKS-formatted public key that's deployed to 
+`https://{{ HOSTNAME }}/.well-known/jwks.json`.
+
 
 ## Configuring Applications
 
@@ -145,3 +153,10 @@ list of token capabilities the reliant resource accepts
 the reliant resource uses to accept a capability. `any` or `all`
 * `WWW-Authenticate`: If the request is unauthenticated, this
 header will be set according to the configuration.
+
+### Verifying tokens
+This deploys a JWKS file to .well-known/jwks.json. Some applications
+may use that file for verifying a token they receive is valid.
+
+A public key is also available, if it was saved. (See [previous section](#applying-the-config-and-leanup))
+If it's not saved, it is also derivable from the jwks.json file.
