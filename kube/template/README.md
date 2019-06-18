@@ -41,12 +41,24 @@ client.
 
 ### Prerequisites
 
-- git, to clone this repo
 - pip, or
-- curl, in case you don't have pip
+- git, to clone this repo
+- curl, in case you don't have pip or git
 
 #### Source
-Clone this repo, switch to this directory (kube/template)
+Clone this repo, switch to this directory (kube/template).
+
+```
+git clone https://github.com/lsst/jwt_authorizer
+cd jwt_authorizer/kube/template
+```
+
+If you don't have git, you can also get it with curl:
+```
+curl -sSLO https://github.com/lsst/jwt_authorizer/archive/master.tar.gz
+tar xvzf master.tar.gz
+cd jwt-authorizer-master/kube/template
+```
 
 #### Running the init scripts
 init.sh relies on j2cli. By default it will try to use a local version
