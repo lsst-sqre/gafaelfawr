@@ -29,7 +29,7 @@ echo "Generating Issuer Keypair... private.pem, public.pem"
 openssl genrsa -out private.pem 2048 2> /dev/null
 openssl rsa -in private.pem -outform PEM -pubout -out public.pem
 modulus_hex=$(openssl rsa -pubin -inform PEM -modulus -noout -in public.pem | sed 's/Modulus=//')
-modulus_urlsafe_b64=$(printf -- "$modulus_hex" | xxd -r -p | $b64 | sed 's/+/-/g;s/\//_/g')
+modulus_urlsafe_b64=$(printf -- "$modulus_hex" | xxd -r -p | $b64 | sed 's/+/-/g;s/\//_/g;s/=//g')
 
 ISSUER_PRIVATE_KEY=$(cat private.pem)
 ISSUER_PRIVATE_KEY_INDENT_10=$(printf -- "$ISSUER_PRIVATE_KEY" | sed 's/^/          /')
