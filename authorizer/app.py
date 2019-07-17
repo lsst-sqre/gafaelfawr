@@ -55,8 +55,6 @@ def authnz_token():  # type: ignore
     :query capability: One or more capabilities to check
     :query satisfy: satisfy ``all`` (default) or ``any`` of the
      capability checks.
-    :query reissue_token: If ``true``, then reissue token before
-     setting the user headers.
     :<header Authorization: The JWT token. This must always be the
      full JWT token. The token should be in this  header as
      type ``Bearer``, but it may be type ``Basic`` if ``x-oauth-basic``
@@ -75,7 +73,7 @@ def authnz_token():  # type: ignore
      in the ``isMemberOf`` claim, the names of the groups will be
      returned, comma-separated, in this header.
     :>header X-Auth-Request-Token: If enabled, the encoded token will
-     be set. If ``reissue_token`` is true, the token is reissued first
+     be set.
     :>header X-Auth-Request-Token-Ticket: When a ticket is available
      for the token, we will return it under this header.
     :>header X-Auth-Request-Token-Capabilities: If the token has
@@ -270,12 +268,7 @@ def _make_success_headers(
             groups = ",".join([g["name"] for g in groups_list])
             response.headers["X-Auth-Request-Groups"] = groups
 
-    ticket_prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    original_auth = _find_token(ORIGINAL_TOKEN_HEADER) or ""
-    oauth2_proxy_ticket = original_auth if original_auth.startswith(f"{ticket_prefix}:") else ""
-    reissue_requested = request.args.get("reissue_token", "").lower() == "true"
-    if reissue_requested:
-        encoded_token, oauth2_proxy_ticket = _check_reissue_token(encoded_token, verified_token)
+    encoded_token, oauth2_proxy_ticket = _check_reissue_token(encoded_token, verified_token)
     response.headers["X-Auth-Request-Token"] = encoded_token
     response.headers["X-Auth-Request-Token-Ticket"] = oauth2_proxy_ticket
 
