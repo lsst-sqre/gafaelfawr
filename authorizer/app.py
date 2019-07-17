@@ -308,8 +308,10 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     oauth2_proxy_ticket_str = _ticket_str_from_cookie(oauth2_proxy_cookie_val)
     ticket = None
     new_audience = None
-
     if not from_this_issuer:
+        # Make a copy of the previous token and add capabilities
+        decoded_token = dict(decoded_token)
+        decoded_token["scope"] = capabilities_from_groups(decoded_token)
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
         ticket = parse_ticket(cookie_name, oauth2_proxy_ticket_str)
         # If we didn't issue it, it came from a provider, and it is
