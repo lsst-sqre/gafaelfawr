@@ -43,13 +43,10 @@ class Config:
     @staticmethod
     def configure_plugins(app: AuthorizerApp) -> None:
         from .authnz import scope_check_access, group_membership_check_access
-        from .lsst import lsst_group_membership_check_access, lsst_users_membership_check_access
 
         app.ACCESS_CHECK_CALLABLES = {
             "scope": scope_check_access,
             "group_membership": group_membership_check_access,
-            "lsst_group_membership": lsst_group_membership_check_access,
-            "lsst_users_membership": lsst_users_membership_check_access,
         }
 
     @staticmethod
