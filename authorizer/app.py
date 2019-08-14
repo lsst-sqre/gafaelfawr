@@ -122,8 +122,10 @@ def authnz_token():  # type: ignore
         response.status_code = 200
         _make_success_headers(response, encoded_token, verified_token)
         user_id = verified_token[current_app.config["JWT_UID_KEY"]]
-        logger.info(f"Allowed token with Token ID={jti} for user={user_id} " 
-                    f"from issuer={verified_token['iss']}")
+        logger.info(
+            f"Allowed token with Token ID={jti} for user={user_id} "
+            f"from issuer={verified_token['iss']}"
+        )
         return response
 
     response.set_data(message)
