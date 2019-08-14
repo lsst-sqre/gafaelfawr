@@ -121,7 +121,9 @@ def authnz_token():  # type: ignore
     if success:
         response.status_code = 200
         _make_success_headers(response, encoded_token, verified_token)
-        logger.info(f"Allowed token with Token ID: {jti} " f"from issuer {verified_token['iss']}")
+        user_id = verified_token[current_app.config["JWT_UID_KEY"]]
+        logger.info(f"Allowed token with Token ID={jti} for user={user_id} " 
+                    f"from issuer={verified_token['iss']}")
         return response
 
     response.set_data(message)
@@ -358,7 +360,7 @@ def _find_token(header: str) -> Optional[str]:
             # ... Could be this though
             encoded_token = password.decode()
         else:
-            logger.info("No protocol for token specified")
+            logger.debug("No protocol for token specified")
             encoded_token = user.decode()
     return encoded_token
 
