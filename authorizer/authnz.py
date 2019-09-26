@@ -183,22 +183,12 @@ def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> 
 def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
     user_groups_list: List[Dict[str, str]] = token.get("isMemberOf", dict())
     user_groups_set = {group["name"] for group in user_groups_list}
-    group_derived_capbilities = set()
-    for capability, group in current_app.config["GROUP_MAPPING"].items():
-        if group in user_groups_set:
-            group_derived_capbilities.add(capability)
-    return group_derived_capbilities
-
-
-def _group_membership_get_group(capability: str) -> str:
-    """Given a capability, find a group that represents this capability.
-    :param capability: The capability in question
-    :return: A string value of the group for this capability.
-    """
-    group = current_app.config["GROUP_MAPPING"].get(capability)
-    assert capability, "Error: Capability not found in group mapping"
-    assert isinstance(group, str) and group, "Error: No group mapping for capability"
-    return group
+    group_derived_capabilities = set()
+    for capability, group_list in current_app.config["GROUP_MAPPING"].items():
+        for group in set(group_list):
+            if group in user_groups_set:
+                group_derived_capabilities.add(capability)
+    return group_derived_capabilities
 
 
 def verify_authorization_strategy() -> Tuple[List[str], str]:
