@@ -13,7 +13,6 @@ script:
 - mypy --strict -m authorizer
 - black --check -l 100 --target-version=py37 -v authorizer
 - flake8 authorizer
-  - docker build --pull --cache-from "$IMAGE_NAME" --tag "$IMAGE_NAME" .
 
 before_deploy:
   - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
@@ -21,6 +20,9 @@ before_deploy:
 deploy:
   provider: script
   script: docker_deploy.sh $TRAVIS_PULL_REQUEST $TRAVIS_TAG
+  on: 
+    all_branches: true
+    condition: '$TRAVIS_BRANCH = "master" || $TRAVIS_PULL_REQUEST -gt 0 || -n $TRAVIS_TAG'
 
 env:
   global:
