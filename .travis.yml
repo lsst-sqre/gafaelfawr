@@ -1,9 +1,11 @@
 sudo: false
 dist: xenial
 language: python
+services:
+  - docker
 matrix:
   include:
-    - python: "3.7"
+  - python: '3.7'
 install:
   - pip install mypy flake8 black
   - pip install -r requirements.txt
@@ -11,3 +13,12 @@ script:
   - mypy --strict -m authorizer
   - black --check -l 100 --target-version=py37 -v authorizer
   - flake8 authorizer
+
+after_success:
+  - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+  - if [[ $TRAVIS_BRANCH = "master" || $TRAVIS_PULL_REQUEST -gt 0 || -n $TRAVIS_TAG ]]; then ./docker_deploy.sh $TRAVIS_PULL_REQUEST $TRAVIS_TAG; fi
+
+env:
+  global:
+  - secure: vBXQ6wmc1J1WmKlzu3GYMhu0rNHmPG2dqIshd5Xjb4Fde5XdTcHdG8CZ6J7DliYVvBRzaq2Tq5hIwn3p21dmscBJ+AyRPPyLKK9Ue3Ujj+GUufaovfzagXH6DsgWZEIKP0lIuHENs3jfozFs5AovPSgf1CMDEoCkJIRh+58bvnaHgyDt4rXXsPmc6PtJiavGpVPLkZYYdTisFiR/liY8cFY9kJGwB7ni48cica16Wjxiko6j0ABdIlPs2R77qAg1K3ZvgHvYh0oL4Mn/GtFaUDjYnVUNAsEoOmqLIhXaSA9L3ChVkjKUg+K1i3a42y6yFued4p2KCgZ+z+5TfSqG448J9Tm/zQp7MHlSlwKpxERfxdA0JL3DHBgtCrrf1M8cjjJ+eVNcBl70ih7tzdImz83pNOqPXM4GJiiVSZYxm61Pqw8FoEVyFagOntDNs679I0yS7jwHiFw3j+6XZ1Uxu5KLR48ImYdd0kREDuqglPlu5TR0PBtS1eufxdD1Zr4TsSVr6fp8jndOkXG4WF2ey4G9bgvcMtx6gQWOUBU+o85cYayD4rAP3M4Uuty+79BfBBchHF0Vd+8Y10wht1jzPmCpMK8m7i4VUwWe0EYuNAoWPkrQABgMCD42DONooMj4sA4m/q3WVHrMpn9gjh7aYU+KLqdf1u7XOFn7NTknaCM=
+  - secure: jim+KckMQ9Do7MsKG++fje6ZIZrcaORDhcRhyPd8NhU/3NYGjviBs2PM0xxxS5f+j4Mhbr/7JnjiE1IA0zQu58zcL7dWwUHQCiPFt02VeATZdz7XRGidvHDujqg+XE+YKBEmV2RO0DrC7ko8kCWG6f+8qBLMx6AwM+fhLjjxbAfnNhtb8DVuEVR5QSxbIsueFQAHmq8fcQm3T0ftqs4KSSz2LmFisp7dQMsO7HP50ByhTXQfHZAN53mDiR13zRd81Q1hMHkgJqOpgm996dgFr3kQ4kJvf5d0l4Xmo4uZtoVtXfkUsc2rf4MHISPJXKDEAp/tN7L3hsTnEplsjOnpVRDjXAYNaO29Quauy4BkGxT8koXqyhwlYNxq0Q9PG5hhjY0O4GK3Del26apB/Y51ITx+iDAe+lzp478bBdy0oXBlx3KXNySVDu2YX8XvhrXe+nZ9QffypkyK9XIqvjUN43z1hTlwVGr8bj4rzlYxz5kcVMWgBsEsBmwJBOcrekJvPQhTuE8xx54MT+XVgU/UemLht5ohm1SFTULKQWcrpGurND1Of4vbLUkUHiT0pyAWdtmhEc4hOWRKJw6yL9K2zo8xW8smgr1kblrkTSRx4qtxzfgYVOeqq2ZtnPCzrkI5YFQNljhkVNKihwhtf7noV66Y95XfebqNIy5zTGgNVvo=

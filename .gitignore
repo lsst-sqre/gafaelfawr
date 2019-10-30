@@ -6,3 +6,6 @@ dist
 build
 .pytest_cache
 _build
+.env
+.mypy_cache
+
