@@ -79,8 +79,17 @@ class Config:
                 aud = settings.get("OAUTH2_JWT.AUD.DEFAULT")
                 logger.info(f"Configured Internal Audience: {aud}")
 
-        if settings.get("SECRET_KEY"):
-            app.secret_key = settings["SECRET_KEY"]
+        if settings.get("OAUTH2_JWT.KEY_FILE"):
+            jwt_key_file_path = settings["OAUTH2_JWT.KEY_FILE"]
+            with open(jwt_key_file_path, "r") as secret_key_file:
+                secret_key = secret_key_file.read().strip()
+                settings["OAUTH2_JWT.KEY"] = secret_key
+
+        if settings.get("SECRET_KEY_FILE"):
+            secret_key_file_path = settings["SECRET_KEY_FILE"]
+            with open(secret_key_file_path, "r") as secret_key_file:
+                secret_key = secret_key_file.read().strip()
+                app.secret_key = secret_key
 
         if settings.get("LOGLEVEL"):
             level = settings["LOGLEVEL"]
@@ -116,8 +125,14 @@ class Config:
         if settings.get("OAUTH2_STORE_SESSION"):
             proxy_config = settings["OAUTH2_STORE_SESSION"]
             ticket_prefix = proxy_config["TICKET_PREFIX"]
-            secret = proxy_config["OAUTH2_PROXY_SECRET"]
-            assert len(secret), "OAUTH2_PROXY_SECRET must be set"
+            oauth2_proxy_secret_file_path = proxy_config["OAUTH2_PROXY_SECRET_FILE"]
+            assert os.path.exists(
+                oauth2_proxy_secret_file_path
+            ), "OAUTH2_PROXY_SECRET_FILE must exist"
+            with open(oauth2_proxy_secret_file_path, "r") as secret_key_file:
+                secret = secret_key_file.read().strip()
+            assert len(secret), "OAUTH2_PROXY_SECRET_FILE have content"
+            proxy_config["OAUTH_PROXY_SECRET"] = secret
             app.redis_pool = redis.ConnectionPool.from_url(url=proxy_config["REDIS_URL"])
             logger.info(
                 f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
