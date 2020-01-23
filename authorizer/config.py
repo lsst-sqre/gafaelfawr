@@ -85,11 +85,12 @@ class Config:
                 secret_key = secret_key_file.read().strip()
                 settings["OAUTH2_JWT.KEY"] = secret_key
 
-        if settings.get("FLASK_SECRET_KEY_FILE"):
-            secret_key_file_path = settings["FLASK_SECRET_KEY_FILE"]
-            with open(secret_key_file_path, "r") as secret_key_file:
-                secret_key = secret_key_file.read().strip()
-                app.secret_key = secret_key
+        assert "FLASK_SECRET_KEY_FILE" in settings, "No FLASK_SECRET_KEY_FILE defined"
+        secret_key_file_path = settings["FLASK_SECRET_KEY_FILE"]
+        with open(secret_key_file_path, "r") as secret_key_file:
+            secret_key = secret_key_file.read().strip()
+            assert len(secret_key), "FLASK_SECRET_KEY_FILE contains no secret data"
+            app.secret_key = secret_key
 
         if settings.get("LOGLEVEL"):
             level = settings["LOGLEVEL"]
