@@ -132,7 +132,7 @@ class Config:
             with open(oauth2_proxy_secret_file_path, "r") as secret_key_file:
                 secret = secret_key_file.read().strip()
             assert len(secret), "OAUTH2_PROXY_SECRET_FILE have content"
-            proxy_config["OAUTH_PROXY_SECRET"] = secret
+            proxy_config["OAUTH2_PROXY_SECRET"] = secret
             app.redis_pool = redis.ConnectionPool.from_url(url=proxy_config["REDIS_URL"])
             logger.info(
                 f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
