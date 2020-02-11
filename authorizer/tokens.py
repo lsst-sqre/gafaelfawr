@@ -114,7 +114,7 @@ def issue_token(
     :return: Encoded token
     """
     # Make a copy first
-    exp = datetime.utcnow() + timedelta(seconds=current_app.config["OAUTH2_JWT_EXP"])
+    exp = datetime.utcnow() + timedelta(minutes=current_app.config["OAUTH2_JWT_EXP"])
     payload = _build_payload(aud, exp, payload, oauth2_proxy_ticket)
 
     private_key = current_app.config["OAUTH2_JWT.KEY"]

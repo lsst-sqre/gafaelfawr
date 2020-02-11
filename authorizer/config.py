@@ -85,6 +85,9 @@ class Config:
                 secret_key = secret_key_file.read().strip()
                 settings["OAUTH2_JWT.KEY"] = secret_key
 
+        default_jwt_exp = settings.get("OAUTH2_JWT_EXP")
+        logger.info(f"Default JWT Expiration is {default_jwt_exp} minutes")
+
         assert "FLASK_SECRET_KEY_FILE" in settings, "No FLASK_SECRET_KEY_FILE defined"
         secret_key_file_path = settings["FLASK_SECRET_KEY_FILE"]
         with open(secret_key_file_path, "r") as secret_key_file:
