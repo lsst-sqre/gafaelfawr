@@ -27,8 +27,9 @@ commit_describe=$(echo $commit | cut -c1-7)$postfix
 commit_tag=$image:$commit_describe
 
 docker build -t $commit_tag --build-arg=COMMIT=$commit --build-arg=COMMIT_DESCRIBE=$commit_describe --build-arg=BRANCH=$branch .
+echo "Building container for $branch"
 
-if [[ $branch == "master" ]]; then
+if [[ $branch == "master" || $TRAVIS_BRANCH == "master" ]]; then
     docker_tag="$image:latest"
     docker tag $commit_tag $docker_tag
     docker push $docker_tag
