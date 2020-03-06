@@ -64,6 +64,6 @@ EXPOSE 8080
 ENV UWSGI_THREADS=10
 ENV UWSGI_PROCESSES=2
 ENV UWSGI_OFFLOAD_THREADS=10
-ENV UWSGI_MODULE=authorizer.wsgi:app
+ENV UWSGI_MODULE=jwt_authorizer.wsgi:app
 
 CMD ["uwsgi", "--ini", "/etc/uwsgi/uwsgi.ini"]

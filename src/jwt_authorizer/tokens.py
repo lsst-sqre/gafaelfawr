@@ -46,7 +46,7 @@ from flask import current_app
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, HiddenField, SubmitField
 
-from .config import ALGORITHM
+from jwt_authorizer.config import ALGORITHM
 
 logger = logging.getLogger(__name__)
 

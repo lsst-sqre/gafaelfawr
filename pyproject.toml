@@ -35,7 +35,7 @@ commands =
 [testenv:typing]
 description = Run mypy.
 commands =
-    mypy src/authorizer tests setup.py
+    mypy src/jwt_authorizer tests setup.py
 
 [testenv:lint]
 description = Lint codebase by running pre-commit (Black, isort, Flake8).
@@ -48,7 +48,7 @@ commands = pre-commit run --all-files
 [tool.coverage.run]
 parallel = true
 branch = true
-source = ["authorizer"]
+source = ["jwt_authorizer"]
 
 [tool.coverage.paths]
 source = ["src", ".tox/*/site-packages"]
@@ -88,6 +88,6 @@ exclude = '''
 [tool.isort]
 include_trailing_comma = true
 multi_line_output = 3
-known_first_party = ["authorizer", "tests"]
+known_first_party = ["jwt_authorizer", "tests"]
 known_third_party = ["cachetools", "cryptography", "dynaconf", "flask", "flask_wtf", "jwt", "redis", "requests", "setuptools", "wtforms"]
 skip = ["docs/conf.py"]

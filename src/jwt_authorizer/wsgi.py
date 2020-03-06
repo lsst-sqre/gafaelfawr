@@ -22,8 +22,8 @@
 
 import os
 
-from .app import app
-from .config import Config
+from jwt_authorizer.app import app
+from jwt_authorizer.config import Config
 
 
 def configure() -> None:

@@ -35,14 +35,14 @@ from flask import (
 )
 from jwt import PyJWTError
 
-from .authnz import (
+from jwt_authorizer.authnz import (
     authenticate,
     authorize,
     capabilities_from_groups,
     verify_authorization_strategy,
 )
-from .config import AuthorizerApp
-from .tokens import (
+from jwt_authorizer.config import AuthorizerApp
+from jwt_authorizer.tokens import (
     AlterTokenForm,
     Ticket,
     api_capabilities_token_form,

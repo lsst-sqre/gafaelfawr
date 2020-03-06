@@ -7,7 +7,7 @@ import flask
 from dynaconf.contrib.flask_dynaconf import DynaconfConfig
 from dynaconf.utils import DynaconfDict
 
-from authorizer.authnz import capabilities_from_groups
+from jwt_authorizer.authnz import capabilities_from_groups
 
 if TYPE_CHECKING:
     from typing import Any, Dict

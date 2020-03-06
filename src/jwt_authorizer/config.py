@@ -42,7 +42,10 @@ class AuthorizerApp(Flask):
 class Config:
     @staticmethod
     def configure_plugins(app: AuthorizerApp) -> None:
-        from .authnz import scope_check_access, group_membership_check_access
+        from jwt_authorizer.authnz import (
+            scope_check_access,
+            group_membership_check_access,
+        )
 
         app.ACCESS_CHECK_CALLABLES = {
             "scope": scope_check_access,
