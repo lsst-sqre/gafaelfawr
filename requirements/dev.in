@@ -6,6 +6,7 @@
 #     make update-deps
 
 pre-commit
+coverage[toml]
 flake8
 mypy
 pytest

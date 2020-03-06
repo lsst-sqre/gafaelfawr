@@ -18,7 +18,7 @@ class TestAuthnz(TestCase):
         app = flask.Flask(__name__)
         mocked_settings = DynaconfDict({"GROUP_MAPPING": {"exec:admin": ["admin"]}})
         mocked_settings.store = {}
-        config = DynaconfConfig(root_path=".", defaults=app.config, _settings=mocked_settings)
+        config = DynaconfConfig(mocked_settings, app, root_path=".", defaults=app.config)
         app.config = config
         token: Dict[str, Any] = {
             "sub": "bvan",
