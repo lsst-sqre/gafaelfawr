@@ -22,21 +22,34 @@
 import base64
 import binascii
 import logging
-from typing import Optional, Any, Dict, Mapping, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
-from flask import request, Response, current_app, render_template, flash, redirect, url_for
+from flask import (
+    Response,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from jwt import PyJWTError
 
-from .authnz import authenticate, authorize, verify_authorization_strategy, capabilities_from_groups
+from .authnz import (
+    authenticate,
+    authorize,
+    capabilities_from_groups,
+    verify_authorization_strategy,
+)
 from .config import AuthorizerApp
 from .tokens import (
-    issue_token,
-    api_capabilities_token_form,
-    Ticket,
-    parse_ticket,
-    get_tokens,
-    revoke_token,
     AlterTokenForm,
+    Ticket,
+    api_capabilities_token_form,
+    get_tokens,
+    issue_token,
+    parse_ticket,
+    revoke_token,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -220,7 +233,7 @@ def new_tokens():  # type: ignore
         # new_token['isMemberOf'] = decoded_token['isMemberOf']
         oauth2_proxy_ticket = Ticket()
         _ = issue_token(
-            new_token, aud=audience, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket
+            new_token, aud=audience, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket,
         )
         prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
         oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(prefix)
@@ -231,7 +244,7 @@ def new_tokens():  # type: ignore
         return redirect(url_for("tokens"))
 
     return render_template(
-        "new_token.html", title="New Token", form=form, capabilities=capabilities
+        "new_token.html", title="New Token", form=form, capabilities=capabilities,
     )
 
 
@@ -323,7 +336,7 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
 
     if new_audience:
         encoded_token = issue_token(
-            decoded_token, new_audience, store_user_info=False, oauth2_proxy_ticket=ticket
+            decoded_token, new_audience, store_user_info=False, oauth2_proxy_ticket=ticket,
         )
         oauth2_proxy_ticket_str = ticket.encode(cookie_name)
     return encoded_token, oauth2_proxy_ticket_str

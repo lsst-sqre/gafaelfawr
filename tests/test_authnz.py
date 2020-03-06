@@ -1,8 +1,8 @@
 from unittest import TestCase
 
-from dynaconf.utils import DynaconfDict
-from dynaconf.contrib.flask_dynaconf import DynaconfConfig
 import flask
+from dynaconf.contrib.flask_dynaconf import DynaconfConfig
+from dynaconf.utils import DynaconfDict
 
 from authorizer.authnz import capabilities_from_groups
 
@@ -10,7 +10,7 @@ from authorizer.authnz import capabilities_from_groups
 class TestAuthnz(TestCase):
     def test_capabilities_from_groups(self):
         app = flask.Flask(__name__)
-        mocked_settings = DynaconfDict({'GROUP_MAPPING': {"exec:admin": ["admin"]}})
+        mocked_settings = DynaconfDict({"GROUP_MAPPING": {"exec:admin": ["admin"]}})
         mocked_settings.store = {}
         config = DynaconfConfig(root_path=".", defaults=app.config, _settings=mocked_settings)
         app.config = config

@@ -22,7 +22,7 @@
 
 import logging
 import os
-from typing import Callable, Tuple, Mapping, Any
+from typing import Any, Callable, Mapping, Tuple
 
 import redis  # type: ignore
 from dynaconf import FlaskDynaconf, Validator  # type: ignore

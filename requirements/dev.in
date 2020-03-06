@@ -5,6 +5,7 @@
 # After editing, update requirements/dev.txt by running:
 #     make update-deps
 
+pre-commit
 flake8
 mypy
 pytest

@@ -20,14 +20,14 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
-from typing import Dict, Any, Tuple, List, Mapping, Set
+from typing import Any, Dict, List, Mapping, Set, Tuple
 
 import jwt
 from flask import current_app, request
 from jwt import InvalidIssuerError
 
 from .config import AccessT
-from .tokens import get_key_as_pem, ALGORITHM
+from .tokens import ALGORITHM, get_key_as_pem
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,10 @@ def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> 
     if capability in capabilities:
         return True, "Success"
 
-    return False, "No Capability group found in user's `isMemberOf` or capability in `scope`"
+    return (
+        False,
+        "No Capability group found in user's `isMemberOf` or capability in `scope`",
+    )
 
 
 def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
@@ -203,6 +206,6 @@ def verify_authorization_strategy() -> Tuple[List[str], str]:
     # If no capability have been explicitly delineated in the URI,
     # get them from the request method. These shouldn't happen for
     # properly configured applications
-    assert satisfy in ("any", "all"), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
+    assert satisfy in ("any", "all",), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
     assert capabilities, "ERROR: Check nginx auth_request url (capability_names)"
     return capabilities, satisfy

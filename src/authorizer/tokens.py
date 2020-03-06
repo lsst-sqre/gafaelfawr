@@ -29,21 +29,28 @@ import os
 import struct
 from binascii import Error
 from calendar import timegm
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field as dc_field
-from typing import Any, Mapping, Optional, Dict, cast, Tuple, List
+from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
 import jwt
 import redis  # type: ignore
 import requests
-from cachetools import cached, TTLCache  # type: ignore
+from cachetools import TTLCache, cached  # type: ignore
 from cryptography.hazmat.backends import default_backend  # type: ignore
 from cryptography.hazmat.primitives import serialization  # type: ignore
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers  # type: ignore
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # type: ignore
+from cryptography.hazmat.primitives.asymmetric.rsa import (  # type: ignore
+    RSAPublicNumbers,
+)
+from cryptography.hazmat.primitives.ciphers import (  # type: ignore
+    Cipher,
+    algorithms,
+    modes,
+)
 from flask import current_app
 from flask_wtf import FlaskForm  # type: ignore
-from wtforms import BooleanField, SubmitField, HiddenField  # type: ignore
+from wtforms import BooleanField, HiddenField, SubmitField  # type: ignore
 
 from .config import ALGORITHM
 
@@ -99,7 +106,7 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
 
 
 def issue_token(
-    payload: Mapping[str, Any], aud: str, store_user_info: bool, oauth2_proxy_ticket: Ticket
+    payload: Mapping[str, Any], aud: str, store_user_info: bool, oauth2_proxy_ticket: Ticket,
 ) -> str:
     """
     Issue a token.
@@ -125,13 +132,13 @@ def issue_token(
 
     if current_app.config.get("OAUTH2_STORE_SESSION"):
         o2proxy_store_token_redis(
-            payload, exp, encoded_reissued_token, store_user_info, oauth2_proxy_ticket
+            payload, exp, encoded_reissued_token, store_user_info, oauth2_proxy_ticket,
         )
     return encoded_reissued_token
 
 
 def _build_payload(
-    audience: str, expires: datetime, decoded_token: Mapping[str, Any], ticket: Ticket
+    audience: str, expires: datetime, decoded_token: Mapping[str, Any], ticket: Ticket,
 ) -> Dict[str, Any]:
     """
     Build a new token payload.
@@ -344,7 +351,7 @@ def revoke_token(user_id: str, handle: str) -> bool:
 
 
 def _o2proxy_encrypted_session(
-    secret: bytes, user: Optional[str], email: str, expires: datetime, token: str
+    secret: bytes, user: Optional[str], email: str, expires: datetime, token: str,
 ) -> bytes:
     """
     Take in the data for an encrypting an oauth2_proxy session and
