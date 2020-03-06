@@ -1,12 +1,3 @@
-FROM python:3.7-stretch as build
-
-RUN pip install mypy
-WORKDIR /app
-ADD requirements.txt .
-RUN pip install -r requirements.txt
-ADD . /app
-RUN mypy -m authorizer --strict
-
 FROM python:3.7-stretch
 
 RUN addgroup --system uwsgi \
@@ -14,10 +5,12 @@ RUN addgroup --system uwsgi \
     --shell /sbin/nologin --ingroup uwsgi uwsgi
 
 WORKDIR /app
-ADD requirements.txt .
+RUN pip install --upgrade --no-cache-dir pip setuptools wheel
+COPY requirements/main.txt ./requirements.txt
 RUN pip --no-cache-dir install -r requirements.txt
+COPY . /app
+RUN pip install --no-cache-dir .
 ADD rootfs/ /
-ADD . /app
 
 EXPOSE 8080
 ARG COMMIT=""
