@@ -100,7 +100,10 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
 
 
 def issue_token(
-    payload: Mapping[str, Any], aud: str, store_user_info: bool, oauth2_proxy_ticket: Ticket,
+    payload: Mapping[str, Any],
+    aud: str,
+    store_user_info: bool,
+    oauth2_proxy_ticket: Ticket,
 ) -> str:
     """
     Issue a token.
@@ -115,7 +118,9 @@ def issue_token(
     :return: Encoded token
     """
     # Make a copy first
-    exp = datetime.utcnow() + timedelta(minutes=current_app.config["OAUTH2_JWT_EXP"])
+    exp = datetime.utcnow() + timedelta(
+        minutes=current_app.config["OAUTH2_JWT_EXP"]
+    )
     payload = _build_payload(aud, exp, payload, oauth2_proxy_ticket)
 
     private_key = current_app.config["OAUTH2_JWT.KEY"]
@@ -126,13 +131,20 @@ def issue_token(
 
     if current_app.config.get("OAUTH2_STORE_SESSION"):
         o2proxy_store_token_redis(
-            payload, exp, encoded_reissued_token, store_user_info, oauth2_proxy_ticket,
+            payload,
+            exp,
+            encoded_reissued_token,
+            store_user_info,
+            oauth2_proxy_ticket,
         )
     return encoded_reissued_token
 
 
 def _build_payload(
-    audience: str, expires: datetime, decoded_token: Mapping[str, Any], ticket: Ticket,
+    audience: str,
+    expires: datetime,
+    decoded_token: Mapping[str, Any],
+    ticket: Ticket,
 ) -> Dict[str, Any]:
     """
     Build a new token payload.
@@ -167,7 +179,9 @@ def _build_payload(
     return payload
 
 
-def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> FlaskForm:
+def api_capabilities_token_form(
+    capabilities: Dict[str, Dict[str, str]]
+) -> FlaskForm:
     """
     Dynamically generates a form based on capability_names.
     :param capabilities: A grouping of capability_names.
@@ -222,10 +236,14 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     try:
         info_key_ids = issuer.get("issuer_key_ids")
         if info_key_ids and request_key_id not in info_key_ids:
-            raise KeyError(f"kid {request_key_id} not found in issuer configuration")
+            raise KeyError(
+                f"kid {request_key_id} not found in issuer configuration"
+            )
 
         # Try OIDC first
-        oidc_config = os.path.join(issuer_url, ".well-known/openid-configuration")
+        oidc_config = os.path.join(
+            issuer_url, ".well-known/openid-configuration"
+        )
         oidc_resp = requests.get(oidc_config)
         if oidc_resp.ok:
             jwks_uri = oidc_resp.json()["jwks_uri"]
@@ -244,13 +262,17 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
             raise KeyError(f"Issuer may have removed kid={request_key_id}")
 
         if key["alg"] != ALGORITHM:
-            raise Exception("Bad Issuer Key and Global Algorithm Configuration")
+            raise Exception(
+                "Bad Issuer Key and Global Algorithm Configuration"
+            )
         e = _base64_to_long(key["e"])
         m = _base64_to_long(key["n"])
         return _convert(e, m)
     except Exception as e:
         # HTTPError, KeyError, or Exception
-        logger.error(f"Unable to retrieve and store key for issuer: {issuer_url} ")
+        logger.error(
+            f"Unable to retrieve and store key for issuer: {issuer_url} "
+        )
         logger.error(e)
         raise Exception(f"Unable to interace with issuer: {issuer_url}") from e
 
@@ -345,7 +367,11 @@ def revoke_token(user_id: str, handle: str) -> bool:
 
 
 def _o2proxy_encrypted_session(
-    secret: bytes, user: Optional[str], email: str, expires: datetime, token: str,
+    secret: bytes,
+    user: Optional[str],
+    email: str,
+    expires: datetime,
+    token: str,
 ) -> bytes:
     """
     Take in the data for an encrypting an oauth2_proxy session and
@@ -368,7 +394,9 @@ def _o2proxy_encrypted_session(
     backend = default_backend()
     cipher = Cipher(algorithms.AES(secret), modes.CFB(secret), backend=backend)
     encryptor = cipher.encryptor()
-    cipher_text = encryptor.update(session_payload_str.encode()) + encryptor.finalize()
+    cipher_text = (
+        encryptor.update(session_payload_str.encode()) + encryptor.finalize()
+    )
     return cipher_text
 
 
@@ -393,12 +421,16 @@ def _o2proxy_encrypt_string(iv: bytes, field: str) -> bytes:
     :param field: The field to encrypt.
     :return: The encrypted bytes only.
     """
-    secret_key_encoded = current_app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    secret_key_encoded = current_app.config["OAUTH2_STORE_SESSION"][
+        "OAUTH2_PROXY_SECRET"
+    ]
     secret_key = base64.urlsafe_b64decode(secret_key_encoded)
     backend = default_backend()
     cipher = Cipher(algorithms.AES(secret_key), modes.CFB(iv), backend=backend)
     encryptor = cipher.encryptor()
-    cipher_text: bytes = encryptor.update(field.encode("utf-8")) + encryptor.finalize()
+    cipher_text: bytes = encryptor.update(
+        field.encode("utf-8")
+    ) + encryptor.finalize()
     return cipher_text
 
 
@@ -410,18 +442,24 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     :return: The signed session with the time and signature in the
     format oauth2_proxy is expecting.
     """
-    secret_key_string = current_app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    secret_key_string = current_app.config["OAUTH2_STORE_SESSION"][
+        "OAUTH2_PROXY_SECRET"
+    ]
     secret_key = secret_key_string.encode()
     encoded_session_payload: bytes = base64.b64encode(session_payload.encode())
     now_str = str(timegm(datetime.utcnow().utctimetuple()))
 
     h = hmac.new(secret_key, digestmod=hashlib.sha1)
-    h.update(current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"].encode())
+    h.update(
+        current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"].encode()
+    )
     h.update(encoded_session_payload)
     h.update(now_str.encode())
     # Use URL Safe base64 encode
     sig_base64: bytes = base64.urlsafe_b64encode(h.digest())
-    return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
+    return (
+        f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
+    )
 
 
 def add_padding(encoded: str) -> str:

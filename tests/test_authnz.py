@@ -16,9 +16,13 @@ if TYPE_CHECKING:
 class TestAuthnz(TestCase):
     def test_capabilities_from_groups(self) -> None:
         app = flask.Flask(__name__)
-        mocked_settings = DynaconfDict({"GROUP_MAPPING": {"exec:admin": ["admin"]}})
+        mocked_settings = DynaconfDict(
+            {"GROUP_MAPPING": {"exec:admin": ["admin"]}}
+        )
         mocked_settings.store = {}
-        config = DynaconfConfig(mocked_settings, app, root_path=".", defaults=app.config)
+        config = DynaconfConfig(
+            mocked_settings, app, root_path=".", defaults=app.config
+        )
         app.config = config
         token: Dict[str, Any] = {
             "sub": "bvan",

@@ -88,7 +88,11 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     successes = []
     messages = []
     for capability in capabilities:
-        logger.debug(f"Checking authorization for capability: '{capability}' for jti: {jti}")
+        logger.debug(
+            "Checking authorization for capability: '%s' for jti: %s",
+            capability,
+            jti,
+        )
         (success, message) = check_authorization(capability, verified_token)
         successes.append(success)
         if message:
@@ -104,7 +108,9 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     return success, message
 
 
-def check_authorization(capability: str, verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
+def check_authorization(
+    capability: str, verified_token: Mapping[str, Any]
+) -> Tuple[bool, str]:
     """
     Check the authorization for a given capability.
     A given capability may be authorized by zero, one, or more criteria,
@@ -143,7 +149,9 @@ def get_check_access_functions() -> List[AccessT]:
     return callables
 
 
-def scope_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, str]:
+def scope_check_access(
+    capability: str, token: Mapping[str, Any]
+) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this
     service based on the assumption the token has a "scope" claim.
     :param capability: The capability we are checking against
@@ -159,7 +167,9 @@ def scope_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool,
     return False, f"No capability found: {capability}"
 
 
-def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> Tuple[bool, str]:
+def group_membership_check_access(
+    capability: str, token: Mapping[str, Any]
+) -> Tuple[bool, str]:
     """Check that a user has access with the following operation to this
     service based on some form of group membership or explicitly, by
     checking ``scope`` as in :py:func:`scope_check_access`.
@@ -177,10 +187,11 @@ def group_membership_check_access(capability: str, token: Mapping[str, Any]) -> 
     if capability in capabilities:
         return True, "Success"
 
-    return (
-        False,
-        "No Capability group found in user's `isMemberOf` or capability in `scope`",
+    msg = (
+        "No Capability group found in user's `isMemberOf` or capability in "
+        "`scope`"
     )
+    return False, msg
 
 
 def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
@@ -206,6 +217,11 @@ def verify_authorization_strategy() -> Tuple[List[str], str]:
     # If no capability have been explicitly delineated in the URI,
     # get them from the request method. These shouldn't happen for
     # properly configured applications
-    assert satisfy in ("any", "all",), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
-    assert capabilities, "ERROR: Check nginx auth_request url (capability_names)"
+    assert satisfy in (
+        "any",
+        "all",
+    ), "ERROR: Logic Error, Check nginx auth_request url (satisfy)"
+    assert (
+        capabilities
+    ), "ERROR: Check nginx auth_request url (capability_names)"
     return capabilities, satisfy

@@ -164,7 +164,9 @@ def tokens():  # type: ignore
     forms = {}
     for user_token in user_tokens:
         forms[user_token["jti"]] = AlterTokenForm()
-    return render_template("tokens.html", title="Tokens", tokens=user_tokens, forms=forms)
+    return render_template(
+        "tokens.html", title="Tokens", tokens=user_tokens, forms=forms
+    )
 
 
 @app.route("/auth/tokens/<handle>", methods=["GET", "POST"])
@@ -216,7 +218,9 @@ def new_tokens():  # type: ignore
             if form[capability].data:
                 new_capabilities.append(capability)
         scope = " ".join(new_capabilities)
-        audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", decoded_token["aud"])
+        audience = current_app.config.get(
+            "OAUTH2_JWT.AUD.DEFAULT", decoded_token["aud"]
+        )
         new_token: Dict[str, Any] = {"scope": scope}
         email = decoded_token.get("email")
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
@@ -233,7 +237,10 @@ def new_tokens():  # type: ignore
         # new_token['isMemberOf'] = decoded_token['isMemberOf']
         oauth2_proxy_ticket = Ticket()
         _ = issue_token(
-            new_token, aud=audience, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket,
+            new_token,
+            aud=audience,
+            store_user_info=True,
+            oauth2_proxy_ticket=oauth2_proxy_ticket,
         )
         prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
         oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(prefix)
@@ -244,11 +251,16 @@ def new_tokens():  # type: ignore
         return redirect(url_for("tokens"))
 
     return render_template(
-        "new_token.html", title="New Token", form=form, capabilities=capabilities,
+        "new_token.html",
+        title="New Token",
+        form=form,
+        capabilities=capabilities,
     )
 
 
-def _make_capability_headers(response: Response, verified_token: Mapping[str, Any]) -> None:
+def _make_capability_headers(
+    response: Response, verified_token: Mapping[str, Any]
+) -> None:
     """Set Headers scope headers that can be returned in the case of
     API authorization failure due to required capabiliites.
     :return: The mutated response object.
@@ -256,9 +268,15 @@ def _make_capability_headers(response: Response, verified_token: Mapping[str, An
     capabilities_required, satisfy = verify_authorization_strategy()
     group_capabilities_set = capabilities_from_groups(verified_token)
     scope_capabilities_set = set(verified_token.get("scope", "").split(" "))
-    user_capabilities_set = group_capabilities_set.union(scope_capabilities_set)
-    response.headers["X-Auth-Request-Token-Capabilities"] = " ".join(user_capabilities_set)
-    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities_required)
+    user_capabilities_set = group_capabilities_set.union(
+        scope_capabilities_set
+    )
+    response.headers["X-Auth-Request-Token-Capabilities"] = " ".join(
+        user_capabilities_set
+    )
+    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(
+        capabilities_required
+    )
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
 
 
@@ -285,12 +303,16 @@ def _make_success_headers(
             groups = ",".join([g["name"] for g in groups_list])
             response.headers["X-Auth-Request-Groups"] = groups
 
-    encoded_token, oauth2_proxy_ticket = _check_reissue_token(encoded_token, verified_token)
+    encoded_token, oauth2_proxy_ticket = _check_reissue_token(
+        encoded_token, verified_token
+    )
     response.headers["X-Auth-Request-Token"] = encoded_token
     response.headers["X-Auth-Request-Token-Ticket"] = oauth2_proxy_ticket
 
 
-def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -> Tuple[str, str]:
+def _check_reissue_token(
+    encoded_token: str, decoded_token: Mapping[str, Any]
+) -> Tuple[str, str]:
     """
     Reissue the token under two scenarios.
     The first scenario is a newly logged in session with a cookie,
@@ -321,7 +343,9 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     if not from_this_issuer:
         # Make a copy of the previous token and add capabilities
         decoded_token = dict(decoded_token)
-        decoded_token["scope"] = " ".join(capabilities_from_groups(decoded_token))
+        decoded_token["scope"] = " ".join(
+            capabilities_from_groups(decoded_token)
+        )
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
         ticket = parse_ticket(cookie_name, oauth2_proxy_ticket_str)
         # If we didn't issue it, it came from a provider, and it is
@@ -337,7 +361,10 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     if new_audience:
         assert ticket
         encoded_token = issue_token(
-            decoded_token, new_audience, store_user_info=False, oauth2_proxy_ticket=ticket,
+            decoded_token,
+            new_audience,
+            store_user_info=False,
+            oauth2_proxy_ticket=ticket,
         )
         oauth2_proxy_ticket_str = ticket.encode(cookie_name)
     return encoded_token, oauth2_proxy_ticket_str
@@ -381,7 +408,9 @@ def _find_token(header: str) -> Optional[str]:
     return encoded_token
 
 
-def _make_needs_authentication(response: Response, error: str, message: str) -> None:
+def _make_needs_authentication(
+    response: Response, error: str, message: str
+) -> None:
     """Modify response for a 401 as appropriate"""
     response.status_code = 401
     response.set_data(error)
@@ -392,9 +421,8 @@ def _make_needs_authentication(response: Response, error: str, message: str) -> 
         # Otherwise, send Bearer
         response.headers["WWW-Authenticate"] = f'Basic realm="{realm}"'
     else:
-        response.headers[
-            "WWW-Authenticate"
-        ] = f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
+        info = f'realm="{realm}",error="{error}",error_description="{message}"'
+        response.headers["WWW-Authenticate"] = f"Bearer {info}"
 
 
 def _ticket_str_from_cookie(cookie_val: str) -> str:

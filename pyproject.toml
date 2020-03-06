@@ -68,7 +68,7 @@ exclude_lines = [
 ]
 
 [tool.black]
-line-length = 100
+line-length = 79
 target-version = ["py37"]
 exclude = '''
 /(
