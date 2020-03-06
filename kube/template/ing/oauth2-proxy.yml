@@ -15,7 +15,7 @@ metadata:
   name: oauth2-proxy
 spec:
   rules:
-  - host: {{ HOSTNAME }}
+  - host: "{{ HOSTNAME }}"
     http:
       paths:
       - backend:

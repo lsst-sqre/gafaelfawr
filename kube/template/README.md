@@ -33,9 +33,7 @@ This is your client id and client secret.
 
 ### After submission
 
-A separate email is required to CILogonhelp address to apply the client configuration
-from the client `cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75` to your new
-client.
+A separate email is required to CILogonhelp address to apply the client configuration from the client `cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75` to your new client.
 
 ## Configuring Auth Services
 
