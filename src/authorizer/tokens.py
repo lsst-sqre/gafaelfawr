@@ -35,22 +35,16 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
 import jwt
-import redis  # type: ignore
+import redis
 import requests
-from cachetools import TTLCache, cached  # type: ignore
-from cryptography.hazmat.backends import default_backend  # type: ignore
-from cryptography.hazmat.primitives import serialization  # type: ignore
-from cryptography.hazmat.primitives.asymmetric.rsa import (  # type: ignore
-    RSAPublicNumbers,
-)
-from cryptography.hazmat.primitives.ciphers import (  # type: ignore
-    Cipher,
-    algorithms,
-    modes,
-)
+from cachetools import TTLCache, cached
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from flask import current_app
-from flask_wtf import FlaskForm  # type: ignore
-from wtforms import BooleanField, HiddenField, SubmitField  # type: ignore
+from flask_wtf import FlaskForm
+from wtforms import BooleanField, HiddenField, SubmitField
 
 from .config import ALGORITHM
 
@@ -180,7 +174,7 @@ def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> Flas
     :return:
     """
 
-    class NewCapabilitiesToken(FlaskForm):  # type: ignore
+    class NewCapabilitiesToken(FlaskForm):
         submit = SubmitField("Generate New Token")
 
     NewCapabilitiesToken.capability_names = list(capabilities)
@@ -190,11 +184,11 @@ def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> Flas
     return cast(FlaskForm, NewCapabilitiesToken())
 
 
-class AlterTokenForm(FlaskForm):  # type: ignore
+class AlterTokenForm(FlaskForm):
     method_ = HiddenField("method_")
 
 
-@cached(cache=TTLCache(maxsize=16, ttl=600))  # type: ignore
+@cached(cache=TTLCache(maxsize=16, ttl=600))
 def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     """
     Gets a key as PEM, given the issuer and the request key ticket_id.

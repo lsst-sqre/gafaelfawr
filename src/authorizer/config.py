@@ -24,8 +24,8 @@ import logging
 import os
 from typing import Any, Callable, Mapping, Tuple
 
-import redis  # type: ignore
-from dynaconf import FlaskDynaconf, Validator  # type: ignore
+import redis
+from dynaconf import FlaskDynaconf, Validator
 from flask import Flask
 
 logger = logging.getLogger(__name__)

@@ -335,6 +335,7 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
         ticket = Ticket()
 
     if new_audience:
+        assert ticket
         encoded_token = issue_token(
             decoded_token, new_audience, store_user_info=False, oauth2_proxy_ticket=ticket,
         )
@@ -368,10 +369,10 @@ def _find_token(header: str) -> Optional[str]:
         encoded_basic_auth = auth_blob
         basic_auth = base64.b64decode(encoded_basic_auth)
         user, password = basic_auth.strip().split(b":")
-        if password == "x-oauth-basic":
+        if password == b"x-oauth-basic":
             # Recommended default
             encoded_token = user.decode()
-        elif user == "x-oauth-basic":
+        elif user == b"x-oauth-basic":
             # ... Could be this though
             encoded_token = password.decode()
         else:
