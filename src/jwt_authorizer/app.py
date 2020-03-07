@@ -22,8 +22,10 @@
 import base64
 import binascii
 import logging
+import os
 from typing import Any, Dict, Mapping, Optional, Tuple
 
+from dynaconf import FlaskDynaconf
 from flask import (
     Response,
     current_app,
@@ -437,3 +439,24 @@ def _ticket_str_from_cookie(cookie_val: str) -> str:
         return base64.urlsafe_b64decode(ticket_part).decode()
     except binascii.Error:
         return ""
+
+
+def create_app(**config: str) -> AuthorizerApp:
+    """Create the Flask app, optionally with Dynaconf settings.
+
+    Parameters
+    ----------
+    **config : `str`
+        Configuration key/value pairs that will be passed to Dynaconf to
+        initialize its settings.
+
+    Notes
+    -----
+    This is an as-yet incomplete reimplementation of the app initialization
+    now done in Config.validate().  It is currently only used by the test
+    suite.
+    """
+    app = AuthorizerApp(__name__)
+    defaults_file = os.path.join(os.path.dirname(__file__), "defaults.yaml")
+    FlaskDynaconf(app, **config, SETTINGS_FILE_FOR_DYNACONF=defaults_file)
+    return app
