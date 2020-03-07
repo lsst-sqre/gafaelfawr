@@ -63,7 +63,7 @@ class Config:
         settings_module = f"{defaults_file},{user_config}"
         print(settings_module)
         dynaconf = FlaskDynaconf(
-            app, SETTINGS_MODULE_FOR_DYNACONF=settings_module
+            app, SETTINGS_FILE_FOR_DYNACONF=settings_module
         )
         settings = dynaconf.settings
         settings.validators.register(
