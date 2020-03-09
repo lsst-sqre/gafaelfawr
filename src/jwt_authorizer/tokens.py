@@ -92,10 +92,14 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
     ticket_id, secret_b64 = trimmed_ticket.split(".")
     try:
         int(ticket_id, 16)  # Check hex
-        secret = base64.urlsafe_b64decode(add_padding(secret_b64))
+        secret = base64.b64decode(
+            add_padding(secret_b64), altchars=b"-_", validate=True
+        )
+        if secret == b"":
+            raise ValueError("ticket secret is empty")
         return Ticket(ticket_id=ticket_id, secret=secret)
     except (ValueError, Error) as e:
-        logger.info("Error decoding ticket:", e)
+        logger.info("Error decoding ticket: %s", str(e))
         return None
 
 
