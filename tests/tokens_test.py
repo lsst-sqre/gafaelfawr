@@ -7,6 +7,14 @@ import base64
 from jwt_authorizer.tokens import add_padding, parse_ticket
 
 
+def test_add_padding() -> None:
+    assert add_padding("") == ""
+    assert add_padding("Zg") == "Zg=="
+    assert add_padding("Zgo") == "Zgo="
+    assert add_padding("Zm8K") == "Zm8K"
+    assert add_padding("Zm9vCg") == "Zm9vCg=="
+
+
 def test_parse_ticket() -> None:
     bad_tickets = [
         "",

@@ -469,7 +469,10 @@ def _o2proxy_signed_session(session_payload: str) -> str:
 def add_padding(encoded: str) -> str:
     """Add padding to base64 encoded bytes"""
     underflow = len(encoded) % 4
-    return encoded + ("=" * underflow)
+    if underflow:
+        return encoded + ("=" * (4 - underflow))
+    else:
+        return encoded
 
 
 def user_tokens_redis_key(user_id: str) -> str:
