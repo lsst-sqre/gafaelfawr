@@ -6,13 +6,14 @@ import copy
 from typing import TYPE_CHECKING
 
 from jwt_authorizer.authnz import capabilities_from_groups
+from tests.util import create_test_app
 
 if TYPE_CHECKING:
-    from flask import Flask
     from typing import Any, Dict
 
 
-def test_capabilities_from_groups(app: Flask) -> None:
+def test_capabilities_from_groups() -> None:
+    app = create_test_app()
     token: Dict[str, Any] = {
         "sub": "bvan",
         "email": "bvan@gmail.com",
