@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
 
 import base64
 import hashlib
@@ -31,7 +32,7 @@ from binascii import Error
 from calendar import timegm
 from dataclasses import dataclass
 from dataclasses import field as dc_field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
 import jwt
@@ -108,6 +109,7 @@ def issue_token(
     aud: str,
     store_user_info: bool,
     oauth2_proxy_ticket: Ticket,
+    redis_client: Optional[redis.Redis] = None,
 ) -> str:
     """
     Issue a token.
@@ -119,6 +121,7 @@ def issue_token(
     :param aud: The desired audience for the new token
     :param store_user_info: Store info about this token for the user.
     :param oauth2_proxy_ticket: The value of the oauth2_proxy_cookie
+    :param redis_client: Optional Redis client to use
     :return: Encoded token
     """
     # Make a copy first
@@ -140,6 +143,7 @@ def issue_token(
             encoded_reissued_token,
             store_user_info,
             oauth2_proxy_ticket,
+            redis_client,
         )
     return encoded_reissued_token
 
@@ -287,6 +291,7 @@ def o2proxy_store_token_redis(
     token: str,
     store_user_info: bool,
     oauth2_proxy_ticket: Ticket,
+    redis_client: Optional[redis.Redis] = None,
 ) -> None:
     """
     Store a token in redis in the oauth2_proxy encoded token format.
@@ -294,8 +299,8 @@ def o2proxy_store_token_redis(
     :param expires: When this token expires.
     :param token: The token to encode.
     :param store_user_info: If true, store info user's issued token
-    :param oauth2_proxy_ticket: A period-delimited pair of
-    [handle].[initialization vector]
+    :param oauth2_proxy_ticket: Ticket to substitute for the token
+    :param redis_client: Optional Redis client to use
     """
     # Use the same email field as oauth2_proxy
     email = payload["email"]
@@ -308,8 +313,9 @@ def o2proxy_store_token_redis(
     encrypted_oauth2_session = _o2proxy_encrypted_session(
         oauth2_proxy_ticket.secret, user, email, expires, token
     )
-    redis_pool = current_app.redis_pool
-    redis_client = redis.Redis(connection_pool=redis_pool)
+    if not redis_client:
+        redis_pool = current_app.redis_pool
+        redis_client = redis.Redis(connection_pool=redis_pool)
     expires_delta = expires - datetime.utcnow()
     with redis_client.pipeline() as pipeline:
         pipeline.setex(handle, expires_delta, encrypted_oauth2_session)
@@ -477,3 +483,92 @@ def add_padding(encoded: str) -> str:
 
 def user_tokens_redis_key(user_id: str) -> str:
     return f"tokens:{user_id}"
+
+
+@dataclass
+class Session:
+    """An oauth2_proxy session.
+
+    Tokens are currently stored in Redis as a JSON dump of a dictionary.  This
+    class represents the deserialized form of a session.
+    """
+
+    token: str
+    email: str
+    user: str
+    created_at: datetime
+    expires_on: datetime
+
+
+class TokenStore:
+    """Stores tokens and retrieves them by ticket.
+
+    Paramters
+    ---------
+    prefix : `str`
+        Prefix used for storing oauth2_proxy session state.
+    redis : `redis.Redis`
+        A Redis client configured to talk to the backend store that holds the
+        (encrypted) tokens.
+    key : `bytes`
+        Encryption key for the individual components of the stored session.
+    """
+
+    def __init__(self, prefix: str, key: bytes, redis: redis.Redis) -> None:
+        self.prefix = prefix
+        self.key = key
+        self.redis = redis
+
+    def get_session(self, ticket: Ticket) -> Optional[Session]:
+        """Retrieve and decrypt the session for a ticket.
+
+        Parameters
+        ----------
+        ticket : `Ticket`
+            The ticket corresponding to the token.
+
+        Returns
+        -------
+        session : `Session` or `None`
+            The corresponding session, or `None` if no session exists for this
+            ticket.
+        """
+        handle = ticket.as_handle(self.prefix)
+        encrypted_session = self.redis.get(handle)
+        if not encrypted_session:
+            return None
+
+        return self._decrypt_session(ticket.secret, encrypted_session)
+
+    def _decrypt_session(
+        self, secret: bytes, encrypted_session: bytes
+    ) -> Session:
+        cipher = Cipher(
+            algorithms.AES(secret), modes.CFB(secret), default_backend()
+        )
+        decryptor = cipher.decryptor()
+        session_dict = json.loads(
+            decryptor.update(encrypted_session) + decryptor.finalize()
+        )
+        return Session(
+            token=self._decrypt_session_component(session_dict["IDToken"]),
+            email=self._decrypt_session_component(session_dict["Email"]),
+            user=self._decrypt_session_component(session_dict["User"]),
+            created_at=self._parse_session_date(session_dict["CreatedAt"]),
+            expires_on=self._parse_session_date(session_dict["ExpiresOn"]),
+        )
+
+    def _decrypt_session_component(self, encrypted_str: str) -> str:
+        encrypted_bytes = base64.b64decode(encrypted_str)
+        iv = encrypted_bytes[:16]
+        cipher = Cipher(
+            algorithms.AES(self.key), modes.CFB(iv), default_backend()
+        )
+        decryptor = cipher.decryptor()
+        field = decryptor.update(encrypted_bytes[16:]) + decryptor.finalize()
+        return field.decode()
+
+    @staticmethod
+    def _parse_session_date(date_str: str) -> datetime:
+        date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+        return date.replace(tzinfo=timezone.utc)

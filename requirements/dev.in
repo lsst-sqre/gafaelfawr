@@ -5,8 +5,9 @@
 # After editing, update requirements/dev.txt by running:
 #     make update-deps
 
-pre-commit
 coverage[toml]
+fakeredis
 flake8
 mypy
+pre-commit
 pytest

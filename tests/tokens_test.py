@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import base64
+import os
 import time
-from unittest.mock import ANY, patch
+from unittest.mock import ANY
 
+import fakeredis
 import jwt
 
 from jwt_authorizer.tokens import (
     ALGORITHM,
     Ticket,
+    TokenStore,
     add_padding,
     issue_token,
     parse_ticket,
@@ -33,21 +36,28 @@ def test_issue_token() -> None:
         "iss": "https://orig.example.com/",
         "jti": "some-unique-id",
         "sub": "some-user",
+        "uidNumber": "1000",
     }
     ticket = Ticket()
     keypair = RSAKeyPair()
+    session_secret = os.urandom(16)
     app = create_test_app(
         OAUTH2_JWT={
             "ISS": "https://test.example.com/",
             "KEY": keypair.private_key_as_pem(),
             "KEY_ID": "1",
         },
-        OAUTH2_STORE_SESSION={"TICKET_PREFIX": "oauth2_proxy"},
+        OAUTH2_STORE_SESSION={
+            "OAUTH2_PROXY_SECRET": base64.urlsafe_b64encode(session_secret),
+            "TICKET_PREFIX": "oauth2_proxy",
+        },
     )
+    redis = fakeredis.FakeRedis()
 
     with app.app_context():
-        with patch("jwt_authorizer.tokens.o2proxy_store_token_redis"):
-            token = issue_token(payload, "https://example.com/", False, ticket)
+        token = issue_token(
+            payload, "https://example.com/", False, ticket, redis
+        )
 
     assert jwt.get_unverified_header(token) == {
         "alg": ALGORITHM,
@@ -75,11 +85,21 @@ def test_issue_token() -> None:
         "iss": "https://test.example.com/",
         "jti": ticket.as_handle("oauth2_proxy"),
         "sub": "some-user",
+        "uidNumber": "1000",
     }
     now = time.time()
     expected_exp = now + app.config["OAUTH2_JWT_EXP"] * 60
     assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
     assert now - 5 <= decoded_token["iat"] <= now + 5
+
+    token_store = TokenStore("oauth2_proxy", session_secret, redis)
+    session = token_store.get_session(ticket)
+    assert session
+    assert session.token == token
+    assert session.email == "some-user@example.com"
+    assert session.user == "some-user@example.com"
+    assert now - 5 <= session.created_at.timestamp() <= now + 5
+    assert session.expires_on.timestamp() == decoded_token["exp"]
 
 
 def test_parse_ticket() -> None:
