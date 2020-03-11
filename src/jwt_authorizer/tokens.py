@@ -33,7 +33,7 @@ from calendar import timegm
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
+from typing import TYPE_CHECKING, cast
 
 import jwt
 import redis
@@ -48,6 +48,10 @@ from flask_wtf import FlaskForm
 from wtforms import BooleanField, HiddenField, SubmitField
 
 from jwt_authorizer.config import ALGORITHM
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -572,3 +576,77 @@ class TokenStore:
     def _parse_session_date(date_str: str) -> datetime:
         date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
         return date.replace(tzinfo=timezone.utc)
+
+
+def get_redis_client(app: Flask) -> redis.Redis:
+    return redis.Redis(connection_pool=app.redis_pool)
+
+
+def create_token_store(app: Flask) -> TokenStore:
+    """Create a TokenStore from a Flask app configuration."""
+    redis_client = get_redis_client(app)
+    prefix = app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    secret_str = app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    secret = base64.urlsafe_b64decode(secret_str)
+    return TokenStore(prefix, secret, redis_client)
+
+
+@dataclass
+class Issuer:
+    """Metadata about a token issuer for validation."""
+
+    url: str
+    audience: str
+    key_ids: List[str]
+
+
+class TokenVerifier:
+    """Verifies the validity of a JWT.
+
+    Parameters
+    ----------
+    issuers : `Dict` [`str`, `Issuer`]
+        Known token issuers and their metadata.
+    """
+
+    def __init__(self, issuers: Dict[str, Issuer]) -> None:
+        self.issuers = issuers
+
+    def verify(self, token: str) -> None:
+        """Verifies the provided JWT.
+
+        Parameters
+        ----------
+        token : `str`
+            JWT to verify.
+
+        Raises
+        ------
+        jwt.InvalidUsserError
+            The issuer of this token is unknown and therefore the token cannot
+            be verified.
+        Exception
+            Some other verification failure.
+        """
+        unverified_header = jwt.get_unverified_header(token)
+        unverified_token = jwt.decode(
+            token, algorithms=ALGORITHM, verify=False
+        )
+        issuer_url = unverified_token["iss"]
+        if issuer_url not in self.issuers:
+            raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
+        issuer = self.issuers[issuer_url]
+
+        key = get_key_as_pem(issuer_url, unverified_header["kid"])
+        jwt.decode(token, key, algorithms=ALGORITHM, audience=issuer.audience)
+
+
+def create_token_verifier(app: Flask) -> TokenVerifier:
+    """Create a TokenVerifier from a Flask app configuration."""
+    issuers = {}
+    for issuer_url, issuer_data in app.config["ISSUERS"].items():
+        audience = issuer_data["audience"]
+        key_ids = issuer_data.get("issuer_key_ids", [])
+        issuer = Issuer(url=issuer_url, audience=audience, key_ids=key_ids)
+        issuers[issuer_url] = issuer
+    return TokenVerifier(issuers)

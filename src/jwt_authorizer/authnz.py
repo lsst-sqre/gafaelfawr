@@ -43,7 +43,9 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
     :raises Exception: if there's some other issue
     """
     unverified_token = jwt.decode(encoded_token, verify=False)
-    unverified_headers = jwt.get_unverified_header(encoded_token)
+    unverified_headers = jwt.get_unverified_header(
+        encoded_token, algorithms=ALGORITHM
+    )
     jti = unverified_token.get("jti", "UNKNOWN")
     logger.debug(f"Authenticating token with jti: {jti}")
     if current_app.config["NO_VERIFY"] is True:
@@ -61,7 +63,7 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
     return jwt.decode(
         encoded_token,
         key,
-        algorithm=ALGORITHM,
+        algorithms=ALGORITHM,
         audience=issuer["audience"],
         options=current_app.config.get("JWT_VERIFICATION_OPTIONS"),
     )
