@@ -68,23 +68,6 @@ app = AuthorizerApp(__name__)
 ORIGINAL_TOKEN_HEADER = "X-Orig-Authorization"
 
 
-@app.route("/analyze", methods=["POST"])
-def analyze() -> Any:
-    """Analyze a token."""
-    prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    token_verifier = create_token_verifier(current_app)
-    ticket_or_token = request.form["token"]
-    ticket = parse_ticket(prefix, ticket_or_token)
-    if ticket:
-        token_store = create_token_store(current_app)
-        return jsonify(
-            analyze_ticket(ticket, prefix, token_store, token_verifier)
-        )
-    else:
-        analysis = analyze_token(ticket_or_token, token_verifier)
-        return jsonify({"token": analysis})
-
-
 @app.route("/auth")
 def authnz_token():  # type: ignore
     """Authenticate and authorize a token.
@@ -169,6 +152,23 @@ def authnz_token():  # type: ignore
     response.status_code = 403
     logger.error(f"Failed to authorize Token ID {jti} because {message}")
     return response
+
+
+@app.route("/auth/analyze", methods=["POST"])
+def analyze() -> Any:
+    """Analyze a token."""
+    prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    token_verifier = create_token_verifier(current_app)
+    ticket_or_token = request.form["token"]
+    ticket = parse_ticket(prefix, ticket_or_token)
+    if ticket:
+        token_store = create_token_store(current_app)
+        return jsonify(
+            analyze_ticket(ticket, prefix, token_store, token_verifier)
+        )
+    else:
+        analysis = analyze_token(ticket_or_token, token_verifier)
+        return jsonify({"token": analysis})
 
 
 @app.route("/auth/tokens", methods=["GET"])

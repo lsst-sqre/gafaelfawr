@@ -65,7 +65,8 @@ def test_analyze_ticket() -> None:
             get_redis_client.return_value = redis
             with app.test_client() as client:
                 response = client.post(
-                    "/analyze", data={"token": ticket.encode("oauth2_proxy")}
+                    "/auth/analyze",
+                    data={"token": ticket.encode("oauth2_proxy")},
                 )
             assert get_key_as_pem.call_args_list == [
                 call("https://test.example.com/", "some-kid")
@@ -152,7 +153,7 @@ def test_analyze_token() -> None:
         with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
             get_key_as_pem.return_value = keypair.public_key_as_pem()
             with app.test_client() as client:
-                response = client.post("/analyze", data={"token": token})
+                response = client.post("/auth/analyze", data={"token": token})
             assert get_key_as_pem.call_args_list == [
                 call("https://orig.example.com/", "some-kid")
             ]
