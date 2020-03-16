@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,9 +31,7 @@ spec:
         secret:
           # kubectl create secret generic jwt-authorizer-config --from-file=./authorizer.cfg
           secretName: jwt-authorizer-config
-
 ---
-
 apiVersion: v1
 kind: Service
 metadata:

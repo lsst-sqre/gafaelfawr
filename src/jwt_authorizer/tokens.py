@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
 
 import base64
 import hashlib
@@ -29,23 +30,28 @@ import os
 import struct
 from binascii import Error
 from calendar import timegm
-from datetime import datetime, timedelta
-from dataclasses import dataclass, field as dc_field
-from typing import Any, Mapping, Optional, Dict, cast, Tuple, List
+from dataclasses import dataclass
+from dataclasses import field as dc_field
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, cast
 
 import jwt
-import redis  # type: ignore
+import redis
 import requests
-from cachetools import cached, TTLCache  # type: ignore
-from cryptography.hazmat.backends import default_backend  # type: ignore
-from cryptography.hazmat.primitives import serialization  # type: ignore
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers  # type: ignore
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # type: ignore
+from cachetools import TTLCache, cached
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from flask import current_app
-from flask_wtf import FlaskForm  # type: ignore
-from wtforms import BooleanField, SubmitField, HiddenField  # type: ignore
+from flask_wtf import FlaskForm
+from wtforms import BooleanField, HiddenField, SubmitField
 
-from .config import ALGORITHM
+from jwt_authorizer.config import ALGORITHM
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -82,24 +88,32 @@ def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
     """
     full_prefix = f"{prefix}-"
     if not ticket.startswith(full_prefix):
-        logger.info("Error decoding ticket: Ticket not in expected format")
+        logger.error("Error decoding ticket: Ticket not in expected format")
         return None
     trimmed_ticket = ticket[len(full_prefix) :]
     if "." not in trimmed_ticket:
-        logger.info("Error decoding ticket: Ticket not in expected format")
+        logger.error("Error decoding ticket: Ticket not in expected format")
         return None
     ticket_id, secret_b64 = trimmed_ticket.split(".")
     try:
         int(ticket_id, 16)  # Check hex
-        secret = base64.urlsafe_b64decode(add_padding(secret_b64))
+        secret = base64.b64decode(
+            add_padding(secret_b64), altchars=b"-_", validate=True
+        )
+        if secret == b"":
+            raise ValueError("ticket secret is empty")
         return Ticket(ticket_id=ticket_id, secret=secret)
     except (ValueError, Error) as e:
-        logger.info("Error decoding ticket:", e)
+        logger.error("Error decoding ticket: %s", str(e))
         return None
 
 
 def issue_token(
-    payload: Mapping[str, Any], aud: str, store_user_info: bool, oauth2_proxy_ticket: Ticket
+    payload: Mapping[str, Any],
+    aud: str,
+    store_user_info: bool,
+    oauth2_proxy_ticket: Ticket,
+    redis_client: Optional[redis.Redis] = None,
 ) -> str:
     """
     Issue a token.
@@ -111,10 +125,13 @@ def issue_token(
     :param aud: The desired audience for the new token
     :param store_user_info: Store info about this token for the user.
     :param oauth2_proxy_ticket: The value of the oauth2_proxy_cookie
+    :param redis_client: Optional Redis client to use
     :return: Encoded token
     """
     # Make a copy first
-    exp = datetime.utcnow() + timedelta(minutes=current_app.config["OAUTH2_JWT_EXP"])
+    exp = datetime.utcnow() + timedelta(
+        minutes=current_app.config["OAUTH2_JWT_EXP"]
+    )
     payload = _build_payload(aud, exp, payload, oauth2_proxy_ticket)
 
     private_key = current_app.config["OAUTH2_JWT.KEY"]
@@ -125,13 +142,21 @@ def issue_token(
 
     if current_app.config.get("OAUTH2_STORE_SESSION"):
         o2proxy_store_token_redis(
-            payload, exp, encoded_reissued_token, store_user_info, oauth2_proxy_ticket
+            payload,
+            exp,
+            encoded_reissued_token,
+            store_user_info,
+            oauth2_proxy_ticket,
+            redis_client,
         )
     return encoded_reissued_token
 
 
 def _build_payload(
-    audience: str, expires: datetime, decoded_token: Mapping[str, Any], ticket: Ticket
+    audience: str,
+    expires: datetime,
+    decoded_token: Mapping[str, Any],
+    ticket: Ticket,
 ) -> Dict[str, Any]:
     """
     Build a new token payload.
@@ -166,14 +191,16 @@ def _build_payload(
     return payload
 
 
-def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> FlaskForm:
+def api_capabilities_token_form(
+    capabilities: Dict[str, Dict[str, str]]
+) -> FlaskForm:
     """
     Dynamically generates a form based on capability_names.
     :param capabilities: A grouping of capability_names.
     :return:
     """
 
-    class NewCapabilitiesToken(FlaskForm):  # type: ignore
+    class NewCapabilitiesToken(FlaskForm):
         submit = SubmitField("Generate New Token")
 
     NewCapabilitiesToken.capability_names = list(capabilities)
@@ -183,11 +210,11 @@ def api_capabilities_token_form(capabilities: Dict[str, Dict[str, str]]) -> Flas
     return cast(FlaskForm, NewCapabilitiesToken())
 
 
-class AlterTokenForm(FlaskForm):  # type: ignore
+class AlterTokenForm(FlaskForm):
     method_ = HiddenField("method_")
 
 
-@cached(cache=TTLCache(maxsize=16, ttl=600))  # type: ignore
+@cached(cache=TTLCache(maxsize=16, ttl=600))
 def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     """
     Gets a key as PEM, given the issuer and the request key ticket_id.
@@ -221,10 +248,14 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
     try:
         info_key_ids = issuer.get("issuer_key_ids")
         if info_key_ids and request_key_id not in info_key_ids:
-            raise KeyError(f"kid {request_key_id} not found in issuer configuration")
+            raise KeyError(
+                f"kid {request_key_id} not found in issuer configuration"
+            )
 
         # Try OIDC first
-        oidc_config = os.path.join(issuer_url, ".well-known/openid-configuration")
+        oidc_config = os.path.join(
+            issuer_url, ".well-known/openid-configuration"
+        )
         oidc_resp = requests.get(oidc_config)
         if oidc_resp.ok:
             jwks_uri = oidc_resp.json()["jwks_uri"]
@@ -243,13 +274,17 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
             raise KeyError(f"Issuer may have removed kid={request_key_id}")
 
         if key["alg"] != ALGORITHM:
-            raise Exception("Bad Issuer Key and Global Algorithm Configuration")
+            raise Exception(
+                "Bad Issuer Key and Global Algorithm Configuration"
+            )
         e = _base64_to_long(key["e"])
         m = _base64_to_long(key["n"])
         return _convert(e, m)
     except Exception as e:
         # HTTPError, KeyError, or Exception
-        logger.error(f"Unable to retrieve and store key for issuer: {issuer_url} ")
+        logger.error(
+            f"Unable to retrieve and store key for issuer: {issuer_url} "
+        )
         logger.error(e)
         raise Exception(f"Unable to interace with issuer: {issuer_url}") from e
 
@@ -260,6 +295,7 @@ def o2proxy_store_token_redis(
     token: str,
     store_user_info: bool,
     oauth2_proxy_ticket: Ticket,
+    redis_client: Optional[redis.Redis] = None,
 ) -> None:
     """
     Store a token in redis in the oauth2_proxy encoded token format.
@@ -267,8 +303,8 @@ def o2proxy_store_token_redis(
     :param expires: When this token expires.
     :param token: The token to encode.
     :param store_user_info: If true, store info user's issued token
-    :param oauth2_proxy_ticket: A period-delimited pair of
-    [handle].[initialization vector]
+    :param oauth2_proxy_ticket: Ticket to substitute for the token
+    :param redis_client: Optional Redis client to use
     """
     # Use the same email field as oauth2_proxy
     email = payload["email"]
@@ -281,8 +317,9 @@ def o2proxy_store_token_redis(
     encrypted_oauth2_session = _o2proxy_encrypted_session(
         oauth2_proxy_ticket.secret, user, email, expires, token
     )
-    redis_pool = current_app.redis_pool
-    redis_client = redis.Redis(connection_pool=redis_pool)
+    if not redis_client:
+        redis_pool = current_app.redis_pool
+        redis_client = redis.Redis(connection_pool=redis_pool)
     expires_delta = expires - datetime.utcnow()
     with redis_client.pipeline() as pipeline:
         pipeline.setex(handle, expires_delta, encrypted_oauth2_session)
@@ -344,7 +381,11 @@ def revoke_token(user_id: str, handle: str) -> bool:
 
 
 def _o2proxy_encrypted_session(
-    secret: bytes, user: Optional[str], email: str, expires: datetime, token: str
+    secret: bytes,
+    user: Optional[str],
+    email: str,
+    expires: datetime,
+    token: str,
 ) -> bytes:
     """
     Take in the data for an encrypting an oauth2_proxy session and
@@ -367,7 +408,9 @@ def _o2proxy_encrypted_session(
     backend = default_backend()
     cipher = Cipher(algorithms.AES(secret), modes.CFB(secret), backend=backend)
     encryptor = cipher.encryptor()
-    cipher_text = encryptor.update(session_payload_str.encode()) + encryptor.finalize()
+    cipher_text = (
+        encryptor.update(session_payload_str.encode()) + encryptor.finalize()
+    )
     return cipher_text
 
 
@@ -392,12 +435,16 @@ def _o2proxy_encrypt_string(iv: bytes, field: str) -> bytes:
     :param field: The field to encrypt.
     :return: The encrypted bytes only.
     """
-    secret_key_encoded = current_app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    secret_key_encoded = current_app.config["OAUTH2_STORE_SESSION"][
+        "OAUTH2_PROXY_SECRET"
+    ]
     secret_key = base64.urlsafe_b64decode(secret_key_encoded)
     backend = default_backend()
     cipher = Cipher(algorithms.AES(secret_key), modes.CFB(iv), backend=backend)
     encryptor = cipher.encryptor()
-    cipher_text: bytes = encryptor.update(field.encode("utf-8")) + encryptor.finalize()
+    cipher_text: bytes = encryptor.update(
+        field.encode("utf-8")
+    ) + encryptor.finalize()
     return cipher_text
 
 
@@ -409,25 +456,197 @@ def _o2proxy_signed_session(session_payload: str) -> str:
     :return: The signed session with the time and signature in the
     format oauth2_proxy is expecting.
     """
-    secret_key_string = current_app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    secret_key_string = current_app.config["OAUTH2_STORE_SESSION"][
+        "OAUTH2_PROXY_SECRET"
+    ]
     secret_key = secret_key_string.encode()
     encoded_session_payload: bytes = base64.b64encode(session_payload.encode())
     now_str = str(timegm(datetime.utcnow().utctimetuple()))
 
     h = hmac.new(secret_key, digestmod=hashlib.sha1)
-    h.update(current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"].encode())
+    h.update(
+        current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"].encode()
+    )
     h.update(encoded_session_payload)
     h.update(now_str.encode())
     # Use URL Safe base64 encode
     sig_base64: bytes = base64.urlsafe_b64encode(h.digest())
-    return f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
+    return (
+        f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
+    )
 
 
 def add_padding(encoded: str) -> str:
     """Add padding to base64 encoded bytes"""
     underflow = len(encoded) % 4
-    return encoded + ("=" * underflow)
+    if underflow:
+        return encoded + ("=" * (4 - underflow))
+    else:
+        return encoded
 
 
 def user_tokens_redis_key(user_id: str) -> str:
     return f"tokens:{user_id}"
+
+
+@dataclass
+class Session:
+    """An oauth2_proxy session.
+
+    Tokens are currently stored in Redis as a JSON dump of a dictionary.  This
+    class represents the deserialized form of a session.
+    """
+
+    token: str
+    email: str
+    user: str
+    created_at: datetime
+    expires_on: datetime
+
+
+class TokenStore:
+    """Stores tokens and retrieves them by ticket.
+
+    Paramters
+    ---------
+    prefix : `str`
+        Prefix used for storing oauth2_proxy session state.
+    redis : `redis.Redis`
+        A Redis client configured to talk to the backend store that holds the
+        (encrypted) tokens.
+    key : `bytes`
+        Encryption key for the individual components of the stored session.
+    """
+
+    def __init__(self, prefix: str, key: bytes, redis: redis.Redis) -> None:
+        self.prefix = prefix
+        self.key = key
+        self.redis = redis
+
+    def get_session(self, ticket: Ticket) -> Optional[Session]:
+        """Retrieve and decrypt the session for a ticket.
+
+        Parameters
+        ----------
+        ticket : `Ticket`
+            The ticket corresponding to the token.
+
+        Returns
+        -------
+        session : `Session` or `None`
+            The corresponding session, or `None` if no session exists for this
+            ticket.
+        """
+        handle = ticket.as_handle(self.prefix)
+        encrypted_session = self.redis.get(handle)
+        if not encrypted_session:
+            return None
+
+        return self._decrypt_session(ticket.secret, encrypted_session)
+
+    def _decrypt_session(
+        self, secret: bytes, encrypted_session: bytes
+    ) -> Session:
+        cipher = Cipher(
+            algorithms.AES(secret), modes.CFB(secret), default_backend()
+        )
+        decryptor = cipher.decryptor()
+        session_dict = json.loads(
+            decryptor.update(encrypted_session) + decryptor.finalize()
+        )
+        return Session(
+            token=self._decrypt_session_component(session_dict["IDToken"]),
+            email=self._decrypt_session_component(session_dict["Email"]),
+            user=self._decrypt_session_component(session_dict["User"]),
+            created_at=self._parse_session_date(session_dict["CreatedAt"]),
+            expires_on=self._parse_session_date(session_dict["ExpiresOn"]),
+        )
+
+    def _decrypt_session_component(self, encrypted_str: str) -> str:
+        encrypted_bytes = base64.b64decode(encrypted_str)
+        iv = encrypted_bytes[:16]
+        cipher = Cipher(
+            algorithms.AES(self.key), modes.CFB(iv), default_backend()
+        )
+        decryptor = cipher.decryptor()
+        field = decryptor.update(encrypted_bytes[16:]) + decryptor.finalize()
+        return field.decode()
+
+    @staticmethod
+    def _parse_session_date(date_str: str) -> datetime:
+        date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+        return date.replace(tzinfo=timezone.utc)
+
+
+def get_redis_client(app: Flask) -> redis.Redis:
+    return redis.Redis(connection_pool=app.redis_pool)
+
+
+def create_token_store(app: Flask) -> TokenStore:
+    """Create a TokenStore from a Flask app configuration."""
+    redis_client = get_redis_client(app)
+    prefix = app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    secret_str = app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    secret = base64.urlsafe_b64decode(secret_str)
+    return TokenStore(prefix, secret, redis_client)
+
+
+@dataclass
+class Issuer:
+    """Metadata about a token issuer for validation."""
+
+    url: str
+    audience: str
+    key_ids: List[str]
+
+
+class TokenVerifier:
+    """Verifies the validity of a JWT.
+
+    Parameters
+    ----------
+    issuers : `Dict` [`str`, `Issuer`]
+        Known token issuers and their metadata.
+    """
+
+    def __init__(self, issuers: Dict[str, Issuer]) -> None:
+        self.issuers = issuers
+
+    def verify(self, token: str) -> None:
+        """Verifies the provided JWT.
+
+        Parameters
+        ----------
+        token : `str`
+            JWT to verify.
+
+        Raises
+        ------
+        jwt.InvalidUsserError
+            The issuer of this token is unknown and therefore the token cannot
+            be verified.
+        Exception
+            Some other verification failure.
+        """
+        unverified_header = jwt.get_unverified_header(token)
+        unverified_token = jwt.decode(
+            token, algorithms=ALGORITHM, verify=False
+        )
+        issuer_url = unverified_token["iss"]
+        if issuer_url not in self.issuers:
+            raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
+        issuer = self.issuers[issuer_url]
+
+        key = get_key_as_pem(issuer_url, unverified_header["kid"])
+        jwt.decode(token, key, algorithms=ALGORITHM, audience=issuer.audience)
+
+
+def create_token_verifier(app: Flask) -> TokenVerifier:
+    """Create a TokenVerifier from a Flask app configuration."""
+    issuers = {}
+    for issuer_url, issuer_data in app.config["ISSUERS"].items():
+        audience = issuer_data["audience"]
+        key_ids = issuer_data.get("issuer_key_ids", [])
+        issuer = Issuer(url=issuer_url, audience=audience, key_ids=key_ids)
+        issuers[issuer_url] = issuer
+    return TokenVerifier(issuers)

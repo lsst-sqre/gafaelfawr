@@ -19,28 +19,28 @@ spec:
         imagePullPolicy: Always
         name: oauth2-proxy
         args:
-        - -provider=oidc
-        - -skip-oidc-discovery
-        - -oidc-issuer-url=https://cilogon.org
-        - -login-url=https://cilogon.org/authorize/?skin=LSST
-        - -oidc-jwks-url=https://cilogon.org/oauth2/certs
-        - -redeem-url=https://cilogon.org/oauth2/token
-        - -scope=openid email org.cilogon.userinfo
-        - -email-domain=*
-        - -cookie-name=oauth2_proxy
-        - -cookie-domain={{ HOSTNAME }}
-        - -cookie-secure=true
-        - -upstream=http://jwt-authorizer.{{ NAMESPACE }}.svc.cluster.local:8080/
-        - -http-address=0.0.0.0:4180
-        - -cookie-expire=24h
-        - -pass-authorization-header
-        - -session-store-type=redis
-        - -redis-connection-url=redis://redis-service.{{ NAMESPACE }}.svc.cluster.local:6379/0
-        - -skip-jwt-bearer-tokens
-        - -extra-jwt-issuers=https://{{ HOSTNAME }}=https://{{ HOSTNAME }}
+        - "-provider=oidc"
+        - "-skip-oidc-discovery"
+        - "-oidc-issuer-url=https://cilogon.org"
+        - "-login-url=https://cilogon.org/authorize/?skin=LSST"
+        - "-oidc-jwks-url=https://cilogon.org/oauth2/certs"
+        - "-redeem-url=https://cilogon.org/oauth2/token"
+        - "-scope=openid email org.cilogon.userinfo"
+        - "-email-domain=*"
+        - "-cookie-name=oauth2_proxy"
+        - "-cookie-domain={{ HOSTNAME }}"
+        - "-cookie-secure=true"
+        - "-upstream=http://jwt-authorizer.{{ NAMESPACE }}.svc.cluster.local:8080/"
+        - "-http-address=0.0.0.0:4180"
+        - "-cookie-expire=24h"
+        - "-pass-authorization-header"
+        - "-session-store-type=redis"
+        - "-redis-connection-url=redis://redis-service.{{ NAMESPACE }}.svc.cluster.local:6379/0"
+        - "-skip-jwt-bearer-tokens"
+        - "-extra-jwt-issuers=https://{{ HOSTNAME }}=https://{{ HOSTNAME }}"
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
-          value: {{ OAUTH2_PROXY_CLIENT_ID }}
+          value: "{{ OAUTH2_PROXY_CLIENT_ID }}"
         - name: OAUTH2_PROXY_CLIENT_SECRET
           valueFrom:
             secretKeyRef:

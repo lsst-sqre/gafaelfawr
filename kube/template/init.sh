@@ -32,7 +32,7 @@ modulus_hex=$(openssl rsa -pubin -inform PEM -modulus -noout -in public.pem | se
 modulus_urlsafe_b64=$(printf -- "$modulus_hex" | xxd -r -p | $b64 | sed 's/+/-/g;s/\//_/g;s/=//g')
 
 ISSUER_PRIVATE_KEY=$(cat private.pem)
-ISSUER_PRIVATE_KEY_INDENT_10=$(printf -- "$ISSUER_PRIVATE_KEY" | sed 's/^/          /')
+ISSUER_PRIVATE_KEY_INDENT_10=$(printf -- "$ISSUER_PRIVATE_KEY" | sed '2,$s/^/          /')
 JWKS_N=$modulus_urlsafe_b64
 
 AUTHORIZER_FLASK_SECRET=$(dd if=/dev/urandom bs=32 count=1 2> /dev/null | $b64)

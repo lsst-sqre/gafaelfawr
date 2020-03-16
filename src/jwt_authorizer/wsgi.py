@@ -22,12 +22,14 @@
 
 import os
 
-from .app import app
-from .config import Config
+from jwt_authorizer.app import app
+from jwt_authorizer.config import Config
 
 
 def configure() -> None:
-    settings_path = os.environ.get("SETTINGS_PATH", "/etc/jwt-authorizer/authorizer.yaml")
+    settings_path = os.environ.get(
+        "SETTINGS_PATH", "/etc/jwt-authorizer/authorizer.yaml"
+    )
     Config.validate(app, settings_path)
 
 

@@ -22,21 +22,40 @@
 import base64
 import binascii
 import logging
-from typing import Optional, Any, Dict, Mapping, Tuple
+import os
+from typing import Any, Dict, Mapping, Optional, Tuple
 
-from flask import request, Response, current_app, render_template, flash, redirect, url_for
+from dynaconf import FlaskDynaconf
+from flask import (
+    Response,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from jwt import PyJWTError
 
-from .authnz import authenticate, authorize, verify_authorization_strategy, capabilities_from_groups
-from .config import AuthorizerApp
-from .tokens import (
-    issue_token,
-    api_capabilities_token_form,
-    Ticket,
-    parse_ticket,
-    get_tokens,
-    revoke_token,
+from jwt_authorizer.analyze import analyze_ticket, analyze_token
+from jwt_authorizer.authnz import (
+    authenticate,
+    authorize,
+    capabilities_from_groups,
+    verify_authorization_strategy,
+)
+from jwt_authorizer.config import AuthorizerApp
+from jwt_authorizer.tokens import (
     AlterTokenForm,
+    Ticket,
+    api_capabilities_token_form,
+    create_token_store,
+    create_token_verifier,
+    get_tokens,
+    issue_token,
+    parse_ticket,
+    revoke_token,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -135,6 +154,23 @@ def authnz_token():  # type: ignore
     return response
 
 
+@app.route("/auth/analyze", methods=["POST"])
+def analyze() -> Any:
+    """Analyze a token."""
+    prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    token_verifier = create_token_verifier(current_app)
+    ticket_or_token = request.form["token"]
+    ticket = parse_ticket(prefix, ticket_or_token)
+    if ticket:
+        token_store = create_token_store(current_app)
+        return jsonify(
+            analyze_ticket(ticket, prefix, token_store, token_verifier)
+        )
+    else:
+        analysis = analyze_token(ticket_or_token, token_verifier)
+        return jsonify({"token": analysis})
+
+
 @app.route("/auth/tokens", methods=["GET"])
 def tokens():  # type: ignore
     try:
@@ -151,7 +187,9 @@ def tokens():  # type: ignore
     forms = {}
     for user_token in user_tokens:
         forms[user_token["jti"]] = AlterTokenForm()
-    return render_template("tokens.html", title="Tokens", tokens=user_tokens, forms=forms)
+    return render_template(
+        "tokens.html", title="Tokens", tokens=user_tokens, forms=forms
+    )
 
 
 @app.route("/auth/tokens/<handle>", methods=["GET", "POST"])
@@ -203,7 +241,9 @@ def new_tokens():  # type: ignore
             if form[capability].data:
                 new_capabilities.append(capability)
         scope = " ".join(new_capabilities)
-        audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", decoded_token["aud"])
+        audience = current_app.config.get(
+            "OAUTH2_JWT.AUD.DEFAULT", decoded_token["aud"]
+        )
         new_token: Dict[str, Any] = {"scope": scope}
         email = decoded_token.get("email")
         user = decoded_token.get(current_app.config["JWT_USERNAME_KEY"])
@@ -220,7 +260,10 @@ def new_tokens():  # type: ignore
         # new_token['isMemberOf'] = decoded_token['isMemberOf']
         oauth2_proxy_ticket = Ticket()
         _ = issue_token(
-            new_token, aud=audience, store_user_info=True, oauth2_proxy_ticket=oauth2_proxy_ticket
+            new_token,
+            aud=audience,
+            store_user_info=True,
+            oauth2_proxy_ticket=oauth2_proxy_ticket,
         )
         prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
         oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(prefix)
@@ -231,11 +274,16 @@ def new_tokens():  # type: ignore
         return redirect(url_for("tokens"))
 
     return render_template(
-        "new_token.html", title="New Token", form=form, capabilities=capabilities
+        "new_token.html",
+        title="New Token",
+        form=form,
+        capabilities=capabilities,
     )
 
 
-def _make_capability_headers(response: Response, verified_token: Mapping[str, Any]) -> None:
+def _make_capability_headers(
+    response: Response, verified_token: Mapping[str, Any]
+) -> None:
     """Set Headers scope headers that can be returned in the case of
     API authorization failure due to required capabiliites.
     :return: The mutated response object.
@@ -243,9 +291,15 @@ def _make_capability_headers(response: Response, verified_token: Mapping[str, An
     capabilities_required, satisfy = verify_authorization_strategy()
     group_capabilities_set = capabilities_from_groups(verified_token)
     scope_capabilities_set = set(verified_token.get("scope", "").split(" "))
-    user_capabilities_set = group_capabilities_set.union(scope_capabilities_set)
-    response.headers["X-Auth-Request-Token-Capabilities"] = " ".join(user_capabilities_set)
-    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(capabilities_required)
+    user_capabilities_set = group_capabilities_set.union(
+        scope_capabilities_set
+    )
+    response.headers["X-Auth-Request-Token-Capabilities"] = " ".join(
+        user_capabilities_set
+    )
+    response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(
+        capabilities_required
+    )
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
 
 
@@ -272,12 +326,16 @@ def _make_success_headers(
             groups = ",".join([g["name"] for g in groups_list])
             response.headers["X-Auth-Request-Groups"] = groups
 
-    encoded_token, oauth2_proxy_ticket = _check_reissue_token(encoded_token, verified_token)
+    encoded_token, oauth2_proxy_ticket = _check_reissue_token(
+        encoded_token, verified_token
+    )
     response.headers["X-Auth-Request-Token"] = encoded_token
     response.headers["X-Auth-Request-Token-Ticket"] = oauth2_proxy_ticket
 
 
-def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -> Tuple[str, str]:
+def _check_reissue_token(
+    encoded_token: str, decoded_token: Mapping[str, Any]
+) -> Tuple[str, str]:
     """
     Reissue the token under two scenarios.
     The first scenario is a newly logged in session with a cookie,
@@ -308,7 +366,9 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
     if not from_this_issuer:
         # Make a copy of the previous token and add capabilities
         decoded_token = dict(decoded_token)
-        decoded_token["scope"] = " ".join(capabilities_from_groups(decoded_token))
+        decoded_token["scope"] = " ".join(
+            capabilities_from_groups(decoded_token)
+        )
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
         ticket = parse_ticket(cookie_name, oauth2_proxy_ticket_str)
         # If we didn't issue it, it came from a provider, and it is
@@ -322,8 +382,12 @@ def _check_reissue_token(encoded_token: str, decoded_token: Mapping[str, Any]) -
         ticket = Ticket()
 
     if new_audience:
+        assert ticket
         encoded_token = issue_token(
-            decoded_token, new_audience, store_user_info=False, oauth2_proxy_ticket=ticket
+            decoded_token,
+            new_audience,
+            store_user_info=False,
+            oauth2_proxy_ticket=ticket,
         )
         oauth2_proxy_ticket_str = ticket.encode(cookie_name)
     return encoded_token, oauth2_proxy_ticket_str
@@ -355,10 +419,10 @@ def _find_token(header: str) -> Optional[str]:
         encoded_basic_auth = auth_blob
         basic_auth = base64.b64decode(encoded_basic_auth)
         user, password = basic_auth.strip().split(b":")
-        if password == "x-oauth-basic":
+        if password == b"x-oauth-basic":
             # Recommended default
             encoded_token = user.decode()
-        elif user == "x-oauth-basic":
+        elif user == b"x-oauth-basic":
             # ... Could be this though
             encoded_token = password.decode()
         else:
@@ -367,7 +431,9 @@ def _find_token(header: str) -> Optional[str]:
     return encoded_token
 
 
-def _make_needs_authentication(response: Response, error: str, message: str) -> None:
+def _make_needs_authentication(
+    response: Response, error: str, message: str
+) -> None:
     """Modify response for a 401 as appropriate"""
     response.status_code = 401
     response.set_data(error)
@@ -378,9 +444,8 @@ def _make_needs_authentication(response: Response, error: str, message: str) -> 
         # Otherwise, send Bearer
         response.headers["WWW-Authenticate"] = f'Basic realm="{realm}"'
     else:
-        response.headers[
-            "WWW-Authenticate"
-        ] = f'Bearer realm="{realm}",error="{error}",error_description="{message}"'
+        info = f'realm="{realm}",error="{error}",error_description="{message}"'
+        response.headers["WWW-Authenticate"] = f"Bearer {info}"
 
 
 def _ticket_str_from_cookie(cookie_val: str) -> str:
@@ -395,3 +460,23 @@ def _ticket_str_from_cookie(cookie_val: str) -> str:
         return base64.urlsafe_b64decode(ticket_part).decode()
     except binascii.Error:
         return ""
+
+
+def create_app(**config: str) -> AuthorizerApp:
+    """Create the Flask app, optionally with Dynaconf settings.
+
+    Parameters
+    ----------
+    **config : `str`
+        Configuration key/value pairs that will be passed to Dynaconf to
+        initialize its settings.
+
+    Notes
+    -----
+    This is an as-yet incomplete reimplementation of the app initialization
+    now done in Config.validate().  It is currently only used by the test
+    suite.
+    """
+    defaults_file = os.path.join(os.path.dirname(__file__), "defaults.yaml")
+    FlaskDynaconf(app, **config, SETTINGS_FILE_FOR_DYNACONF=defaults_file)
+    return app
