@@ -42,10 +42,10 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
     :raises PyJWTError: if there's an issue decoding the token
     :raises Exception: if there's some other issue
     """
-    unverified_token = jwt.decode(encoded_token, verify=False)
-    unverified_headers = jwt.get_unverified_header(
-        encoded_token, algorithms=ALGORITHM
+    unverified_token = jwt.decode(
+        encoded_token, algorithms=ALGORITHM, verify=False
     )
+    unverified_headers = jwt.get_unverified_header(encoded_token)
     jti = unverified_token.get("jti", "UNKNOWN")
     logger.debug(f"Authenticating token with jti: {jti}")
     if current_app.config["NO_VERIFY"] is True:
