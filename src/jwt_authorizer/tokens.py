@@ -27,6 +27,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import struct
 from binascii import Error
 from calendar import timegm
@@ -574,6 +575,15 @@ class TokenStore:
 
     @staticmethod
     def _parse_session_date(date_str: str) -> datetime:
+        """Parse a date from a session record.
+
+        This date may be written by oauth2_proxy instead of us, in which case
+        it will use a Go date format that includes fractional seconds down to
+        the nanosecond.  Python doesn't have a date format that parses this,
+        so the fractional seconds portion will be dropped, leading to an
+        inaccuracy of up to a second.
+        """
+        date_str = re.sub("[.][0-9]+Z$", "Z", date_str)
         date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
         return date.replace(tzinfo=timezone.utc)
 

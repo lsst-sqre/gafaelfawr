@@ -11,7 +11,7 @@ from unittest.mock import ANY, call, patch
 import fakeredis
 import jwt
 
-from jwt_authorizer.tokens import ALGORITHM, Ticket, issue_token
+from jwt_authorizer.tokens import ALGORITHM, Ticket, TokenStore, issue_token
 from tests.util import RSAKeyPair, create_test_app
 
 
@@ -166,3 +166,9 @@ def test_analyze_token() -> None:
             "valid": True,
         },
     }
+
+
+def test_parse_session_date() -> None:
+    """Check that we can parse the session dates written by oauth2_proxy."""
+    date = TokenStore._parse_session_date("2020-03-18T02:28:20.559385848Z")
+    assert date.strftime("%Y-%m-%d %H:%M:%S %z") == "2020-03-18 02:28:20 +0000"

@@ -2,6 +2,11 @@
 Change log
 ##########
 
+0.2.2 (2020-03-19)
+==================
+
+- Fix decoding of dates in the ``oauth2_proxy`` session.
+
 0.2.1 (2020-03-18)
 ==================
 
