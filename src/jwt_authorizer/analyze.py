@@ -11,7 +11,10 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-from jwt_authorizer.tokens import ALGORITHM
+from jwt_authorizer.config import ALGORITHM
+
+__all__ = ["analyze_ticket", "analyze_token"]
+
 
 if TYPE_CHECKING:
     from jwt_authorizer.tokens import Ticket, TokenStore, TokenVerifier
@@ -28,18 +31,18 @@ def analyze_ticket(
 
     Parameters
     ----------
-    ticket : `Ticket`
+    ticket : `jwt_authorizer.tokens.Ticket`
         The parsed ticket to analyze.
     prefix : `str`
         The prefix used for ticket handles.
-    token_store : `TokenStore`
+    token_store : `jwt_authorizer.tokens.TokenStore`
         The backend store used to retrieve the session for the ticket.
-    token_verifier : `TokenVerifier`
+    token_verifier : `jwt_authorizer.tokens.TokenVerifier`
         Verifier to check the validity of any underlying token.
 
     Returns
     -------
-    output : `Dict` [`str`, `Any`]
+    output : Dict[`str`, Any]
         The contents of the ticket.  This will include the ticket ID and
         secret, the session it references, and the token that session
         contains.
@@ -69,6 +72,21 @@ def analyze_ticket(
 
 
 def analyze_token(token: str, token_verifier: TokenVerifier) -> Dict[str, Any]:
+    """Analyze a token and return its expanded information.
+
+    Parameters
+    ----------
+    token : `str`
+        The encoded token to analyze.
+    token_verifier : `jwt_authorizer.tokens.TokenVerifier`
+        Verifier to check the validity of the token.
+
+    Returns
+    -------
+    output : Dict[`str`, Any]
+        The contents of the token.  This will include the capabilities and the
+        header, a flag saying whether it is valid, and any errors.
+    """
     unverified_token = jwt.decode(token, algorithms=ALGORITHM, verify=False)
     output = {
         "header": jwt.get_unverified_header(token),

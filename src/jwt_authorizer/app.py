@@ -1,3 +1,7 @@
+"""Flask application routes for JWT Authorizer."""
+
+from __future__ import annotations
+
 import base64
 import binascii
 import logging
@@ -37,6 +41,16 @@ from jwt_authorizer.tokens import (
     revoke_token,
 )
 
+__all__ = [
+    "analyze",
+    "authnz_token",
+    "create_app",
+    "new_tokens",
+    "token_for_handle",
+    "tokens",
+]
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -50,42 +64,59 @@ ORIGINAL_TOKEN_HEADER = "X-Orig-Authorization"
 @app.route("/auth")
 def authnz_token():  # type: ignore
     """Authenticate and authorize a token.
-    :query capability: One or more capabilities to check
-    :query satisfy: satisfy ``all`` (default) or ``any`` of the
-     capability checks.
-    :<header Authorization: The JWT token. This must always be the
-     full JWT token. The token should be in this  header as
-     type ``Bearer``, but it may be type ``Basic`` if ``x-oauth-basic``
-     is the username or password.
-    :<header X-Orig-Authorization: The Authorization header as it was
-     received before processing by ``oauth2_proxy``. This is useful when
-     the original header was an ``oauth2_proxy`` ticket, as this gives
-     access to the ticket.
-    :>header X-Auth-Request-Email: If enabled and email is available,
-     this will be set based on the ``email`` claim.
-    :>header X-Auth-Request-User: If enabled and the field is available,
-     this will be set from token based on the ``JWT_USERNAME_KEY`` field
-    :>header X-Auth-Request-Uid: If enabled and the field is available,
-     this will be set from token based on the ``JWT_UID_KEY`` field
-    :>header X-Auth-Request-Groups: When a token has groups available
-     in the ``isMemberOf`` claim, the names of the groups will be
-     returned, comma-separated, in this header.
-    :>header X-Auth-Request-Token: If enabled, the encoded token will
-     be set.
-    :>header X-Auth-Request-Token-Ticket: When a ticket is available
-     for the token, we will return it under this header.
-    :>header X-Auth-Request-Token-Capabilities: If the token has
-     capabilities in the ``scope`` claim, they will be returned in this
-     header.
-    :>header X-Auth-Request-Token-Capabilities-Accepted: A
-     space-separated list of token capabilities the reliant resource
-     accepts
-    :>header X-Auth-Request-Token-Capabilities-Satisfy: The strategy
-     the reliant resource uses to accept a capability.
-     Values include ``any`` or ``all``
-    :>header WWW-Authenticate: If the request is unauthenticated, this
-     header will be set.
 
+    Notes
+    -----
+    Expects the following query parameters to be set:
+
+    capability
+        One or more capabilities to check (required).
+    satisfy
+        Require that ``all`` (the default) or ``any`` of the capabilities
+        requested via the ``capbility`` parameter be satisfied.
+
+    Expects the following headers to be set in the request:
+
+    Authorization
+        The JWT token. This must always be the full JWT token. The token
+        should be in this  header as type ``Bearer``, but it may be type
+        ``Basic`` if ``x-oauth-basic`` is the username or password.
+    X-Orig-Authorization
+        The Authorization header as it was received before processing by
+        ``oauth2_proxy``. This is useful when the original header was an
+        ``oauth2_proxy`` ticket, as this gives access to the ticket.
+
+    The following headers may be set in the response:
+
+    X-Auth-Request-Email
+        If enabled and email is available, this will be set based on the
+        ``email`` claim.
+    X-Auth-Request-User
+        If enabled and the field is available, this will be set from token
+        based on the ``JWT_USERNAME_KEY`` field.
+    X-Auth-Request-Uid
+        If enabled and the field is available, this will be set from token
+        based on the ``JWT_UID_KEY`` field.
+    X-Auth-Request-Groups
+        When a token has groups available in the ``isMemberOf`` claim, the
+        names of the groups will be returned, comma-separated, in this
+        header.
+    X-Auth-Request-Token
+        If enabled, the encoded token will be set.
+    X-Auth-Request-Token-Ticket
+        When a ticket is available for the token, we will return it under this
+        header.
+    X-Auth-Request-Token-Capabilities
+        If the token has capabilities in the ``scope`` claim, they will be
+        returned in this header.
+    X-Auth-Request-Token-Capabilities-Accepted
+        A space-separated list of token capabilities the reliant resource
+        accepts.
+    X-Auth-Request-Token-Capabilities-Satisfy
+        The strategy the reliant resource uses to accept a capability. Values
+        include ``any`` or ``all``.
+    WWW-Authenticate
+        If the request is unauthenticated, this header will be set.
     """
     # Default to Server Error for safety, so we must always set it to
     # 200 if it's okay.
@@ -135,7 +166,12 @@ def authnz_token():  # type: ignore
 
 @app.route("/auth/analyze", methods=["POST"])
 def analyze() -> Any:
-    """Analyze a token."""
+    """Analyze a token.
+
+    Expects a POST with a single parameter, ``token``, which is either a
+    ticket or a full token.  Returns a JSON structure with details about that
+    token.
+    """
     prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
     token_verifier = create_token_verifier(current_app)
     ticket_or_token = request.form["token"]
@@ -152,6 +188,7 @@ def analyze() -> Any:
 
 @app.route("/auth/tokens", methods=["GET"])
 def tokens():  # type: ignore
+    """Displays all tokens for the current user."""
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
         decoded_token = authenticate(encoded_token)
@@ -173,6 +210,16 @@ def tokens():  # type: ignore
 
 @app.route("/auth/tokens/<handle>", methods=["GET", "POST"])
 def token_for_handle(handle: str):  # type: ignore
+    """Displays or deletes a single token.
+
+    On GET, displays information about a single token.  On POST with
+    ``DELETE`` as the data, deletes a single token.
+
+    Parameters
+    ----------
+    handle : `str`
+        The identifier for the token.
+    """
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
         decoded_token = authenticate(encoded_token)
@@ -201,6 +248,11 @@ def token_for_handle(handle: str):  # type: ignore
 
 @app.route("/auth/tokens/new", methods=["GET", "POST"])
 def new_tokens():  # type: ignore
+    """Create a new token.
+
+    On GET, return a form for creating a new token.  On POST, create that new
+    token based on the form parameters.
+    """
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
         decoded_token = authenticate(encoded_token)
@@ -263,9 +315,17 @@ def new_tokens():  # type: ignore
 def _make_capability_headers(
     response: Response, verified_token: Mapping[str, Any]
 ) -> None:
-    """Set Headers scope headers that can be returned in the case of
-    API authorization failure due to required capabiliites.
-    :return: The mutated response object.
+    """Set capability information in response headers.
+
+    Set headers that can be returned in the case of API authorization failure
+    due to required capabiliites.
+
+    Parameters
+    ----------
+    response : `Response`
+        The response object to mutate in place.
+    verified_token : `Mapping` [`str`, `Any`]
+        A verified token containing group and scope information.
     """
     capabilities_required, satisfy = verify_authorization_strategy()
     group_capabilities_set = capabilities_from_groups(verified_token)
@@ -286,7 +346,15 @@ def _make_success_headers(
     response: Response, encoded_token: str, verified_token: Mapping[str, Any]
 ) -> None:
     """Set Headers that will be returned in a successful response.
-    :return: The mutated response object.
+
+    Parameters
+    ----------
+    response : `Response`
+        The response object to mutate in place.
+    encoded_token : `str`
+        The token encoded as a JWT.
+    verified_token : `Mapping` [`str`, `Any`]
+        A verified token containing group and scope information.
     """
     _make_capability_headers(response, verified_token)
 
@@ -315,18 +383,34 @@ def _make_success_headers(
 def _check_reissue_token(
     encoded_token: str, decoded_token: Mapping[str, Any]
 ) -> Tuple[str, str]:
-    """
-    Reissue the token under two scenarios.
-    The first scenario is a newly logged in session with a cookie,
-    indicated by the token being issued from another issuer.
-    We reissue the token with a default audience.
-    The second scenario is a request to an internal resource, as
-    indicated by the `audience` parameter being equal to the
-    configured internal audience, where the current token's audience
-    is from the default audience.
-    :param encoded_token: The current token, encoded
-    :param decoded_token: The current token, decoded
-    :return: An encoded token, which may have been reissued.
+    """Possibly reissue the token.
+
+    Notes
+    -----
+    The token will be reissued under two scenarios.
+
+    The first scenario is a newly logged in session with a cookie, indicated
+    by the token being issued from another issuer.  We reissue the token with
+    a default audience.
+
+    The second scenario is a request to an internal resource, as indicated by
+    the ``audience`` parameter being equal to the configured internal
+    audience, where the current token's audience is from the default audience.
+    We will reissue the token with an internal audience.
+
+    Parameters
+    ----------
+    encoded_token : `str`
+        The current token, encoded.
+    decoded_token : `Mapping` [`str`, `Any`]
+        The current token, decoded.
+
+    Returns
+    -------
+    encoded_token : `str`
+        An encoded token, which may have been reissued.
+    oauth2_proxy_ticket_str : `str`
+        A ticket for the oauth2_proxy session.
     """
     # Only reissue token if it's requested and if it's a different
     # issuer than this application uses to reissue a token
@@ -373,12 +457,20 @@ def _check_reissue_token(
 
 
 def _find_token(header: str) -> Optional[str]:
-    """
-    From the request, find the token we need. Normally it should
-    be in the Authorization header of type ``Bearer``, but it may
-    be of type Basic for clients that don't support OAuth.
-    :type header: HTTP Header to check for token
-    :return: The token text, if found, otherwise None.
+    """From the request, find the token we need.
+
+    Normally it should be in the Authorization header of type ``Bearer``, but
+    it may be of type Basic for clients that don't support OAuth.
+
+    Parameters
+    ----------
+    header : `str`
+        Name of HTTP header to check for token.
+
+    Returns
+    -------
+    encoded_token : `Optional` [`str`]
+        The token text, if found, otherwise None.
     """
     header_value = request.headers.get(header, "")
     if not header_value or " " not in header_value:
@@ -413,7 +505,18 @@ def _find_token(header: str) -> Optional[str]:
 def _make_needs_authentication(
     response: Response, error: str, message: str
 ) -> None:
-    """Modify response for a 401 as appropriate"""
+    """Modify response for a 401 as appropriate.
+
+    Parameters
+    ----------
+    response : `Response`
+        The response to modify for authentication required.
+    error : `str`
+        The error message to use as the body of the message and the error
+        parameter in the WWW-Authenticate header.
+    message : `str`
+        The error description for the WWW-Authetnicate header.
+    """
     response.status_code = 401
     response.set_data(error)
     if not current_app.config.get("WWW_AUTHENTICATE"):
@@ -428,10 +531,17 @@ def _make_needs_authentication(
 
 
 def _ticket_str_from_cookie(cookie_val: str) -> str:
-    """
-    Get a ticket from an oauth2_proxy cookie value
-    :param cookie_val: Value of the oauth2_proxy cookie
-    :return: The ticket value
+    """Get a ticket from an oauth2_proxy cookie value.
+
+    Parameters
+    ----------
+    cookie_val : `str`
+        The Vaule of the oauth2_proxy cookie.
+
+    Returns
+    -------
+    ticket : `str`
+        The ticket value.
     """
     cookie_parts = cookie_val.split("|")
     ticket_part = cookie_parts[0]

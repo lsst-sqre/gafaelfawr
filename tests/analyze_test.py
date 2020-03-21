@@ -11,7 +11,8 @@ from unittest.mock import ANY, call, patch
 import fakeredis
 import jwt
 
-from jwt_authorizer.tokens import ALGORITHM, Ticket, TokenStore, issue_token
+from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.tokens import Ticket, TokenStore, issue_token
 from tests.util import RSAKeyPair, create_test_app
 
 

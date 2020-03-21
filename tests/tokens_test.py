@@ -10,8 +10,8 @@ from unittest.mock import ANY
 import fakeredis
 import jwt
 
+from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.tokens import (
-    ALGORITHM,
     Ticket,
     TokenStore,
     add_padding,

@@ -20,6 +20,13 @@ class AuthorizerApp(Flask):
 class Config:
     @staticmethod
     def configure_plugins(app: AuthorizerApp) -> None:
+        """Configure authorization checking plugins.
+
+        Parameters
+        ----------
+        app : `AuthorizerApp`
+            The Flask application to configure.
+        """
         from jwt_authorizer.authnz import (
             scope_check_access,
             group_membership_check_access,
@@ -32,6 +39,15 @@ class Config:
 
     @staticmethod
     def validate(app: AuthorizerApp, user_config: str) -> None:
+        """Load and validate the application configuration.
+
+        Parameters
+        ----------
+        app : `AuthorizerApp`
+            The Flask application to configure.
+        user_config : `str`
+            An additional configuration file to load.
+        """
         global logger
         Config.configure_plugins(app)
         defaults_file = os.path.join(
@@ -40,10 +56,8 @@ class Config:
 
         settings_module = f"{defaults_file},{user_config}"
         print(settings_module)
-        dynaconf = FlaskDynaconf(
-            app, SETTINGS_FILE_FOR_DYNACONF=settings_module
-        )
-        settings = dynaconf.settings
+        config = FlaskDynaconf(app, SETTINGS_FILE_FOR_DYNACONF=settings_module)
+        settings = config.settings
         settings.validators.register(
             Validator("NO_VERIFY", "NO_AUTHORIZE", is_type_of=bool),
             Validator("GROUP_MAPPING", is_type_of=dict),
