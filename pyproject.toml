@@ -11,7 +11,7 @@ build-backend = 'setuptools.build_meta'
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py37,coverage-report,typing,lint
+envlist = py37,coverage-report,typing,lint,docs
 isolated_build = True
 
 [testenv]
@@ -43,6 +43,11 @@ skip_install = true
 deps =
     pre-commit
 commands = pre-commit run --all-files
+
+[testenv:docs]
+description = Build documentation (HTML) with Sphinx.
+commands =
+    sphinx-build -n -T -b html -d {envtmpdir}/doctrees docs docs/_build/html
 """
 
 [tool.coverage.run]
