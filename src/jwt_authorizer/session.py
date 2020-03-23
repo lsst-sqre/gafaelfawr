@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import re
-from binascii import Error
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -31,10 +30,13 @@ __all__ = [
     "Session",
     "SessionStore",
     "Ticket",
-    "parse_ticket",
 ]
 
 logger = logging.getLogger(__name__)
+
+
+class InvalidTicketException(Exception):
+    """Ticket is not in expected format."""
 
 
 def _new_ticket_id() -> str:
@@ -53,6 +55,48 @@ class Ticket:
 
     ticket_id: str = field(default_factory=_new_ticket_id)
     secret: bytes = field(default_factory=_new_ticket_secret)
+
+    @classmethod
+    def from_str(cls, prefix: str, ticket: str) -> Ticket:
+        """Parse an oauth2_proxy ticket string into a Ticket.
+
+        Parameters
+        ----------
+        prefix : `str`
+            The expected prefix for the ticket.
+        ticket : `str`
+            The encoded ticket string.
+
+        Returns
+        -------
+        decoded_ticket : `Ticket`
+            The decoded Ticket.
+
+        Raises
+        ------
+        InvalidTicketException
+            The provided string is not a valid ticket.
+        """
+        full_prefix = f"{prefix}-"
+        if not ticket.startswith(full_prefix):
+            msg = f"Ticket does not start with {full_prefix}"
+            raise InvalidTicketException(msg)
+
+        trimmed_ticket = ticket[len(full_prefix) :]
+        if "." not in trimmed_ticket:
+            raise InvalidTicketException("Ticket is malformed")
+
+        try:
+            ticket_id, secret_b64 = trimmed_ticket.split(".", 1)
+            int(ticket_id, 16)  # Check that the ticket ID is valid hex.
+            secret = cls._base64_decode(secret_b64)
+            if secret == b"":
+                raise InvalidTicketException("Ticket secret is empty")
+        except Exception as e:
+            msg = f"Error decoding ticket: {str(e)}"
+            raise InvalidTicketException(msg)
+
+        return cls(ticket_id=ticket_id, secret=secret)
 
     def as_handle(self, prefix: str) -> str:
         """Return the handle for this ticket.
@@ -75,42 +119,21 @@ class Ticket:
         secret_b64 = base64.urlsafe_b64encode(self.secret).decode().rstrip("=")
         return f"{prefix}-{self.ticket_id}.{secret_b64}"
 
+    @staticmethod
+    def _base64_decode(data: str) -> bytes:
+        """Helper function to do base64 decoding.
 
-def parse_ticket(prefix: str, ticket: str) -> Optional[Ticket]:
-    """Parse an oauth2_proxy ticket string into a Ticket.
+        Undoes URL-safe base64 encoding, allowing for stripped padding and
+        enabling validation so that an exception is thrown for invalid data.
 
-    Parameters
-    ----------
-    prefix : `str`
-        The expected prefix for the ticket.
-    ticket : `str`
-        The encoded ticket string.
-
-    Returns
-    -------
-    decoded_ticket : Optional[`Ticket`]
-        The decoded Ticket, or None if there was an error.
-    """
-    full_prefix = f"{prefix}-"
-    if not ticket.startswith(full_prefix):
-        logger.error("Error decoding ticket: Ticket not in expected format")
-        return None
-    trimmed_ticket = ticket[len(full_prefix) :]
-    if "." not in trimmed_ticket:
-        logger.error("Error decoding ticket: Ticket not in expected format")
-        return None
-    ticket_id, secret_b64 = trimmed_ticket.split(".")
-    try:
-        int(ticket_id, 16)  # Check hex
-        secret = base64.b64decode(
-            add_padding(secret_b64), altchars=b"-_", validate=True
+        Notes
+        -----
+        Used instead of urlsafe_b64decode because that standard function
+        doesn't have support for enabling validation.
+        """
+        return base64.b64decode(
+            add_padding(data), altchars=b"-_", validate=True
         )
-        if secret == b"":
-            raise ValueError("ticket secret is empty")
-        return Ticket(ticket_id=ticket_id, secret=secret)
-    except (ValueError, Error) as e:
-        logger.error("Error decoding ticket: %s", str(e))
-        return None
 
 
 @dataclass

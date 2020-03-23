@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import base64
 
-from jwt_authorizer.session import SessionStore, parse_ticket
+import pytest
+
+from jwt_authorizer.session import InvalidTicketException, SessionStore, Ticket
 from jwt_authorizer.util import add_padding
 
 
@@ -14,7 +16,7 @@ def test_parse_session_date() -> None:
     assert date.strftime("%Y-%m-%d %H:%M:%S %z") == "2020-03-18 02:28:20 +0000"
 
 
-def test_parse_ticket() -> None:
+def test_ticket_from_str() -> None:
     bad_tickets = [
         "",
         ".",
@@ -31,10 +33,11 @@ def test_parse_ticket() -> None:
         "oauth2_proxy5d366761c03b18d658fe63c050c65b8e.99P8KBWtmvOS36lhcnNzNA",
     ]
     for ticket_str in bad_tickets:
-        assert not parse_ticket("oauth2_proxy", ticket_str)
+        with pytest.raises(InvalidTicketException):
+            Ticket.from_str("oauth2_proxy", ticket_str)
 
     s = "oauth2_proxy-5d366761c03b18d658fe63c050c65b8e.99P8KBWtmvOS36lhcnNzNA"
-    ticket = parse_ticket("oauth2_proxy", s)
+    ticket = Ticket.from_str("oauth2_proxy", s)
     assert ticket
     assert ticket.ticket_id == "5d366761c03b18d658fe63c050c65b8e"
     secret = base64.urlsafe_b64decode(add_padding("99P8KBWtmvOS36lhcnNzNA"))

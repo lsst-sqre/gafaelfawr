@@ -29,7 +29,11 @@ from jwt_authorizer.authnz import (
     verify_authorization_strategy,
 )
 from jwt_authorizer.config import AuthorizerApp
-from jwt_authorizer.session import Ticket, create_session_store, parse_ticket
+from jwt_authorizer.session import (
+    InvalidTicketException,
+    Ticket,
+    create_session_store,
+)
 from jwt_authorizer.tokens import (
     AlterTokenForm,
     api_capabilities_token_form,
@@ -173,13 +177,13 @@ def analyze() -> Any:
     prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
     token_verifier = create_token_verifier(current_app)
     ticket_or_token = request.form["token"]
-    ticket = parse_ticket(prefix, ticket_or_token)
-    if ticket:
+    try:
+        ticket = Ticket.from_str(prefix, ticket_or_token)
         token_store = create_session_store(current_app)
         return jsonify(
             analyze_ticket(ticket, prefix, token_store, token_verifier)
         )
-    else:
+    except InvalidTicketException:
         analysis = analyze_token(ticket_or_token, token_verifier)
         return jsonify({"token": analysis})
 
@@ -431,12 +435,7 @@ def _check_reissue_token(
             capabilities_from_groups(decoded_token)
         )
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
-        ticket = parse_ticket(cookie_name, oauth2_proxy_ticket_str)
-        # If we didn't issue it, it came from a provider, and it is
-        # inherently a new session, and this happens only once, after
-        # initial login. If there's no cookie, or we failed to
-        # parse it, there's something funny going on.
-        assert ticket, "ERROR: OAuth2 Proxy cookie must be present"
+        ticket = Ticket.from_str(cookie_name, oauth2_proxy_ticket_str)
     elif from_this_issuer and from_default_audience and to_internal_audience:
         # In this case, we only reissue tokens from a default audience
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.INTERNAL", "")
