@@ -15,3 +15,17 @@ default:
 testing:
   group_mapping:
     "exec:admin": ["admin"]
+  issuers:
+    "https://orig.example.com/":
+      audience: "https://test.example.com/"
+      issuer_key_ids:
+        - "orig-kid"
+    "https://test.example.com/":
+      audience: "https://example.com/"
+      issuer_key_ids:
+        - "some-kid"
+  oauth2_jwt:
+    iss: "https://test.example.com/"
+    key_id: "some-kid"
+  oauth2_store_session:
+    ticket_prefix: "oauth2_proxy"

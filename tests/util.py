@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from typing import TYPE_CHECKING
 
 from cryptography.hazmat.backends import default_backend
@@ -17,7 +18,7 @@ from jwt_authorizer.app import create_app
 
 if TYPE_CHECKING:
     from flask import Flask
-    from typing import Any
+    from typing import Any, Optional
 
 
 class RSAKeyPair:
@@ -39,7 +40,18 @@ class RSAKeyPair:
         )
 
 
-def create_test_app(**kwargs: Any) -> Flask:
+def create_test_app(
+    keypair: Optional[RSAKeyPair] = None,
+    session_secret: Optional[bytes] = None,
+    **kwargs: Any,
+) -> Flask:
     """Configured Flask app for testing."""
-    app = create_app(FORCE_ENV_FOR_DYNACONF="testing", **kwargs)
+    app = create_app(FORCE_ENV_FOR_DYNACONF="testing", **kwargs,)
+
+    if keypair:
+        app.config["OAUTH2_JWT"]["KEY"] = keypair.private_key_as_pem().decode()
+    if session_secret:
+        secret_b64 = base64.urlsafe_b64encode(session_secret).decode()
+        app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"] = secret_b64
+
     return app

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import os
 import time
 from unittest.mock import ANY
@@ -28,17 +27,7 @@ def test_issue_token() -> None:
     ticket = Ticket()
     keypair = RSAKeyPair()
     session_secret = os.urandom(16)
-    app = create_test_app(
-        OAUTH2_JWT={
-            "ISS": "https://test.example.com/",
-            "KEY": keypair.private_key_as_pem(),
-            "KEY_ID": "1",
-        },
-        OAUTH2_STORE_SESSION={
-            "OAUTH2_PROXY_SECRET": base64.urlsafe_b64encode(session_secret),
-            "TICKET_PREFIX": "oauth2_proxy",
-        },
-    )
+    app = create_test_app(keypair, session_secret)
     redis = fakeredis.FakeRedis()
 
     with app.app_context():
@@ -49,7 +38,7 @@ def test_issue_token() -> None:
     assert jwt.get_unverified_header(token) == {
         "alg": ALGORITHM,
         "typ": "JWT",
-        "kid": "1",
+        "kid": "some-kid",
     }
 
     decoded_token = jwt.decode(

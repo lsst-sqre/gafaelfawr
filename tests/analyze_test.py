@@ -29,23 +29,7 @@ def test_analyze_ticket() -> None:
     ticket = Ticket()
     keypair = RSAKeyPair()
     session_secret = os.urandom(16)
-    app = create_test_app(
-        ISSUERS={
-            "https://test.example.com/": {
-                "audience": "https://example.com/",
-                "issuer_key_ids": ["some-kid"],
-            },
-        },
-        OAUTH2_JWT={
-            "ISS": "https://test.example.com/",
-            "KEY": keypair.private_key_as_pem(),
-            "KEY_ID": "some-kid",
-        },
-        OAUTH2_STORE_SESSION={
-            "OAUTH2_PROXY_SECRET": base64.urlsafe_b64encode(session_secret),
-            "TICKET_PREFIX": "oauth2_proxy",
-        },
-    )
+    app = create_test_app(keypair, session_secret)
     redis = fakeredis.FakeRedis()
 
     # To test, we need a valid ticket.  The existing code path that creates
@@ -131,15 +115,7 @@ def test_analyze_token() -> None:
         "uidNumber": "1000",
     }
     keypair = RSAKeyPair()
-    app = create_test_app(
-        ISSUERS={
-            "https://orig.example.com/": {
-                "audience": "https://test.example.com/",
-                "issuer_key_ids": ["some-kid"],
-            },
-        },
-        OAUTH2_STORE_SESSION={"TICKET_PREFIX": "oauth2_proxy"},
-    )
+    app = create_test_app(keypair, os.urandom(16))
 
     # Generate a token that we can analyze.
     token = jwt.encode(
