@@ -7,7 +7,6 @@ patched version of oauth2_proxy.
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import logging
 import os
@@ -39,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 def _new_ticket_id() -> str:
     """Generate a new ticket ID."""
-    return hashlib.sha1(os.urandom(16)).hexdigest()
+    return os.urandom(20).hex()
 
 
 def _new_ticket_secret() -> bytes:
