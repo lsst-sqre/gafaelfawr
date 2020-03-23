@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import base64
-import hashlib
-import hmac
 import json
 import logging
 import os
 import struct
-from calendar import timegm
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
@@ -21,13 +18,12 @@ from cachetools import TTLCache, cached
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from flask import current_app
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, HiddenField, SubmitField
 
 from jwt_authorizer import config
-from jwt_authorizer.session import Ticket
+from jwt_authorizer.session import Session, SessionStore, Ticket
 from jwt_authorizer.util import add_padding
 
 __all__ = [
@@ -98,10 +94,16 @@ def issue_token(
     ).decode("utf-8")
 
     if current_app.config.get("OAUTH2_STORE_SESSION"):
+        session = Session(
+            token=encoded_reissued_token,
+            email=payload["email"],
+            user=payload["email"],
+            created_at=datetime.utcnow(),
+            expires_on=exp,
+        )
         o2proxy_store_token_redis(
             payload,
-            exp,
-            encoded_reissued_token,
+            session,
             store_user_info,
             oauth2_proxy_ticket,
             redis_client,
@@ -286,8 +288,7 @@ def get_key_as_pem(issuer_url: str, request_key_id: str) -> bytearray:
 
 def o2proxy_store_token_redis(
     payload: Dict[str, Any],
-    expires: datetime,
-    token: str,
+    session: Session,
     store_user_info: bool,
     oauth2_proxy_ticket: Ticket,
     redis_client: Optional[redis.Redis] = None,
@@ -297,11 +298,9 @@ def o2proxy_store_token_redis(
     Parameters
     ----------
     payload : Dict[`str`, Any]
-        The JWT payload
-    expires : `datetime`
-        When this token expires.
-    token : `str`
-        The encoded token.
+        JWT payload.
+    session : `Session`
+        The oauth2_proxy session to store.
     store_user_info : `bool`
         Whether to add this token to the list of issued tokens for the user.
     ticket : `Ticket`
@@ -310,23 +309,19 @@ def o2proxy_store_token_redis(
         The optional Redis client to use if one should not be created from the
         general application Redis pool.  Used primarily for testing.
     """
-    # Use the same email field as oauth2_proxy
-    email = payload["email"]
-    # Use our definition of username, if possible
-    user = payload.get(current_app.config["JWT_USERNAME_KEY"])
     user_id_raw = payload[current_app.config["JWT_UID_KEY"]]
     user_id = str(user_id_raw)
     prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    handle = oauth2_proxy_ticket.as_handle(prefix)
-    encrypted_oauth2_session = _o2proxy_encrypted_session(
-        oauth2_proxy_ticket.secret, user, email, expires, token
-    )
+    encoded_key = current_app.config["OAUTH2_STORE_SESSION"][
+        "OAUTH2_PROXY_SECRET"
+    ]
+    key = base64.urlsafe_b64decode(encoded_key)
     if not redis_client:
         redis_pool = current_app.redis_pool
         redis_client = redis.Redis(connection_pool=redis_pool)
-    expires_delta = expires - datetime.utcnow()
+    session_store = SessionStore(prefix, key, redis_client)
     with redis_client.pipeline() as pipeline:
-        pipeline.setex(handle, expires_delta, encrypted_oauth2_session)
+        session_store.store_session(oauth2_proxy_ticket, session, pipeline)
         if store_user_info:
             pipeline.sadd(user_tokens_redis_key(user_id), json.dumps(payload))
         pipeline.execute()
@@ -420,144 +415,6 @@ def revoke_token(user_id: str, handle: str) -> bool:
             pipeline.execute()
         return True
     return False
-
-
-def _o2proxy_encrypted_session(
-    secret: bytes,
-    user: Optional[str],
-    email: str,
-    expires: datetime,
-    token: str,
-) -> bytes:
-    """Generate an encrypted oauth2_proxy session.
-
-    Take in the data for an encrypting an oauth2_proxy session and
-    return the encrypted session and handle.
-
-    Parameters
-    ----------
-    secret : `bytes`
-        Secret to use for encryption.
-    user : Optional[`str`]
-        Username, if any.  (This is not currently used.)
-    email : `str`
-        Email address.
-    expires : `datetime`
-        Expiration of the token, reused as the expiration of the session.
-    token : `str`
-        The encoded JWT.
-
-    Returns
-    -------
-    session : `bytes`
-        The encrypted session information.
-    """
-    email = email or ""
-    session_obj = dict(
-        IDToken=_o2proxy_encrypt_field(token).decode(),
-        Email=_o2proxy_encrypt_field(email).decode(),
-        User=_o2proxy_encrypt_field(email).decode(),
-        CreatedAt=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        ExpiresOn=expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
-    )
-    session_payload_str = json.dumps(session_obj)
-    backend = default_backend()
-    cipher = Cipher(algorithms.AES(secret), modes.CFB(secret), backend=backend)
-    encryptor = cipher.encryptor()
-    cipher_text = (
-        encryptor.update(session_payload_str.encode()) + encryptor.finalize()
-    )
-    return cipher_text
-
-
-def _o2proxy_encrypt_field(field: str) -> bytes:
-    """Encrypt a single oauth2_proxy session field.
-
-    The initialization vector is randomly generated and stored with the field.
-
-    Parameters
-    ----------
-    field : `str`
-        The field value to encrypt.
-
-    Returns
-    -------
-    result : `bytes`
-        The IV and encrypted field, encoded in base64.
-    """
-    iv = os.urandom(16)
-    cipher_text = _o2proxy_encrypt_string(iv, field)
-    encrypted_field = iv + cipher_text
-    return base64.b64encode(encrypted_field)
-
-
-def _o2proxy_encrypt_string(iv: bytes, field: str) -> bytes:
-    """Encrypt a string for an oauth2_proxy session.
-
-    Build the cipher from the configuration and encode the string in Cipher
-    Feedback Mode.
-
-    Parameters
-    ----------
-    iv : `bytes`
-        The initialization vector to use.
-    field : `str`
-        The data to encrypt.
-
-    Returns
-    -------
-    result : `bytes`
-        The encrypted bytes.
-    """
-    secret_key_encoded = current_app.config["OAUTH2_STORE_SESSION"][
-        "OAUTH2_PROXY_SECRET"
-    ]
-    secret_key = base64.urlsafe_b64decode(secret_key_encoded)
-    backend = default_backend()
-    cipher = Cipher(algorithms.AES(secret_key), modes.CFB(iv), backend=backend)
-    encryptor = cipher.encryptor()
-    cipher_text: bytes = encryptor.update(
-        field.encode("utf-8")
-    ) + encryptor.finalize()
-    return cipher_text
-
-
-def _o2proxy_signed_session(session_payload: str) -> str:
-    """Add a signature and timestamp to a session.
-
-    Perform an HMAC signature on the session payload with oauth2_proxy's
-    secret key and append the encoded time and the signature separated by
-    ``|`` characters.
-
-    Parameters
-    ----------
-    session_payload : `str`
-        The encrypted session payload.
-
-    Returns
-    -------
-    result : `str`
-        The signed session with the time and signature in the format
-        oauth2_proxy is expecting.
-    """
-    secret_key_string = current_app.config["OAUTH2_STORE_SESSION"][
-        "OAUTH2_PROXY_SECRET"
-    ]
-    secret_key = secret_key_string.encode()
-    encoded_session_payload: bytes = base64.b64encode(session_payload.encode())
-    now_str = str(timegm(datetime.utcnow().utctimetuple()))
-
-    h = hmac.new(secret_key, digestmod=hashlib.sha1)
-    h.update(
-        current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"].encode()
-    )
-    h.update(encoded_session_payload)
-    h.update(now_str.encode())
-    # Use URL Safe base64 encode
-    sig_base64: bytes = base64.urlsafe_b64encode(h.digest())
-    return (
-        f"{encoded_session_payload.decode()}|{now_str}|{sig_base64.decode()}"
-    )
 
 
 def user_tokens_redis_key(user_id: str) -> str:

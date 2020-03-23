@@ -24,6 +24,7 @@ from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
     from flask import Flask
+    from redis.client import Pipeline
     from typing import Optional
 
 __all__ = [
@@ -117,7 +118,8 @@ class Session:
     """An oauth2_proxy session.
 
     Tokens are currently stored in Redis as a JSON dump of a dictionary.  This
-    class represents the deserialized form of a session.
+    class represents the deserialized form of a session.  created_at and
+    expires_on must be UTC timestamps.
     """
 
     token: str
@@ -134,11 +136,11 @@ class SessionStore:
     ----------
     prefix : `str`
         Prefix used for storing oauth2_proxy session state.
+    key : `bytes`
+        Encryption key for the individual components of the stored session.
     redis : `redis.Redis`
         A Redis client configured to talk to the backend store that holds the
         (encrypted) tokens.
-    key : `bytes`
-        Encryption key for the individual components of the stored session.
     """
 
     def __init__(self, prefix: str, key: bytes, redis: redis.Redis) -> None:
@@ -166,6 +168,29 @@ class SessionStore:
             return None
 
         return self._decrypt_session(ticket.secret, encrypted_session)
+
+    def store_session(
+        self, ticket: Ticket, session: Session, pipeline: Pipeline
+    ) -> None:
+        """Store an oauth2_proxy session in the provided Redis pipeline.
+
+        To allow the caller to batch this with other Redis modifications, the
+        session will be stored but the pipeline will not be executed.  The
+        caller is responsible for executing the pipeline.
+
+        Parameters
+        ----------
+        ticket : `Ticket`
+            The ticket under which to store the session.
+        session : `Session`
+            The session to store.
+        pipeline : `Pipeline`
+            The pipeline in which to store the session.
+        """
+        handle = ticket.as_handle(self.prefix)
+        encrypted_session = self._encrypt_session(ticket.secret, session)
+        expires_delta = session.expires_on - datetime.utcnow()
+        pipeline.setex(handle, expires_delta, encrypted_session)
 
     def _decrypt_session(
         self, secret: bytes, encrypted_session: bytes
@@ -220,6 +245,68 @@ class SessionStore:
         decryptor = cipher.decryptor()
         field = decryptor.update(encrypted_bytes[16:]) + decryptor.finalize()
         return field.decode()
+
+    def _encrypt_session(self, secret: bytes, session: Session) -> bytes:
+        """Generate an encrypted oauth2_proxy session.
+
+        Parameters
+        ----------
+        secret : `bytes`
+            Encryption key.
+        session : `Session`
+            The oauth2_proxy session to encrypt.
+
+        Returns
+        -------
+        session : `bytes`
+            The encrypted session information.
+        """
+        data = {
+            "IDToken": self._encrypt_session_component(session.token),
+            "Email": self._encrypt_session_component(session.email),
+            "User": self._encrypt_session_component(session.user),
+            "CreatedAt": session.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "ExpiresOn": session.expires_on.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        data_as_json = json.dumps(data)
+        cipher = Cipher(
+            algorithms.AES(secret),
+            modes.CFB(secret),
+            backend=default_backend(),
+        )
+        encryptor = cipher.encryptor()
+        encrypted_session = (
+            encryptor.update(data_as_json.encode()) + encryptor.finalize()
+        )
+        return encrypted_session
+
+    def _encrypt_session_component(self, component: str) -> str:
+        """Encrypt a single oauth2_proxy session field.
+
+        The initialization vector is randomly generated and stored with the
+        field.  The component is encrypted with the SessionStore key, which
+        is separate from the encryption secret used for the overall session.
+
+        Parameters
+        ----------
+        component : `str`
+            The field value to encrypt.
+
+        Returns
+        -------
+        encrypted_str : `str`
+            The IV and encrypted field, encoded in base64 and converted to a
+            str for ease of json encoding.
+        """
+        iv = os.urandom(16)
+        cipher = Cipher(
+            algorithms.AES(self.key), modes.CFB(iv), backend=default_backend()
+        )
+        encryptor = cipher.encryptor()
+        encrypted_component = (
+            encryptor.update(component.encode()) + encryptor.finalize()
+        )
+        return base64.b64encode(iv + encrypted_component).decode()
 
     @staticmethod
     def _parse_session_date(date_str: str) -> datetime:
