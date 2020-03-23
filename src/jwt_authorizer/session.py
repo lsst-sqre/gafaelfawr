@@ -35,6 +35,10 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
+class InvalidCookieException(Exception):
+    """Session cookie is not in expected format."""
+
+
 class InvalidTicketException(Exception):
     """Ticket is not in expected format."""
 
@@ -55,6 +59,38 @@ class Ticket:
 
     ticket_id: str = field(default_factory=_new_ticket_id)
     secret: bytes = field(default_factory=_new_ticket_secret)
+
+    @classmethod
+    def from_cookie(cls, prefix: str, cookie: str) -> Ticket:
+        """Parse an oauth2_proxy session cookie value into a Ticket.
+
+        Parameters
+        ----------
+        prefix : `str`
+            The expected prefix for the ticket.
+        cookie : `str`
+            The value of the oauth2_proxy cookie.
+
+        Returns
+        -------
+        ticket : `Ticket`
+            The decoded ticket.
+
+        Raises
+        ------
+        InvalidCookieException
+            The syntax of the cookie is not valid.
+        InvalidTicketException
+            The ticket contained in the cookie is not valid.
+        """
+        try:
+            encoded_ticket, _ = cookie.split("|", 1)
+            ticket = base64.urlsafe_b64decode(encoded_ticket).decode()
+        except Exception as e:
+            msg = f"Error decoding cookie: {str(e)}"
+            raise InvalidCookieException(msg)
+
+        return cls.from_str(prefix, ticket)
 
     @classmethod
     def from_str(cls, prefix: str, ticket: str) -> Ticket:

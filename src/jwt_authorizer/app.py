@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import binascii
 import logging
 import os
 from typing import Any, Dict, Mapping, Optional, Tuple
@@ -424,18 +423,22 @@ def _check_reissue_token(
     from_this_issuer = decoded_token["iss"] == iss
     from_default_audience = decoded_token["aud"] == default_audience
     cookie_name = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    oauth2_proxy_cookie_val = request.cookies.get(cookie_name, "")
-    oauth2_proxy_ticket_str = _ticket_str_from_cookie(oauth2_proxy_cookie_val)
+    ticket_str = request.cookies.get(cookie_name, "")
     ticket = None
     new_audience = None
     if not from_this_issuer:
+        # If we didn't issue the token, it came from a provider as part of a
+        # new session. This only happens once, after initial login, so there
+        # should always be a cookie set. If there isn't, or we fail to parse
+        # it, something funny is going on and we can abort with an exception.
+        ticket = Ticket.from_cookie(cookie_name, ticket_str)
+
         # Make a copy of the previous token and add capabilities
         decoded_token = dict(decoded_token)
         decoded_token["scope"] = " ".join(
             capabilities_from_groups(decoded_token)
         )
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
-        ticket = Ticket.from_str(cookie_name, oauth2_proxy_ticket_str)
     elif from_this_issuer and from_default_audience and to_internal_audience:
         # In this case, we only reissue tokens from a default audience
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.INTERNAL", "")
@@ -449,8 +452,7 @@ def _check_reissue_token(
             store_user_info=False,
             oauth2_proxy_ticket=ticket,
         )
-        oauth2_proxy_ticket_str = ticket.encode(cookie_name)
-    return encoded_token, oauth2_proxy_ticket_str
+    return encoded_token, ticket.encode(cookie_name) if ticket else ""
 
 
 def _find_token(header: str) -> Optional[str]:
@@ -525,27 +527,6 @@ def _make_needs_authentication(
     else:
         info = f'realm="{realm}",error="{error}",error_description="{message}"'
         response.headers["WWW-Authenticate"] = f"Bearer {info}"
-
-
-def _ticket_str_from_cookie(cookie_val: str) -> str:
-    """Get a ticket from an oauth2_proxy cookie value.
-
-    Parameters
-    ----------
-    cookie_val : `str`
-        The Vaule of the oauth2_proxy cookie.
-
-    Returns
-    -------
-    ticket : `str`
-        The ticket value.
-    """
-    cookie_parts = cookie_val.split("|")
-    ticket_part = cookie_parts[0]
-    try:
-        return base64.urlsafe_b64decode(ticket_part).decode()
-    except binascii.Error:
-        return ""
 
 
 def create_app(**config: str) -> AuthorizerApp:
