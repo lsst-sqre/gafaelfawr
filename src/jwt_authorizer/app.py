@@ -29,15 +29,13 @@ from jwt_authorizer.authnz import (
     verify_authorization_strategy,
 )
 from jwt_authorizer.config import AuthorizerApp
+from jwt_authorizer.session import Ticket, create_session_store, parse_ticket
 from jwt_authorizer.tokens import (
     AlterTokenForm,
-    Ticket,
     api_capabilities_token_form,
-    create_token_store,
     create_token_verifier,
     get_tokens,
     issue_token,
-    parse_ticket,
     revoke_token,
 )
 
@@ -177,7 +175,7 @@ def analyze() -> Any:
     ticket_or_token = request.form["token"]
     ticket = parse_ticket(prefix, ticket_or_token)
     if ticket:
-        token_store = create_token_store(current_app)
+        token_store = create_session_store(current_app)
         return jsonify(
             analyze_ticket(ticket, prefix, token_store, token_verifier)
         )

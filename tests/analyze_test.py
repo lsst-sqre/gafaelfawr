@@ -12,7 +12,8 @@ import fakeredis
 import jwt
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.tokens import Ticket, TokenStore, issue_token
+from jwt_authorizer.session import Ticket
+from jwt_authorizer.tokens import issue_token
 from tests.util import RSAKeyPair, create_test_app
 
 
@@ -60,7 +61,7 @@ def test_analyze_ticket() -> None:
         with patch(
             "jwt_authorizer.tokens.get_key_as_pem"
         ) as get_key_as_pem, patch(
-            "jwt_authorizer.tokens.get_redis_client"
+            "jwt_authorizer.session.get_redis_client"
         ) as get_redis_client:
             get_key_as_pem.return_value = keypair.public_key_as_pem()
             get_redis_client.return_value = redis
@@ -167,9 +168,3 @@ def test_analyze_token() -> None:
             "valid": True,
         },
     }
-
-
-def test_parse_session_date() -> None:
-    """Check that we can parse the session dates written by oauth2_proxy."""
-    date = TokenStore._parse_session_date("2020-03-18T02:28:20.559385848Z")
-    assert date.strftime("%Y-%m-%d %H:%M:%S %z") == "2020-03-18 02:28:20 +0000"

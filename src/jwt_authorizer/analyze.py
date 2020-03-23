@@ -17,25 +17,26 @@ __all__ = ["analyze_ticket", "analyze_token"]
 
 
 if TYPE_CHECKING:
-    from jwt_authorizer.tokens import Ticket, TokenStore, TokenVerifier
+    from jwt_authorizer.session import Ticket, SessionStore
+    from jwt_authorizer.tokens import TokenVerifier
     from typing import Any, Dict
 
 
 def analyze_ticket(
     ticket: Ticket,
     prefix: str,
-    token_store: TokenStore,
+    token_store: SessionStore,
     token_verifier: TokenVerifier,
 ) -> Dict[str, Any]:
     """Analyze a ticket and return its expanded information.
 
     Parameters
     ----------
-    ticket : `jwt_authorizer.tokens.Ticket`
+    ticket : `jwt_authorizer.session.Ticket`
         The parsed ticket to analyze.
     prefix : `str`
         The prefix used for ticket handles.
-    token_store : `jwt_authorizer.tokens.TokenStore`
+    token_store : `jwt_authorizer.session.SessionStore`
         The backend store used to retrieve the session for the ticket.
     token_verifier : `jwt_authorizer.tokens.TokenVerifier`
         Verifier to check the validity of any underlying token.
