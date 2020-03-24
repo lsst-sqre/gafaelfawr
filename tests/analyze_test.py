@@ -6,9 +6,9 @@ import base64
 import os
 import time
 from datetime import datetime
+from typing import TYPE_CHECKING
 from unittest.mock import ANY, call, patch
 
-import fakeredis
 import jwt
 
 from jwt_authorizer.config import ALGORITHM
@@ -16,8 +16,11 @@ from jwt_authorizer.session import Ticket
 from jwt_authorizer.tokens import issue_token
 from tests.util import RSAKeyPair, create_test_app
 
+if TYPE_CHECKING:
+    import redis
 
-def test_analyze_ticket() -> None:
+
+def test_analyze_ticket(redis_client: redis.Redis) -> None:
     payload = {
         "aud": "https://test.example.com/",
         "email": "some-user@example.com",
@@ -30,25 +33,20 @@ def test_analyze_ticket() -> None:
     keypair = RSAKeyPair()
     session_secret = os.urandom(16)
     app = create_test_app(keypair, session_secret)
-    redis = fakeredis.FakeRedis()
 
     # To test, we need a valid ticket.  The existing code path that creates
     # one is the code path that reissues a JWT based on one from an external
-    # authentication source.  Run that code path, replacing Redis with our
-    # fakeredis instance and intercepting the call that attempts to retrieve
-    # the public key from a remote server (while checking that it was called
-    # correctly).
+    # authentication source.  Run that code path, intercepting the call that
+    # attempts to retrieve the public key from a remote server (while checking
+    # that it was called correctly).
     #
     # Then, post the resulting ticket to the /analyze endpoint.
     with app.app_context():
-        issue_token(payload, "https://example.com/", False, ticket, redis)
-        with patch(
-            "jwt_authorizer.tokens.get_key_as_pem"
-        ) as get_key_as_pem, patch(
-            "jwt_authorizer.session.get_redis_client"
-        ) as get_redis_client:
+        issue_token(
+            payload, "https://example.com/", False, ticket, redis_client
+        )
+        with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
             get_key_as_pem.return_value = keypair.public_key_as_pem()
-            get_redis_client.return_value = redis
             with app.test_client() as client:
                 response = client.post(
                     "/auth/analyze",
