@@ -125,12 +125,6 @@ class Config:
         if settings["NO_AUTHORIZE"]:
             logger.warning("Authorization is disabled")
 
-        if settings.get("GROUP_DEPLOYMENT_PREFIX"):
-            logger.info(
-                f"Configured LSST Group Deployment Prefix: "
-                f"{settings['GROUP_DEPLOYMENT_PREFIX']}"
-            )
-
         if settings.get("GROUP_MAPPING"):
             for key, value in settings["GROUP_MAPPING"].items():
                 assert isinstance(key, str) and isinstance(

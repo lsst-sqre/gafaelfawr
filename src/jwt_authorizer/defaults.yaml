@@ -8,8 +8,6 @@ default:
   JWT_USERNAME_KEY: uid
   JWT_UID_KEY: uidNumber
   SET_USER_HEADERS: true
-  GROUP_DEPLOYMENT_PREFIX: "lsst_"
-  JWT_VERIFICATION_OPTIONS: {}
   OAUTH2_JWT_EXP: 1440 # 1 day
 
 testing:

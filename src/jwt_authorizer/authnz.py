@@ -67,11 +67,7 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
     # though it may be a server-side issue
     key = get_key_as_pem(issuer_url, unverified_headers["kid"])
     return jwt.decode(
-        encoded_token,
-        key,
-        algorithms=ALGORITHM,
-        audience=issuer["audience"],
-        options=current_app.config.get("JWT_VERIFICATION_OPTIONS"),
+        encoded_token, key, algorithms=ALGORITHM, audience=issuer["audience"],
     )
 
 
