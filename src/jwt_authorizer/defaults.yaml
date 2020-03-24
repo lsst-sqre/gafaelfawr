@@ -1,6 +1,5 @@
 default:
   # Defaults
-  ACCESS_CHECKS: ["group_membership"]
   NO_VERIFY: False
   NO_AUTHORIZE: false
   REALM: tokens

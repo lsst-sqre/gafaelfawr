@@ -9,6 +9,7 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 
 from dynaconf import FlaskDynaconf
 from flask import (
+    Flask,
     Response,
     current_app,
     flash,
@@ -27,7 +28,6 @@ from jwt_authorizer.authnz import (
     capabilities_from_groups,
     verify_authorization_strategy,
 )
-from jwt_authorizer.config import AuthorizerApp
 from jwt_authorizer.session import (
     InvalidTicketException,
     Ticket,
@@ -56,7 +56,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-app = AuthorizerApp(__name__)
+app = Flask(__name__)
 
 
 ORIGINAL_TOKEN_HEADER = "X-Orig-Authorization"
@@ -529,7 +529,7 @@ def _make_needs_authentication(
         response.headers["WWW-Authenticate"] = f"Bearer {info}"
 
 
-def create_app(**config: str) -> AuthorizerApp:
+def create_app(**config: str) -> Flask:
     """Create the Flask app, optionally with Dynaconf settings.
 
     Parameters
@@ -537,6 +537,11 @@ def create_app(**config: str) -> AuthorizerApp:
     **config : `str`
         Configuration key/value pairs that will be passed to Dynaconf to
         initialize its settings.
+
+    Returns
+    -------
+    app : `Flask`
+        Configured Flask application.
 
     Notes
     -----
