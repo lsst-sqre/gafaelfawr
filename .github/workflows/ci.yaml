@@ -68,3 +68,26 @@ jobs:
         run: |
           docker push lsstdm/jwt_authorizer:deps-${{steps.vars.outputs.tag}}
           docker push lsstdm/jwt_authorizer:${{steps.vars.outputs.tag}}
+
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Install tox and LTD Conveyor
+        run: pip install tox ltd-conveyor
+
+      - name: Run tox
+        run: tox -e docs
+
+      - name: Upload to LSST the Docs
+        env:
+          LTD_USERNAME: travis
+          LTD_PASSWORD: ${{ secrets.LTD_PASSWORD }}
+        run: ltd upload --product jwt-authorizer --gh --dir docs/_build/html

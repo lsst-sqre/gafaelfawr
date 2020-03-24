@@ -9,7 +9,7 @@ from unittest.mock import call, patch
 import jwt
 
 from jwt_authorizer.authnz import authenticate, capabilities_from_groups
-from jwt_authorizer.tokens import ALGORITHM
+from jwt_authorizer.config import ALGORITHM
 from tests.util import RSAKeyPair, create_test_app
 
 if TYPE_CHECKING:

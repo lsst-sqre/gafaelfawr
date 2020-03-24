@@ -1,23 +1,6 @@
-# This file is part of jwt_authorizer.
-#
-# Developed for the LSST Data Management System.
-# This product includes software developed by the LSST Project
-# (https://www.lsst.org).
-# See the COPYRIGHT file at the top-level directory of this distribution
-# for details of code ownership.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Authentication and authorization functions."""
+
+from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Mapping, Set, Tuple
@@ -26,21 +9,44 @@ import jwt
 from flask import current_app, request
 from jwt import InvalidIssuerError
 
-from jwt_authorizer.config import AccessT
-from jwt_authorizer.tokens import ALGORITHM, get_key_as_pem
+from jwt_authorizer.config import ALGORITHM, AccessT
+from jwt_authorizer.tokens import get_key_as_pem
+
+__all__ = [
+    "authenticate",
+    "authorize",
+    "capabilities_from_groups",
+    "check_authorization",
+    "get_check_access_functions",
+    "group_membership_check_access",
+    "scope_check_access",
+    "verify_authorization_strategy",
+]
+
 
 logger = logging.getLogger(__name__)
 
 
 def authenticate(encoded_token: str) -> Mapping[str, Any]:
-    """
-    Authenticate the token.
-    Upon successful authentication, the decoded token is returned.
-    Otherwise, an exception is thrown.
-    :param encoded_token: The encoded token in string form
-    :return: The verified token
-    :raises PyJWTError: if there's an issue decoding the token
-    :raises Exception: if there's some other issue
+    """Authenticate the token.
+
+    Parameters
+    ----------
+    encoded_token : `str`
+        The encoded token in string form.
+
+    Returns
+    -------
+    verified_token : Mapping[`str`, Any]
+        The contents of the verified token.
+
+    Raises
+    ------
+    jwt.exceptions.DecodeError
+        If there's an issue decoding the token.
+    jwt.exceptions.InvalidIssuerError
+        If the issuer of the token is not known and therefore the token cannot
+        be verified.
     """
     unverified_token = jwt.decode(
         encoded_token, algorithms=ALGORITHM, verify=False
@@ -70,14 +76,24 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
 
 
 def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
-    """
-    Authorize the request based on the token.
-    From the set of capabilities declared via the request,
-    This method will gather the capabilities that need to be satisfied
-    and determine the criteria for satisfaction.
-    It will then, one by one, check authorization for each capability.
-    :param verified_token: The decoded token used for authorization
-    :return: A (success, message) pair. Success is true
+    """Authorize the request based on the token.
+
+    From the set of capabilities declared via the request, this method will
+    gather the capabilities that need to be satisfied and determine the
+    criteria for satisfaction.  It will then, one by one, check authorization
+    for each capability.
+
+    Parameters
+    ----------
+    verified_token : Mapping[`str`, Any]
+        The decoded token used for authorization.
+
+    Returns
+    -------
+    success : `bool`
+        Whether access is allowed.
+    message : `str`
+        Error message if access is not allowed.
     """
     jti = verified_token.get("jti", "UNKNOWN")
     logger.debug(f"Authorizing token with jti: {jti}")
@@ -113,18 +129,26 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
 def check_authorization(
     capability: str, verified_token: Mapping[str, Any]
 ) -> Tuple[bool, str]:
-    """
-    Check the authorization for a given capability.
-    A given capability may be authorized by zero, one, or more criteria,
-    modeled as callables. All callables MUST pass, returning True,
-    for authorization on the given capability to succeed.
-    :param capability: The capability we are authorizing
-    :param verified_token: The verified token
-    :rtype: Tuple[bool, str]
-    :returns: (True, message) with successful as True if the
-    all checks pass, otherwiss returns (False, message)
-    """
+    """Check the authorization for a given capability.
 
+    A given capability may be authorized by zero, one, or more criteria,
+    modeled as callables. All callables MUST pass, returning True, for
+    authorization on the given capability to succeed.
+
+    Parameters
+    ----------
+    capability : `str`
+        The capability we are authorizing.
+    verified_token : Mapping[`str`, Any]
+        The verified token.
+
+    Returns
+    -------
+    success : `bool`
+        Whether access is allowed.
+    message : `str`
+        Error message if access is not allowed.
+    """
     check_access_callables = get_check_access_functions()
 
     successes = []
@@ -141,9 +165,12 @@ def check_authorization(
 
 
 def get_check_access_functions() -> List[AccessT]:
-    """
-    Return the check access callable for a resource.
-    :return: A callable for check access
+    """Return the check access callable for a resource.
+
+    Returns
+    -------
+    check_access_callables : List[`AccessT`]
+        The callables to check access, all of which must return True.
     """
     callables = []
     for checker_name in current_app.config["ACCESS_CHECKS"]:
@@ -154,14 +181,24 @@ def get_check_access_functions() -> List[AccessT]:
 def scope_check_access(
     capability: str, token: Mapping[str, Any]
 ) -> Tuple[bool, str]:
-    """Check that a user has access with the following operation to this
-    service based on the assumption the token has a "scope" claim.
-    :param capability: The capability we are checking against
-    :param token: The token necessary
-    :rtype: Tuple[bool, str]
-    :returns: (successful, message) with successful as True if the
-     scitoken allows for op and the user can read/write the file,
-     otherwise return (False, message)
+    """Check access based on scopes.
+
+    Check that a user has access with the following operation to this service
+    based on the assumption the token has a ``scope`` claim.
+
+    Parameters
+    ----------
+    capability : `str`
+        The capability we are authorizing.
+    verified_token : Mapping[`str`, Any]
+        The verified token.
+
+    Returns
+    -------
+    success : `bool`
+        Whether access is allowed.
+    message : `str`
+        Error message if access is not allowed.
     """
     capabilites = set(token.get("scope", "").split(" "))
     if capability in capabilites:
@@ -172,15 +209,25 @@ def scope_check_access(
 def group_membership_check_access(
     capability: str, token: Mapping[str, Any]
 ) -> Tuple[bool, str]:
-    """Check that a user has access with the following operation to this
-    service based on some form of group membership or explicitly, by
-    checking ``scope`` as in :py:func:`scope_check_access`.
-    :param capability: The capability we are checking against
-    :param token: The token necessary
-    :rtype: Tuple[bool, str]
-    :returns: (successful, message) with successful as True if the
-     scitoken allows for op and the user can read/write the file,
-     otherwise return (False, message)
+    """Check access based on group membership.
+
+    Check that a user has access with the following operation to this service
+    based on some form of group membership or explicitly, by checking
+    ``scope`` as in :py:func:`scope_check_access`.
+
+    Parameters
+    ----------
+    capability : `str`
+        The capability we are authorizing.
+    verified_token : Mapping[`str`, Any]
+        The verified token.
+
+    Returns
+    -------
+    success : `bool`
+        Whether access is allowed.
+    message : `str`
+        Error message if access is not allowed.
     """
     # Check `isMemberOf` first
     group_capabilities = capabilities_from_groups(token)
@@ -197,6 +244,19 @@ def group_membership_check_access(
 
 
 def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
+    """Map group membership to capabilities.
+
+    Parameters
+    ----------
+    verified_token : Mapping[`str`, Any]
+        The verified token.
+
+    Returns
+    -------
+    group_derived_capabilities : Set[`str`]
+        The capabilities (as from a ``scope`` attribute) corresponding to the
+        group membership described in that token.
+    """
     user_groups_list: List[Dict[str, str]] = token.get("isMemberOf", dict())
     user_groups_set = {group["name"] for group in user_groups_list}
     group_derived_capabilities = set()
@@ -209,8 +269,15 @@ def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
 
 def verify_authorization_strategy() -> Tuple[List[str], str]:
     """Build the authorization strategy for the request.
-    :return: A list of capabilities to check, and the strategy to check
-    them by.
+
+    Returns
+    -------
+    capabilities : List[`str`]
+        A list of capabilities to check for.
+    strategy : `str`
+        The verification strategy, either ``any`` or ``all``, saying whether
+        the possession of any of the list of capabilities is enough or if all
+        must be present.
     """
     # Authorization Checks
     capabilities = request.args.getlist("capability")

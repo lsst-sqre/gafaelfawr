@@ -1,24 +1,7 @@
-# This file is part of jwt_authorizer.
-#
-# Developed for the LSST Data Management System.
-# This product includes software developed by the LSST Project
-# (https://www.lsst.org).
-# See the COPYRIGHT file at the top-level directory of this distribution
-# for details of code ownership.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
+__all__ = [
+    "AuthorizerApp",
+    "Config",
+]
 
 import logging
 import os
@@ -42,6 +25,13 @@ class AuthorizerApp(Flask):
 class Config:
     @staticmethod
     def configure_plugins(app: AuthorizerApp) -> None:
+        """Configure authorization checking plugins.
+
+        Parameters
+        ----------
+        app : `AuthorizerApp`
+            The Flask application to configure.
+        """
         from jwt_authorizer.authnz import (
             scope_check_access,
             group_membership_check_access,
@@ -54,6 +44,15 @@ class Config:
 
     @staticmethod
     def validate(app: AuthorizerApp, user_config: str) -> None:
+        """Load and validate the application configuration.
+
+        Parameters
+        ----------
+        app : `AuthorizerApp`
+            The Flask application to configure.
+        user_config : `str`
+            An additional configuration file to load.
+        """
         global logger
         Config.configure_plugins(app)
         defaults_file = os.path.join(
@@ -62,10 +61,8 @@ class Config:
 
         settings_module = f"{defaults_file},{user_config}"
         print(settings_module)
-        dynaconf = FlaskDynaconf(
-            app, SETTINGS_FILE_FOR_DYNACONF=settings_module
-        )
-        settings = dynaconf.settings
+        config = FlaskDynaconf(app, SETTINGS_FILE_FOR_DYNACONF=settings_module)
+        settings = config.settings
         settings.validators.register(
             Validator("NO_VERIFY", "NO_AUTHORIZE", is_type_of=bool),
             Validator("GROUP_MAPPING", is_type_of=dict),
