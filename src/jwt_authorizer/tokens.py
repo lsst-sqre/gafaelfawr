@@ -24,7 +24,7 @@ from wtforms import BooleanField, HiddenField, SubmitField
 
 from jwt_authorizer import config
 from jwt_authorizer.session import Session, SessionStore, Ticket
-from jwt_authorizer.util import add_padding
+from jwt_authorizer.util import add_padding, get_redis_client
 
 __all__ = [
     "AlterTokenForm",
@@ -317,8 +317,7 @@ def o2proxy_store_token_redis(
     ]
     key = base64.urlsafe_b64decode(encoded_key)
     if not redis_client:
-        redis_pool = current_app.redis_pool
-        redis_client = redis.Redis(connection_pool=redis_pool)
+        redis_client = get_redis_client(current_app)
     session_store = SessionStore(prefix, key, redis_client)
     with redis_client.pipeline() as pipeline:
         session_store.store_session(oauth2_proxy_ticket, session, pipeline)
@@ -362,8 +361,7 @@ def _get_tokens(user_id: str) -> Tuple[List[Mapping[str, Any]], List[str]]:
     valid_serialized_user_tokens : List[`str`]
         The corresponding encoded tokens.
     """
-    redis_pool = current_app.redis_pool
-    redis_client = redis.Redis(connection_pool=redis_pool)
+    redis_client = get_redis_client(current_app)
     user_tokens = []
     expired_tokens = []
     key = user_tokens_redis_key(user_id)
@@ -406,8 +404,7 @@ def revoke_token(user_id: str, handle: str) -> bool:
         if token["jti"] == handle:
             token_to_revoke = serialized_token
     key = user_tokens_redis_key(user_id)
-    redis_pool = current_app.redis_pool
-    redis_client = redis.Redis(connection_pool=redis_pool)
+    redis_client = get_redis_client(current_app)
     if token_to_revoke:
         with redis_client.pipeline() as pipeline:
             pipeline.delete(handle)

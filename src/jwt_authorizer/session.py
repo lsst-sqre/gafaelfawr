@@ -15,13 +15,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-import redis
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from jwt_authorizer.util import add_padding
+from jwt_authorizer.util import add_padding, get_redis_client
 
 if TYPE_CHECKING:
+    import redis
     from flask import Flask
     from redis.client import Pipeline
     from typing import Optional
@@ -392,24 +392,6 @@ class SessionStore:
         date_str = re.sub("[.][0-9]+Z$", "Z", date_str)
         date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
         return date.replace(tzinfo=timezone.utc)
-
-
-def get_redis_client(app: Flask) -> redis.Redis:
-    """Get a Redis client from the Flask application pool.
-
-    Exists primarily to be overridden by tests.
-
-    Parameters
-    ----------
-    app : `flask.Flask`
-        The Flask application.
-
-    Returns
-    -------
-    redis_client : `redis.Redis`
-        A Redis client.
-    """
-    return redis.Redis(connection_pool=app.redis_pool)
 
 
 def create_session_store(app: Flask) -> SessionStore:
