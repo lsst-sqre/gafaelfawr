@@ -62,4 +62,7 @@ def test_capabilities_from_groups() -> None:
 
         admin_token = copy.deepcopy(token)
         admin_token["isMemberOf"].append({"name": "admin"})
-        assert capabilities_from_groups(admin_token) == {"exec:admin"}
+        assert capabilities_from_groups(admin_token) == {
+            "exec:admin",
+            "read:all",
+        }

@@ -12,6 +12,8 @@ default:
 testing:
   group_mapping:
     "exec:admin": ["admin"]
+    "exec:test": ["test"]
+    "read:all": ["foo", "admin"]
   issuers:
     "https://orig.example.com/":
       audience: "https://test.example.com/"

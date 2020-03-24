@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from typing import TYPE_CHECKING
 
+import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -14,11 +15,12 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
 )
 
+from jwt_authorizer import config
 from jwt_authorizer.app import create_app
 
 if TYPE_CHECKING:
     from flask import Flask
-    from typing import Any, Optional
+    from typing import Any, Dict, List, Optional
 
 
 class RSAKeyPair:
@@ -47,6 +49,7 @@ def create_test_app(
 ) -> Flask:
     """Configured Flask app for testing."""
     app = create_app(FORCE_ENV_FOR_DYNACONF="testing", **kwargs,)
+    app.testing = True
 
     if keypair:
         app.config["OAUTH2_JWT"]["KEY"] = keypair.private_key_as_pem().decode()
@@ -55,3 +58,41 @@ def create_test_app(
         app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"] = secret_b64
 
     return app
+
+
+def create_test_token(keypair: RSAKeyPair, groups: List[str] = None) -> str:
+    """Create a signed token using the configured test issuer.
+
+    This will match the issuer and audience of the default JWT Authorizer
+    issuer, so JWT Authorizer will not attempt to reissue it.
+
+    Parameters
+    ----------
+    keypair : `RSAKeyPair`
+        The key pair to use to sign the token.
+    groups : List[`str`], optional
+        Group memberships the generated token should have.
+
+    Returns
+    -------
+    token : `str`
+        The encoded token.
+    """
+    payload: Dict[str, Any] = {
+        "aud": "https://example.com/",
+        "email": "some-user@example.com",
+        "iss": "https://test.example.com/",
+        "jti": "some-unique-id",
+        "sub": "some-user",
+        "uid": "some-user",
+        "uidNumber": "1000",
+    }
+    if groups:
+        payload["isMemberOf"] = [{"name": g} for g in groups]
+
+    return jwt.encode(
+        payload,
+        keypair.private_key_as_pem(),
+        algorithm=config.ALGORITHM,
+        headers={"kid": "some-kid"},
+    ).decode()
