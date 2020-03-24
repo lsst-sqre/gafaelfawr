@@ -330,15 +330,19 @@ def _make_capability_headers(
     """
     capabilities_required, satisfy = verify_authorization_strategy()
     group_capabilities_set = capabilities_from_groups(verified_token)
-    scope_capabilities_set = set(verified_token.get("scope", "").split(" "))
-    user_capabilities_set = group_capabilities_set.union(
-        scope_capabilities_set
-    )
+    if "scope" in verified_token:
+        scope_capabilities_set = set(verified_token["scope"].split(" "))
+        user_capabilities_set = group_capabilities_set.union(
+            scope_capabilities_set
+        )
+    else:
+        user_capabilities_set = group_capabilities_set
+
     response.headers["X-Auth-Request-Token-Capabilities"] = " ".join(
-        user_capabilities_set
+        sorted(user_capabilities_set)
     )
     response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(
-        capabilities_required
+        sorted(capabilities_required)
     )
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
 
