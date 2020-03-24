@@ -22,4 +22,5 @@ pyyaml
 redis
 requests
 safir
+structlog
 wtforms

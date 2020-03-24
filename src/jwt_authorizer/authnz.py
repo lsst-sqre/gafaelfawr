@@ -8,10 +8,12 @@ import jwt
 from jwt import InvalidIssuerError
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.tokens import Issuer, get_key_as_pem
+from jwt_authorizer.tokens import get_key_as_pem
 
 if TYPE_CHECKING:
     from aiohttp import web
+    from jwt_authorizer.config import Config
+    from logging import Logger
     from typing import Any, Dict, List, Mapping, Set, Tuple
 
 __all__ = [
@@ -48,8 +50,8 @@ def authenticate(
         If the issuer of the token is not known and therefore the token cannot
         be verified.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    logger = request["safir/logger"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
 
     unverified_token = jwt.decode(
         encoded_token, algorithms=ALGORITHM, verify=False
@@ -57,18 +59,14 @@ def authenticate(
     unverified_headers = jwt.get_unverified_header(encoded_token)
     jti = unverified_token.get("jti", "UNKNOWN")
     logger.debug(f"Authenticating token with jti: {jti}")
-    if config["NO_VERIFY"] is True:
+    if config.no_verify:
         logger.debug(f"Skipping Verification of the token with jti: {jti}")
         return unverified_token
 
     issuer_url = unverified_token["iss"]
-    if issuer_url not in config["ISSUERS"]:
+    if issuer_url not in config.issuers:
         raise InvalidIssuerError(f"Unauthorized Issuer: {issuer_url}")
-    issuer = Issuer(
-        url=issuer_url,
-        audience=config["ISSUERS"][issuer_url]["audience"],
-        key_ids=tuple(config["ISSUERS"][issuer_url]["issuer_key_ids"]),
-    )
+    issuer = config.issuers[issuer_url]
 
     # This can throw an InvalidIssuerError as well,
     # though it may be a server-side issue
@@ -102,12 +100,12 @@ def authorize(
     message : `str`
         Error message if access is not allowed.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    logger = request["safir/logger"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
 
     jti = verified_token.get("jti", "UNKNOWN")
     logger.debug(f"Authorizing token with jti: {jti}")
-    if config["NO_AUTHORIZE"] is True:
+    if config.no_authorize:
         logger.debug(f"Skipping authorizatino for token with jti: {jti}")
         return True, ""
 
@@ -122,7 +120,7 @@ def authorize(
             jti,
         )
         (success, message) = group_membership_check_access(
-            capability, verified_token, config["GROUP_MAPPING"]
+            capability, verified_token, config.group_mapping
         )
         successes.append(success)
         if message:
@@ -166,7 +164,6 @@ def group_membership_check_access(
     message : `str`
         Error message if access is not allowed.
     """
-    # Check `isMemberOf` first
     group_capabilities = capabilities_from_groups(token, group_mapping)
     scope_capabilites = set(token.get("scope", "").split(" "))
     capabilities = group_capabilities.union(scope_capabilites)

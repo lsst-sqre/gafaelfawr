@@ -2,20 +2,27 @@
 
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import os
 from dataclasses import dataclass
+from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from dynaconf import LazySettings, Validator
+from dynaconf import LazySettings
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Dict, List, Optional, Tuple
 
-__all__ = ["Config", "Configuration"]
-
-
-logger = logging.getLogger(__name__)
+__all__ = [
+    "AuthenticateType",
+    "Config",
+    "Configuration",
+    "Issuer",
+    "IssuerConfig",
+    "SessionStoreConfig",
+]
 
 ALGORITHM = "RS256"
 
@@ -49,112 +56,241 @@ class Configuration:
     """
 
 
+@dataclass(eq=True, frozen=True)
+class Issuer:
+    """Metadata about a token issuer for validation."""
+
+    url: str
+    """URL identifying the issuer (matches iss field in tokens)."""
+
+    audience: str
+    """Expected audience for this issuer."""
+
+    key_ids: Tuple[str, ...]
+    """List of valid key IDs this issuer uses."""
+
+
+@dataclass
+class IssuerConfig:
+    """Configuration for how to issue tokens."""
+
+    iss: str
+    """iss (issuer) field in issued tokens."""
+
+    kid: str
+    """kid (key ID) header field in issued tokens."""
+
+    aud: str
+    """Default aud (audience) field in issued tokens."""
+
+    aud_internal: str
+    """Internal aud (audience) field in issued tokens."""
+
+    key: bytes
+    """Private key in PEM format for signing issued tokens."""
+
+    exp_minutes: int
+    """Number of minutes into the future that a token should expire."""
+
+
+@dataclass
+class SessionStoreConfig:
+    """Configuration for how to store and retrieve oauth2_proxy sessions."""
+
+    ticket_prefix: str
+    """Prefix for oauth2_proxy tickets (must match cookie name)."""
+
+    redis_url: str
+    """URL for the Redis server that stores sessions."""
+
+    oauth2_proxy_secret: bytes
+    """Secret used for encryption of oauth2_proxy session fields."""
+
+
+class AuthenticateType(Enum):
+    Basic = auto()
+    Bearer = auto()
+
+
+@dataclass
 class Config:
-    @staticmethod
-    def validate(user_config: Optional[str]) -> LazySettings:
-        """Load and validate the application configuration.
+    """Configuration for JWT Authorizer."""
+
+    realm: str
+    """Realm for HTTP authentication."""
+
+    authenticate_type: AuthenticateType
+    """What type of authentication to request in WWW-Authenticate."""
+
+    loglevel: Optional[str]
+    """Log level, chosen from the string levels supported by logging."""
+
+    no_authorize: bool
+    """Disable authorization."""
+
+    no_verify: bool
+    """Disable token verification."""
+
+    set_user_headers: bool
+    """Whether to set headers containing user information from the token."""
+
+    username_key: str
+    """Token field from which to take the username."""
+
+    uid_key: str
+    """Token field from which to take the UID."""
+
+    group_mapping: Dict[str, List[str]]
+    """Mapping of a scope to a list of groups receiving that scope."""
+
+    issuer: IssuerConfig
+    """Configuration for internally-issued tokens."""
+
+    session_store: SessionStoreConfig
+    """Configuration for storing oauth2_proxy sessions."""
+
+    known_capabilities: Dict[str, str]
+    """Known scopes (the keys) and their descriptions (the values)."""
+
+    issuers: Dict[str, Issuer]
+    """Known iss (issuer) values and their metadata."""
+
+    @classmethod
+    def from_dynaconf(cls, settings: LazySettings) -> Config:
+        """Construction a Config object from Dynaconf settings.
 
         Parameters
         ----------
-        user_config : `str`, optional
-            An additional configuration file to load.
+        settings : `LazySettings`
+            Dynaconf settings.
+
+        Returns
+        -------
+        config : `Config`
+            The corresponding Config object.
         """
-        global logger
-        defaults_file = os.path.join(
-            os.path.dirname(__file__), "defaults.yaml"
-        )
-
-        if user_config:
-            settings_module = f"{defaults_file},{user_config}"
+        if settings.get("OAUTH2_JWT.KEY"):
+            key = settings["OAUTH2_JWT.KEY"]
         else:
-            settings_module = defaults_file
-        settings = LazySettings(SETTINGS_FILE_FOR_DYNACONF=settings_module)
-        settings.validators.register(
-            Validator("NO_VERIFY", "NO_AUTHORIZE", is_type_of=bool),
-            Validator("GROUP_MAPPING", is_type_of=dict),
+            key = cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"])
+        issuer_config = IssuerConfig(
+            iss=settings["OAUTH2_JWT.ISS"],
+            kid=settings["OAUTH2_JWT.KEY_ID"],
+            aud=settings["OAUTH2_JWT.AUD.DEFAULT"],
+            aud_internal=settings["OAUTH2_JWT.AUD.INTERNAL"],
+            key=key,
+            exp_minutes=settings["OAUTH2_JWT_EXP"],
         )
 
-        settings.validators.validate()
-
-        if settings.get("OAUTH2_JWT.ISS"):
-            iss = settings["OAUTH2_JWT.ISS"]
-            kid = settings["OAUTH2_JWT.KEY_ID"]
-            logger.info(f"Configuring Token Issuer: {iss} with Key ID {kid}")
-
-            if settings.get("OAUTH2_JWT.AUD.DEFAULT"):
-                aud = settings.get("OAUTH2_JWT.AUD.DEFAULT")
-                logger.info(f"Configured Default Audience: {aud}")
-
-            if settings.get("OAUTH2_JWT.AUD.INTERNAL"):
-                aud = settings.get("OAUTH2_JWT.AUD.DEFAULT")
-                logger.info(f"Configured Internal Audience: {aud}")
-
-        if settings.get("OAUTH2_JWT.KEY_FILE"):
-            jwt_key_file_path = settings["OAUTH2_JWT.KEY_FILE"]
-            with open(jwt_key_file_path, "r") as secret_key_file:
-                secret_key = secret_key_file.read().strip()
-                settings["OAUTH2_JWT.KEY"] = secret_key
-
-        default_jwt_exp = settings.get("OAUTH2_JWT_EXP")
-        logger.info(f"Default JWT Expiration is {default_jwt_exp} minutes")
-
-        if settings.get("LOGLEVEL"):
-            level = settings["LOGLEVEL"]
-            logger.info(f"Reconfiguring log, level={level}")
-            # Reconfigure logging
-            for handler in logging.root.handlers[:]:
-                logging.root.removeHandler(handler)
-            logging.basicConfig(level=level)
-            logger = logging.getLogger(__name__)
-            if level == "DEBUG":
-                logging.getLogger("werkzeug").setLevel(level)
-
-        logger.info(f"Configured realm {settings['REALM']}")
-        logger.info(
-            f"Configured WWW-Authenticate type: {settings['WWW_AUTHENTICATE']}"
-        )
-
-        if settings["NO_VERIFY"]:
-            logger.warning("Authentication verification is disabled")
-
-        if settings["NO_AUTHORIZE"]:
-            logger.warning("Authorization is disabled")
-
+        group_mapping = {}
         if settings.get("GROUP_MAPPING"):
             for key, value in settings["GROUP_MAPPING"].items():
-                assert isinstance(key, str) and isinstance(
-                    value, list
-                ), "Mapping is malformed"
-            logger.info(
-                f"Configured Group Mapping: {settings['GROUP_MAPPING']}"
-            )
+                assert isinstance(key, str), "group_mapping is malformed"
+                assert isinstance(value, list), "group_mapping is malformed"
+                group_mapping[key] = value
 
-        if settings.get("OAUTH2_STORE_SESSION"):
-            proxy_config = settings["OAUTH2_STORE_SESSION"]
-            ticket_prefix = proxy_config["TICKET_PREFIX"]
-            oauth2_proxy_secret_file_path = proxy_config[
-                "OAUTH2_PROXY_SECRET_FILE"
-            ]
-            assert os.path.exists(
-                oauth2_proxy_secret_file_path
-            ), "OAUTH2_PROXY_SECRET_FILE must exist"
-            with open(oauth2_proxy_secret_file_path, "r") as secret_key_file:
-                secret = secret_key_file.read().strip()
-            assert len(secret), "OAUTH2_PROXY_SECRET_FILE have content"
-            proxy_config["OAUTH2_PROXY_SECRET"] = secret
-            logger.info(
-                f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
-                f"with prefix: {ticket_prefix}"
-            )
-
-        if settings.get("ISSUERS"):
-            # Issuers
-            for issuer_url, issuer_info in settings["ISSUERS"].items():
-                logger.info(
-                    f"Configured token access for {issuer_url}: {issuer_info}"
-                )
-            logger.info("Configured Issuers")
+        store_session_settings = settings["OAUTH2_STORE_SESSION"]
+        if store_session_settings.get("OAUTH2_PROXY_SECRET"):
+            secret_b64 = store_session_settings["OAUTH2_PROXY_SECRET"]
         else:
-            logger.warning("No Issuers Configures")
+            secret_b64 = cls._load_secret(
+                store_session_settings["OAUTH2_PROXY_SECRET_FILE"]
+            )
+        secret = base64.urlsafe_b64decode(secret_b64)
+        session_store = SessionStoreConfig(
+            ticket_prefix=store_session_settings["TICKET_PREFIX"],
+            redis_url=store_session_settings["REDIS_URL"],
+            oauth2_proxy_secret=secret,
+        )
 
-        return settings
+        if settings.get("KNOWN_CAPABILITIES"):
+            known_capabilities = settings["KNOWN_CAPABILITIES"]
+        else:
+            known_capabilities = {}
+
+        issuers = {}
+        if settings.get("ISSUERS"):
+            for url, info in settings["ISSUERS"].items():
+                issuer = Issuer(
+                    url=url,
+                    audience=info["AUDIENCE"],
+                    key_ids=info["ISSUER_KEY_IDS"],
+                )
+                issuers[url] = issuer
+
+        return cls(
+            realm=settings["REALM"],
+            authenticate_type=AuthenticateType[settings["WWW_AUTHENTICATE"]],
+            loglevel=settings.get("LOGLEVEL"),
+            no_authorize=settings["NO_AUTHORIZE"],
+            no_verify=settings["NO_VERIFY"],
+            set_user_headers=settings["SET_USER_HEADERS"],
+            username_key=settings["JWT_USERNAME_KEY"],
+            uid_key=settings["JWT_UID_KEY"],
+            issuer=issuer_config,
+            group_mapping=group_mapping,
+            session_store=session_store,
+            known_capabilities=known_capabilities,
+            issuers=issuers,
+        )
+
+    def log_settings(self, logger: logging.Logger) -> None:
+        """Log information about the application settings.
+
+        Parameters
+        ----------
+        logger : `logging.Logger`
+            The logger to use for those log messages.
+        """
+        if self.issuer:
+            logger.info(
+                "Configured token issuer: %s with key ID %s",
+                self.issuer.iss,
+                self.issuer.kid,
+            )
+            logger.info("Configured default audience: %s", self.issuer.aud)
+            logger.info(
+                "Configured internal audience: %s", self.issuer.aud_internal
+            )
+            logger.info(
+                "Default JWT expiration is %d minutes", self.issuer.exp_minutes
+            )
+
+        logger.info("Configured realm %s", self.realm)
+        logger.info(
+            "Configured WWW-Authenticate type: %s", self.authenticate_type.name
+        )
+
+        if self.no_verify:
+            logger.warning("Authentication verification is disabled")
+        if self.no_authorize:
+            logger.warning("Authorization is disabled")
+
+        logger.info(
+            "Configured group mapping: %s", json.dumps(self.group_mapping)
+        )
+
+        if self.session_store:
+            logger.info(
+                "Configured Redis pool from URL: %s with prefix: %s",
+                self.session_store.redis_url,
+                self.session_store.ticket_prefix,
+            )
+
+        for issuer in self.issuers.values():
+            logger.info(
+                "Configured token access for %s (audience: %s, key_ids: %s)",
+                issuer.url,
+                issuer.audience,
+                ", ".join(issuer.key_ids),
+            )
+        if not self.issuers:
+            logger.warning("No issuers configured")
+
+    @staticmethod
+    def _load_secret(path: str) -> bytes:
+        """Load a secret from a file."""
+        with open(path, "rb") as fh:
+            secret = fh.read().strip()
+            assert len(secret), f"Secret file {path} is empty"
+            return secret

@@ -10,8 +10,10 @@ from jwt_authorizer.authnz import (
     capabilities_from_groups,
     verify_authorization_strategy,
 )
+from jwt_authorizer.config import AuthenticateType
 
 if TYPE_CHECKING:
+    from jwt_authorizer.config import Config
     from typing import Any, Dict, Mapping
 
 
@@ -32,11 +34,11 @@ def build_capability_headers(
     headers : Dict[`str`, str]
         The headers to include in the response.
     """
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
 
     capabilities_required, satisfy = verify_authorization_strategy(request)
     group_capabilities_set = capabilities_from_groups(
-        verified_token, config["GROUP_MAPPING"]
+        verified_token, config.group_mapping
     )
     if "scope" in verified_token:
         scope_capabilities_set = set(verified_token["scope"].split(" "))
@@ -100,10 +102,11 @@ def unauthorized(
     exception : `aiohttp.web.HTTPException`
         Exception to throw.
     """
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+
     headers = {}
-    realm = config["REALM"]
-    if config["WWW_AUTHENTICATE"].lower() == "basic":
+    realm = config.realm
+    if config.authenticate_type == AuthenticateType.Basic:
         headers["WWW-Authenticate"] = f'Basic realm="{realm}"'
     else:
         info = f'realm="{realm}",error="{error}",error_description="{message}"'

@@ -13,10 +13,11 @@ import redis
 from aiohttp.web import Application
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from cryptography.fernet import Fernet
-from dynaconf import LazySettings
+from dynaconf import LazySettings, Validator
 from safir.logging import configure_logging
 from safir.metadata import setup_metadata
 from safir.middleware import bind_logger
+from structlog import get_logger
 
 from jwt_authorizer.config import Config, Configuration
 from jwt_authorizer.handlers import init_external_routes, init_internal_routes
@@ -65,30 +66,35 @@ async def create_app(
     application: `Application`
         The constructed application.
     """
-    # Temporary hack to not run configuration validation while testing.
-    if "FORCE_ENV_FOR_DYNACONF" in extra:
-        defaults_file = os.path.join(
-            os.path.dirname(__file__), "defaults.yaml"
-        )
-        settings = LazySettings(
-            SETTINGS_FILE_FOR_DYNACONF=defaults_file, **extra
-        )
-    else:
-        settings = Config.validate(settings_path)
-
-    config = Configuration()
+    configuration = Configuration()
     configure_logging(
-        profile=config.profile,
-        log_level=config.log_level,
-        name=config.logger_name,
+        profile=configuration.profile,
+        log_level=configuration.log_level,
+        name=configuration.logger_name,
     )
+
+    defaults_file = os.path.join(os.path.dirname(__file__), "defaults.yaml")
+    if settings_path:
+        settings_files = f"{defaults_file},{settings_path}"
+    else:
+        settings_files = defaults_file
+    settings = LazySettings(SETTINGS_FILE_FOR_DYNACONF=settings_files, **extra)
+    settings.validators.register(
+        Validator("NO_VERIFY", "NO_AUTHORIZE", is_type_of=bool),
+        Validator("GROUP_MAPPING", is_type_of=dict),
+    )
+    settings.validators.validate()
+
+    config = Config.from_dynaconf(settings)
+    logger = get_logger(configuration.logger_name)
+    config.log_settings(logger)
 
     if not redis_manager:
         redis_manager = RedisManager(settings["REDIS_URL"])
 
     root_app = Application()
-    root_app["safir/config"] = config
-    root_app["jwt_authorizer/config"] = settings
+    root_app["safir/config"] = configuration
+    root_app["jwt_authorizer/config"] = config
     root_app["jwt_authorizer/redis"] = redis_manager
     setup_metadata(package_name="jwt_authorizer", app=root_app)
     root_app.add_routes(init_internal_routes())

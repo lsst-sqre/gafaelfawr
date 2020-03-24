@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import base64
 import json
-import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -23,6 +22,8 @@ from jwt_authorizer.util import add_padding
 if TYPE_CHECKING:
     import redis
     from aiohttp import web
+    from jwt_authorizer.app import RedisManager
+    from jwt_authorizer.config import Config
     from redis.client import Pipeline
     from typing import Optional
 
@@ -31,8 +32,6 @@ __all__ = [
     "SessionStore",
     "Ticket",
 ]
-
-logger = logging.getLogger(__name__)
 
 
 class InvalidCookieException(Exception):
@@ -407,11 +406,10 @@ def create_session_store(request: web.Request) -> SessionStore:
     session_store : `SessionStore`
         A TokenStore created from that Flask application configuration.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    redis_manager = request.config_dict["jwt_authorizer/redis"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    redis_manager: RedisManager = request.config_dict["jwt_authorizer/redis"]
 
     redis_client = redis_manager.get_redis_client()
-    prefix = config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    secret_str = config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
-    secret = base64.urlsafe_b64decode(secret_str)
+    prefix = config.session_store.ticket_prefix
+    secret = config.session_store.oauth2_proxy_secret
     return SessionStore(prefix, secret, redis_client)

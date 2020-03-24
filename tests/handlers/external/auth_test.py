@@ -10,7 +10,7 @@ from unittest.mock import ANY, call, patch
 
 import jwt
 
-from jwt_authorizer import config
+from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.session import SessionStore, Ticket
 from tests.util import RSAKeyPair, create_test_app, create_test_token
 
@@ -276,7 +276,7 @@ async def test_authnz_token_reissue(aiohttp_client: TestClient) -> None:
     assert token != new_token
 
     assert jwt.get_unverified_header(new_token) == {
-        "alg": config.ALGORITHM,
+        "alg": ALGORITHM,
         "typ": "JWT",
         "kid": "some-kid",
     }
@@ -284,7 +284,7 @@ async def test_authnz_token_reissue(aiohttp_client: TestClient) -> None:
     decoded_token = jwt.decode(
         new_token,
         keypair.public_key_as_pem(),
-        algorithms=config.ALGORITHM,
+        algorithms=ALGORITHM,
         audience="https://example.com/",
     )
     assert decoded_token == {
@@ -306,7 +306,8 @@ async def test_authnz_token_reissue(aiohttp_client: TestClient) -> None:
         "uidNumber": "1000",
     }
     now = time.time()
-    expected_exp = now + app["jwt_authorizer/config"]["OAUTH2_JWT_EXP"] * 60
+    exp_minutes = app["jwt_authorizer/config"].issuer.exp_minutes
+    expected_exp = now + exp_minutes * 60
     assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
     assert now - 5 <= decoded_token["iat"] <= now + 5
 
@@ -348,7 +349,7 @@ async def test_authnz_token_reissue_internal(
     )
 
     assert jwt.get_unverified_header(new_token) == {
-        "alg": config.ALGORITHM,
+        "alg": ALGORITHM,
         "typ": "JWT",
         "kid": "some-kid",
     }
@@ -356,7 +357,7 @@ async def test_authnz_token_reissue_internal(
     decoded_token = jwt.decode(
         new_token,
         keypair.public_key_as_pem(),
-        algorithms=config.ALGORITHM,
+        algorithms=ALGORITHM,
         audience="https://example.com/api",
     )
     assert decoded_token == {
@@ -377,7 +378,8 @@ async def test_authnz_token_reissue_internal(
         "uidNumber": "1000",
     }
     now = time.time()
-    expected_exp = now + app["jwt_authorizer/config"]["OAUTH2_JWT_EXP"] * 60
+    exp_minutes = app["jwt_authorizer/config"].issuer.exp_minutes
+    expected_exp = now + exp_minutes * 60
     assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
     assert now - 5 <= decoded_token["iat"] <= now + 5
 

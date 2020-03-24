@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from aiohttp import web
 
@@ -14,6 +14,9 @@ from jwt_authorizer.session import (
     create_session_store,
 )
 from jwt_authorizer.tokens import create_token_verifier
+
+if TYPE_CHECKING:
+    from jwt_authorizer.config import Config
 
 __all__ = ["post_analyze"]
 
@@ -36,9 +39,9 @@ async def post_analyze(request: web.Request) -> web.Response:
     response : `aiohttp.web.Response`
         The response.
     """
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
 
-    prefix = config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    prefix = config.session_store.ticket_prefix
     token_verifier = create_token_verifier(request)
     data = await request.post()
     ticket_or_token = cast(str, data["token"])

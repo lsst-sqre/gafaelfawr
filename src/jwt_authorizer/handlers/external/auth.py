@@ -23,6 +23,8 @@ from jwt_authorizer.session import Ticket
 from jwt_authorizer.tokens import issue_token
 
 if TYPE_CHECKING:
+    from jwt_authorizer.config import Config
+    from logging import Logger
     from typing import Any, Optional, Mapping, Tuple
 
 __all__ = ["get_auth"]
@@ -96,8 +98,8 @@ async def get_auth(request: web.Request) -> web.Response:
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
-    logger = request["safir/logger"]
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
 
     if "Authorization" not in request.headers:
         raise unauthorized(request, "No Authorization header")
@@ -117,7 +119,7 @@ async def get_auth(request: web.Request) -> web.Response:
     okay, message = authorize(request, verified_token)
     jti = verified_token.get("jti", "UNKNOWN")
     if okay:
-        user_id = verified_token[config["JWT_UID_KEY"]]
+        user_id = verified_token[config.uid_key]
         logger.info(
             f"Allowed token with Token ID={jti} for user={user_id} "
             f"from issuer={verified_token['iss']}"
@@ -162,17 +164,17 @@ def _check_reissue_token(
     audience, where the current token's audience is from the default audience.
     We will reissue the token with an internal audience.
     """
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
 
     # Only reissue token if it's requested and if it's a different
     # issuer than this application uses to reissue a token
-    iss = config["OAUTH2_JWT.ISS"]
-    default_audience = config.get("OAUTH2_JWT.AUD.DEFAULT", "")
-    internal_audience = config.get("OAUTH2_JWT.AUD.INTERNAL", "")
+    iss = config.issuer.iss
+    default_audience = config.issuer.aud
+    internal_audience = config.issuer.aud_internal
     to_internal_audience = request.query.get("audience") == internal_audience
     from_this_issuer = decoded_token["iss"] == iss
     from_default_audience = decoded_token["aud"] == default_audience
-    cookie_name = config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    cookie_name = config.session_store.ticket_prefix
     ticket_str = request.cookies.get(cookie_name, "")
     ticket = None
     new_audience = None
@@ -187,15 +189,13 @@ def _check_reissue_token(
         decoded_token = dict(decoded_token)
         decoded_token["scope"] = " ".join(
             sorted(
-                capabilities_from_groups(
-                    decoded_token, config["GROUP_MAPPING"]
-                )
+                capabilities_from_groups(decoded_token, config.group_mapping)
             )
         )
-        new_audience = config.get("OAUTH2_JWT.AUD.DEFAULT", "")
+        new_audience = config.issuer.aud
     elif from_this_issuer and from_default_audience and to_internal_audience:
         # In this case, we only reissue tokens from a default audience
-        new_audience = config.get("OAUTH2_JWT.AUD.INTERNAL", "")
+        new_audience = config.issuer.aud_internal
         ticket = Ticket()
 
     if new_audience:
@@ -226,7 +226,7 @@ def _find_token(request: web.Request) -> Optional[str]:
     encoded_token : Optional[`str`]
         The token text, if found, otherwise None.
     """
-    logger = request["safir/logger"]
+    logger: Logger = request["safir/logger"]
 
     header = request.headers.get("Authorization")
     if not header or " " not in header:
@@ -277,14 +277,14 @@ def success(
     response : `aiohttp.web.Resposne`
         Response to send.
     """
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
 
     headers = build_capability_headers(request, verified_token)
 
-    if config["SET_USER_HEADERS"]:
+    if config.set_user_headers:
         email = verified_token.get("email")
-        user = verified_token.get(config["JWT_USERNAME_KEY"])
-        uid = verified_token.get(config["JWT_UID_KEY"])
+        user = verified_token.get(config.username_key)
+        uid = verified_token.get(config.uid_key)
         groups_list = verified_token.get("isMemberOf", list())
         if email:
             headers["X-Auth-Request-Email"] = email

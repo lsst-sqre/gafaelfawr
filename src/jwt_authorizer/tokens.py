@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import struct
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, cast
 
@@ -20,20 +19,20 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.config import ALGORITHM, Issuer
 from jwt_authorizer.session import Session, SessionStore, Ticket
 from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
     from aiohttp import web
     from jwt_authorizer.app import RedisManager
+    from jwt_authorizer.config import Config
     from multidict import MultiDictProxy
     from redis.client import Pipeline
     from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 __all__ = [
     "AlterTokenForm",
-    "Issuer",
     "TokenStore",
     "TokenVerifier",
     "add_padding",
@@ -85,21 +84,21 @@ def issue_token(
     token : `str`
         The new encoded token.
     """
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
 
     # Make a copy first
     exp = datetime.now(timezone.utc) + timedelta(
-        minutes=config["OAUTH2_JWT_EXP"]
+        minutes=config.issuer.exp_minutes
     )
     payload = _build_payload(request, aud, exp, payload, oauth2_proxy_ticket)
 
-    private_key = config["OAUTH2_JWT.KEY"]
-    headers = {"kid": config["OAUTH2_JWT.KEY_ID"]}
+    private_key = config.issuer.key
+    headers = {"kid": config.issuer.kid}
     encoded_reissued_token = jwt.encode(
         payload, private_key, algorithm=ALGORITHM, headers=headers
     ).decode("utf-8")
 
-    if config.get("OAUTH2_STORE_SESSION"):
+    if config.session_store:
         session = Session(
             token=encoded_reissued_token,
             email=payload["email"],
@@ -145,9 +144,9 @@ def _build_payload(
     payload : Dict[`str`, Any]
         A new payload for issuing the new ticket.
     """
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
 
-    prefix = config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    prefix = config.session_store.ticket_prefix
 
     previous_jti = decoded_token.get("jti")
     previous_act = decoded_token.get("act")
@@ -155,7 +154,7 @@ def _build_payload(
     previous_iss = decoded_token.get("iss")
 
     payload = dict(decoded_token)
-    payload["iss"] = config["OAUTH2_JWT.ISS"]
+    payload["iss"] = config.issuer.iss
     payload["iat"] = int(datetime.now(timezone.utc).timestamp())
     payload["exp"] = int(expires.timestamp())
     payload["jti"] = ticket.as_handle(prefix)
@@ -328,18 +327,16 @@ def o2proxy_store_token_redis(
         The optional Redis client to use if one should not be created from the
         general application Redis pool.  Used primarily for testing.
     """
-    config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
     redis_manager: RedisManager = request.config_dict["jwt_authorizer/redis"]
 
-    prefix = config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    encoded_key = config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
-    key = base64.urlsafe_b64decode(encoded_key)
+    prefix = config.session_store.ticket_prefix
+    key = config.session_store.oauth2_proxy_secret
     if not redis_client:
         redis_client = redis_manager.get_redis_client()
     session_store = SessionStore(prefix, key, redis_client)
     if store_user_info:
-        user_id_key = config["JWT_UID_KEY"]
-        token_store = TokenStore(redis_client, user_id_key)
+        token_store = TokenStore(redis_client, config.uid_key)
     with redis_client.pipeline() as pipeline:
         session_store.store_session(oauth2_proxy_ticket, session, pipeline)
         if store_user_info:
@@ -362,11 +359,11 @@ def all_tokens(request: web.Request, user_id: str) -> List[Dict[str, Any]]:
     tokens : List[Dict[`str`, Any]]
         The decoded user tokens.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    redis_manager = request.config_dict["jwt_authorizer/redis"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    redis_manager: RedisManager = request.config_dict["jwt_authorizer/redis"]
 
     redis_client = redis_manager.get_redis_client()
-    token_store = TokenStore(redis_client, config["JWT_UID_KEY"])
+    token_store = TokenStore(redis_client, config.uid_key)
     return token_store.get_tokens(user_id)
 
 
@@ -387,11 +384,11 @@ def revoke_token(request: web.Request, user_id: str, handle: str) -> bool:
     success : `bool`
         True if the token was found and revoked, False otherwise.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    redis_manager = request.config_dict["jwt_authorizer/redis"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    redis_manager: RedisManager = request.config_dict["jwt_authorizer/redis"]
 
     redis_client = redis_manager.get_redis_client()
-    token_store = TokenStore(redis_client, config["JWT_UID_KEY"])
+    token_store = TokenStore(redis_client, config.uid_key)
     with redis_client.pipeline() as pipeline:
         success = token_store.revoke_token(user_id, handle, pipeline)
         if success:
@@ -562,15 +559,6 @@ class TokenStore:
         return f"tokens:{user_id}"
 
 
-@dataclass(eq=True, frozen=True)
-class Issuer:
-    """Metadata about a token issuer for validation."""
-
-    url: str
-    audience: str
-    key_ids: Tuple[str, ...]
-
-
 class TokenVerifier:
     """Verifies the validity of a JWT.
 
@@ -625,12 +613,5 @@ def create_token_verifier(request: web.Request) -> TokenVerifier:
     token_verifier : `TokenVerifier`
         A TokenVerifier created from that Flask application configuration.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-
-    issuers = {}
-    for issuer_url, issuer_data in config["ISSUERS"].items():
-        audience = issuer_data["audience"]
-        key_ids = tuple(issuer_data.get("issuer_key_ids", []))
-        issuer = Issuer(url=issuer_url, audience=audience, key_ids=key_ids)
-        issuers[issuer_url] = issuer
-    return TokenVerifier(issuers)
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    return TokenVerifier(config.issuers)

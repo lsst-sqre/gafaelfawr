@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
@@ -62,18 +63,21 @@ async def create_test_app(
     **kwargs: Any,
 ) -> web.Application:
     """Configured aiohttp Application for testing."""
+    if not keypair:
+        keypair = RSAKeyPair()
+    if not session_secret:
+        session_secret = os.urandom(16)
+
+    kwargs["OAUTH2_JWT.KEY"] = keypair.private_key_as_pem().decode()
+    secret_b64 = base64.urlsafe_b64encode(session_secret).decode()
+    kwargs["OAUTH2_STORE_SESSION.OAUTH2_PROXY_SECRET"] = secret_b64
+    kwargs["OAUTH2_STORE_SESSION.REDIS_URL"] = "dummy"
+
     app = await create_app(
         redis_manager=FakeRedisManager(),
         FORCE_ENV_FOR_DYNACONF="testing",
         **kwargs,
     )
-    config = app["jwt_authorizer/config"]
-
-    if keypair:
-        config["OAUTH2_JWT"]["KEY"] = keypair.private_key_as_pem().decode()
-    if session_secret:
-        secret_b64 = base64.urlsafe_b64encode(session_secret).decode()
-        config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"] = secret_b64
 
     return app
 

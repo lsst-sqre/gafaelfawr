@@ -23,6 +23,8 @@ from jwt_authorizer.tokens import (
 )
 
 if TYPE_CHECKING:
+    from jwt_authorizer.config import Config
+    from logging import Logger
     from typing import Dict
 
 __all__ = [
@@ -50,8 +52,8 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
         Form variables that are processed by the template decorator, which
         turns them into an `aiohttp.web.Response`.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    logger = request["safir/logger"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
 
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
@@ -64,7 +66,7 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
     message = session.pop("message", None)
     session["csrf"] = await generate_token(request)
 
-    user_id = decoded_token[config["JWT_UID_KEY"]]
+    user_id = decoded_token[config.uid_key]
     user_tokens = all_tokens(request, user_id)
     forms = {}
     for user_token in user_tokens:
@@ -96,8 +98,8 @@ async def get_tokens_new(request: web.Request) -> Dict[str, object]:
         Form variables that are processed by the template decorator, which
         turns them into an `aiohttp.web.Response`.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    logger = request["safir/logger"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
 
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
@@ -106,15 +108,14 @@ async def get_tokens_new(request: web.Request) -> Dict[str, object]:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
-    capabilities = config["KNOWN_CAPABILITIES"]
-    form = api_capabilities_token_form(capabilities)
+    form = api_capabilities_token_form(config.known_capabilities)
 
     session = await get_session(request)
     session["csrf"] = await generate_token(request)
 
     return {
         "form": form,
-        "capabilities": capabilities,
+        "capabilities": config.known_capabilities,
         "csrf_token": session["csrf"],
     }
 
@@ -137,8 +138,8 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         Form variables that are processed by the template decorator, which
         turns them into an `aiohttp.web.Response`.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    logger = request["safir/logger"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
 
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
@@ -147,7 +148,7 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
-    capabilities = config["KNOWN_CAPABILITIES"]
+    capabilities = config.known_capabilities
     form = api_capabilities_token_form(capabilities, await request.post())
 
     if not form.validate():
@@ -158,17 +159,17 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         if form[capability].data:
             new_capabilities.append(capability)
     scope = " ".join(new_capabilities)
-    audience = config.get("OAUTH2_JWT.AUD.DEFAULT", decoded_token["aud"])
+    audience = config.issuer.aud
     new_token: Dict[str, object] = {"scope": scope}
     email = decoded_token.get("email")
-    user = decoded_token.get(config["JWT_USERNAME_KEY"])
-    uid = decoded_token.get(config["JWT_UID_KEY"])
+    user = decoded_token.get(config.username_key)
+    uid = decoded_token.get(config.uid_key)
     if email:
         new_token["email"] = email
     if user:
-        new_token[config["JWT_USERNAME_KEY"]] = user
+        new_token[config.username_key] = user
     if uid:
-        new_token[config["JWT_UID_KEY"]] = uid
+        new_token[config.uid_key] = uid
 
     # FIXME: Copies groups. Useful for WebDAV, maybe not necessary
     #
@@ -181,7 +182,7 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         store_user_info=True,
         oauth2_proxy_ticket=oauth2_proxy_ticket,
     )
-    prefix = config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    prefix = config.session_store.ticket_prefix
     oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(prefix)
 
     message = (
@@ -210,8 +211,8 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
         Form variables that are processed by the template decorator, which
         turns them into an `aiohttp.web.Response`.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    logger = request["safir/logger"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
     handle = request.match_info["handle"]
 
     try:
@@ -221,7 +222,7 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
-    user_id = decoded_token[config["JWT_UID_KEY"]]
+    user_id = decoded_token[config.uid_key]
     user_tokens = {t["jti"]: t for t in all_tokens(request, user_id)}
     user_token = user_tokens[handle]
 
@@ -245,8 +246,8 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
         Form variables that are processed by the template decorator, which
         turns them into an `aiohttp.web.Response`.
     """
-    config = request.config_dict["jwt_authorizer/config"]
-    logger = request["safir/logger"]
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
     handle = request.match_info["handle"]
 
     try:
@@ -256,7 +257,7 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
-    user_id = decoded_token[config["JWT_UID_KEY"]]
+    user_id = decoded_token[config.uid_key]
     user_tokens = {t["jti"]: t for t in all_tokens(request, user_id)}
     user_token = user_tokens[handle]
 

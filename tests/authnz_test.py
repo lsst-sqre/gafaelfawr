@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 async def test_capabilities_from_groups() -> None:
     app = await create_test_app()
-    group_mapping = app["jwt_authorizer/config"]["GROUP_MAPPING"]
+    group_mapping = app["jwt_authorizer/config"].group_mapping
     token: Dict[str, Any] = {
         "sub": "bvan",
         "email": "bvan@gmail.com",
