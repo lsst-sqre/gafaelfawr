@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from unittest.mock import call, patch
 
 from tests.util import RSAKeyPair, create_test_app, create_test_token
@@ -155,3 +156,69 @@ def test_authnz_token_success_any() -> None:
     )
     assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "any"
     assert r.headers["X-Auth-Request-Groups"] == "test"
+
+
+def test_authnz_token_forwarded() -> None:
+    keypair = RSAKeyPair()
+    token = create_test_token(keypair, ["admin"])
+    app = create_test_app(keypair)
+
+    with app.test_client() as client:
+        with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
+            get_key_as_pem.return_value = keypair.public_key_as_pem()
+            r = client.get(
+                "/auth?capability=exec:admin",
+                headers={
+                    "Authorization": "Basic blah",
+                    "X-Forwarded-Access-Token": token,
+                },
+            )
+
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
+
+    with app.test_client() as client:
+        with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
+            get_key_as_pem.return_value = keypair.public_key_as_pem()
+            r = client.get(
+                "/auth?capability=exec:admin",
+                headers={
+                    "Authorization": "Basic blah",
+                    "X-Forwarded-Ticket-Id-Token": token,
+                },
+            )
+
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
+
+
+def test_authnz_token_basic() -> None:
+    keypair = RSAKeyPair()
+    token = create_test_token(keypair, ["admin"])
+    app = create_test_app(keypair)
+
+    with app.test_client() as client:
+        with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
+            get_key_as_pem.return_value = keypair.public_key_as_pem()
+            basic = f"{token}:x-oauth-basic".encode()
+            basic_b64 = base64.b64encode(basic).decode()
+            r = client.get(
+                "/auth?capability=exec:admin",
+                headers={"Authorization": f"Basic {basic_b64}"},
+            )
+
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
+
+    with app.test_client() as client:
+        with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
+            get_key_as_pem.return_value = keypair.public_key_as_pem()
+            basic = f"x-oauth-basic:{token}".encode()
+            basic_b64 = base64.b64encode(basic).decode()
+            r = client.get(
+                "/auth?capability=exec:admin",
+                headers={"Authorization": f"Basic {basic_b64}"},
+            )
+
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
