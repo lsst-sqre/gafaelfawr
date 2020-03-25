@@ -8,7 +8,7 @@ import logging
 import os
 import struct
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, cast
 
 import jwt
@@ -82,7 +82,7 @@ def issue_token(
         The new encoded token.
     """
     # Make a copy first
-    exp = datetime.utcnow() + timedelta(
+    exp = datetime.now(timezone.utc) + timedelta(
         minutes=current_app.config["OAUTH2_JWT_EXP"]
     )
     payload = _build_payload(aud, exp, payload, oauth2_proxy_ticket)
@@ -98,7 +98,7 @@ def issue_token(
             token=encoded_reissued_token,
             email=payload["email"],
             user=payload["email"],
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             expires_on=exp,
         )
         o2proxy_store_token_redis(
@@ -144,8 +144,8 @@ def _build_payload(
 
     payload = dict(decoded_token)
     payload["iss"] = current_app.config["OAUTH2_JWT.ISS"]
-    payload["iat"] = datetime.utcnow()
-    payload["exp"] = expires
+    payload["iat"] = int(datetime.now(timezone.utc).timestamp())
+    payload["exp"] = int(expires.timestamp())
     payload["jti"] = ticket.as_handle(prefix)
     payload["aud"] = audience
 

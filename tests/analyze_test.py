@@ -100,7 +100,7 @@ def test_analyze_ticket(redis_client: redis.Redis) -> None:
 
     now = time.time()
     assert now - 5 <= created_at.timestamp() <= now + 5
-    assert expires_on.timestamp() == analysis["token"]["data"]["exp"]
+    assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
 
 
 def test_analyze_token() -> None:

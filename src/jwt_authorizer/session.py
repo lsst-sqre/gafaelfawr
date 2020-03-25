@@ -248,7 +248,7 @@ class SessionStore:
         """
         handle = ticket.as_handle(self.prefix)
         encrypted_session = self._encrypt_session(ticket.secret, session)
-        expires_delta = session.expires_on - datetime.utcnow()
+        expires_delta = session.expires_on - datetime.now(timezone.utc)
         pipeline.setex(handle, expires_delta, encrypted_session)
 
     def _decrypt_session(
