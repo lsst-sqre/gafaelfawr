@@ -26,9 +26,15 @@ from jwt_authorizer import config
 from jwt_authorizer.session import Session, SessionStore, Ticket
 from jwt_authorizer.util import add_padding, get_redis_client
 
+if TYPE_CHECKING:
+    from flask import Flask
+    from redis.client import Pipeline
+    from typing import Any, Dict, List, Mapping, Optional, Tuple
+
 __all__ = [
     "AlterTokenForm",
     "Issuer",
+    "TokenStore",
     "TokenVerifier",
     "add_padding",
     "api_capabilities_token_form",
@@ -38,11 +44,6 @@ __all__ = [
     "issue_token",
     "revoke_token",
 ]
-
-
-if TYPE_CHECKING:
-    from flask import Flask
-    from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -309,8 +310,6 @@ def o2proxy_store_token_redis(
         The optional Redis client to use if one should not be created from the
         general application Redis pool.  Used primarily for testing.
     """
-    user_id_raw = payload[current_app.config["JWT_UID_KEY"]]
-    user_id = str(user_id_raw)
     prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
     encoded_key = current_app.config["OAUTH2_STORE_SESSION"][
         "OAUTH2_PROXY_SECRET"
@@ -319,14 +318,17 @@ def o2proxy_store_token_redis(
     if not redis_client:
         redis_client = get_redis_client(current_app)
     session_store = SessionStore(prefix, key, redis_client)
+    if store_user_info:
+        user_id_key = current_app.config["JWT_UID_KEY"]
+        token_store = TokenStore(redis_client, user_id_key)
     with redis_client.pipeline() as pipeline:
         session_store.store_session(oauth2_proxy_ticket, session, pipeline)
         if store_user_info:
-            pipeline.sadd(user_tokens_redis_key(user_id), json.dumps(payload))
+            token_store.store_token(payload, pipeline)
         pipeline.execute()
 
 
-def get_tokens(user_id: str) -> List[Mapping[str, Any]]:
+def get_tokens(user_id: str) -> List[Dict[str, Any]]:
     """Get all the decoded tokens for a given user ID.
 
     Parameters
@@ -336,58 +338,17 @@ def get_tokens(user_id: str) -> List[Mapping[str, Any]]:
 
     Returns
     -------
-    tokens : List[Mapping[`str`, Any]]
+    tokens : List[Dict[`str`, Any]]
         The decoded user tokens.
-    """
-    user_tokens, _ = _get_tokens(user_id)
-    return user_tokens
-
-
-def _get_tokens(user_id: str) -> Tuple[List[Mapping[str, Any]], List[str]]:
-    """Get al the tokens for a given user ID, delete expired ones.
-
-    As a side effect, this function removes all expired tokens for that user
-    from Redis.
-
-    Parameters
-    ----------
-    user_id : `str`
-        The user ID.
-
-    Returns
-    -------
-    user_tokens : List[Mapping[`str`, Any]]
-        The decoded user tokens.
-    valid_serialized_user_tokens : List[`str`]
-        The corresponding encoded tokens.
     """
     redis_client = get_redis_client(current_app)
-    user_tokens = []
-    expired_tokens = []
-    key = user_tokens_redis_key(user_id)
-    serialized_user_tokens = redis_client.smembers(key)
-    valid_serialized_user_tokens = []
-    # Clear out expired token references
-    for serialized_token in serialized_user_tokens:
-        token = json.loads(serialized_token)
-        exp = datetime.utcfromtimestamp(token["exp"])
-        if exp < datetime.now():
-            expired_tokens.append(serialized_token)
-        else:
-            user_tokens.append(token)
-            valid_serialized_user_tokens.append(serialized_token)
-    with redis_client.pipeline() as pipeline:
-        for expired_token in expired_tokens:
-            pipeline.srem(key, expired_token)
-        pipeline.execute()
-    return user_tokens, valid_serialized_user_tokens
+    token_store = TokenStore(redis_client, current_app.config["JWT_UID_KEY"])
+    return token_store.get_tokens(user_id)
 
 
 def revoke_token(user_id: str, handle: str) -> bool:
     """Revoke a token.
 
-    Parameters
-    ----------
     user_id : `str`
         User ID to whom the token was issued.
     handle : `str`
@@ -398,36 +359,176 @@ def revoke_token(user_id: str, handle: str) -> bool:
     success : `bool`
         True if the token was found and revoked, False otherwise.
     """
-    tokens, serialized_tokens = _get_tokens(user_id)
-    token_to_revoke: str = ""
-    for token, serialized_token in zip(tokens, serialized_tokens):
-        if token["jti"] == handle:
-            token_to_revoke = serialized_token
-    key = user_tokens_redis_key(user_id)
     redis_client = get_redis_client(current_app)
-    if token_to_revoke:
-        with redis_client.pipeline() as pipeline:
+    token_store = TokenStore(redis_client, current_app.config["JWT_UID_KEY"])
+    with redis_client.pipeline() as pipeline:
+        success = token_store.revoke_token(user_id, handle, pipeline)
+        if success:
             pipeline.delete(handle)
-            pipeline.srem(key, token_to_revoke)
             pipeline.execute()
-        return True
+            return True
     return False
 
 
-def user_tokens_redis_key(user_id: str) -> str:
-    """The Redis key for storing a user's tokens.
+class NoUserIdException(Exception):
+    """The token does not contain the expected user ID field."""
+
+
+class TokenStore:
+    """Store, retrieve, revoke, and expire user-created tokens.
 
     Parameters
     ----------
-    user_id : `str`
-        The user ID.
-
-    Returns
-    -------
-    redis_key : `str`
-        The Redis key under which that user's tokens will be stored.
+    redis : `redis.Redis`
+        Redis client used to store and retrieve tokens.
+    user_id_key : `str`
+        The token field to use as the user ID for calculating a Redis key.
     """
-    return f"tokens:{user_id}"
+
+    def __init__(self, redis: redis.Redis, user_id_key: str) -> None:
+        self.redis = redis
+        self.user_id_key = user_id_key
+
+    def get_tokens(self, user_id: str) -> List[Dict[str, Any]]:
+        """Retrieve all tokens for a given user.
+
+        Parameters
+        ----------
+        user_id : `str`
+            Retrieve the tokens of this User ID.
+
+        Returns
+        -------
+        tokens : List[Dict[`str`, Any]]
+            All of that user's tokens as a list of token contents.
+        """
+        tokens, _ = self._get_tokens(user_id)
+        return tokens
+
+    def revoke_token(
+        self, user_id: str, handle: str, pipeline: Pipeline
+    ) -> bool:
+        """Revoke a token.
+
+        To allow the caller to batch this with other Redis modifications, the
+        session will be stored but the pipeline will not be executed.  The
+        caller is responsible for executing the pipeline.
+
+        Parameters
+        ----------
+        user_id : `str`
+            User ID to whom the token was issued.
+        handle : `str`
+            Handle of the issued token.
+        pipeline : `Pipeline`
+            The pipeline in which to store the session.
+
+        Returns
+        -------
+        success : `bool`
+            True if the token was found and revoked, False otherwise.
+        """
+        tokens, serialized_tokens = self._get_tokens(user_id)
+        token_to_revoke = ""
+        for token, serialized_token in zip(tokens, serialized_tokens):
+            if token["jti"] == handle:
+                token_to_revoke = serialized_token
+
+        if token_to_revoke:
+            pipeline.srem(self._redis_key_for_user(user_id), token_to_revoke)
+            return True
+        else:
+            return False
+
+    def store_token(self, payload: Dict[str, Any], pipeline: Pipeline) -> None:
+        """Store the data of a user-created token in a Redis pipeline.
+
+        Used to populate the token list.  To allow the caller to batch this
+        with other Redis modifications, the session will be stored but the
+        pipeline will not be executed.  The caller is responsible for
+        executing the pipeline.
+
+        Parameters
+        ----------
+        payload : Dict[`str`, Any]
+            The contents of the token.
+        pipeline : `Pipeline`
+            The pipeline in which to store the session.
+        """
+        pipeline.sadd(self._redis_key_for_token(payload), json.dumps(payload))
+
+    def _get_tokens(
+        self, user_id: str
+    ) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """Get al the tokens for a given user ID, delete expired ones.
+
+        As a side effect, this function removes all expired tokens for that
+        user from Redis.
+
+        Parameters
+        ----------
+        user_id : `str`
+            The user ID.
+
+        Returns
+        -------
+        user_tokens : List[Dict[`str`, Any]]
+            The decoded user tokens.
+        valid_serialized_user_tokens : List[`str`]
+            The corresponding encoded tokens.
+        """
+        user_tokens = []
+        expired_tokens = []
+        key = self._redis_key_for_user(user_id)
+        serialized_user_tokens = self.redis.smembers(key)
+        valid_serialized_user_tokens = []
+        # Clear out expired token references
+        for serialized_token in serialized_user_tokens:
+            token = json.loads(serialized_token)
+            exp = datetime.utcfromtimestamp(token["exp"])
+            if exp < datetime.now():
+                expired_tokens.append(serialized_token)
+            else:
+                user_tokens.append(token)
+                valid_serialized_user_tokens.append(serialized_token)
+        with self.redis.pipeline() as pipeline:
+            for expired_token in expired_tokens:
+                pipeline.srem(key, expired_token)
+            pipeline.execute()
+        return user_tokens, valid_serialized_user_tokens
+
+    def _redis_key_for_token(self, token: Dict[str, Any]) -> str:
+        """The Redis key for user-created tokens.
+
+        Parameters
+        ----------
+        token : Dict[`str`, Any]
+            The contents of a token identifying the user.
+
+        Returns
+        -------
+        key : `str`
+            The Redis key under which those tokens will be stored.
+        """
+        if self.user_id_key not in token:
+            raise NoUserIdException(f"Field {self.user_id_key} not found")
+        user_id = str(token[self.user_id_key])
+        return self._redis_key_for_user(user_id)
+
+    def _redis_key_for_user(self, user_id: str) -> str:
+        """The Redis key for user-created tokens.
+
+        Parameters
+        ----------
+        user_id : `str`
+            The user ID of the user.
+
+        Returns
+        -------
+        key : `str`
+            The Redis key under which that user's tokens will be stored.
+        """
+        return f"tokens:{user_id}"
 
 
 @dataclass

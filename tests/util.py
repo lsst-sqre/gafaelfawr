@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import os
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import jwt
@@ -49,7 +51,9 @@ def create_test_app(
 ) -> Flask:
     """Configured Flask app for testing."""
     app = create_app(FORCE_ENV_FOR_DYNACONF="testing", **kwargs,)
-    app.testing = True
+    app.secret_key = os.urandom(32)
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
 
     if keypair:
         app.config["OAUTH2_JWT"]["KEY"] = keypair.private_key_as_pem().decode()
@@ -60,7 +64,9 @@ def create_test_app(
     return app
 
 
-def create_test_token(keypair: RSAKeyPair, groups: List[str] = None) -> str:
+def create_test_token(
+    keypair: RSAKeyPair, groups: Optional[List[str]] = None, **attributes: str,
+) -> str:
     """Create a signed token using the configured test issuer.
 
     This will match the issuer and audience of the default JWT Authorizer
@@ -72,27 +78,55 @@ def create_test_token(keypair: RSAKeyPair, groups: List[str] = None) -> str:
         The key pair to use to sign the token.
     groups : List[`str`], optional
         Group memberships the generated token should have.
+    **attributes : `str`
+        Other attributes to set or override in the token.
 
     Returns
     -------
     token : `str`
         The encoded token.
     """
-    payload: Dict[str, Any] = {
-        "aud": "https://example.com/",
-        "email": "some-user@example.com",
-        "iss": "https://test.example.com/",
-        "jti": "some-unique-id",
-        "sub": "some-user",
-        "uid": "some-user",
-        "uidNumber": "1000",
-    }
-    if groups:
-        payload["isMemberOf"] = [{"name": g} for g in groups]
-
+    payload = create_test_token_payload(groups, **attributes)
     return jwt.encode(
         payload,
         keypair.private_key_as_pem(),
         algorithm=config.ALGORITHM,
         headers={"kid": "some-kid"},
     ).decode()
+
+
+def create_test_token_payload(
+    groups: Optional[List[str]] = None, **attributes: str,
+) -> Dict[str, Any]:
+    """Create the contents of a token using the configured test issuer.
+
+    This will match the issuer and audience of the default JWT Authorizer
+    issuer, so JWT Authorizer will not attempt to reissue it.
+
+    Parameters
+    ----------
+    groups : List[`str`], optional
+        Group memberships the generated token should have.
+    **attributes : `str`
+        Other attributes to set or override in the token.
+
+    Returns
+    -------
+    payload : Dict[`str`, Any]
+        The contents of the token.
+    """
+    exp = datetime.now(timezone.utc) + timedelta(days=24)
+    payload: Dict[str, Any] = {
+        "aud": "https://example.com/",
+        "email": "some-user@example.com",
+        "exp": int(exp.timestamp()),
+        "iss": "https://test.example.com/",
+        "jti": "some-unique-id",
+        "sub": "some-user",
+        "uid": "some-user",
+        "uidNumber": "1000",
+    }
+    payload.update(attributes)
+    if groups:
+        payload["isMemberOf"] = [{"name": g} for g in groups]
+    return payload
