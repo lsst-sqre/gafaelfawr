@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 import base64
-from unittest.mock import call, patch
+import os
+import time
+from typing import TYPE_CHECKING
+from unittest.mock import ANY, call, patch
 
+import jwt
+
+from jwt_authorizer import config
+from jwt_authorizer.session import SessionStore, Ticket
 from tests.util import RSAKeyPair, create_test_app, create_test_token
+
+if TYPE_CHECKING:
+    import redis
 
 
 def assert_www_authenticate_header_matches(
@@ -222,3 +232,80 @@ def test_authnz_token_basic() -> None:
 
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
+
+
+def test_authnz_token_reissue(redis_client: redis.Redis) -> None:
+    """Test that an upstream token is reissued properly."""
+    keypair = RSAKeyPair()
+    ticket = Ticket()
+    ticket_handle = ticket.encode("oauth2_proxy")
+    ticket_b64 = base64.urlsafe_b64encode(ticket_handle.encode()).decode()
+    cookie = f"{ticket_b64}|32132781|blahblah"
+    token = create_test_token(
+        keypair,
+        ["admin"],
+        kid="orig-kid",
+        aud="https://test.example.com/",
+        iss="https://orig.example.com/",
+        jti=ticket.as_handle("oauth2_proxy"),
+    )
+    session_secret = os.urandom(16)
+    app = create_test_app(keypair, session_secret)
+
+    with app.test_client() as client:
+        with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
+            get_key_as_pem.return_value = keypair.public_key_as_pem()
+            client.set_cookie("localhost", "oauth2_proxy", cookie)
+            r = client.get(
+                "/auth?capability=exec:admin",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert get_key_as_pem.call_args_list == [
+                call("https://orig.example.com/", "orig-kid")
+            ]
+
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Token-Ticket"] == ticket_handle
+    new_token = r.headers["X-Auth-Request-Token"]
+    assert token != new_token
+
+    assert jwt.get_unverified_header(new_token) == {
+        "alg": config.ALGORITHM,
+        "typ": "JWT",
+        "kid": "some-kid",
+    }
+
+    decoded_token = jwt.decode(
+        new_token,
+        keypair.public_key_as_pem(),
+        algorithms=config.ALGORITHM,
+        audience="https://example.com/",
+    )
+    assert decoded_token == {
+        "act": {
+            "aud": "https://test.example.com/",
+            "iss": "https://orig.example.com/",
+            "jti": ticket.as_handle("oauth2_proxy"),
+        },
+        "aud": "https://example.com/",
+        "email": "some-user@example.com",
+        "exp": ANY,
+        "iat": ANY,
+        "isMemberOf": [{"name": "admin"}],
+        "iss": "https://test.example.com/",
+        "jti": ticket.as_handle("oauth2_proxy"),
+        "scope": "exec:admin read:all",
+        "sub": "some-user",
+        "uid": "some-user",
+        "uidNumber": "1000",
+    }
+    now = time.time()
+    expected_exp = now + app.config["OAUTH2_JWT_EXP"] * 60
+    assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
+    assert now - 5 <= decoded_token["iat"] <= now + 5
+
+    session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
+    session = session_store.get_session(ticket)
+    assert session
+    assert session.token == new_token
+    assert session.user == "some-user@example.com"

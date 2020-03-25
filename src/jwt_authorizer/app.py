@@ -440,7 +440,7 @@ def _check_reissue_token(
         # Make a copy of the previous token and add capabilities
         decoded_token = dict(decoded_token)
         decoded_token["scope"] = " ".join(
-            capabilities_from_groups(decoded_token)
+            sorted(capabilities_from_groups(decoded_token))
         )
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
     elif from_this_issuer and from_default_audience and to_internal_audience:

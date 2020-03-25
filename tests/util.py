@@ -65,7 +65,10 @@ def create_test_app(
 
 
 def create_test_token(
-    keypair: RSAKeyPair, groups: Optional[List[str]] = None, **attributes: str,
+    keypair: RSAKeyPair,
+    groups: Optional[List[str]] = None,
+    kid: str = "some-kid",
+    **attributes: str,
 ) -> str:
     """Create a signed token using the configured test issuer.
 
@@ -78,6 +81,8 @@ def create_test_token(
         The key pair to use to sign the token.
     groups : List[`str`], optional
         Group memberships the generated token should have.
+    kid : `str`
+        The key ID to use.
     **attributes : `str`
         Other attributes to set or override in the token.
 
@@ -91,7 +96,7 @@ def create_test_token(
         payload,
         keypair.private_key_as_pem(),
         algorithm=config.ALGORITHM,
-        headers={"kid": "some-kid"},
+        headers={"kid": kid},
     ).decode()
 
 

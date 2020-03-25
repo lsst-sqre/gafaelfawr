@@ -24,11 +24,14 @@ testing:
       issuer_key_ids:
         - "orig-kid"
     "https://test.example.com/":
-      audience: "https://example.com/"
+      audience: ["https://example.com/", "https://example.com/api"]
       issuer_key_ids:
         - "some-kid"
   oauth2_jwt:
     iss: "https://test.example.com/"
     key_id: "some-kid"
+    aud:
+      default: "https://example.com/"
+      internal: "https://example.com/api"
   oauth2_store_session:
     ticket_prefix: "oauth2_proxy"
