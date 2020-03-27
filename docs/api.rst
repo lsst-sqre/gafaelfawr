@@ -11,8 +11,23 @@ API reference
 
 .. automodapi:: jwt_authorizer.authnz
 
+.. automodapi:: jwt_authorizer.cli
+
 .. automodapi:: jwt_authorizer.config
-   :no-inherited-members:
+
+.. automodapi:: jwt_authorizer.handlers
+
+.. automodapi:: jwt_authorizer.handlers.external
+
+.. automodapi:: jwt_authorizer.handlers.external.analyze
+
+.. automodapi:: jwt_authorizer.handlers.external.auth
+
+.. automodapi:: jwt_authorizer.handlers.external.tokens
+
+.. automodapi:: jwt_authorizer.handlers.internal
+
+.. automodapi:: jwt_authorizer.handlers.internal.index
 
 .. automodapi:: jwt_authorizer.session
 

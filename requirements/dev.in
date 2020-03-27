@@ -5,12 +5,14 @@
 # After editing, update requirements/dev.txt by running:
 #     make update-deps
 
+aiohttp-devtools
 coverage[toml]
 fakeredis
 flake8
 mypy
 pre-commit
 pytest
+pytest-aiohttp
 documenteer>=0.5,<0.6
 lsst-sphinx-bootstrap-theme<0.3
 sphinx-prompt

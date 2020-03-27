@@ -13,15 +13,11 @@
 
 <div class="container">
 
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-primary" role="alert">
-                    {{ message|safe }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+  {% if message %}
+  <div class="alert alert-primary" role="alert">
+    {{ message|safe }}
+  </div>
+  {% endif %}
 
     {% block content %}
     <div class="row">
@@ -38,7 +34,7 @@
             <div class="list-group">
                 {% for token in tokens %} {% set form=forms[token.jti] %}
                 <form action="/auth/tokens/{{ token.jti }}" method="POST" novalidate>
-                    {{ form.csrf_token }}
+                  <input type="hidden" name="_csrf" value="{{ csrf_token }}" />
                     {{ form.method_(value="DELETE") }}
                     <div class="list-group-item">
                         <div class="float-right">

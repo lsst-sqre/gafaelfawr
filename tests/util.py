@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import base64
-import os
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
+import fakeredis
 import jwt
+from aiohttp import web
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -18,11 +19,22 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from jwt_authorizer import config
-from jwt_authorizer.app import create_app
+from jwt_authorizer.app import RedisManager, create_app
 
 if TYPE_CHECKING:
-    from flask import Flask
+    import redis
     from typing import Any, Dict, List, Optional
+
+
+class FakeRedisManager(RedisManager):
+    """Returns a FakeRedis instance."""
+
+    def __init__(self) -> None:
+        self._redis = fakeredis.FakeRedis()
+
+    def get_redis_client(self) -> redis.Redis:
+        """Return a Redis client."""
+        return self._redis
 
 
 class RSAKeyPair:
@@ -44,22 +56,24 @@ class RSAKeyPair:
         )
 
 
-def create_test_app(
+async def create_test_app(
     keypair: Optional[RSAKeyPair] = None,
     session_secret: Optional[bytes] = None,
     **kwargs: Any,
-) -> Flask:
-    """Configured Flask app for testing."""
-    app = create_app(FORCE_ENV_FOR_DYNACONF="testing", **kwargs,)
-    app.secret_key = os.urandom(32)
-    app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
+) -> web.Application:
+    """Configured aiohttp Application for testing."""
+    app = await create_app(
+        redis_manager=FakeRedisManager(),
+        FORCE_ENV_FOR_DYNACONF="testing",
+        **kwargs,
+    )
+    config = app["jwt_authorizer/config"]
 
     if keypair:
-        app.config["OAUTH2_JWT"]["KEY"] = keypair.private_key_as_pem().decode()
+        config["OAUTH2_JWT"]["KEY"] = keypair.private_key_as_pem().decode()
     if session_secret:
         secret_b64 = base64.urlsafe_b64encode(session_secret).decode()
-        app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"] = secret_b64
+        config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"] = secret_b64
 
     return app
 

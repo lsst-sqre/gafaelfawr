@@ -26,9 +26,8 @@ apt-get update
 # Install security updates:
 apt-get -y upgrade
 
-# git is required by setuptools-scm.  build-essential and libssl-dev are
-# required by uwsgi
-apt-get -y install --no-install-recommends build-essential git libssl-dev
+# git is required by setuptools-scm.
+apt-get -y install --no-install-recommends git
 
 # Delete cached files we don't need anymore:
 apt-get clean

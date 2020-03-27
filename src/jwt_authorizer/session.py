@@ -18,11 +18,11 @@ from typing import TYPE_CHECKING
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from jwt_authorizer.util import add_padding, get_redis_client
+from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
     import redis
-    from flask import Flask
+    from aiohttp import web
     from redis.client import Pipeline
     from typing import Optional
 
@@ -394,21 +394,24 @@ class SessionStore:
         return date.replace(tzinfo=timezone.utc)
 
 
-def create_session_store(app: Flask) -> SessionStore:
-    """Create a TokenStore from a Flask app configuration.
+def create_session_store(request: web.Request) -> SessionStore:
+    """Create a TokenStore from an app configuration.
 
     Parameters
     ----------
-    app : `flask.Flask`
-        The Flask application.
+    request : `aiohttp.web.Request`
+        The incoming request.
 
     Returns
     -------
     session_store : `SessionStore`
         A TokenStore created from that Flask application configuration.
     """
-    redis_client = get_redis_client(app)
-    prefix = app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    secret_str = app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
+    config = request.config_dict["jwt_authorizer/config"]
+    redis_manager = request.config_dict["jwt_authorizer/redis"]
+
+    redis_client = redis_manager.get_redis_client()
+    prefix = config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
+    secret_str = config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
     secret = base64.urlsafe_b64decode(secret_str)
     return SessionStore(prefix, secret, redis_client)

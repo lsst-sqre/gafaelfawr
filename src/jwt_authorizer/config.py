@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import redis
-from dynaconf import FlaskDynaconf, Validator
-from flask import Flask
+from dynaconf import LazySettings, Validator
 
-__all__ = ["Config"]
+if TYPE_CHECKING:
+    from typing import Optional
+
+__all__ = ["Config", "Configuration"]
 
 
 logger = logging.getLogger(__name__)
@@ -17,16 +20,43 @@ logger = logging.getLogger(__name__)
 ALGORITHM = "RS256"
 
 
+@dataclass
+class Configuration:
+    """Configuration for jwt_authorizer."""
+
+    name: str = os.getenv("SAFIR_NAME", "jwt_authorizer")
+    """The application's name, which doubles as the root HTTP endpoint path.
+
+    Set with the ``SAFIR_NAME`` environment variable.
+    """
+
+    profile: str = os.getenv("SAFIR_PROFILE", "development")
+    """Application run profile: "development" or "production".
+
+    Set with the ``SAFIR_PROFILE`` environment variable.
+    """
+
+    logger_name: str = os.getenv("SAFIR_LOGGER", "jwt_authorizer")
+    """The root name of the application's logger.
+
+    Set with the ``SAFIR_LOGGER`` environment variable.
+    """
+
+    log_level: str = os.getenv("SAFIR_LOG_LEVEL", "INFO")
+    """The log level of the application's logger.
+
+    Set with the ``SAFIR_LOG_LEVEL`` environment variable.
+    """
+
+
 class Config:
     @staticmethod
-    def validate(app: Flask, user_config: str) -> None:
+    def validate(user_config: Optional[str]) -> LazySettings:
         """Load and validate the application configuration.
 
         Parameters
         ----------
-        app : `flask.Flask`
-            The Flask application to configure.
-        user_config : `str`
+        user_config : `str`, optional
             An additional configuration file to load.
         """
         global logger
@@ -34,10 +64,11 @@ class Config:
             os.path.dirname(__file__), "defaults.yaml"
         )
 
-        settings_module = f"{defaults_file},{user_config}"
-        print(settings_module)
-        config = FlaskDynaconf(app, SETTINGS_FILE_FOR_DYNACONF=settings_module)
-        settings = config.settings
+        if user_config:
+            settings_module = f"{defaults_file},{user_config}"
+        else:
+            settings_module = defaults_file
+        settings = LazySettings(SETTINGS_FILE_FOR_DYNACONF=settings_module)
         settings.validators.register(
             Validator("NO_VERIFY", "NO_AUTHORIZE", is_type_of=bool),
             Validator("GROUP_MAPPING", is_type_of=dict),
@@ -66,17 +97,6 @@ class Config:
 
         default_jwt_exp = settings.get("OAUTH2_JWT_EXP")
         logger.info(f"Default JWT Expiration is {default_jwt_exp} minutes")
-
-        assert (
-            "FLASK_SECRET_KEY_FILE" in settings
-        ), "No FLASK_SECRET_KEY_FILE defined"
-        secret_key_file_path = settings["FLASK_SECRET_KEY_FILE"]
-        with open(secret_key_file_path, "r") as secret_key_file:
-            secret_key = secret_key_file.read().strip()
-            assert len(
-                secret_key
-            ), "FLASK_SECRET_KEY_FILE contains no secret data"
-            app.secret_key = secret_key
 
         if settings.get("LOGLEVEL"):
             level = settings["LOGLEVEL"]
@@ -122,9 +142,6 @@ class Config:
                 secret = secret_key_file.read().strip()
             assert len(secret), "OAUTH2_PROXY_SECRET_FILE have content"
             proxy_config["OAUTH2_PROXY_SECRET"] = secret
-            app.redis_pool = redis.ConnectionPool.from_url(
-                url=proxy_config["REDIS_URL"]
-            )
             logger.info(
                 f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
                 f"with prefix: {ticket_prefix}"
@@ -139,3 +156,5 @@ class Config:
             logger.info("Configured Issuers")
         else:
             logger.warning("No Issuers Configures")
+
+        return settings

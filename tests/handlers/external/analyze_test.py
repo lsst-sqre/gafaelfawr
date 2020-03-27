@@ -1,4 +1,4 @@
-"""Tests for the /analyze route."""
+"""Tests for the /auth/analyze route."""
 
 from __future__ import annotations
 
@@ -13,53 +13,59 @@ import jwt
 
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.session import Ticket
-from jwt_authorizer.tokens import issue_token
-from tests.util import RSAKeyPair, create_test_app
+from tests.util import RSAKeyPair, create_test_app, create_test_token
 
 if TYPE_CHECKING:
-    import redis
+    from aiohttp.pytest_plugin.test_utils import TestClient
 
 
-def test_analyze_ticket(redis_client: redis.Redis) -> None:
-    payload = {
-        "aud": "https://test.example.com/",
-        "email": "some-user@example.com",
-        "iss": "https://orig.example.com/",
-        "jti": "some-unique-id",
-        "sub": "some-user",
-        "uidNumber": "1000",
-    }
+async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
     ticket = Ticket()
     keypair = RSAKeyPair()
+    ticket = Ticket()
+    ticket_handle = ticket.encode("oauth2_proxy")
+    ticket_b64 = base64.urlsafe_b64encode(ticket_handle.encode()).decode()
+    cookie = f"{ticket_b64}|32132781|blahblah"
+    token = create_test_token(
+        keypair,
+        ["admin"],
+        kid="orig-kid",
+        aud="https://test.example.com/",
+        iss="https://orig.example.com/",
+    )
     session_secret = os.urandom(16)
-    app = create_test_app(keypair, session_secret)
+    app = await create_test_app(keypair, session_secret)
+    client = await aiohttp_client(app)
 
     # To test, we need a valid ticket.  The existing code path that creates
     # one is the code path that reissues a JWT based on one from an external
     # authentication source.  Run that code path, intercepting the call that
     # attempts to retrieve the public key from a remote server (while checking
     # that it was called correctly).
-    #
-    # Then, post the resulting ticket to the /analyze endpoint.
-    with app.app_context():
-        issue_token(
-            payload, "https://example.com/", False, ticket, redis_client
+    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
+        get_key_as_pem.return_value = keypair.public_key_as_pem()
+        r = await client.get(
+            "/auth",
+            params={"capability": "exec:admin"},
+            headers={"Authorization": f"Bearer {token}"},
+            cookies={"oauth2_proxy": cookie},
         )
-        with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
-            get_key_as_pem.return_value = keypair.public_key_as_pem()
-            with app.test_client() as client:
-                response = client.post(
-                    "/auth/analyze",
-                    data={"token": ticket.encode("oauth2_proxy")},
-                )
-            assert get_key_as_pem.call_args_list == [
-                call("https://test.example.com/", "some-kid")
-            ]
+
+    assert r.status == 200
+    token = r.headers["X-Auth-Request-Token"]
+
+    # Now pass that token to the /auth/analyze endpoint.
+    with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
+        get_key_as_pem.return_value = keypair.public_key_as_pem()
+        r = await client.post(
+            "/auth/analyze", data={"token": ticket.encode("oauth2_proxy")},
+        )
+        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
 
     # Check that the results from /analyze include the ticket, the session,
     # and the token information.
-    assert response.status_code == 200
-    analysis = response.get_json()
+    assert r.status == 200
+    analysis = await r.json()
     assert analysis == {
         "ticket": {
             "ticket_id": ticket.ticket_id,
@@ -83,9 +89,12 @@ def test_analyze_ticket(redis_client: redis.Redis) -> None:
                 "email": "some-user@example.com",
                 "exp": ANY,
                 "iat": ANY,
+                "isMemberOf": [{"name": "admin"}],
                 "iss": "https://test.example.com/",
                 "jti": ticket.as_handle("oauth2_proxy"),
+                "scope": "exec:admin read:all",
                 "sub": "some-user",
+                "uid": "some-user",
                 "uidNumber": "1000",
             },
             "valid": True,
@@ -103,7 +112,7 @@ def test_analyze_ticket(redis_client: redis.Redis) -> None:
     assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
 
 
-def test_analyze_token() -> None:
+async def test_analyze_token(aiohttp_client: TestClient) -> None:
     payload = {
         "aud": "https://test.example.com/",
         "email": "some-user@example.com",
@@ -113,7 +122,8 @@ def test_analyze_token() -> None:
         "uidNumber": "1000",
     }
     keypair = RSAKeyPair()
-    app = create_test_app(keypair, os.urandom(16))
+    app = await create_test_app(keypair, os.urandom(16))
+    client = await aiohttp_client(app)
 
     # Generate a token that we can analyze.
     token = jwt.encode(
@@ -125,17 +135,13 @@ def test_analyze_token() -> None:
 
     # Analyze it, patching out the call to retrieve the public key from a
     # remote web site (but making sure that it was called correctly).
-    with app.app_context():
-        with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
-            get_key_as_pem.return_value = keypair.public_key_as_pem()
-            with app.test_client() as client:
-                response = client.post("/auth/analyze", data={"token": token})
-            assert get_key_as_pem.call_args_list == [
-                call("https://orig.example.com/", "some-kid")
-            ]
+    with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
+        get_key_as_pem.return_value = keypair.public_key_as_pem()
+        r = await client.post("/auth/analyze", data={"token": token.decode()})
+        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
 
-    assert response.status_code == 200
-    assert response.get_json() == {
+    assert r.status == 200
+    assert await r.json() == {
         "token": {
             "header": jwt.get_unverified_header(token),
             "data": payload,

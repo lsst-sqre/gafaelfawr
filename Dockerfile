@@ -46,24 +46,21 @@ RUN pip install --no-cache-dir .
 
 FROM base-image AS runtime-image
 
-# Create a non-root user
-RUN addgroup --system uwsgi \
-    && adduser --system --disabled-password --home /var/cache/uwsgi \
-    --shell /sbin/nologin --ingroup uwsgi uwsgi
-
 # Add configuration
 ADD rootfs/ /
+
+# Create a non-root user
+RUN useradd --create-home appuser
+WORKDIR /home/appuser
 
 # Make sure we use the virtualenv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY --from=install-image /opt/venv /opt/venv
 
+# Switch to non-root user
+USER appuser
+
 EXPOSE 8080
 
-ENV UWSGI_THREADS=10
-ENV UWSGI_PROCESSES=2
-ENV UWSGI_OFFLOAD_THREADS=10
-ENV UWSGI_MODULE=jwt_authorizer.wsgi:app
-
-CMD ["uwsgi", "--ini", "/etc/uwsgi/uwsgi.ini"]
+ENTRYPOINT ["jwt_authorizer", "run", "--port", "8080"]
