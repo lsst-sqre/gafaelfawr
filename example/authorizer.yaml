@@ -8,11 +8,6 @@ global:
   # Authorizer Configurations
   # NO_AUTHORIZE: True
 
-  # Resource Checkers
-  # Options are `group_membership`, `scope`, `lsst_group_membership` Must be a list
-  RESOURCE_CHECKS_DEFAULT:
-    - group_membership
-
   # group_membership options
   GROUP_MAPPING:
     read:workspace: lsst_int_ws_r
@@ -31,9 +26,6 @@ global:
     ...
     ...
     -----END RSA PRIVATE KEY-----
-
-  # lsst_group_membership options
-  # GROUP_DEPLOYMENT_PREFIX: lsst_int_lsp_int_
 
   ISSUERS:
     https://cilogon.org:

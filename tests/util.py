@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import os
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
+import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -13,11 +17,12 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
 )
 
+from jwt_authorizer import config
 from jwt_authorizer.app import create_app
 
 if TYPE_CHECKING:
     from flask import Flask
-    from typing import Any
+    from typing import Any, Dict, List, Optional
 
 
 class RSAKeyPair:
@@ -39,7 +44,94 @@ class RSAKeyPair:
         )
 
 
-def create_test_app(**kwargs: Any) -> Flask:
+def create_test_app(
+    keypair: Optional[RSAKeyPair] = None,
+    session_secret: Optional[bytes] = None,
+    **kwargs: Any,
+) -> Flask:
     """Configured Flask app for testing."""
-    app = create_app(FORCE_ENV_FOR_DYNACONF="testing", **kwargs)
+    app = create_app(FORCE_ENV_FOR_DYNACONF="testing", **kwargs,)
+    app.secret_key = os.urandom(32)
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    if keypair:
+        app.config["OAUTH2_JWT"]["KEY"] = keypair.private_key_as_pem().decode()
+    if session_secret:
+        secret_b64 = base64.urlsafe_b64encode(session_secret).decode()
+        app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"] = secret_b64
+
     return app
+
+
+def create_test_token(
+    keypair: RSAKeyPair,
+    groups: Optional[List[str]] = None,
+    kid: str = "some-kid",
+    **attributes: str,
+) -> str:
+    """Create a signed token using the configured test issuer.
+
+    This will match the issuer and audience of the default JWT Authorizer
+    issuer, so JWT Authorizer will not attempt to reissue it.
+
+    Parameters
+    ----------
+    keypair : `RSAKeyPair`
+        The key pair to use to sign the token.
+    groups : List[`str`], optional
+        Group memberships the generated token should have.
+    kid : `str`
+        The key ID to use.
+    **attributes : `str`
+        Other attributes to set or override in the token.
+
+    Returns
+    -------
+    token : `str`
+        The encoded token.
+    """
+    payload = create_test_token_payload(groups, **attributes)
+    return jwt.encode(
+        payload,
+        keypair.private_key_as_pem(),
+        algorithm=config.ALGORITHM,
+        headers={"kid": kid},
+    ).decode()
+
+
+def create_test_token_payload(
+    groups: Optional[List[str]] = None, **attributes: str,
+) -> Dict[str, Any]:
+    """Create the contents of a token using the configured test issuer.
+
+    This will match the issuer and audience of the default JWT Authorizer
+    issuer, so JWT Authorizer will not attempt to reissue it.
+
+    Parameters
+    ----------
+    groups : List[`str`], optional
+        Group memberships the generated token should have.
+    **attributes : `str`
+        Other attributes to set or override in the token.
+
+    Returns
+    -------
+    payload : Dict[`str`, Any]
+        The contents of the token.
+    """
+    exp = datetime.now(timezone.utc) + timedelta(days=24)
+    payload: Dict[str, Any] = {
+        "aud": "https://example.com/",
+        "email": "some-user@example.com",
+        "exp": int(exp.timestamp()),
+        "iss": "https://test.example.com/",
+        "jti": "some-unique-id",
+        "sub": "some-user",
+        "uid": "some-user",
+        "uidNumber": "1000",
+    }
+    payload.update(attributes)
+    if groups:
+        payload["isMemberOf"] = [{"name": g} for g in groups]
+    return payload

@@ -1,60 +1,35 @@
-__all__ = [
-    "AuthorizerApp",
-    "Config",
-]
+"""Configuration for JWT Authorizer."""
+
+from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Callable, Mapping, Tuple
 
 import redis
 from dynaconf import FlaskDynaconf, Validator
 from flask import Flask
 
+__all__ = ["Config"]
+
+
 logger = logging.getLogger(__name__)
 
 ALGORITHM = "RS256"
 
-AccessT = Callable[[str, Mapping[str, Any]], Tuple[bool, str]]
-
-
-class AuthorizerApp(Flask):
-    ACCESS_CHECK_CALLABLES: Mapping[str, AccessT] = {}
-
 
 class Config:
     @staticmethod
-    def configure_plugins(app: AuthorizerApp) -> None:
-        """Configure authorization checking plugins.
-
-        Parameters
-        ----------
-        app : `AuthorizerApp`
-            The Flask application to configure.
-        """
-        from jwt_authorizer.authnz import (
-            scope_check_access,
-            group_membership_check_access,
-        )
-
-        app.ACCESS_CHECK_CALLABLES = {
-            "scope": scope_check_access,
-            "group_membership": group_membership_check_access,
-        }
-
-    @staticmethod
-    def validate(app: AuthorizerApp, user_config: str) -> None:
+    def validate(app: Flask, user_config: str) -> None:
         """Load and validate the application configuration.
 
         Parameters
         ----------
-        app : `AuthorizerApp`
+        app : `flask.Flask`
             The Flask application to configure.
         user_config : `str`
             An additional configuration file to load.
         """
         global logger
-        Config.configure_plugins(app)
         defaults_file = os.path.join(
             os.path.dirname(__file__), "defaults.yaml"
         )
@@ -125,12 +100,6 @@ class Config:
         if settings["NO_AUTHORIZE"]:
             logger.warning("Authorization is disabled")
 
-        if settings.get("GROUP_DEPLOYMENT_PREFIX"):
-            logger.info(
-                f"Configured LSST Group Deployment Prefix: "
-                f"{settings['GROUP_DEPLOYMENT_PREFIX']}"
-            )
-
         if settings.get("GROUP_MAPPING"):
             for key, value in settings["GROUP_MAPPING"].items():
                 assert isinstance(key, str) and isinstance(
@@ -159,16 +128,6 @@ class Config:
             logger.info(
                 f"Configured redis pool from url: {proxy_config['REDIS_URL']} "
                 f"with prefix: {ticket_prefix}"
-            )
-
-        # Find Resource Check Callables
-        for access_check_name in settings["ACCESS_CHECKS"]:
-            if access_check_name not in app.ACCESS_CHECK_CALLABLES:
-                raise Exception(
-                    f"No access checker for id {access_check_name}"
-                )
-            logger.info(
-                f"Configured default access checks: {access_check_name}"
             )
 
         if settings.get("ISSUERS"):

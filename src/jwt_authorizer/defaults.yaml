@@ -1,6 +1,5 @@
 default:
   # Defaults
-  ACCESS_CHECKS: ["group_membership"]
   NO_VERIFY: False
   NO_AUTHORIZE: false
   REALM: tokens
@@ -8,10 +7,31 @@ default:
   JWT_USERNAME_KEY: uid
   JWT_UID_KEY: uidNumber
   SET_USER_HEADERS: true
-  GROUP_DEPLOYMENT_PREFIX: "lsst_"
-  JWT_VERIFICATION_OPTIONS: {}
   OAUTH2_JWT_EXP: 1440 # 1 day
 
 testing:
   group_mapping:
     "exec:admin": ["admin"]
+    "exec:test": ["test"]
+    "read:all": ["foo", "admin"]
+  known_capabilities:
+    "exec:admin": "admin description"
+    "exec:test": "test description"
+    "read:all": "can read everything"
+  issuers:
+    "https://orig.example.com/":
+      audience: "https://test.example.com/"
+      issuer_key_ids:
+        - "orig-kid"
+    "https://test.example.com/":
+      audience: ["https://example.com/", "https://example.com/api"]
+      issuer_key_ids:
+        - "some-kid"
+  oauth2_jwt:
+    iss: "https://test.example.com/"
+    key_id: "some-kid"
+    aud:
+      default: "https://example.com/"
+      internal: "https://example.com/api"
+  oauth2_store_session:
+    ticket_prefix: "oauth2_proxy"

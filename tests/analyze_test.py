@@ -6,17 +6,21 @@ import base64
 import os
 import time
 from datetime import datetime
+from typing import TYPE_CHECKING
 from unittest.mock import ANY, call, patch
 
-import fakeredis
 import jwt
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.tokens import Ticket, TokenStore, issue_token
+from jwt_authorizer.session import Ticket
+from jwt_authorizer.tokens import issue_token
 from tests.util import RSAKeyPair, create_test_app
 
+if TYPE_CHECKING:
+    import redis
 
-def test_analyze_ticket() -> None:
+
+def test_analyze_ticket(redis_client: redis.Redis) -> None:
     payload = {
         "aud": "https://test.example.com/",
         "email": "some-user@example.com",
@@ -28,42 +32,21 @@ def test_analyze_ticket() -> None:
     ticket = Ticket()
     keypair = RSAKeyPair()
     session_secret = os.urandom(16)
-    app = create_test_app(
-        ISSUERS={
-            "https://test.example.com/": {
-                "audience": "https://example.com/",
-                "issuer_key_ids": ["some-kid"],
-            },
-        },
-        OAUTH2_JWT={
-            "ISS": "https://test.example.com/",
-            "KEY": keypair.private_key_as_pem(),
-            "KEY_ID": "some-kid",
-        },
-        OAUTH2_STORE_SESSION={
-            "OAUTH2_PROXY_SECRET": base64.urlsafe_b64encode(session_secret),
-            "TICKET_PREFIX": "oauth2_proxy",
-        },
-    )
-    redis = fakeredis.FakeRedis()
+    app = create_test_app(keypair, session_secret)
 
     # To test, we need a valid ticket.  The existing code path that creates
     # one is the code path that reissues a JWT based on one from an external
-    # authentication source.  Run that code path, replacing Redis with our
-    # fakeredis instance and intercepting the call that attempts to retrieve
-    # the public key from a remote server (while checking that it was called
-    # correctly).
+    # authentication source.  Run that code path, intercepting the call that
+    # attempts to retrieve the public key from a remote server (while checking
+    # that it was called correctly).
     #
     # Then, post the resulting ticket to the /analyze endpoint.
     with app.app_context():
-        issue_token(payload, "https://example.com/", False, ticket, redis)
-        with patch(
-            "jwt_authorizer.tokens.get_key_as_pem"
-        ) as get_key_as_pem, patch(
-            "jwt_authorizer.tokens.get_redis_client"
-        ) as get_redis_client:
+        issue_token(
+            payload, "https://example.com/", False, ticket, redis_client
+        )
+        with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
             get_key_as_pem.return_value = keypair.public_key_as_pem()
-            get_redis_client.return_value = redis
             with app.test_client() as client:
                 response = client.post(
                     "/auth/analyze",
@@ -117,7 +100,7 @@ def test_analyze_ticket() -> None:
 
     now = time.time()
     assert now - 5 <= created_at.timestamp() <= now + 5
-    assert expires_on.timestamp() == analysis["token"]["data"]["exp"]
+    assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
 
 
 def test_analyze_token() -> None:
@@ -130,15 +113,7 @@ def test_analyze_token() -> None:
         "uidNumber": "1000",
     }
     keypair = RSAKeyPair()
-    app = create_test_app(
-        ISSUERS={
-            "https://orig.example.com/": {
-                "audience": "https://test.example.com/",
-                "issuer_key_ids": ["some-kid"],
-            },
-        },
-        OAUTH2_STORE_SESSION={"TICKET_PREFIX": "oauth2_proxy"},
-    )
+    app = create_test_app(keypair, os.urandom(16))
 
     # Generate a token that we can analyze.
     token = jwt.encode(
@@ -167,9 +142,3 @@ def test_analyze_token() -> None:
             "valid": True,
         },
     }
-
-
-def test_parse_session_date() -> None:
-    """Check that we can parse the session dates written by oauth2_proxy."""
-    date = TokenStore._parse_session_date("2020-03-18T02:28:20.559385848Z")
-    assert date.strftime("%Y-%m-%d %H:%M:%S %z") == "2020-03-18 02:28:20 +0000"

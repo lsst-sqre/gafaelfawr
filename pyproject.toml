@@ -94,5 +94,5 @@ exclude = '''
 include_trailing_comma = true
 multi_line_output = 3
 known_first_party = ["jwt_authorizer", "tests"]
-known_third_party = ["cachetools", "cryptography", "dynaconf", "fakeredis", "flask", "flask_wtf", "jwt", "redis", "requests", "setuptools", "wtforms"]
+known_third_party = ["cachetools", "cryptography", "dynaconf", "fakeredis", "flask", "flask_wtf", "jwt", "pytest", "redis", "requests", "setuptools", "wtforms"]
 skip = ["docs/conf.py"]

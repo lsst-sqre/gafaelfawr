@@ -3,23 +3,23 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Mapping, Set, Tuple
+from typing import TYPE_CHECKING
 
 import jwt
 from flask import current_app, request
 from jwt import InvalidIssuerError
 
-from jwt_authorizer.config import ALGORITHM, AccessT
+from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.tokens import get_key_as_pem
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, List, Mapping, Set, Tuple
 
 __all__ = [
     "authenticate",
     "authorize",
     "capabilities_from_groups",
-    "check_authorization",
-    "get_check_access_functions",
     "group_membership_check_access",
-    "scope_check_access",
     "verify_authorization_strategy",
 ]
 
@@ -67,11 +67,7 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
     # though it may be a server-side issue
     key = get_key_as_pem(issuer_url, unverified_headers["kid"])
     return jwt.decode(
-        encoded_token,
-        key,
-        algorithms=ALGORITHM,
-        audience=issuer["audience"],
-        options=current_app.config.get("JWT_VERIFICATION_OPTIONS"),
+        encoded_token, key, algorithms=ALGORITHM, audience=issuer["audience"],
     )
 
 
@@ -111,7 +107,9 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
             capability,
             jti,
         )
-        (success, message) = check_authorization(capability, verified_token)
+        (success, message) = group_membership_check_access(
+            capability, verified_token
+        )
         successes.append(success)
         if message:
             messages.append(message)
@@ -124,86 +122,6 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
         success = sum(successes) == len(capabilities)
     message = ", ".join(messages)
     return success, message
-
-
-def check_authorization(
-    capability: str, verified_token: Mapping[str, Any]
-) -> Tuple[bool, str]:
-    """Check the authorization for a given capability.
-
-    A given capability may be authorized by zero, one, or more criteria,
-    modeled as callables. All callables MUST pass, returning True, for
-    authorization on the given capability to succeed.
-
-    Parameters
-    ----------
-    capability : `str`
-        The capability we are authorizing.
-    verified_token : Mapping[`str`, Any]
-        The verified token.
-
-    Returns
-    -------
-    success : `bool`
-        Whether access is allowed.
-    message : `str`
-        Error message if access is not allowed.
-    """
-    check_access_callables = get_check_access_functions()
-
-    successes = []
-    message = ""
-    for check_access in check_access_callables:
-        logger.debug(f"Checking access using {check_access.__name__}")
-        (successful, message) = check_access(capability, verified_token)
-        if not successful:
-            break
-        successes.append(successful)
-
-    success = sum(successes) == len(check_access_callables)
-    return success, message
-
-
-def get_check_access_functions() -> List[AccessT]:
-    """Return the check access callable for a resource.
-
-    Returns
-    -------
-    check_access_callables : List[`AccessT`]
-        The callables to check access, all of which must return True.
-    """
-    callables = []
-    for checker_name in current_app.config["ACCESS_CHECKS"]:
-        callables.append(current_app.ACCESS_CHECK_CALLABLES[checker_name])
-    return callables
-
-
-def scope_check_access(
-    capability: str, token: Mapping[str, Any]
-) -> Tuple[bool, str]:
-    """Check access based on scopes.
-
-    Check that a user has access with the following operation to this service
-    based on the assumption the token has a ``scope`` claim.
-
-    Parameters
-    ----------
-    capability : `str`
-        The capability we are authorizing.
-    verified_token : Mapping[`str`, Any]
-        The verified token.
-
-    Returns
-    -------
-    success : `bool`
-        Whether access is allowed.
-    message : `str`
-        Error message if access is not allowed.
-    """
-    capabilites = set(token.get("scope", "").split(" "))
-    if capability in capabilites:
-        return True, "Success"
-    return False, f"No capability found: {capability}"
 
 
 def group_membership_check_access(

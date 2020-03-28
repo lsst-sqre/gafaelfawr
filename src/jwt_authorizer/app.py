@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import base64
-import binascii
 import logging
 import os
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 from dynaconf import FlaskDynaconf
 from flask import (
+    Flask,
     Response,
     current_app,
     flash,
@@ -28,16 +28,17 @@ from jwt_authorizer.authnz import (
     capabilities_from_groups,
     verify_authorization_strategy,
 )
-from jwt_authorizer.config import AuthorizerApp
+from jwt_authorizer.session import (
+    InvalidTicketException,
+    Ticket,
+    create_session_store,
+)
 from jwt_authorizer.tokens import (
     AlterTokenForm,
-    Ticket,
     api_capabilities_token_form,
-    create_token_store,
     create_token_verifier,
     get_tokens,
     issue_token,
-    parse_ticket,
     revoke_token,
 )
 
@@ -55,7 +56,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-app = AuthorizerApp(__name__)
+app = Flask(__name__)
 
 
 ORIGINAL_TOKEN_HEADER = "X-Orig-Authorization"
@@ -175,13 +176,13 @@ def analyze() -> Any:
     prefix = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
     token_verifier = create_token_verifier(current_app)
     ticket_or_token = request.form["token"]
-    ticket = parse_ticket(prefix, ticket_or_token)
-    if ticket:
-        token_store = create_token_store(current_app)
+    try:
+        ticket = Ticket.from_str(prefix, ticket_or_token)
+        token_store = create_session_store(current_app)
         return jsonify(
             analyze_ticket(ticket, prefix, token_store, token_verifier)
         )
-    else:
+    except InvalidTicketException:
         analysis = analyze_token(ticket_or_token, token_verifier)
         return jsonify({"token": analysis})
 
@@ -329,15 +330,19 @@ def _make_capability_headers(
     """
     capabilities_required, satisfy = verify_authorization_strategy()
     group_capabilities_set = capabilities_from_groups(verified_token)
-    scope_capabilities_set = set(verified_token.get("scope", "").split(" "))
-    user_capabilities_set = group_capabilities_set.union(
-        scope_capabilities_set
-    )
+    if "scope" in verified_token:
+        scope_capabilities_set = set(verified_token["scope"].split(" "))
+        user_capabilities_set = group_capabilities_set.union(
+            scope_capabilities_set
+        )
+    else:
+        user_capabilities_set = group_capabilities_set
+
     response.headers["X-Auth-Request-Token-Capabilities"] = " ".join(
-        user_capabilities_set
+        sorted(user_capabilities_set)
     )
     response.headers["X-Auth-Request-Capabilities-Accepted"] = " ".join(
-        capabilities_required
+        sorted(capabilities_required)
     )
     response.headers["X-Auth-Request-Capabilities-Satisfy"] = satisfy
 
@@ -422,23 +427,22 @@ def _check_reissue_token(
     from_this_issuer = decoded_token["iss"] == iss
     from_default_audience = decoded_token["aud"] == default_audience
     cookie_name = current_app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    oauth2_proxy_cookie_val = request.cookies.get(cookie_name, "")
-    oauth2_proxy_ticket_str = _ticket_str_from_cookie(oauth2_proxy_cookie_val)
+    ticket_str = request.cookies.get(cookie_name, "")
     ticket = None
     new_audience = None
     if not from_this_issuer:
+        # If we didn't issue the token, it came from a provider as part of a
+        # new session. This only happens once, after initial login, so there
+        # should always be a cookie set. If there isn't, or we fail to parse
+        # it, something funny is going on and we can abort with an exception.
+        ticket = Ticket.from_cookie(cookie_name, ticket_str)
+
         # Make a copy of the previous token and add capabilities
         decoded_token = dict(decoded_token)
         decoded_token["scope"] = " ".join(
-            capabilities_from_groups(decoded_token)
+            sorted(capabilities_from_groups(decoded_token))
         )
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.DEFAULT", "")
-        ticket = parse_ticket(cookie_name, oauth2_proxy_ticket_str)
-        # If we didn't issue it, it came from a provider, and it is
-        # inherently a new session, and this happens only once, after
-        # initial login. If there's no cookie, or we failed to
-        # parse it, there's something funny going on.
-        assert ticket, "ERROR: OAuth2 Proxy cookie must be present"
     elif from_this_issuer and from_default_audience and to_internal_audience:
         # In this case, we only reissue tokens from a default audience
         new_audience = current_app.config.get("OAUTH2_JWT.AUD.INTERNAL", "")
@@ -452,8 +456,7 @@ def _check_reissue_token(
             store_user_info=False,
             oauth2_proxy_ticket=ticket,
         )
-        oauth2_proxy_ticket_str = ticket.encode(cookie_name)
-    return encoded_token, oauth2_proxy_ticket_str
+    return encoded_token, ticket.encode(cookie_name) if ticket else ""
 
 
 def _find_token(header: str) -> Optional[str]:
@@ -530,28 +533,7 @@ def _make_needs_authentication(
         response.headers["WWW-Authenticate"] = f"Bearer {info}"
 
 
-def _ticket_str_from_cookie(cookie_val: str) -> str:
-    """Get a ticket from an oauth2_proxy cookie value.
-
-    Parameters
-    ----------
-    cookie_val : `str`
-        The Vaule of the oauth2_proxy cookie.
-
-    Returns
-    -------
-    ticket : `str`
-        The ticket value.
-    """
-    cookie_parts = cookie_val.split("|")
-    ticket_part = cookie_parts[0]
-    try:
-        return base64.urlsafe_b64decode(ticket_part).decode()
-    except binascii.Error:
-        return ""
-
-
-def create_app(**config: str) -> AuthorizerApp:
+def create_app(**config: str) -> Flask:
     """Create the Flask app, optionally with Dynaconf settings.
 
     Parameters
@@ -559,6 +541,11 @@ def create_app(**config: str) -> AuthorizerApp:
     **config : `str`
         Configuration key/value pairs that will be passed to Dynaconf to
         initialize its settings.
+
+    Returns
+    -------
+    app : `Flask`
+        Configured Flask application.
 
     Notes
     -----

@@ -26,15 +26,7 @@ def test_authenticate() -> None:
         "uidNumber": "1000",
     }
     keypair = RSAKeyPair()
-    app = create_test_app(
-        ISSUERS={
-            "https://orig.example.com/": {
-                "audience": "https://test.example.com/",
-                "issuer_key_ids": ["some-kid"],
-            },
-        },
-        OAUTH2_STORE_SESSION={"TICKET_PREFIX": "oauth2_proxy"},
-    )
+    app = create_test_app(keypair)
 
     # Generate a valid token.
     token = jwt.encode(
@@ -70,4 +62,7 @@ def test_capabilities_from_groups() -> None:
 
         admin_token = copy.deepcopy(token)
         admin_token["isMemberOf"].append({"name": "admin"})
-        assert capabilities_from_groups(admin_token) == {"exec:admin"}
+        assert capabilities_from_groups(admin_token) == {
+            "exec:admin",
+            "read:all",
+        }

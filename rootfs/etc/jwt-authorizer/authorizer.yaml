@@ -5,13 +5,7 @@ global:
   LOGLEVEL: DEBUG
   # Authorizer Configurations
   # no_authorize: True
-  # LSST Group Membership prefix
-  GROUP_DEPLOYMENT_PREFIX: lsst_pdac_
   GROUP_MAPPING: {"exec:lsp": ["lsst_int_lspdev"]}
-
-  # Resource Checkers
-  # Options are `group_membership`, `scp`, `lsst_group_membership` Must be a list
-  RESOURCE_CHECKS_DEFAULT: []
 
   # KNOWN_CAPABILITIES:
   #   - notebook:
