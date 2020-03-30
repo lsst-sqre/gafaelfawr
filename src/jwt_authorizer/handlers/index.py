@@ -4,10 +4,10 @@ __all__ = ["get_index"]
 
 from aiohttp import web
 
-from jwt_authorizer.handlers import internal_routes
+from jwt_authorizer.handlers import routes
 
 
-@internal_routes.get("/")
+@routes.get("/")
 async def get_index(request: web.Request) -> web.Response:
     """GET / (the app's internal root).
 

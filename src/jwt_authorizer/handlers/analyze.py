@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 __all__ = ["post_analyze"]
 
 
-@routes.post("/analyze")
+@routes.post("/auth/analyze")
 async def post_analyze(request: web.Request) -> web.Response:
     """Analyze a token.
 

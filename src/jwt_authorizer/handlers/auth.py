@@ -14,7 +14,7 @@ from jwt_authorizer.authnz import (
     capabilities_from_groups,
 )
 from jwt_authorizer.handlers import routes
-from jwt_authorizer.handlers.external.util import (
+from jwt_authorizer.handlers.util import (
     build_capability_headers,
     forbidden,
     unauthorized,
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 __all__ = ["get_auth"]
 
 
-@routes.get("")
+@routes.get("/auth")
 async def get_auth(request: web.Request) -> web.Response:
     """Authenticate and authorize a token.
 

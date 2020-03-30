@@ -20,7 +20,7 @@ from safir.middleware import bind_logger
 from structlog import get_logger
 
 from jwt_authorizer.config import Config, Configuration
-from jwt_authorizer.handlers import init_external_routes, init_internal_routes
+from jwt_authorizer.handlers import init_routes
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -92,19 +92,15 @@ async def create_app(
     if not redis_manager:
         redis_manager = RedisManager(settings["REDIS_URL"])
 
-    root_app = Application()
-    root_app["safir/config"] = configuration
-    root_app["jwt_authorizer/config"] = config
-    root_app["jwt_authorizer/redis"] = redis_manager
-    setup_metadata(package_name="jwt_authorizer", app=root_app)
-    root_app.add_routes(init_internal_routes())
+    app = Application()
+    app["safir/config"] = configuration
+    app["jwt_authorizer/config"] = config
+    app["jwt_authorizer/redis"] = redis_manager
+    setup_metadata(package_name="jwt_authorizer", app=app)
+    setup_middleware(app)
+    app.add_routes(init_routes())
 
-    sub_app = Application()
-    setup_middleware(sub_app)
-    sub_app.add_routes(init_external_routes())
-    root_app.add_subapp("/auth", sub_app)
-
-    return root_app
+    return app
 
 
 def setup_middleware(app: Application) -> None:

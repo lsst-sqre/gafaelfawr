@@ -12,7 +12,7 @@ from jwt import PyJWTError
 
 from jwt_authorizer.authnz import authenticate
 from jwt_authorizer.handlers import routes
-from jwt_authorizer.handlers.external.util import unauthorized
+from jwt_authorizer.handlers.util import unauthorized
 from jwt_authorizer.session import Ticket
 from jwt_authorizer.tokens import (
     AlterTokenForm,
@@ -36,7 +36,7 @@ __all__ = [
 ]
 
 
-@routes.get("/tokens", name="tokens")
+@routes.get("/auth/tokens", name="tokens")
 @template("tokens.html")
 async def get_tokens(request: web.Request) -> Dict[str, object]:
     """Displays all tokens for the current user.
@@ -82,7 +82,7 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
     }
 
 
-@routes.get("/tokens/new")
+@routes.get("/auth/tokens/new")
 @template("new_token.html")
 async def get_tokens_new(request: web.Request) -> Dict[str, object]:
     """Return a form for creating a new token.
@@ -120,7 +120,7 @@ async def get_tokens_new(request: web.Request) -> Dict[str, object]:
     }
 
 
-@routes.post("/tokens/new")
+@routes.post("/auth/tokens/new")
 @csrf_protect
 @template("new_token.html")
 async def post_tokens_new(request: web.Request) -> Dict[str, object]:
@@ -195,7 +195,7 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
     raise web.HTTPFound(location)
 
 
-@routes.get("/tokens/{handle}")
+@routes.get("/auth/tokens/{handle}")
 @template("token.html")
 async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
     """Displays information about a single token.
@@ -229,7 +229,7 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
     return {"token": user_token}
 
 
-@routes.post("/tokens/{handle}")
+@routes.post("/auth/tokens/{handle}")
 @csrf_protect
 @template("token.html")
 async def post_delete_token(request: web.Request) -> Dict[str, object]:

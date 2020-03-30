@@ -16,18 +16,17 @@ API reference
 .. automodapi:: jwt_authorizer.config
 
 .. automodapi:: jwt_authorizer.handlers
+   :include-all-objects:
 
-.. automodapi:: jwt_authorizer.handlers.external
+.. automodapi:: jwt_authorizer.handlers.analyze
 
-.. automodapi:: jwt_authorizer.handlers.external.analyze
+.. automodapi:: jwt_authorizer.handlers.auth
 
-.. automodapi:: jwt_authorizer.handlers.external.auth
+.. automodapi:: jwt_authorizer.handlers.index
 
-.. automodapi:: jwt_authorizer.handlers.external.tokens
+.. automodapi:: jwt_authorizer.handlers.tokens
 
-.. automodapi:: jwt_authorizer.handlers.internal
-
-.. automodapi:: jwt_authorizer.handlers.internal.index
+.. automodapi:: jwt_authorizer.handlers.util
 
 .. automodapi:: jwt_authorizer.session
 
