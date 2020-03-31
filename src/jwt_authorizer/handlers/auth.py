@@ -110,7 +110,7 @@ async def get_auth(request: web.Request) -> web.Response:
 
     # Authentication
     try:
-        verified_token = authenticate(request, encoded_token)
+        verified_token = await authenticate(request, encoded_token)
     except jwt.PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", message=str(e))

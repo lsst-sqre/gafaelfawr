@@ -7,7 +7,7 @@ import os
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, call, patch
+from unittest.mock import ANY
 
 import jwt
 
@@ -39,28 +39,20 @@ async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
 
     # To test, we need a valid ticket.  The existing code path that creates
     # one is the code path that reissues a JWT based on one from an external
-    # authentication source.  Run that code path, intercepting the call that
-    # attempts to retrieve the public key from a remote server (while checking
-    # that it was called correctly).
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params={"capability": "exec:admin"},
-            headers={"Authorization": f"Bearer {token}"},
-            cookies={"oauth2_proxy": cookie},
-        )
-
+    # authentication source.  Run that code path.
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={"Authorization": f"Bearer {token}"},
+        cookies={"oauth2_proxy": cookie},
+    )
     assert r.status == 200
     token = r.headers["X-Auth-Request-Token"]
 
     # Now pass that token to the /auth/analyze endpoint.
-    with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.post(
-            "/auth/analyze", data={"token": ticket.encode("oauth2_proxy")},
-        )
-        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
+    r = await client.post(
+        "/auth/analyze", data={"token": ticket.encode("oauth2_proxy")},
+    )
 
     # Check that the results from /analyze include the ticket, the session,
     # and the token information.
@@ -118,6 +110,7 @@ async def test_analyze_token(aiohttp_client: TestClient) -> None:
         "email": "some-user@example.com",
         "iss": "https://orig.example.com/",
         "jti": "some-unique-id",
+        "kid": "orig-kid",
         "sub": "some-user",
         "uidNumber": "1000",
     }
@@ -130,16 +123,11 @@ async def test_analyze_token(aiohttp_client: TestClient) -> None:
         payload,
         keypair.private_key_as_pem(),
         algorithm=ALGORITHM,
-        headers={"kid": "some-kid"},
+        headers={"kid": "orig-kid"},
     )
 
-    # Analyze it, patching out the call to retrieve the public key from a
-    # remote web site (but making sure that it was called correctly).
-    with patch("jwt_authorizer.tokens.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.post("/auth/analyze", data={"token": token.decode()})
-        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
-
+    # Analyze it.
+    r = await client.post("/auth/analyze", data={"token": token.decode()})
     assert r.status == 200
     assert await r.json() == {
         "token": {

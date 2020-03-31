@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from typing import Optional
 
 __all__ = [
+    "InvalidCookieException",
+    "InvalidTicketException",
     "Session",
     "SessionStore",
     "Ticket",
@@ -242,7 +244,7 @@ class SessionStore:
             The ticket under which to store the session.
         session : `Session`
             The session to store.
-        pipeline : `Pipeline`
+        pipeline : `redis.client.Pipeline`
             The pipeline in which to store the session.
         """
         handle = ticket.as_handle(self.prefix)

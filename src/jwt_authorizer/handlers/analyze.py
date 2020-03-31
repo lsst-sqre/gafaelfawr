@@ -13,7 +13,7 @@ from jwt_authorizer.session import (
     Ticket,
     create_session_store,
 )
-from jwt_authorizer.tokens import create_token_verifier
+from jwt_authorizer.verify import create_token_verifier
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
@@ -41,17 +41,17 @@ async def post_analyze(request: web.Request) -> web.Response:
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
 
+    verifier = create_token_verifier(request)
     prefix = config.session_store.ticket_prefix
-    token_verifier = create_token_verifier(request)
     data = await request.post()
     ticket_or_token = cast(str, data["token"])
 
     try:
         ticket = Ticket.from_str(prefix, ticket_or_token)
         token_store = create_session_store(request)
-        result = analyze_ticket(ticket, prefix, token_store, token_verifier)
+        result = await analyze_ticket(ticket, prefix, token_store, verifier)
     except InvalidTicketException:
-        analysis = analyze_token(ticket_or_token, token_verifier)
+        analysis = await analyze_token(ticket_or_token, verifier)
         result = {"token": analysis}
 
     return web.json_response(result)

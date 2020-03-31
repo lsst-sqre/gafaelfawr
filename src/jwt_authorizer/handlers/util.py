@@ -16,6 +16,12 @@ if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from typing import Any, Dict, Mapping
 
+__all__ = [
+    "build_capability_headers",
+    "forbidden",
+    "unauthorized",
+]
+
 
 def build_capability_headers(
     request: web.Request, verified_token: Mapping[str, Any]

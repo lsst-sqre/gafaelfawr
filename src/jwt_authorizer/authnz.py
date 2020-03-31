@@ -5,10 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import jwt
-from jwt import InvalidIssuerError
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.tokens import get_key_as_pem
+from jwt_authorizer.verify import create_token_verifier
 
 if TYPE_CHECKING:
     from aiohttp import web
@@ -25,7 +24,7 @@ __all__ = [
 ]
 
 
-def authenticate(
+async def authenticate(
     request: web.Request, encoded_token: str
 ) -> Mapping[str, Any]:
     """Authenticate the token.
@@ -56,24 +55,14 @@ def authenticate(
     unverified_token = jwt.decode(
         encoded_token, algorithms=ALGORITHM, verify=False
     )
-    unverified_headers = jwt.get_unverified_header(encoded_token)
     jti = unverified_token.get("jti", "UNKNOWN")
     logger.debug(f"Authenticating token with jti: {jti}")
     if config.no_verify:
         logger.debug(f"Skipping Verification of the token with jti: {jti}")
         return unverified_token
 
-    issuer_url = unverified_token["iss"]
-    if issuer_url not in config.issuers:
-        raise InvalidIssuerError(f"Unauthorized Issuer: {issuer_url}")
-    issuer = config.issuers[issuer_url]
-
-    # This can throw an InvalidIssuerError as well,
-    # though it may be a server-side issue
-    key = get_key_as_pem(issuer, unverified_headers["kid"])
-    return jwt.decode(
-        encoded_token, key, algorithms=ALGORITHM, audience=issuer.audience,
-    )
+    token_verifier = create_token_verifier(request)
+    return await token_verifier.verify(encoded_token)
 
 
 def authorize(
@@ -145,7 +134,7 @@ def group_membership_check_access(
 
     Check that a user has access with the following operation to this service
     based on some form of group membership or explicitly, by checking
-    ``scope`` as in :py:func:`scope_check_access`.
+    ``scope``.
 
     Parameters
     ----------

@@ -6,7 +6,7 @@ import base64
 import os
 import time
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, call, patch
+from unittest.mock import ANY
 
 import jwt
 
@@ -72,15 +72,11 @@ async def test_authnz_token_access_denied(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params={"capability": "exec:admin"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
-
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert r.status == 403
     body = await r.text()
     assert "No Capability group found in user's `isMemberOf`" in body
@@ -95,15 +91,11 @@ async def test_authnz_token_satisfy_all(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params=[("capability", "exec:test"), ("capability", "exec:admin")],
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
-
+    r = await client.get(
+        "/auth",
+        params=[("capability", "exec:test"), ("capability", "exec:admin")],
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert r.status == 403
     body = await r.text()
     assert "No Capability group found in user's `isMemberOf`" in body
@@ -121,15 +113,11 @@ async def test_authnz_token_success(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params={"capability": "exec:admin"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
-
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert r.status == 200
     assert (
         r.headers["X-Auth-Request-Token-Capabilities"] == "exec:admin read:all"
@@ -150,19 +138,15 @@ async def test_authnz_token_success_any(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params=[
-                ("capability", "exec:admin"),
-                ("capability", "exec:test"),
-                ("satisfy", "any"),
-            ],
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
-
+    r = await client.get(
+        "/auth",
+        params=[
+            ("capability", "exec:admin"),
+            ("capability", "exec:test"),
+            ("satisfy", "any"),
+        ],
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert r.status == 200
     assert r.headers["X-Auth-Request-Token-Capabilities"] == "exec:test"
     assert (
@@ -179,31 +163,25 @@ async def test_authnz_token_forwarded(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params={"capability": "exec:admin"},
-            headers={
-                "Authorization": "Basic blah",
-                "X-Forwarded-Access-Token": token,
-            },
-        )
-
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={
+            "Authorization": "Basic blah",
+            "X-Forwarded-Access-Token": token,
+        },
+    )
     assert r.status == 200
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params={"capability": "exec:admin"},
-            headers={
-                "Authorization": "Basic blah",
-                "X-Forwarded-Ticket-Id-Token": token,
-            },
-        )
-
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={
+            "Authorization": "Basic blah",
+            "X-Forwarded-Ticket-Id-Token": token,
+        },
+    )
     assert r.status == 200
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
@@ -214,29 +192,23 @@ async def test_authnz_token_basic(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        basic = f"{token}:x-oauth-basic".encode()
-        basic_b64 = base64.b64encode(basic).decode()
-        r = await client.get(
-            "/auth",
-            params={"capability": "exec:admin"},
-            headers={"Authorization": f"Basic {basic_b64}"},
-        )
-
+    basic = f"{token}:x-oauth-basic".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
     assert r.status == 200
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        basic = f"x-oauth-basic:{token}".encode()
-        basic_b64 = base64.b64encode(basic).decode()
-        r = await client.get(
-            "/auth",
-            params={"capability": "exec:admin"},
-            headers={"Authorization": f"Basic {basic_b64}"},
-        )
-
+    basic = f"x-oauth-basic:{token}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
     assert r.status == 200
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
@@ -260,16 +232,12 @@ async def test_authnz_token_reissue(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair, session_secret)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params={"capability": "exec:admin"},
-            headers={"Authorization": f"Bearer {token}"},
-            cookies={"oauth2_proxy": cookie},
-        )
-        assert get_key_as_pem.call_args_list == [call(ANY, "orig-kid")]
-
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={"Authorization": f"Bearer {token}"},
+        cookies={"oauth2_proxy": cookie},
+    )
     assert r.status == 200
     assert r.headers["X-Auth-Request-Token-Ticket"] == ticket_handle
     new_token = r.headers["X-Auth-Request-Token"]
@@ -329,18 +297,14 @@ async def test_authnz_token_reissue_internal(
     app = await create_test_app(keypair, session_secret)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth",
-            params={
-                "capability": "exec:admin",
-                "audience": "https://example.com/api",
-            },
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert get_key_as_pem.call_args_list == [call(ANY, "some-kid")]
-
+    r = await client.get(
+        "/auth",
+        params={
+            "capability": "exec:admin",
+            "audience": "https://example.com/api",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert r.status == 200
     new_token = r.headers["X-Auth-Request-Token"]
     assert token != new_token

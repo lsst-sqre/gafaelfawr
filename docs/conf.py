@@ -59,11 +59,12 @@ default_role = "py:obj"
 # Intersphinx ================================================================
 
 intersphinx_mapping = {
-    "flask": ("https://flask.palletsprojects.com/en/1.1.x/", None),
-    "flask_wtf": ("https://flask-wtf.readthedocs.io/en/stable/", None),
+    "aiohttp": ("https://aiohttp.readthedocs.io/en/stable/", None),
+    "dynaconf": ("https://dynaconf.readthedocs.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
     "redis": ("https://redis-py.readthedocs.io/en/latest/", None),
+    "wtforms": ("https://wtforms.readthedocs.io/en/stable/", None),
 }
 
 intersphinx_timeout = 10.0  # seconds

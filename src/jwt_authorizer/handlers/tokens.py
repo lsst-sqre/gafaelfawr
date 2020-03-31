@@ -57,7 +57,7 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
 
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
-        decoded_token = authenticate(request, encoded_token)
+        decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
@@ -103,7 +103,7 @@ async def get_tokens_new(request: web.Request) -> Dict[str, object]:
 
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
-        authenticate(request, encoded_token)
+        await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
@@ -143,7 +143,7 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
 
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
-        decoded_token = authenticate(request, encoded_token)
+        decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
@@ -217,7 +217,7 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
 
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
-        decoded_token = authenticate(request, encoded_token)
+        decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
@@ -252,7 +252,7 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
 
     try:
         encoded_token = request.headers["X-Auth-Request-Token"]
-        decoded_token = authenticate(request, encoded_token)
+        decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))

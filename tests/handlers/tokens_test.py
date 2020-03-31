@@ -6,7 +6,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, patch
+from unittest.mock import ANY
 
 import jwt
 
@@ -41,12 +41,9 @@ async def test_tokens_empty_list(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth/tokens", headers={"X-Auth-Request-Token": token}
-        )
-
+    r = await client.get(
+        "/auth/tokens", headers={"X-Auth-Request-Token": token}
+    )
     assert r.status == 200
     body = await r.text()
     assert "Generate new token" in body
@@ -66,12 +63,9 @@ async def test_tokens(aiohttp_client: TestClient) -> None:
         token_store.store_token(scoped_token_payload, pipeline)
         pipeline.execute()
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth/tokens", headers={"X-Auth-Request-Token": token}
-        )
-
+    r = await client.get(
+        "/auth/tokens", headers={"X-Auth-Request-Token": token}
+    )
     assert r.status == 200
     body = await r.text()
     assert "other-token" in body
@@ -122,49 +116,47 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
         token_store.store_token(scoped_token_payload, pipeline)
         pipeline.execute()
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        handle = ticket.as_handle("oauth2_proxy")
-        r = await client.get(
-            f"/auth/tokens/{handle}", headers={"X-Auth-Request-Token": token},
-        )
-        assert r.status == 200
-        assert handle in await r.text()
+    handle = ticket.as_handle("oauth2_proxy")
+    r = await client.get(
+        f"/auth/tokens/{handle}", headers={"X-Auth-Request-Token": token},
+    )
+    assert r.status == 200
+    assert handle in await r.text()
 
-        r = await client.get(
-            "/auth/tokens", headers={"X-Auth-Request-Token": token}
-        )
-        assert r.status == 200
-        body = await r.text()
-        csrf_match = re.search('name="_csrf" value="([^"]+)"', body)
-        assert csrf_match
-        csrf_token = csrf_match.group(1)
+    r = await client.get(
+        "/auth/tokens", headers={"X-Auth-Request-Token": token}
+    )
+    assert r.status == 200
+    body = await r.text()
+    csrf_match = re.search('name="_csrf" value="([^"]+)"', body)
+    assert csrf_match
+    csrf_token = csrf_match.group(1)
 
-        # Deleting without a CSRF token will fail.
-        r = await client.post(
-            f"/auth/tokens/{handle}",
-            headers={"X-Auth-Request-Token": token},
-            data={"method_": "DELETE"},
-        )
-        assert r.status == 403
+    # Deleting without a CSRF token will fail.
+    r = await client.post(
+        f"/auth/tokens/{handle}",
+        headers={"X-Auth-Request-Token": token},
+        data={"method_": "DELETE"},
+    )
+    assert r.status == 403
 
-        # Deleting with a bogus CSRF token will fail.
-        r = await client.post(
-            f"/auth/tokens/{handle}",
-            headers={"X-Auth-Request-Token": token},
-            data={"method_": "DELETE", "_csrf": csrf_token + "xxxx"},
-        )
-        assert r.status == 403
+    # Deleting with a bogus CSRF token will fail.
+    r = await client.post(
+        f"/auth/tokens/{handle}",
+        headers={"X-Auth-Request-Token": token},
+        data={"method_": "DELETE", "_csrf": csrf_token + "xxxx"},
+    )
+    assert r.status == 403
 
-        # Deleting with the correct CSRF will succeed.
-        r = await client.post(
-            f"/auth/tokens/{handle}",
-            headers={"X-Auth-Request-Token": token},
-            data={"method_": "DELETE", "_csrf": csrf_token},
-        )
-        assert r.status == 200
-        body = await r.text()
-        assert f"token with the ticket_id {handle} was deleted" in body
+    # Deleting with the correct CSRF will succeed.
+    r = await client.post(
+        f"/auth/tokens/{handle}",
+        headers={"X-Auth-Request-Token": token},
+        data={"method_": "DELETE", "_csrf": csrf_token},
+    )
+    assert r.status == 200
+    body = await r.text()
+    assert f"token with the ticket_id {handle} was deleted" in body
 
     assert token_store.get_tokens("1000") == []
 
@@ -186,12 +178,9 @@ async def test_tokens_new_form(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth/tokens/new", headers={"X-Auth-Request-Token": token}
-        )
-
+    r = await client.get(
+        "/auth/tokens/new", headers={"X-Auth-Request-Token": token}
+    )
     assert r.status == 200
     body = await r.text()
     assert "exec:admin" in body
@@ -207,27 +196,23 @@ async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair, session_secret)
     client = await aiohttp_client(app)
 
-    with patch("jwt_authorizer.authnz.get_key_as_pem") as get_key_as_pem:
-        get_key_as_pem.return_value = keypair.public_key_as_pem()
-        r = await client.get(
-            "/auth/tokens/new", headers={"X-Auth-Request-Token": token}
-        )
-        assert r.status == 200
-        body = await r.text()
-        csrf_match = re.search('name="_csrf" value="([^"]+)"', body)
-        assert csrf_match
-        csrf_token = csrf_match.group(1)
-
-        # Creating with a valid CSRF token will succeed.
-        r = await client.post(
-            "/auth/tokens/new",
-            headers={"X-Auth-Request-Token": token},
-            data={"read:all": "y", "_csrf": csrf_token},
-        )
-
+    r = await client.get(
+        "/auth/tokens/new", headers={"X-Auth-Request-Token": token}
+    )
     assert r.status == 200
     body = await r.text()
-    print(body)
+    csrf_match = re.search('name="_csrf" value="([^"]+)"', body)
+    assert csrf_match
+    csrf_token = csrf_match.group(1)
+
+    # Creating with a valid CSRF token will succeed.
+    r = await client.post(
+        "/auth/tokens/new",
+        headers={"X-Auth-Request-Token": token},
+        data={"read:all": "y", "_csrf": csrf_token},
+    )
+    assert r.status == 200
+    body = await r.text()
     assert "read:all" in body
     match = re.search(r"Token: (\S+)", body)
     assert match

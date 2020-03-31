@@ -34,3 +34,5 @@ API reference
    :no-inherited-members:
 
 .. automodapi:: jwt_authorizer.util
+
+.. automodapi:: jwt_authorizer.verify

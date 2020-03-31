@@ -2,26 +2,17 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
-import os
-import struct
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import jwt
 import redis
-import requests
-from cachetools import TTLCache, cached
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
-from jwt_authorizer.config import ALGORITHM, Issuer
+from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.session import Session, SessionStore, Ticket
-from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
     from aiohttp import web
@@ -34,12 +25,8 @@ if TYPE_CHECKING:
 __all__ = [
     "AlterTokenForm",
     "TokenStore",
-    "TokenVerifier",
-    "add_padding",
     "all_tokens",
     "api_capabilities_token_form",
-    "create_token_verifier",
-    "get_key_as_pem",
     "issue_token",
     "revoke_token",
 ]
@@ -73,7 +60,7 @@ def issue_token(
     store_user_info : `bool`
         Whether to store information about this token in the per-user token
         list used by the /auth/tokens route.
-    oauth2_proxy_ticket : `Ticket`
+    oauth2_proxy_ticket : `jwt_authorizer.session.Ticket`
         The Ticket to use to represent the token.
     redis_client : Optional[`redis.Redis`]
         The optional Redis client to use if one should not be created from the
@@ -185,7 +172,7 @@ def api_capabilities_token_form(
 
     Returns
     -------
-    form : `flask_wtf.FlaskForm`
+    form : `wtforms.Form`
         The generated form.
     """
 
@@ -206,99 +193,6 @@ class AlterTokenForm(Form):
 
     method_ = HiddenField("method_")
     csrf = HiddenField("_csrf")
-
-
-@cached(cache=TTLCache(maxsize=16, ttl=600))
-def get_key_as_pem(issuer: Issuer, request_key_id: str) -> bytearray:
-    """Get the key for an issuer.
-
-    Gets a key as PEM, given the issuer and the request key ticket_id.  This
-    function is intended to help with the caching of keys, as we always get
-    them dynamically.
-
-    Parameters
-    ----------
-    issuer : `Issuer`
-        The metadata of the issuer.
-    request_key_id : `str`
-        The key ID to retrieve for the issuer in question.
-
-    Returns
-    -------
-    key : `bytearray`
-        The issuer's key in PEM format.
-
-    Raises
-    ------
-    Exception
-        For any issue with the key ID, the issuer's OpenID or JWKS
-        configuration, or some other configuration issue.
-
-    Notes
-    -----
-    This function will automatically cache the last 16 keys for up to 10
-    minutes to cut down on network retrieval of the keys.
-    """
-
-    def _base64_to_long(data: str) -> int:
-        """Convert base64-encoded bytes to a long."""
-        decoded = base64.urlsafe_b64decode(add_padding(data))
-        unpacked = struct.unpack("%sB" % len(decoded), decoded)
-        key_as_long = int("".join(["{:02x}".format(b) for b in unpacked]), 16)
-        return key_as_long
-
-    def _convert(exponent: int, modulus: int) -> bytearray:
-        """Convert an exponent and modulus to a PEM-encoded key."""
-        components = RSAPublicNumbers(exponent, modulus)
-        pub = components.public_key(backend=default_backend())
-        key_bytes = pub.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
-        return cast(bytearray, key_bytes)
-
-    logger.debug(f"Getting keys for: {issuer.url}")
-    try:
-        if issuer.key_ids and request_key_id not in issuer.key_ids:
-            raise KeyError(
-                f"kid {request_key_id} not found in issuer configuration"
-            )
-
-        # Try OIDC first
-        oidc_config = os.path.join(
-            issuer.url, ".well-known/openid-configuration"
-        )
-        oidc_resp = requests.get(oidc_config)
-        if oidc_resp.ok:
-            jwks_uri = oidc_resp.json()["jwks_uri"]
-        else:
-            # Assume jwks.json is available
-            jwks_uri = os.path.join(issuer.url, ".well-known/jwks.json")
-
-        keys_resp = requests.get(jwks_uri)
-        keys_resp.raise_for_status()
-        keys = keys_resp.json()["keys"]
-        key = None
-        for k in keys:
-            if request_key_id == k["kid"] and request_key_id:
-                key = k
-        if not key:
-            raise KeyError(f"Issuer may have removed kid={request_key_id}")
-
-        if key["alg"] != ALGORITHM:
-            raise Exception(
-                "Bad Issuer Key and Global Algorithm Configuration"
-            )
-        e = _base64_to_long(key["e"])
-        m = _base64_to_long(key["n"])
-        return _convert(e, m)
-    except Exception as e:
-        # HTTPError, KeyError, or Exception
-        logger.error(
-            f"Unable to retrieve and store key for issuer: {issuer.url} "
-        )
-        logger.error(e)
-        raise Exception(f"Unable to interace with issuer: {issuer.url}") from e
 
 
 def o2proxy_store_token_redis(
@@ -448,7 +342,7 @@ class TokenStore:
             User ID to whom the token was issued.
         handle : `str`
             Handle of the issued token.
-        pipeline : `Pipeline`
+        pipeline : `redis.client.Pipeline`
             The pipeline in which to store the session.
 
         Returns
@@ -480,7 +374,7 @@ class TokenStore:
         ----------
         payload : Dict[`str`, Any]
             The contents of the token.
-        pipeline : `Pipeline`
+        pipeline : `redis.client.Pipeline`
             The pipeline in which to store the session.
         """
         pipeline.sadd(self._redis_key_for_token(payload), json.dumps(payload))
@@ -557,61 +451,3 @@ class TokenStore:
             The Redis key under which that user's tokens will be stored.
         """
         return f"tokens:{user_id}"
-
-
-class TokenVerifier:
-    """Verifies the validity of a JWT.
-
-    Parameters
-    ----------
-    issuers : Dict[`str`, `Issuer`]
-        Known token issuers and their metadata.
-    """
-
-    def __init__(self, issuers: Dict[str, Issuer]) -> None:
-        self.issuers = issuers
-
-    def verify(self, token: str) -> None:
-        """Verifies the provided JWT.
-
-        Parameters
-        ----------
-        token : `str`
-            JWT to verify.
-
-        Raises
-        ------
-        jwt.exceptions.InvalidIssuerError
-            The issuer of this token is unknown and therefore the token cannot
-            be verified.
-        Exception
-            Some other verification failure.
-        """
-        unverified_header = jwt.get_unverified_header(token)
-        unverified_token = jwt.decode(
-            token, algorithms=ALGORITHM, verify=False
-        )
-        issuer_url = unverified_token["iss"]
-        if issuer_url not in self.issuers:
-            raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
-        issuer = self.issuers[issuer_url]
-
-        key = get_key_as_pem(issuer_url, unverified_header["kid"])
-        jwt.decode(token, key, algorithms=ALGORITHM, audience=issuer.audience)
-
-
-def create_token_verifier(request: web.Request) -> TokenVerifier:
-    """Create a TokenVerifier from an app configuration.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    token_verifier : `TokenVerifier`
-        A TokenVerifier created from that Flask application configuration.
-    """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-    return TokenVerifier(config.issuers)

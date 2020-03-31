@@ -63,7 +63,7 @@ class Issuer:
     url: str
     """URL identifying the issuer (matches iss field in tokens)."""
 
-    audience: str
+    audience: Tuple[str, ...]
     """Expected audience for this issuer."""
 
     key_ids: Tuple[str, ...]
@@ -161,7 +161,7 @@ class Config:
 
         Parameters
         ----------
-        settings : `LazySettings`
+        settings : `dynaconf.LazySettings`
             Dynaconf settings.
 
         Returns
@@ -211,10 +211,15 @@ class Config:
         issuers = {}
         if settings.get("ISSUERS"):
             for url, info in settings["ISSUERS"].items():
+                audience_setting = info["AUDIENCE"]
+                if isinstance(audience_setting, str):
+                    audience: Tuple[str, ...] = (audience_setting,)
+                else:
+                    audience = tuple(audience_setting)
                 issuer = Issuer(
                     url=url,
-                    audience=info["AUDIENCE"],
-                    key_ids=info["ISSUER_KEY_IDS"],
+                    audience=audience,
+                    key_ids=tuple(info["ISSUER_KEY_IDS"]),
                 )
                 issuers[url] = issuer
 

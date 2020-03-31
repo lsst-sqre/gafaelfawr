@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-__all__ = ["add_padding"]
+import base64
+import struct
+
+__all__ = ["add_padding", "base64_to_number"]
 
 
 def add_padding(encoded: str) -> str:
@@ -23,3 +26,27 @@ def add_padding(encoded: str) -> str:
         return encoded + ("=" * (4 - underflow))
     else:
         return encoded
+
+
+def base64_to_number(data: str) -> int:
+    """Convert base64-encoded bytes to an integer.
+
+    Parameters
+    ----------
+    data : `str`
+        Base64-encoded number, possibly without padding.
+
+    Returns
+    -------
+    result : `int`
+        The result converted to a number.  Note that Python ints can be
+        arbitrarily large.
+
+    Notes
+    -----
+    Used for converting the modulus and exponent in a JWKS to integers in
+    preparation for turning them into a public key.
+    """
+    decoded = base64.urlsafe_b64decode(add_padding(data))
+    unpacked = struct.unpack(f"{len(decoded)}B", decoded)
+    return int("".join([f"{b:02x}" for b in unpacked]), 16)

@@ -14,6 +14,7 @@ from aiohttp.web import Application
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from cryptography.fernet import Fernet
 from dynaconf import LazySettings, Validator
+from safir.http import init_http_session
 from safir.logging import configure_logging
 from safir.metadata import setup_metadata
 from safir.middleware import bind_logger
@@ -23,9 +24,13 @@ from jwt_authorizer.config import Config, Configuration
 from jwt_authorizer.handlers import init_routes
 
 if TYPE_CHECKING:
+    from jwt_authorizer.verify import KeyClient
     from typing import Optional
 
-__all__ = ["create_app"]
+__all__ = [
+    "RedisManager",
+    "create_app",
+]
 
 
 class RedisManager:
@@ -47,6 +52,7 @@ class RedisManager:
 async def create_app(
     settings_path: Optional[str] = None,
     redis_manager: Optional[RedisManager] = None,
+    key_client: Optional[KeyClient] = None,
     **extra: str,
 ) -> Application:
     """Create and configure the JWT Authorizer application.
@@ -58,12 +64,15 @@ async def create_app(
     redis_manager : `RedisManager`, optional
         Class that provides Redis clients.  One will be constructed from the
         URL in the application settings if this is not provided.
+    key_client : `jwt_authorizer.verify.KeyClient`, optional
+        Class to retrieve a JWKS for an issuer.  A default HTTP-based client
+        will be constructed for each request if this is not provided.
     **extra : `str`
         Additional configuration settings for Dynaconf.
 
     Returns
     -------
-    application: `Application`
+    application: `aiohttp.web.Application`
         The constructed application.
     """
     configuration = Configuration()
@@ -98,7 +107,11 @@ async def create_app(
     app["jwt_authorizer/redis"] = redis_manager
     setup_metadata(package_name="jwt_authorizer", app=app)
     setup_middleware(app)
+    app.cleanup_ctx.append(init_http_session)
     app.add_routes(init_routes())
+
+    if key_client:
+        app["jwt_authorizer/key_client"] = key_client
 
     return app
 
