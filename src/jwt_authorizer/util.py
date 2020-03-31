@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import struct
 
 __all__ = ["add_padding", "base64_to_number"]
 
@@ -48,5 +47,4 @@ def base64_to_number(data: str) -> int:
     preparation for turning them into a public key.
     """
     decoded = base64.urlsafe_b64decode(add_padding(data))
-    unpacked = struct.unpack(f"{len(decoded)}B", decoded)
-    return int("".join([f"{b:02x}" for b in unpacked]), 16)
+    return int.from_bytes(decoded, byteorder="big")
