@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
+import sys
 from asyncio import Future
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
@@ -88,10 +89,13 @@ class FakeKeyClient(KeyClient):
     ) -> ClientResponse:
         """Build a successful response."""
         r = Mock(spec=ClientResponse)
-        future: Future[Dict[str, Any]] = Future()
-        future.set_result(result)
+        if sys.version_info[0] == 3 and sys.version_info[1] < 8:
+            future: Future[Dict[str, Any]] = Future()
+            future.set_result(result)
+            r.json.return_value = future
+        else:
+            r.json.return_value = result
         r.status = 200
-        r.json.return_value = future
         return r
 
 
