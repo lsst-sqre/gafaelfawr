@@ -57,11 +57,11 @@ async def test_tokens(aiohttp_client: TestClient) -> None:
     )
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
-    redis_client = app["jwt_authorizer/redis"].get_redis_client()
+    redis_client = app["jwt_authorizer/redis"]
     token_store = TokenStore(redis_client, "uidNumber")
-    with redis_client.pipeline() as pipeline:
-        token_store.store_token(scoped_token_payload, pipeline)
-        pipeline.execute()
+    pipeline = redis_client.pipeline()
+    token_store.store_token(scoped_token_payload, pipeline)
+    await pipeline.execute()
 
     r = await client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token}
@@ -108,13 +108,13 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
         expires_on=datetime.now(timezone.utc) + timedelta(days=1),
     )
 
-    redis_client = app["jwt_authorizer/redis"].get_redis_client()
+    redis_client = app["jwt_authorizer/redis"]
     session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
     token_store = TokenStore(redis_client, "uidNumber")
-    with redis_client.pipeline() as pipeline:
-        session_store.store_session(ticket, session, pipeline)
-        token_store.store_token(scoped_token_payload, pipeline)
-        pipeline.execute()
+    pipeline = redis_client.pipeline()
+    session_store.store_session(ticket, session, pipeline)
+    token_store.store_token(scoped_token_payload, pipeline)
+    await pipeline.execute()
 
     handle = ticket.as_handle("oauth2_proxy")
     r = await client.get(
@@ -158,7 +158,7 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
     body = await r.text()
     assert f"token with the ticket_id {handle} was deleted" in body
 
-    assert token_store.get_tokens("1000") == []
+    assert await token_store.get_tokens("1000") == []
 
 
 async def test_tokens_new_no_auth(aiohttp_client: TestClient) -> None:
@@ -218,9 +218,9 @@ async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
     assert match
     encoded_ticket = match.group(1)
 
-    redis_client = app["jwt_authorizer/redis"].get_redis_client()
+    redis_client = app["jwt_authorizer/redis"]
     token_store = TokenStore(redis_client, "uidNumber")
-    tokens = token_store.get_tokens("1000")
+    tokens = await token_store.get_tokens("1000")
     assert len(tokens) == 1
     assert tokens[0] == {
         "aud": "https://example.com/",
@@ -239,7 +239,7 @@ async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
 
     session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
     ticket = Ticket.from_str("oauth2_proxy", encoded_ticket)
-    session = session_store.get_session(ticket)
+    session = await session_store.get_session(ticket)
     assert session
     assert session.email == "some-user@example.com"
     assert session.user == "some-user@example.com"

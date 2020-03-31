@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import aiohttp_csrf
 import aiohttp_jinja2
 import aiohttp_session
+import aioredis
 import jinja2
-import redis
 from aiohttp.web import Application
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from cryptography.fernet import Fernet
@@ -27,31 +27,12 @@ if TYPE_CHECKING:
     from jwt_authorizer.verify import KeyClient
     from typing import Optional
 
-__all__ = [
-    "RedisManager",
-    "create_app",
-]
-
-
-class RedisManager:
-    """Create Redis clients as needed.
-
-    This class creates a Redis connection pool and returns clients from that
-    pool.  It exists primarily so that it can be replaced by a FakeRedis
-    instance for testing.
-    """
-
-    def __init__(self, redis_url: str) -> None:
-        self._pool = redis.ConnectionPool.from_url(url=redis_url)
-
-    def get_redis_client(self) -> redis.Redis:
-        """Return a Redis client."""
-        return redis.Redis(connection_pool=self._pool)
+__all__ = ["create_app"]
 
 
 async def create_app(
     settings_path: Optional[str] = None,
-    redis_manager: Optional[RedisManager] = None,
+    redis_pool: Optional[aioredis.ConnectionsPool] = None,
     key_client: Optional[KeyClient] = None,
     **extra: str,
 ) -> Application:
@@ -61,9 +42,9 @@ async def create_app(
     ----------
     settings_path : `str`, optional
         Additional settings file to load.
-    redis_manager : `RedisManager`, optional
-        Class that provides Redis clients.  One will be constructed from the
-        URL in the application settings if this is not provided.
+    redis_pool : `aioredis.ConnectionsPool`, optional
+        Redis connection pool.  One will be constructed from the URL in the
+        application settings if this is not provided.
     key_client : `jwt_authorizer.verify.KeyClient`, optional
         Class to retrieve a JWKS for an issuer.  A default HTTP-based client
         will be constructed for each request if this is not provided.
@@ -98,13 +79,14 @@ async def create_app(
     logger = get_logger(configuration.logger_name)
     config.log_settings(logger)
 
-    if not redis_manager:
-        redis_manager = RedisManager(settings["REDIS_URL"])
+    if not redis_pool:
+        redis_url = config.session_store.redis_url
+        redis_pool = await aioredis.create_redis_pool(redis_url)
 
     app = Application()
     app["safir/config"] = configuration
     app["jwt_authorizer/config"] = config
-    app["jwt_authorizer/redis"] = redis_manager
+    app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
     setup_middleware(app)
     app.cleanup_ctx.append(init_http_session)
@@ -135,3 +117,10 @@ def setup_middleware(app: Application) -> None:
     aiohttp_jinja2.setup(
         app, loader=jinja2.FileSystemLoader(templates_path),
     )
+
+
+async def on_shutdown(app: Application) -> None:
+    """Cleanly shut down the application."""
+    redis_client = app["jwt_authorizer/redis"]
+    redis_client.close()
+    await redis_client.wait_closed()

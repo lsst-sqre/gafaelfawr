@@ -60,6 +60,7 @@ default_role = "py:obj"
 
 intersphinx_mapping = {
     "aiohttp": ("https://aiohttp.readthedocs.io/en/stable/", None),
+    "aioredis": ("https://aioredis.readthedocs.io/en/latest/", None),
     "dynaconf": ("https://dynaconf.readthedocs.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),

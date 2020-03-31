@@ -7,8 +7,8 @@
 
 aiohttp-devtools
 coverage[toml]
-fakeredis
 flake8
+mockaioredis
 mypy
 pre-commit
 pytest

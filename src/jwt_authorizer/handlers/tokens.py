@@ -67,7 +67,7 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
     session["csrf"] = await generate_token(request)
 
     user_id = decoded_token[config.uid_key]
-    user_tokens = all_tokens(request, user_id)
+    user_tokens = await all_tokens(request, user_id)
     forms = {}
     for user_token in user_tokens:
         form = AlterTokenForm()
@@ -175,7 +175,7 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
     #
     # new_token['isMemberOf'] = decoded_token['isMemberOf']
     oauth2_proxy_ticket = Ticket()
-    issue_token(
+    await issue_token(
         request,
         new_token,
         aud=audience,
@@ -223,7 +223,7 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
         raise unauthorized(request, "Invalid token", str(e))
 
     user_id = decoded_token[config.uid_key]
-    user_tokens = {t["jti"]: t for t in all_tokens(request, user_id)}
+    user_tokens = {t["jti"]: t for t in await all_tokens(request, user_id)}
     user_token = user_tokens[handle]
 
     return {"token": user_token}
@@ -258,12 +258,12 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
         raise unauthorized(request, "Invalid token", str(e))
 
     user_id = decoded_token[config.uid_key]
-    user_tokens = {t["jti"]: t for t in all_tokens(request, user_id)}
+    user_tokens = {t["jti"]: t for t in await all_tokens(request, user_id)}
     user_token = user_tokens[handle]
 
     form = AlterTokenForm(await request.post())
     if form.validate() and form.method_.data == "DELETE":
-        success = revoke_token(request, user_id, handle)
+        success = await revoke_token(request, user_id, handle)
         if success:
             message = f"Your token with the ticket_id {handle} was deleted"
         else:

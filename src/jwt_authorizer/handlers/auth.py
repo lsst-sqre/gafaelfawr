@@ -124,13 +124,13 @@ async def get_auth(request: web.Request) -> web.Response:
             f"Allowed token with Token ID={jti} for user={user_id} "
             f"from issuer={verified_token['iss']}"
         )
-        return success(request, encoded_token, verified_token)
+        return await success(request, encoded_token, verified_token)
     else:
         logger.error(f"Failed to authorize Token ID {jti} because {message}")
         raise forbidden(request, verified_token, message)
 
 
-def _check_reissue_token(
+async def _check_reissue_token(
     request: web.Request, encoded_token: str, decoded_token: Mapping[str, Any]
 ) -> Tuple[str, str]:
     """Possibly reissue the token.
@@ -200,7 +200,7 @@ def _check_reissue_token(
 
     if new_audience:
         assert ticket
-        encoded_token = issue_token(
+        encoded_token = await issue_token(
             request,
             decoded_token,
             new_audience,
@@ -258,7 +258,7 @@ def _find_token(request: web.Request) -> Optional[str]:
     return encoded_token
 
 
-def success(
+async def success(
     request: web.Request, encoded_token: str, verified_token: Mapping[str, Any]
 ) -> web.Response:
     """Construct a response for successful authorization.
@@ -296,7 +296,7 @@ def success(
             groups = ",".join([g["name"] for g in groups_list])
             headers["X-Auth-Request-Groups"] = groups
 
-    encoded_token, oauth2_proxy_ticket = _check_reissue_token(
+    encoded_token, oauth2_proxy_ticket = await _check_reissue_token(
         request, encoded_token, verified_token
     )
     headers["X-Auth-Request-Token"] = encoded_token

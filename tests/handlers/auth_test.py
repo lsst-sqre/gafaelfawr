@@ -279,9 +279,9 @@ async def test_authnz_token_reissue(aiohttp_client: TestClient) -> None:
     assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
     assert now - 5 <= decoded_token["iat"] <= now + 5
 
-    redis_client = app["jwt_authorizer/redis"].get_redis_client()
+    redis_client = app["jwt_authorizer/redis"]
     session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
-    session = session_store.get_session(ticket)
+    session = await session_store.get_session(ticket)
     assert session
     assert session.token == new_token
     assert session.user == "some-user@example.com"
@@ -347,9 +347,9 @@ async def test_authnz_token_reissue_internal(
     assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
     assert now - 5 <= decoded_token["iat"] <= now + 5
 
-    redis_client = app["jwt_authorizer/redis"].get_redis_client()
+    redis_client = app["jwt_authorizer/redis"]
     session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
-    session = session_store.get_session(ticket)
+    session = await session_store.get_session(ticket)
     assert session
     assert session.token == new_token
     assert session.email == "some-user@example.com"

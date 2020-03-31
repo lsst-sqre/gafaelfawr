@@ -55,7 +55,7 @@ async def analyze_ticket(
         }
     }
 
-    session = token_store.get_session(ticket)
+    session = await token_store.get_session(ticket)
     if not session:
         output["errors"] = [f"No session found for {ticket.as_handle(prefix)}"]
         return output

@@ -8,18 +8,17 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import jwt
-import redis
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.session import Session, SessionStore, Ticket
 
 if TYPE_CHECKING:
+    import aioredis
     from aiohttp import web
-    from jwt_authorizer.app import RedisManager
+    from aioredis.commands import Pipeline
     from jwt_authorizer.config import Config
     from multidict import MultiDictProxy
-    from redis.client import Pipeline
     from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 __all__ = [
@@ -34,13 +33,12 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-def issue_token(
+async def issue_token(
     request: web.Request,
     payload: Mapping[str, Any],
     aud: str,
     store_user_info: bool,
     oauth2_proxy_ticket: Ticket,
-    redis_client: Optional[redis.Redis] = None,
 ) -> str:
     """Issue a token.
 
@@ -62,9 +60,6 @@ def issue_token(
         list used by the /auth/tokens route.
     oauth2_proxy_ticket : `jwt_authorizer.session.Ticket`
         The Ticket to use to represent the token.
-    redis_client : Optional[`redis.Redis`]
-        The optional Redis client to use if one should not be created from the
-        general application Redis pool.  Used primarily for testing.
 
     Returns
     -------
@@ -93,13 +88,8 @@ def issue_token(
             created_at=datetime.now(timezone.utc),
             expires_on=exp,
         )
-        o2proxy_store_token_redis(
-            request,
-            payload,
-            session,
-            store_user_info,
-            oauth2_proxy_ticket,
-            redis_client,
+        await o2proxy_store_token_redis(
+            request, payload, session, store_user_info, oauth2_proxy_ticket,
         )
     return encoded_reissued_token
 
@@ -195,13 +185,12 @@ class AlterTokenForm(Form):
     csrf = HiddenField("_csrf")
 
 
-def o2proxy_store_token_redis(
+async def o2proxy_store_token_redis(
     request: web.Request,
     payload: Dict[str, Any],
     session: Session,
     store_user_info: bool,
     oauth2_proxy_ticket: Ticket,
-    redis_client: Optional[redis.Redis] = None,
 ) -> None:
     """Store a token in redis in the oauth2_proxy encoded token format.
 
@@ -217,28 +206,25 @@ def o2proxy_store_token_redis(
         Whether to add this token to the list of issued tokens for the user.
     ticket : `Ticket`
         Ticket to substitute for the token.
-    redis_client : Optional[`redis.Redis`]
-        The optional Redis client to use if one should not be created from the
-        general application Redis pool.  Used primarily for testing.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
-    redis_manager: RedisManager = request.config_dict["jwt_authorizer/redis"]
+    redis_client = request.config_dict["jwt_authorizer/redis"]
 
     prefix = config.session_store.ticket_prefix
     key = config.session_store.oauth2_proxy_secret
-    if not redis_client:
-        redis_client = redis_manager.get_redis_client()
     session_store = SessionStore(prefix, key, redis_client)
     if store_user_info:
         token_store = TokenStore(redis_client, config.uid_key)
-    with redis_client.pipeline() as pipeline:
-        session_store.store_session(oauth2_proxy_ticket, session, pipeline)
-        if store_user_info:
-            token_store.store_token(payload, pipeline)
-        pipeline.execute()
+    pipeline = redis_client.pipeline()
+    session_store.store_session(oauth2_proxy_ticket, session, pipeline)
+    if store_user_info:
+        token_store.store_token(payload, pipeline)
+    await pipeline.execute()
 
 
-def all_tokens(request: web.Request, user_id: str) -> List[Dict[str, Any]]:
+async def all_tokens(
+    request: web.Request, user_id: str
+) -> List[Dict[str, Any]]:
     """Get all the decoded tokens for a given user ID.
 
     Parameters
@@ -254,14 +240,15 @@ def all_tokens(request: web.Request, user_id: str) -> List[Dict[str, Any]]:
         The decoded user tokens.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
-    redis_manager: RedisManager = request.config_dict["jwt_authorizer/redis"]
+    redis_client = request.config_dict["jwt_authorizer/redis"]
 
-    redis_client = redis_manager.get_redis_client()
     token_store = TokenStore(redis_client, config.uid_key)
-    return token_store.get_tokens(user_id)
+    return await token_store.get_tokens(user_id)
 
 
-def revoke_token(request: web.Request, user_id: str, handle: str) -> bool:
+async def revoke_token(
+    request: web.Request, user_id: str, handle: str
+) -> bool:
     """Revoke a token.
 
     Parameters
@@ -279,16 +266,15 @@ def revoke_token(request: web.Request, user_id: str, handle: str) -> bool:
         True if the token was found and revoked, False otherwise.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
-    redis_manager: RedisManager = request.config_dict["jwt_authorizer/redis"]
+    redis_client = request.config_dict["jwt_authorizer/redis"]
 
-    redis_client = redis_manager.get_redis_client()
     token_store = TokenStore(redis_client, config.uid_key)
-    with redis_client.pipeline() as pipeline:
-        success = token_store.revoke_token(user_id, handle, pipeline)
-        if success:
-            pipeline.delete(handle)
-            pipeline.execute()
-            return True
+    pipeline = redis_client.pipeline()
+    success = await token_store.revoke_token(user_id, handle, pipeline)
+    if success:
+        pipeline.delete(handle)
+        await pipeline.execute()
+        return True
     return False
 
 
@@ -301,17 +287,17 @@ class TokenStore:
 
     Parameters
     ----------
-    redis : `redis.Redis`
+    redis : `aioredis.Redis`
         Redis client used to store and retrieve tokens.
     user_id_key : `str`
         The token field to use as the user ID for calculating a Redis key.
     """
 
-    def __init__(self, redis: redis.Redis, user_id_key: str) -> None:
+    def __init__(self, redis: aioredis.Redis, user_id_key: str) -> None:
         self.redis = redis
         self.user_id_key = user_id_key
 
-    def get_tokens(self, user_id: str) -> List[Dict[str, Any]]:
+    async def get_tokens(self, user_id: str) -> List[Dict[str, Any]]:
         """Retrieve all tokens for a given user.
 
         Parameters
@@ -324,10 +310,10 @@ class TokenStore:
         tokens : List[Dict[`str`, Any]]
             All of that user's tokens as a list of token contents.
         """
-        tokens, _ = self._get_tokens(user_id)
+        tokens, _ = await self._get_tokens(user_id)
         return tokens
 
-    def revoke_token(
+    async def revoke_token(
         self, user_id: str, handle: str, pipeline: Pipeline
     ) -> bool:
         """Revoke a token.
@@ -342,7 +328,7 @@ class TokenStore:
             User ID to whom the token was issued.
         handle : `str`
             Handle of the issued token.
-        pipeline : `redis.client.Pipeline`
+        pipeline : `aioredis.commands.Pipeline`
             The pipeline in which to store the session.
 
         Returns
@@ -350,7 +336,7 @@ class TokenStore:
         success : `bool`
             True if the token was found and revoked, False otherwise.
         """
-        tokens, serialized_tokens = self._get_tokens(user_id)
+        tokens, serialized_tokens = await self._get_tokens(user_id)
         token_to_revoke = ""
         for token, serialized_token in zip(tokens, serialized_tokens):
             if token["jti"] == handle:
@@ -374,12 +360,12 @@ class TokenStore:
         ----------
         payload : Dict[`str`, Any]
             The contents of the token.
-        pipeline : `redis.client.Pipeline`
+        pipeline : `aioredis.commands.Pipeline`
             The pipeline in which to store the session.
         """
         pipeline.sadd(self._redis_key_for_token(payload), json.dumps(payload))
 
-    def _get_tokens(
+    async def _get_tokens(
         self, user_id: str
     ) -> Tuple[List[Dict[str, Any]], List[str]]:
         """Get al the tokens for a given user ID, delete expired ones.
@@ -402,8 +388,9 @@ class TokenStore:
         user_tokens = []
         expired_tokens = []
         key = self._redis_key_for_user(user_id)
-        serialized_user_tokens = self.redis.smembers(key)
+        serialized_user_tokens = await self.redis.smembers(key)
         valid_serialized_user_tokens = []
+
         # Clear out expired token references
         for serialized_token in serialized_user_tokens:
             token = json.loads(serialized_token)
@@ -413,10 +400,12 @@ class TokenStore:
             else:
                 user_tokens.append(token)
                 valid_serialized_user_tokens.append(serialized_token)
-        with self.redis.pipeline() as pipeline:
-            for expired_token in expired_tokens:
-                pipeline.srem(key, expired_token)
-            pipeline.execute()
+
+        pipeline = self.redis.pipeline()
+        for expired_token in expired_tokens:
+            pipeline.srem(key, expired_token)
+        await pipeline.execute()
+
         return user_tokens, valid_serialized_user_tokens
 
     def _redis_key_for_token(self, token: Dict[str, Any]) -> str:
