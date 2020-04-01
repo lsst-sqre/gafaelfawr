@@ -12,7 +12,6 @@ import aioredis
 import jinja2
 from aiohttp.web import Application
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
-from cryptography.fernet import Fernet
 from dynaconf import LazySettings, Validator
 from safir.http import init_http_session
 from safir.logging import configure_logging
@@ -88,7 +87,7 @@ async def create_app(
     app["jwt_authorizer/config"] = config
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
-    setup_middleware(app)
+    setup_middleware(app, config)
     app.cleanup_ctx.append(init_http_session)
     app.add_routes(init_routes())
 
@@ -98,14 +97,14 @@ async def create_app(
     return app
 
 
-def setup_middleware(app: Application) -> None:
+def setup_middleware(app: Application, config: Config) -> None:
     """Add middleware to the application."""
     app.middlewares.append(bind_logger)
 
-    # Use an ephemeral key for the session, since we only store flash messages
-    # in it.  This should switch to a shared key eventually.
-    secret = Fernet.generate_key().decode()
-    session_storage = EncryptedCookieStorage(secret, cookie_name="jwts")
+    # Set up encrypted session storage via a cookie.
+    session_storage = EncryptedCookieStorage(
+        config.session_secret, cookie_name="jwts"
+    )
     aiohttp_session.setup(app, session_storage)
 
     # Configure global CSRF protection using session storage.

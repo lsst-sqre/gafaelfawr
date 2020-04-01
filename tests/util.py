@@ -13,6 +13,7 @@ from unittest.mock import Mock
 import jwt
 import mockaioredis
 from aiohttp import ClientResponse, web
+from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -132,6 +133,7 @@ async def create_test_app(
     if not session_secret:
         session_secret = os.urandom(16)
 
+    kwargs["SESSION_SECRET"] = Fernet.generate_key().decode()
     kwargs["OAUTH2_JWT.KEY"] = keypair.private_key_as_pem().decode()
     secret_b64 = base64.urlsafe_b64encode(session_secret).decode()
     kwargs["OAUTH2_STORE_SESSION.OAUTH2_PROXY_SECRET"] = secret_b64

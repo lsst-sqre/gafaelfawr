@@ -152,6 +152,14 @@ class Config:
     issuer: IssuerConfig
     """Configuration for internally-issued tokens."""
 
+    session_secret: str
+    """Secret used to encrypt the session cookie.
+
+    This is unrelated to the oauth2_proxy sessions stored in Redis.  It is
+    used to encrypt the session cookie used by jwt_authorizer to store
+    temporary state.  Must be a Fernet key.
+    """
+
     session_store: SessionStoreConfig
     """Configuration for storing oauth2_proxy sessions."""
 
@@ -187,6 +195,11 @@ class Config:
             key=key,
             exp_minutes=settings["OAUTH2_JWT_EXP"],
         )
+
+        if settings.get("SESSION_SECRET"):
+            session_secret = settings["SESSION_SECRET"]
+        else:
+            session_secret = cls._load_secret(settings["SESSION_SECRET_FILE"])
 
         group_mapping = {}
         if settings.get("GROUP_MAPPING"):
@@ -240,6 +253,7 @@ class Config:
             uid_key=settings["JWT_UID_KEY"],
             issuer=issuer_config,
             group_mapping=group_mapping,
+            session_secret=session_secret,
             session_store=session_store,
             known_capabilities=known_capabilities,
             issuers=issuers,
