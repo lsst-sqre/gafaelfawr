@@ -103,10 +103,10 @@ def setup_middleware(app: Application) -> None:
     app.middlewares.append(bind_logger)
 
     # Use an ephemeral key for the session, since we only store flash messages
-    # in it.  This should probably switch to Redis at some point, since it
-    # won't work if there are multiple copies of jwt_authorizer running.
+    # in it.  This should switch to a shared key eventually.
     secret = Fernet.generate_key().decode()
-    aiohttp_session.setup(app, EncryptedCookieStorage(secret))
+    session_storage = EncryptedCookieStorage(secret, cookie_name="jwts")
+    aiohttp_session.setup(app, session_storage)
 
     # Configure global CSRF protection using session storage.
     csrf_policy = aiohttp_csrf.policy.FormPolicy("_csrf")
