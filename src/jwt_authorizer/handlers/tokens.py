@@ -18,9 +18,7 @@ from jwt_authorizer.session import SessionStore
 from jwt_authorizer.tokens import (
     AlterTokenForm,
     TokenStore,
-    all_tokens,
     api_capabilities_token_form,
-    revoke_token,
 )
 
 if TYPE_CHECKING:
@@ -55,6 +53,7 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
         turns them into an `aiohttp.web.Response`.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    redis: Redis = request.config_dict["jwt_authorizer/redis"]
     logger: Logger = request["safir/logger"]
 
     try:
@@ -68,8 +67,9 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
     message = session.pop("message", None)
     session["csrf"] = await generate_token(request)
 
+    token_store = TokenStore(redis, config.uid_key)
     user_id = decoded_token[config.uid_key]
-    user_tokens = await all_tokens(request, user_id)
+    user_tokens = await token_store.get_tokens(user_id)
     forms = {}
     for user_token in user_tokens:
         form = AlterTokenForm()
@@ -213,6 +213,7 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
         turns them into an `aiohttp.web.Response`.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    redis: Redis = request.config_dict["jwt_authorizer/redis"]
     logger: Logger = request["safir/logger"]
     handle = request.match_info["handle"]
 
@@ -223,8 +224,9 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
+    token_store = TokenStore(redis, config.uid_key)
     user_id = decoded_token[config.uid_key]
-    user_tokens = {t["jti"]: t for t in await all_tokens(request, user_id)}
+    user_tokens = {t["jti"]: t for t in await token_store.get_tokens(user_id)}
     user_token = user_tokens[handle]
 
     return {"token": user_token}
@@ -248,6 +250,7 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
         turns them into an `aiohttp.web.Response`.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    redis: Redis = request.config_dict["jwt_authorizer/redis"]
     logger: Logger = request["safir/logger"]
     handle = request.match_info["handle"]
 
@@ -258,20 +261,28 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
+    token_store = TokenStore(redis, config.uid_key)
     user_id = decoded_token[config.uid_key]
-    user_tokens = {t["jti"]: t for t in await all_tokens(request, user_id)}
+    user_tokens = {t["jti"]: t for t in await token_store.get_tokens(user_id)}
     user_token = user_tokens[handle]
 
     form = AlterTokenForm(await request.post())
-    if form.validate() and form.method_.data == "DELETE":
-        success = await revoke_token(request, user_id, handle)
-        if success:
-            message = f"Your token with the ticket_id {handle} was deleted"
-        else:
-            message = "An error was encountered when deleting your token"
-        session = await get_session(request)
-        session["message"] = message
-        location = request.app.router["tokens"].url_for()
-        raise web.HTTPFound(location)
-    else:
+    if not form.validate() or form.method_.data != "DELETE":
         return {"token": user_token}
+
+    token_store = TokenStore(redis, config.uid_key)
+    pipeline = redis.pipeline()
+    success = await token_store.revoke_token(user_id, handle, pipeline)
+    if success:
+        pipeline.delete(handle)
+        await pipeline.execute()
+
+    if success:
+        message = f"Your token with the ticket_id {handle} was deleted"
+    else:
+        message = "An error was encountered when deleting your token"
+    session = await get_session(request)
+    session["message"] = message
+
+    location = request.app.router["tokens"].url_for()
+    raise web.HTTPFound(location)

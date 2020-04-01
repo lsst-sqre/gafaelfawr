@@ -13,16 +13,13 @@ if TYPE_CHECKING:
     import aioredis
     from aiohttp import web
     from aioredis.commands import Pipeline
-    from jwt_authorizer.config import Config
     from multidict import MultiDictProxy
     from typing import Any, Dict, List, Optional, Tuple, Union
 
 __all__ = [
     "AlterTokenForm",
     "TokenStore",
-    "all_tokens",
     "api_capabilities_token_form",
-    "revoke_token",
 ]
 
 logger = logging.getLogger(__name__)
@@ -64,62 +61,6 @@ class AlterTokenForm(Form):
 
     method_ = HiddenField("method_")
     csrf = HiddenField("_csrf")
-
-
-async def all_tokens(
-    request: web.Request, user_id: str
-) -> List[Dict[str, Any]]:
-    """Get all the decoded tokens for a given user ID.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    user_id : `str`
-        The user ID.
-
-    Returns
-    -------
-    tokens : List[Dict[`str`, Any]]
-        The decoded user tokens.
-    """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-    redis_client = request.config_dict["jwt_authorizer/redis"]
-
-    token_store = TokenStore(redis_client, config.uid_key)
-    return await token_store.get_tokens(user_id)
-
-
-async def revoke_token(
-    request: web.Request, user_id: str, handle: str
-) -> bool:
-    """Revoke a token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    user_id : `str`
-        User ID to whom the token was issued.
-    handle : `str`
-        Handle of the issued token.
-
-    Returns
-    -------
-    success : `bool`
-        True if the token was found and revoked, False otherwise.
-    """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-    redis_client = request.config_dict["jwt_authorizer/redis"]
-
-    token_store = TokenStore(redis_client, config.uid_key)
-    pipeline = redis_client.pipeline()
-    success = await token_store.revoke_token(user_id, handle, pipeline)
-    if success:
-        pipeline.delete(handle)
-        await pipeline.execute()
-        return True
-    return False
 
 
 class NoUserIdException(Exception):
