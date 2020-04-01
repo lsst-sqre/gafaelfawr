@@ -19,10 +19,11 @@ from jwt_authorizer.handlers.util import (
     forbidden,
     unauthorized,
 )
-from jwt_authorizer.session import Ticket
-from jwt_authorizer.tokens import issue_token
+from jwt_authorizer.issuer import TokenIssuer
+from jwt_authorizer.session import SessionStore, Ticket
 
 if TYPE_CHECKING:
+    from aioredis import Redis
     from jwt_authorizer.config import Config
     from logging import Logger
     from typing import Any, Optional, Mapping, Tuple
@@ -165,6 +166,7 @@ async def _check_reissue_token(
     We will reissue the token with an internal audience.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    redis: Redis = request.config_dict["jwt_authorizer/redis"]
 
     # Only reissue token if it's requested and if it's a different
     # issuer than this application uses to reissue a token
@@ -200,13 +202,17 @@ async def _check_reissue_token(
 
     if new_audience:
         assert ticket
-        encoded_token = await issue_token(
-            request,
-            decoded_token,
-            new_audience,
-            store_user_info=False,
-            oauth2_proxy_ticket=ticket,
+        ticket_prefix = config.session_store.ticket_prefix
+        session_store = SessionStore(
+            ticket_prefix, config.session_store.oauth2_proxy_secret, redis,
         )
+        issuer = TokenIssuer(
+            config.issuer, ticket_prefix, session_store, redis
+        )
+        encoded_token = await issuer.reissue_token(
+            decoded_token, ticket, internal=to_internal_audience
+        )
+
     return encoded_token, ticket.encode(cookie_name) if ticket else ""
 
 

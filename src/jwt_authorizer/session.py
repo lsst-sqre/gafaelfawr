@@ -228,14 +228,18 @@ class SessionStore:
 
         return self._decrypt_session(ticket.secret, encrypted_session)
 
-    def store_session(
-        self, ticket: Ticket, session: Session, pipeline: Pipeline
+    async def store_session(
+        self,
+        ticket: Ticket,
+        session: Session,
+        pipeline: Optional[Pipeline] = None,
     ) -> None:
-        """Store an oauth2_proxy session in the provided pipeline.
+        """Store an oauth2_proxy session.
 
-        To allow the caller to batch this with other Redis modifications, the
-        session will be stored but the pipeline will not be executed.  The
-        caller is responsible for executing the pipeline.
+        To allow the caller to batch this with other Redis modifications, if a
+        pipeline is provided, the session will be stored but the pipeline will
+        not be executed.  In this case, the caller is responsible for
+        executing the pipeline.
 
         Parameters
         ----------
@@ -243,15 +247,19 @@ class SessionStore:
             The ticket under which to store the session.
         session : `Session`
             The session to store.
-        pipeline : `aioredis.commands.Pipeline`
+        pipeline : `aioredis.commands.Pipeline`, optional
             The pipeline in which to store the session.
+
         """
         handle = ticket.as_handle(self.prefix)
         encrypted_session = self._encrypt_session(ticket.secret, session)
-        expires_delta = (
+        expire = (
             session.expires_on - datetime.now(timezone.utc)
         ).total_seconds()
-        pipeline.set(handle, encrypted_session, expire=int(expires_delta))
+        if pipeline:
+            pipeline.set(handle, encrypted_session, expire=int(expire))
+        else:
+            await self.redis.set(handle, encrypted_session, expire=int(expire))
 
     def _decrypt_session(
         self, secret: bytes, encrypted_session: bytes

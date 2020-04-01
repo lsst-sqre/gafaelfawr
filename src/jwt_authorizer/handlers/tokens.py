@@ -13,16 +13,18 @@ from jwt import PyJWTError
 from jwt_authorizer.authnz import authenticate
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.handlers.util import unauthorized
-from jwt_authorizer.session import Ticket
+from jwt_authorizer.issuer import TokenIssuer
+from jwt_authorizer.session import SessionStore
 from jwt_authorizer.tokens import (
     AlterTokenForm,
+    TokenStore,
     all_tokens,
     api_capabilities_token_form,
-    issue_token,
     revoke_token,
 )
 
 if TYPE_CHECKING:
+    from aioredis import Redis
     from jwt_authorizer.config import Config
     from logging import Logger
     from typing import Dict
@@ -139,6 +141,7 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         turns them into an `aiohttp.web.Response`.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    redis: Redis = request.config_dict["jwt_authorizer/redis"]
     logger: Logger = request["safir/logger"]
 
     try:
@@ -159,7 +162,6 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         if form[capability].data:
             new_capabilities.append(capability)
     scope = " ".join(new_capabilities)
-    audience = config.issuer.aud
     new_token: Dict[str, object] = {"scope": scope}
     email = decoded_token.get("email")
     user = decoded_token.get(config.username_key)
@@ -174,23 +176,22 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
     # FIXME: Copies groups. Useful for WebDAV, maybe not necessary
     #
     # new_token['isMemberOf'] = decoded_token['isMemberOf']
-    oauth2_proxy_ticket = Ticket()
-    await issue_token(
-        request,
-        new_token,
-        aud=audience,
-        store_user_info=True,
-        oauth2_proxy_ticket=oauth2_proxy_ticket,
+
+    ticket_prefix = config.session_store.ticket_prefix
+    session_store = SessionStore(
+        ticket_prefix, config.session_store.oauth2_proxy_secret, redis
     )
-    prefix = config.session_store.ticket_prefix
-    oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(prefix)
+    issuer = TokenIssuer(config.issuer, ticket_prefix, session_store, redis)
+    token_store = TokenStore(redis, config.uid_key)
+    ticket = await issuer.issue_user_token(new_token, token_store)
 
     message = (
         f"Your Newly Created Token. Keep these Secret!<br>\n"
-        f"Token: {oauth2_proxy_ticket_str} <br>"
+        f"Token: {ticket.encode(ticket_prefix)} <br>"
     )
     session = await get_session(request)
     session["message"] = message
+
     location = request.app.router["tokens"].url_for()
     raise web.HTTPFound(location)
 
