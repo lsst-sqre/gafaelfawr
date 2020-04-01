@@ -1,66 +1,20 @@
-"""Token parsing and storage."""
+"""Token storage."""
 
 from __future__ import annotations
 
 import json
-import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from wtforms import BooleanField, Form, HiddenField, SubmitField
-
 if TYPE_CHECKING:
-    import aioredis
-    from aiohttp import web
+    from aioredis import Redis
     from aioredis.commands import Pipeline
-    from multidict import MultiDictProxy
-    from typing import Any, Dict, List, Optional, Tuple, Union
+    from typing import Any, Dict, List, Tuple
 
 __all__ = [
-    "AlterTokenForm",
+    "NoUserIdException",
     "TokenStore",
-    "api_capabilities_token_form",
 ]
-
-logger = logging.getLogger(__name__)
-
-
-def api_capabilities_token_form(
-    capabilities: Dict[str, str],
-    data: Optional[MultiDictProxy[Union[str, bytes, web.FileField]]] = None,
-) -> Form:
-    """Dynamically generates a form with checkboxes for capabilities.
-
-    Parameters
-    ----------
-    capabilities : Dict[`str`, `str`]
-        A mapping of capability names to descriptions to include in the form.
-    data : MultiDictProxy[Union[`str`, `bytes`, FileField]], optional
-        The submitted form data, if any.
-
-    Returns
-    -------
-    form : `wtforms.Form`
-        The generated form.
-    """
-
-    class NewCapabilitiesToken(Form):
-        """Stub form, to which fields will be dynamically added."""
-
-        submit = SubmitField("Generate New Token")
-
-    NewCapabilitiesToken.capability_names = list(capabilities)
-    for capability, description in capabilities.items():
-        field = BooleanField(label=capability, description=description)
-        setattr(NewCapabilitiesToken, capability, field)
-    return NewCapabilitiesToken(data)
-
-
-class AlterTokenForm(Form):
-    """Form for altering an existing user token."""
-
-    method_ = HiddenField("method_")
-    csrf = HiddenField("_csrf")
 
 
 class NoUserIdException(Exception):
@@ -78,7 +32,7 @@ class TokenStore:
         The token field to use as the user ID for calculating a Redis key.
     """
 
-    def __init__(self, redis: aioredis.Redis, user_id_key: str) -> None:
+    def __init__(self, redis: Redis, user_id_key: str) -> None:
         self.redis = redis
         self.user_id_key = user_id_key
 
@@ -205,6 +159,11 @@ class TokenStore:
         -------
         key : `str`
             The Redis key under which those tokens will be stored.
+
+        Raises
+        ------
+        NoUserIdException
+            The token contents do not contain the expected user ID field.
         """
         if self.user_id_key not in token:
             raise NoUserIdException(f"Field {self.user_id_key} not found")

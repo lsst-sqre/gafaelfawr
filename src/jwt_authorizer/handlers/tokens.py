@@ -9,23 +9,21 @@ from aiohttp_csrf import csrf_protect, generate_token
 from aiohttp_jinja2 import template
 from aiohttp_session import get_session
 from jwt import PyJWTError
+from wtforms import BooleanField, Form, HiddenField, SubmitField
 
 from jwt_authorizer.authnz import authenticate
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.handlers.util import unauthorized
 from jwt_authorizer.issuer import TokenIssuer
 from jwt_authorizer.session import SessionStore
-from jwt_authorizer.tokens import (
-    AlterTokenForm,
-    TokenStore,
-    api_capabilities_token_form,
-)
+from jwt_authorizer.tokens import TokenStore
 
 if TYPE_CHECKING:
     from aioredis import Redis
     from jwt_authorizer.config import Config
     from logging import Logger
-    from typing import Dict
+    from multidict import MultiDictProxy
+    from typing import Dict, Optional, Union
 
 __all__ = [
     "get_token_by_handle",
@@ -34,6 +32,44 @@ __all__ = [
     "post_delete_token",
     "post_tokens_new",
 ]
+
+
+class AlterTokenForm(Form):
+    """Form for altering an existing user token."""
+
+    method_ = HiddenField("method_")
+    csrf = HiddenField("_csrf")
+
+
+def api_capabilities_token_form(
+    capabilities: Dict[str, str],
+    data: Optional[MultiDictProxy[Union[str, bytes, web.FileField]]] = None,
+) -> Form:
+    """Dynamically generates a form with checkboxes for capabilities.
+
+    Parameters
+    ----------
+    capabilities : Dict[`str`, `str`]
+        A mapping of capability names to descriptions to include in the form.
+    data : MultiDictProxy[Union[`str`, `bytes`, FileField]], optional
+        The submitted form data, if any.
+
+    Returns
+    -------
+    form : `wtforms.Form`
+        The generated form.
+    """
+
+    class NewCapabilitiesToken(Form):
+        """Stub form, to which fields will be dynamically added."""
+
+        submit = SubmitField("Generate New Token")
+
+    NewCapabilitiesToken.capability_names = list(capabilities)
+    for capability, description in capabilities.items():
+        field = BooleanField(label=capability, description=description)
+        setattr(NewCapabilitiesToken, capability, field)
+    return NewCapabilitiesToken(data)
 
 
 @routes.get("/auth/tokens", name="tokens")
