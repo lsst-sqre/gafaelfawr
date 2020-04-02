@@ -62,6 +62,17 @@ class Configuration:
     """
 
 
+@dataclass
+class GitHubConfig:
+    """Metadata for GitHub authentication."""
+
+    client_id: str
+    """Client ID of the GitHub App."""
+
+    client_secret: str
+    """Secret for the GitHub App."""
+
+
 @dataclass(eq=True, frozen=True)
 class Issuer:
     """Metadata about a token issuer for validation."""
@@ -146,6 +157,9 @@ class Config:
     uid_key: str
     """Token field from which to take the UID."""
 
+    github: Optional[GitHubConfig]
+    """Configuration for GitHub authentication."""
+
     group_mapping: Dict[str, List[str]]
     """Mapping of a scope to a list of groups receiving that scope."""
 
@@ -201,6 +215,18 @@ class Config:
         else:
             session_secret = cls._load_secret(settings["SESSION_SECRET_FILE"])
 
+        github = None
+        if settings.get("GITHUB.CLIENT_ID"):
+            if settings.get("GITHUB.CLIENT_SECRET"):
+                secret = settings["GITHUB.CLIENT_SECRET"]
+            else:
+                secret = cls._load_secret(
+                    settings["GITHUB.CLIENT_SECRET_FILE"]
+                )
+            github = GitHubConfig(
+                client_id=settings["GITHUB.CLIENT_ID"], client_secret=secret
+            )
+
         group_mapping = {}
         if settings.get("GROUP_MAPPING"):
             for key, value in settings["GROUP_MAPPING"].items():
@@ -251,6 +277,7 @@ class Config:
             set_user_headers=settings["SET_USER_HEADERS"],
             username_key=settings["JWT_USERNAME_KEY"],
             uid_key=settings["JWT_UID_KEY"],
+            github=github,
             issuer=issuer_config,
             group_mapping=group_mapping,
             session_secret=session_secret,

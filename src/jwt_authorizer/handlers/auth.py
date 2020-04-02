@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import jwt
 from aiohttp import web
+from aiohttp_session import get_session
 
 from jwt_authorizer.authnz import (
     authenticate,
@@ -105,7 +106,7 @@ async def get_auth(request: web.Request) -> web.Response:
     if "Authorization" not in request.headers:
         raise unauthorized(request, "No Authorization header")
 
-    encoded_token = _find_token(request)
+    encoded_token = await _find_token(request)
     if not encoded_token:
         raise unauthorized(request, "Unable to find token")
 
@@ -216,11 +217,12 @@ async def _check_reissue_token(
     return encoded_token, ticket.encode(cookie_name) if ticket else ""
 
 
-def _find_token(request: web.Request) -> Optional[str]:
+async def _find_token(request: web.Request) -> Optional[str]:
     """From the request, find the token we need.
 
     Normally it should be in the Authorization header of type ``Bearer``, but
-    it may be of type Basic for clients that don't support OAuth.
+    it may be of type Basic for clients that don't support OAuth.  It may also
+    be in the session for GitHub authentication.
 
     Parameters
     ----------
@@ -232,23 +234,37 @@ def _find_token(request: web.Request) -> Optional[str]:
     encoded_token : Optional[`str`]
         The token text, if found, otherwise None.
     """
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    redis: Redis = request.config_dict["jwt_authorizer/redis"]
     logger: Logger = request["safir/logger"]
 
+    # Prefer the authorization header.  If it's not set, try to retrieve the
+    # token from the session instead.
     header = request.headers.get("Authorization")
     if not header or " " not in header:
-        return None
-    auth_type, auth_blob = header.split(" ")
-    encoded_token = None
-    if auth_type.lower() == "bearer":
-        encoded_token = auth_blob
-    elif "x-forwarded-access-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-access-token"]
-    elif "x-forwarded-ticket-id-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-ticket-id-token"]
-    elif auth_type.lower() == "basic":
-        logger.debug("Using OAuth with Basic")
-        encoded_token = _find_token_in_basic_auth(auth_blob, logger)
-    return encoded_token
+        session = await get_session(request)
+        ticket_str = session.identity
+        if not ticket_str:
+            return None
+        ticket_prefix = config.session_store.ticket_prefix
+        key = config.session_store.oauth2_proxy_secret
+        ticket = Ticket.from_str(ticket_prefix, ticket_str)
+        session_store = SessionStore(ticket_prefix, key, redis)
+        ticket_session = await session_store.get_session(ticket)
+        return ticket_session.token if ticket_session else None
+    else:
+        auth_type, auth_blob = header.split(" ")
+        encoded_token = None
+        if auth_type.lower() == "bearer":
+            encoded_token = auth_blob
+        elif "x-forwarded-access-token" in request.headers:
+            encoded_token = request.headers["x-forwarded-access-token"]
+        elif "x-forwarded-ticket-id-token" in request.headers:
+            encoded_token = request.headers["x-forwarded-ticket-id-token"]
+        elif auth_type.lower() == "basic":
+            logger.debug("Using OAuth with Basic")
+            encoded_token = _find_token_in_basic_auth(auth_blob, logger)
+        return encoded_token
 
 
 def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[str]:

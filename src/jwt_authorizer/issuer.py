@@ -12,6 +12,7 @@ from jwt_authorizer.session import Session, Ticket
 
 if TYPE_CHECKING:
     from aioredis import Redis
+    from jwt_authorizer.providers import GitHubUserInfo
     from jwt_authorizer.session import SessionStore
     from jwt_authorizer.tokens import TokenStore
     from typing import Any, Dict, Mapping, Union
@@ -50,6 +51,42 @@ class TokenIssuer:
         self._session_store = session_store
         self._redis = redis
 
+    async def issue_token_from_github(
+        self, user_info: GitHubUserInfo
+    ) -> Ticket:
+        """Issue a user token based on GitHub user data.
+
+        Create a token, issue and store it, create and store an oauth2_proxy
+        session, and return the ticket for the new token.
+
+        Parameters
+        ----------
+        user_info : `jwt_authorizer.providers.GitHubUserInfo`
+            User information gathered from GitHub.
+
+        Returns
+        -------
+        ticket : `jwt_authorizer.session.Ticket`
+            The ticket corresponding to the new stored session.
+        """
+        ticket = Ticket()
+        groups = [
+            {"name": f"{t.organization}:{t.name}"} for t in user_info.teams
+        ]
+        payload = {
+            "uid": user_info.username,
+            "uidNumber": user_info.uid,
+            "email": user_info.email,
+            "isMemberOf": groups,
+        }
+        payload.update(self._default_attributes(ticket))
+
+        token = self._encode_token(payload)
+        session = self._session_for_token(token, payload)
+        await self._session_store.store_session(ticket, session)
+
+        return ticket
+
     async def issue_user_token(
         self, attributes: Mapping[str, Any], token_store: TokenStore
     ) -> Ticket:
@@ -77,13 +114,7 @@ class TokenIssuer:
         payload = dict(attributes)
         payload.update(self._default_attributes(ticket))
 
-        token = jwt.encode(
-            payload,
-            self._config.key,
-            algorithm=ALGORITHM,
-            headers={"kid": self._config.kid},
-        ).decode()
-
+        token = self._encode_token(payload)
         session = self._session_for_token(token, payload)
         pipeline = self._redis.pipeline()
         await self._session_store.store_session(ticket, session, pipeline)
@@ -133,13 +164,7 @@ class TokenIssuer:
                 actor_claim["act"] = token["act"]
             payload["act"] = actor_claim
 
-        reissued_token = jwt.encode(
-            payload,
-            self._config.key,
-            algorithm=ALGORITHM,
-            headers={"kid": self._config.kid},
-        ).decode()
-
+        reissued_token = self._encode_token(payload)
         session = self._session_for_token(reissued_token, payload)
         await self._session_store.store_session(ticket, session)
 
@@ -174,6 +199,26 @@ class TokenIssuer:
             "exp": int(expires.timestamp()),
             "jti": ticket.as_handle(self._ticket_prefix),
         }
+
+    def _encode_token(self, payload: Dict[str, Any]) -> str:
+        """Encode a token.
+
+        Parameters
+        ----------
+        payload : Dict[`str`, Any]
+            The contents of the token.
+
+        Returns
+        -------
+        token : `str`
+            The encoded token.
+        """
+        return jwt.encode(
+            payload,
+            self._config.key,
+            algorithm=ALGORITHM,
+            headers={"kid": self._config.kid},
+        ).decode()
 
     @staticmethod
     def _session_for_token(token: str, payload: Mapping[str, Any]) -> Session:
