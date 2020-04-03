@@ -20,10 +20,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
-    import aioredis
-    from aiohttp import web
+    from aioredis import Redis
     from aioredis.commands import Pipeline
-    from jwt_authorizer.config import Config
     from typing import Optional
 
 __all__ = [
@@ -202,7 +200,7 @@ class SessionStore:
         (encrypted) tokens.
     """
 
-    def __init__(self, prefix: str, key: bytes, redis: aioredis.Redis) -> None:
+    def __init__(self, prefix: str, key: bytes, redis: Redis) -> None:
         self.prefix = prefix
         self.key = key
         self.redis = redis
@@ -402,24 +400,3 @@ class SessionStore:
         date_str = re.sub("[.][0-9]+Z$", "Z", date_str)
         date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
         return date.replace(tzinfo=timezone.utc)
-
-
-def create_session_store(request: web.Request) -> SessionStore:
-    """Create a TokenStore from an app configuration.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    session_store : `SessionStore`
-        A TokenStore created from that Flask application configuration.
-    """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-    redis_client = request.config_dict["jwt_authorizer/redis"]
-
-    prefix = config.session_store.ticket_prefix
-    secret = config.session_store.oauth2_proxy_secret
-    return SessionStore(prefix, secret, redis_client)

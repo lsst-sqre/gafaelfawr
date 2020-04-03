@@ -20,6 +20,7 @@ from safir.middleware import bind_logger
 from structlog import get_logger
 
 from jwt_authorizer.config import Config, Configuration
+from jwt_authorizer.factory import ComponentFactory
 from jwt_authorizer.handlers import init_routes
 
 if TYPE_CHECKING:
@@ -85,6 +86,7 @@ async def create_app(
     app = Application()
     app["safir/config"] = configuration
     app["jwt_authorizer/config"] = config
+    app["jwt_authorizer/factory"] = ComponentFactory(config, redis_pool)
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
     setup_middleware(app, config)

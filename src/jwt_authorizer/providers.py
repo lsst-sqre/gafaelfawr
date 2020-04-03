@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from jwt_authorizer.config import GitHubConfig
+    from logging import Logger
     from typing import List
 
 
@@ -66,9 +67,12 @@ class GitHubProvider:
     _SCOPES = ["read:org", "read:user", "user:email"]
     """Access scopes to request from GitHub."""
 
-    def __init__(self, config: GitHubConfig, session: ClientSession) -> None:
+    def __init__(
+        self, config: GitHubConfig, session: ClientSession, logger: Logger
+    ) -> None:
         self._config = config
         self._session = session
+        self._logger = logger
 
     def get_redirect_url(self, state: str) -> str:
         """Get the login URL to which to redirect the user.

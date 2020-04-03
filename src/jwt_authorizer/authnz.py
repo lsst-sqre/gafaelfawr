@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 import jwt
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.verify import create_token_verifier
 
 if TYPE_CHECKING:
     from aiohttp import web
     from jwt_authorizer.config import Config
+    from jwt_authorizer.factory import ComponentFactory
     from logging import Logger
     from typing import Any, Dict, List, Mapping, Set, Tuple
 
@@ -50,6 +50,7 @@ async def authenticate(
         be verified.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     logger: Logger = request["safir/logger"]
 
     unverified_token = jwt.decode(
@@ -61,7 +62,7 @@ async def authenticate(
         logger.debug(f"Skipping Verification of the token with jti: {jti}")
         return unverified_token
 
-    token_verifier = create_token_verifier(request)
+    token_verifier = factory.create_token_verifier(request)
     return await token_verifier.verify(encoded_token)
 
 

@@ -16,9 +16,9 @@ from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.util import base64_to_number
 
 if TYPE_CHECKING:
-    from aiohttp import ClientResponse, ClientSession, web
+    from aiohttp import ClientResponse, ClientSession
     from logging import Logger
-    from jwt_authorizer.config import Config, Issuer
+    from jwt_authorizer.config import Issuer
     from typing import Any, Dict, List, Optional
 
 __all__ = [
@@ -27,7 +27,6 @@ __all__ = [
     "TokenVerifier",
     "UnknownAlgorithmException",
     "UnknownKeyIdException",
-    "create_token_verifier",
 ]
 
 
@@ -280,28 +279,3 @@ class TokenVerifier:
         return public_key.public_bytes(
             encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo,
         )
-
-
-def create_token_verifier(request: web.Request) -> TokenVerifier:
-    """Create a TokenVerifier from an app configuration.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    token_verifier : `TokenVerifier`
-        A TokenVerifier created from that Flask application configuration.
-    """
-    logger: Logger = request["safir/logger"]
-    config: Config = request.config_dict["jwt_authorizer/config"]
-
-    if "jwt_authorizer/key_client" in request.config_dict:
-        key_client = request.config_dict["jwt_authorizer/key_client"]
-    else:
-        http_session = request["safir/http_session"]
-        key_client = KeyClient(http_session)
-
-    return TokenVerifier(config.issuers, key_client, logger)

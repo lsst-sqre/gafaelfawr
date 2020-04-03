@@ -20,12 +20,11 @@ from jwt_authorizer.handlers.util import (
     forbidden,
     unauthorized,
 )
-from jwt_authorizer.issuer import TokenIssuer
-from jwt_authorizer.session import SessionStore, Ticket
+from jwt_authorizer.session import Ticket
 
 if TYPE_CHECKING:
-    from aioredis import Redis
     from jwt_authorizer.config import Config
+    from jwt_authorizer.factory import ComponentFactory
     from logging import Logger
     from typing import Any, Optional, Mapping, Tuple
 
@@ -167,7 +166,7 @@ async def _check_reissue_token(
     We will reissue the token with an internal audience.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
-    redis: Redis = request.config_dict["jwt_authorizer/redis"]
+    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
     # Only reissue token if it's requested and if it's a different
     # issuer than this application uses to reissue a token
@@ -203,13 +202,7 @@ async def _check_reissue_token(
 
     if new_audience:
         assert ticket
-        ticket_prefix = config.session_store.ticket_prefix
-        session_store = SessionStore(
-            ticket_prefix, config.session_store.oauth2_proxy_secret, redis,
-        )
-        issuer = TokenIssuer(
-            config.issuer, ticket_prefix, session_store, redis
-        )
+        issuer = factory.create_token_issuer()
         encoded_token = await issuer.reissue_token(
             decoded_token, ticket, internal=to_internal_audience
         )
@@ -235,7 +228,7 @@ async def _find_token(request: web.Request) -> Optional[str]:
         The token text, if found, otherwise None.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
-    redis: Redis = request.config_dict["jwt_authorizer/redis"]
+    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     logger: Logger = request["safir/logger"]
 
     # Prefer the authorization header.  If it's not set, try to retrieve the
@@ -247,9 +240,8 @@ async def _find_token(request: web.Request) -> Optional[str]:
         if not ticket_str:
             return None
         ticket_prefix = config.session_store.ticket_prefix
-        key = config.session_store.oauth2_proxy_secret
         ticket = Ticket.from_str(ticket_prefix, ticket_str)
-        session_store = SessionStore(ticket_prefix, key, redis)
+        session_store = factory.create_session_store()
         ticket_session = await session_store.get_session(ticket)
         return ticket_session.token if ticket_session else None
     else:
