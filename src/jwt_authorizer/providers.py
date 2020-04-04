@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 if TYPE_CHECKING:
-    from aiohttp import ClientSession
+    from aiohttp import ClientResponse, ClientSession
     from jwt_authorizer.config import GitHubConfig
     from logging import Logger
-    from typing import List
+    from typing import Dict, List
 
 
 @dataclass(frozen=True)
@@ -115,7 +115,7 @@ class GitHubProvider:
             "code": code,
             "state": state,
         }
-        r = await self._session.post(
+        r = await self.http_post(
             self._TOKEN_URL,
             data=data,
             headers={"Accept": "application/json"},
@@ -137,15 +137,15 @@ class GitHubProvider:
         info : `GitHubUserInfo`
             Information about that user.
         """
-        r = await self._session.get(
+        r = await self.http_get(
             self._USER_URL,
-            headers={"Authorization", f"token {token}"},
+            headers={"Authorization": f"token {token}"},
             raise_for_status=True,
         )
         user_data = await r.json()
-        r = await self._session.get(
+        r = await self.http_get(
             self._TEAMS_URL,
-            headers={"Authorization", f"token {token}"},
+            headers={"Authorization": f"token {token}"},
             raise_for_status=True,
         )
         teams_data = await r.json()
@@ -158,4 +158,53 @@ class GitHubProvider:
             uid=user_data["id"],
             email=user_data["email"],
             teams=teams,
+        )
+
+    async def http_get(
+        self, url: str, *, headers: Dict[str, str], raise_for_status: bool
+    ) -> ClientResponse:
+        """Retrieve a URL.
+
+        Intended for overriding by a test class to avoid actual HTTP requests.
+
+        Parameters
+        ----------
+        url : `str`
+            URL to retrieve.
+
+        Returns
+        -------
+        response : `aiohttp.ClientResponse`
+            The response.
+        """
+        return await self._session.get(
+            url, headers=headers, raise_for_status=raise_for_status
+        )
+
+    async def http_post(
+        self,
+        url: str,
+        *,
+        data: Dict[str, str],
+        headers: Dict[str, str],
+        raise_for_status: bool,
+    ) -> ClientResponse:
+        """POST to a URL.
+
+        Intended for overriding by a test class to avoid actual HTTP requests.
+
+        Parameters
+        ----------
+        url : `str`
+            URL to POST to.
+        **args : Any
+            Additional `aiohttp.ClientSession` parameters.
+
+        Returns
+        -------
+        response : `aiohttp.ClientResponse`
+            The response.
+        """
+        return await self._session.post(
+            url, data=data, headers=headers, raise_for_status=raise_for_status
         )

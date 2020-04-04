@@ -38,7 +38,7 @@ class ComponentFactory:
         """Create a GitHub authentication provider.
 
         Takes the incoming request to get access to the per-request logger and
-        HTTP client session.
+        the client HTTP session.
 
         Parameters
         ----------
@@ -51,7 +51,7 @@ class ComponentFactory:
             A new TokenVerifier.
         """
         logger: Logger = request["safir/logger"]
-        http_session: ClientSession = request["safir/http_session"]
+        http_session: ClientSession = request.config_dict["safir/http_session"]
 
         assert self._config.github
         return GitHubProvider(self._config.github, http_session, logger)
@@ -96,7 +96,7 @@ class ComponentFactory:
         """Create a TokenVerifier from a web request.
 
         Takes the incoming request to get access to the per-request logger and
-        HTTP client session.
+        the client HTTP session.
 
         Parameters
         ----------
@@ -109,7 +109,7 @@ class ComponentFactory:
             A new TokenVerifier.
         """
         logger: Logger = request["safir/logger"]
-        http_session: ClientSession = request["safir/http_session"]
+        http_session: ClientSession = request.config_dict["safir/http_session"]
 
         key_client = KeyClient(http_session)
         return TokenVerifier(self._config.issuers, key_client, logger)

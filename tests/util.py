@@ -8,7 +8,7 @@ import sys
 from asyncio import Future
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import jwt
 import mockaioredis
@@ -26,9 +26,11 @@ from cryptography.hazmat.primitives.serialization import (
 from jwt_authorizer.app import create_app
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.factory import ComponentFactory
+from jwt_authorizer.providers import GitHubProvider
 from jwt_authorizer.verify import KeyClient, TokenVerifier
 
 if TYPE_CHECKING:
+    from aiohttp import ClientSession
     from aioredis import Redis
     from jwt_authorizer.config import Config
     from logger import Logger
@@ -53,6 +55,73 @@ def number_to_base64(data: int) -> bytes:
     byte_length = bit_length // 8 + 1
     data_as_bytes = data.to_bytes(byte_length, byteorder="big", signed=False)
     return base64.urlsafe_b64encode(data_as_bytes)
+
+
+class FakeGitHubProvider(GitHubProvider):
+    """Override GitHubProvider to not make HTTP requests.
+
+    This returns synthesized responses from the GitHub APIs that we use for
+    authentication.
+    """
+
+    async def http_get(
+        self, url: str, *, headers: Dict[str, str], raise_for_status: bool
+    ) -> ClientResponse:
+        assert headers == {"Authorization": "token some-github-token"}
+        assert raise_for_status
+        if url == self._USER_URL:
+            user_data = {
+                "login": "githubuser",
+                "id": 123456,
+                "email": "githubuser@example.com",
+            }
+            return self._build_response(user_data)
+        elif url == self._TEAMS_URL:
+            teams_data = [
+                {"name": "A Team", "organization": {"login": "org"}},
+                {"name": "Other Team", "organization": {"login": "org"}},
+                {"name": "Team 3", "organization": {"login": "other-org"}},
+            ]
+            return self._build_response(teams_data)
+        else:
+            assert False, f"Unexpected URL {url}"
+
+    async def http_post(
+        self,
+        url: str,
+        *,
+        data: Dict[str, str],
+        headers: Dict[str, str],
+        raise_for_status: bool,
+    ) -> ClientResponse:
+        assert headers == {"Accept": "application/json"}
+        assert data == {
+            "client_id": self._config.client_id,
+            "client_secret": self._config.client_secret,
+            "code": "some-code",
+            "state": ANY,
+        }
+        assert raise_for_status
+        assert url == self._TOKEN_URL
+
+        response = {
+            "access_token": "some-github-token",
+            "scope": ",".join(self._SCOPES),
+            "token_type": "bearer",
+        }
+        return self._build_response(response)
+
+    def _build_response(self, result: Any) -> ClientResponse:
+        """Build a successful response."""
+        r = Mock(spec=ClientResponse)
+        if sys.version_info[0] == 3 and sys.version_info[1] < 8:
+            future: Future[Any] = Future()
+            future.set_result(result)
+            r.json.return_value = future
+        else:
+            r.json.return_value = result
+        r.status = 200
+        return r
 
 
 class FakeKeyClient(KeyClient):
@@ -124,6 +193,24 @@ class MockComponentFactory(ComponentFactory):
     ) -> None:
         super().__init__(config, redis)
         self._keypair = keypair
+
+    def create_github_provider(self, request: web.Request) -> GitHubProvider:
+        """Create a GitHubProvider with a mocked HTTP client.
+
+        Parameters
+        ----------
+        request : `aiohttp.web.Request`
+            The incoming request.
+
+        Returns
+        -------
+        token_verifier : `jwt_authorizer.providers.GitHubProvider`
+            A new GitHubProvider.
+        """
+        http_session: ClientSession = request.config_dict["safir/http_session"]
+        logger: Logger = request["safir/logger"]
+        assert self._config.github
+        return FakeGitHubProvider(self._config.github, http_session, logger)
 
     def create_token_verifier(self, request: web.Request) -> TokenVerifier:
         """Create a TokenVerifier with a mocked HTTP client.

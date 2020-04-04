@@ -70,7 +70,7 @@ async def get_login(request: web.Request) -> web.Response:
 
         ticket_prefix = config.session_store.ticket_prefix
         session = await new_session(request)
-        session.set_new_identity(ticket.encode(ticket_prefix))
+        session["ticket"] = ticket.encode(ticket_prefix)
 
         raise web.HTTPSeeOther(return_url)
     else:

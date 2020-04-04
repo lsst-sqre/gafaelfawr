@@ -89,8 +89,8 @@ async def create_app(
     app["jwt_authorizer/factory"] = ComponentFactory(config, redis_pool)
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
-    setup_middleware(app, config)
     app.cleanup_ctx.append(init_http_session)
+    setup_middleware(app, config)
     app.add_routes(init_routes())
 
     if key_client:

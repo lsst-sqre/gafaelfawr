@@ -75,7 +75,7 @@ class TokenIssuer:
         ]
         payload = {
             "uid": user_info.username,
-            "uidNumber": user_info.uid,
+            "uidNumber": str(user_info.uid),
             "email": user_info.email,
             "isMemberOf": groups,
         }
