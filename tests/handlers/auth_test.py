@@ -40,7 +40,7 @@ async def test_no_auth(aiohttp_client: TestClient) -> None:
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
     assert_www_authenticate_header_matches(
-        r.headers["WWW-Authenticate"], "Bearer", "No Authorization header"
+        r.headers["WWW-Authenticate"], "Bearer", "Unable to find token"
     )
 
     r = await client.get(

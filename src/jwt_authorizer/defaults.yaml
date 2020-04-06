@@ -14,7 +14,7 @@ testing:
   group_mapping:
     "exec:admin": ["admin"]
     "exec:test": ["test"]
-    "read:all": ["foo", "admin"]
+    "read:all": ["foo", "admin", "org:A Team"]
   known_capabilities:
     "exec:admin": "admin description"
     "exec:test": "test description"

@@ -102,9 +102,6 @@ async def get_auth(request: web.Request) -> web.Response:
     config: Config = request.config_dict["jwt_authorizer/config"]
     logger: Logger = request["safir/logger"]
 
-    if "Authorization" not in request.headers:
-        raise unauthorized(request, "No Authorization header")
-
     encoded_token = await _find_token(request)
     if not encoded_token:
         raise unauthorized(request, "Unable to find token")
@@ -236,7 +233,7 @@ async def _find_token(request: web.Request) -> Optional[str]:
     header = request.headers.get("Authorization")
     if not header or " " not in header:
         session = await get_session(request)
-        ticket_str = session.identity
+        ticket_str = session.get("ticket")
         if not ticket_str:
             return None
         ticket_prefix = config.session_store.ticket_prefix

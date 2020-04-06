@@ -49,6 +49,19 @@ async def test_login(aiohttp_client: TestClient) -> None:
     assert r.status == 303
     assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
 
+    # Check that the /auth route works and finds our token.
+    r = await client.get("/auth", params={"capability": "read:all"})
+    assert r.status == 200
+    assert r.headers["X-Auth-Request-Token-Capabilities"] == "read:all"
+    assert r.headers["X-Auth-Request-Capabilities-Accepted"] == "read:all"
+    assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
+    assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
+    assert r.headers["X-Auth-Request-User"] == "githubuser"
+    assert r.headers["X-Auth-Request-Uid"] == "123456"
+    expected_groups = "org:A Team,org:Other Team,other-org:Team 3"
+    assert r.headers["X-Auth-Request-Groups"] == expected_groups
+    assert r.headers["X-Auth-Request-Token"]
+
     # Now ask for the ticket in the encrypted session to be analyzed, and
     # verify the internals of the ticket from GitHub authentication.
     r = await client.get("/auth/analyze")
