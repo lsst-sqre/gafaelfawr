@@ -13,7 +13,7 @@ from wtforms import BooleanField, Form, HiddenField, SubmitField
 
 from jwt_authorizer.authnz import authenticate
 from jwt_authorizer.handlers import routes
-from jwt_authorizer.handlers.util import unauthorized
+from jwt_authorizer.handlers.util import get_token_from_request, unauthorized
 
 if TYPE_CHECKING:
     from aioredis import Redis
@@ -91,7 +91,9 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
     logger: Logger = request["safir/logger"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
@@ -138,7 +140,9 @@ async def get_tokens_new(request: web.Request) -> Dict[str, object]:
     logger: Logger = request["safir/logger"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
@@ -179,7 +183,9 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
     logger: Logger = request["safir/logger"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
@@ -249,7 +255,9 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
     handle = request.match_info["handle"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
@@ -287,7 +295,9 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
     handle = request.match_info["handle"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
