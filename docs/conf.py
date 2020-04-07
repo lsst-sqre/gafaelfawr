@@ -64,7 +64,6 @@ intersphinx_mapping = {
     "dynaconf": ("https://dynaconf.readthedocs.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
-    "redis": ("https://redis-py.readthedocs.io/en/latest/", None),
     "wtforms": ("https://wtforms.readthedocs.io/en/stable/", None),
 }
 
