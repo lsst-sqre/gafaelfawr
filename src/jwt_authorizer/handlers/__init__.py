@@ -22,5 +22,6 @@ def init_routes() -> aiohttp.web.RouteTableDef:
     import jwt_authorizer.handlers.index  # noqa: F401
     import jwt_authorizer.handlers.login  # noqa: F401
     import jwt_authorizer.handlers.tokens  # noqa: F401
+    import jwt_authorizer.handlers.well_known  # noqa: F401
 
     return routes

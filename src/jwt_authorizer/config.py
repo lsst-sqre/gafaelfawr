@@ -94,7 +94,7 @@ class IssuerConfig:
     iss: str
     """iss (issuer) field in issued tokens."""
 
-    kid: str
+    kid: bytes
     """kid (key ID) header field in issued tokens."""
 
     aud: str
@@ -198,7 +198,7 @@ class Config:
             The corresponding Config object.
         """
         if settings.get("OAUTH2_JWT.KEY"):
-            key = settings["OAUTH2_JWT.KEY"]
+            key = settings["OAUTH2_JWT.KEY"].encode()
         else:
             key = cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"])
         issuer_config = IssuerConfig(

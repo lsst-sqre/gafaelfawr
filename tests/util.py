@@ -27,6 +27,7 @@ from jwt_authorizer.app import create_app
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.factory import ComponentFactory
 from jwt_authorizer.providers import GitHubProvider
+from jwt_authorizer.util import number_to_base64
 from jwt_authorizer.verify import KeyClient, TokenVerifier
 
 if TYPE_CHECKING:
@@ -35,26 +36,6 @@ if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from logger import Logger
     from typing import Any, Dict, List, Optional
-
-
-def number_to_base64(data: int) -> bytes:
-    """Convert an integer to base64-encoded bytes in big endian order.
-
-    Parameters
-    ----------
-    data : `int`
-        Arbitrarily large number
-
-    Returns
-    -------
-    result : `bytes`
-        The equivalent URL-safe base64-encoded string corresponding to the
-        number in big endian order.
-    """
-    bit_length = data.bit_length()
-    byte_length = bit_length // 8 + 1
-    data_as_bytes = data.to_bytes(byte_length, byteorder="big", signed=False)
-    return base64.urlsafe_b64encode(data_as_bytes)
 
 
 class FakeGitHubProvider(GitHubProvider):
