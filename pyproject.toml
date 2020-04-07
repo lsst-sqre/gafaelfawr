@@ -54,10 +54,12 @@ description = Run the development server with auto-reload for code changes.
 usedevelop = true
 whitelist_externals =
     docker-compose
-commands =
+commands_pre =
     docker-compose up -d
     holdup -t 60 -T 5 -i 1 -n tcp://localhost:6379/
+commands =
     adev runserver --app-factory create_dev_app src/jwt_authorizer/app.py
+commands_post =
     docker-compose down
 """
 
