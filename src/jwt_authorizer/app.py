@@ -125,3 +125,13 @@ async def on_shutdown(app: Application) -> None:
     redis_client = app["jwt_authorizer/redis"]
     redis_client.close()
     await redis_client.wait_closed()
+
+
+async def create_dev_app() -> Application:
+    """Wrapper around create_app for development testing.
+
+    Invoked by the ``run`` test environment to create a local server for
+    testing.  Loads configuration from dev.yaml in the current directory.
+    """
+    config_path = os.path.join(os.getcwd(), "dev.yaml")
+    return await create_app(config_path)
