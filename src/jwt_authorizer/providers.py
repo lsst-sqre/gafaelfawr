@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     from typing import Dict, List
 
 
+class GitHubException(Exception):
+    """GitHub returned an error from an API call."""
+
+
 @dataclass(frozen=True)
 class GitHubTeam:
     """An individual GitHub team."""
@@ -108,6 +112,14 @@ class GitHubProvider:
         -------
         token : `str`
             Access token used for subsequent API calls.
+
+        Raises
+        ------
+        aiohttp.ClientResponseError
+            An error occurred trying to talk to GitHub.
+        GitHubException
+            GitHub responded with an error to the request for the access
+            token.
         """
         data = {
             "client_id": self._config.client_id,
@@ -122,6 +134,9 @@ class GitHubProvider:
             raise_for_status=True,
         )
         result = await r.json()
+        if "error" in result:
+            msg = result["error"] + ": " + result["error_description"]
+            raise GitHubException(msg)
         return result["access_token"]
 
     async def get_user_info(self, token: str) -> GitHubUserInfo:
@@ -136,6 +151,11 @@ class GitHubProvider:
         -------
         info : `GitHubUserInfo`
             Information about that user.
+
+        Raises
+        ------
+        aiohttp.ClientResponseError
+            An error occurred trying to talk to GitHub.
         """
         r = await self.http_get(
             self._USER_URL,

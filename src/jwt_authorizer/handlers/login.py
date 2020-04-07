@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import base64
+import logging
 import os
 from typing import TYPE_CHECKING
 
-from aiohttp import web
+from aiohttp import ClientResponseError, web
 from aiohttp_session import get_session, new_session
 
 from jwt_authorizer.handlers import routes
+from jwt_authorizer.providers import GitHubException
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
@@ -57,13 +59,21 @@ async def get_login(request: web.Request) -> web.Response:
         session = await get_session(request)
         code = request.query["code"]
         state = request.query["state"]
-        if request.query["state"] != session.pop("state"):
+        if request.query["state"] != session.pop("state", None):
             msg = "OAuth state mismatch"
             raise web.HTTPForbidden(reason=msg, text=msg)
         return_url = session.pop("rd")
 
-        github_token = await auth_provider.get_access_token(code, state)
-        user_info = await auth_provider.get_user_info(github_token)
+        try:
+            github_token = await auth_provider.get_access_token(code, state)
+            user_info = await auth_provider.get_user_info(github_token)
+        except GitHubException as e:
+            logging.error("GitHub authentication failed: %s", str(e))
+            raise web.HTTPInternalServerError(reason=str(e), text=str(e))
+        except ClientResponseError:
+            msg = "Cannot contact GitHub"
+            logging.exception(msg)
+            raise web.HTTPInternalServerError(reason=msg, text=msg)
 
         issuer = factory.create_token_issuer()
         ticket = await issuer.issue_token_from_github(user_info)
