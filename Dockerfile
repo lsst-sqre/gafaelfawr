@@ -46,9 +46,6 @@ RUN pip install --no-cache-dir .
 
 FROM base-image AS runtime-image
 
-# Add configuration
-ADD rootfs/ /
-
 # Create a non-root user
 RUN useradd --create-home appuser
 WORKDIR /home/appuser
