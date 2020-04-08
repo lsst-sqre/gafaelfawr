@@ -148,6 +148,7 @@ napoleon_use_rtype = True
 
 autosummary_generate = True
 
+automodapi_inheritance_diagram = False
 automodapi_toctreedirnm = "api"
 automodsumm_inherited_members = True
 
@@ -161,7 +162,7 @@ autoclass_content = "class"
 # Default flags for automodapi directives. Special members are dunder
 # methods.
 autodoc_default_options = {
-    "show-inheritance": True,
+    "show-inheritance": False,
     "special-members": True,
 }
 
