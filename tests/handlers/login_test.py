@@ -95,3 +95,47 @@ async def test_login(aiohttp_client: TestClient) -> None:
             "valid": True,
         },
     }
+
+
+async def test_login_redirect_header(aiohttp_client: TestClient) -> None:
+    """Test receiving the redirect header via X-Auth-Request-Redirect."""
+    config = {
+        "GITHUB.CLIENT_ID": "some-client-id",
+        "GITHUB.CLIENT_SECRET": "some-client-secret",
+    }
+    app = await create_test_app(None, None, **config)
+    client = await aiohttp_client(app)
+
+    # Simulate the initial authentication request.
+    r = await client.get(
+        "/login",
+        headers={
+            "X-Auth-Request-Redirect": "https://example.com/foo?a=bar&b=baz"
+        },
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    r = await client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
+
+
+async def test_login_no_destination(aiohttp_client: TestClient) -> None:
+    config = {
+        "GITHUB.CLIENT_ID": "some-client-id",
+        "GITHUB.CLIENT_SECRET": "some-client-secret",
+    }
+    app = await create_test_app(None, None, **config)
+    client = await aiohttp_client(app)
+
+    # Simulate the initial authentication request.
+    r = await client.get("/login", allow_redirects=False)
+    assert r.status == 400

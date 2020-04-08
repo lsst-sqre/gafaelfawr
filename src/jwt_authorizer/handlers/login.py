@@ -85,7 +85,12 @@ async def get_login(request: web.Request) -> web.Response:
         raise web.HTTPSeeOther(return_url)
     else:
         session = await new_session(request)
-        request_url = request.query["rd"]
+        request_url = request.query.get("rd")
+        if not request_url:
+            request_url = request.headers.get("X-Auth-Request-Redirect")
+        if not request_url:
+            msg = "No destination URL specified"
+            raise web.HTTPBadRequest(reason=msg, text=msg)
         state = base64.urlsafe_b64encode(os.urandom(16)).decode()
         session["rd"] = request_url
         session["state"] = state

@@ -122,8 +122,9 @@ The typical annotations for a web application used via a web browser are:
 
    annotations:
     kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/auth-request-redirect: $request_uri
     nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
-    nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?capability=<capability>"
 
 In both cases, replace ``<hostname>`` with the hostname of the ingress on which the JWT Authorizer routes are configured, and ``<capability>`` with the name of the scope that should be required in order to visit this site.
