@@ -14,6 +14,7 @@ Installation
 .. toctree::
    :maxdepth: 1
 
+   configuration
    changelog
 
 Development guide
