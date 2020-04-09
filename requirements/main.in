@@ -14,6 +14,7 @@ chardet
 
 aiohttp_csrf
 aiohttp_jinja2
+aiohttp_remotes
 aiohttp_session[secure]
 aioredis
 cachetools

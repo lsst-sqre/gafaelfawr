@@ -20,6 +20,7 @@ A new configuration key, ``session_secret`` is now required and is used to encry
 - Remove support for authorization plugins and always do authorization based on groups.
   None of the Rubin Observatory configurations were using this support, and it allows significant code simplification.
 - Allow GET requests to ``/analyze`` and return an analysis of the user's regular authentication token.
+- Trust ``X-Forwarded-For`` headers (primarily for logging purposes).
 - Remove some unused configuration options.
 - Add improved example configuration files in ``example``.
 - Significantly restructure the code to hopefully make the code more maintainable.

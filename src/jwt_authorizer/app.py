@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import aiohttp_csrf
 import aiohttp_jinja2
+import aiohttp_remotes
 import aiohttp_session
 import aioredis
 import jinja2
@@ -90,7 +91,7 @@ async def create_app(
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
     app.cleanup_ctx.append(init_http_session)
-    setup_middleware(app, config)
+    await setup_middleware(app, config)
     app.add_routes(init_routes())
 
     if key_client:
@@ -99,9 +100,13 @@ async def create_app(
     return app
 
 
-def setup_middleware(app: Application, config: Config) -> None:
+async def setup_middleware(app: Application, config: Config) -> None:
     """Add middleware to the application."""
     app.middlewares.append(bind_logger)
+
+    # Unconditionally trust X-Forwarded-For, since this application is desiged
+    # to run behind an nginx ingress.
+    await aiohttp_remotes.setup(app, aiohttp_remotes.XForwardedRelaxed())
 
     # Set up encrypted session storage via a cookie.
     session_storage = EncryptedCookieStorage(
