@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
 
+__all__ = ["get_login"]
+
 
 @routes.get("/login", name="login")
 async def get_login(request: web.Request) -> web.Response:

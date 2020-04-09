@@ -24,6 +24,8 @@ API reference
 
 .. automodapi:: jwt_authorizer.handlers.index
 
+.. automodapi:: jwt_authorizer.handlers.login
+
 .. automodapi:: jwt_authorizer.handlers.tokens
 
 .. automodapi:: jwt_authorizer.handlers.util
