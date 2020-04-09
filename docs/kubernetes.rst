@@ -149,6 +149,8 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     The scope claim that the client JWT must have.
     May be given multiple times.
     The interpretation of multiple values is determined by the ``satisfy`` parameter.
+    Scopes are determined by mapping the group membership provided by the authentication provider, using the ``group_mapping`` configuration directive.
+    See :ref:`settings` for more information.
 
 ``satisfy``
     May be set to ``any`` or ``all``.

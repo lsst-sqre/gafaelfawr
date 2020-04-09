@@ -70,9 +70,7 @@ class TokenIssuer:
             The ticket corresponding to the new stored session.
         """
         ticket = Ticket()
-        groups = [
-            {"name": f"{t.organization}:{t.name}"} for t in user_info.teams
-        ]
+        groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
         payload = {
             "uid": user_info.username,
             "uidNumber": str(user_info.uid),

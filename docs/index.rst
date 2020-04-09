@@ -20,6 +20,14 @@ Installation
    configuration
    changelog
 
+Architecture
+============
+
+.. toctree::
+   :maxdepth: 1
+
+   arch/issuer
+
 Development guide
 =================
 

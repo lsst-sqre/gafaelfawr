@@ -58,8 +58,8 @@ async def test_login(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
-    expected_groups = "org:A Team,org:Other Team,other-org:Team 3"
-    assert r.headers["X-Auth-Request-Groups"] == expected_groups
+    expected = "org-a-team,org-other-team,other-org-team-with-very--F279yg"
+    assert r.headers["X-Auth-Request-Groups"] == expected
     assert r.headers["X-Auth-Request-Token"]
 
     # Now ask for the ticket in the encrypted session to be analyzed, and
@@ -83,9 +83,9 @@ async def test_login(aiohttp_client: TestClient) -> None:
                 "exp": ANY,
                 "iat": ANY,
                 "isMemberOf": [
-                    {"name": "org:A Team"},
-                    {"name": "org:Other Team"},
-                    {"name": "other-org:Team 3"},
+                    {"name": "org-a-team", "id": 1000},
+                    {"name": "org-other-team", "id": 1001},
+                    {"name": "other-org-team-with-very--F279yg", "id": 1002},
                 ],
                 "iss": "https://test.example.com/",
                 "jti": ANY,

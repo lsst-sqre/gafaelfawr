@@ -13,6 +13,8 @@ When configuring JWT Authorizer to run in Kubernetes, consider defining your set
 
 See the `Dynaconf`_ documentation for more details, including how to override specific settings with environment variables.
 
+.. _settings:
+
 Settings
 ========
 
@@ -153,7 +155,7 @@ The description of that setting will specify whether there is a fixed set of chi
     Any scope claims constructed from the group membership will be added to a ``scope`` claim present in the JWT before checking if the user has an appropriate scope to be allowed access to the underlying route.
 
     If GitHub authentication is in use, a user's groups will be based on their GitHub team memberships.
-    Each team membership they have on GitHub (and release through the GitHub OAuth authentication) will correspond to a group named ``<org>:<team>`` where ``<org>`` is the identifier of the organization and ``<team>`` is the name of the team.
+    See :ref:`github-groups` for more information.
 
 ``known_capabilities`` (optional)
     A dict whose keys are known scope names and whose values are human-language descriptions of that scope.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
@@ -21,11 +23,23 @@ class GitHubException(Exception):
 class GitHubTeam:
     """An individual GitHub team."""
 
-    name: str
-    """The name of the team."""
+    slug: str
+    """The slug of the team, taken from the slug attribute on GitHub."""
 
     organization: str
-    """The organization of which the team is a part."""
+    """The organization (its login attribute) of which the team is a part."""
+
+    group_name: str
+    """A group name constructed from the slug and organization.
+
+    The default construction is the organization name (from the login field),
+    a dash, and the team slug.  If this is over 32 characters, it will be
+    truncated to 25 characters and the first six characters of a hash of the
+    full name will be appended for uniqueness.
+    """
+
+    gid: int
+    """The GitHub ID of the team, hopefully usable as a GID."""
 
 
 @dataclass(frozen=True)
@@ -169,10 +183,19 @@ class GitHubProvider:
             raise_for_status=True,
         )
         teams_data = await r.json()
-        teams = [
-            GitHubTeam(name=t["name"], organization=t["organization"]["login"])
-            for t in teams_data
-        ]
+        teams = []
+        for team in teams_data:
+            slug = team["slug"]
+            organization = team["organization"]["login"]
+            group_name = self._build_group_name(slug, organization)
+            teams.append(
+                GitHubTeam(
+                    slug=slug,
+                    organization=organization,
+                    group_name=group_name,
+                    gid=team["id"],
+                )
+            )
         return GitHubUserInfo(
             username=user_data["login"],
             uid=user_data["id"],
@@ -228,3 +251,33 @@ class GitHubProvider:
         return await self._session.post(
             url, data=data, headers=headers, raise_for_status=raise_for_status
         )
+
+    @staticmethod
+    def _build_group_name(team_slug: str, organization: str) -> str:
+        """Construct a group name from the team slug and organization name.
+
+        Parameters
+        ----------
+        team_slug : `str`
+            The slug attribute of the GitHub team.
+        organization : `str`
+            The name of the organization that owns the team.
+
+        Returns
+        -------
+        group_name : `str`
+            The name of the group.
+
+        Notes
+        -----
+        The default construction is the organization name (from the login
+        field), a dash, and the team slug.  If this is over 32 characters, it
+        will be truncated to 25 characters and the first six characters of a
+        hash of the full name will be appended for uniqueness.
+        """
+        group_name = f"{organization}-{team_slug}"
+        if len(group_name) > 32:
+            name_hash = hashlib.sha256(group_name.encode()).digest()
+            suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
+            group_name = group_name[:25] + "-" + suffix
+        return group_name

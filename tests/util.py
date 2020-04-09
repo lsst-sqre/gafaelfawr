@@ -59,9 +59,21 @@ class FakeGitHubProvider(GitHubProvider):
             return self._build_response(user_data)
         elif url == self._TEAMS_URL:
             teams_data = [
-                {"name": "A Team", "organization": {"login": "org"}},
-                {"name": "Other Team", "organization": {"login": "org"}},
-                {"name": "Team 3", "organization": {"login": "other-org"}},
+                {
+                    "slug": "a-team",
+                    "id": 1000,
+                    "organization": {"login": "org"},
+                },
+                {
+                    "slug": "other-team",
+                    "id": 1001,
+                    "organization": {"login": "org"},
+                },
+                {
+                    "slug": "team-with-very-long-name",
+                    "id": 1002,
+                    "organization": {"login": "other-org"},
+                },
             ]
             return self._build_response(teams_data)
         else:
