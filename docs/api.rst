@@ -30,6 +30,8 @@ API reference
 
 .. automodapi:: jwt_authorizer.handlers.util
 
+.. automodapi:: jwt_authorizer.handlers.well_known
+
 .. automodapi:: jwt_authorizer.session
 
 .. automodapi:: jwt_authorizer.tokens

@@ -214,6 +214,10 @@ class GitHubProvider:
         ----------
         url : `str`
             URL to retrieve.
+        headers : Dict[`str`, `str`]
+            Extra headers to send.
+        raise_for_status : `bool`
+            Whether to raise an exception for a status other than 200.
 
         Returns
         -------
@@ -240,8 +244,12 @@ class GitHubProvider:
         ----------
         url : `str`
             URL to POST to.
-        **args : Any
-            Additional `aiohttp.ClientSession` parameters.
+        data : Dict[`str`, `str`]
+            Form data to send in the POST.
+        headers : Dict[`str`, `str`]
+            Extra headers to send.
+        raise_for_status : `bool`
+            Whether to raise an exception for a status other than 200.
 
         Returns
         -------
