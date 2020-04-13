@@ -83,12 +83,12 @@ class KeyClient:
 
         r = await self.get_url(url)
         if r.status != 200:
-            msg = f"Cannot retrieve keys from {issuer.url}"
+            msg = f"Cannot retrieve keys from {url}"
             raise KeyClientException(msg)
 
         body = await r.json()
         if "keys" not in body:
-            msg = f"No keys property in JWKS metadata for {issuer.url}"
+            msg = f"No keys property in JWKS metadata for {url}"
             raise KeyClientException(msg)
 
         return body["keys"]
