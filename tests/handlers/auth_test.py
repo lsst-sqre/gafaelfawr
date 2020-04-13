@@ -133,6 +133,12 @@ async def test_authnz_token_success(aiohttp_client: TestClient) -> None:
 
 
 async def test_authnz_token_success_any(aiohttp_client: TestClient) -> None:
+    """Test satisfy=any as an /auth parameter.
+
+    Ask for either ``exec:admin`` or ``exec:test`` and pass in credentials
+    with only ``exec:test``.  Ensure they are accepted but also the headers
+    don't claim the client has ``exec:admin``.
+    """
     keypair = RSAKeyPair()
     token = create_test_token(keypair, ["test"])
     app = await create_test_app(keypair)
@@ -163,6 +169,7 @@ async def test_authnz_token_forwarded(aiohttp_client: TestClient) -> None:
     app = await create_test_app(keypair)
     client = await aiohttp_client(app)
 
+    # Check that the bogus basic auth parameter is ignored.
     r = await client.get(
         "/auth",
         params={"capability": "exec:admin"},
@@ -203,6 +210,18 @@ async def test_authnz_token_basic(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
     basic = f"x-oauth-basic:{token}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"capability": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
+    assert r.status == 200
+    assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
+
+    # We currently fall back on using the username if x-oauth-basic doesn't
+    # appear anywhere in the auth string.
+    basic = f"{token}:something-else".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",

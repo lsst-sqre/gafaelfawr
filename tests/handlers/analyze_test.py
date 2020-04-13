@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 
 async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
-    ticket = Ticket()
     keypair = RSAKeyPair()
     ticket = Ticket()
     ticket_handle = ticket.encode("oauth2_proxy")
@@ -49,7 +48,7 @@ async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
     assert r.status == 200
     token = r.headers["X-Auth-Request-Token"]
 
-    # Now pass that token to the /auth/analyze endpoint.
+    # Now pass that ticket to the /auth/analyze endpoint.
     r = await client.post(
         "/auth/analyze", data={"token": ticket.encode("oauth2_proxy")},
     )
