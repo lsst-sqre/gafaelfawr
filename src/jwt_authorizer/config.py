@@ -29,7 +29,13 @@ ALGORITHM = "RS256"
 
 @dataclass
 class Configuration:
-    """Configuration for jwt_authorizer."""
+    """Configuration for jwt_authorizer.
+
+    Notes
+    -----
+    This is a temporary hack to allow use of Safir to handle logging.  It
+    needs to be unified with the main Config struct.
+    """
 
     name: str = os.getenv("SAFIR_NAME", "jwt_authorizer")
     """The application's name, which doubles as the root HTTP endpoint path.
@@ -203,15 +209,15 @@ class Config:
             oauth2_proxy_secret=secret,
         )
 
-        if settings.get("KNOWN_CAPABILITIES"):
-            known_capabilities = settings["KNOWN_CAPABILITIES"]
-        else:
-            known_capabilities = {}
+        known_capabilities = settings.get("KNOWN_CAPABILITIES", {})
 
         issuers = {}
         if settings.get("ISSUERS"):
             for url, info in settings["ISSUERS"].items():
                 audience_setting = info["AUDIENCE"]
+                # Support either str or list values, turning both into tuples
+                # so that the Issuer class is hashable.  This will be cleaned
+                # up when configuration handling is redone.
                 if isinstance(audience_setting, str):
                     audience: Tuple[str, ...] = (audience_setting,)
                 else:
