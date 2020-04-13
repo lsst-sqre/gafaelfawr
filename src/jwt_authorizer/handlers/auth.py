@@ -241,21 +241,47 @@ def _find_token(request: web.Request) -> Optional[str]:
         encoded_token = request.headers["x-forwarded-ticket-id-token"]
     elif auth_type.lower() == "basic":
         logger.debug("Using OAuth with Basic")
-        # We fallback to user:token. We ignore the user.
-        # The Token is in the password
-        encoded_basic_auth = auth_blob
-        basic_auth = base64.b64decode(encoded_basic_auth)
-        user, password = basic_auth.strip().split(b":")
-        if password == b"x-oauth-basic":
-            # Recommended default
-            encoded_token = user.decode()
-        elif user == b"x-oauth-basic":
-            # ... Could be this though
-            encoded_token = password.decode()
-        else:
-            logger.debug("No protocol for token specified")
-            encoded_token = user.decode()
+        encoded_token = _find_token_in_basic_auth(auth_blob, logger)
     return encoded_token
+
+
+def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[str]:
+    """Find a token in the Basic Auth authentication string.
+
+    A Basic Auth authentication string is normally a username and a password
+    separated by colon and then base64-encoded.  Support a username of the
+    token and a password of ``x-oauth-basic``, or a username of
+    ``x-oauth-basic`` and a password of the token.  If neither is the case,
+    assume the token is the username.
+
+    Parameters
+    ----------
+    blob : `str`
+        The encoded portion of the ``Authorization`` header.
+    logger : `logging.Logger`
+        Logger to use to report issues.
+
+    Returns
+    -------
+    token : `str`, optional
+        The token if one was found, otherwise None.
+    """
+    try:
+        basic_auth = base64.b64decode(blob)
+        user, password = basic_auth.strip().split(b":")
+    except Exception as e:
+        logger.warning("Invalid Basic auth string: %s", str(e))
+        return None
+
+    if password == b"x-oauth-basic":
+        # Recommended default
+        return user.decode()
+    elif user == b"x-oauth-basic":
+        # ... Could be this though
+        return password.decode()
+    else:
+        logger.debug("No protocol for token specified, falling back on user")
+        return user.decode()
 
 
 async def success(
