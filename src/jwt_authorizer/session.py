@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import base64
 import json
-import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -18,21 +17,22 @@ from typing import TYPE_CHECKING
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from jwt_authorizer.util import add_padding, get_redis_client
+from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
-    import redis
-    from flask import Flask
-    from redis.client import Pipeline
+    import aioredis
+    from aiohttp import web
+    from aioredis.commands import Pipeline
+    from jwt_authorizer.config import Config
     from typing import Optional
 
 __all__ = [
+    "InvalidCookieException",
+    "InvalidTicketException",
     "Session",
     "SessionStore",
     "Ticket",
 ]
-
-logger = logging.getLogger(__name__)
 
 
 class InvalidCookieException(Exception):
@@ -197,17 +197,17 @@ class SessionStore:
         Prefix used for storing oauth2_proxy session state.
     key : `bytes`
         Encryption key for the individual components of the stored session.
-    redis : `redis.Redis`
+    redis : `aioredis.Redis`
         A Redis client configured to talk to the backend store that holds the
         (encrypted) tokens.
     """
 
-    def __init__(self, prefix: str, key: bytes, redis: redis.Redis) -> None:
+    def __init__(self, prefix: str, key: bytes, redis: aioredis.Redis) -> None:
         self.prefix = prefix
         self.key = key
         self.redis = redis
 
-    def get_session(self, ticket: Ticket) -> Optional[Session]:
+    async def get_session(self, ticket: Ticket) -> Optional[Session]:
         """Retrieve and decrypt the session for a ticket.
 
         Parameters
@@ -222,7 +222,7 @@ class SessionStore:
             ticket.
         """
         handle = ticket.as_handle(self.prefix)
-        encrypted_session = self.redis.get(handle)
+        encrypted_session = await self.redis.get(handle)
         if not encrypted_session:
             return None
 
@@ -231,7 +231,7 @@ class SessionStore:
     def store_session(
         self, ticket: Ticket, session: Session, pipeline: Pipeline
     ) -> None:
-        """Store an oauth2_proxy session in the provided Redis pipeline.
+        """Store an oauth2_proxy session in the provided pipeline.
 
         To allow the caller to batch this with other Redis modifications, the
         session will be stored but the pipeline will not be executed.  The
@@ -243,13 +243,15 @@ class SessionStore:
             The ticket under which to store the session.
         session : `Session`
             The session to store.
-        pipeline : `Pipeline`
+        pipeline : `aioredis.commands.Pipeline`
             The pipeline in which to store the session.
         """
         handle = ticket.as_handle(self.prefix)
         encrypted_session = self._encrypt_session(ticket.secret, session)
-        expires_delta = session.expires_on - datetime.now(timezone.utc)
-        pipeline.setex(handle, expires_delta, encrypted_session)
+        expires_delta = (
+            session.expires_on - datetime.now(timezone.utc)
+        ).total_seconds()
+        pipeline.set(handle, encrypted_session, expire=int(expires_delta))
 
     def _decrypt_session(
         self, secret: bytes, encrypted_session: bytes
@@ -394,21 +396,22 @@ class SessionStore:
         return date.replace(tzinfo=timezone.utc)
 
 
-def create_session_store(app: Flask) -> SessionStore:
-    """Create a TokenStore from a Flask app configuration.
+def create_session_store(request: web.Request) -> SessionStore:
+    """Create a TokenStore from an app configuration.
 
     Parameters
     ----------
-    app : `flask.Flask`
-        The Flask application.
+    request : `aiohttp.web.Request`
+        The incoming request.
 
     Returns
     -------
     session_store : `SessionStore`
         A TokenStore created from that Flask application configuration.
     """
-    redis_client = get_redis_client(app)
-    prefix = app.config["OAUTH2_STORE_SESSION"]["TICKET_PREFIX"]
-    secret_str = app.config["OAUTH2_STORE_SESSION"]["OAUTH2_PROXY_SECRET"]
-    secret = base64.urlsafe_b64decode(secret_str)
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    redis_client = request.config_dict["jwt_authorizer/redis"]
+
+    prefix = config.session_store.ticket_prefix
+    secret = config.session_store.oauth2_proxy_secret
     return SessionStore(prefix, secret, redis_client)

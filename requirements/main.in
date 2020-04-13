@@ -5,15 +5,25 @@
 # After editing, update requirements/main.txt by running:
 #     make update-deps
 
+# These three dependencies are for aiohttp.  We would prefer to depend on
+# aiohttp[speedups], but that pulls in brotlipy, and we were having
+# compilation difficulties with it.
+aiohttp
+aiodns
+chardet
+
+aiohttp_csrf
+aiohttp_jinja2
+aiohttp_session[secure]
+aioredis
 cachetools
+click
 cryptography
 dynaconf
-flask
-flask_wtf
 importlib_metadata; python_version < "3.8"
+jinja2
 PyJWT
 pyyaml
-redis
-requests
-uwsgi
+safir
+structlog
 wtforms

@@ -10,6 +10,7 @@ default:
   OAUTH2_JWT_EXP: 1440 # 1 day
 
 testing:
+  dynaconf_merge: True
   group_mapping:
     "exec:admin": ["admin"]
     "exec:test": ["test"]

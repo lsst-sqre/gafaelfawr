@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import base64
 
-import redis
-
-if TYPE_CHECKING:
-    from flask import Flask
-
-__all__ = ["add_padding", "get_redis_client"]
+__all__ = ["add_padding", "base64_to_number"]
 
 
 def add_padding(encoded: str) -> str:
@@ -32,19 +27,24 @@ def add_padding(encoded: str) -> str:
         return encoded
 
 
-def get_redis_client(app: Flask) -> redis.Redis:
-    """Get a Redis client from the Flask application pool.
-
-    Exists primarily to be overridden by tests.
+def base64_to_number(data: str) -> int:
+    """Convert base64-encoded bytes to an integer.
 
     Parameters
     ----------
-    app : `flask.Flask`
-        The Flask application.
+    data : `str`
+        Base64-encoded number, possibly without padding.
 
     Returns
     -------
-    redis_client : `redis.Redis`
-        A Redis client.
+    result : `int`
+        The result converted to a number.  Note that Python ints can be
+        arbitrarily large.
+
+    Notes
+    -----
+    Used for converting the modulus and exponent in a JWKS to integers in
+    preparation for turning them into a public key.
     """
-    return redis.Redis(connection_pool=app.redis_pool)
+    decoded = base64.urlsafe_b64decode(add_padding(data))
+    return int.from_bytes(decoded, byteorder="big")

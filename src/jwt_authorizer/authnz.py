@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 import jwt
-from flask import current_app, request
-from jwt import InvalidIssuerError
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.tokens import get_key_as_pem
+from jwt_authorizer.verify import create_token_verifier
 
 if TYPE_CHECKING:
+    from aiohttp import web
+    from jwt_authorizer.config import Config
+    from logging import Logger
     from typing import Any, Dict, List, Mapping, Set, Tuple
 
 __all__ = [
@@ -24,14 +24,15 @@ __all__ = [
 ]
 
 
-logger = logging.getLogger(__name__)
-
-
-def authenticate(encoded_token: str) -> Mapping[str, Any]:
+async def authenticate(
+    request: web.Request, encoded_token: str
+) -> Mapping[str, Any]:
     """Authenticate the token.
 
     Parameters
     ----------
+    request : `aiohttp.web.Request`
+        Incoming request.
     encoded_token : `str`
         The encoded token in string form.
 
@@ -48,30 +49,25 @@ def authenticate(encoded_token: str) -> Mapping[str, Any]:
         If the issuer of the token is not known and therefore the token cannot
         be verified.
     """
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
+
     unverified_token = jwt.decode(
         encoded_token, algorithms=ALGORITHM, verify=False
     )
-    unverified_headers = jwt.get_unverified_header(encoded_token)
     jti = unverified_token.get("jti", "UNKNOWN")
     logger.debug(f"Authenticating token with jti: {jti}")
-    if current_app.config["NO_VERIFY"] is True:
+    if config.no_verify:
         logger.debug(f"Skipping Verification of the token with jti: {jti}")
         return unverified_token
 
-    issuer_url = unverified_token["iss"]
-    if issuer_url not in current_app.config["ISSUERS"]:
-        raise InvalidIssuerError(f"Unauthorized Issuer: {issuer_url}")
-    issuer = current_app.config["ISSUERS"][issuer_url]
-
-    # This can throw an InvalidIssuerError as well,
-    # though it may be a server-side issue
-    key = get_key_as_pem(issuer_url, unverified_headers["kid"])
-    return jwt.decode(
-        encoded_token, key, algorithms=ALGORITHM, audience=issuer["audience"],
-    )
+    token_verifier = create_token_verifier(request)
+    return await token_verifier.verify(encoded_token)
 
 
-def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
+def authorize(
+    request: web.Request, verified_token: Mapping[str, Any]
+) -> Tuple[bool, str]:
     """Authorize the request based on the token.
 
     From the set of capabilities declared via the request, this method will
@@ -81,6 +77,8 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
 
     Parameters
     ----------
+    request : `aiohttp.web.Request`
+        Incoming request.
     verified_token : Mapping[`str`, Any]
         The decoded token used for authorization.
 
@@ -91,14 +89,17 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
     message : `str`
         Error message if access is not allowed.
     """
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
+
     jti = verified_token.get("jti", "UNKNOWN")
     logger.debug(f"Authorizing token with jti: {jti}")
-    if current_app.config["NO_AUTHORIZE"] is True:
+    if config.no_authorize:
         logger.debug(f"Skipping authorizatino for token with jti: {jti}")
         return True, ""
 
     # Authorization Checks
-    capabilities, satisfy = verify_authorization_strategy()
+    capabilities, satisfy = verify_authorization_strategy(request)
     successes = []
     messages = []
     for capability in capabilities:
@@ -108,7 +109,7 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
             jti,
         )
         (success, message) = group_membership_check_access(
-            capability, verified_token
+            capability, verified_token, config.group_mapping
         )
         successes.append(success)
         if message:
@@ -125,13 +126,15 @@ def authorize(verified_token: Mapping[str, Any]) -> Tuple[bool, str]:
 
 
 def group_membership_check_access(
-    capability: str, token: Mapping[str, Any]
+    capability: str,
+    token: Mapping[str, Any],
+    group_mapping: Mapping[str, List[str]],
 ) -> Tuple[bool, str]:
     """Check access based on group membership.
 
     Check that a user has access with the following operation to this service
     based on some form of group membership or explicitly, by checking
-    ``scope`` as in :py:func:`scope_check_access`.
+    ``scope``.
 
     Parameters
     ----------
@@ -139,6 +142,9 @@ def group_membership_check_access(
         The capability we are authorizing.
     verified_token : Mapping[`str`, Any]
         The verified token.
+    group_mapping : Mapping[`str`, List[`str`]]
+        Mapping of capabilities to lists of groups that provide that
+        capability.
 
     Returns
     -------
@@ -147,8 +153,7 @@ def group_membership_check_access(
     message : `str`
         Error message if access is not allowed.
     """
-    # Check `isMemberOf` first
-    group_capabilities = capabilities_from_groups(token)
+    group_capabilities = capabilities_from_groups(token, group_mapping)
     scope_capabilites = set(token.get("scope", "").split(" "))
     capabilities = group_capabilities.union(scope_capabilites)
     if capability in capabilities:
@@ -161,13 +166,18 @@ def group_membership_check_access(
     return False, msg
 
 
-def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
+def capabilities_from_groups(
+    token: Mapping[str, Any], group_mapping: Mapping[str, List[str]]
+) -> Set[str]:
     """Map group membership to capabilities.
 
     Parameters
     ----------
     verified_token : Mapping[`str`, Any]
         The verified token.
+    group_mapping : Mapping[`str`, List[`str`]]
+        Mapping of capabilities to lists of groups that provide that
+        capability.
 
     Returns
     -------
@@ -178,15 +188,22 @@ def capabilities_from_groups(token: Mapping[str, Any]) -> Set[str]:
     user_groups_list: List[Dict[str, str]] = token.get("isMemberOf", dict())
     user_groups_set = {group["name"] for group in user_groups_list}
     group_derived_capabilities = set()
-    for capability, group_list in current_app.config["GROUP_MAPPING"].items():
+    for capability, group_list in group_mapping.items():
         for group in set(group_list):
             if group in user_groups_set:
                 group_derived_capabilities.add(capability)
     return group_derived_capabilities
 
 
-def verify_authorization_strategy() -> Tuple[List[str], str]:
+def verify_authorization_strategy(
+    request: web.Request,
+) -> Tuple[List[str], str]:
     """Build the authorization strategy for the request.
+
+    Parameters
+    ----------
+    request : `aiohttp.web.Request`
+        Incoming request.
 
     Returns
     -------
@@ -198,8 +215,8 @@ def verify_authorization_strategy() -> Tuple[List[str], str]:
         must be present.
     """
     # Authorization Checks
-    capabilities = request.args.getlist("capability")
-    satisfy = request.args.get("satisfy") or "all"
+    capabilities = request.query.getall("capability")
+    satisfy = request.query.get("satisfy") or "all"
 
     # If no capability have been explicitly delineated in the URI,
     # get them from the request method. These shouldn't happen for

@@ -18,11 +18,11 @@ __all__ = ["analyze_ticket", "analyze_token"]
 
 if TYPE_CHECKING:
     from jwt_authorizer.session import Ticket, SessionStore
-    from jwt_authorizer.tokens import TokenVerifier
+    from jwt_authorizer.verify import TokenVerifier
     from typing import Any, Dict
 
 
-def analyze_ticket(
+async def analyze_ticket(
     ticket: Ticket,
     prefix: str,
     token_store: SessionStore,
@@ -38,7 +38,7 @@ def analyze_ticket(
         The prefix used for ticket handles.
     token_store : `jwt_authorizer.session.SessionStore`
         The backend store used to retrieve the session for the ticket.
-    token_verifier : `jwt_authorizer.tokens.TokenVerifier`
+    token_verifier : `jwt_authorizer.verify.TokenVerifier`
         Verifier to check the validity of any underlying token.
 
     Returns
@@ -55,7 +55,7 @@ def analyze_ticket(
         }
     }
 
-    session = token_store.get_session(ticket)
+    session = await token_store.get_session(ticket)
     if not session:
         output["errors"] = [f"No session found for {ticket.as_handle(prefix)}"]
         return output
@@ -67,19 +67,21 @@ def analyze_ticket(
         "expires_on": session.expires_on.strftime("%Y-%m-%d %H:%M:%S -0000"),
     }
 
-    output["token"] = analyze_token(session.token, token_verifier)
+    output["token"] = await analyze_token(session.token, token_verifier)
 
     return output
 
 
-def analyze_token(token: str, token_verifier: TokenVerifier) -> Dict[str, Any]:
+async def analyze_token(
+    token: str, token_verifier: TokenVerifier
+) -> Dict[str, Any]:
     """Analyze a token and return its expanded information.
 
     Parameters
     ----------
     token : `str`
         The encoded token to analyze.
-    token_verifier : `jwt_authorizer.tokens.TokenVerifier`
+    token_verifier : `jwt_authorizer.verify.TokenVerifier`
         Verifier to check the validity of the token.
 
     Returns
@@ -95,7 +97,7 @@ def analyze_token(token: str, token_verifier: TokenVerifier) -> Dict[str, Any]:
     }
 
     try:
-        token_verifier.verify(token)
+        await token_verifier.verify(token)
         output["valid"] = True
     except Exception as e:
         output["valid"] = False
