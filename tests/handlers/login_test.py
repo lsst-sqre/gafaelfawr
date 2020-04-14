@@ -139,3 +139,46 @@ async def test_login_no_destination(aiohttp_client: TestClient) -> None:
     # Simulate the initial authentication request.
     r = await client.get("/login", allow_redirects=False)
     assert r.status == 400
+
+
+async def test_cookie_auth_with_token(aiohttp_client: TestClient) -> None:
+    """Test that cookie auth takes precedence over an Authorization header.
+
+    JupyterHub sends an Authorization header in its internal requests with
+    type token.  We want to ensure that we prefer our session cookie, rather
+    than try to unsuccessfully parse that header.  Test this by completing a
+    login to get a valid session and then make a request with a bogus
+    Authorization header.
+    """
+    config = {
+        "GITHUB.CLIENT_ID": "some-client-id",
+        "GITHUB.CLIENT_SECRET": "some-client-secret",
+    }
+    app = await create_test_app(None, None, **config)
+    client = await aiohttp_client(app)
+
+    # Simulate the initial authentication request.
+    r = await client.get(
+        "/login",
+        headers={
+            "X-Auth-Request-Redirect": "https://example.com/foo?a=bar&b=baz"
+        },
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    r = await client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
+
+    # Now make a request to the /auth endpoint with a bogus token.
+    r = await client.get("/auth", params={"capability": "read:all"})
+    assert r.status == 200
+    assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"

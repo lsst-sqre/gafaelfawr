@@ -97,36 +97,38 @@ async def get_token_from_request(request: web.Request) -> Optional[str]:
         logger.debug("Found token in X-Auth-Request-Token")
         return request.headers["X-Auth-Request-Token"]
 
-    # Prefer the authorization header.  If it's not set, try to retrieve the
-    # token from the session instead.
-    header = request.headers.get("Authorization")
-    if not header or " " not in header:
-        logger.debug("No authorization header, loading session")
-        session = await get_session(request)
-        ticket_str = session.get("ticket")
-        if not ticket_str:
-            keys = ", ".join(session.keys())
-            logger.debug("No ticket key in session, only %s", keys)
-            return None
+    # Failing that, check the session.  Use it if available.  This needs to
+    # happen before checking the Authorization header, since JupyterHub will
+    # set its own Authorization header in its JavaScript calls but we won't be
+    # able to extract a token from that.
+    session = await get_session(request)
+    ticket_str = session.get("ticket")
+    if ticket_str:
         logger.debug("Found valid ticket in session")
         ticket_prefix = config.session_store.ticket_prefix
         ticket = Ticket.from_str(ticket_prefix, ticket_str)
         session_store = factory.create_session_store()
         ticket_session = await session_store.get_session(ticket)
-        return ticket_session.token if ticket_session else None
-    else:
-        auth_type, auth_blob = header.split(" ")
-        encoded_token = None
-        if auth_type.lower() == "bearer":
-            encoded_token = auth_blob
-        elif "x-forwarded-access-token" in request.headers:
-            encoded_token = request.headers["x-forwarded-access-token"]
-        elif "x-forwarded-ticket-id-token" in request.headers:
-            encoded_token = request.headers["x-forwarded-ticket-id-token"]
-        elif auth_type.lower() == "basic":
-            logger.debug("Using OAuth with Basic")
-            encoded_token = _find_token_in_basic_auth(auth_blob, logger)
-        return encoded_token
+        if ticket_session:
+            return ticket_session.token
+
+    # No session or existing authentication header.  Try the Authorization
+    # header.  This case is used by API calls from clients.
+    header = request.headers.get("Authorization")
+    if not header or " " not in header:
+        return None
+    auth_type, auth_blob = header.split(" ")
+    encoded_token = None
+    if auth_type.lower() == "bearer":
+        encoded_token = auth_blob
+    elif "x-forwarded-access-token" in request.headers:
+        encoded_token = request.headers["x-forwarded-access-token"]
+    elif "x-forwarded-ticket-id-token" in request.headers:
+        encoded_token = request.headers["x-forwarded-ticket-id-token"]
+    elif auth_type.lower() == "basic":
+        logger.debug("Using OAuth with Basic")
+        encoded_token = _find_token_in_basic_auth(auth_blob, logger)
+    return encoded_token
 
 
 def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[str]:
