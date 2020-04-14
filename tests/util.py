@@ -33,6 +33,7 @@ from jwt_authorizer.verify import KeyClient, TokenVerifier
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from aioredis import Redis
+    from cachetools import TTLCache
     from jwt_authorizer.config import Config
     from logger import Logger
     from typing import Any, Dict, List, Optional
@@ -219,8 +220,11 @@ class MockComponentFactory(ComponentFactory):
             A new TokenVerifier.
         """
         logger: Logger = request["safir/logger"]
+        key_cache: TTLCache = request.config_dict["jwt_authorizer/key_cache"]
         key_client = FakeKeyClient(self._keypair)
-        return TokenVerifier(self._config.issuers, key_client, logger)
+        return TokenVerifier(
+            self._config.issuers, key_client, key_cache, logger
+        )
 
 
 class RSAKeyPair:

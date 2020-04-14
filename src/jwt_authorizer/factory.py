@@ -13,6 +13,7 @@ from jwt_authorizer.verify import KeyClient, TokenVerifier
 if TYPE_CHECKING:
     from aiohttp import ClientSession, web
     from aioredis import Redis
+    from cachetools import TTLCache
     from jwt_authorizer.config import Config
     from logging import Logger
 
@@ -109,7 +110,10 @@ class ComponentFactory:
             A new TokenVerifier.
         """
         logger: Logger = request["safir/logger"]
+        key_cache: TTLCache = request.config_dict["jwt_authorizer/key_cache"]
         http_session: ClientSession = request.config_dict["safir/http_session"]
 
         key_client = KeyClient(http_session)
-        return TokenVerifier(self._config.issuers, key_client, logger)
+        return TokenVerifier(
+            self._config.issuers, key_client, key_cache, logger
+        )

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import jwt
-from cachetools import TTLCache
 from cachetools.keys import hashkey
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -17,6 +16,7 @@ from jwt_authorizer.util import base64_to_number
 
 if TYPE_CHECKING:
     from aiohttp import ClientResponse, ClientSession
+    from cachetools import TTLCache
     from logging import Logger
     from jwt_authorizer.config import Issuer
     from typing import Any, Dict, List, Optional
@@ -155,6 +155,8 @@ class TokenVerifier:
         Known token issuers and their metadata.
     client : `KeyClient`
         Class to use to retrieve issuer key sets.
+    cache : `cachetools.TTLCache`
+        Cache in which to store issuer keys.
     logger : `logging.Logger`
         Logger to use to report status information.
     """
@@ -163,12 +165,13 @@ class TokenVerifier:
         self,
         issuers: Dict[str, Issuer],
         key_client: KeyClient,
+        cache: TTLCache,
         logger: Logger,
     ) -> None:
         self._issuers = issuers
         self._key_client = key_client
         self._logger = logger
-        self._cache = TTLCache(maxsize=16, ttl=600)
+        self._cache = cache
 
     async def verify(self, token: str) -> Dict[str, Any]:
         """Verifies the provided JWT.

@@ -13,6 +13,7 @@ import aioredis
 import jinja2
 from aiohttp.web import Application
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
+from cachetools import TTLCache
 from dynaconf import LazySettings, Validator
 from safir.http import init_http_session
 from safir.logging import configure_logging
@@ -88,6 +89,7 @@ async def create_app(
     app["safir/config"] = configuration
     app["jwt_authorizer/config"] = config
     app["jwt_authorizer/factory"] = ComponentFactory(config, redis_pool)
+    app["jwt_authorizer/key_cache"] = TTLCache(maxsize=16, ttl=600)
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
     app.cleanup_ctx.append(init_http_session)
