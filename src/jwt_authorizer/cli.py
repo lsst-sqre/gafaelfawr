@@ -17,7 +17,6 @@ __all__ = ["main", "help", "run"]
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(message="%(version)s")
-@click.pass_context
 def main() -> None:
     """jwt_authorizer main.
 
