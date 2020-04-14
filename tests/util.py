@@ -55,7 +55,6 @@ class FakeGitHubProvider(GitHubProvider):
             user_data = {
                 "login": "githubuser",
                 "id": 123456,
-                "email": "githubuser@example.com",
             }
             return self._build_response(user_data)
         elif url == self._TEAMS_URL:
@@ -77,6 +76,13 @@ class FakeGitHubProvider(GitHubProvider):
                 },
             ]
             return self._build_response(teams_data)
+        elif url == self._EMAILS_URL:
+            emails_data = [
+                {"email": "otheremail@example.com", "primary": False},
+                {"email": "githubuser@example.com", "primary": True},
+            ]
+            return self._build_response(emails_data)
+
         else:
             assert False, f"Unexpected URL {url}"
 

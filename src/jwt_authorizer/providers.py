@@ -76,6 +76,9 @@ class GitHubProvider:
     _TOKEN_URL = "https://github.com/login/oauth/access_token"
     """URL from which to request an access token."""
 
+    _EMAILS_URL = "https://api.github.com/user/emails"
+    """URL from which to retrieve the user's email addresses."""
+
     _TEAMS_URL = "https://api.github.com/user/teams"
     """URL from which to request the teams for a user."""
 
@@ -170,6 +173,8 @@ class GitHubProvider:
         ------
         aiohttp.ClientResponseError
             An error occurred trying to talk to GitHub.
+        GitHubException
+            User has no primary email address.
         """
         r = await self.http_get(
             self._USER_URL,
@@ -183,6 +188,13 @@ class GitHubProvider:
             raise_for_status=True,
         )
         teams_data = await r.json()
+        r = await self.http_get(
+            self._EMAILS_URL,
+            headers={"Authorization": f"token {token}"},
+            raise_for_status=True,
+        )
+        emails_data = await r.json()
+
         teams = []
         for team in teams_data:
             slug = team["slug"]
@@ -196,10 +208,19 @@ class GitHubProvider:
                     gid=team["id"],
                 )
             )
+
+        email = None
+        for email_data in emails_data:
+            if email_data.get("primary"):
+                email = email_data["email"]
+        if not email:
+            msg = f"{user_data['login']} has no primary email address"
+            raise GitHubException(msg)
+
         return GitHubUserInfo(
             username=user_data["login"],
             uid=user_data["id"],
-            email=user_data["email"],
+            email=email,
             teams=teams,
         )
 
