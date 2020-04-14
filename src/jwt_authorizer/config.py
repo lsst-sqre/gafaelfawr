@@ -273,7 +273,7 @@ class Config:
         return cls(
             realm=settings["REALM"],
             authenticate_type=AuthenticateType[settings["WWW_AUTHENTICATE"]],
-            loglevel=settings.get("LOGLEVEL"),
+            loglevel=settings.get("LOGLEVEL", "INFO"),
             no_authorize=settings["NO_AUTHORIZE"],
             no_verify=settings["NO_VERIFY"],
             set_user_headers=settings["SET_USER_HEADERS"],

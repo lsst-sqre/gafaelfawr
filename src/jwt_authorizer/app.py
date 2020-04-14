@@ -58,13 +58,6 @@ async def create_app(
     application: `aiohttp.web.Application`
         The constructed application.
     """
-    configuration = Configuration()
-    configure_logging(
-        profile=configuration.profile,
-        log_level=configuration.log_level,
-        name=configuration.logger_name,
-    )
-
     defaults_file = os.path.join(os.path.dirname(__file__), "defaults.yaml")
     if settings_path:
         settings_files = f"{defaults_file},{settings_path}"
@@ -76,8 +69,15 @@ async def create_app(
         Validator("GROUP_MAPPING", is_type_of=dict),
     )
     settings.validators.validate()
-
     config = Config.from_dynaconf(settings)
+
+    configuration = Configuration()
+    configure_logging(
+        profile=configuration.profile,
+        log_level=config.loglevel,
+        name=configuration.logger_name,
+    )
+
     logger = get_logger(configuration.logger_name)
     config.log_settings(logger)
 
