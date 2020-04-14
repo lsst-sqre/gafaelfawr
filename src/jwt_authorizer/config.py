@@ -213,7 +213,9 @@ class Config:
         if settings.get("SESSION_SECRET"):
             session_secret = settings["SESSION_SECRET"]
         else:
-            session_secret = cls._load_secret(settings["SESSION_SECRET_FILE"])
+            session_secret = cls._load_secret(
+                settings["SESSION_SECRET_FILE"]
+            ).decode()
 
         github = None
         if settings.get("GITHUB.CLIENT_ID"):
