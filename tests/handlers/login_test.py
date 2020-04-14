@@ -89,6 +89,7 @@ async def test_login(aiohttp_client: TestClient) -> None:
                 ],
                 "iss": "https://test.example.com/",
                 "jti": ANY,
+                "name": "GitHub User",
                 "uid": "githubuser",
                 "uidNumber": "123456",
             },

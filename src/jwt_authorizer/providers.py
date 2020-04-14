@@ -46,6 +46,9 @@ class GitHubTeam:
 class GitHubUserInfo:
     """Metadata about a user gathered from the GitHub API."""
 
+    name: str
+    """Full name of the user."""
+
     username: str
     """The GitHub login of the user."""
 
@@ -218,6 +221,7 @@ class GitHubProvider:
             raise GitHubException(msg)
 
         return GitHubUserInfo(
+            name=user_data["name"],
             username=user_data["login"],
             uid=user_data["id"],
             email=email,

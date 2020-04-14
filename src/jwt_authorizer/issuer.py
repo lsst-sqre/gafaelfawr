@@ -72,6 +72,7 @@ class TokenIssuer:
         ticket = Ticket()
         groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
         payload = {
+            "name": user_info.name,
             "uid": user_info.username,
             "uidNumber": str(user_info.uid),
             "email": user_info.email,

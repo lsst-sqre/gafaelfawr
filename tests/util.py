@@ -55,6 +55,7 @@ class FakeGitHubProvider(GitHubProvider):
             user_data = {
                 "login": "githubuser",
                 "id": 123456,
+                "name": "GitHub User",
             }
             return self._build_response(user_data)
         elif url == self._TEAMS_URL:
