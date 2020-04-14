@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import logging
 import os
 from typing import TYPE_CHECKING
 
@@ -16,6 +15,7 @@ from jwt_authorizer.providers import GitHubException
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
+    from logging import Logger
 
 __all__ = ["get_login"]
 
@@ -50,6 +50,7 @@ async def get_login(request: web.Request) -> web.Response:
     authentication to be rejected if another request has overridden the state.
     The state should be reused for some interval.
     """
+    logger: Logger = request["safir/logger"]
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
@@ -70,11 +71,11 @@ async def get_login(request: web.Request) -> web.Response:
             github_token = await auth_provider.get_access_token(code, state)
             user_info = await auth_provider.get_user_info(github_token)
         except GitHubException as e:
-            logging.error("GitHub authentication failed: %s", str(e))
+            logger.error("GitHub authentication failed: %s", str(e))
             raise web.HTTPInternalServerError(reason=str(e), text=str(e))
         except ClientResponseError:
             msg = "Cannot contact GitHub"
-            logging.exception(msg)
+            logger.exception(msg)
             raise web.HTTPInternalServerError(reason=msg, text=msg)
 
         issuer = factory.create_token_issuer()
@@ -84,6 +85,11 @@ async def get_login(request: web.Request) -> web.Response:
         session = await new_session(request)
         session["ticket"] = ticket.encode(ticket_prefix)
 
+        logger.info(
+            "Successfully authenticated user %s (%d) via Github",
+            user_info.username,
+            user_info.uid,
+        )
         raise web.HTTPSeeOther(return_url)
     else:
         session = await new_session(request)
@@ -97,4 +103,5 @@ async def get_login(request: web.Request) -> web.Response:
         session["rd"] = request_url
         session["state"] = state
         redirect_url = auth_provider.get_redirect_url(state)
+        logger.info("Redirecting user to GitHub for authentication")
         raise web.HTTPSeeOther(redirect_url)

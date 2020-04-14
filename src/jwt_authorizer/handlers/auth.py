@@ -103,6 +103,7 @@ async def get_auth(request: web.Request) -> web.Response:
 
     encoded_token = await get_token_from_request(request)
     if not encoded_token:
+        logger.info("No token found, returning unauthorized")
         raise unauthorized(request, "Unable to find token")
 
     # Authentication
