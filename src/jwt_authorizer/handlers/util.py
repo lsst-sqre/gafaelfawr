@@ -94,16 +94,21 @@ async def get_token_from_request(request: web.Request) -> Optional[str]:
 
     # Prefer X-Auth-Request-Token if set.  This is set by the /auth endpoint.
     if request.headers.get("X-Auth-Request-Token"):
+        logger.debug("Found token in X-Auth-Request-Token")
         return request.headers["X-Auth-Request-Token"]
 
     # Prefer the authorization header.  If it's not set, try to retrieve the
     # token from the session instead.
     header = request.headers.get("Authorization")
     if not header or " " not in header:
+        logger.debug("No authorization header, loading session")
         session = await get_session(request)
         ticket_str = session.get("ticket")
         if not ticket_str:
+            keys = ", ".join(session.keys())
+            logger.debug("No ticket key in session, only %s", keys)
             return None
+        logger.debug("Found valid ticket in session")
         ticket_prefix = config.session_store.ticket_prefix
         ticket = Ticket.from_str(ticket_prefix, ticket_str)
         session_store = factory.create_session_store()
