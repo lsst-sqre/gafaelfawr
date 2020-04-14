@@ -224,7 +224,7 @@ class Config:
             else:
                 secret = cls._load_secret(
                     settings["GITHUB.CLIENT_SECRET_FILE"]
-                )
+                ).decode()
             github = GitHubConfig(
                 client_id=settings["GITHUB.CLIENT_ID"], client_secret=secret
             )
