@@ -1,4 +1,4 @@
-"""Authentication providers."""
+"""GitHub authentication provider."""
 
 from __future__ import annotations
 
@@ -8,14 +8,21 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
+from jwt_authorizer.providers.base import Provider, ProviderException
+
 if TYPE_CHECKING:
-    from aiohttp import ClientResponse, ClientSession
+    from aiohttp import ClientSession
     from jwt_authorizer.config import GitHubConfig
+    from jwt_authorizer.issuer import TokenIssuer
+    from jwt_authorizer.session import Ticket
+    from jwt_authorizer.tokens import VerifiedToken
     from logging import Logger
-    from typing import Dict, List
+    from typing import List
+
+__all__ = ["GitHubException", "GitHubProvider"]
 
 
-class GitHubException(Exception):
+class GitHubException(ProviderException):
     """GitHub returned an error from an API call."""
 
 
@@ -62,7 +69,7 @@ class GitHubUserInfo:
     """The teams of which the user is a member."""
 
 
-class GitHubProvider:
+class GitHubProvider(Provider):
     """Authenticate a user with GitHub.
 
     Parameters
@@ -71,6 +78,10 @@ class GitHubProvider:
         Configuration for the GitHub authentication provider.
     session : `aiohttp.ClientSession`
         Session to use to make HTTP requests.
+    issuer : `jwt_authorizer.issuer.TokenIssuer`
+        Issuer to use to generate new tokens.
+    logger : `logging.Logger`
+        Logger for any log messages.
     """
 
     _LOGIN_URL = "https://github.com/login/oauth/authorize"
@@ -92,11 +103,14 @@ class GitHubProvider:
     """Access scopes to request from GitHub."""
 
     def __init__(
-        self, config: GitHubConfig, session: ClientSession, logger: Logger
+        self,
+        config: GitHubConfig,
+        session: ClientSession,
+        issuer: TokenIssuer,
+        logger: Logger,
     ) -> None:
         self._config = config
-        self._session = session
-        self._logger = logger
+        super().__init__(session, issuer, logger)
 
     def get_redirect_url(self, state: str) -> str:
         """Get the login URL to which to redirect the user.
@@ -118,7 +132,79 @@ class GitHubProvider:
         }
         return f"{self._LOGIN_URL}?{urlencode(params)}"
 
-    async def get_access_token(self, code: str, state: str) -> str:
+    async def get_token(
+        self, code: str, state: str, ticket: Ticket
+    ) -> VerifiedToken:
+        """Given the code from a successful authentication, get a token.
+
+        Parameters
+        ----------
+        code : `str`
+            Code returned by a successful authentication.
+        state : `str`
+            The same random string used for the redirect URL.
+        ticket : `jwt_authorizer.session.Ticket`
+            The ticket to use for the new token.
+
+        Returns
+        -------
+        token : `jwt_authorizer.tokens.VerifiedToken`
+            Authentication token issued by the local issuer and including the
+            user information from the authentication provider.
+
+        Raises
+        ------
+        aiohttp.ClientResponseError
+            An HTTP client error occurred trying to talk to the authentication
+            provider.
+        GitHubException
+            GitHub responded with an error to a request.
+        """
+        github_token = await self._get_access_token(code, state)
+        user_info = await self._get_user_info(github_token)
+
+        groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
+        payload = {
+            "name": user_info.name,
+            "uid": user_info.username,
+            "uidNumber": str(user_info.uid),
+            "email": user_info.email,
+            "isMemberOf": groups,
+        }
+
+        return await self.issuer.issue_token(payload, ticket)
+
+    @staticmethod
+    def _build_group_name(team_slug: str, organization: str) -> str:
+        """Construct a group name from the team slug and organization name.
+
+        Parameters
+        ----------
+        team_slug : `str`
+            The slug attribute of the GitHub team.
+        organization : `str`
+            The name of the organization that owns the team.
+
+        Returns
+        -------
+        group_name : `str`
+            The name of the group.
+
+        Notes
+        -----
+        The default construction is the organization name (from the login
+        field), a dash, and the team slug.  If this is over 32 characters, it
+        will be truncated to 25 characters and the first six characters of a
+        hash of the full name will be appended for uniqueness.
+        """
+        group_name = f"{organization}-{team_slug}"
+        if len(group_name) > 32:
+            name_hash = hashlib.sha256(group_name.encode()).digest()
+            suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
+            group_name = group_name[:25] + "-" + suffix
+        return group_name
+
+    async def _get_access_token(self, code: str, state: str) -> str:
         """Given the code from a successful authentication, get a token.
 
         Parameters
@@ -159,7 +245,7 @@ class GitHubProvider:
             raise GitHubException(msg)
         return result["access_token"]
 
-    async def get_user_info(self, token: str) -> GitHubUserInfo:
+    async def _get_user_info(self, token: str) -> GitHubUserInfo:
         """Retrieve metadata about a user from GitHub.
 
         Parameters
@@ -227,90 +313,3 @@ class GitHubProvider:
             email=email,
             teams=teams,
         )
-
-    async def http_get(
-        self, url: str, *, headers: Dict[str, str], raise_for_status: bool
-    ) -> ClientResponse:
-        """Retrieve a URL.
-
-        Intended for overriding by a test class to avoid actual HTTP requests.
-
-        Parameters
-        ----------
-        url : `str`
-            URL to retrieve.
-        headers : Dict[`str`, `str`]
-            Extra headers to send.
-        raise_for_status : `bool`
-            Whether to raise an exception for a status other than 200.
-
-        Returns
-        -------
-        response : `aiohttp.ClientResponse`
-            The response.
-        """
-        return await self._session.get(
-            url, headers=headers, raise_for_status=raise_for_status
-        )
-
-    async def http_post(
-        self,
-        url: str,
-        *,
-        data: Dict[str, str],
-        headers: Dict[str, str],
-        raise_for_status: bool,
-    ) -> ClientResponse:
-        """POST to a URL.
-
-        Intended for overriding by a test class to avoid actual HTTP requests.
-
-        Parameters
-        ----------
-        url : `str`
-            URL to POST to.
-        data : Dict[`str`, `str`]
-            Form data to send in the POST.
-        headers : Dict[`str`, `str`]
-            Extra headers to send.
-        raise_for_status : `bool`
-            Whether to raise an exception for a status other than 200.
-
-        Returns
-        -------
-        response : `aiohttp.ClientResponse`
-            The response.
-        """
-        return await self._session.post(
-            url, data=data, headers=headers, raise_for_status=raise_for_status
-        )
-
-    @staticmethod
-    def _build_group_name(team_slug: str, organization: str) -> str:
-        """Construct a group name from the team slug and organization name.
-
-        Parameters
-        ----------
-        team_slug : `str`
-            The slug attribute of the GitHub team.
-        organization : `str`
-            The name of the organization that owns the team.
-
-        Returns
-        -------
-        group_name : `str`
-            The name of the group.
-
-        Notes
-        -----
-        The default construction is the organization name (from the login
-        field), a dash, and the team slug.  If this is over 32 characters, it
-        will be truncated to 25 characters and the first six characters of a
-        hash of the full name will be appended for uniqueness.
-        """
-        group_name = f"{organization}-{team_slug}"
-        if len(group_name) > 32:
-            name_hash = hashlib.sha256(group_name.encode()).digest()
-            suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
-            group_name = group_name[:25] + "-" + suffix
-        return group_name

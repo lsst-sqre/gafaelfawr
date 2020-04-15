@@ -3,22 +3,56 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aioredis import Redis
     from aioredis.commands import Pipeline
-    from typing import Any, Dict, List, Tuple
+    from typing import Any, Dict, List, Mapping, Tuple
 
 __all__ = [
     "NoUserIdException",
+    "Token",
     "TokenStore",
+    "VerifiedToken",
 ]
 
 
 class NoUserIdException(Exception):
     """The token does not contain the expected user ID field."""
+
+
+@dataclass(eq=True, frozen=True)
+class Token:
+    """Holds an encoded JWT.
+
+    Notes
+    -----
+    Tokens come in two forms: the encoded form, with is suitable for passing
+    in HTTP calls and includes a signature that may not be validated; and the
+    validated and decoded form, which is a dict of claims.
+
+    This class represents a token that we have in at least encoded form, but
+    which may not be validated.  The child class ValidatedToken represents the
+    other case.
+    """
+
+    encoded: str
+    """The encoded form of a JWT."""
+
+
+@dataclass(frozen=True)
+class VerifiedToken(Token):
+    """Holds a verified JWT.
+
+    Holds a JWT whose signature has been checked and whose claims have been
+    decoded.
+    """
+
+    claims: Mapping[str, Any]
+    """The claims contained in the token."""
 
 
 class TokenStore:
@@ -87,7 +121,9 @@ class TokenStore:
         else:
             return False
 
-    def store_token(self, payload: Dict[str, Any], pipeline: Pipeline) -> None:
+    def store_token(
+        self, payload: Mapping[str, Any], pipeline: Pipeline
+    ) -> None:
         """Store the data of a user-created token in a Redis pipeline.
 
         Used to populate the token list.  To allow the caller to batch this
@@ -97,7 +133,7 @@ class TokenStore:
 
         Parameters
         ----------
-        payload : Dict[`str`, Any]
+        payload : Mapping[`str`, Any]
             The contents of the token.
         pipeline : `aioredis.commands.Pipeline`
             The pipeline in which to store the session.
@@ -147,12 +183,12 @@ class TokenStore:
 
         return user_tokens, valid_serialized_user_tokens
 
-    def _redis_key_for_token(self, token: Dict[str, Any]) -> str:
+    def _redis_key_for_token(self, token: Mapping[str, Any]) -> str:
         """The Redis key for user-created tokens.
 
         Parameters
         ----------
-        token : Dict[`str`, Any]
+        token : Mapping[`str`, Any]
             The contents of a token identifying the user.
 
         Returns

@@ -12,6 +12,7 @@ import jwt
 
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.session import SessionStore, Ticket
+from jwt_authorizer.tokens import Token
 from tests.util import RSAKeyPair, create_test_app, create_test_token
 
 if TYPE_CHECKING:
@@ -302,7 +303,7 @@ async def test_reissue(aiohttp_client: TestClient) -> None:
     session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
     session = await session_store.get_session(ticket)
     assert session
-    assert session.token == new_token
+    assert session.token == Token(encoded=new_token)
     assert session.user == "some-user@example.com"
 
 
@@ -368,7 +369,7 @@ async def test_reissue_internal(aiohttp_client: TestClient) -> None:
     session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
     session = await session_store.get_session(ticket)
     assert session
-    assert session.token == new_token
+    assert session.token == Token(encoded=new_token)
     assert session.email == "some-user@example.com"
     assert session.user == "some-user@example.com"
     assert now - 5 <= session.created_at.timestamp() <= now + 5

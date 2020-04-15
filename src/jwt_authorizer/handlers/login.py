@@ -10,7 +10,8 @@ from aiohttp import ClientResponseError, web
 from aiohttp_session import get_session, new_session
 
 from jwt_authorizer.handlers import routes
-from jwt_authorizer.providers import GitHubException
+from jwt_authorizer.providers.base import ProviderException
+from jwt_authorizer.session import Ticket
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
@@ -67,28 +68,25 @@ async def get_login(request: web.Request) -> web.Response:
             raise web.HTTPForbidden(reason=msg, text=msg)
         return_url = session.pop("rd")
 
+        ticket = Ticket()
         try:
-            github_token = await auth_provider.get_access_token(code, state)
-            user_info = await auth_provider.get_user_info(github_token)
-        except GitHubException as e:
-            logger.error("GitHub authentication failed: %s", str(e))
+            token = await auth_provider.get_token(code, state, ticket)
+        except ProviderException as e:
+            logger.warning("Provider authentication failed: %s", str(e))
             raise web.HTTPInternalServerError(reason=str(e), text=str(e))
         except ClientResponseError:
-            msg = "Cannot contact GitHub"
+            msg = "Cannot contact authentication provider"
             logger.exception(msg)
             raise web.HTTPInternalServerError(reason=msg, text=msg)
-
-        issuer = factory.create_token_issuer()
-        ticket = await issuer.issue_token_from_github(user_info)
 
         ticket_prefix = config.session_store.ticket_prefix
         session = await new_session(request)
         session["ticket"] = ticket.encode(ticket_prefix)
 
         logger.info(
-            "Successfully authenticated user %s (%d) via Github",
-            user_info.username,
-            user_info.uid,
+            "Successfully authenticated user %s (%s) via Github",
+            token.claims[config.username_key],
+            token.claims[config.uid_key],
         )
         raise web.HTTPSeeOther(return_url)
     else:

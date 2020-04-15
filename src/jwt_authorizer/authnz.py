@@ -7,13 +7,15 @@ from typing import TYPE_CHECKING
 import jwt
 
 from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.tokens import VerifiedToken
 
 if TYPE_CHECKING:
     from aiohttp import web
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
+    from jwt_authorizer.tokens import Token
     from logging import Logger
-    from typing import Any, Dict, List, Mapping, Set, Tuple
+    from typing import Dict, List, Mapping, Set, Tuple
 
 __all__ = [
     "authenticate",
@@ -24,22 +26,20 @@ __all__ = [
 ]
 
 
-async def authenticate(
-    request: web.Request, encoded_token: str
-) -> Mapping[str, Any]:
+async def authenticate(request: web.Request, token: Token) -> VerifiedToken:
     """Authenticate the token.
 
     Parameters
     ----------
     request : `aiohttp.web.Request`
         Incoming request.
-    encoded_token : `str`
+    token : `jwt_authorizer.tokens.Token`
         The encoded token in string form.
 
     Returns
     -------
-    verified_token : Mapping[`str`, Any]
-        The contents of the verified token.
+    verified_token : `jwt_authorizer.tokens.VerifiedToken`
+        The verified token.
 
     Raises
     ------
@@ -53,22 +53,18 @@ async def authenticate(
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     logger: Logger = request["safir/logger"]
 
-    unverified_token = jwt.decode(
-        encoded_token, algorithms=ALGORITHM, verify=False
-    )
-    jti = unverified_token.get("jti", "UNKNOWN")
+    claims = jwt.decode(token.encoded, algorithms=ALGORITHM, verify=False)
+    jti = claims.get("jti", "UNKNOWN")
     logger.debug(f"Authenticating token with jti: {jti}")
     if config.no_verify:
         logger.debug(f"Skipping Verification of the token with jti: {jti}")
-        return unverified_token
+        return VerifiedToken(encoded=token.encoded, claims=claims)
 
     token_verifier = factory.create_token_verifier(request)
-    return await token_verifier.verify(encoded_token)
+    return await token_verifier.verify(token)
 
 
-def authorize(
-    request: web.Request, verified_token: Mapping[str, Any]
-) -> Tuple[bool, str]:
+def authorize(request: web.Request, token: VerifiedToken) -> Tuple[bool, str]:
     """Authorize the request based on the token.
 
     From the set of capabilities declared via the request, this method will
@@ -80,8 +76,8 @@ def authorize(
     ----------
     request : `aiohttp.web.Request`
         Incoming request.
-    verified_token : Mapping[`str`, Any]
-        The decoded token used for authorization.
+    token : `jwt_authorizer.tokens.VerifiedToken`
+        The verified token used for authorization.
 
     Returns
     -------
@@ -93,7 +89,7 @@ def authorize(
     config: Config = request.config_dict["jwt_authorizer/config"]
     logger: Logger = request["safir/logger"]
 
-    jti = verified_token.get("jti", "UNKNOWN")
+    jti = token.claims.get("jti", "UNKNOWN")
     logger.debug(f"Authorizing token with jti: {jti}")
     if config.no_authorize:
         logger.debug(f"Skipping authorizatino for token with jti: {jti}")
@@ -110,7 +106,7 @@ def authorize(
             jti,
         )
         (success, message) = group_membership_check_access(
-            capability, verified_token, config.group_mapping
+            capability, token, config.group_mapping
         )
         successes.append(success)
         if message:
@@ -128,7 +124,7 @@ def authorize(
 
 def group_membership_check_access(
     capability: str,
-    token: Mapping[str, Any],
+    token: VerifiedToken,
     group_mapping: Mapping[str, List[str]],
 ) -> Tuple[bool, str]:
     """Check access based on group membership.
@@ -141,7 +137,7 @@ def group_membership_check_access(
     ----------
     capability : `str`
         The capability we are authorizing.
-    verified_token : Mapping[`str`, Any]
+    verified_token : `jwt_authorizer.tokens.VerifiedToken`
         The verified token.
     group_mapping : Mapping[`str`, List[`str`]]
         Mapping of capabilities to lists of groups that provide that
@@ -155,7 +151,7 @@ def group_membership_check_access(
         Error message if access is not allowed.
     """
     group_capabilities = capabilities_from_groups(token, group_mapping)
-    scope_capabilites = set(token.get("scope", "").split(" "))
+    scope_capabilites = set(token.claims.get("scope", "").split(" "))
     capabilities = group_capabilities.union(scope_capabilites)
     if capability in capabilities:
         return True, "Success"
@@ -168,13 +164,13 @@ def group_membership_check_access(
 
 
 def capabilities_from_groups(
-    token: Mapping[str, Any], group_mapping: Mapping[str, List[str]]
+    token: VerifiedToken, group_mapping: Mapping[str, List[str]]
 ) -> Set[str]:
     """Map group membership to capabilities.
 
     Parameters
     ----------
-    verified_token : Mapping[`str`, Any]
+    token : `jwt_authorizer.tokens.VerifiedToken`
         The verified token.
     group_mapping : Mapping[`str`, List[`str`]]
         Mapping of capabilities to lists of groups that provide that
@@ -186,7 +182,7 @@ def capabilities_from_groups(
         The capabilities (as from a ``scope`` attribute) corresponding to the
         group membership described in that token.
     """
-    user_groups_list: List[Dict[str, str]] = token.get("isMemberOf", dict())
+    user_groups_list: List[Dict[str, str]] = token.claims.get("isMemberOf", [])
     user_groups_set = {group["name"] for group in user_groups_list}
     group_derived_capabilities = set()
     for capability, group_list in group_mapping.items():

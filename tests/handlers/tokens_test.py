@@ -12,7 +12,7 @@ import jwt
 
 from jwt_authorizer import config
 from jwt_authorizer.session import Session, SessionStore, Ticket
-from jwt_authorizer.tokens import TokenStore
+from jwt_authorizer.tokens import Token, TokenStore
 from tests.util import (
     RSAKeyPair,
     create_test_app,
@@ -101,7 +101,7 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
         headers={"kid": "some-kid"},
     ).decode()
     session = Session(
-        token=scoped_token,
+        token=Token(encoded=scoped_token),
         email="some-user@example.com",
         user="some-user@example.com",
         created_at=datetime.now(timezone.utc),
@@ -246,7 +246,7 @@ async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
     assert int(session.expires_on.timestamp()) == tokens[0]["exp"]
 
     decoded_token = jwt.decode(
-        session.token,
+        session.token.encoded,
         keypair.public_key_as_pem(),
         algorithms=config.ALGORITHM,
         audience="https://example.com/",

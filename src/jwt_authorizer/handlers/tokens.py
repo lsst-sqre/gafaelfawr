@@ -94,7 +94,7 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
         encoded_token = await get_token_from_request(request)
         if not encoded_token:
             raise unauthorized(request, "Unable to find token")
-        decoded_token = await authenticate(request, encoded_token)
+        token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
@@ -104,7 +104,7 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
     session["csrf"] = await generate_token(request)
 
     token_store = factory.create_token_store()
-    user_id = decoded_token[config.uid_key]
+    user_id = token.claims[config.uid_key]
     user_tokens = await token_store.get_tokens(user_id)
     forms = {}
     for user_token in user_tokens:
@@ -186,7 +186,7 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         encoded_token = await get_token_from_request(request)
         if not encoded_token:
             raise unauthorized(request, "Unable to find token")
-        decoded_token = await authenticate(request, encoded_token)
+        token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
@@ -203,9 +203,9 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
             new_capabilities.append(capability)
     scope = " ".join(new_capabilities)
     new_token: Dict[str, object] = {"scope": scope}
-    email = decoded_token.get("email")
-    user = decoded_token.get(config.username_key)
-    uid = decoded_token.get(config.uid_key)
+    email = token.claims.get("email")
+    user = token.claims.get(config.username_key)
+    uid = token.claims.get(config.uid_key)
     if email:
         new_token["email"] = email
     if user:
@@ -258,13 +258,13 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
         encoded_token = await get_token_from_request(request)
         if not encoded_token:
             raise unauthorized(request, "Unable to find token")
-        decoded_token = await authenticate(request, encoded_token)
+        token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
     token_store = factory.create_token_store()
-    user_id = decoded_token[config.uid_key]
+    user_id = token.claims[config.uid_key]
     user_tokens = {t["jti"]: t for t in await token_store.get_tokens(user_id)}
     user_token = user_tokens[handle]
 
@@ -298,13 +298,13 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
         encoded_token = await get_token_from_request(request)
         if not encoded_token:
             raise unauthorized(request, "Unable to find token")
-        decoded_token = await authenticate(request, encoded_token)
+        token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
     token_store = factory.create_token_store()
-    user_id = decoded_token[config.uid_key]
+    user_id = token.claims[config.uid_key]
     user_tokens = {t["jti"]: t for t in await token_store.get_tokens(user_id)}
     user_token = user_tokens[handle]
 

@@ -15,6 +15,8 @@ API reference
 
 .. automodapi:: jwt_authorizer.config
 
+.. automodapi:: jwt_authorizer.issuer
+
 .. automodapi:: jwt_authorizer.handlers
    :include-all-objects:
 
@@ -31,6 +33,10 @@ API reference
 .. automodapi:: jwt_authorizer.handlers.util
 
 .. automodapi:: jwt_authorizer.handlers.well_known
+
+.. automodapi:: jwt_authorizer.providers.base
+
+.. automodapi:: jwt_authorizer.providers.github
 
 .. automodapi:: jwt_authorizer.session
 

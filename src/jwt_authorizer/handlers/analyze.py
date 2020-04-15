@@ -10,6 +10,7 @@ from aiohttp_session import get_session
 from jwt_authorizer.analyze import analyze_ticket, analyze_token
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.session import InvalidTicketException, Ticket
+from jwt_authorizer.tokens import Token
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
@@ -75,7 +76,8 @@ async def post_analyze(request: web.Request) -> web.Response:
         token_store = factory.create_session_store()
         result = await analyze_ticket(ticket, prefix, token_store, verifier)
     except InvalidTicketException:
-        analysis = await analyze_token(ticket_or_token, verifier)
+        token = Token(encoded=ticket_or_token)
+        analysis = await analyze_token(token, verifier)
         result = {"token": analysis}
 
     return web.json_response(result)

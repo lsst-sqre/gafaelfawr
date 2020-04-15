@@ -26,7 +26,7 @@ from cryptography.hazmat.primitives.serialization import (
 from jwt_authorizer.app import create_app
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.factory import ComponentFactory
-from jwt_authorizer.providers import GitHubProvider
+from jwt_authorizer.providers.github import GitHubProvider
 from jwt_authorizer.util import number_to_base64
 from jwt_authorizer.verify import KeyClient, TokenVerifier
 
@@ -211,7 +211,10 @@ class MockComponentFactory(ComponentFactory):
         http_session: ClientSession = request.config_dict["safir/http_session"]
         logger: Logger = request["safir/logger"]
         assert self._config.github
-        return FakeGitHubProvider(self._config.github, http_session, logger)
+        issuer = self.create_token_issuer()
+        return FakeGitHubProvider(
+            self._config.github, http_session, issuer, logger
+        )
 
     def create_token_verifier(self, request: web.Request) -> TokenVerifier:
         """Create a TokenVerifier with a mocked HTTP client.

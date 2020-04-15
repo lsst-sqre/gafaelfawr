@@ -7,7 +7,7 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.providers import GitHubProvider
+from jwt_authorizer.providers.github import GitHubProvider
 from tests.util import create_test_app
 
 if TYPE_CHECKING:

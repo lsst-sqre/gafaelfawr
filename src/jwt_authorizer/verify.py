@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.tokens import VerifiedToken
 from jwt_authorizer.util import base64_to_number
 
 if TYPE_CHECKING:
@@ -19,7 +20,8 @@ if TYPE_CHECKING:
     from cachetools import TTLCache
     from logging import Logger
     from jwt_authorizer.config import Issuer
-    from typing import Any, Dict, List, Optional
+    from jwt_authorizer.tokens import Token
+    from typing import Dict, List, Optional
 
 __all__ = [
     "KeyClient",
@@ -173,17 +175,17 @@ class TokenVerifier:
         self._logger = logger
         self._cache = cache
 
-    async def verify(self, token: str) -> Dict[str, Any]:
+    async def verify(self, token: Token) -> VerifiedToken:
         """Verifies the provided JWT.
 
         Parameters
         ----------
-        token : `str`
+        token : `jwt_authorizer.tokens.Token`
             JWT to verify.
 
         Returns
         -------
-        verified_token: Dict[`str`, Any]
+        verified_token : `jwt_authorizer.tokens.VerifiedToken`
             The verified token contents.
 
         Raises
@@ -194,9 +196,9 @@ class TokenVerifier:
         Exception
             Some other verification failure.
         """
-        unverified_header = jwt.get_unverified_header(token)
+        unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
-            token, algorithms=ALGORITHM, verify=False
+            token.encoded, algorithms=ALGORITHM, verify=False
         )
         issuer_url = unverified_token["iss"]
         if issuer_url not in self._issuers:
@@ -204,9 +206,11 @@ class TokenVerifier:
         issuer = self._issuers[issuer_url]
 
         key = await self._get_key_as_pem(issuer, unverified_header["kid"])
-        return jwt.decode(
-            token, key, algorithms=ALGORITHM, audience=issuer.audience
+        payload = jwt.decode(
+            token.encoded, key, algorithms=ALGORITHM, audience=issuer.audience
         )
+
+        return VerifiedToken(encoded=token.encoded, claims=payload)
 
     async def _get_key_as_pem(self, issuer: Issuer, key_id: str) -> bytes:
         """Get the key for an issuer.

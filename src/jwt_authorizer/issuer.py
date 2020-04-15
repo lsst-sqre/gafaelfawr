@@ -9,10 +9,10 @@ import jwt
 
 from jwt_authorizer.config import ALGORITHM, IssuerConfig
 from jwt_authorizer.session import Session, Ticket
+from jwt_authorizer.tokens import VerifiedToken
 
 if TYPE_CHECKING:
     from aioredis import Redis
-    from jwt_authorizer.providers import GitHubUserInfo
     from jwt_authorizer.session import SessionStore
     from jwt_authorizer.tokens import TokenStore
     from typing import Any, Dict, Mapping, Union
@@ -51,40 +51,32 @@ class TokenIssuer:
         self._session_store = session_store
         self._redis = redis
 
-    async def issue_token_from_github(
-        self, user_info: GitHubUserInfo
-    ) -> Ticket:
-        """Issue a user token based on GitHub user data.
+    async def issue_token(
+        self, claims: Mapping[str, Any], ticket: Ticket
+    ) -> VerifiedToken:
+        """Issue a token containing the provided claims.
 
-        Create a token, issue and store it, create and store an oauth2_proxy
-        session, and return the ticket for the new token.
+        Create a token, store it in the session store under the provided
+        ticket, and then return the new token.
 
         Parameters
         ----------
-        user_info : `jwt_authorizer.providers.GitHubUserInfo`
-            User information gathered from GitHub.
+        claims : Mapping[`str`, Any]
+            Claims to include in the token.
 
         Returns
         -------
-        ticket : `jwt_authorizer.session.Ticket`
-            The ticket corresponding to the new stored session.
+        ticket : `jwt_authorizer.tokens.VerifiedToken`
+            The newly-issued token.
         """
-        ticket = Ticket()
-        groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
-        payload = {
-            "name": user_info.name,
-            "uid": user_info.username,
-            "uidNumber": str(user_info.uid),
-            "email": user_info.email,
-            "isMemberOf": groups,
-        }
+        payload = dict(claims)
         payload.update(self._default_attributes(ticket))
 
         token = self._encode_token(payload)
-        session = self._session_for_token(token, payload)
+        session = self._session_for_token(token)
         await self._session_store.store_session(ticket, session)
 
-        return ticket
+        return token
 
     async def issue_user_token(
         self, attributes: Mapping[str, Any], token_store: TokenStore
@@ -99,7 +91,7 @@ class TokenIssuer:
         ----------
         attributes : Mapping[`str`, Any]
             Attributes for the new token.
-        token_store : `jwt_authorizer.session.TokenStore`
+        token_store : `jwt_authorizer.tokens.TokenStore`
             Store for the list of user tokens.
         session_store : `jwt_authorizer.session.SessionStore`
             Store for new oauth2_proxy session.
@@ -114,10 +106,10 @@ class TokenIssuer:
         payload.update(self._default_attributes(ticket))
 
         token = self._encode_token(payload)
-        session = self._session_for_token(token, payload)
+        session = self._session_for_token(token)
         pipeline = self._redis.pipeline()
         await self._session_store.store_session(ticket, session, pipeline)
-        token_store.store_token(payload, pipeline)
+        token_store.store_token(token.claims, pipeline)
         await pipeline.execute()
 
         return ticket
@@ -128,7 +120,7 @@ class TokenIssuer:
         ticket: Ticket,
         *,
         internal: bool = False,
-    ) -> str:
+    ) -> VerifiedToken:
         """Reissue a token.
 
         This makes a copy of the token, sets the audience, expiration, issuer,
@@ -150,7 +142,7 @@ class TokenIssuer:
         Returns
         -------
         new_token : `str`
-            The new encoded token.
+            The new token.
         """
         payload = dict(token)
         payload.update(self._default_attributes(ticket, internal=internal))
@@ -164,7 +156,7 @@ class TokenIssuer:
             payload["act"] = actor_claim
 
         reissued_token = self._encode_token(payload)
-        session = self._session_for_token(reissued_token, payload)
+        session = self._session_for_token(reissued_token)
         await self._session_store.store_session(ticket, session)
 
         return reissued_token
@@ -199,7 +191,7 @@ class TokenIssuer:
             "jti": ticket.as_handle(self._ticket_prefix),
         }
 
-    def _encode_token(self, payload: Dict[str, Any]) -> str:
+    def _encode_token(self, payload: Dict[str, Any]) -> VerifiedToken:
         """Encode a token.
 
         Parameters
@@ -209,36 +201,34 @@ class TokenIssuer:
 
         Returns
         -------
-        token : `str`
+        token : `jwt_authorizer.tokens.VerifiedToken`
             The encoded token.
         """
-        return jwt.encode(
+        encoded_token = jwt.encode(
             payload,
             self._config.key,
             algorithm=ALGORITHM,
             headers={"kid": self._config.kid},
         ).decode()
+        return VerifiedToken(encoded=encoded_token, claims=payload)
 
     @staticmethod
-    def _session_for_token(token: str, payload: Mapping[str, Any]) -> Session:
+    def _session_for_token(token: VerifiedToken) -> Session:
         """Construct a session for a token.
 
         Parameters
         ----------
-        token : `str`
-            The serialized and encoded token.
-        payload : Mapping[`str`, `object`]
-            The contents of the token.  The email, iat, and exp attributes
-            must be set.
+        token : `jwt_authorizer.tokens.VerifiedToken`
+            The validated token.  The email, iat, and exp claims must be set.
 
         Returns
         -------
         session : `jwt_authorizer.session.Session`
             An oauth2_proxy session for that token.
         """
-        email: str = payload["email"]
-        iat: int = payload["iat"]
-        exp: int = payload["exp"]
+        email: str = token.claims["email"]
+        iat: int = token.claims["iat"]
+        exp: int = token.claims["exp"]
 
         return Session(
             token=token,

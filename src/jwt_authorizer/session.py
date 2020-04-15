@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from jwt_authorizer.tokens import Token
 from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
@@ -179,7 +180,7 @@ class Session:
     expires_on must be UTC timestamps.
     """
 
-    token: str
+    token: Token
     email: str
     user: str
     created_at: datetime
@@ -283,8 +284,9 @@ class SessionStore:
         session_dict = json.loads(
             decryptor.update(encrypted_session) + decryptor.finalize()
         )
+        token = self._decrypt_session_component(session_dict["IDToken"])
         return Session(
-            token=self._decrypt_session_component(session_dict["IDToken"]),
+            token=Token(encoded=token),
             email=self._decrypt_session_component(session_dict["Email"]),
             user=self._decrypt_session_component(session_dict["User"]),
             created_at=self._parse_session_date(session_dict["CreatedAt"]),
@@ -329,7 +331,7 @@ class SessionStore:
             The encrypted session information.
         """
         data = {
-            "IDToken": self._encrypt_session_component(session.token),
+            "IDToken": self._encrypt_session_component(session.token.encoded),
             "Email": self._encrypt_session_component(session.email),
             "User": self._encrypt_session_component(session.user),
             "CreatedAt": session.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),

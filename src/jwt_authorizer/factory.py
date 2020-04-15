@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from jwt_authorizer.issuer import TokenIssuer
-from jwt_authorizer.providers import GitHubProvider
+from jwt_authorizer.providers.github import GitHubProvider
 from jwt_authorizer.session import SessionStore
 from jwt_authorizer.tokens import TokenStore
 from jwt_authorizer.verify import KeyClient, TokenVerifier
@@ -55,7 +55,10 @@ class ComponentFactory:
         http_session: ClientSession = request.config_dict["safir/http_session"]
 
         assert self._config.github
-        return GitHubProvider(self._config.github, http_session, logger)
+        issuer = self.create_token_issuer()
+        return GitHubProvider(
+            self._config.github, http_session, issuer, logger
+        )
 
     def create_session_store(self) -> SessionStore:
         """Create a SessionStore.

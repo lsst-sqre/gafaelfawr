@@ -14,12 +14,14 @@ from jwt_authorizer.authnz import (
 )
 from jwt_authorizer.config import AuthenticateType
 from jwt_authorizer.session import Ticket
+from jwt_authorizer.tokens import Token
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
+    from jwt_authorizer.tokens import VerifiedToken
     from logger import Logger
-    from typing import Any, Dict, Optional, Mapping
+    from typing import Dict, Optional
 
 __all__ = [
     "build_capability_headers",
@@ -30,7 +32,7 @@ __all__ = [
 
 
 def build_capability_headers(
-    request: web.Request, verified_token: Mapping[str, Any]
+    request: web.Request, token: VerifiedToken
 ) -> Dict[str, str]:
     """Construct response headers containing capability information.
 
@@ -38,7 +40,7 @@ def build_capability_headers(
     ----------
     request : `aiohttp.web.Request`
         The incoming request.
-    verified_token : Mapping[`str`, Any]
+    verified_token : `jwt_authorizer.tokens.VerifiedToken`
         A verified token containing group and scope information.
 
     Returns
@@ -50,10 +52,10 @@ def build_capability_headers(
 
     capabilities_required, satisfy = verify_authorization_strategy(request)
     group_capabilities_set = capabilities_from_groups(
-        verified_token, config.group_mapping
+        token, config.group_mapping
     )
-    if "scope" in verified_token:
-        scope_capabilities_set = set(verified_token["scope"].split(" "))
+    if "scope" in token.claims:
+        scope_capabilities_set = set(token.claims["scope"].split(" "))
         user_capabilities_set = group_capabilities_set.union(
             scope_capabilities_set
         )
@@ -71,7 +73,7 @@ def build_capability_headers(
     }
 
 
-async def get_token_from_request(request: web.Request) -> Optional[str]:
+async def get_token_from_request(request: web.Request) -> Optional[Token]:
     """From the request, find the token we need.
 
     It may be an Authorization header of type ``bearer``, in one of type
@@ -85,8 +87,8 @@ async def get_token_from_request(request: web.Request) -> Optional[str]:
 
     Returns
     -------
-    encoded_token : Optional[`str`]
-        The token text, if found, otherwise None.
+    token : `jwt_authorizer.tokens.Token`, optional
+        The token if found, otherwise None.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
@@ -95,7 +97,7 @@ async def get_token_from_request(request: web.Request) -> Optional[str]:
     # Prefer X-Auth-Request-Token if set.  This is set by the /auth endpoint.
     if request.headers.get("X-Auth-Request-Token"):
         logger.debug("Found token in X-Auth-Request-Token")
-        return request.headers["X-Auth-Request-Token"]
+        return Token(encoded=request.headers["X-Auth-Request-Token"])
 
     # Failing that, check the session.  Use it if available.  This needs to
     # happen before checking the Authorization header, since JupyterHub will
@@ -118,20 +120,20 @@ async def get_token_from_request(request: web.Request) -> Optional[str]:
     if not header or " " not in header:
         return None
     auth_type, auth_blob = header.split(" ")
-    encoded_token = None
     if auth_type.lower() == "bearer":
-        encoded_token = auth_blob
+        return Token(encoded=auth_blob)
     elif "x-forwarded-access-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-access-token"]
+        return Token(encoded=request.headers["x-forwarded-access-token"])
     elif "x-forwarded-ticket-id-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-ticket-id-token"]
+        return Token(encoded=request.headers["x-forwarded-ticket-id-token"])
     elif auth_type.lower() == "basic":
         logger.debug("Using OAuth with Basic")
-        encoded_token = _find_token_in_basic_auth(auth_blob, logger)
-    return encoded_token
+        return _find_token_in_basic_auth(auth_blob, logger)
+    else:
+        return None
 
 
-def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[str]:
+def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[Token]:
     """Find a token in the Basic Auth authentication string.
 
     A Basic Auth authentication string is normally a username and a password
@@ -149,7 +151,7 @@ def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[str]:
 
     Returns
     -------
-    token : `str`, optional
+    token : `jwt_authorizer.tokens.Token`, optional
         The token if one was found, otherwise None.
     """
     try:
@@ -161,17 +163,17 @@ def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[str]:
 
     if password == b"x-oauth-basic":
         # Recommended default
-        return user.decode()
+        return Token(encoded=user.decode())
     elif user == b"x-oauth-basic":
         # ... Could be this though
-        return password.decode()
+        return Token(encoded=password.decode())
     else:
         logger.debug("No protocol for token specified, falling back on user")
-        return user.decode()
+        return Token(encoded=user.decode())
 
 
 def forbidden(
-    request: web.Request, verified_token: Mapping[str, Any], error: str
+    request: web.Request, token: VerifiedToken, error: str
 ) -> web.HTTPException:
     """Construct exception for a 403 response.
 
@@ -179,7 +181,7 @@ def forbidden(
     ----------
     request : `aiohttp.web.Request`
         The incoming request.
-    verified_token : Mapping[`str`, Any]
+    token : VerifiedToken
         A verified token containing group and scope information.
     error : `str`
         The error message.
@@ -189,7 +191,7 @@ def forbidden(
     exception : `aiohttp.web.HTTPException`
         Exception to throw.
     """
-    headers = build_capability_headers(request, verified_token)
+    headers = build_capability_headers(request, token)
     return web.HTTPForbidden(headers=headers, reason=error, text=error)
 
 

@@ -19,6 +19,7 @@ __all__ = [
     "AuthenticateType",
     "Config",
     "Configuration",
+    "GitHubConfig",
     "Issuer",
     "IssuerConfig",
     "SessionStoreConfig",
