@@ -1,4 +1,4 @@
-"""Tests for the /login route."""
+"""Tests for the /login route with GitHub."""
 
 from __future__ import annotations
 

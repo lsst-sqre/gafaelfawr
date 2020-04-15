@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from jwt_authorizer.issuer import TokenIssuer
 from jwt_authorizer.providers.github import GitHubProvider
+from jwt_authorizer.providers.oidc import OIDCProvider
 from jwt_authorizer.session import SessionStore
 from jwt_authorizer.tokens import TokenStore
 from jwt_authorizer.verify import KeyClient, TokenVerifier
@@ -48,8 +49,8 @@ class ComponentFactory:
 
         Returns
         -------
-        token_verifier : `jwt_authorizer.verify.TokenVerifier`
-            A new TokenVerifier.
+        provider : `jwt_authorizer.providers.github.GitHubProvider`
+            A new GitHubProvider.
         """
         logger: Logger = request["safir/logger"]
         http_session: ClientSession = request.config_dict["safir/http_session"]
@@ -58,6 +59,32 @@ class ComponentFactory:
         issuer = self.create_token_issuer()
         return GitHubProvider(
             self._config.github, http_session, issuer, logger
+        )
+
+    def create_oidc_provider(self, request: web.Request) -> OIDCProvider:
+        """Create an OpenID Connect authentication provider.
+
+        Takes the incoming request to get access to the per-request logger and
+        the client HTTP session.
+
+        Parameters
+        ----------
+        request : `aiohttp.web.Request`
+            The incoming request.
+
+        Returns
+        -------
+        provider : `jwt_authorizer.providers.oidc.OIDCProvider`
+            A new OIDCProvider.
+        """
+        logger: Logger = request["safir/logger"]
+        http_session: ClientSession = request.config_dict["safir/http_session"]
+
+        assert self._config.oidc
+        token_verifier = self.create_token_verifier(request)
+        issuer = self.create_token_issuer()
+        return OIDCProvider(
+            self._config.oidc, token_verifier, http_session, issuer, logger
         )
 
     def create_session_store(self) -> SessionStore:

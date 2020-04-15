@@ -27,6 +27,8 @@ from jwt_authorizer.app import create_app
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.factory import ComponentFactory
 from jwt_authorizer.providers.github import GitHubProvider
+from jwt_authorizer.providers.oidc import OIDCProvider
+from jwt_authorizer.session import Ticket
 from jwt_authorizer.util import number_to_base64
 from jwt_authorizer.verify import KeyClient, TokenVerifier
 
@@ -34,9 +36,28 @@ if TYPE_CHECKING:
     from aiohttp import ClientSession
     from aioredis import Redis
     from cachetools import TTLCache
-    from jwt_authorizer.config import Config
+    from jwt_authorizer.config import Config, OIDCConfig
+    from jwt_authorizer.issuer import TokenIssuer
     from logger import Logger
     from typing import Any, Dict, List, Optional
+
+
+def build_aiohttp_json_response(result: Any) -> ClientResponse:
+    """Build a successful aiohttp client response.
+
+    This is more complicated than it will eventually need to be to work around
+    the lack of an AsyncMock in Python 3.7.  The complexity can be removed
+    when we require a minimum version of Python 3.8.
+    """
+    r = Mock(spec=ClientResponse)
+    if sys.version_info[0] == 3 and sys.version_info[1] < 8:
+        future: Future[Any] = Future()
+        future.set_result(result)
+        r.json.return_value = future
+    else:
+        r.json.return_value = result
+    r.status = 200
+    return r
 
 
 class FakeGitHubProvider(GitHubProvider):
@@ -57,7 +78,7 @@ class FakeGitHubProvider(GitHubProvider):
                 "id": 123456,
                 "name": "GitHub User",
             }
-            return self._build_response(user_data)
+            return build_aiohttp_json_response(user_data)
         elif url == self._TEAMS_URL:
             teams_data = [
                 {
@@ -76,13 +97,13 @@ class FakeGitHubProvider(GitHubProvider):
                     "organization": {"login": "other-org"},
                 },
             ]
-            return self._build_response(teams_data)
+            return build_aiohttp_json_response(teams_data)
         elif url == self._EMAILS_URL:
             emails_data = [
                 {"email": "otheremail@example.com", "primary": False},
                 {"email": "githubuser@example.com", "primary": True},
             ]
-            return self._build_response(emails_data)
+            return build_aiohttp_json_response(emails_data)
 
         else:
             assert False, f"Unexpected URL {url}"
@@ -110,19 +131,52 @@ class FakeGitHubProvider(GitHubProvider):
             "scope": ",".join(self._SCOPES),
             "token_type": "bearer",
         }
-        return self._build_response(response)
+        return build_aiohttp_json_response(response)
 
-    def _build_response(self, result: Any) -> ClientResponse:
-        """Build a successful response."""
-        r = Mock(spec=ClientResponse)
-        if sys.version_info[0] == 3 and sys.version_info[1] < 8:
-            future: Future[Any] = Future()
-            future.set_result(result)
-            r.json.return_value = future
-        else:
-            r.json.return_value = result
-        r.status = 200
-        return r
+
+class FakeOIDCProvider(OIDCProvider):
+    """Override OIDCProvider to not make HTTP requests.
+
+    This returns synthesized responses from the OpenID Connect APIs that we
+    use for authentication.
+    """
+
+    def __init__(
+        self,
+        keypair: RSAKeyPair,
+        config: OIDCConfig,
+        verifier: TokenVerifier,
+        session: ClientSession,
+        issuer: TokenIssuer,
+        logger: Logger,
+    ) -> None:
+        self._keypair = keypair
+        super().__init__(config, verifier, session, issuer, logger)
+
+    async def http_post(
+        self,
+        url: str,
+        *,
+        data: Dict[str, str],
+        headers: Dict[str, str],
+        raise_for_status: bool,
+    ) -> ClientResponse:
+        assert headers == {"Accept": "application/json"}
+        assert data == {
+            "grant_type": "authorization_code",
+            "client_id": self._config.client_id,
+            "client_secret": self._config.client_secret,
+            "code": "some-code",
+            "redirect_uri": self._config.redirect_url,
+        }
+        assert raise_for_status
+        assert url == self._config.token_url
+
+        response = {
+            "id_token": create_upstream_test_token(self._keypair),
+            "token_type": "Bearer",
+        }
+        return build_aiohttp_json_response(response)
 
 
 class FakeKeyClient(KeyClient):
@@ -138,13 +192,15 @@ class FakeKeyClient(KeyClient):
     async def get_url(self, url: str) -> ClientResponse:
         if url == "https://test.example.com/.well-known/openid-configuration":
             jwks_uri = "https://test.example.com/.well-known/jwks.json"
-            return self._build_response_success({"jwks_uri": jwks_uri})
+            return build_aiohttp_json_response({"jwks_uri": jwks_uri})
         elif url == "https://test.example.com/.well-known/jwks.json":
-            return self._build_response_success(self._build_keys("some-kid"))
+            return build_aiohttp_json_response(self._build_keys("some-kid"))
         elif url == "https://orig.example.com/.well-known/jwks.json":
-            return self._build_response_success(self._build_keys("orig-kid"))
+            return build_aiohttp_json_response(self._build_keys("orig-kid"))
         else:
-            return self._build_response_failure()
+            r = Mock(spec=ClientResponse)
+            r.status = 404
+            return r
 
     def _build_keys(self, kid: str) -> Dict[str, Any]:
         """Generate the JSON-encoded keys structure for a keypair."""
@@ -152,26 +208,6 @@ class FakeKeyClient(KeyClient):
         e = number_to_base64(public_numbers.e).decode()
         n = number_to_base64(public_numbers.n).decode()
         return {"keys": [{"alg": ALGORITHM, "e": e, "n": n, "kid": kid}]}
-
-    def _build_response_failure(self) -> ClientResponse:
-        """Build a successful response."""
-        r = Mock(spec=ClientResponse)
-        r.status = 404
-        return r
-
-    def _build_response_success(
-        self, result: Dict[str, Any]
-    ) -> ClientResponse:
-        """Build a successful response."""
-        r = Mock(spec=ClientResponse)
-        if sys.version_info[0] == 3 and sys.version_info[1] < 8:
-            future: Future[Dict[str, Any]] = Future()
-            future.set_result(result)
-            r.json.return_value = future
-        else:
-            r.json.return_value = result
-        r.status = 200
-        return r
 
 
 class MockComponentFactory(ComponentFactory):
@@ -205,15 +241,44 @@ class MockComponentFactory(ComponentFactory):
 
         Returns
         -------
+        provider : `jwt_authorizer.providers.GitHubProvider`
+            A new GitHubProvider.
+        """
+        http_session: ClientSession = request.config_dict["safir/http_session"]
+        logger: Logger = request["safir/logger"]
+
+        assert self._config.github
+        issuer = self.create_token_issuer()
+        return FakeGitHubProvider(
+            self._config.github, http_session, issuer, logger
+        )
+
+    def create_oidc_provider(self, request: web.Request) -> OIDCProvider:
+        """Create an OIDCProvider with a mocked HTTP client.
+
+        Parameters
+        ----------
+        request : `aiohttp.web.Request`
+            The incoming request.
+
+        Returns
+        -------
         token_verifier : `jwt_authorizer.providers.GitHubProvider`
             A new GitHubProvider.
         """
         http_session: ClientSession = request.config_dict["safir/http_session"]
         logger: Logger = request["safir/logger"]
-        assert self._config.github
+
+        assert self._config.oidc
+        token_verifier = self.create_token_verifier(request)
         issuer = self.create_token_issuer()
-        return FakeGitHubProvider(
-            self._config.github, http_session, issuer, logger
+        return FakeOIDCProvider(
+            self._keypair,
+            self._config.oidc,
+            token_verifier,
+            http_session,
+            issuer,
+            logger,
         )
 
     def create_token_verifier(self, request: web.Request) -> TokenVerifier:
@@ -326,6 +391,31 @@ def create_test_token(
         algorithm=ALGORITHM,
         headers={"kid": kid},
     ).decode()
+
+
+def create_upstream_test_token(keypair: RSAKeyPair) -> str:
+    """Create a signed token using the upstream issuer.
+
+    This will match the issuer and audience of the upstream issuer for an
+    OpenID Connect authentication, so JWT Authorizer will reissue it.
+
+    Parameters
+    ----------
+    keypair : `RSAKeyPair`
+        The key pair to use to sign the token.
+
+    Returns
+    -------
+    token : `str`
+        The encoded token.
+    """
+    ticket = Ticket()
+    payload = {
+        "aud": "https://test.example.com/",
+        "iss": "https://orig.example.com/",
+        "jti": ticket.as_handle("oauth2_proxy"),
+    }
+    return create_test_token(keypair, ["admin"], "orig-kid", **payload)
 
 
 def create_test_token_payload(

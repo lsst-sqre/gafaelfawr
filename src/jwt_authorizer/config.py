@@ -22,6 +22,7 @@ __all__ = [
     "GitHubConfig",
     "Issuer",
     "IssuerConfig",
+    "OIDCConfig",
     "SessionStoreConfig",
 ]
 
@@ -72,6 +73,39 @@ class GitHubConfig:
 
     client_secret: str
     """Secret for the GitHub App."""
+
+
+@dataclass
+class OIDCConfig:
+    """Configuration for OpenID Connect authentication."""
+
+    client_id: str
+    """Client ID for talking to the OpenID Connect provider."""
+
+    client_secret: str
+    """Secret for talking to the OpenID Connect provider."""
+
+    login_url: str
+    """URL to which to send the user to initiate authentication."""
+
+    login_params: Dict[str, str]
+    """Additional parameters to the login URL."""
+
+    redirect_url: str
+    """Return URL to which the authentication provider should send the user.
+
+    This should be the full URL of the /login route of jwt_authorizer.
+    """
+
+    token_url: str
+    """URL at which to redeem the authentication code for a token."""
+
+    scopes: List[str]
+    """Scopes to request from the authentication provider.
+
+    The ``openid`` scope will always be added and does not need to be
+    specified.
+    """
 
 
 @dataclass(eq=True, frozen=True)
@@ -161,6 +195,9 @@ class Config:
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
 
+    oidc: Optional[OIDCConfig]
+    """Configuration for OpenID Connect authentication."""
+
     group_mapping: Dict[str, List[str]]
     """Mapping of a scope to a list of groups receiving that scope."""
 
@@ -230,6 +267,24 @@ class Config:
                 client_id=settings["GITHUB.CLIENT_ID"], client_secret=secret
             )
 
+        oidc = None
+        if settings.get("OIDC.LOGIN_URL"):
+            if settings.get("OIDC.CLIENT_SECRET"):
+                secret = settings["OIDC.CLIENT_SECRET"]
+            else:
+                secret = cls._load_secret(
+                    settings["OIDC.CLIENT_SECRET_FILE"]
+                ).decode()
+            oidc = OIDCConfig(
+                client_id=settings["OIDC.CLIENT_ID"],
+                client_secret=secret,
+                login_url=settings["OIDC.LOGIN_URL"],
+                login_params=settings.get("OIDC.LOGIN_PARAMS", {}),
+                redirect_url=settings["OIDC.REDIRECT_URL"],
+                token_url=settings["OIDC.TOKEN_URL"],
+                scopes=settings.get("OIDC.SCOPES", []),
+            )
+
         group_mapping = {}
         if settings.get("GROUP_MAPPING"):
             for key, value in settings["GROUP_MAPPING"].items():
@@ -281,6 +336,7 @@ class Config:
             username_key=settings["JWT_USERNAME_KEY"],
             uid_key=settings["JWT_UID_KEY"],
             github=github,
+            oidc=oidc,
             issuer=issuer_config,
             group_mapping=group_mapping,
             session_secret=session_secret,

@@ -16,6 +16,7 @@ from jwt_authorizer.session import Ticket
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
+    from jwt_authorizer.providers.base import Provider
     from logging import Logger
 
 __all__ = ["get_login"]
@@ -55,16 +56,19 @@ async def get_login(request: web.Request) -> web.Response:
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
-    if not config.github:
-        raise NotImplementedError("GitHub provider not configured")
-    auth_provider = factory.create_github_provider(request)
+    if config.github:
+        auth_provider: Provider = factory.create_github_provider(request)
+    elif config.oidc:
+        auth_provider = factory.create_oidc_provider(request)
+    else:
+        raise NotImplementedError("No authentication provider configured")
 
     if "code" in request.query:
         session = await get_session(request)
         code = request.query["code"]
         state = request.query["state"]
         if request.query["state"] != session.pop("state", None):
-            msg = "OAuth state mismatch"
+            msg = "Authentication state mismatch"
             raise web.HTTPForbidden(reason=msg, text=msg)
         return_url = session.pop("rd")
 
@@ -84,7 +88,7 @@ async def get_login(request: web.Request) -> web.Response:
         session["ticket"] = ticket.encode(ticket_prefix)
 
         logger.info(
-            "Successfully authenticated user %s (%s) via Github",
+            "Successfully authenticated user %s (%s)",
             token.claims[config.username_key],
             token.claims[config.uid_key],
         )

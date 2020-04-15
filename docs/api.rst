@@ -38,6 +38,8 @@ API reference
 
 .. automodapi:: jwt_authorizer.providers.github
 
+.. automodapi:: jwt_authorizer.providers.oidc
+
 .. automodapi:: jwt_authorizer.session
 
 .. automodapi:: jwt_authorizer.tokens

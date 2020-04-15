@@ -175,31 +175,23 @@ async def _check_reissue_token(
     cookie_name = config.session_store.ticket_prefix
     ticket_str = request.cookies.get(cookie_name, "")
     ticket = None
-    new_audience = None
+    issuer = factory.create_token_issuer()
+
     if not from_this_issuer:
         # If we didn't issue the token, it came from a provider as part of a
         # new session. This only happens once, after initial login, so there
         # should always be a cookie set. If there isn't, or we fail to parse
         # it, something funny is going on and we can abort with an exception.
         ticket = Ticket.from_cookie(cookie_name, ticket_str)
-
-        # Make a copy of the previous token and add capabilities
-        payload = dict(token.claims)
-        payload["scope"] = " ".join(
+        scope = " ".join(
             sorted(capabilities_from_groups(token, config.group_mapping))
         )
-        new_audience = config.issuer.aud
+        token = await issuer.reissue_token(token, ticket, scope=scope)
     elif from_this_issuer and from_default_audience and to_internal_audience:
         # In this case, we only reissue tokens from a default audience
-        payload = dict(token.claims)
-        new_audience = config.issuer.aud_internal
         ticket = Ticket()
-
-    if new_audience:
-        assert ticket
-        issuer = factory.create_token_issuer()
         token = await issuer.reissue_token(
-            payload, ticket, internal=to_internal_audience
+            token, ticket, internal=to_internal_audience
         )
 
     return token, ticket.encode(cookie_name) if ticket else ""

@@ -69,6 +69,35 @@ The description of that setting will specify whether there is a fixed set of chi
         The GitHub OAuth client secret.
         ``client_secret_file`` may be set instead of ``client_secret``, in which case it specifies the path to a file containing the secret.
 
+``oidc`` (optional)
+    Configure OpenID Connect authentication.
+    Users who go to the ``/login`` route will be sent to an OpenID Connect provider for authentication.
+    Their token will then be reissued based on the token issued by the OpenID Connect provider.
+    This support has only been tested with CILogon.
+
+    ``client_id`` (required)
+        The client ID registered with the OpenID Connect provider.
+
+    ``client_secret`` (required)
+        The client secret registered with the OpenID Connect provider, used to retrieve the ID token for the user after authentication.
+        ``client_secret_file`` may be set instead of ``client_secret``, in which case it specifies the path to a file containing the secret.
+
+    ``login_url`` (required)
+        The URL at the OpenID Connect provider to which to send the user to initiate authentication.
+
+    ``login_params`` (optional)
+        Additional parameters, as a dict, to send in the login URL.
+
+    ``redirect_url`` (required)
+        The URL to which the OpenID Connect provider should send the user after successful authentication.
+        This must be the full URL of the ``/login`` route of JWT Authorizer.
+
+    ``token_url`` (required)
+        The URL at the OpenID Connect provider from which to request an ID token after authentication.
+
+    ``scopes`` (optional)
+        Scopes to request from the OpenID Connect provider.  The ``openid`` scope will be added automatically and does not need to be specified.
+
 ``oauth2_store_session`` (required)
     Configure the oauth2_proxy session store.
     Used to create sessions that can be consumed by a patched version of oauth2_proxy.

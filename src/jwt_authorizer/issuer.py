@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from aioredis import Redis
     from jwt_authorizer.session import SessionStore
     from jwt_authorizer.tokens import TokenStore
-    from typing import Any, Dict, Mapping, Union
+    from typing import Any, Dict, Mapping, Optional, Union
 
 __all__ = ["TokenIssuer"]
 
@@ -116,9 +116,10 @@ class TokenIssuer:
 
     async def reissue_token(
         self,
-        token: Mapping[str, Any],
+        token: VerifiedToken,
         ticket: Ticket,
         *,
+        scope: Optional[str] = None,
         internal: bool = False,
     ) -> VerifiedToken:
         """Reissue a token.
@@ -130,11 +131,13 @@ class TokenIssuer:
 
         Parameters
         ----------
-        token : Mapping[`str`, Any]
+        token : `jwt_authorizer.tokens.VerifiedToken`
             The token to reissue.
         ticket : `jwt_authorizer.session.Ticket`
             The Ticket to use as the identifier for the token and to use for
             storing the new token.
+        scope : Optional[`str`], optional
+            If provided, set the scope claim of the reissued ticket to this.
         internal : `bool`, optional
             If set to True, issue the token with the internal audience instead
             of the external audience.
@@ -144,15 +147,20 @@ class TokenIssuer:
         new_token : `str`
             The new token.
         """
-        payload = dict(token)
+        payload = dict(token.claims)
         payload.update(self._default_attributes(ticket, internal=internal))
+        if scope:
+            payload["scope"] = scope
 
-        if "aud" in token and "iss" in token:
-            actor_claim = {"aud": token["aud"], "iss": token["iss"]}
-            if "jti" in token:
-                actor_claim["jti"] = token["jti"]
-            if "act" in token:
-                actor_claim["act"] = token["act"]
+        if "aud" in token.claims and "iss" in token.claims:
+            actor_claim = {
+                "aud": token.claims["aud"],
+                "iss": token.claims["iss"],
+            }
+            if "jti" in token.claims:
+                actor_claim["jti"] = token.claims["jti"]
+            if "act" in token.claims:
+                actor_claim["act"] = token.claims["act"]
             payload["act"] = actor_claim
 
         reissued_token = self._encode_token(payload)
