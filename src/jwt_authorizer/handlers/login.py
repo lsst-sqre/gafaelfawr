@@ -141,5 +141,4 @@ async def _login(request: web.Request) -> web.Response:
             session["state"] = state
         session["rd"] = request_url
         redirect_url = auth_provider.get_redirect_url(state)
-        logger.info("Redirecting user to GitHub for authentication")
         raise web.HTTPSeeOther(redirect_url)

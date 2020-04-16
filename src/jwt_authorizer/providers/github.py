@@ -130,6 +130,7 @@ class GitHubProvider(Provider):
             "scope": " ".join(self._SCOPES),
             "state": state,
         }
+        self.logger.info("Redirecting user to GitHub for authentication")
         return f"{self._LOGIN_URL}?{urlencode(params)}"
 
     async def get_token(
@@ -160,6 +161,7 @@ class GitHubProvider(Provider):
         GitHubException
             GitHub responded with an error to a request.
         """
+        self.logger.info("Getting user information from GitHub")
         github_token = await self._get_access_token(code, state)
         user_info = await self._get_user_info(github_token)
 
@@ -233,6 +235,7 @@ class GitHubProvider(Provider):
             "code": code,
             "state": state,
         }
+        self.logger.debug("Fetching access token from %s", self._TOKEN_URL)
         r = await self.http_post(
             self._TOKEN_URL,
             data=data,
@@ -265,18 +268,21 @@ class GitHubProvider(Provider):
         GitHubException
             User has no primary email address.
         """
+        self.logger.debug("Fetching user data from %s", self._USER_URL)
         r = await self.http_get(
             self._USER_URL,
             headers={"Authorization": f"token {token}"},
             raise_for_status=True,
         )
         user_data = await r.json()
+        self.logger.debug("Fetching user data from %s", self._TEAMS_URL)
         r = await self.http_get(
             self._TEAMS_URL,
             headers={"Authorization": f"token {token}"},
             raise_for_status=True,
         )
         teams_data = await r.json()
+        self.logger.debug("Fetching user data from %s", self._EMAILS_URL)
         r = await self.http_get(
             self._EMAILS_URL,
             headers={"Authorization": f"token {token}"},

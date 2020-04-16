@@ -76,6 +76,9 @@ class OIDCProvider(Provider):
             "state": state,
         }
         params.update(self._config.login_params)
+        self.logger.info(
+            "Redirecting user to %s for authentication", self._config.login_url
+        )
         return f"{self._config.login_url}?{urlencode(params)}"
 
     async def get_token(
@@ -115,6 +118,7 @@ class OIDCProvider(Provider):
             "code": code,
             "redirect_uri": self._config.redirect_url,
         }
+        self.logger.info("Retrieving ID token from %s", self._config.token_url)
         r = await self.http_post(
             self._config.token_url,
             data=data,
