@@ -140,3 +140,38 @@ async def test_login_redirect_header(aiohttp_client: TestClient) -> None:
     )
     assert r.status == 303
     assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
+
+
+async def test_oauth2_callback(aiohttp_client: TestClient) -> None:
+    """Test the compatibility /oauth2/callback route."""
+    config = {
+        "OIDC.CLIENT_ID": "some-client-id",
+        "OIDC.CLIENT_SECRET": "some-client-secret",
+        "OIDC.LOGIN_URL": "https://example.com/oidc/login",
+        "OIDC.LOGIN_PARAMS": {"skin": "test"},
+        "OIDC.REDIRECT_URL": "https://example.com/oauth2/sign_in",
+        "OIDC.TOKEN_URL": "https://example.com/token",
+        "OIDC.SCOPES": ["email", "voPerson"],
+    }
+    app = await create_test_app(None, None, **config)
+    client = await aiohttp_client(app)
+
+    # Simulate the initial authentication request.
+    r = await client.get(
+        "/login",
+        params={"rd": "https://example.com/foo"},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+    assert query["redirect_uri"][0] == "https://example.com/oauth2/sign_in"
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await client.get(
+        "/oauth2/callback",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    assert r.headers["Location"] == "https://example.com/foo"
