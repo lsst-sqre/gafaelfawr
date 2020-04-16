@@ -167,11 +167,12 @@ class GitHubProvider(Provider):
 
         groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
         payload = {
-            "name": user_info.name,
-            "uid": user_info.username,
-            "uidNumber": str(user_info.uid),
             "email": user_info.email,
             "isMemberOf": groups,
+            "name": user_info.name,
+            "sub": user_info.username,
+            "uidNumber": str(user_info.uid),
+            "uid": user_info.username,
         }
 
         return await self.issuer.issue_token(payload, ticket)
