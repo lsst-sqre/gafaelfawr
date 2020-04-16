@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import click
 from aiohttp.web import run_app
 
 from jwt_authorizer.app import create_app
+from jwt_authorizer.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
     from typing import Union
 
-__all__ = ["main", "help", "run"]
+__all__ = ["main", "generate_key", "help", "run"]
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -57,3 +59,12 @@ def run(port: int, settings: str) -> None:
     """Run the application (for production)."""
     app = create_app(settings_path=settings)
     run_app(app, port=port)
+
+
+@main.command()
+def generate_key() -> None:
+    """Generate a new RSA key pair."""
+    keypair = RSAKeyPair.generate()
+    print(keypair.private_key_as_pem().decode())
+    print(keypair.public_key_as_pem().decode())
+    print(json.dumps(keypair.public_key_as_jwks(), indent=4))

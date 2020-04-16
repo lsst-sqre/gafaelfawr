@@ -34,6 +34,8 @@ API reference
 
 .. automodapi:: jwt_authorizer.handlers.well_known
 
+.. automodapi:: jwt_authorizer.keypair
+
 .. automodapi:: jwt_authorizer.providers.base
 
 .. automodapi:: jwt_authorizer.providers.github
