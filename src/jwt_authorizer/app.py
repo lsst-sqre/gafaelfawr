@@ -26,7 +26,7 @@ from jwt_authorizer.factory import ComponentFactory
 from jwt_authorizer.handlers import init_routes
 
 if TYPE_CHECKING:
-    from jwt_authorizer.verify import KeyClient
+    from aiohttp import ClientSession
     from typing import Optional
 
 __all__ = ["create_app"]
@@ -35,7 +35,7 @@ __all__ = ["create_app"]
 async def create_app(
     settings_path: Optional[str] = None,
     redis_pool: Optional[aioredis.ConnectionsPool] = None,
-    key_client: Optional[KeyClient] = None,
+    http_session: Optional[ClientSession] = None,
     **extra: str,
 ) -> Application:
     """Create and configure the JWT Authorizer application.
@@ -47,9 +47,10 @@ async def create_app(
     redis_pool : `aioredis.ConnectionsPool`, optional
         Redis connection pool.  One will be constructed from the URL in the
         application settings if this is not provided.
-    key_client : `jwt_authorizer.verify.KeyClient`, optional
-        Class to retrieve a JWKS for an issuer.  A default HTTP-based client
-        will be constructed for each request if this is not provided.
+    http_session : `aiohttp.ClientSession`, optional
+        Client session to use if provided.  If one is not provided, it will be
+        created dynamically by safir.  The provided session is not closed on
+        app shutdown.
     **extra : `str`
         Additional configuration settings for Dynaconf.
 
@@ -92,12 +93,13 @@ async def create_app(
     app["jwt_authorizer/key_cache"] = TTLCache(maxsize=16, ttl=600)
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
-    app.cleanup_ctx.append(init_http_session)
     await setup_middleware(app, config)
     app.add_routes(init_routes())
 
-    if key_client:
-        app["jwt_authorizer/key_client"] = key_client
+    if http_session:
+        app["safir/http_session"] = http_session
+    else:
+        app.cleanup_ctx.append(init_http_session)
 
     return app
 

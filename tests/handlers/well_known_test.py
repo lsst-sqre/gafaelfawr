@@ -6,15 +6,16 @@ from typing import TYPE_CHECKING
 
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.util import number_to_base64
-from tests.util import RSAKeyPair, create_test_app
+from tests.support.app import create_test_app, get_test_config
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
 
 
 async def test_well_known(aiohttp_client: TestClient) -> None:
-    keypair = RSAKeyPair()
-    app = await create_test_app(keypair)
+    app = await create_test_app()
+    test_config = get_test_config(app)
+    keypair = test_config.keypair
     client = await aiohttp_client(app)
 
     r = await client.get("/.well-known/jwks.json")

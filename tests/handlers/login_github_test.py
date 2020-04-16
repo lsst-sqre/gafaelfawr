@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.providers.github import GitHubProvider
-from tests.util import create_test_app
+from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -19,7 +19,7 @@ async def test_login(aiohttp_client: TestClient) -> None:
         "GITHUB.CLIENT_ID": "some-client-id",
         "GITHUB.CLIENT_SECRET": "some-client-secret",
     }
-    app = await create_test_app(None, None, **config)
+    app = await create_test_app(**config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -105,7 +105,7 @@ async def test_login_redirect_header(aiohttp_client: TestClient) -> None:
         "GITHUB.CLIENT_ID": "some-client-id",
         "GITHUB.CLIENT_SECRET": "some-client-secret",
     }
-    app = await create_test_app(None, None, **config)
+    app = await create_test_app(**config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -135,7 +135,7 @@ async def test_login_no_destination(aiohttp_client: TestClient) -> None:
         "GITHUB.CLIENT_ID": "some-client-id",
         "GITHUB.CLIENT_SECRET": "some-client-secret",
     }
-    app = await create_test_app(None, None, **config)
+    app = await create_test_app(**config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -156,7 +156,7 @@ async def test_cookie_auth_with_token(aiohttp_client: TestClient) -> None:
         "GITHUB.CLIENT_ID": "some-client-id",
         "GITHUB.CLIENT_SECRET": "some-client-secret",
     }
-    app = await create_test_app(None, None, **config)
+    app = await create_test_app(**config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.

@@ -7,7 +7,7 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from jwt_authorizer.config import ALGORITHM
-from tests.util import create_test_app
+from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -23,7 +23,7 @@ async def test_login(aiohttp_client: TestClient) -> None:
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
     }
-    app = await create_test_app(None, None, **config)
+    app = await create_test_app(**config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -87,7 +87,7 @@ async def test_login(aiohttp_client: TestClient) -> None:
             "data": {
                 "act": {
                     "aud": "https://test.example.com/",
-                    "iss": "https://orig.example.com/",
+                    "iss": "https://upstream.example.com/",
                     "jti": ANY,
                 },
                 "aud": "https://example.com/",
@@ -117,7 +117,7 @@ async def test_login_redirect_header(aiohttp_client: TestClient) -> None:
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
     }
-    app = await create_test_app(None, None, **config)
+    app = await create_test_app(**config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -153,7 +153,7 @@ async def test_oauth2_callback(aiohttp_client: TestClient) -> None:
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
     }
-    app = await create_test_app(None, None, **config)
+    app = await create_test_app(**config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.

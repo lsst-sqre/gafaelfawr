@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import os
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -13,27 +12,21 @@ import jwt
 
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.session import Ticket
-from tests.util import RSAKeyPair, create_test_app, create_test_token
+from tests.support.app import create_test_app, get_test_config
+from tests.support.tokens import create_upstream_test_token
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
 
 
 async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
-    keypair = RSAKeyPair()
+    app = await create_test_app()
+    test_config = get_test_config(app)
     ticket = Ticket()
     ticket_handle = ticket.encode("oauth2_proxy")
     ticket_b64 = base64.urlsafe_b64encode(ticket_handle.encode()).decode()
     cookie = f"{ticket_b64}|32132781|blahblah"
-    token = create_test_token(
-        keypair,
-        ["admin"],
-        kid="orig-kid",
-        aud="https://test.example.com/",
-        iss="https://orig.example.com/",
-    )
-    session_secret = os.urandom(16)
-    app = await create_test_app(keypair, session_secret)
+    token = create_upstream_test_token(test_config)
     client = await aiohttp_client(app)
 
     # To test, we need a valid ticket.  The existing code path that creates
@@ -42,11 +35,10 @@ async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
     r = await client.get(
         "/auth",
         params={"capability": "exec:admin"},
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {token.encoded}"},
         cookies={"oauth2_proxy": cookie},
     )
     assert r.status == 200
-    token = r.headers["X-Auth-Request-Token"]
 
     # Now pass that ticket to the /auth/analyze endpoint.
     r = await client.post(
@@ -73,8 +65,8 @@ async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
             "data": {
                 "act": {
                     "aud": "https://test.example.com/",
-                    "iss": "https://orig.example.com/",
-                    "jti": "some-unique-id",
+                    "iss": "https://upstream.example.com/",
+                    "jti": token.claims["jti"],
                 },
                 "aud": "https://example.com/",
                 "email": "some-user@example.com",
@@ -104,34 +96,17 @@ async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
 
 
 async def test_analyze_token(aiohttp_client: TestClient) -> None:
-    payload = {
-        "aud": "https://test.example.com/",
-        "email": "some-user@example.com",
-        "iss": "https://orig.example.com/",
-        "jti": "some-unique-id",
-        "kid": "orig-kid",
-        "sub": "some-user",
-        "uidNumber": "1000",
-    }
-    keypair = RSAKeyPair()
-    app = await create_test_app(keypair, os.urandom(16))
+    app = await create_test_app()
+    test_config = get_test_config(app)
+    token = create_upstream_test_token(test_config)
     client = await aiohttp_client(app)
 
-    # Generate a token that we can analyze.
-    token = jwt.encode(
-        payload,
-        keypair.private_key_as_pem(),
-        algorithm=ALGORITHM,
-        headers={"kid": "orig-kid"},
-    )
-
-    # Analyze it.
-    r = await client.post("/auth/analyze", data={"token": token.decode()})
+    r = await client.post("/auth/analyze", data={"token": token.encoded})
     assert r.status == 200
     assert await r.json() == {
         "token": {
-            "header": jwt.get_unverified_header(token),
-            "data": payload,
+            "header": jwt.get_unverified_header(token.encoded),
+            "data": token.claims,
             "valid": True,
         },
     }

@@ -51,7 +51,9 @@ class OIDCProvider(Provider):
     ) -> None:
         self._config = config
         self._verifier = verifier
-        super().__init__(session, issuer, logger)
+        self._session = session
+        self._issuer = issuer
+        self._logger = logger
 
     def get_redirect_url(self, state: str) -> str:
         """Get the login URL to which to redirect the user.
@@ -76,7 +78,7 @@ class OIDCProvider(Provider):
             "state": state,
         }
         params.update(self._config.login_params)
-        self.logger.info(
+        self._logger.info(
             "Redirecting user to %s for authentication", self._config.login_url
         )
         return f"{self._config.login_url}?{urlencode(params)}"
@@ -118,8 +120,10 @@ class OIDCProvider(Provider):
             "code": code,
             "redirect_uri": self._config.redirect_url,
         }
-        self.logger.info("Retrieving ID token from %s", self._config.token_url)
-        r = await self.http_post(
+        self._logger.info(
+            "Retrieving ID token from %s", self._config.token_url
+        )
+        r = await self._session.post(
             self._config.token_url,
             data=data,
             headers={"Accept": "application/json"},
@@ -131,4 +135,4 @@ class OIDCProvider(Provider):
             raise OIDCException(msg)
 
         token = await self._verifier.verify(Token(encoded=result["id_token"]))
-        return await self.issuer.reissue_token(token, ticket)
+        return await self._issuer.reissue_token(token, ticket)

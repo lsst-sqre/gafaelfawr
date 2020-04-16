@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from tests.util import create_test_app
+from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient

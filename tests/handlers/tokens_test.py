@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
@@ -13,12 +12,8 @@ import jwt
 from jwt_authorizer import config
 from jwt_authorizer.session import Session, SessionStore, Ticket
 from jwt_authorizer.tokens import Token, TokenStore
-from tests.util import (
-    RSAKeyPair,
-    create_test_app,
-    create_test_token,
-    create_test_token_payload,
-)
+from tests.support.app import create_test_app, get_test_config
+from tests.support.tokens import create_test_token
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -36,13 +31,13 @@ async def test_tokens_no_auth(aiohttp_client: TestClient) -> None:
 
 
 async def test_tokens_empty_list(aiohttp_client: TestClient) -> None:
-    keypair = RSAKeyPair()
-    token = create_test_token(keypair)
-    app = await create_test_app(keypair)
+    app = await create_test_app()
+    test_config = get_test_config(app)
+    token = create_test_token(test_config)
     client = await aiohttp_client(app)
 
     r = await client.get(
-        "/auth/tokens", headers={"X-Auth-Request-Token": token}
+        "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
     body = await r.text()
@@ -50,21 +45,21 @@ async def test_tokens_empty_list(aiohttp_client: TestClient) -> None:
 
 
 async def test_tokens(aiohttp_client: TestClient) -> None:
-    keypair = RSAKeyPair()
-    token = create_test_token(keypair)
-    scoped_token_payload = create_test_token_payload(
-        scope="exec:test", jti="other-token"
+    app = await create_test_app()
+    test_config = get_test_config(app)
+    token = create_test_token(test_config)
+    scoped_token = create_test_token(
+        test_config, scope="exec:test", jti="other-token"
     )
-    app = await create_test_app(keypair)
     client = await aiohttp_client(app)
     redis_client = app["jwt_authorizer/redis"]
     token_store = TokenStore(redis_client, "uidNumber")
     pipeline = redis_client.pipeline()
-    token_store.store_token(scoped_token_payload, pipeline)
+    token_store.store_token(scoped_token.claims, pipeline)
     await pipeline.execute()
 
     r = await client.get(
-        "/auth/tokens", headers={"X-Auth-Request-Token": token}
+        "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
     body = await r.text()
@@ -84,24 +79,17 @@ async def test_tokens_handle_no_auth(aiohttp_client: TestClient) -> None:
 
 
 async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
-    keypair = RSAKeyPair()
-    token = create_test_token(keypair)
-    session_secret = os.urandom(16)
-    app = await create_test_app(keypair, session_secret)
+    app = await create_test_app()
+    test_config = get_test_config(app)
+    token = create_test_token(test_config)
     client = await aiohttp_client(app)
 
     ticket = Ticket()
-    scoped_token_payload = create_test_token_payload(
-        scope="exec:test", jti=ticket.as_handle("oauth2_proxy")
+    scoped_token = create_test_token(
+        test_config, scope="exec:test", jti=ticket.as_handle("oauth2_proxy")
     )
-    scoped_token = jwt.encode(
-        scoped_token_payload,
-        keypair.private_key_as_pem(),
-        algorithm=config.ALGORITHM,
-        headers={"kid": "some-kid"},
-    ).decode()
     session = Session(
-        token=Token(encoded=scoped_token),
+        token=Token(encoded=scoped_token.encoded),
         email="some-user@example.com",
         user="some-user@example.com",
         created_at=datetime.now(timezone.utc),
@@ -109,22 +97,25 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
     )
 
     redis_client = app["jwt_authorizer/redis"]
-    session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
+    session_store = SessionStore(
+        "oauth2_proxy", test_config.session_key, redis_client
+    )
     token_store = TokenStore(redis_client, "uidNumber")
     pipeline = redis_client.pipeline()
     await session_store.store_session(ticket, session, pipeline)
-    token_store.store_token(scoped_token_payload, pipeline)
+    token_store.store_token(scoped_token.claims, pipeline)
     await pipeline.execute()
 
     handle = ticket.as_handle("oauth2_proxy")
     r = await client.get(
-        f"/auth/tokens/{handle}", headers={"X-Auth-Request-Token": token},
+        f"/auth/tokens/{handle}",
+        headers={"X-Auth-Request-Token": token.encoded},
     )
     assert r.status == 200
     assert handle in await r.text()
 
     r = await client.get(
-        "/auth/tokens", headers={"X-Auth-Request-Token": token}
+        "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
     body = await r.text()
@@ -135,7 +126,7 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
     # Deleting without a CSRF token will fail.
     r = await client.post(
         f"/auth/tokens/{handle}",
-        headers={"X-Auth-Request-Token": token},
+        headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE"},
     )
     assert r.status == 403
@@ -143,7 +134,7 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
     # Deleting with a bogus CSRF token will fail.
     r = await client.post(
         f"/auth/tokens/{handle}",
-        headers={"X-Auth-Request-Token": token},
+        headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE", "_csrf": csrf_token + "xxxx"},
     )
     assert r.status == 403
@@ -151,7 +142,7 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
     # Deleting with the correct CSRF will succeed.
     r = await client.post(
         f"/auth/tokens/{handle}",
-        headers={"X-Auth-Request-Token": token},
+        headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE", "_csrf": csrf_token},
     )
     assert r.status == 200
@@ -173,13 +164,13 @@ async def test_tokens_new_no_auth(aiohttp_client: TestClient) -> None:
 
 
 async def test_tokens_new_form(aiohttp_client: TestClient) -> None:
-    keypair = RSAKeyPair()
-    token = create_test_token(keypair, ["admin"])
-    app = await create_test_app(keypair)
+    app = await create_test_app()
+    test_config = get_test_config(app)
+    token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)
 
     r = await client.get(
-        "/auth/tokens/new", headers={"X-Auth-Request-Token": token}
+        "/auth/tokens/new", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
     body = await r.text()
@@ -190,14 +181,13 @@ async def test_tokens_new_form(aiohttp_client: TestClient) -> None:
 
 
 async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
-    keypair = RSAKeyPair()
-    token = create_test_token(keypair, ["admin"])
-    session_secret = os.urandom(16)
-    app = await create_test_app(keypair, session_secret)
+    app = await create_test_app()
+    test_config = get_test_config(app)
+    token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)
 
     r = await client.get(
-        "/auth/tokens/new", headers={"X-Auth-Request-Token": token}
+        "/auth/tokens/new", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
     body = await r.text()
@@ -205,10 +195,26 @@ async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
     assert csrf_match
     csrf_token = csrf_match.group(1)
 
+    # Creating without a CSRF token will fail.
+    r = await client.post(
+        f"/auth/tokens/new",
+        headers={"X-Auth-Request-Token": token.encoded},
+        data={"read:all": "y"},
+    )
+    assert r.status == 403
+
+    # Deleting with a bogus CSRF token will fail.
+    r = await client.post(
+        f"/auth/tokens/new",
+        headers={"X-Auth-Request-Token": token.encoded},
+        data={"read:all": "y", "_csrf": csrf_token + "xxxx"},
+    )
+    assert r.status == 403
+
     # Creating with a valid CSRF token will succeed.
     r = await client.post(
         "/auth/tokens/new",
-        headers={"X-Auth-Request-Token": token},
+        headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y", "_csrf": csrf_token},
     )
     assert r.status == 200
@@ -237,7 +243,9 @@ async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
     # The new token should also appear on the list we were redirected to.
     assert tokens[0]["jti"] in body
 
-    session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
+    session_store = SessionStore(
+        "oauth2_proxy", test_config.session_key, redis_client
+    )
     ticket = Ticket.from_str("oauth2_proxy", encoded_ticket)
     session = await session_store.get_session(ticket)
     assert session
@@ -247,7 +255,7 @@ async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
 
     decoded_token = jwt.decode(
         session.token.encoded,
-        keypair.public_key_as_pem(),
+        test_config.keypair.public_key_as_pem(),
         algorithms=config.ALGORITHM,
         audience="https://example.com/",
     )

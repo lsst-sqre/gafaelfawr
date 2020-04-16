@@ -110,7 +110,9 @@ class GitHubProvider(Provider):
         logger: Logger,
     ) -> None:
         self._config = config
-        super().__init__(session, issuer, logger)
+        self._session = session
+        self._issuer = issuer
+        self._logger = logger
 
     def get_redirect_url(self, state: str) -> str:
         """Get the login URL to which to redirect the user.
@@ -130,7 +132,7 @@ class GitHubProvider(Provider):
             "scope": " ".join(self._SCOPES),
             "state": state,
         }
-        self.logger.info("Redirecting user to GitHub for authentication")
+        self._logger.info("Redirecting user to GitHub for authentication")
         return f"{self._LOGIN_URL}?{urlencode(params)}"
 
     async def get_token(
@@ -161,7 +163,7 @@ class GitHubProvider(Provider):
         GitHubException
             GitHub responded with an error to a request.
         """
-        self.logger.info("Getting user information from GitHub")
+        self._logger.info("Getting user information from GitHub")
         github_token = await self._get_access_token(code, state)
         user_info = await self._get_user_info(github_token)
 
@@ -175,7 +177,7 @@ class GitHubProvider(Provider):
             "uid": user_info.username,
         }
 
-        return await self.issuer.issue_token(payload, ticket)
+        return await self._issuer.issue_token(payload, ticket)
 
     @staticmethod
     def _build_group_name(team_slug: str, organization: str) -> str:
@@ -236,8 +238,8 @@ class GitHubProvider(Provider):
             "code": code,
             "state": state,
         }
-        self.logger.debug("Fetching access token from %s", self._TOKEN_URL)
-        r = await self.http_post(
+        self._logger.debug("Fetching access token from %s", self._TOKEN_URL)
+        r = await self._session.post(
             self._TOKEN_URL,
             data=data,
             headers={"Accept": "application/json"},
@@ -269,22 +271,22 @@ class GitHubProvider(Provider):
         GitHubException
             User has no primary email address.
         """
-        self.logger.debug("Fetching user data from %s", self._USER_URL)
-        r = await self.http_get(
+        self._logger.debug("Fetching user data from %s", self._USER_URL)
+        r = await self._session.get(
             self._USER_URL,
             headers={"Authorization": f"token {token}"},
             raise_for_status=True,
         )
         user_data = await r.json()
-        self.logger.debug("Fetching user data from %s", self._TEAMS_URL)
-        r = await self.http_get(
+        self._logger.debug("Fetching user data from %s", self._TEAMS_URL)
+        r = await self._session.get(
             self._TEAMS_URL,
             headers={"Authorization": f"token {token}"},
             raise_for_status=True,
         )
         teams_data = await r.json()
-        self.logger.debug("Fetching user data from %s", self._EMAILS_URL)
-        r = await self.http_get(
+        self._logger.debug("Fetching user data from %s", self._EMAILS_URL)
+        r = await self._session.get(
             self._EMAILS_URL,
             headers={"Authorization": f"token {token}"},
             raise_for_status=True,

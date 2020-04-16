@@ -9,7 +9,7 @@ from jwt_authorizer.providers.github import GitHubProvider
 from jwt_authorizer.providers.oidc import OIDCProvider
 from jwt_authorizer.session import SessionStore
 from jwt_authorizer.tokens import TokenStore
-from jwt_authorizer.verify import KeyClient, TokenVerifier
+from jwt_authorizer.verify import TokenVerifier
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession, web
@@ -143,7 +143,6 @@ class ComponentFactory:
         key_cache: TTLCache = request.config_dict["jwt_authorizer/key_cache"]
         http_session: ClientSession = request.config_dict["safir/http_session"]
 
-        key_client = KeyClient(http_session)
         return TokenVerifier(
-            self._config.issuers, key_client, key_cache, logger
+            self._config.issuers, http_session, key_cache, logger
         )

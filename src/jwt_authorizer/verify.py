@@ -16,7 +16,7 @@ from jwt_authorizer.tokens import VerifiedToken
 from jwt_authorizer.util import base64_to_number
 
 if TYPE_CHECKING:
-    from aiohttp import ClientResponse, ClientSession
+    from aiohttp import ClientSession
     from cachetools import TTLCache
     from logging import Logger
     from jwt_authorizer.config import Issuer
@@ -24,15 +24,14 @@ if TYPE_CHECKING:
     from typing import Dict, List, Optional
 
 __all__ = [
-    "KeyClient",
-    "KeyClientException",
+    "FetchKeysException",
     "TokenVerifier",
     "UnknownAlgorithmException",
     "UnknownKeyIdException",
 ]
 
 
-class KeyClientException(Exception):
+class FetchKeysException(Exception):
     """Cannot retrieve the keys from an issuer."""
 
 
@@ -44,110 +43,6 @@ class UnknownKeyIdException(Exception):
     """The reqeusted key ID was not found for an issuer."""
 
 
-class KeyClient:
-    """Client to retrieve a key from an issuer.
-
-    Handles retrieving the OpenID Connect metadata and the JWKS for an issuer
-    and extracting the keys.  Intended to be overridden by the test suite to
-    replace the get_url function.
-
-    Parameters
-    ----------
-    session : `aiohttp.ClientSession`
-        The session to use for making requests.
-    """
-
-    def __init__(self, session: ClientSession) -> None:
-        self.session = session
-
-    async def get_keys(self, issuer: Issuer) -> List[Dict[str, str]]:
-        """Fetch the key set for an issuer.
-
-        Parameters
-        ----------
-        url : `str`
-            URL to fetch.
-
-        Returns
-        -------
-        body : List[Dict[`str`, `str`]]
-            List of keys (in JWKS format) for the given issuer.
-
-        Raises
-        ------
-        KeyClientException
-            On failure to retrieve a set of keys from the issuer.
-        """
-        url = await self._get_jwks_uri(issuer)
-        if not url:
-            url = urljoin(issuer.url, ".well-known/jwks.json")
-
-        r = await self.get_url(url)
-        if r.status != 200:
-            msg = f"Cannot retrieve keys from {url}"
-            raise KeyClientException(msg)
-
-        body = await r.json()
-        if "keys" not in body:
-            msg = f"No keys property in JWKS metadata for {url}"
-            raise KeyClientException(msg)
-
-        return body["keys"]
-
-    async def get_url(self, url: str) -> ClientResponse:
-        """Retrieve a URL.
-
-        Intended for overriding by a test class to avoid actual HTTP
-        requests.
-
-        Parameters
-        ----------
-        url : `str`
-            URL to retrieve.
-
-        Returns
-        -------
-        response : `aiohttp.ClientResponse`
-            The response.
-        """
-        return await self.session.get(url)
-
-    async def _get_jwks_uri(self, issuer: Issuer) -> Optional[str]:
-        """Retrieve the JWKS URI for a given issuer.
-
-        Ask for the OpenID Connect metadata and determine the JWKS URI from
-        that.
-
-        Parameters
-        ----------
-        issuer : `jwt_authorizer.config.Issuer`
-            JWT issuer whose URI to retrieve.
-
-        Returns
-        -------
-        url : `str`, optional
-            URI for the JWKS of that issuer, or None if the OpenID Connect
-            metadata is not present.
-
-        Raises
-        ------
-        KeyClientException
-            If the OpenID Connect metadata doesn't contain the expected
-            parameter.
-        """
-        url = urljoin(issuer.url, ".well-known/openid-configuration")
-        r = await self.get_url(url)
-        if r.status != 200:
-            return None
-
-        body = await r.json()
-        if "jwks_uri" not in body:
-            msg = f"No jwks_uri property in OIDC metadata for {issuer.url}"
-            raise KeyClientException(msg)
-
-        return body["jwks_uri"]
-
-
 class TokenVerifier:
     """Verifies the validity of a JWT.
 
@@ -155,8 +50,8 @@ class TokenVerifier:
     ----------
     issuers : Dict[`str`, `jwt_authorizer.config.Issuer`]
         Known token issuers and their metadata.
-    client : `KeyClient`
-        Class to use to retrieve issuer key sets.
+    session : `aiohttp.ClientSession`
+        The session to use for making requests.
     cache : `cachetools.TTLCache`
         Cache in which to store issuer keys.
     logger : `logging.Logger`
@@ -166,12 +61,12 @@ class TokenVerifier:
     def __init__(
         self,
         issuers: Dict[str, Issuer],
-        key_client: KeyClient,
+        session: ClientSession,
         cache: TTLCache,
         logger: Logger,
     ) -> None:
         self._issuers = issuers
-        self._key_client = key_client
+        self._session = session
         self._logger = logger
         self._cache = cache
 
@@ -231,7 +126,7 @@ class TokenVerifier:
 
         Raises
         ------
-        KeyClientException
+        FetchKeysException
             Unable to retrieve the key set for the specified issuer.
         UnknownAlgorithException
             The requested key ID was found, but is for an unsupported
@@ -255,7 +150,7 @@ class TokenVerifier:
             raise UnknownKeyIdException(msg)
 
         # Retrieve the JWKS information.
-        keys = await self._key_client.get_keys(issuer)
+        keys = await self._get_keys(issuer)
 
         # Find the key that we want.
         for k in keys:
@@ -286,3 +181,72 @@ class TokenVerifier:
         return public_key.public_bytes(
             encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo,
         )
+
+    async def _get_keys(self, issuer: Issuer) -> List[Dict[str, str]]:
+        """Fetch the key set for an issuer.
+
+        Parameters
+        ----------
+        url : `str`
+            URL to fetch.
+
+        Returns
+        -------
+        body : List[Dict[`str`, `str`]]
+            List of keys (in JWKS format) for the given issuer.
+
+        Raises
+        ------
+        FetchKeysException
+            On failure to retrieve a set of keys from the issuer.
+        """
+        url = await self._get_jwks_uri(issuer)
+        if not url:
+            url = urljoin(issuer.url, ".well-known/jwks.json")
+
+        r = await self._session.get(url)
+        if r.status != 200:
+            msg = f"Cannot retrieve keys from {url}"
+            raise FetchKeysException(msg)
+
+        body = await r.json()
+        if "keys" not in body:
+            msg = f"No keys property in JWKS metadata for {url}"
+            raise FetchKeysException(msg)
+
+        return body["keys"]
+
+    async def _get_jwks_uri(self, issuer: Issuer) -> Optional[str]:
+        """Retrieve the JWKS URI for a given issuer.
+
+        Ask for the OpenID Connect metadata and determine the JWKS URI from
+        that.
+
+        Parameters
+        ----------
+        issuer : `jwt_authorizer.config.Issuer`
+            JWT issuer whose URI to retrieve.
+
+        Returns
+        -------
+        url : `str`, optional
+            URI for the JWKS of that issuer, or None if the OpenID Connect
+            metadata is not present.
+
+        Raises
+        ------
+        FetchKeysException
+            If the OpenID Connect metadata doesn't contain the expected
+            parameter.
+        """
+        url = urljoin(issuer.url, ".well-known/openid-configuration")
+        r = await self._session.get(url)
+        if r.status != 200:
+            return None
+
+        body = await r.json()
+        if "jwks_uri" not in body:
+            msg = f"No jwks_uri property in OIDC metadata for {issuer.url}"
+            raise FetchKeysException(msg)
+
+        return body["jwks_uri"]

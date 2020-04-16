@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from jwt_authorizer.util import add_padding, base64_to_number, number_to_base64
-from tests.util import RSAKeyPair
+from tests.support.keypair import RSAKeyPair
 
 
 def test_add_padding() -> None:

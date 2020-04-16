@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from jwt_authorizer.authnz import capabilities_from_groups
 from jwt_authorizer.tokens import VerifiedToken
-from tests.util import create_test_app
+from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
     from typing import Any, Dict
