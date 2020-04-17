@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import base64
 
-__all__ = ["add_padding", "base64_to_number"]
+__all__ = [
+    "add_padding",
+    "base64_to_number",
+    "number_to_base64",
+]
 
 
 def add_padding(encoded: str) -> str:
