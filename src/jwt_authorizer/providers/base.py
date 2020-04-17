@@ -32,7 +32,6 @@ class Provider(metaclass=ABCMeta):
         url : `str`
             The encoded URL to which to redirect the user.
         """
-        pass
 
     @abstractmethod
     async def create_session(self, code: str, state: str) -> Session:
@@ -58,4 +57,3 @@ class Provider(metaclass=ABCMeta):
         ProviderException
             The provider responded with an error to a request.
         """
-        pass
