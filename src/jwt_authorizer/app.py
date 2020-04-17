@@ -94,6 +94,7 @@ async def create_app(
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
     await setup_middleware(app, config)
+    app.on_cleanup.append(on_shutdown)
     app.add_routes(init_routes())
 
     if http_session:
