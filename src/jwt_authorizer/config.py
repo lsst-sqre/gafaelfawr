@@ -129,7 +129,7 @@ class IssuerConfig:
     iss: str
     """iss (issuer) field in issued tokens."""
 
-    kid: bytes
+    kid: str
     """kid (key ID) header field in issued tokens."""
 
     aud: str

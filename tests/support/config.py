@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import GitHubConfig, OIDCConfig
-    from tests.support.keypair import RSAKeyPair
+    from jwt_authorizer.keypair import RSAKeyPair
     from typing import Optional
 
 __all__ = ["ConfigForTests"]

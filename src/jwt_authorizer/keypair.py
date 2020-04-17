@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.serialization import (
     NoEncryption,
     PrivateFormat,
     PublicFormat,
+    load_pem_private_key,
 )
 
 from jwt_authorizer.config import ALGORITHM
@@ -25,14 +26,30 @@ __all__ = ["RSAKeyPair"]
 class RSAKeyPair:
     """An RSA key pair with some simple helper functions.
 
-    Normally created by calling py:meth:`RSAKeyPair.generate` rather than the
-    constructor.
-
-    Parameters
-    ----------
-    private_key : `rsa.RSAPrivateKeyWithSerialization`
-        The private key represented by this class.
+    Notes
+    -----
+    Created by calling :py:meth:`~RSAKeyPair.generate` or
+    :py:meth:`~RSAKeyPair.from_pem` rather than the constructor.
     """
+
+    @classmethod
+    def from_pem(cls, pem: bytes) -> RSAKeyPair:
+        """Import an RSA key pair from a PEM-encoded private key.
+
+        Parameters
+        ----------
+        pem : `bytes`
+            The PEM-encoded key (must not be password-protected).
+
+        Returns
+        -------
+        keypair : `RSAKeyPair`
+            The corresponding key pair.
+        """
+        private_key = load_pem_private_key(
+            pem, password=None, backend=default_backend()
+        )
+        return cls(private_key)
 
     @classmethod
     def generate(cls) -> RSAKeyPair:
@@ -79,7 +96,7 @@ class RSAKeyPair:
         key : Dict[`str`, `str`]
             The public key in JWKS format.
         """
-        public_numbers = self.private_key.public_key().public_numbers()
+        public_numbers = self.public_numbers()
         jwks = {
             "alg": ALGORITHM,
             "kty": "RSA",
@@ -102,3 +119,13 @@ class RSAKeyPair:
         return self.private_key.public_key().public_bytes(
             Encoding.PEM, PublicFormat.SubjectPublicKeyInfo,
         )
+
+    def public_numbers(self) -> rsa.RSAPublicNumbers:
+        """Return the public numbers for the key pair.
+
+        Returns
+        -------
+        nums : `cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicNumbers`
+            The public numbers.
+        """
+        return self.private_key.public_key().public_numbers()

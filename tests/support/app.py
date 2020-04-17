@@ -10,9 +10,9 @@ import mockaioredis
 from cryptography.fernet import Fernet
 
 from jwt_authorizer.app import create_app
+from jwt_authorizer.keypair import RSAKeyPair
 from tests.support.config import ConfigForTests
 from tests.support.http_session import MockClientSession
-from tests.support.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
     from aiohttp import web
@@ -24,7 +24,7 @@ __all__ = ["create_test_app"]
 
 async def create_test_app(**kwargs: Any) -> web.Application:
     """Configured aiohttp Application for testing."""
-    keypair = RSAKeyPair()
+    keypair = RSAKeyPair.generate()
     session_key = os.urandom(16)
 
     kwargs["SESSION_SECRET"] = Fernet.generate_key().decode()
