@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+from functools import wraps
 from typing import TYPE_CHECKING
 
+import jwt
 from aiohttp import web
 from aiohttp_session import get_session
 
@@ -17,7 +19,7 @@ if TYPE_CHECKING:
     from jwt_authorizer.factory import ComponentFactory
     from jwt_authorizer.tokens import VerifiedToken
     from logger import Logger
-    from typing import Dict, Optional
+    from typing import Any, Awaitable, Callable, Dict, Optional
 
 __all__ = [
     "forbidden",
@@ -25,6 +27,52 @@ __all__ = [
     "scope_headers",
     "unauthorized",
 ]
+
+
+def authenticated(
+    route: Callable[[web.Request, VerifiedToken], Awaitable[Any]]
+) -> Callable[[web.Request], Awaitable[Any]]:
+    """Decorator to mark a route as requiring authentication.
+
+    The authentication token is extracted from the incoming request and
+    verified, and then passed as an additional parameter to the wrapped
+    function.  If the token is missing or invalid, throws an unauthorized
+    exception.
+
+    Paramters
+    ---------
+    route : `typing.Callable`
+        A route handler that takes an `aiohttp.web.Request` and a
+        `jwt_authorizer.tokens.VerifiedToken`.  This decorator should be in
+        front of (below) the @route decorator.
+
+    Response
+    --------
+    response : `typing.Callable`
+        The wrapped route.
+    """
+
+    @wraps(route)
+    async def wrapped_route(request: web.Request) -> Any:
+        factory: ComponentFactory = request.config_dict[
+            "jwt_authorizer/factory"
+        ]
+        logger: Logger = request["safir/logger"]
+
+        try:
+            encoded_token = await get_token_from_request(request)
+            if not encoded_token:
+                logger.info("No token found, returning unauthorized")
+                raise unauthorized(request, "Unable to find token")
+            token_verifier = factory.create_token_verifier(request)
+            token = await token_verifier.verify(encoded_token)
+        except jwt.PyJWTError as e:
+            logger.exception("Failed to authenticate token")
+            raise unauthorized(request, "Invalid token", str(e))
+
+        return await route(request, token)
+
+    return wrapped_route
 
 
 async def get_token_from_request(request: web.Request) -> Optional[Token]:

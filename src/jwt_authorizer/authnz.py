@@ -4,57 +4,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import jwt
 from aiohttp import web
 
-from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.tokens import VerifiedToken
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
-    from jwt_authorizer.factory import ComponentFactory
-    from jwt_authorizer.tokens import Token
     from logging import Logger
     from typing import List, Mapping, Set
 
 __all__ = [
-    "authenticate",
     "authorize",
     "scopes_from_token",
 ]
-
-
-async def authenticate(request: web.Request, token: Token) -> VerifiedToken:
-    """Authenticate the token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
-    token : `jwt_authorizer.tokens.Token`
-        The encoded token in string form.
-
-    Returns
-    -------
-    verified_token : `jwt_authorizer.tokens.VerifiedToken`
-        The verified token.
-
-    Raises
-    ------
-    jwt.exceptions.DecodeError
-        If there's an issue decoding the token.
-    jwt.exceptions.InvalidIssuerError
-        If the issuer of the token is not known and therefore the token cannot
-        be verified.
-    """
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
-    logger: Logger = request["safir/logger"]
-
-    claims = jwt.decode(token.encoded, algorithms=ALGORITHM, verify=False)
-    jti = claims.get("jti", "UNKNOWN")
-    logger.debug(f"Authenticating token with jti: {jti}")
-    token_verifier = factory.create_token_verifier(request)
-    return await token_verifier.verify(token)
 
 
 def authorize(request: web.Request, token: VerifiedToken) -> bool:

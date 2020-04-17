@@ -8,19 +8,17 @@ from aiohttp import web
 from aiohttp_csrf import csrf_protect, generate_token
 from aiohttp_jinja2 import template
 from aiohttp_session import get_session
-from jwt import PyJWTError
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
-from jwt_authorizer.authnz import authenticate
 from jwt_authorizer.handlers import routes
-from jwt_authorizer.handlers.util import get_token_from_request, unauthorized
+from jwt_authorizer.handlers.util import authenticated
 from jwt_authorizer.session import Session, SessionHandle
 
 if TYPE_CHECKING:
     from aioredis import Redis
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
-    from logging import Logger
+    from jwt_authorizer.tokens import VerifiedToken
     from multidict import MultiDictProxy
     from typing import Dict, Optional, Union
 
@@ -73,7 +71,10 @@ def api_capabilities_token_form(
 
 @routes.get("/auth/tokens", name="tokens")
 @template("tokens.html")
-async def get_tokens(request: web.Request) -> Dict[str, object]:
+@authenticated
+async def get_tokens(
+    request: web.Request, token: VerifiedToken
+) -> Dict[str, object]:
     """Displays all tokens for the current user.
 
     Parameters
@@ -83,22 +84,11 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
 
     Returns
     -------
-    response : Dict[`str`, `object`]
-        Form variables that are processed by the template decorator, which
-        turns them into an `aiohttp.web.Response`.
+    response : `aiohttp.web.Response`
+        The response.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
-    logger: Logger = request["safir/logger"]
-
-    try:
-        encoded_token = await get_token_from_request(request)
-        if not encoded_token:
-            raise unauthorized(request, "Unable to find token")
-        token = await authenticate(request, encoded_token)
-    except PyJWTError as e:
-        logger.exception("Failed to authenticate token")
-        raise unauthorized(request, "Invalid token", str(e))
 
     session = await get_session(request)
     message = session.pop("message", None)
@@ -124,7 +114,10 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
 
 @routes.get("/auth/tokens/new")
 @template("new_token.html")
-async def get_tokens_new(request: web.Request) -> Dict[str, object]:
+@authenticated
+async def get_tokens_new(
+    request: web.Request, token: VerifiedToken
+) -> Dict[str, object]:
     """Return a form for creating a new token.
 
     Parameters
@@ -134,21 +127,10 @@ async def get_tokens_new(request: web.Request) -> Dict[str, object]:
 
     Returns
     -------
-    response : Dict[`str`, `object`]
-        Form variables that are processed by the template decorator, which
-        turns them into an `aiohttp.web.Response`.
+    response : `aiohttp.web.Response`
+        The response.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
-    logger: Logger = request["safir/logger"]
-
-    try:
-        encoded_token = await get_token_from_request(request)
-        if not encoded_token:
-            raise unauthorized(request, "Unable to find token")
-        await authenticate(request, encoded_token)
-    except PyJWTError as e:
-        logger.exception("Failed to authenticate token")
-        raise unauthorized(request, "Invalid token", str(e))
 
     form = api_capabilities_token_form(config.known_capabilities)
 
@@ -165,7 +147,10 @@ async def get_tokens_new(request: web.Request) -> Dict[str, object]:
 @routes.post("/auth/tokens/new")
 @csrf_protect
 @template("new_token.html")
-async def post_tokens_new(request: web.Request) -> Dict[str, object]:
+@authenticated
+async def post_tokens_new(
+    request: web.Request, token: VerifiedToken
+) -> Dict[str, object]:
     """Create a new token based on form parameters.
 
     Parameters
@@ -176,23 +161,12 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
 
     Returns
     -------
-    response : Dict[`str`, `object`]
-        Form variables that are processed by the template decorator, which
-        turns them into an `aiohttp.web.Response`.
+    response : `aiohttp.web.Response`
+        The response.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     redis: Redis = request.config_dict["jwt_authorizer/redis"]
-    logger: Logger = request["safir/logger"]
-
-    try:
-        encoded_token = await get_token_from_request(request)
-        if not encoded_token:
-            raise unauthorized(request, "Unable to find token")
-        token = await authenticate(request, encoded_token)
-    except PyJWTError as e:
-        logger.exception("Failed to authenticate token")
-        raise unauthorized(request, "Invalid token", str(e))
 
     capabilities = config.known_capabilities
     form = api_capabilities_token_form(capabilities, await request.post())
@@ -244,7 +218,10 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
 
 @routes.get("/auth/tokens/{handle}")
 @template("token.html")
-async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
+@authenticated
+async def get_token_by_handle(
+    request: web.Request, token: VerifiedToken
+) -> Dict[str, object]:
     """Displays information about a single token.
 
     Parameters
@@ -254,23 +231,12 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
 
     Returns
     -------
-    response : Dict[`str`, `object`]
-        Form variables that are processed by the template decorator, which
-        turns them into an `aiohttp.web.Response`.
+    response : `aiohttp.web.Response`
+        The response.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
-    logger: Logger = request["safir/logger"]
     handle = request.match_info["handle"]
-
-    try:
-        encoded_token = await get_token_from_request(request)
-        if not encoded_token:
-            raise unauthorized(request, "Unable to find token")
-        token = await authenticate(request, encoded_token)
-    except PyJWTError as e:
-        logger.exception("Failed to authenticate token")
-        raise unauthorized(request, "Invalid token", str(e))
 
     token_store = factory.create_token_store(request)
     user_id = token.claims[config.uid_key]
@@ -289,8 +255,10 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
 
 @routes.post("/auth/tokens/{handle}")
 @csrf_protect
-@template("token.html")
-async def post_delete_token(request: web.Request) -> Dict[str, object]:
+@authenticated
+async def post_delete_token(
+    request: web.Request, token: VerifiedToken
+) -> web.Response:
     """Deletes a single token.
 
     Parameters
@@ -307,17 +275,7 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     redis: Redis = request.config_dict["jwt_authorizer/redis"]
-    logger: Logger = request["safir/logger"]
     handle = request.match_info["handle"]
-
-    try:
-        encoded_token = await get_token_from_request(request)
-        if not encoded_token:
-            raise unauthorized(request, "Unable to find token")
-        token = await authenticate(request, encoded_token)
-    except PyJWTError as e:
-        logger.exception("Failed to authenticate token")
-        raise unauthorized(request, "Invalid token", str(e))
 
     form = AlterTokenForm(await request.post())
     if not form.validate() or form.method_.data != "DELETE":

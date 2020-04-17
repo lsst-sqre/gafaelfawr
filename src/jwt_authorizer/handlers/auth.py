@@ -4,16 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import jwt
 from aiohttp import web
 
-from jwt_authorizer.authnz import authenticate, authorize
+from jwt_authorizer.authnz import authorize
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.handlers.util import (
+    authenticated,
     forbidden,
-    get_token_from_request,
     scope_headers,
-    unauthorized,
 )
 from jwt_authorizer.session import SessionHandle
 
@@ -21,13 +19,13 @@ if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
     from jwt_authorizer.tokens import VerifiedToken
-    from logging import Logger
 
 __all__ = ["get_auth"]
 
 
 @routes.get("/auth")
-async def get_auth(request: web.Request) -> web.Response:
+@authenticated
+async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
     """Authenticate and authorize a token.
 
     Parameters
@@ -87,21 +85,6 @@ async def get_auth(request: web.Request) -> web.Response:
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
-    logger: Logger = request["safir/logger"]
-
-    encoded_token = await get_token_from_request(request)
-    if not encoded_token:
-        logger.info("No token found, returning unauthorized")
-        raise unauthorized(request, "Unable to find token")
-
-    # Authentication
-    try:
-        token = await authenticate(request, encoded_token)
-    except jwt.PyJWTError as e:
-        logger.exception("Failed to authenticate token")
-        raise unauthorized(request, "Invalid token", message=str(e))
-
-    # Authorization
     if not authorize(request, token):
         raise forbidden(request, token, "Missing required scopes")
     return await success(request, token)
