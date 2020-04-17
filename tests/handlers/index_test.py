@@ -8,11 +8,12 @@ from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
+    from pathlib import Path
 
 
-async def test_get_index(aiohttp_client: TestClient) -> None:
+async def test_get_index(tmp_path: Path, aiohttp_client: TestClient) -> None:
     """Test GET /"""
-    app = await create_test_app()
+    app = await create_test_app(tmp_path)
     client = await aiohttp_client(app)
 
     response = await client.get("/")

@@ -235,49 +235,37 @@ class Config:
         config : `Config`
             The corresponding Config object.
         """
-        if settings.get("OAUTH2_JWT.KEY"):
-            key = settings["OAUTH2_JWT.KEY"].encode()
-        else:
-            key = cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"])
         issuer_config = IssuerConfig(
             iss=settings["OAUTH2_JWT.ISS"],
             kid=settings["OAUTH2_JWT.KEY_ID"],
             aud=settings["OAUTH2_JWT.AUD.DEFAULT"],
             aud_internal=settings["OAUTH2_JWT.AUD.INTERNAL"],
-            key=key,
+            key=cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"]),
             exp_minutes=settings["OAUTH2_JWT_EXP"],
         )
 
-        if settings.get("SESSION_SECRET"):
-            session_secret = settings["SESSION_SECRET"]
-        else:
-            session_secret = cls._load_secret(
-                settings["SESSION_SECRET_FILE"]
-            ).decode()
+        session_secret = cls._load_secret(
+            settings["SESSION_SECRET_FILE"]
+        ).decode()
 
         github = None
         if settings.get("GITHUB.CLIENT_ID"):
-            if settings.get("GITHUB.CLIENT_SECRET"):
-                secret = settings["GITHUB.CLIENT_SECRET"]
-            else:
-                secret = cls._load_secret(
-                    settings["GITHUB.CLIENT_SECRET_FILE"]
-                ).decode()
+            client_secret = cls._load_secret(
+                settings["GITHUB.CLIENT_SECRET_FILE"]
+            ).decode()
             github = GitHubConfig(
-                client_id=settings["GITHUB.CLIENT_ID"], client_secret=secret
+                client_id=settings["GITHUB.CLIENT_ID"],
+                client_secret=client_secret,
             )
 
         oidc = None
         if settings.get("OIDC.LOGIN_URL"):
-            if settings.get("OIDC.CLIENT_SECRET"):
-                secret = settings["OIDC.CLIENT_SECRET"]
-            else:
-                secret = cls._load_secret(
-                    settings["OIDC.CLIENT_SECRET_FILE"]
-                ).decode()
+            client_secret = cls._load_secret(
+                settings["OIDC.CLIENT_SECRET_FILE"]
+            ).decode()
             oidc = OIDCConfig(
                 client_id=settings["OIDC.CLIENT_ID"],
-                client_secret=secret,
+                client_secret=client_secret,
                 login_url=settings["OIDC.LOGIN_URL"],
                 login_params=settings.get("OIDC.LOGIN_PARAMS", {}),
                 redirect_url=settings["OIDC.REDIRECT_URL"],
@@ -293,12 +281,9 @@ class Config:
                 group_mapping[key] = value
 
         store_session_settings = settings["OAUTH2_STORE_SESSION"]
-        if store_session_settings.get("OAUTH2_PROXY_SECRET"):
-            secret_b64 = store_session_settings["OAUTH2_PROXY_SECRET"]
-        else:
-            secret_b64 = cls._load_secret(
-                store_session_settings["OAUTH2_PROXY_SECRET_FILE"]
-            )
+        secret_b64 = cls._load_secret(
+            store_session_settings["OAUTH2_PROXY_SECRET_FILE"]
+        )
         secret = base64.urlsafe_b64decode(secret_b64)
         session_store = SessionStoreConfig(
             ticket_prefix=store_session_settings["TICKET_PREFIX"],

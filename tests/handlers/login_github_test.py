@@ -8,18 +8,20 @@ from urllib.parse import parse_qs, urlparse
 
 from jwt_authorizer.config import ALGORITHM
 from jwt_authorizer.providers.github import GitHubProvider
-from tests.support.app import create_test_app
+from tests.support.app import create_test_app, store_secret
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
+    from pathlib import Path
 
 
-async def test_login(aiohttp_client: TestClient) -> None:
+async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
     config = {
         "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET": "some-client-secret",
+        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
     }
-    app = await create_test_app(**config)
+    app = await create_test_app(tmp_path, **config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -99,13 +101,16 @@ async def test_login(aiohttp_client: TestClient) -> None:
     }
 
 
-async def test_login_redirect_header(aiohttp_client: TestClient) -> None:
+async def test_login_redirect_header(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
+    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
     config = {
         "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET": "some-client-secret",
+        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
     }
-    app = await create_test_app(**config)
+    app = await create_test_app(tmp_path, **config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -130,12 +135,15 @@ async def test_login_redirect_header(aiohttp_client: TestClient) -> None:
     assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
 
 
-async def test_login_no_destination(aiohttp_client: TestClient) -> None:
+async def test_login_no_destination(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
     config = {
         "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET": "some-client-secret",
+        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
     }
-    app = await create_test_app(**config)
+    app = await create_test_app(tmp_path, **config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -143,7 +151,9 @@ async def test_login_no_destination(aiohttp_client: TestClient) -> None:
     assert r.status == 400
 
 
-async def test_cookie_auth_with_token(aiohttp_client: TestClient) -> None:
+async def test_cookie_auth_with_token(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
     """Test that cookie auth takes precedence over an Authorization header.
 
     JupyterHub sends an Authorization header in its internal requests with
@@ -152,11 +162,12 @@ async def test_cookie_auth_with_token(aiohttp_client: TestClient) -> None:
     login to get a valid session and then make a request with a bogus
     Authorization header.
     """
+    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
     config = {
         "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET": "some-client-secret",
+        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
     }
-    app = await create_test_app(**config)
+    app = await create_test_app(tmp_path, **config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.

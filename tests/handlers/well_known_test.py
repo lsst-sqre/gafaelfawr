@@ -10,10 +10,11 @@ from tests.support.app import create_test_app, get_test_config
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
+    from pathlib import Path
 
 
-async def test_well_known(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_well_known(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     keypair = test_config.keypair
     client = await aiohttp_client(app)

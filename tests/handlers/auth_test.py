@@ -17,6 +17,7 @@ from tests.support.tokens import create_test_token, create_upstream_test_token
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
+    from pathlib import Path
 
 
 def assert_www_authenticate_header_matches(
@@ -33,8 +34,8 @@ def assert_www_authenticate_header_matches(
         assert data[2].startswith("error_description=")
 
 
-async def test_no_auth(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    app = await create_test_app(tmp_path)
     client = await aiohttp_client(app)
 
     r = await client.get("/auth", params={"capability": "exec:admin"})
@@ -67,8 +68,10 @@ async def test_no_auth(aiohttp_client: TestClient) -> None:
     )
 
 
-async def test_access_denied(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_access_denied(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config)
     client = await aiohttp_client(app)
@@ -86,8 +89,8 @@ async def test_access_denied(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
 
 
-async def test_satisfy_all(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config, groups=["test"])
     client = await aiohttp_client(app)
@@ -108,8 +111,8 @@ async def test_satisfy_all(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
 
 
-async def test_success(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)
@@ -133,14 +136,14 @@ async def test_success(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Token-Ticket"] == ""
 
 
-async def test_success_any(aiohttp_client: TestClient) -> None:
+async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
     """Test satisfy=any as an /auth parameter.
 
     Ask for either ``exec:admin`` or ``exec:test`` and pass in credentials
     with only ``exec:test``.  Ensure they are accepted but also the headers
     don't claim the client has ``exec:admin``.
     """
-    app = await create_test_app()
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config, groups=["test"])
     client = await aiohttp_client(app)
@@ -164,8 +167,8 @@ async def test_success_any(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Groups"] == "test"
 
 
-async def test_forwarded(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_forwarded(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)
@@ -194,8 +197,8 @@ async def test_forwarded(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
 
-async def test_basic(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)
@@ -233,9 +236,9 @@ async def test_basic(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
 
-async def test_reissue(aiohttp_client: TestClient) -> None:
+async def test_reissue(tmp_path: Path, aiohttp_client: TestClient) -> None:
     """Test that an upstream token is reissued properly."""
-    app = await create_test_app()
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     ticket = Ticket()
     token = create_upstream_test_token(
@@ -303,9 +306,11 @@ async def test_reissue(aiohttp_client: TestClient) -> None:
     assert session.user == "some-user@example.com"
 
 
-async def test_reissue_internal(aiohttp_client: TestClient) -> None:
+async def test_reissue_internal(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
     """Test requesting token reissuance to an internal audience."""
-    app = await create_test_app()
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)

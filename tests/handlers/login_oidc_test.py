@@ -7,23 +7,25 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from jwt_authorizer.config import ALGORITHM
-from tests.support.app import create_test_app
+from tests.support.app import create_test_app, store_secret
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
+    from pathlib import Path
 
 
-async def test_login(aiohttp_client: TestClient) -> None:
+async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    secret_path = store_secret(tmp_path, "oidc", b"some-client-secret")
     config = {
         "OIDC.CLIENT_ID": "some-client-id",
-        "OIDC.CLIENT_SECRET": "some-client-secret",
+        "OIDC.CLIENT_SECRET_FILE": str(secret_path),
         "OIDC.LOGIN_URL": "https://example.com/oidc/login",
         "OIDC.LOGIN_PARAMS": {"skin": "test"},
         "OIDC.REDIRECT_URL": "https://example.com/login",
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
     }
-    app = await create_test_app(**config)
+    app = await create_test_app(tmp_path, **config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -106,18 +108,21 @@ async def test_login(aiohttp_client: TestClient) -> None:
     }
 
 
-async def test_login_redirect_header(aiohttp_client: TestClient) -> None:
+async def test_login_redirect_header(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
+    secret_path = store_secret(tmp_path, "oidc", b"some-client-secret")
     config = {
         "OIDC.CLIENT_ID": "some-client-id",
-        "OIDC.CLIENT_SECRET": "some-client-secret",
+        "OIDC.CLIENT_SECRET_FILE": str(secret_path),
         "OIDC.LOGIN_URL": "https://example.com/oidc/login",
         "OIDC.LOGIN_PARAMS": {"skin": "test"},
         "OIDC.REDIRECT_URL": "https://example.com/login",
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
     }
-    app = await create_test_app(**config)
+    app = await create_test_app(tmp_path, **config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.
@@ -142,18 +147,21 @@ async def test_login_redirect_header(aiohttp_client: TestClient) -> None:
     assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
 
 
-async def test_oauth2_callback(aiohttp_client: TestClient) -> None:
+async def test_oauth2_callback(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
     """Test the compatibility /oauth2/callback route."""
+    secret_path = store_secret(tmp_path, "oidc", b"some-client-secret")
     config = {
         "OIDC.CLIENT_ID": "some-client-id",
-        "OIDC.CLIENT_SECRET": "some-client-secret",
+        "OIDC.CLIENT_SECRET_FILE": str(secret_path),
         "OIDC.LOGIN_URL": "https://example.com/oidc/login",
         "OIDC.LOGIN_PARAMS": {"skin": "test"},
         "OIDC.REDIRECT_URL": "https://example.com/oauth2/sign_in",
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
     }
-    app = await create_test_app(**config)
+    app = await create_test_app(tmp_path, **config)
     client = await aiohttp_client(app)
 
     # Simulate the initial authentication request.

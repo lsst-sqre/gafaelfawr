@@ -17,10 +17,13 @@ from tests.support.tokens import create_upstream_test_token
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
+    from pathlib import Path
 
 
-async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_analyze_ticket(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     ticket = Ticket()
     ticket_handle = ticket.encode("oauth2_proxy")
@@ -95,8 +98,10 @@ async def test_analyze_ticket(aiohttp_client: TestClient) -> None:
     assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
 
 
-async def test_analyze_token(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_analyze_token(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_upstream_test_token(test_config)
     client = await aiohttp_client(app)

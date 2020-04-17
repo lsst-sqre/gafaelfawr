@@ -9,11 +9,12 @@ from jwt_authorizer.tokens import VerifiedToken
 from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from typing import Any, Dict
 
 
-async def test_capabilities_from_groups() -> None:
-    app = await create_test_app()
+async def test_capabilities_from_groups(tmp_path: Path) -> None:
+    app = await create_test_app(tmp_path)
     group_mapping = app["jwt_authorizer/config"].group_mapping
     claims: Dict[str, Any] = {
         "sub": "bvan",

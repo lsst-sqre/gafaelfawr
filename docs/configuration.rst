@@ -25,6 +25,11 @@ Settings
 Some settings are nested, in which case the parent setting takes a dict value.
 The description of that setting will specify whether there is a fixed set of child keys for related settings, or a more general collection of key/value pairs.
 
+All secrets are given in the form of a file path.
+The secret is the contents of the file.
+Any leading or trailing whitespace in the file will be removed.
+Secrets beginning or ending in whitespace are not supported.
+
 ``realm`` (required)
     The authentication realm indicated in the ``WWW-Authenticate`` header returned as part of a 401 error when a user is not already authenticated.
 
@@ -48,8 +53,8 @@ The description of that setting will specify whether there is a fixed set of chi
 ``set_user_headers`` (optional, default ``True``)
     On the authentication endpoint, extract the username, email, UID, and group list from the token if available and set headers containing that information for the application that is being authenticated.
 
-``session_secret`` (required)
-    The secret used to encrypt the JWT Authorizer session cookie.
+``session_secret_file`` (required)
+    File containing the secret used to encrypt the JWT Authorizer session cookie.
     Must be a Fernet key generated with :py:meth:`cryptography.fernet.Fernet.generate_key`.
 
 ``jwt_username_key`` (optional, default ``uid``)
@@ -65,9 +70,8 @@ The description of that setting will specify whether there is a fixed set of chi
     ``client_id`` (required)
         The GitHub OAuth client ID.
 
-    ``client_secret`` (required)
-        The GitHub OAuth client secret.
-        ``client_secret_file`` may be set instead of ``client_secret``, in which case it specifies the path to a file containing the secret.
+    ``client_secret_file`` (required)
+        File containing the GitHub OAuth client secret.
 
 ``oidc`` (optional)
     Configure OpenID Connect authentication.
@@ -78,9 +82,8 @@ The description of that setting will specify whether there is a fixed set of chi
     ``client_id`` (required)
         The client ID registered with the OpenID Connect provider.
 
-    ``client_secret`` (required)
-        The client secret registered with the OpenID Connect provider, used to retrieve the ID token for the user after authentication.
-        ``client_secret_file`` may be set instead of ``client_secret``, in which case it specifies the path to a file containing the secret.
+    ``client_secret_file`` (required)
+        File containing the client secret registered with the OpenID Connect provider, used to retrieve the ID token for the user after authentication.
 
     ``login_url`` (required)
         The URL at the OpenID Connect provider to which to send the user to initiate authentication.
@@ -109,11 +112,10 @@ The description of that setting will specify whether there is a fixed set of chi
     ``redis_url`` (required)
         URL to the Redis used to store encrypted oauth2_proxy sessions and sets of user-issued tokens.
 
-    ``oauth2_proxy_secret`` (required)
-        Secret used to encrypt the components of the oauth2_proxy sessions stored in Redis.
+    ``oauth2_proxy_secret_file`` (required)
+        File containing the secret used to encrypt the components of the oauth2_proxy sessions stored in Redis.
         Must match the oauth2_proxy configuration.
         Must be a 256-bit key encoded in URL-safe base64 encoding.
-        ``oauth2_proxy_secret_file`` may be set instead of ``oauth2_proxy_secret``, in which case it specifies the path to a file containing the secret.
 
 ``oauth2_jwt`` (required)
     Configure the JWT issuer.
@@ -138,9 +140,8 @@ The description of that setting will specify whether there is a fixed set of chi
         ``internal`` (required)
             The internal ``aud`` claim, used instead of ``default`` if the ``audience`` GET parameter to the ``/auth`` route is set and its value matches the value of this key.
 
-    ``key`` (required)
-        The RSA private key (in PEM encoding) to use for signing JWTs.
-        ``key_file`` may be set instead of ``key``, in which case it specifies the path to a file containing the key.
+    ``key_file`` (required)
+        File containing the RSA private key (in PEM encoding) to use for signing JWTs.
 
 ``oauth2_jwt_exp`` (optional, default 1440)
     The expiration period of newly-issued JWTs, in minutes.

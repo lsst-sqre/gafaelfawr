@@ -17,10 +17,13 @@ from tests.support.tokens import create_test_token
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
+    from pathlib import Path
 
 
-async def test_tokens_no_auth(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_tokens_no_auth(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     client = await aiohttp_client(app)
 
     r = await client.get(
@@ -30,8 +33,10 @@ async def test_tokens_no_auth(aiohttp_client: TestClient) -> None:
     assert r.headers["WWW-Authenticate"]
 
 
-async def test_tokens_empty_list(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_tokens_empty_list(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config)
     client = await aiohttp_client(app)
@@ -44,8 +49,8 @@ async def test_tokens_empty_list(aiohttp_client: TestClient) -> None:
     assert "Generate new token" in body
 
 
-async def test_tokens(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_tokens(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config)
     scoped_token = create_test_token(
@@ -67,8 +72,10 @@ async def test_tokens(aiohttp_client: TestClient) -> None:
     assert "exec:test" in body
 
 
-async def test_tokens_handle_no_auth(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_tokens_handle_no_auth(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     client = await aiohttp_client(app)
 
     r = await client.get(
@@ -78,8 +85,10 @@ async def test_tokens_handle_no_auth(aiohttp_client: TestClient) -> None:
     assert r.headers["WWW-Authenticate"]
 
 
-async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_tokens_handle_get_delete(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config)
     client = await aiohttp_client(app)
@@ -152,8 +161,10 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
     assert await token_store.get_tokens("1000") == []
 
 
-async def test_tokens_new_no_auth(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_tokens_new_no_auth(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     client = await aiohttp_client(app)
 
     r = await client.get(
@@ -163,8 +174,10 @@ async def test_tokens_new_no_auth(aiohttp_client: TestClient) -> None:
     assert r.headers["WWW-Authenticate"]
 
 
-async def test_tokens_new_form(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_tokens_new_form(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)
@@ -180,8 +193,10 @@ async def test_tokens_new_form(aiohttp_client: TestClient) -> None:
     assert "can read everything" in body
 
 
-async def test_tokens_new_create(aiohttp_client: TestClient) -> None:
-    app = await create_test_app()
+async def test_tokens_new_create(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)

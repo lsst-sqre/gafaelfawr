@@ -17,30 +17,56 @@ from tests.support.http_session import MockClientSession
 if TYPE_CHECKING:
     from aiohttp import web
     from jwt_authorizer.config import Config
+    from pathlib import Path
     from typing import Any
 
-__all__ = ["create_test_app"]
+__all__ = ["create_test_app", "get_test_config", "store_secret"]
 
 
-async def create_test_app(**kwargs: Any) -> web.Application:
+def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
+    """Store a secret in a temporary path.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        The root of the temporary area.
+    name : `str`
+        The name of the secret to construct nice file names.
+    secret : `bytes`
+        The value of the secret.
+    """
+    secret_path = tmp_path / name
+    with secret_path.open(mode="wb") as f:
+        f.write(secret)
+    return secret_path
+
+
+async def create_test_app(tmp_path: Path, **kwargs: Any) -> web.Application:
     """Configured aiohttp Application for testing."""
-    keypair = RSAKeyPair.generate()
-    session_key = os.urandom(16)
+    session_secret = Fernet.generate_key()
+    session_secret_path = store_secret(tmp_path, "session", session_secret)
+    kwargs["SESSION_SECRET_FILE"] = str(session_secret_path)
 
-    kwargs["SESSION_SECRET"] = Fernet.generate_key().decode()
-    kwargs["OAUTH2_JWT.KEY"] = keypair.private_key_as_pem().decode()
-    session_key_b64 = base64.urlsafe_b64encode(session_key).decode()
-    kwargs["OAUTH2_STORE_SESSION.OAUTH2_PROXY_SECRET"] = session_key_b64
-    kwargs["OAUTH2_STORE_SESSION.REDIS_URL"] = "dummy"
+    keypair = RSAKeyPair.generate()
+    issuer_key = keypair.private_key_as_pem()
+    issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
+    kwargs["OAUTH2_JWT.KEY_FILE"] = str(issuer_key_file)
+
+    key = os.urandom(16)
+    key_b64 = base64.urlsafe_b64encode(key)
+    key_file = store_secret(tmp_path, "session-key", key_b64)
+    kwargs["OAUTH2_STORE_SESSION.OAUTH2_PROXY_SECRET_FILE"] = str(key_file)
 
     test_config = ConfigForTests(
         keypair=keypair,
-        session_key=session_key,
+        session_key=key,
         internal_issuer_url="https://test.example.com/",
         upstream_issuer_url="https://upstream.example.com/",
     )
 
     redis_pool = await mockaioredis.create_redis_pool("")
+    kwargs["OAUTH2_STORE_SESSION.REDIS_URL"] = "dummy"
+
     app = await create_app(
         redis_pool=redis_pool,
         http_session=MockClientSession(test_config),
