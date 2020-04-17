@@ -8,10 +8,7 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 from aiohttp_session import get_session
 
-from jwt_authorizer.authnz import (
-    capabilities_from_groups,
-    verify_authorization_strategy,
-)
+from jwt_authorizer.authnz import scopes_from_token
 from jwt_authorizer.session import SessionHandle
 from jwt_authorizer.tokens import Token
 
@@ -23,53 +20,11 @@ if TYPE_CHECKING:
     from typing import Dict, Optional
 
 __all__ = [
-    "build_capability_headers",
     "forbidden",
     "get_token_from_request",
+    "scope_headers",
     "unauthorized",
 ]
-
-
-def build_capability_headers(
-    request: web.Request, token: VerifiedToken
-) -> Dict[str, str]:
-    """Construct response headers containing capability information.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    verified_token : `jwt_authorizer.tokens.VerifiedToken`
-        A verified token containing group and scope information.
-
-    Returns
-    -------
-    headers : Dict[`str`, str]
-        The headers to include in the response.
-    """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-
-    capabilities_required, satisfy = verify_authorization_strategy(request)
-    group_capabilities_set = capabilities_from_groups(
-        token, config.group_mapping
-    )
-    if "scope" in token.claims:
-        scope_capabilities_set = set(token.claims["scope"].split(" "))
-        user_capabilities_set = group_capabilities_set.union(
-            scope_capabilities_set
-        )
-    else:
-        user_capabilities_set = group_capabilities_set
-
-    return {
-        "X-Auth-Request-Token-Capabilities": " ".join(
-            sorted(user_capabilities_set)
-        ),
-        "X-Auth-Request-Capabilities-Accepted": " ".join(
-            sorted(capabilities_required)
-        ),
-        "X-Auth-Request-Capabilities-Satisfy": satisfy,
-    }
 
 
 async def get_token_from_request(request: web.Request) -> Optional[Token]:
@@ -169,6 +124,40 @@ def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[Token]:
         return Token(encoded=user.decode())
 
 
+def scope_headers(
+    request: web.Request, token: VerifiedToken
+) -> Dict[str, str]:
+    """Construct response headers containing capability information.
+
+    Parameters
+    ----------
+    request : `aiohttp.web.Request`
+        The incoming request.
+    token : `jwt_authorizer.tokens.VerifiedToken`
+        A verified token containing group and scope information.
+
+    Returns
+    -------
+    headers : Dict[`str`, `str`]
+        The headers to include in the response.
+    """
+    config: Config = request.config_dict["jwt_authorizer/config"]
+
+    user_scopes = sorted(scopes_from_token(token, config.group_mapping))
+    required_scopes = sorted(request.query.getall("scope", []))
+    if not required_scopes:
+        # Backward compatibility.  Can be removed when all deployments have
+        # been updated.
+        required_scopes = sorted(request.query.getall("capability", []))
+    satisfy = request.query.get("satisfy", "all")
+
+    return {
+        "X-Auth-Request-Token-Scopes": " ".join(user_scopes),
+        "X-Auth-Request-Scopes-Accepted": " ".join(required_scopes),
+        "X-Auth-Request-Scopes-Satisfy": satisfy,
+    }
+
+
 def forbidden(
     request: web.Request, token: VerifiedToken, error: str
 ) -> web.HTTPException:
@@ -188,7 +177,7 @@ def forbidden(
     exception : `aiohttp.web.HTTPException`
         Exception to throw.
     """
-    headers = build_capability_headers(request, token)
+    headers = scope_headers(request, token)
     return web.HTTPForbidden(headers=headers, reason=error, text=error)
 
 

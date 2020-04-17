@@ -10,9 +10,9 @@ from aiohttp import web
 from jwt_authorizer.authnz import authenticate, authorize
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.handlers.util import (
-    build_capability_headers,
     forbidden,
     get_token_from_request,
+    scope_headers,
     unauthorized,
 )
 from jwt_authorizer.session import SessionHandle
@@ -75,19 +75,18 @@ async def get_auth(request: web.Request) -> web.Response:
         header.
     X-Auth-Request-Token
         If enabled, the encoded token will be set.
-    X-Auth-Request-Token-Capabilities
-        If the token has capabilities in the ``scope`` claim, they will be
-        returned in this header.
-    X-Auth-Request-Token-Capabilities-Accepted
+    X-Auth-Request-Token-Scopes
+        If the token has scopes in the ``scope`` claim or derived from groups
+        in the ``isMemberOf`` claim, they will be returned in this header.
+    X-Auth-Request-Token-Scopes-Accepted
         A space-separated list of token capabilities the reliant resource
         accepts.
-    X-Auth-Request-Token-Capabilities-Satisfy
+    X-Auth-Request-Token-Scopes-Satisfy
         The strategy the reliant resource uses to accept a capability. Values
         include ``any`` or ``all``.
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
     logger: Logger = request["safir/logger"]
 
     encoded_token = await get_token_from_request(request)
@@ -103,18 +102,9 @@ async def get_auth(request: web.Request) -> web.Response:
         raise unauthorized(request, "Invalid token", message=str(e))
 
     # Authorization
-    okay, message = authorize(request, token)
-    jti = token.claims.get("jti", "UNKNOWN")
-    if okay:
-        user_id = token.claims[config.uid_key]
-        logger.info(
-            f"Allowed token with Token ID={jti} for user={user_id} "
-            f"from issuer={token.claims['iss']}"
-        )
-        return await success(request, token)
-    else:
-        logger.error(f"Failed to authorize Token ID {jti} because {message}")
-        raise forbidden(request, token, message)
+    if not authorize(request, token):
+        raise forbidden(request, token, "Missing required scopes")
+    return await success(request, token)
 
 
 def _check_reissue_token(
@@ -178,7 +168,7 @@ async def success(request: web.Request, token: VerifiedToken) -> web.Response:
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
 
-    headers = build_capability_headers(request, token)
+    headers = scope_headers(request, token)
 
     email = token.claims.get("email")
     if email:

@@ -184,20 +184,15 @@ The value of that annotation is a comma-separated list of desired headers.
 ``X-Auth-Request-Token``
     If enabled, the encoded token will be sent.
 
-``X-Auth-Request-Token-Ticket``
-    When a ticket is available for the token, we will return it under this header.
-    Do not rely on this behavior or setting.
-    The ticket is often not available.
+``X-Auth-Request-Token-Scopes``
+    If the token has scopes in the ``scope`` claim or derived from groups listed in ``isMemberOf``, they will be returned in this header.
 
-``X-Auth-Request-Token-Capabilities``
-    If the token has capabilities in the ``scope`` claim, they will be returned in this header.
-
-``X-Auth-Request-Token-Capabilities-Accepted``
+``X-Auth-Request-Token-Scopes-Accepted``
     A space-separated list of token scopes the reliant resource accepts.
-    This is configured in the ``nginx.ingress.kubernetes.io/auth-url`` annotation via the ``capabilities`` parameter.
+    This is configured in the ``nginx.ingress.kubernetes.io/auth-url`` annotation via the ``scope`` parameter.
 
-``X-Auth-Request-Token-Capabilities-Satisfy``
-    The strategy the reliant resource uses to determine whether a token satisfies the capability requirements.
+``X-Auth-Request-Token-Scopes-Satisfy``
+    The strategy the reliant resource uses to determine whether a token satisfies the scope requirements.
     It will be either ``any`` or ``all``.
     This is configured in the ``nginx.ingress.kubernetes.io/auth-url`` annotation via the ``satisfy`` parameter.
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from jwt_authorizer.authnz import capabilities_from_groups
+from jwt_authorizer.authnz import scopes_from_token
 from jwt_authorizer.tokens import VerifiedToken
 from tests.support.app import create_test_app
 
@@ -23,10 +23,14 @@ async def test_capabilities_from_groups(tmp_path: Path) -> None:
     }
     token = VerifiedToken(encoded="", claims=claims)
 
-    assert capabilities_from_groups(token, group_mapping) == set()
+    assert scopes_from_token(token, group_mapping) == set()
+
+    claims["scope"] = "other:scope"
+    assert scopes_from_token(token, group_mapping) == {"other:scope"}
 
     claims["isMemberOf"].append({"name": "admin"})
-    assert capabilities_from_groups(token, group_mapping) == {
+    assert scopes_from_token(token, group_mapping) == {
         "exec:admin",
+        "other:scope",
         "read:all",
     }

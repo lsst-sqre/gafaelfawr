@@ -54,9 +54,9 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     # Check that the /auth route works and finds our token.
     r = await client.get("/auth", params={"capability": "read:all"})
     assert r.status == 200
-    assert r.headers["X-Auth-Request-Token-Capabilities"] == "read:all"
-    assert r.headers["X-Auth-Request-Capabilities-Accepted"] == "read:all"
-    assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
+    assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
+    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
+    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Uid"] == "123456"

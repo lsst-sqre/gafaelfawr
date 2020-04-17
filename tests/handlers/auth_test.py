@@ -76,10 +76,10 @@ async def test_access_denied(
     )
     assert r.status == 403
     body = await r.text()
-    assert "No Capability group found in user's `isMemberOf`" in body
-    assert r.headers["X-Auth-Request-Token-Capabilities"] == ""
-    assert r.headers["X-Auth-Request-Capabilities-Accepted"] == "exec:admin"
-    assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
+    assert "Missing required scopes" in body
+    assert r.headers["X-Auth-Request-Token-Scopes"] == ""
+    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
+    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
 
 
 async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
@@ -95,13 +95,12 @@ async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
     )
     assert r.status == 403
     body = await r.text()
-    assert "No Capability group found in user's `isMemberOf`" in body
-    assert r.headers["X-Auth-Request-Token-Capabilities"] == "exec:test"
+    assert "Missing required scopes" in body
+    assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:test"
     assert (
-        r.headers["X-Auth-Request-Capabilities-Accepted"]
-        == "exec:admin exec:test"
+        r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin exec:test"
     )
-    assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
+    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
 
 
 async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
@@ -116,11 +115,9 @@ async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 200
-    assert (
-        r.headers["X-Auth-Request-Token-Capabilities"] == "exec:admin read:all"
-    )
-    assert r.headers["X-Auth-Request-Capabilities-Accepted"] == "exec:admin"
-    assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
+    assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:admin read:all"
+    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
+    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
     assert r.headers["X-Auth-Request-User"] == "some-user"
     assert r.headers["X-Auth-Request-Uid"] == "1000"
@@ -150,12 +147,11 @@ async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 200
-    assert r.headers["X-Auth-Request-Token-Capabilities"] == "exec:test"
+    assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:test"
     assert (
-        r.headers["X-Auth-Request-Capabilities-Accepted"]
-        == "exec:admin exec:test"
+        r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin exec:test"
     )
-    assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "any"
+    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "any"
     assert r.headers["X-Auth-Request-Groups"] == "test"
 
 
