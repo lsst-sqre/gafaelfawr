@@ -82,15 +82,15 @@ async def create_app(
     logger = get_logger(configuration.logger_name)
     config.log_settings(logger)
 
+    key_cache = TTLCache(maxsize=16, ttl=600)
+    factory = ComponentFactory(config, redis_pool, key_cache, http_session)
     if not redis_pool:
-        redis_url = config.session_store.redis_url
-        redis_pool = await aioredis.create_redis_pool(redis_url)
+        redis_pool = await aioredis.create_redis_pool(config.redis_url)
 
     app = Application()
     app["safir/config"] = configuration
     app["jwt_authorizer/config"] = config
-    app["jwt_authorizer/factory"] = ComponentFactory(config, redis_pool)
-    app["jwt_authorizer/key_cache"] = TTLCache(maxsize=16, ttl=600)
+    app["jwt_authorizer/factory"] = factory
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
     await setup_middleware(app, config)

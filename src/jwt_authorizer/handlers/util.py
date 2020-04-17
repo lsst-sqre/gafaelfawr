@@ -12,7 +12,7 @@ from jwt_authorizer.authnz import (
     capabilities_from_groups,
     verify_authorization_strategy,
 )
-from jwt_authorizer.session import Ticket
+from jwt_authorizer.session import SessionHandle
 from jwt_authorizer.tokens import Token
 
 if TYPE_CHECKING:
@@ -89,7 +89,6 @@ async def get_token_from_request(request: web.Request) -> Optional[Token]:
     token : `jwt_authorizer.tokens.Token`, optional
         The token if found, otherwise None.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     logger: Logger = request["safir/logger"]
 
@@ -103,15 +102,14 @@ async def get_token_from_request(request: web.Request) -> Optional[Token]:
     # set its own Authorization header in its JavaScript calls but we won't be
     # able to extract a token from that.
     session = await get_session(request)
-    ticket_str = session.get("ticket")
-    if ticket_str:
-        logger.debug("Found valid ticket in session")
-        ticket_prefix = config.session_store.ticket_prefix
-        ticket = Ticket.from_str(ticket_prefix, ticket_str)
-        session_store = factory.create_session_store()
-        ticket_session = await session_store.get_session(ticket)
-        if ticket_session:
-            return ticket_session.token
+    handle_str = session.get("ticket")
+    if handle_str:
+        logger.debug("Found valid handle in session")
+        handle = SessionHandle.from_str(handle_str)
+        session_store = factory.create_session_store(request)
+        auth_session = await session_store.get_session(handle)
+        if auth_session:
+            return auth_session.token
 
     # No session or existing authentication header.  Try the Authorization
     # header.  This case is used by API calls from clients.

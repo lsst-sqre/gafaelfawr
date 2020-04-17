@@ -17,10 +17,16 @@ from tests.support.http_session import MockClientSession
 if TYPE_CHECKING:
     from aiohttp import web
     from jwt_authorizer.config import Config
+    from jwt_authorizer.factory import ComponentFactory
     from pathlib import Path
     from typing import Any
 
-__all__ = ["create_test_app", "get_test_config", "store_secret"]
+__all__ = [
+    "create_test_app",
+    "get_test_config",
+    "get_test_factory",
+    "store_secret",
+]
 
 
 def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
@@ -65,7 +71,7 @@ async def create_test_app(tmp_path: Path, **kwargs: Any) -> web.Application:
     )
 
     redis_pool = await mockaioredis.create_redis_pool("")
-    kwargs["OAUTH2_STORE_SESSION.REDIS_URL"] = "dummy"
+    kwargs["REDIS_URL"] = "dummy"
 
     app = await create_app(
         redis_pool=redis_pool,
@@ -85,3 +91,8 @@ async def create_test_app(tmp_path: Path, **kwargs: Any) -> web.Application:
 def get_test_config(app: web.Application) -> ConfigForTests:
     """Return the test configuration for a test application."""
     return app["jwt_authorizer/test_config"]
+
+
+def get_test_factory(app: web.Application) -> ComponentFactory:
+    """Return the component factory for a test application."""
+    return app["jwt_authorizer/factory"]

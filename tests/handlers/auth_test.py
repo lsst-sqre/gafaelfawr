@@ -10,10 +10,8 @@ from unittest.mock import ANY
 import jwt
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.session import SessionStore, Ticket
-from jwt_authorizer.tokens import Token
 from tests.support.app import create_test_app, get_test_config
-from tests.support.tokens import create_test_token, create_upstream_test_token
+from tests.support.tokens import create_test_token
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -128,7 +126,6 @@ async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Uid"] == "1000"
     assert r.headers["X-Auth-Request-Groups"] == "admin"
     assert r.headers["X-Auth-Request-Token"] == token.encoded
-    assert r.headers["X-Auth-Request-Token-Ticket"] == ""
 
 
 async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
@@ -231,84 +228,14 @@ async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
 
-async def test_reissue(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    """Test that an upstream token is reissued properly."""
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    ticket = Ticket()
-    token = create_upstream_test_token(
-        test_config, jti=ticket.as_handle("oauth2_proxy")
-    )
-    ticket_handle = ticket.encode("oauth2_proxy")
-    ticket_b64 = base64.urlsafe_b64encode(ticket_handle.encode()).decode()
-    cookie = f"{ticket_b64}|32132781|blahblah"
-    client = await aiohttp_client(app)
-
-    r = await client.get(
-        "/auth",
-        params={"capability": "exec:admin"},
-        headers={"Authorization": f"Bearer {token.encoded}"},
-        cookies={"oauth2_proxy": cookie},
-    )
-    assert r.status == 200
-    assert r.headers["X-Auth-Request-Token-Ticket"] == ticket_handle
-    new_encoded_token = r.headers["X-Auth-Request-Token"]
-    assert token.encoded != new_encoded_token
-
-    assert jwt.get_unverified_header(new_encoded_token) == {
-        "alg": ALGORITHM,
-        "typ": "JWT",
-        "kid": "some-kid",
-    }
-
-    decoded_token = jwt.decode(
-        new_encoded_token,
-        test_config.keypair.public_key_as_pem(),
-        algorithms=ALGORITHM,
-        audience="https://example.com/",
-    )
-    assert decoded_token == {
-        "act": {
-            "aud": "https://test.example.com/",
-            "iss": "https://upstream.example.com/",
-            "jti": ticket.as_handle("oauth2_proxy"),
-        },
-        "aud": "https://example.com/",
-        "email": "some-user@example.com",
-        "exp": ANY,
-        "iat": ANY,
-        "isMemberOf": [{"name": "admin"}],
-        "iss": "https://test.example.com/",
-        "jti": ticket.as_handle("oauth2_proxy"),
-        "scope": "exec:admin read:all",
-        "sub": "some-user",
-        "uid": "some-user",
-        "uidNumber": "1000",
-    }
-    now = time.time()
-    exp_minutes = app["jwt_authorizer/config"].issuer.exp_minutes
-    expected_exp = now + exp_minutes * 60
-    assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
-    assert now - 5 <= decoded_token["iat"] <= now + 5
-
-    redis_client = app["jwt_authorizer/redis"]
-    session_store = SessionStore(
-        "oauth2_proxy", test_config.session_key, redis_client
-    )
-    session = await session_store.get_session(ticket)
-    assert session
-    assert session.token == Token(encoded=new_encoded_token)
-    assert session.user == "some-user@example.com"
-
-
 async def test_reissue_internal(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
     """Test requesting token reissuance to an internal audience."""
     app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
-    token = create_test_token(test_config, groups=["admin"])
     client = await aiohttp_client(app)
+    token = create_test_token(test_config, groups=["admin"])
 
     r = await client.get(
         "/auth",
@@ -321,9 +248,6 @@ async def test_reissue_internal(
     assert r.status == 200
     new_encoded_token = r.headers["X-Auth-Request-Token"]
     assert token != new_encoded_token
-    ticket = Ticket.from_str(
-        "oauth2_proxy", r.headers["X-Auth-Request-Token-Ticket"]
-    )
 
     assert jwt.get_unverified_header(new_encoded_token) == {
         "alg": ALGORITHM,
@@ -349,7 +273,7 @@ async def test_reissue_internal(
         "iat": ANY,
         "isMemberOf": [{"name": "admin"}],
         "iss": "https://test.example.com/",
-        "jti": ticket.as_handle("oauth2_proxy"),
+        "jti": ANY,
         "sub": "some-user",
         "uid": "some-user",
         "uidNumber": "1000",
@@ -360,14 +284,6 @@ async def test_reissue_internal(
     assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
     assert now - 5 <= decoded_token["iat"] <= now + 5
 
+    # No session should be created for internal tokens.
     redis_client = app["jwt_authorizer/redis"]
-    session_store = SessionStore(
-        "oauth2_proxy", test_config.session_key, redis_client
-    )
-    session = await session_store.get_session(ticket)
-    assert session
-    assert session.token == Token(encoded=new_encoded_token)
-    assert session.email == "some-user@example.com"
-    assert session.user == "some-user@example.com"
-    assert now - 5 <= session.created_at.timestamp() <= now + 5
-    assert session.expires_on.timestamp() == decoded_token["exp"]
+    assert not await redis_client.get(f"session:{decoded_token['jti']}")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
 import os
@@ -21,7 +20,6 @@ __all__ = [
     "Issuer",
     "IssuerConfig",
     "OIDCConfig",
-    "SessionStoreConfig",
 ]
 
 ALGORITHM = "RS256"
@@ -144,20 +142,6 @@ class IssuerConfig:
 
 
 @dataclass
-class SessionStoreConfig:
-    """Configuration for how to store and retrieve oauth2_proxy sessions."""
-
-    ticket_prefix: str
-    """Prefix for oauth2_proxy tickets (must match cookie name)."""
-
-    redis_url: str
-    """URL for the Redis server that stores sessions."""
-
-    oauth2_proxy_secret: bytes
-    """Secret used for encryption of oauth2_proxy session fields."""
-
-
-@dataclass
 class Config:
     """Configuration for JWT Authorizer."""
 
@@ -186,15 +170,10 @@ class Config:
     """Configuration for internally-issued tokens."""
 
     session_secret: str
-    """Secret used to encrypt the session cookie.
+    """Secret used to encrypt the session cookie and session store."""
 
-    This is unrelated to the oauth2_proxy sessions stored in Redis.  It is
-    used to encrypt the session cookie used by jwt_authorizer to store
-    temporary state.  Must be a Fernet key.
-    """
-
-    session_store: SessionStoreConfig
-    """Configuration for storing oauth2_proxy sessions."""
+    redis_url: str
+    """URL for the Redis server that stores sessions."""
 
     known_capabilities: Dict[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
@@ -261,17 +240,6 @@ class Config:
                 assert isinstance(value, list), "group_mapping is malformed"
                 group_mapping[key] = value
 
-        store_session_settings = settings["OAUTH2_STORE_SESSION"]
-        secret_b64 = cls._load_secret(
-            store_session_settings["OAUTH2_PROXY_SECRET_FILE"]
-        )
-        secret = base64.urlsafe_b64decode(secret_b64)
-        session_store = SessionStoreConfig(
-            ticket_prefix=store_session_settings["TICKET_PREFIX"],
-            redis_url=store_session_settings["REDIS_URL"],
-            oauth2_proxy_secret=secret,
-        )
-
         known_capabilities = settings.get("KNOWN_CAPABILITIES", {})
 
         issuers = {}
@@ -302,7 +270,7 @@ class Config:
             issuer=issuer_config,
             group_mapping=group_mapping,
             session_secret=session_secret,
-            session_store=session_store,
+            redis_url=settings["REDIS_URL"],
             known_capabilities=known_capabilities,
             issuers=issuers,
         )
@@ -334,13 +302,7 @@ class Config:
         logger.info(
             "Configured group mapping: %s", json.dumps(self.group_mapping)
         )
-
-        if self.session_store:
-            logger.info(
-                "Configured Redis pool from URL: %s with prefix: %s",
-                self.session_store.redis_url,
-                self.session_store.ticket_prefix,
-            )
+        logger.info("Configured Redis pool from URL %s", self.redis_url)
 
         for issuer in self.issuers.values():
             logger.info(

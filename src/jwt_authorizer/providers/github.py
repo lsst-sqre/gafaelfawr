@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from jwt_authorizer.providers.base import Provider, ProviderException
+from jwt_authorizer.session import Session, SessionHandle
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from jwt_authorizer.config import GitHubConfig
     from jwt_authorizer.issuer import TokenIssuer
-    from jwt_authorizer.session import Ticket
-    from jwt_authorizer.tokens import VerifiedToken
+    from jwt_authorizer.session import SessionStore
     from logging import Logger
     from typing import List
 
@@ -76,10 +76,12 @@ class GitHubProvider(Provider):
     ----------
     config : `jwt_authorizer.config.GitHubConfig`
         Configuration for the GitHub authentication provider.
-    session : `aiohttp.ClientSession`
+    http_session : `aiohttp.ClientSession`
         Session to use to make HTTP requests.
     issuer : `jwt_authorizer.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
+    session_store : `jwt_authorizer.session.SessionStore`
+        Store for authentication sessions.
     logger : `logging.Logger`
         Logger for any log messages.
     """
@@ -104,14 +106,17 @@ class GitHubProvider(Provider):
 
     def __init__(
         self,
+        *,
         config: GitHubConfig,
-        session: ClientSession,
+        http_session: ClientSession,
         issuer: TokenIssuer,
+        session_store: SessionStore,
         logger: Logger,
     ) -> None:
         self._config = config
-        self._session = session
+        self._http_session = http_session
         self._issuer = issuer
+        self._session_store = session_store
         self._logger = logger
 
     def get_redirect_url(self, state: str) -> str:
@@ -135,10 +140,8 @@ class GitHubProvider(Provider):
         self._logger.info("Redirecting user to GitHub for authentication")
         return f"{self._LOGIN_URL}?{urlencode(params)}"
 
-    async def get_token(
-        self, code: str, state: str, ticket: Ticket
-    ) -> VerifiedToken:
-        """Given the code from a successful authentication, get a token.
+    async def create_session(self, code: str, state: str) -> Session:
+        """Given the code from a successful authentication, create a session.
 
         Parameters
         ----------
@@ -146,14 +149,11 @@ class GitHubProvider(Provider):
             Code returned by a successful authentication.
         state : `str`
             The same random string used for the redirect URL.
-        ticket : `jwt_authorizer.session.Ticket`
-            The ticket to use for the new token.
 
         Returns
         -------
-        token : `jwt_authorizer.tokens.VerifiedToken`
-            Authentication token issued by the local issuer and including the
-            user information from the authentication provider.
+        session : `jwt_authorizer.session.Session`
+            The new authentication session.
 
         Raises
         ------
@@ -167,17 +167,23 @@ class GitHubProvider(Provider):
         github_token = await self._get_access_token(code, state)
         user_info = await self._get_user_info(github_token)
 
+        handle = SessionHandle()
+
         groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
         payload = {
             "email": user_info.email,
             "isMemberOf": groups,
+            "jti": handle.key,
             "name": user_info.name,
             "sub": user_info.username,
             "uidNumber": str(user_info.uid),
             "uid": user_info.username,
         }
 
-        return await self._issuer.issue_token(payload, ticket)
+        token = self._issuer.issue_token(payload)
+        session = Session.create(handle, token)
+        await self._session_store.store_session(session)
+        return session
 
     @staticmethod
     def _build_group_name(team_slug: str, organization: str) -> str:
@@ -239,7 +245,7 @@ class GitHubProvider(Provider):
             "state": state,
         }
         self._logger.debug("Fetching access token from %s", self._TOKEN_URL)
-        r = await self._session.post(
+        r = await self._http_session.post(
             self._TOKEN_URL,
             data=data,
             headers={"Accept": "application/json"},
@@ -272,21 +278,21 @@ class GitHubProvider(Provider):
             User has no primary email address.
         """
         self._logger.debug("Fetching user data from %s", self._USER_URL)
-        r = await self._session.get(
+        r = await self._http_session.get(
             self._USER_URL,
             headers={"Authorization": f"token {token}"},
             raise_for_status=True,
         )
         user_data = await r.json()
         self._logger.debug("Fetching user data from %s", self._TEAMS_URL)
-        r = await self._session.get(
+        r = await self._http_session.get(
             self._TEAMS_URL,
             headers={"Authorization": f"token {token}"},
             raise_for_status=True,
         )
         teams_data = await r.json()
         self._logger.debug("Fetching user data from %s", self._EMAILS_URL)
-        r = await self._session.get(
+        r = await self._http_session.get(
             self._EMAILS_URL,
             headers={"Authorization": f"token {token}"},
             raise_for_status=True,

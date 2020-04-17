@@ -6,8 +6,7 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from jwt_authorizer.session import Ticket
-    from jwt_authorizer.tokens import VerifiedToken
+    from jwt_authorizer.session import Session
 
 __all__ = ["Provider", "ProviderException"]
 
@@ -36,10 +35,8 @@ class Provider(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    async def get_token(
-        self, code: str, state: str, ticket: Ticket
-    ) -> VerifiedToken:
-        """Given the code from a successful authentication, get a token.
+    async def create_session(self, code: str, state: str) -> Session:
+        """Given the code from a successful authentication, create a session.
 
         Parameters
         ----------
@@ -47,14 +44,11 @@ class Provider(metaclass=ABCMeta):
             Code returned by a successful authentication.
         state : `str`
             The same random string used for the redirect URL.
-        ticket : `jwt_authorizer.session.Ticket`
-            The ticket to use for the new token.
 
         Returns
         -------
-        token : `jwt_authorizer.tokens.VerifiedToken`
-            Authentication token issued by the local issuer and including the
-            user information from the authentication provider.
+        session : `jwt_authorizer.session.Session`
+            The new authentication session.
 
         Raises
         ------

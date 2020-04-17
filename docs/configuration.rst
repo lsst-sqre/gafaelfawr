@@ -38,8 +38,11 @@ Secrets beginning or ending in whitespace are not supported.
     This is not currently used.
 
 ``session_secret_file`` (required)
-    File containing the secret used to encrypt the JWT Authorizer session cookie.
+    File containing the secret used to encrypt the JWT Authorizer session cookie and the Redis session storage.
     Must be a Fernet key generated with :py:meth:`cryptography.fernet.Fernet.generate_key`.
+
+``redis_url`` (required)
+    URL for a Redis instance that will be used to store authentication sessions and user-issued tokens.
 
 ``jwt_username_key`` (optional, default ``uid``)
     The token claim to use as the authenticated user's username.
@@ -84,22 +87,6 @@ Secrets beginning or ending in whitespace are not supported.
 
     ``scopes`` (optional)
         Scopes to request from the OpenID Connect provider.  The ``openid`` scope will be added automatically and does not need to be specified.
-
-``oauth2_store_session`` (required)
-    Configure the oauth2_proxy session store.
-    Used to create sessions that can be consumed by a patched version of oauth2_proxy.
-    These settings must match the oauth2_proxy configuration.
-
-    ``ticket_prefix`` (required)
-        The prefix on issued tickets, which must also match the name of the oauth2_proxy session cookie.
-
-    ``redis_url`` (required)
-        URL to the Redis used to store encrypted oauth2_proxy sessions and sets of user-issued tokens.
-
-    ``oauth2_proxy_secret_file`` (required)
-        File containing the secret used to encrypt the components of the oauth2_proxy sessions stored in Redis.
-        Must match the oauth2_proxy configuration.
-        Must be a 256-bit key encoded in URL-safe base64 encoding.
 
 ``oauth2_jwt`` (required)
     Configure the JWT issuer.

@@ -11,7 +11,6 @@ from aiohttp_session import get_session, new_session
 
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.providers.base import ProviderException
-from jwt_authorizer.session import Ticket
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
@@ -105,9 +104,8 @@ async def _login(request: web.Request) -> web.Response:
             raise web.HTTPForbidden(reason=msg, text=msg)
         return_url = session.pop("rd")
 
-        ticket = Ticket()
         try:
-            token = await auth_provider.get_token(code, state, ticket)
+            auth_session = await auth_provider.create_session(code, state)
         except ProviderException as e:
             logger.warning("Provider authentication failed: %s", str(e))
             raise web.HTTPInternalServerError(reason=str(e), text=str(e))
@@ -116,14 +114,13 @@ async def _login(request: web.Request) -> web.Response:
             logger.exception(msg)
             raise web.HTTPInternalServerError(reason=msg, text=msg)
 
-        ticket_prefix = config.session_store.ticket_prefix
         session = await new_session(request)
-        session["ticket"] = ticket.encode(ticket_prefix)
+        session["ticket"] = auth_session.handle.encode()
 
         logger.info(
             "Successfully authenticated user %s (%s)",
-            token.claims[config.username_key],
-            token.claims[config.uid_key],
+            auth_session.token.claims[config.username_key],
+            auth_session.token.claims[config.uid_key],
         )
         raise web.HTTPSeeOther(return_url)
     else:

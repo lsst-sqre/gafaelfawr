@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import jwt
 
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.session import Ticket
+from jwt_authorizer.session import SessionHandle
 from jwt_authorizer.tokens import VerifiedToken
 
 if TYPE_CHECKING:
@@ -46,10 +46,12 @@ def create_test_token(
     token : `jwt_authorizer.tokens.VerifiedToken`
         The generated token.
     """
-    exp = datetime.now(timezone.utc) + timedelta(days=24)
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(days=24)
     payload: Dict[str, Any] = {
         "aud": "https://example.com/",
         "email": "some-user@example.com",
+        "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
         "iss": config.internal_issuer_url,
         "jti": "some-unique-id",
@@ -91,11 +93,11 @@ def create_upstream_test_token(
     token : `jwt_authorizer.tokens.VerifiedToken`
         The new token.
     """
-    ticket = Ticket()
+    handle = SessionHandle()
     payload = {
         "aud": "https://test.example.com/",
         "iss": "https://upstream.example.com/",
-        "jti": ticket.as_handle("oauth2_proxy"),
+        "jti": handle.key,
     }
     payload.update(claims)
     return create_test_token(

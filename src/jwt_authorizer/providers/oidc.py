@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from jwt_authorizer.providers.base import Provider, ProviderException
+from jwt_authorizer.session import Session, SessionHandle
 from jwt_authorizer.tokens import Token
 
 if TYPE_CHECKING:
@@ -13,8 +14,7 @@ if TYPE_CHECKING:
     from logging import Logger
     from jwt_authorizer.config import OIDCConfig
     from jwt_authorizer.issuer import TokenIssuer
-    from jwt_authorizer.session import Ticket
-    from jwt_authorizer.tokens import VerifiedToken
+    from jwt_authorizer.session import SessionStore
     from jwt_authorizer.verify import TokenVerifier
 
 __all__ = ["OIDCException", "OIDCProvider"]
@@ -33,26 +33,31 @@ class OIDCProvider(Provider):
         Configuration for the OpenID Connect authentication provider.
     verifier : `jwt_authorizer.verify.TokenVerifier`
         Token verifier to use to verify the token returned by the provider.
-    session : `aiohttp.ClientSession`
+    http_session : `aiohttp.ClientSession`
         Session to use to make HTTP requests.
     issuer : `jwt_authorizer.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
+    session_store : `jwt_authorizer.session.SessionStore`
+        Store for authentication sessions.
     logger : `logging.Logger`
         Logger for any log messages.
     """
 
     def __init__(
         self,
+        *,
         config: OIDCConfig,
         verifier: TokenVerifier,
-        session: ClientSession,
+        http_session: ClientSession,
         issuer: TokenIssuer,
+        session_store: SessionStore,
         logger: Logger,
     ) -> None:
         self._config = config
         self._verifier = verifier
-        self._session = session
+        self._http_session = http_session
         self._issuer = issuer
+        self._session_store = session_store
         self._logger = logger
 
     def get_redirect_url(self, state: str) -> str:
@@ -83,9 +88,7 @@ class OIDCProvider(Provider):
         )
         return f"{self._config.login_url}?{urlencode(params)}"
 
-    async def get_token(
-        self, code: str, state: str, ticket: Ticket
-    ) -> VerifiedToken:
+    async def create_session(self, code: str, state: str) -> Session:
         """Given the code from a successful authentication, get a token.
 
         Parameters
@@ -94,14 +97,11 @@ class OIDCProvider(Provider):
             Code returned by a successful authentication.
         state : `str`
             The same random string used for the redirect URL.
-        ticket : `jwt_authorizer.session.Ticket`
-            The ticket to use for the new token.
 
         Returns
         -------
-        token : `jwt_authorizer.tokens.VerifiedToken`
-            Authentication token issued by the local issuer and including the
-            user information from the authentication provider.
+        session : `jwt_authorizer.session.Session`
+            The new authentication session.
 
         Raises
         ------
@@ -123,7 +123,7 @@ class OIDCProvider(Provider):
         self._logger.info(
             "Retrieving ID token from %s", self._config.token_url
         )
-        r = await self._session.post(
+        r = await self._http_session.post(
             self._config.token_url,
             data=data,
             headers={"Accept": "application/json"},
@@ -135,4 +135,9 @@ class OIDCProvider(Provider):
             raise OIDCException(msg)
 
         token = await self._verifier.verify(Token(encoded=result["id_token"]))
-        return await self._issuer.reissue_token(token, ticket)
+
+        handle = SessionHandle()
+        token = self._issuer.reissue_token(token, jti=handle.key)
+        session = Session.create(handle, token)
+        await self._session_store.store_session(session)
+        return session

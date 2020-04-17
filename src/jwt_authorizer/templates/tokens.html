@@ -32,8 +32,8 @@
     <div class="row">
         <div class="col-md-12">
             <div class="list-group">
-                {% for token in tokens %} {% set form=forms[token.jti] %}
-                <form action="/auth/tokens/{{ token.jti }}" method="POST" novalidate>
+                {% for token in tokens %} {% set form=forms[token.key] %}
+                <form action="/auth/tokens/{{ token.key }}" method="POST" novalidate>
                   <input type="hidden" name="_csrf" value="{{ csrf_token }}" />
                     {{ form.method_(value="DELETE") }}
                     <div class="list-group-item">
@@ -43,11 +43,11 @@
                         <!--Extra use information <small class="last-used float-right"></small> -->
                         <span class="token-description">
                           <strong>
-                            <a href="/auth/tokens/{{ token.jti }}">{{ token.jti }}</a>
+                            <a href="/auth/tokens/{{ token.key }}">{{ token.key }}</a>
                           </strong>
                           <span>
                               <br/>
-                              Scope: <em><span class="text-dark" aria-label="Token scope">{{ token.scope}}</span></em>
+                              Scope: <em><span class="text-dark" aria-label="Token scope">{{ token.scope }}</span></em>
                           </span>
                         </span>
                     </div>

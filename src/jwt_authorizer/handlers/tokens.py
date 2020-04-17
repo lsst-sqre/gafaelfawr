@@ -14,6 +14,7 @@ from wtforms import BooleanField, Form, HiddenField, SubmitField
 from jwt_authorizer.authnz import authenticate
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.handlers.util import get_token_from_request, unauthorized
+from jwt_authorizer.session import Session, SessionHandle
 
 if TYPE_CHECKING:
     from aioredis import Redis
@@ -103,14 +104,15 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
     message = session.pop("message", None)
     session["csrf"] = await generate_token(request)
 
-    token_store = factory.create_token_store()
+    token_store = factory.create_token_store(request)
     user_id = token.claims[config.uid_key]
+    await token_store.expire_tokens(user_id)
     user_tokens = await token_store.get_tokens(user_id)
     forms = {}
     for user_token in user_tokens:
         form = AlterTokenForm()
         form.csrf.data = session["csrf"]
-        forms[user_token["jti"]] = form
+        forms[user_token.key] = form
 
     return {
         "message": message,
@@ -180,6 +182,7 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    redis: Redis = request.config_dict["jwt_authorizer/redis"]
     logger: Logger = request["safir/logger"]
 
     try:
@@ -197,34 +200,40 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
     if not form.validate():
         return {"form": form, "capabilities": capabilities}
 
+    handle = SessionHandle()
+
     new_capabilities = []
     for capability in capabilities:
         if form[capability].data:
             new_capabilities.append(capability)
     scope = " ".join(new_capabilities)
-    new_token: Dict[str, object] = {"scope": scope}
+    claims: Dict[str, object] = {"scope": scope, "jti": handle.key}
     email = token.claims.get("email")
-    user = token.claims.get(config.username_key)
-    uid = token.claims.get(config.uid_key)
     if email:
-        new_token["email"] = email
+        claims["email"] = email
+    user = token.claims.get(config.username_key)
     if user:
-        new_token[config.username_key] = user
-    if uid:
-        new_token[config.uid_key] = uid
+        claims[config.username_key] = user
+    uid = token.claims[config.uid_key]
+    claims[config.uid_key] = uid
 
     # FIXME: Copies groups. Useful for WebDAV, maybe not necessary
     #
-    # new_token['isMemberOf'] = decoded_token['isMemberOf']
+    # claims['isMemberOf'] = decoded_token['isMemberOf']
 
-    ticket_prefix = config.session_store.ticket_prefix
     issuer = factory.create_token_issuer()
-    token_store = factory.create_token_store()
-    ticket = await issuer.issue_user_token(new_token, token_store)
+    session_store = factory.create_session_store(request)
+    token_store = factory.create_token_store(request)
+    token = issuer.issue_token(claims)
+    auth_session = Session.create(handle, token)
+    pipeline = redis.pipeline()
+    await session_store.store_session(auth_session, pipeline)
+    token_store.store_session(uid, auth_session, pipeline)
+    await pipeline.execute()
 
     message = (
         f"Your Newly Created Token. Keep these Secret!<br>\n"
-        f"Token: {ticket.encode(ticket_prefix)} <br>"
+        f"Token: {handle.encode()} <br>"
     )
     session = await get_session(request)
     session["message"] = message
@@ -263,10 +272,17 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
-    token_store = factory.create_token_store()
+    token_store = factory.create_token_store(request)
     user_id = token.claims[config.uid_key]
-    user_tokens = {t["jti"]: t for t in await token_store.get_tokens(user_id)}
-    user_token = user_tokens[handle]
+    user_token = None
+    for entry in await token_store.get_tokens(user_id):
+        if entry.key == handle:
+            user_token = entry
+            break
+
+    if not user_token:
+        msg = f"No token with handle {handle} found"
+        raise web.HTTPNotFound(reason=msg, text=msg)
 
     return {"token": user_token}
 
@@ -303,23 +319,22 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
-    token_store = factory.create_token_store()
-    user_id = token.claims[config.uid_key]
-    user_tokens = {t["jti"]: t for t in await token_store.get_tokens(user_id)}
-    user_token = user_tokens[handle]
-
     form = AlterTokenForm(await request.post())
     if not form.validate() or form.method_.data != "DELETE":
-        return {"token": user_token}
+        msg = "Invalid deletion request"
+        raise web.HTTPForbidden(reason=msg, text=msg)
 
+    token_store = factory.create_token_store(request)
+    session_store = factory.create_session_store(request)
     pipeline = redis.pipeline()
+    user_id = token.claims[config.uid_key]
     success = await token_store.revoke_token(user_id, handle, pipeline)
     if success:
-        pipeline.delete(handle)
+        session_store.delete_session(handle, pipeline)
         await pipeline.execute()
 
     if success:
-        message = f"Your token with the ticket_id {handle} was deleted"
+        message = f"Your token with the handle {handle} was deleted"
     else:
         message = "An error was encountered when deleting your token"
     session = await get_session(request)

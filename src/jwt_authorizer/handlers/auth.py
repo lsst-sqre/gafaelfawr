@@ -7,11 +7,7 @@ from typing import TYPE_CHECKING
 import jwt
 from aiohttp import web
 
-from jwt_authorizer.authnz import (
-    authenticate,
-    authorize,
-    capabilities_from_groups,
-)
+from jwt_authorizer.authnz import authenticate, authorize
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.handlers.util import (
     build_capability_headers,
@@ -19,14 +15,13 @@ from jwt_authorizer.handlers.util import (
     get_token_from_request,
     unauthorized,
 )
-from jwt_authorizer.session import Ticket
+from jwt_authorizer.session import SessionHandle
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
     from jwt_authorizer.tokens import VerifiedToken
     from logging import Logger
-    from typing import Tuple
 
 __all__ = ["get_auth"]
 
@@ -62,10 +57,6 @@ async def get_auth(request: web.Request) -> web.Response:
         The JWT token. This must always be the full JWT token. The token
         should be in this  header as type ``Bearer``, but it may be type
         ``Basic`` if ``x-oauth-basic`` is the username or password.
-    X-Orig-Authorization
-        The Authorization header as it was received before processing by
-        ``oauth2_proxy``. This is useful when the original header was an
-        ``oauth2_proxy`` ticket, as this gives access to the ticket.
 
     The following headers may be set in the response:
 
@@ -84,9 +75,6 @@ async def get_auth(request: web.Request) -> web.Response:
         header.
     X-Auth-Request-Token
         If enabled, the encoded token will be set.
-    X-Auth-Request-Token-Ticket
-        When a ticket is available for the token, we will return it under this
-        header.
     X-Auth-Request-Token-Capabilities
         If the token has capabilities in the ``scope`` claim, they will be
         returned in this header.
@@ -129,9 +117,9 @@ async def get_auth(request: web.Request) -> web.Response:
         raise forbidden(request, token, message)
 
 
-async def _check_reissue_token(
+def _check_reissue_token(
     request: web.Request, token: VerifiedToken
-) -> Tuple[VerifiedToken, str]:
+) -> VerifiedToken:
     """Possibly reissue the token.
 
     Parameters
@@ -145,56 +133,32 @@ async def _check_reissue_token(
     -------
     token : `jwt_authorizer.tokens.VerifiedToken`
         An encoded token, which may have been reissued.
-    oauth2_proxy_ticket_str : `str`
-        A ticket for the oauth2_proxy session.
 
     Notes
     -----
-    The token will be reissued under two scenarios.
-
-    The first scenario is a newly logged in session with a cookie, indicated
-    by the token being issued from another issuer.  We reissue the token with
-    a default audience.
-
-    The second scenario is a request to an internal resource, as indicated by
-    the ``audience`` parameter being equal to the configured internal
-    audience, where the current token's audience is from the default audience.
-    We will reissue the token with an internal audience.
+    The token will be reissued if this is a request to an internal resource,
+    as indicated by the ``audience`` parameter being equal to the configured
+    internal audience, where the current token's audience is from the default
+    audience.  The token will be reissued to the internal audience.  This
+    allows passing a more restrictive token to downstream systems that may
+    reuse that tokens for their own API calls.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
-    # Only reissue token if it's requested and if it's a different
-    # issuer than this application uses to reissue a token
-    iss = config.issuer.iss
-    default_audience = config.issuer.aud
-    internal_audience = config.issuer.aud_internal
-    to_internal_audience = request.query.get("audience") == internal_audience
-    from_this_issuer = token.claims["iss"] == iss
-    from_default_audience = token.claims["aud"] == default_audience
-    cookie_name = config.session_store.ticket_prefix
-    ticket_str = request.cookies.get(cookie_name, "")
-    ticket = None
+    if not request.query.get("audience") == config.issuer.aud_internal:
+        return token
+    if not token.claims["iss"] == config.issuer.iss:
+        return token
+    if not token.claims["aud"] == config.issuer.aud:
+        return token
+
+    # Create a new handle just to get a new key for the jti.  The reissued
+    # internal token is never stored in a session and cannot be accessed via a
+    # session handle, so we don't use the handle to store it.
     issuer = factory.create_token_issuer()
-
-    if not from_this_issuer:
-        # If we didn't issue the token, it came from a provider as part of a
-        # new session. This only happens once, after initial login, so there
-        # should always be a cookie set. If there isn't, or we fail to parse
-        # it, something funny is going on and we can abort with an exception.
-        ticket = Ticket.from_cookie(cookie_name, ticket_str)
-        scope = " ".join(
-            sorted(capabilities_from_groups(token, config.group_mapping))
-        )
-        token = await issuer.reissue_token(token, ticket, scope=scope)
-    elif from_this_issuer and from_default_audience and to_internal_audience:
-        # In this case, we only reissue tokens from a default audience
-        ticket = Ticket()
-        token = await issuer.reissue_token(
-            token, ticket, internal=to_internal_audience
-        )
-
-    return token, ticket.encode(cookie_name) if ticket else ""
+    handle = SessionHandle()
+    return issuer.reissue_token(token, jti=handle.key, internal=True)
 
 
 async def success(request: web.Request, token: VerifiedToken) -> web.Response:
@@ -233,8 +197,7 @@ async def success(request: web.Request, token: VerifiedToken) -> web.Response:
         groups = ",".join([g["name"] for g in groups_list])
         headers["X-Auth-Request-Groups"] = groups
 
-    token, oauth2_proxy_ticket = await _check_reissue_token(request, token)
+    token = _check_reissue_token(request, token)
     headers["X-Auth-Request-Token"] = token.encoded
-    headers["X-Auth-Request-Token-Ticket"] = oauth2_proxy_ticket
 
     return web.Response(headers=headers, text="ok")

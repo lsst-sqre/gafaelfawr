@@ -77,10 +77,9 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.status == 200
     data = await r.json()
     assert data == {
-        "ticket": {"ticket_id": ANY, "secret": ANY},
+        "handle": {"key": ANY, "secret": ANY},
         "session": {
             "email": "some-user@example.com",
-            "user": "some-user@example.com",
             "created_at": ANY,
             "expires_on": ANY,
         },

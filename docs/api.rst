@@ -44,8 +44,9 @@ API reference
 
 .. automodapi:: jwt_authorizer.session
 
+.. automodapi:: jwt_authorizer.token_store
+
 .. automodapi:: jwt_authorizer.tokens
-   :no-inherited-members:
 
 .. automodapi:: jwt_authorizer.util
 

@@ -8,13 +8,9 @@ from typing import TYPE_CHECKING
 import jwt
 
 from jwt_authorizer.config import ALGORITHM, IssuerConfig
-from jwt_authorizer.session import Session, Ticket
 from jwt_authorizer.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from aioredis import Redis
-    from jwt_authorizer.session import SessionStore
-    from jwt_authorizer.tokens import TokenStore
     from typing import Any, Dict, Mapping, Optional, Union
 
 __all__ = ["TokenIssuer"]
@@ -39,25 +35,11 @@ class TokenIssuer:
         Redis client.
     """
 
-    def __init__(
-        self,
-        config: IssuerConfig,
-        ticket_prefix: str,
-        session_store: SessionStore,
-        redis: Redis,
-    ) -> None:
+    def __init__(self, config: IssuerConfig,) -> None:
         self._config = config
-        self._ticket_prefix = ticket_prefix
-        self._session_store = session_store
-        self._redis = redis
 
-    async def issue_token(
-        self, claims: Mapping[str, Any], ticket: Ticket
-    ) -> VerifiedToken:
+    def issue_token(self, claims: Mapping[str, Any]) -> VerifiedToken:
         """Issue a token containing the provided claims.
-
-        Create a token, store it in the session store under the provided
-        ticket, and then return the new token.
 
         Parameters
         ----------
@@ -66,59 +48,18 @@ class TokenIssuer:
 
         Returns
         -------
-        ticket : `jwt_authorizer.tokens.VerifiedToken`
+        token : `jwt_authorizer.tokens.VerifiedToken`
             The newly-issued token.
         """
         payload = dict(claims)
-        payload.update(self._default_attributes(ticket))
+        payload.update(self._default_attributes())
+        return self._encode_token(payload)
 
-        token = self._encode_token(payload)
-        session = self._session_for_token(token)
-        await self._session_store.store_session(ticket, session)
-
-        return token
-
-    async def issue_user_token(
-        self, attributes: Mapping[str, Any], token_store: TokenStore
-    ) -> Ticket:
-        """Issue a user token.
-
-        Given a partial payload, fill out the remaining token attributes,
-        issue and store a token, create and store an oauth2_proxy session, and
-        return the ticket for the new token.
-
-        Parameters
-        ----------
-        attributes : Mapping[`str`, Any]
-            Attributes for the new token.
-        token_store : `jwt_authorizer.tokens.TokenStore`
-            Store for the list of user tokens.
-        session_store : `jwt_authorizer.session.SessionStore`
-            Store for new oauth2_proxy session.
-
-        Returns
-        -------
-        ticket : `jwt_authorizer.session.Ticket`
-            The ticket corresponding to the new stored session.
-        """
-        ticket = Ticket()
-        payload = dict(attributes)
-        payload.update(self._default_attributes(ticket))
-
-        token = self._encode_token(payload)
-        session = self._session_for_token(token)
-        pipeline = self._redis.pipeline()
-        await self._session_store.store_session(ticket, session, pipeline)
-        token_store.store_token(token.claims, pipeline)
-        await pipeline.execute()
-
-        return ticket
-
-    async def reissue_token(
+    def reissue_token(
         self,
         token: VerifiedToken,
-        ticket: Ticket,
         *,
+        jti: Optional[str] = None,
         scope: Optional[str] = None,
         internal: bool = False,
     ) -> VerifiedToken:
@@ -126,16 +67,14 @@ class TokenIssuer:
 
         This makes a copy of the token, sets the audience, expiration, issuer,
         and issue time as appropriate, and then returns the token in encoded
-        form. If configured, it will also store the newly issued token a
-        oauth2_proxy redis session store.
+        form.
 
         Parameters
         ----------
         token : `jwt_authorizer.tokens.VerifiedToken`
             The token to reissue.
-        ticket : `jwt_authorizer.session.Ticket`
-            The Ticket to use as the identifier for the token and to use for
-            storing the new token.
+        jti : Optional[`str`], optional
+            The jti to use for the new token.
         scope : Optional[`str`], optional
             If provided, set the scope claim of the reissued ticket to this.
         internal : `bool`, optional
@@ -144,11 +83,13 @@ class TokenIssuer:
 
         Returns
         -------
-        new_token : `str`
+        new_token : `jwt_authorizer.tokens.VerifiedToken`
             The new token.
         """
         payload = dict(token.claims)
-        payload.update(self._default_attributes(ticket, internal=internal))
+        payload.update(self._default_attributes(internal=internal))
+        if jti:
+            payload["jti"] = jti
         if scope:
             payload["scope"] = scope
 
@@ -163,21 +104,15 @@ class TokenIssuer:
                 actor_claim["act"] = token.claims["act"]
             payload["act"] = actor_claim
 
-        reissued_token = self._encode_token(payload)
-        session = self._session_for_token(reissued_token)
-        await self._session_store.store_session(ticket, session)
-
-        return reissued_token
+        return self._encode_token(payload)
 
     def _default_attributes(
-        self, ticket: Ticket, *, internal: bool = False
+        self, *, internal: bool = False
     ) -> Dict[str, Union[str, int]]:
         """Return the standard attributes for any new token.
 
         Parameters
         ----------
-        ticket : `jwt_authorizer.session.Ticket`
-            The ticket that will be used for this token.
         internal : `bool`, optional
             Whether to issue for an internal audience instead of the default
             audience.
@@ -196,7 +131,6 @@ class TokenIssuer:
             "iat": int(datetime.now(timezone.utc).timestamp()),
             "iss": self._config.iss,
             "exp": int(expires.timestamp()),
-            "jti": ticket.as_handle(self._ticket_prefix),
         }
 
     def _encode_token(self, payload: Dict[str, Any]) -> VerifiedToken:
@@ -219,29 +153,3 @@ class TokenIssuer:
             headers={"kid": self._config.kid},
         ).decode()
         return VerifiedToken(encoded=encoded_token, claims=payload)
-
-    @staticmethod
-    def _session_for_token(token: VerifiedToken) -> Session:
-        """Construct a session for a token.
-
-        Parameters
-        ----------
-        token : `jwt_authorizer.tokens.VerifiedToken`
-            The validated token.  The email, iat, and exp claims must be set.
-
-        Returns
-        -------
-        session : `jwt_authorizer.session.Session`
-            An oauth2_proxy session for that token.
-        """
-        email: str = token.claims["email"]
-        iat: int = token.claims["iat"]
-        exp: int = token.claims["exp"]
-
-        return Session(
-            token=token,
-            email=email,
-            user=email,
-            created_at=datetime.fromtimestamp(iat, tz=timezone.utc),
-            expires_on=datetime.fromtimestamp(exp, tz=timezone.utc),
-        )

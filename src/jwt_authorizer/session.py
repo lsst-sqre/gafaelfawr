@@ -9,210 +9,209 @@ from __future__ import annotations
 import base64
 import json
 import os
-import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.fernet import Fernet, InvalidToken
 
 from jwt_authorizer.tokens import Token
-from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
     from aioredis import Redis
     from aioredis.commands import Pipeline
+    from jwt_authorizer.tokens import VerifiedToken
+    from jwt_authorizer.verify import TokenVerifier
+    from logging import Logger
     from typing import Optional
 
 __all__ = [
-    "InvalidCookieException",
-    "InvalidTicketException",
+    "InvalidSessionHandleException",
     "Session",
+    "SessionHandle",
     "SessionStore",
-    "Ticket",
 ]
 
 
-class InvalidCookieException(Exception):
-    """Session cookie is not in expected format."""
+class InvalidSessionHandleException(Exception):
+    """Session handle is not in expected format."""
 
 
-class InvalidTicketException(Exception):
-    """Ticket is not in expected format."""
-
-
-def _new_ticket_id() -> str:
-    """Generate a new ticket ID."""
-    return os.urandom(20).hex()
-
-
-def _new_ticket_secret() -> bytes:
-    """Generate a new ticket encryption secret."""
-    return os.urandom(16)
+def _random_128_bits() -> str:
+    """Generate random 128 bits encoded in base64 without padding."""
+    return base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
 
 
 @dataclass
-class Ticket:
-    """A class represeting an oauth2_proxy ticket."""
+class SessionHandle:
+    """A handle for a session, usable instead of a JWT.
 
-    ticket_id: str = field(default_factory=_new_ticket_id)
-    secret: bytes = field(default_factory=_new_ticket_secret)
+    Notes
+    -----
+    A session handle consists of two parts, a semi-public key that is used as
+    the token jti claim and as the Redis key, and a secret that is only
+    present in the token returned to the user and the encrypted session in
+    Redis.
+
+    The serialized form of a session handle always starts with ``gsh:``, short
+    for Gafaelfawr session handle, to make it easier to identify these handles
+    in logs.
+
+    The serialized form encodes the secret in URL-safe base64 with the padding
+    stripped off (because equal signs can be parsed oddly in cookies).
+    """
+
+    key: str = field(default_factory=_random_128_bits)
+    secret: str = field(default_factory=_random_128_bits)
 
     @classmethod
-    def from_cookie(cls, prefix: str, cookie: str) -> Ticket:
-        """Parse an oauth2_proxy session cookie value into a Ticket.
+    def from_str(cls, handle: str) -> SessionHandle:
+        """Parse a serialized handle into a `SessionHandle`.
 
         Parameters
         ----------
-        prefix : `str`
-            The expected prefix for the ticket.
-        cookie : `str`
-            The value of the oauth2_proxy cookie.
+        handle : `str`
+            The serialized handle.
 
         Returns
         -------
-        ticket : `Ticket`
-            The decoded ticket.
+        decoded_handle : `SessionHandle`
+            The decoded SessionHandle.
 
         Raises
         ------
-        InvalidCookieException
-            The syntax of the cookie is not valid.
-        InvalidTicketException
-            The ticket contained in the cookie is not valid.
-        """
-        try:
-            encoded_ticket, _ = cookie.split("|", 1)
-            ticket = base64.urlsafe_b64decode(encoded_ticket).decode()
-        except Exception as e:
-            msg = f"Error decoding cookie: {str(e)}"
-            raise InvalidCookieException(msg)
-
-        return cls.from_str(prefix, ticket)
-
-    @classmethod
-    def from_str(cls, prefix: str, ticket: str) -> Ticket:
-        """Parse an oauth2_proxy ticket string into a Ticket.
-
-        Parameters
-        ----------
-        prefix : `str`
-            The expected prefix for the ticket.
-        ticket : `str`
-            The encoded ticket string.
-
-        Returns
-        -------
-        decoded_ticket : `Ticket`
-            The decoded Ticket.
-
-        Raises
-        ------
-        InvalidTicketException
+        InvalidSessionHandleException
             The provided string is not a valid ticket.
         """
-        full_prefix = f"{prefix}-"
-        if not ticket.startswith(full_prefix):
-            msg = f"Ticket does not start with {full_prefix}"
-            raise InvalidTicketException(msg)
+        if not handle.startswith("gsh:"):
+            msg = f"Session handle does not start with gsh:"
+            raise InvalidSessionHandleException(msg)
+        trimmed_handle = handle[len("gsh:") :]
 
-        trimmed_ticket = ticket[len(full_prefix) :]
-        if "." not in trimmed_ticket:
-            raise InvalidTicketException("Ticket is malformed")
+        if "." not in trimmed_handle:
+            raise InvalidSessionHandleException("Ticket is malformed")
+        key, secret = trimmed_handle.split(".", 1)
+        if len(key) != 22 or len(secret) != 22:
+            raise InvalidSessionHandleException("Ticket is malformed")
 
-        try:
-            ticket_id, secret_b64 = trimmed_ticket.split(".", 1)
-            int(ticket_id, 16)  # Check that the ticket ID is valid hex.
-            secret = cls._base64_decode(secret_b64)
-            if secret == b"":
-                raise InvalidTicketException("Ticket secret is empty")
-        except Exception as e:
-            msg = f"Error decoding ticket: {str(e)}"
-            raise InvalidTicketException(msg)
+        return cls(key=key, secret=secret)
 
-        return cls(ticket_id=ticket_id, secret=secret)
-
-    def as_handle(self, prefix: str) -> str:
-        """Return the handle for this ticket.
-
-        Parameters
-        ----------
-        prefix : `str`
-            Prefix to prepend to the ticket ID.
-        """
-        return f"{prefix}-{self.ticket_id}"
-
-    def encode(self, prefix: str) -> str:
-        """Return the encoded ticket, suitable for putting in a cookie.
-
-        Parameters
-        ----------
-        prefix : `str`
-            Prefix to prepend to the ticket ID.
-        """
-        secret_b64 = base64.urlsafe_b64encode(self.secret).decode().rstrip("=")
-        return f"{prefix}-{self.ticket_id}.{secret_b64}"
-
-    @staticmethod
-    def _base64_decode(data: str) -> bytes:
-        """Helper function to do base64 decoding.
-
-        Undoes URL-safe base64 encoding, allowing for stripped padding and
-        enabling validation so that an exception is thrown for invalid data.
-
-        Notes
-        -----
-        Used instead of urlsafe_b64decode because that standard function
-        doesn't have support for enabling validation.
-        """
-        return base64.b64decode(
-            add_padding(data), altchars=b"-_", validate=True
-        )
+    def encode(self) -> str:
+        """Return the encoded ticket, suitable for putting in a cookie."""
+        return f"gsh:{self.key}.{self.secret}"
 
 
 @dataclass
 class Session:
-    """An oauth2_proxy session.
+    """An authentication session.
 
-    Tokens are currently stored in Redis as a JSON dump of a dictionary.  This
-    class represents the deserialized form of a session.  created_at and
-    expires_on must be UTC timestamps.
+    Notes
+    -----
+    The JWT is the user's authentication credentials and could be used alone.
+    However JWTs tend to be long, which causes various problems in practice.
+    Therefore, JWTs are stored in authentication sessions, and the session
+    handle can be used instead of the JWT.
+
+    The session handle is represented by the `SessionHandle` class.  It
+    consists of a key and a secret.  The key corresponds to the Redis key
+    under which the session is stored.  The secret must match the
+    corresponding secret inside the encrypted Redis session value.  This
+    approach prevents someone with access to list the Redis keys from using a
+    Redis key directly as a session handle.
     """
 
-    token: Token
+    handle: SessionHandle
+    """The handle for this session."""
+
+    token: VerifiedToken
+    """The authentication token stored in the session."""
+
     email: str
-    user: str
+    """The email address of the user (taken from the token claims)."""
+
     created_at: datetime
+    """When the session was created."""
+
     expires_on: datetime
+    """When the session will expire."""
 
-
-class SessionStore:
-    """Stores oauth2_proxy sessions and retrieves them by ticket.
-
-    Parameters
-    ----------
-    prefix : `str`
-        Prefix used for storing oauth2_proxy session state.
-    key : `bytes`
-        Encryption key for the individual components of the stored session.
-    redis : `aioredis.Redis`
-        A Redis client configured to talk to the backend store that holds the
-        (encrypted) tokens.
-    """
-
-    def __init__(self, prefix: str, key: bytes, redis: Redis) -> None:
-        self.prefix = prefix
-        self.key = key
-        self.redis = redis
-
-    async def get_session(self, ticket: Ticket) -> Optional[Session]:
-        """Retrieve and decrypt the session for a ticket.
+    @classmethod
+    def create(cls, handle: SessionHandle, token: VerifiedToken) -> Session:
+        """Create a new session.
 
         Parameters
         ----------
-        ticket : `Ticket`
-            The ticket corresponding to the token.
+        handle : `SessionHandle`
+            The handle for this session.
+        token : `jwt_authorizer.tokens.VerifiedToken`
+            The token to store in this session.
+
+        Returns
+        -------
+        session : `Session`
+            The newly-created session.
+        """
+        email: str = token.claims["email"]
+        iat: int = token.claims["iat"]
+        exp: int = token.claims["exp"]
+
+        return cls(
+            handle=handle,
+            token=token,
+            email=email,
+            created_at=datetime.fromtimestamp(iat, tz=timezone.utc),
+            expires_on=datetime.fromtimestamp(exp, tz=timezone.utc),
+        )
+
+
+class SessionStore:
+    """Stores and retrieves sessions.
+
+    Parameters
+    ----------
+    key : `str`
+        Encryption key for the session store.  Must be a
+        `cryptography.fernet.Fernet` key.
+    redis : `aioredis.Redis`
+        A Redis client configured to talk to the backend store that holds the
+        (encrypted) tokens.
+    verifier : `jwt_authorizer.verify.TokenVerifier`
+        Token verifier to verify the tokens retrieved from Redis.
+    logger : `logging.Logger`
+        Logger for diagnostics.
+    """
+
+    def __init__(
+        self, key: str, redis: Redis, verifier: TokenVerifier, logger: Logger
+    ) -> None:
+        self._fernet = Fernet(key.encode())
+        self._redis = redis
+        self._verifier = verifier
+        self._logger = logger
+
+    def delete_session(self, key: str, pipeline: Pipeline) -> None:
+        """Delete a session.
+
+        To allow the caller to batch this with other Redis modifications, the
+        deletion is done using the provided pipeline.  The caller is
+        responsible for executing the pipeline.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the session.
+        pipeline : `aioredis.commands.Pipeline`
+            The pipeline to use to delete the sesion.
+        """
+        pipeline.delete(f"session:{key}")
+
+    async def get_session(self, handle: SessionHandle) -> Optional[Session]:
+        """Retrieve and decrypt the session for a handle.
+
+        Parameters
+        ----------
+        handle : `SessionHandle`
+            The handle corresponding to the session.
 
         Returns
         -------
@@ -220,20 +219,16 @@ class SessionStore:
             The corresponding session, or `None` if no session exists for this
             ticket.
         """
-        handle = ticket.as_handle(self.prefix)
-        encrypted_session = await self.redis.get(handle)
+        redis_key = self._redis_key_for_handle(handle)
+        encrypted_session = await self._redis.get(redis_key)
         if not encrypted_session:
             return None
-
-        return self._decrypt_session(ticket.secret, encrypted_session)
+        return await self._decrypt_session(handle, encrypted_session)
 
     async def store_session(
-        self,
-        ticket: Ticket,
-        session: Session,
-        pipeline: Optional[Pipeline] = None,
+        self, session: Session, pipeline: Optional[Pipeline] = None,
     ) -> None:
-        """Store an oauth2_proxy session.
+        """Store a session.
 
         To allow the caller to batch this with other Redis modifications, if a
         pipeline is provided, the session will be stored but the pipeline will
@@ -242,88 +237,88 @@ class SessionStore:
 
         Parameters
         ----------
-        ticket : `Ticket`
-            The ticket under which to store the session.
         session : `Session`
             The session to store.
         pipeline : `aioredis.commands.Pipeline`, optional
             The pipeline in which to store the session.
-
         """
-        handle = ticket.as_handle(self.prefix)
-        encrypted_session = self._encrypt_session(ticket.secret, session)
-        expire = (
-            session.expires_on - datetime.now(timezone.utc)
-        ).total_seconds()
+        encrypted_session = self._encrypt_session(session)
+        now = datetime.now(timezone.utc)
+        expires = int((session.expires_on - now).total_seconds())
+        redis_key = self._redis_key_for_handle(session.handle)
         if pipeline:
-            pipeline.set(handle, encrypted_session, expire=int(expire))
+            pipeline.set(redis_key, encrypted_session, expire=expires)
         else:
-            await self.redis.set(handle, encrypted_session, expire=int(expire))
+            await self._redis.set(redis_key, encrypted_session, expire=expires)
 
-    def _decrypt_session(
-        self, secret: bytes, encrypted_session: bytes
-    ) -> Session:
-        """Decrypt an oauth2_proxy session.
+    async def _decrypt_session(
+        self, handle: SessionHandle, encrypted_session: bytes
+    ) -> Optional[Session]:
+        """Decrypt a session and validate the secret.
+
+        If the key exists but the secret doesn't match, we return None exactly
+        as if no key exists to not leak information to an attacker, but we log
+        a loud error message.  If the Redis session cannot be decrypted, treat
+        it as if it were missing (chances are the key was changed).
 
         Parameters
         ----------
-        secret : `bytes`
-            Decryption key.
+        handle : `SessionHandle`
+            The handle for the session.
         encrypted_session : `bytes`
             The encrypted session.
 
         Returns
         -------
-        session : `Sesssion`
-            The decrypted sesssion.
+        session : `Sesssion` or None
+            The decrypted sesssion or None if it could not be decrypted.
         """
-        cipher = Cipher(
-            algorithms.AES(secret), modes.CFB(secret), default_backend()
-        )
-        decryptor = cipher.decryptor()
-        session_dict = json.loads(
-            decryptor.update(encrypted_session) + decryptor.finalize()
-        )
-        token = self._decrypt_session_component(session_dict["IDToken"])
-        return Session(
-            token=Token(encoded=token),
-            email=self._decrypt_session_component(session_dict["Email"]),
-            user=self._decrypt_session_component(session_dict["User"]),
-            created_at=self._parse_session_date(session_dict["CreatedAt"]),
-            expires_on=self._parse_session_date(session_dict["ExpiresOn"]),
-        )
+        try:
+            session = json.loads(self._fernet.decrypt(encrypted_session))
+        except InvalidToken:
+            self._logger.exception(
+                "Cannot decrypt session data for %s", handle.key
+            )
+            return None
+        except json.JSONDecodeError:
+            self._logger.exception("Invalid session data for %s", handle.key)
+            return None
 
-    def _decrypt_session_component(self, encrypted_str: str) -> str:
-        """Decrypt a component of an encrypted oauth2_proxy session.
+        if session["secret"] != handle.secret:
+            self._logger.error("Secret mismatch for %s", handle.key)
+            return None
+
+        unverified_token = Token(encoded=session["token"])
+        try:
+            token = await self._verifier.verify(unverified_token)
+        except Exception:
+            self._logger.exception(
+                "Token in session %s does not verify", handle.key
+            )
+
+        try:
+            return Session(
+                handle=handle,
+                token=token,
+                email=session["email"],
+                created_at=datetime.fromtimestamp(
+                    session["created_at"], tz=timezone.utc
+                ),
+                expires_on=datetime.fromtimestamp(
+                    session["expires_on"], tz=timezone.utc
+                ),
+            )
+        except Exception:
+            self._logger.exception("Invalid session data for %s", handle.key)
+            return None
+
+    def _encrypt_session(self, session: Session) -> bytes:
+        """Serialize and encrypt a session.
 
         Parameters
         ----------
-        encrypted_str : `str`
-            The encrypted field with its IV prepended.
-
-        Returns
-        -------
-        component : `str`
-            The decrypted value.
-        """
-        encrypted_bytes = base64.b64decode(encrypted_str)
-        iv = encrypted_bytes[:16]
-        cipher = Cipher(
-            algorithms.AES(self.key), modes.CFB(iv), default_backend()
-        )
-        decryptor = cipher.decryptor()
-        field = decryptor.update(encrypted_bytes[16:]) + decryptor.finalize()
-        return field.decode()
-
-    def _encrypt_session(self, secret: bytes, session: Session) -> bytes:
-        """Generate an encrypted oauth2_proxy session.
-
-        Parameters
-        ----------
-        secret : `bytes`
-            Encryption key.
         session : `Session`
-            The oauth2_proxy session to encrypt.
+            The session to serialize and encrypt.
 
         Returns
         -------
@@ -331,74 +326,25 @@ class SessionStore:
             The encrypted session information.
         """
         data = {
-            "IDToken": self._encrypt_session_component(session.token.encoded),
-            "Email": self._encrypt_session_component(session.email),
-            "User": self._encrypt_session_component(session.user),
-            "CreatedAt": session.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "ExpiresOn": session.expires_on.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "secret": session.handle.secret,
+            "token": session.token.encoded,
+            "email": session.email,
+            "created_at": int(session.created_at.timestamp()),
+            "expires_on": int(session.expires_on.timestamp()),
         }
-        data_as_json = json.dumps(data)
-        cipher = Cipher(
-            algorithms.AES(secret),
-            modes.CFB(secret),
-            backend=default_backend(),
-        )
-        encryptor = cipher.encryptor()
-        encrypted_session = (
-            encryptor.update(data_as_json.encode()) + encryptor.finalize()
-        )
-        return encrypted_session
+        return self._fernet.encrypt(json.dumps(data).encode())
 
-    def _encrypt_session_component(self, component: str) -> str:
-        """Encrypt a single oauth2_proxy session field.
-
-        The initialization vector is randomly generated and stored with the
-        field.  The component is encrypted with the SessionStore key, which
-        is separate from the encryption secret used for the overall session.
+    def _redis_key_for_handle(self, handle: SessionHandle) -> str:
+        """Determine the Redis key for a session handle.
 
         Parameters
         ----------
-        component : `str`
-            The field value to encrypt.
+        handle : `SessionHandle`
+            The session handle.
 
         Returns
         -------
-        encrypted_str : `str`
-            The IV and encrypted field, encoded in base64 and converted to a
-            str for ease of json encoding.
+        redis_key : `str`
+            The key to use in Redis.
         """
-        iv = os.urandom(16)
-        cipher = Cipher(
-            algorithms.AES(self.key), modes.CFB(iv), backend=default_backend()
-        )
-        encryptor = cipher.encryptor()
-        encrypted_component = (
-            encryptor.update(component.encode()) + encryptor.finalize()
-        )
-        return base64.b64encode(iv + encrypted_component).decode()
-
-    @staticmethod
-    def _parse_session_date(date_str: str) -> datetime:
-        """Parse a date from a session record.
-
-        Parameters
-        ----------
-        date_str : `str`
-            The date in string format.
-
-        Returns
-        -------
-        date : `datetime`
-            The parsed date.
-
-        Notes
-        -----
-        This date may be written by oauth2_proxy instead of us, in which case
-        it will use a Go date format that includes fractional seconds down to
-        the nanosecond.  Python doesn't have a date format that parses this,
-        so the fractional seconds portion will be dropped, leading to an
-        inaccuracy of up to a second.
-        """
-        date_str = re.sub("[.][0-9]+Z$", "Z", date_str)
-        date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
-        return date.replace(tzinfo=timezone.utc)
+        return f"session:{handle.key}"

@@ -7,7 +7,7 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
             integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
             crossorigin="anonymous"></script>
-    <title>Token {{ token.jti }}</title>
+    <title>Token {{ token.key }}</title>
 </head>
 <body>
 
@@ -15,7 +15,7 @@
     <div class="row">
         <div class="col-md-12">
             {% block content %}
-                <h2>Token {{ token.jti }}</h2>
+                <h2>Token {{ token.key }}</h2>
             {% endblock %}
         </div>
     </div>
