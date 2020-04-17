@@ -33,25 +33,9 @@ Secrets beginning or ending in whitespace are not supported.
 ``realm`` (required)
     The authentication realm indicated in the ``WWW-Authenticate`` header returned as part of a 401 error when a user is not already authenticated.
 
-``www_authenticate`` (optional, default ``Bearer``)
-    The type of authentication to request in the ``WWW-Authenticate`` header returned as part of a 401 error.
-    Must be either ``Bearer`` or ``Basic``.
-
 ``loglevel`` (optional)
     The Python log level to use, in string form.
     This is not currently used.
-
-``no_authorize`` (optional, default ``False``)
-    Disable authorization checks.
-    Any valid token will be accepted regardless of the requested scopes.
-
-``no_verify`` (optional, default ``False``)
-    Disable token verification.
-    The signature on the token will not be verified, thus allowing anyone to claim to have any identity and scope.
-    Totally insecure, useful only for testing.
-
-``set_user_headers`` (optional, default ``True``)
-    On the authentication endpoint, extract the username, email, UID, and group list from the token if available and set headers containing that information for the application that is being authenticated.
 
 ``session_secret_file`` (required)
     File containing the secret used to encrypt the JWT Authorizer session cookie.

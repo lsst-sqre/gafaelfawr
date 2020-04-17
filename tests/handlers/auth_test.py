@@ -20,18 +20,13 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def assert_www_authenticate_header_matches(
-    header: str, method: str, error: str
-) -> None:
+def assert_www_authenticate_header_matches(header: str, error: str) -> None:
     header_method, header_info = header.split(" ", 1)
-    assert header_method == method
-    if header_method == "Basic":
-        assert header_info == 'realm="tokens"'
-    else:
-        data = header_info.split(",")
-        assert data[0] == 'realm="tokens"'
-        assert data[1] == f'error="{error}"'
-        assert data[2].startswith("error_description=")
+    assert header_method == "Bearer"
+    data = header_info.split(",")
+    assert data[0] == 'realm="tokens"'
+    assert data[1] == f'error="{error}"'
+    assert data[2].startswith("error_description=")
 
 
 async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
@@ -42,7 +37,7 @@ async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
     assert_www_authenticate_header_matches(
-        r.headers["WWW-Authenticate"], "Bearer", "Unable to find token"
+        r.headers["WWW-Authenticate"], "Unable to find token"
     )
 
     r = await client.get(
@@ -53,7 +48,7 @@ async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
     assert_www_authenticate_header_matches(
-        r.headers["WWW-Authenticate"], "Bearer", "Unable to find token"
+        r.headers["WWW-Authenticate"], "Unable to find token"
     )
 
     r = await client.get(
@@ -64,7 +59,7 @@ async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
     assert_www_authenticate_header_matches(
-        r.headers["WWW-Authenticate"], "Bearer", "Invalid token"
+        r.headers["WWW-Authenticate"], "Invalid token"
     )
 
 

@@ -216,22 +216,25 @@ async def success(request: web.Request, token: VerifiedToken) -> web.Response:
 
     headers = build_capability_headers(request, token)
 
-    if config.set_user_headers:
-        email = token.claims.get("email")
-        user = token.claims.get(config.username_key)
-        uid = token.claims.get(config.uid_key)
-        groups_list = token.claims.get("isMemberOf", list())
-        if email:
-            headers["X-Auth-Request-Email"] = email
-        if user:
-            headers["X-Auth-Request-User"] = user
-        if uid:
-            headers["X-Auth-Request-Uid"] = uid
-        if groups_list:
-            groups = ",".join([g["name"] for g in groups_list])
-            headers["X-Auth-Request-Groups"] = groups
+    email = token.claims.get("email")
+    if email:
+        headers["X-Auth-Request-Email"] = email
+
+    user = token.claims.get(config.username_key)
+    if user:
+        headers["X-Auth-Request-User"] = user
+
+    uid = token.claims.get(config.uid_key)
+    if uid:
+        headers["X-Auth-Request-Uid"] = uid
+
+    groups_list = token.claims.get("isMemberOf", list())
+    if groups_list:
+        groups = ",".join([g["name"] for g in groups_list])
+        headers["X-Auth-Request-Groups"] = groups
 
     token, oauth2_proxy_ticket = await _check_reissue_token(request, token)
     headers["X-Auth-Request-Token"] = token.encoded
     headers["X-Auth-Request-Token-Ticket"] = oauth2_proxy_ticket
+
     return web.Response(headers=headers, text="ok")

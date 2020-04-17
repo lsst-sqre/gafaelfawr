@@ -12,7 +12,6 @@ from jwt_authorizer.authnz import (
     capabilities_from_groups,
     verify_authorization_strategy,
 )
-from jwt_authorizer.config import AuthenticateType
 from jwt_authorizer.session import Ticket
 from jwt_authorizer.tokens import Token
 
@@ -217,11 +216,7 @@ def unauthorized(
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
 
-    headers = {}
     realm = config.realm
-    if config.authenticate_type == AuthenticateType.Basic:
-        headers["WWW-Authenticate"] = f'Basic realm="{realm}"'
-    else:
-        info = f'realm="{realm}",error="{error}",error_description="{message}"'
-        headers["WWW-Authenticate"] = f"Bearer {info}"
+    info = f'realm="{realm}",error="{error}",error_description="{message}"'
+    headers = {"WWW-Authenticate": f"Bearer {info}"}
     return web.HTTPUnauthorized(headers=headers, reason=error, text=error)

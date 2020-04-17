@@ -7,7 +7,6 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 from dynaconf import LazySettings
@@ -16,7 +15,6 @@ if TYPE_CHECKING:
     from typing import Dict, List, Optional, Tuple
 
 __all__ = [
-    "AuthenticateType",
     "Config",
     "Configuration",
     "GitHubConfig",
@@ -159,11 +157,6 @@ class SessionStoreConfig:
     """Secret used for encryption of oauth2_proxy session fields."""
 
 
-class AuthenticateType(Enum):
-    Basic = auto()
-    Bearer = auto()
-
-
 @dataclass
 class Config:
     """Configuration for JWT Authorizer."""
@@ -171,20 +164,8 @@ class Config:
     realm: str
     """Realm for HTTP authentication."""
 
-    authenticate_type: AuthenticateType
-    """What type of authentication to request in WWW-Authenticate."""
-
     loglevel: Optional[str]
     """Log level, chosen from the string levels supported by logging."""
-
-    no_authorize: bool
-    """Disable authorization."""
-
-    no_verify: bool
-    """Disable token verification."""
-
-    set_user_headers: bool
-    """Whether to set headers containing user information from the token."""
 
     username_key: str
     """Token field from which to take the username."""
@@ -313,11 +294,7 @@ class Config:
 
         return cls(
             realm=settings["REALM"],
-            authenticate_type=AuthenticateType[settings["WWW_AUTHENTICATE"]],
             loglevel=settings.get("LOGLEVEL", "INFO"),
-            no_authorize=settings["NO_AUTHORIZE"],
-            no_verify=settings["NO_VERIFY"],
-            set_user_headers=settings["SET_USER_HEADERS"],
             username_key=settings["JWT_USERNAME_KEY"],
             uid_key=settings["JWT_UID_KEY"],
             github=github,
@@ -338,6 +315,8 @@ class Config:
         logger : `logging.Logger`
             The logger to use for those log messages.
         """
+        logger.info("Configured realm %s", self.realm)
+
         if self.issuer:
             logger.info(
                 "Configured token issuer: %s with key ID %s",
@@ -351,16 +330,6 @@ class Config:
             logger.info(
                 "Default JWT expiration is %d minutes", self.issuer.exp_minutes
             )
-
-        logger.info("Configured realm %s", self.realm)
-        logger.info(
-            "Configured WWW-Authenticate type: %s", self.authenticate_type.name
-        )
-
-        if self.no_verify:
-            logger.warning("Authentication verification is disabled")
-        if self.no_authorize:
-            logger.warning("Authorization is disabled")
 
         logger.info(
             "Configured group mapping: %s", json.dumps(self.group_mapping)

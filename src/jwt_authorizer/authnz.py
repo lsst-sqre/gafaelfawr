@@ -49,17 +49,12 @@ async def authenticate(request: web.Request, token: Token) -> VerifiedToken:
         If the issuer of the token is not known and therefore the token cannot
         be verified.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     logger: Logger = request["safir/logger"]
 
     claims = jwt.decode(token.encoded, algorithms=ALGORITHM, verify=False)
     jti = claims.get("jti", "UNKNOWN")
     logger.debug(f"Authenticating token with jti: {jti}")
-    if config.no_verify:
-        logger.debug(f"Skipping Verification of the token with jti: {jti}")
-        return VerifiedToken(encoded=token.encoded, claims=claims)
-
     token_verifier = factory.create_token_verifier(request)
     return await token_verifier.verify(token)
 
@@ -91,9 +86,6 @@ def authorize(request: web.Request, token: VerifiedToken) -> Tuple[bool, str]:
 
     jti = token.claims.get("jti", "UNKNOWN")
     logger.debug(f"Authorizing token with jti: {jti}")
-    if config.no_authorize:
-        logger.debug(f"Skipping authorizatino for token with jti: {jti}")
-        return True, ""
 
     # Authorization Checks
     capabilities, satisfy = verify_authorization_strategy(request)
