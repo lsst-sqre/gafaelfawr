@@ -7,12 +7,13 @@ from typing import TYPE_CHECKING
 
 import aiohttp_csrf
 import aiohttp_jinja2
+import aiohttp_remotes
 import aiohttp_session
 import aioredis
 import jinja2
 from aiohttp.web import Application
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
-from cryptography.fernet import Fernet
+from cachetools import TTLCache
 from dynaconf import LazySettings, Validator
 from safir.http import init_http_session
 from safir.logging import configure_logging
@@ -21,6 +22,7 @@ from safir.middleware import bind_logger
 from structlog import get_logger
 
 from jwt_authorizer.config import Config, Configuration
+from jwt_authorizer.factory import ComponentFactory
 from jwt_authorizer.handlers import init_routes
 
 if TYPE_CHECKING:
@@ -56,13 +58,6 @@ async def create_app(
     application: `aiohttp.web.Application`
         The constructed application.
     """
-    configuration = Configuration()
-    configure_logging(
-        profile=configuration.profile,
-        log_level=configuration.log_level,
-        name=configuration.logger_name,
-    )
-
     defaults_file = os.path.join(os.path.dirname(__file__), "defaults.yaml")
     if settings_path:
         settings_files = f"{defaults_file},{settings_path}"
@@ -74,8 +69,15 @@ async def create_app(
         Validator("GROUP_MAPPING", is_type_of=dict),
     )
     settings.validators.validate()
-
     config = Config.from_dynaconf(settings)
+
+    configuration = Configuration()
+    configure_logging(
+        profile=configuration.profile,
+        log_level=config.loglevel,
+        name=configuration.logger_name,
+    )
+
     logger = get_logger(configuration.logger_name)
     config.log_settings(logger)
 
@@ -86,10 +88,12 @@ async def create_app(
     app = Application()
     app["safir/config"] = configuration
     app["jwt_authorizer/config"] = config
+    app["jwt_authorizer/factory"] = ComponentFactory(config, redis_pool)
+    app["jwt_authorizer/key_cache"] = TTLCache(maxsize=16, ttl=600)
     app["jwt_authorizer/redis"] = redis_pool
     setup_metadata(package_name="jwt_authorizer", app=app)
-    setup_middleware(app)
     app.cleanup_ctx.append(init_http_session)
+    await setup_middleware(app, config)
     app.add_routes(init_routes())
 
     if key_client:
@@ -98,15 +102,19 @@ async def create_app(
     return app
 
 
-def setup_middleware(app: Application) -> None:
+async def setup_middleware(app: Application, config: Config) -> None:
     """Add middleware to the application."""
     app.middlewares.append(bind_logger)
 
-    # Use an ephemeral key for the session, since we only store flash messages
-    # in it.  This should probably switch to Redis at some point, since it
-    # won't work if there are multiple copies of jwt_authorizer running.
-    secret = Fernet.generate_key().decode()
-    aiohttp_session.setup(app, EncryptedCookieStorage(secret))
+    # Unconditionally trust X-Forwarded-For, since this application is desiged
+    # to run behind an nginx ingress.
+    await aiohttp_remotes.setup(app, aiohttp_remotes.XForwardedRelaxed())
+
+    # Set up encrypted session storage via a cookie.
+    session_storage = EncryptedCookieStorage(
+        config.session_secret, cookie_name="jwts"
+    )
+    aiohttp_session.setup(app, session_storage)
 
     # Configure global CSRF protection using session storage.
     csrf_policy = aiohttp_csrf.policy.FormPolicy("_csrf")
@@ -124,3 +132,13 @@ async def on_shutdown(app: Application) -> None:
     redis_client = app["jwt_authorizer/redis"]
     redis_client.close()
     await redis_client.wait_closed()
+
+
+async def create_dev_app() -> Application:
+    """Wrapper around create_app for development testing.
+
+    Invoked by the ``run`` test environment to create a local server for
+    testing.  Loads configuration from dev.yaml in the current directory.
+    """
+    config_path = os.path.join(os.getcwd(), "dev.yaml")
+    return await create_app(config_path)

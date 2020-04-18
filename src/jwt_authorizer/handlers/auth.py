@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 from typing import TYPE_CHECKING
 
 import jwt
@@ -17,15 +16,16 @@ from jwt_authorizer.handlers import routes
 from jwt_authorizer.handlers.util import (
     build_capability_headers,
     forbidden,
+    get_token_from_request,
     unauthorized,
 )
 from jwt_authorizer.session import Ticket
-from jwt_authorizer.tokens import issue_token
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
+    from jwt_authorizer.factory import ComponentFactory
     from logging import Logger
-    from typing import Any, Optional, Mapping, Tuple
+    from typing import Any, Mapping, Tuple
 
 __all__ = ["get_auth"]
 
@@ -101,11 +101,9 @@ async def get_auth(request: web.Request) -> web.Response:
     config: Config = request.config_dict["jwt_authorizer/config"]
     logger: Logger = request["safir/logger"]
 
-    if "Authorization" not in request.headers:
-        raise unauthorized(request, "No Authorization header")
-
-    encoded_token = _find_token(request)
+    encoded_token = await get_token_from_request(request)
     if not encoded_token:
+        logger.info("No token found, returning unauthorized")
         raise unauthorized(request, "Unable to find token")
 
     # Authentication
@@ -165,6 +163,7 @@ async def _check_reissue_token(
     We will reissue the token with an internal audience.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
     # Only reissue token if it's requested and if it's a different
     # issuer than this application uses to reissue a token
@@ -200,88 +199,12 @@ async def _check_reissue_token(
 
     if new_audience:
         assert ticket
-        encoded_token = await issue_token(
-            request,
-            decoded_token,
-            new_audience,
-            store_user_info=False,
-            oauth2_proxy_ticket=ticket,
+        issuer = factory.create_token_issuer()
+        encoded_token = await issuer.reissue_token(
+            decoded_token, ticket, internal=to_internal_audience
         )
+
     return encoded_token, ticket.encode(cookie_name) if ticket else ""
-
-
-def _find_token(request: web.Request) -> Optional[str]:
-    """From the request, find the token we need.
-
-    Normally it should be in the Authorization header of type ``Bearer``, but
-    it may be of type Basic for clients that don't support OAuth.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    encoded_token : Optional[`str`]
-        The token text, if found, otherwise None.
-    """
-    logger: Logger = request["safir/logger"]
-
-    header = request.headers.get("Authorization")
-    if not header or " " not in header:
-        return None
-    auth_type, auth_blob = header.split(" ")
-    encoded_token = None
-    if auth_type.lower() == "bearer":
-        encoded_token = auth_blob
-    elif "x-forwarded-access-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-access-token"]
-    elif "x-forwarded-ticket-id-token" in request.headers:
-        encoded_token = request.headers["x-forwarded-ticket-id-token"]
-    elif auth_type.lower() == "basic":
-        logger.debug("Using OAuth with Basic")
-        encoded_token = _find_token_in_basic_auth(auth_blob, logger)
-    return encoded_token
-
-
-def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[str]:
-    """Find a token in the Basic Auth authentication string.
-
-    A Basic Auth authentication string is normally a username and a password
-    separated by colon and then base64-encoded.  Support a username of the
-    token and a password of ``x-oauth-basic``, or a username of
-    ``x-oauth-basic`` and a password of the token.  If neither is the case,
-    assume the token is the username.
-
-    Parameters
-    ----------
-    blob : `str`
-        The encoded portion of the ``Authorization`` header.
-    logger : `logging.Logger`
-        Logger to use to report issues.
-
-    Returns
-    -------
-    token : `str`, optional
-        The token if one was found, otherwise None.
-    """
-    try:
-        basic_auth = base64.b64decode(blob)
-        user, password = basic_auth.strip().split(b":")
-    except Exception as e:
-        logger.warning("Invalid Basic auth string: %s", str(e))
-        return None
-
-    if password == b"x-oauth-basic":
-        # Recommended default
-        return user.decode()
-    elif user == b"x-oauth-basic":
-        # ... Could be this though
-        return password.decode()
-    else:
-        logger.debug("No protocol for token specified, falling back on user")
-        return user.decode()
 
 
 async def success(

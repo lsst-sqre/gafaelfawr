@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from jwt_authorizer.util import add_padding, base64_to_number
-from tests.util import RSAKeyPair, number_to_base64
+from jwt_authorizer.util import add_padding, base64_to_number, number_to_base64
+from tests.util import RSAKeyPair
 
 
 def test_add_padding() -> None:
@@ -31,3 +31,8 @@ def test_base64_to_number() -> None:
         assert base64_to_number(n_b64) == n
 
     assert base64_to_number("AQAB") == 65537
+
+
+def test_number_to_base64() -> None:
+    assert number_to_base64(0) == b"AA=="
+    assert number_to_base64(65537) == b"AQAB"

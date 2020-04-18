@@ -32,7 +32,7 @@ def assert_www_authenticate_header_matches(
         assert data[2].startswith("error_description=")
 
 
-async def test_authnz_token_no_auth(aiohttp_client: TestClient) -> None:
+async def test_no_auth(aiohttp_client: TestClient) -> None:
     app = await create_test_app()
     client = await aiohttp_client(app)
 
@@ -40,7 +40,7 @@ async def test_authnz_token_no_auth(aiohttp_client: TestClient) -> None:
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
     assert_www_authenticate_header_matches(
-        r.headers["WWW-Authenticate"], "Bearer", "No Authorization header"
+        r.headers["WWW-Authenticate"], "Bearer", "Unable to find token"
     )
 
     r = await client.get(
@@ -66,7 +66,7 @@ async def test_authnz_token_no_auth(aiohttp_client: TestClient) -> None:
     )
 
 
-async def test_authnz_token_access_denied(aiohttp_client: TestClient) -> None:
+async def test_access_denied(aiohttp_client: TestClient) -> None:
     keypair = RSAKeyPair()
     token = create_test_token(keypair)
     app = await create_test_app(keypair)
@@ -85,7 +85,7 @@ async def test_authnz_token_access_denied(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
 
 
-async def test_authnz_token_satisfy_all(aiohttp_client: TestClient) -> None:
+async def test_satisfy_all(aiohttp_client: TestClient) -> None:
     keypair = RSAKeyPair()
     token = create_test_token(keypair, ["test"])
     app = await create_test_app(keypair)
@@ -107,7 +107,7 @@ async def test_authnz_token_satisfy_all(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Capabilities-Satisfy"] == "all"
 
 
-async def test_authnz_token_success(aiohttp_client: TestClient) -> None:
+async def test_success(aiohttp_client: TestClient) -> None:
     keypair = RSAKeyPair()
     token = create_test_token(keypair, ["admin"])
     app = await create_test_app(keypair)
@@ -132,7 +132,7 @@ async def test_authnz_token_success(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Token-Ticket"] == ""
 
 
-async def test_authnz_token_success_any(aiohttp_client: TestClient) -> None:
+async def test_success_any(aiohttp_client: TestClient) -> None:
     """Test satisfy=any as an /auth parameter.
 
     Ask for either ``exec:admin`` or ``exec:test`` and pass in credentials
@@ -163,7 +163,7 @@ async def test_authnz_token_success_any(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Groups"] == "test"
 
 
-async def test_authnz_token_forwarded(aiohttp_client: TestClient) -> None:
+async def test_forwarded(aiohttp_client: TestClient) -> None:
     keypair = RSAKeyPair()
     token = create_test_token(keypair, ["admin"])
     app = await create_test_app(keypair)
@@ -193,7 +193,7 @@ async def test_authnz_token_forwarded(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
 
-async def test_authnz_token_basic(aiohttp_client: TestClient) -> None:
+async def test_basic(aiohttp_client: TestClient) -> None:
     keypair = RSAKeyPair()
     token = create_test_token(keypair, ["admin"])
     app = await create_test_app(keypair)
@@ -232,7 +232,7 @@ async def test_authnz_token_basic(aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
 
-async def test_authnz_token_reissue(aiohttp_client: TestClient) -> None:
+async def test_reissue(aiohttp_client: TestClient) -> None:
     """Test that an upstream token is reissued properly."""
     keypair = RSAKeyPair()
     ticket = Ticket()
@@ -306,9 +306,7 @@ async def test_authnz_token_reissue(aiohttp_client: TestClient) -> None:
     assert session.user == "some-user@example.com"
 
 
-async def test_authnz_token_reissue_internal(
-    aiohttp_client: TestClient,
-) -> None:
+async def test_reissue_internal(aiohttp_client: TestClient) -> None:
     """Test requesting token reissuance to an internal audience."""
     keypair = RSAKeyPair()
     token = create_test_token(keypair, ["admin"])

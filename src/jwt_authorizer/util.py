@@ -48,3 +48,23 @@ def base64_to_number(data: str) -> int:
     """
     decoded = base64.urlsafe_b64decode(add_padding(data))
     return int.from_bytes(decoded, byteorder="big")
+
+
+def number_to_base64(data: int) -> bytes:
+    """Convert an integer to base64-encoded bytes in big endian order.
+
+    Parameters
+    ----------
+    data : `int`
+        Arbitrarily large number
+
+    Returns
+    -------
+    result : `bytes`
+        The equivalent URL-safe base64-encoded string corresponding to the
+        number in big endian order.
+    """
+    bit_length = data.bit_length()
+    byte_length = bit_length // 8 + 1
+    data_as_bytes = data.to_bytes(byte_length, byteorder="big", signed=False)
+    return base64.urlsafe_b64encode(data_as_bytes)

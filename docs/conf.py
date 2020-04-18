@@ -61,6 +61,8 @@ default_role = "py:obj"
 intersphinx_mapping = {
     "aiohttp": ("https://aiohttp.readthedocs.io/en/stable/", None),
     "aioredis": ("https://aioredis.readthedocs.io/en/latest/", None),
+    "cachetools": ("https://cachetools.readthedocs.io/en/stable/", None),
+    "cryptography": ("https://cryptography.io/en/latest/", None),
     "dynaconf": ("https://dynaconf.readthedocs.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
@@ -147,6 +149,7 @@ napoleon_use_rtype = True
 
 autosummary_generate = True
 
+automodapi_inheritance_diagram = False
 automodapi_toctreedirnm = "api"
 automodsumm_inherited_members = True
 
@@ -160,7 +163,7 @@ autoclass_content = "class"
 # Default flags for automodapi directives. Special members are dunder
 # methods.
 autodoc_default_options = {
-    "show-inheritance": True,
+    "show-inheritance": False,
     "special-members": True,
 }
 

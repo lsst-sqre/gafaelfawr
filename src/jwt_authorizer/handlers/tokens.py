@@ -9,23 +9,19 @@ from aiohttp_csrf import csrf_protect, generate_token
 from aiohttp_jinja2 import template
 from aiohttp_session import get_session
 from jwt import PyJWTError
+from wtforms import BooleanField, Form, HiddenField, SubmitField
 
 from jwt_authorizer.authnz import authenticate
 from jwt_authorizer.handlers import routes
-from jwt_authorizer.handlers.util import unauthorized
-from jwt_authorizer.session import Ticket
-from jwt_authorizer.tokens import (
-    AlterTokenForm,
-    all_tokens,
-    api_capabilities_token_form,
-    issue_token,
-    revoke_token,
-)
+from jwt_authorizer.handlers.util import get_token_from_request, unauthorized
 
 if TYPE_CHECKING:
+    from aioredis import Redis
     from jwt_authorizer.config import Config
+    from jwt_authorizer.factory import ComponentFactory
     from logging import Logger
-    from typing import Dict
+    from multidict import MultiDictProxy
+    from typing import Dict, Optional, Union
 
 __all__ = [
     "get_token_by_handle",
@@ -34,6 +30,44 @@ __all__ = [
     "post_delete_token",
     "post_tokens_new",
 ]
+
+
+class AlterTokenForm(Form):
+    """Form for altering an existing user token."""
+
+    method_ = HiddenField("method_")
+    csrf = HiddenField("_csrf")
+
+
+def api_capabilities_token_form(
+    capabilities: Dict[str, str],
+    data: Optional[MultiDictProxy[Union[str, bytes, web.FileField]]] = None,
+) -> Form:
+    """Dynamically generates a form with checkboxes for capabilities.
+
+    Parameters
+    ----------
+    capabilities : Dict[`str`, `str`]
+        A mapping of capability names to descriptions to include in the form.
+    data : MultiDictProxy[Union[`str`, `bytes`, FileField]], optional
+        The submitted form data, if any.
+
+    Returns
+    -------
+    form : `wtforms.Form`
+        The generated form.
+    """
+
+    class NewCapabilitiesToken(Form):
+        """Stub form, to which fields will be dynamically added."""
+
+        submit = SubmitField("Generate New Token")
+
+    NewCapabilitiesToken.capability_names = list(capabilities)
+    for capability, description in capabilities.items():
+        field = BooleanField(label=capability, description=description)
+        setattr(NewCapabilitiesToken, capability, field)
+    return NewCapabilitiesToken(data)
 
 
 @routes.get("/auth/tokens", name="tokens")
@@ -53,10 +87,13 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
         turns them into an `aiohttp.web.Response`.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     logger: Logger = request["safir/logger"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
@@ -66,8 +103,9 @@ async def get_tokens(request: web.Request) -> Dict[str, object]:
     message = session.pop("message", None)
     session["csrf"] = await generate_token(request)
 
+    token_store = factory.create_token_store()
     user_id = decoded_token[config.uid_key]
-    user_tokens = await all_tokens(request, user_id)
+    user_tokens = await token_store.get_tokens(user_id)
     forms = {}
     for user_token in user_tokens:
         form = AlterTokenForm()
@@ -102,7 +140,9 @@ async def get_tokens_new(request: web.Request) -> Dict[str, object]:
     logger: Logger = request["safir/logger"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
@@ -139,10 +179,13 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         turns them into an `aiohttp.web.Response`.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     logger: Logger = request["safir/logger"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
@@ -159,7 +202,6 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
         if form[capability].data:
             new_capabilities.append(capability)
     scope = " ".join(new_capabilities)
-    audience = config.issuer.aud
     new_token: Dict[str, object] = {"scope": scope}
     email = decoded_token.get("email")
     user = decoded_token.get(config.username_key)
@@ -174,23 +216,19 @@ async def post_tokens_new(request: web.Request) -> Dict[str, object]:
     # FIXME: Copies groups. Useful for WebDAV, maybe not necessary
     #
     # new_token['isMemberOf'] = decoded_token['isMemberOf']
-    oauth2_proxy_ticket = Ticket()
-    await issue_token(
-        request,
-        new_token,
-        aud=audience,
-        store_user_info=True,
-        oauth2_proxy_ticket=oauth2_proxy_ticket,
-    )
-    prefix = config.session_store.ticket_prefix
-    oauth2_proxy_ticket_str = oauth2_proxy_ticket.encode(prefix)
+
+    ticket_prefix = config.session_store.ticket_prefix
+    issuer = factory.create_token_issuer()
+    token_store = factory.create_token_store()
+    ticket = await issuer.issue_user_token(new_token, token_store)
 
     message = (
         f"Your Newly Created Token. Keep these Secret!<br>\n"
-        f"Token: {oauth2_proxy_ticket_str} <br>"
+        f"Token: {ticket.encode(ticket_prefix)} <br>"
     )
     session = await get_session(request)
     session["message"] = message
+
     location = request.app.router["tokens"].url_for()
     raise web.HTTPFound(location)
 
@@ -212,18 +250,22 @@ async def get_token_by_handle(request: web.Request) -> Dict[str, object]:
         turns them into an `aiohttp.web.Response`.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     logger: Logger = request["safir/logger"]
     handle = request.match_info["handle"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
+    token_store = factory.create_token_store()
     user_id = decoded_token[config.uid_key]
-    user_tokens = {t["jti"]: t for t in await all_tokens(request, user_id)}
+    user_tokens = {t["jti"]: t for t in await token_store.get_tokens(user_id)}
     user_token = user_tokens[handle]
 
     return {"token": user_token}
@@ -247,30 +289,41 @@ async def post_delete_token(request: web.Request) -> Dict[str, object]:
         turns them into an `aiohttp.web.Response`.
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
+    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    redis: Redis = request.config_dict["jwt_authorizer/redis"]
     logger: Logger = request["safir/logger"]
     handle = request.match_info["handle"]
 
     try:
-        encoded_token = request.headers["X-Auth-Request-Token"]
+        encoded_token = await get_token_from_request(request)
+        if not encoded_token:
+            raise unauthorized(request, "Unable to find token")
         decoded_token = await authenticate(request, encoded_token)
     except PyJWTError as e:
         logger.exception("Failed to authenticate token")
         raise unauthorized(request, "Invalid token", str(e))
 
+    token_store = factory.create_token_store()
     user_id = decoded_token[config.uid_key]
-    user_tokens = {t["jti"]: t for t in await all_tokens(request, user_id)}
+    user_tokens = {t["jti"]: t for t in await token_store.get_tokens(user_id)}
     user_token = user_tokens[handle]
 
     form = AlterTokenForm(await request.post())
-    if form.validate() and form.method_.data == "DELETE":
-        success = await revoke_token(request, user_id, handle)
-        if success:
-            message = f"Your token with the ticket_id {handle} was deleted"
-        else:
-            message = "An error was encountered when deleting your token"
-        session = await get_session(request)
-        session["message"] = message
-        location = request.app.router["tokens"].url_for()
-        raise web.HTTPFound(location)
-    else:
+    if not form.validate() or form.method_.data != "DELETE":
         return {"token": user_token}
+
+    pipeline = redis.pipeline()
+    success = await token_store.revoke_token(user_id, handle, pipeline)
+    if success:
+        pipeline.delete(handle)
+        await pipeline.execute()
+
+    if success:
+        message = f"Your token with the ticket_id {handle} was deleted"
+    else:
+        message = "An error was encountered when deleting your token"
+    session = await get_session(request)
+    session["message"] = message
+
+    location = request.app.router["tokens"].url_for()
+    raise web.HTTPFound(location)

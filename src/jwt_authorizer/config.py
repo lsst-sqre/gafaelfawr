@@ -62,6 +62,17 @@ class Configuration:
     """
 
 
+@dataclass
+class GitHubConfig:
+    """Metadata for GitHub authentication."""
+
+    client_id: str
+    """Client ID of the GitHub App."""
+
+    client_secret: str
+    """Secret for the GitHub App."""
+
+
 @dataclass(eq=True, frozen=True)
 class Issuer:
     """Metadata about a token issuer for validation."""
@@ -83,7 +94,7 @@ class IssuerConfig:
     iss: str
     """iss (issuer) field in issued tokens."""
 
-    kid: str
+    kid: bytes
     """kid (key ID) header field in issued tokens."""
 
     aud: str
@@ -146,11 +157,22 @@ class Config:
     uid_key: str
     """Token field from which to take the UID."""
 
+    github: Optional[GitHubConfig]
+    """Configuration for GitHub authentication."""
+
     group_mapping: Dict[str, List[str]]
     """Mapping of a scope to a list of groups receiving that scope."""
 
     issuer: IssuerConfig
     """Configuration for internally-issued tokens."""
+
+    session_secret: str
+    """Secret used to encrypt the session cookie.
+
+    This is unrelated to the oauth2_proxy sessions stored in Redis.  It is
+    used to encrypt the session cookie used by jwt_authorizer to store
+    temporary state.  Must be a Fernet key.
+    """
 
     session_store: SessionStoreConfig
     """Configuration for storing oauth2_proxy sessions."""
@@ -176,7 +198,7 @@ class Config:
             The corresponding Config object.
         """
         if settings.get("OAUTH2_JWT.KEY"):
-            key = settings["OAUTH2_JWT.KEY"]
+            key = settings["OAUTH2_JWT.KEY"].encode()
         else:
             key = cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"])
         issuer_config = IssuerConfig(
@@ -187,6 +209,25 @@ class Config:
             key=key,
             exp_minutes=settings["OAUTH2_JWT_EXP"],
         )
+
+        if settings.get("SESSION_SECRET"):
+            session_secret = settings["SESSION_SECRET"]
+        else:
+            session_secret = cls._load_secret(
+                settings["SESSION_SECRET_FILE"]
+            ).decode()
+
+        github = None
+        if settings.get("GITHUB.CLIENT_ID"):
+            if settings.get("GITHUB.CLIENT_SECRET"):
+                secret = settings["GITHUB.CLIENT_SECRET"]
+            else:
+                secret = cls._load_secret(
+                    settings["GITHUB.CLIENT_SECRET_FILE"]
+                ).decode()
+            github = GitHubConfig(
+                client_id=settings["GITHUB.CLIENT_ID"], client_secret=secret
+            )
 
         group_mapping = {}
         if settings.get("GROUP_MAPPING"):
@@ -232,14 +273,16 @@ class Config:
         return cls(
             realm=settings["REALM"],
             authenticate_type=AuthenticateType[settings["WWW_AUTHENTICATE"]],
-            loglevel=settings.get("LOGLEVEL"),
+            loglevel=settings.get("LOGLEVEL", "INFO"),
             no_authorize=settings["NO_AUTHORIZE"],
             no_verify=settings["NO_VERIFY"],
             set_user_headers=settings["SET_USER_HEADERS"],
             username_key=settings["JWT_USERNAME_KEY"],
             uid_key=settings["JWT_UID_KEY"],
+            github=github,
             issuer=issuer_config,
             group_mapping=group_mapping,
+            session_secret=session_secret,
             session_store=session_store,
             known_capabilities=known_capabilities,
             issuers=issuers,

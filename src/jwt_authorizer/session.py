@@ -20,10 +20,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from jwt_authorizer.util import add_padding
 
 if TYPE_CHECKING:
-    import aioredis
-    from aiohttp import web
+    from aioredis import Redis
     from aioredis.commands import Pipeline
-    from jwt_authorizer.config import Config
     from typing import Optional
 
 __all__ = [
@@ -202,7 +200,7 @@ class SessionStore:
         (encrypted) tokens.
     """
 
-    def __init__(self, prefix: str, key: bytes, redis: aioredis.Redis) -> None:
+    def __init__(self, prefix: str, key: bytes, redis: Redis) -> None:
         self.prefix = prefix
         self.key = key
         self.redis = redis
@@ -228,14 +226,18 @@ class SessionStore:
 
         return self._decrypt_session(ticket.secret, encrypted_session)
 
-    def store_session(
-        self, ticket: Ticket, session: Session, pipeline: Pipeline
+    async def store_session(
+        self,
+        ticket: Ticket,
+        session: Session,
+        pipeline: Optional[Pipeline] = None,
     ) -> None:
-        """Store an oauth2_proxy session in the provided pipeline.
+        """Store an oauth2_proxy session.
 
-        To allow the caller to batch this with other Redis modifications, the
-        session will be stored but the pipeline will not be executed.  The
-        caller is responsible for executing the pipeline.
+        To allow the caller to batch this with other Redis modifications, if a
+        pipeline is provided, the session will be stored but the pipeline will
+        not be executed.  In this case, the caller is responsible for
+        executing the pipeline.
 
         Parameters
         ----------
@@ -243,15 +245,19 @@ class SessionStore:
             The ticket under which to store the session.
         session : `Session`
             The session to store.
-        pipeline : `aioredis.commands.Pipeline`
+        pipeline : `aioredis.commands.Pipeline`, optional
             The pipeline in which to store the session.
+
         """
         handle = ticket.as_handle(self.prefix)
         encrypted_session = self._encrypt_session(ticket.secret, session)
-        expires_delta = (
+        expire = (
             session.expires_on - datetime.now(timezone.utc)
         ).total_seconds()
-        pipeline.set(handle, encrypted_session, expire=int(expires_delta))
+        if pipeline:
+            pipeline.set(handle, encrypted_session, expire=int(expire))
+        else:
+            await self.redis.set(handle, encrypted_session, expire=int(expire))
 
     def _decrypt_session(
         self, secret: bytes, encrypted_session: bytes
@@ -394,24 +400,3 @@ class SessionStore:
         date_str = re.sub("[.][0-9]+Z$", "Z", date_str)
         date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
         return date.replace(tzinfo=timezone.utc)
-
-
-def create_session_store(request: web.Request) -> SessionStore:
-    """Create a TokenStore from an app configuration.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    session_store : `SessionStore`
-        A TokenStore created from that Flask application configuration.
-    """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-    redis_client = request.config_dict["jwt_authorizer/redis"]
-
-    prefix = config.session_store.ticket_prefix
-    secret = config.session_store.oauth2_proxy_secret
-    return SessionStore(prefix, secret, redis_client)

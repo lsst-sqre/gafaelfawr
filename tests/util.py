@@ -8,11 +8,12 @@ import sys
 from asyncio import Future
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import jwt
 import mockaioredis
 from aiohttp import ClientResponse, web
+from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -24,30 +25,104 @@ from cryptography.hazmat.primitives.serialization import (
 
 from jwt_authorizer.app import create_app
 from jwt_authorizer.config import ALGORITHM
-from jwt_authorizer.verify import KeyClient
+from jwt_authorizer.factory import ComponentFactory
+from jwt_authorizer.providers import GitHubProvider
+from jwt_authorizer.util import number_to_base64
+from jwt_authorizer.verify import KeyClient, TokenVerifier
 
 if TYPE_CHECKING:
+    from aiohttp import ClientSession
+    from aioredis import Redis
+    from cachetools import TTLCache
+    from jwt_authorizer.config import Config
+    from logger import Logger
     from typing import Any, Dict, List, Optional
 
 
-def number_to_base64(data: int) -> bytes:
-    """Convert an integer to base64-encoded bytes in big endian order.
+class FakeGitHubProvider(GitHubProvider):
+    """Override GitHubProvider to not make HTTP requests.
 
-    Parameters
-    ----------
-    data : `int`
-        Arbitrarily large number
-
-    Returns
-    -------
-    result : `bytes`
-        The equivalent URL-safe base64-encoded string corresponding to the
-        number in big endian order.
+    This returns synthesized responses from the GitHub APIs that we use for
+    authentication.
     """
-    bit_length = data.bit_length()
-    byte_length = bit_length // 8 + 1
-    data_as_bytes = data.to_bytes(byte_length, byteorder="big", signed=False)
-    return base64.urlsafe_b64encode(data_as_bytes)
+
+    async def http_get(
+        self, url: str, *, headers: Dict[str, str], raise_for_status: bool
+    ) -> ClientResponse:
+        assert headers == {"Authorization": "token some-github-token"}
+        assert raise_for_status
+        if url == self._USER_URL:
+            user_data = {
+                "login": "githubuser",
+                "id": 123456,
+                "name": "GitHub User",
+            }
+            return self._build_response(user_data)
+        elif url == self._TEAMS_URL:
+            teams_data = [
+                {
+                    "slug": "a-team",
+                    "id": 1000,
+                    "organization": {"login": "org"},
+                },
+                {
+                    "slug": "other-team",
+                    "id": 1001,
+                    "organization": {"login": "org"},
+                },
+                {
+                    "slug": "team-with-very-long-name",
+                    "id": 1002,
+                    "organization": {"login": "other-org"},
+                },
+            ]
+            return self._build_response(teams_data)
+        elif url == self._EMAILS_URL:
+            emails_data = [
+                {"email": "otheremail@example.com", "primary": False},
+                {"email": "githubuser@example.com", "primary": True},
+            ]
+            return self._build_response(emails_data)
+
+        else:
+            assert False, f"Unexpected URL {url}"
+
+    async def http_post(
+        self,
+        url: str,
+        *,
+        data: Dict[str, str],
+        headers: Dict[str, str],
+        raise_for_status: bool,
+    ) -> ClientResponse:
+        assert headers == {"Accept": "application/json"}
+        assert data == {
+            "client_id": self._config.client_id,
+            "client_secret": self._config.client_secret,
+            "code": "some-code",
+            "state": ANY,
+        }
+        assert raise_for_status
+        assert url == self._TOKEN_URL
+
+        response = {
+            "access_token": "some-github-token",
+            "scope": ",".join(self._SCOPES),
+            "token_type": "bearer",
+        }
+        return self._build_response(response)
+
+    def _build_response(self, result: Any) -> ClientResponse:
+        """Build a successful response."""
+        r = Mock(spec=ClientResponse)
+        if sys.version_info[0] == 3 and sys.version_info[1] < 8:
+            future: Future[Any] = Future()
+            future.set_result(result)
+            r.json.return_value = future
+        else:
+            r.json.return_value = result
+        r.status = 200
+        return r
 
 
 class FakeKeyClient(KeyClient):
@@ -99,6 +174,66 @@ class FakeKeyClient(KeyClient):
         return r
 
 
+class MockComponentFactory(ComponentFactory):
+    """Component factory for testing.
+
+    Selectively overrides some factory methods to use mocked objects.
+
+    Parameters
+    ----------
+    config : `jwt_authorizer.config.Config`
+        JWT Authorizer configuration.
+    redis : `aioredis.Redis`
+        Redis client.
+    keypair : `RSAKeyPair`
+        RSA key pair used for token signing.
+    """
+
+    def __init__(
+        self, config: Config, redis: Redis, keypair: RSAKeyPair
+    ) -> None:
+        super().__init__(config, redis)
+        self._keypair = keypair
+
+    def create_github_provider(self, request: web.Request) -> GitHubProvider:
+        """Create a GitHubProvider with a mocked HTTP client.
+
+        Parameters
+        ----------
+        request : `aiohttp.web.Request`
+            The incoming request.
+
+        Returns
+        -------
+        token_verifier : `jwt_authorizer.providers.GitHubProvider`
+            A new GitHubProvider.
+        """
+        http_session: ClientSession = request.config_dict["safir/http_session"]
+        logger: Logger = request["safir/logger"]
+        assert self._config.github
+        return FakeGitHubProvider(self._config.github, http_session, logger)
+
+    def create_token_verifier(self, request: web.Request) -> TokenVerifier:
+        """Create a TokenVerifier with a mocked HTTP client.
+
+        Parameters
+        ----------
+        request : `aiohttp.web.Request`
+            The incoming request.
+
+        Returns
+        -------
+        token_verifier : `jwt_authorizer.verify.TokenVerifier`
+            A new TokenVerifier.
+        """
+        logger: Logger = request["safir/logger"]
+        key_cache: TTLCache = request.config_dict["jwt_authorizer/key_cache"]
+        key_client = FakeKeyClient(self._keypair)
+        return TokenVerifier(
+            self._config.issuers, key_client, key_cache, logger
+        )
+
+
 class RSAKeyPair:
     """An autogenerated public/private key pair."""
 
@@ -132,16 +267,23 @@ async def create_test_app(
     if not session_secret:
         session_secret = os.urandom(16)
 
+    kwargs["SESSION_SECRET"] = Fernet.generate_key().decode()
     kwargs["OAUTH2_JWT.KEY"] = keypair.private_key_as_pem().decode()
     secret_b64 = base64.urlsafe_b64encode(session_secret).decode()
     kwargs["OAUTH2_STORE_SESSION.OAUTH2_PROXY_SECRET"] = secret_b64
     kwargs["OAUTH2_STORE_SESSION.REDIS_URL"] = "dummy"
 
+    redis_pool = await mockaioredis.create_redis_pool("")
     app = await create_app(
-        redis_pool=await mockaioredis.create_redis_pool(""),
+        redis_pool=redis_pool,
         key_client=FakeKeyClient(keypair),
         FORCE_ENV_FOR_DYNACONF="testing",
         **kwargs,
+    )
+
+    config = app["jwt_authorizer/config"]
+    app["jwt_authorizer/factory"] = MockComponentFactory(
+        config, redis_pool, keypair
     )
 
     return app

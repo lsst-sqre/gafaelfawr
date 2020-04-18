@@ -112,7 +112,7 @@ async def test_tokens_handle_get_delete(aiohttp_client: TestClient) -> None:
     session_store = SessionStore("oauth2_proxy", session_secret, redis_client)
     token_store = TokenStore(redis_client, "uidNumber")
     pipeline = redis_client.pipeline()
-    session_store.store_session(ticket, session, pipeline)
+    await session_store.store_session(ticket, session, pipeline)
     token_store.store_token(scoped_token_payload, pipeline)
     await pipeline.execute()
 
