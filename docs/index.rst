@@ -18,6 +18,7 @@ Installation
 
    kubernetes
    configuration
+   glossary
    changelog
 
 Architecture
