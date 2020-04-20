@@ -2,7 +2,7 @@
 Change log
 ##########
 
-0.3.0 (unreleased)
+0.3.0 (2020-04-20)
 ==================
 
 With this release, JWT Authorizer has been rewritten to use aiohttp instead of Flask.
