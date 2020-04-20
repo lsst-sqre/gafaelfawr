@@ -1,8 +1,4 @@
-"""Session storage for JWT Authorizer.
-
-Stores an oauth2_proxy session suitable for retrieval with a ticket using our
-patched version of oauth2_proxy.
-"""
+"""Session storage for JWT Authorizer."""
 
 from __future__ import annotations
 
@@ -14,14 +10,15 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from cryptography.fernet import Fernet, InvalidToken
+from jwt.exceptions import InvalidTokenError
 
 from jwt_authorizer.tokens import Token
 
 if TYPE_CHECKING:
     from aioredis import Redis
     from aioredis.commands import Pipeline
+    from jwt_authorizer.issuer import TokenIssuer
     from jwt_authorizer.tokens import VerifiedToken
-    from jwt_authorizer.verify import TokenVerifier
     from logging import Logger
     from typing import Optional
 
@@ -175,18 +172,16 @@ class SessionStore:
     redis : `aioredis.Redis`
         A Redis client configured to talk to the backend store that holds the
         (encrypted) tokens.
-    verifier : `jwt_authorizer.verify.TokenVerifier`
-        Token verifier to verify the tokens retrieved from Redis.
     logger : `logging.Logger`
         Logger for diagnostics.
     """
 
     def __init__(
-        self, key: str, redis: Redis, verifier: TokenVerifier, logger: Logger
+        self, key: str, redis: Redis, issuer: TokenIssuer, logger: Logger
     ) -> None:
         self._fernet = Fernet(key.encode())
         self._redis = redis
-        self._verifier = verifier
+        self._issuer = issuer
         self._logger = logger
 
     def delete_session(self, key: str, pipeline: Pipeline) -> None:
@@ -290,11 +285,12 @@ class SessionStore:
 
         unverified_token = Token(encoded=session["token"])
         try:
-            token = await self._verifier.verify(unverified_token)
-        except Exception:
+            token = self._issuer.verify_token(unverified_token)
+        except InvalidTokenError:
             self._logger.exception(
                 "Token in session %s does not verify", handle.key
             )
+            return None
 
         try:
             return Session(

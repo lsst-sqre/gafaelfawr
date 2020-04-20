@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 
 from dynaconf import LazySettings
 
+from jwt_authorizer.keypair import RSAKeyPair
+
 if TYPE_CHECKING:
     from typing import Dict, List, Optional, Tuple
 
@@ -21,8 +23,6 @@ __all__ = [
     "IssuerConfig",
     "OIDCConfig",
 ]
-
-ALGORITHM = "RS256"
 
 
 @dataclass
@@ -134,8 +134,8 @@ class IssuerConfig:
     aud_internal: str
     """Internal aud (audience) field in issued tokens."""
 
-    key: bytes
-    """Private key in PEM format for signing issued tokens."""
+    keypair: RSAKeyPair
+    """RSA key pair for signing and verifying issued tokens."""
 
     exp_minutes: int
     """Number of minutes into the future that a token should expire."""
@@ -195,12 +195,15 @@ class Config:
         config : `Config`
             The corresponding Config object.
         """
+        keypair = RSAKeyPair.from_pem(
+            cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"])
+        )
         issuer_config = IssuerConfig(
             iss=settings["OAUTH2_JWT.ISS"],
             kid=settings["OAUTH2_JWT.KEY_ID"],
             aud=settings["OAUTH2_JWT.AUD.DEFAULT"],
             aud_internal=settings["OAUTH2_JWT.AUD.INTERNAL"],
-            key=cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"]),
+            keypair=keypair,
             exp_minutes=settings["OAUTH2_JWT_EXP"],
         )
 

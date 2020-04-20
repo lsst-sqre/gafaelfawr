@@ -33,12 +33,12 @@ class OIDCProvider(Provider):
         Configuration for the OpenID Connect authentication provider.
     verifier : `jwt_authorizer.verify.TokenVerifier`
         Token verifier to use to verify the token returned by the provider.
-    http_session : `aiohttp.ClientSession`
-        Session to use to make HTTP requests.
     issuer : `jwt_authorizer.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
     session_store : `jwt_authorizer.session.SessionStore`
         Store for authentication sessions.
+    http_session : `aiohttp.ClientSession`
+        Session to use to make HTTP requests.
     logger : `logging.Logger`
         Logger for any log messages.
     """
@@ -48,9 +48,9 @@ class OIDCProvider(Provider):
         *,
         config: OIDCConfig,
         verifier: TokenVerifier,
-        http_session: ClientSession,
         issuer: TokenIssuer,
         session_store: SessionStore,
+        http_session: ClientSession,
         logger: Logger,
     ) -> None:
         self._config = config

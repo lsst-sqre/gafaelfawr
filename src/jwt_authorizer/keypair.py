@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.util import number_to_base64
 
 if TYPE_CHECKING:
@@ -69,6 +69,8 @@ class RSAKeyPair:
         self, private_key: rsa.RSAPrivateKeyWithSerialization
     ) -> None:
         self.private_key = private_key
+        self._private_key_as_pem: Optional[bytes] = None
+        self._public_key_as_pem: Optional[bytes] = None
 
     def private_key_as_pem(self) -> bytes:
         """Return the serialized private key.
@@ -78,9 +80,11 @@ class RSAKeyPair:
         key : `bytes`
             Private key encoded using PKCS#8 with no encryption.
         """
-        return self.private_key.private_bytes(
-            Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
-        )
+        if not self._private_key_as_pem:
+            self._private_key_as_pem = self.private_key.private_bytes(
+                Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
+            )
+        return self._private_key_as_pem
 
     def public_key_as_jwks(self, kid: Optional[str] = None) -> Dict[str, str]:
         """Return the public key in JWKS format.
@@ -116,9 +120,12 @@ class RSAKeyPair:
         public_key : `bytes`
             The public key in PEM encoding and SubjectPublicKeyInfo format.
         """
-        return self.private_key.public_key().public_bytes(
-            Encoding.PEM, PublicFormat.SubjectPublicKeyInfo,
-        )
+        if not self._public_key_as_pem:
+            public_key = self.private_key.public_key()
+            self._public_key_as_pem = public_key.public_bytes(
+                Encoding.PEM, PublicFormat.SubjectPublicKeyInfo,
+            )
+        return self._public_key_as_pem
 
     def public_numbers(self) -> rsa.RSAPublicNumbers:
         """Return the public numbers for the key pair.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.util import number_to_base64
 from tests.support.app import create_test_app, get_test_config
 

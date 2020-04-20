@@ -11,7 +11,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.tokens import VerifiedToken
 from jwt_authorizer.util import base64_to_number
 
@@ -45,6 +45,9 @@ class UnknownKeyIdException(Exception):
 
 class TokenVerifier:
     """Verifies the validity of a JWT.
+
+    Used for verifying tokens issued by external issuers, such as during an
+    OpenID Connect authentication.
 
     Parameters
     ----------
@@ -94,6 +97,11 @@ class TokenVerifier:
         unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
             token.encoded, algorithms=ALGORITHM, verify=False
+        )
+        self._logger.debug(
+            "Verifying token %s from issuer %s",
+            unverified_token.get("jti", "UNKNOWN"),
+            unverified_token["iss"],
         )
         issuer_url = unverified_token["iss"]
         if issuer_url not in self._issuers:

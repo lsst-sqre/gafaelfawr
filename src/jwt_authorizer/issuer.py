@@ -7,10 +7,12 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-from jwt_authorizer.config import ALGORITHM, IssuerConfig
+from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.tokens import VerifiedToken
 
 if TYPE_CHECKING:
+    from jwt_authorizer.config import IssuerConfig
+    from jwt_authorizer.tokens import Token
     from typing import Any, Dict, Mapping, Optional, Union
 
 __all__ = ["TokenIssuer"]
@@ -27,12 +29,6 @@ class TokenIssuer:
     ----------
     config : `jwt_authorizer.config.IssuerConfig`
         Configuration parameters for the issuer.
-    ticket_prefix : `str`
-        Prefix to use when converting tickets to strings.
-    session_store : `jwt_authorizer.session.SessionStore`
-        Storage for oauth2_proxy sessions.
-    redis : `aioredis.Redis`
-        Redis client.
     """
 
     def __init__(self, config: IssuerConfig,) -> None:
@@ -54,6 +50,34 @@ class TokenIssuer:
         payload = dict(claims)
         payload.update(self._default_attributes())
         return self._encode_token(payload)
+
+    def verify_token(self, token: Token) -> VerifiedToken:
+        """Verify a token issued by this issuer.
+
+        Parameters
+        ----------
+        token : `jwt_authorizer.tokens.Token`
+            An encoded token.
+
+        Returns
+        -------
+        verified_token : `jwt_authorizer.tokens.VerifiedToken`
+            The verified token.
+
+        Raises
+        ------
+        jwt.exceptions.InvalidTokenError
+            The issuer of this token is unknown and therefore the token cannot
+            be verified.
+        """
+        audience = [self._config.aud, self._config.aud_internal]
+        payload = jwt.decode(
+            token.encoded,
+            self._config.keypair.public_key_as_pem(),
+            algorithms=ALGORITHM,
+            audience=audience,
+        )
+        return VerifiedToken(encoded=token.encoded, claims=payload)
 
     def reissue_token(
         self,
@@ -148,7 +172,7 @@ class TokenIssuer:
         """
         encoded_token = jwt.encode(
             payload,
-            self._config.key,
+            self._config.keypair.private_key_as_pem(),
             algorithm=ALGORITHM,
             headers={"kid": self._config.kid},
         ).decode()

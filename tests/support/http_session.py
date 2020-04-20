@@ -10,7 +10,7 @@ from urllib.parse import urljoin
 
 from aiohttp import ClientResponse, ClientSession
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.providers.github import GitHubProvider
 from jwt_authorizer.util import number_to_base64
 from tests.support.tokens import create_upstream_test_token
@@ -74,11 +74,9 @@ class MockClientSession(Mock):
             assert raise_for_status
             return self._build_json_response(self._github_emails_data())
         elif url == self._openid_url():
-            jwks_uri = "https://test.example.com/jwks.json"
+            jwks_uri = "https://example.com/jwks.json"
             return self._build_json_response({"jwks_uri": jwks_uri})
-        elif url == urljoin(self.config.internal_issuer_url, "jwks.json"):
-            return self._build_json_response(self._build_keys("some-kid"))
-        elif url == self._jwks_url(upstream=True):
+        elif url == "https://example.com/jwks.json":
             return self._build_json_response(self._build_keys("orig-kid"))
         else:
             r = Mock(spec=ClientResponse)
@@ -187,34 +185,8 @@ class MockClientSession(Mock):
             {"email": "githubuser@example.com", "primary": True},
         ]
 
-    def _jwks_url(self, *, upstream: bool = False) -> str:
-        """Return a key retrieval URL.
-
-        Parameters
-        ----------
-        upstream : `bool`, optional
-            If true, return the upstream issuer instead of the internal
-            issuer.  Default is false.
-
-        Returns
-        -------
-        url : `str`
-            The well-known URL to the JWKS for that issuer.
-        """
-        if upstream:
-            base_url = self.config.upstream_issuer_url
-        else:
-            base_url = self.config.internal_issuer_url
-        return urljoin(base_url, "/.well-known/jwks.json")
-
-    def _openid_url(self, *, upstream: bool = False) -> str:
+    def _openid_url(self) -> str:
         """Return a OpenID Connect configuration retrieval URL.
-
-        Parameters
-        ----------
-        upstream : `bool`, optional
-            If true, return the upstream issuer instead of the internal
-            issuer.  Default is false.
 
         Returns
         -------
@@ -222,10 +194,7 @@ class MockClientSession(Mock):
             The well-known URL to the OpenID Connect configuration for that
             issuer.
         """
-        if upstream:
-            base_url = self.config.upstream_issuer_url
-        else:
-            base_url = self.config.internal_issuer_url
+        base_url = self.config.upstream_issuer_url
         return urljoin(base_url, "/.well-known/openid-configuration")
 
     def _github_token_post(self, data: Dict[str, str]) -> Dict[str, str]:

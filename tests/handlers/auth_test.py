@@ -9,7 +9,7 @@ from unittest.mock import ANY
 
 import jwt
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 from tests.support.app import create_test_app, get_test_config
 from tests.support.tokens import create_test_token
 

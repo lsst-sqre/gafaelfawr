@@ -9,14 +9,14 @@ from unittest.mock import ANY
 
 import jwt
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.session import Session, SessionHandle
 from tests.support.app import (
     create_test_app,
     get_test_config,
     get_test_factory,
 )
-from tests.support.tokens import create_test_token, create_upstream_test_token
+from tests.support.tokens import create_test_token
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -84,7 +84,7 @@ async def test_analyze_token(
 ) -> None:
     app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
-    token = create_upstream_test_token(test_config)
+    token = create_test_token(test_config)
     client = await aiohttp_client(app)
 
     r = await client.post("/auth/analyze", data={"token": token.encoded})

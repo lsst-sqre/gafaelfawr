@@ -64,8 +64,8 @@ def authenticated(
             if not encoded_token:
                 logger.info("No token found, returning unauthorized")
                 raise unauthorized(request, "Unable to find token")
-            token_verifier = factory.create_token_verifier(request)
-            token = await token_verifier.verify(encoded_token)
+            issuer = factory.create_token_issuer()
+            token = issuer.verify_token(encoded_token)
         except jwt.PyJWTError as e:
             logger.exception("Failed to authenticate token")
             raise unauthorized(request, "Invalid token", str(e))

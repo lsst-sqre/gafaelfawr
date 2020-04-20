@@ -10,21 +10,19 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 
 if TYPE_CHECKING:
+    from jwt_authorizer.issuer import TokenIssuer
     from jwt_authorizer.session import SessionHandle, SessionStore
     from jwt_authorizer.tokens import Token
-    from jwt_authorizer.verify import TokenVerifier
     from typing import Any, Dict
 
 __all__ = ["analyze_handle", "analyze_token"]
 
 
 async def analyze_handle(
-    handle: SessionHandle,
-    session_store: SessionStore,
-    token_verifier: TokenVerifier,
+    handle: SessionHandle, session_store: SessionStore, issuer: TokenIssuer,
 ) -> Dict[str, Any]:
     """Analyze a ticket and return its expanded information.
 
@@ -34,8 +32,8 @@ async def analyze_handle(
         The parsed ticket to analyze.
     session_store : `jwt_authorizer.session.SessionStore`
         The backend store used to retrieve the session for the ticket.
-    token_verifier : `jwt_authorizer.verify.TokenVerifier`
-        Verifier to check the validity of any underlying token.
+    issuer : `jwt_authorizer.issuer.TokenIssuer`
+        Issuer to check the validity of the token.
 
     Returns
     -------
@@ -59,22 +57,20 @@ async def analyze_handle(
         "expires_on": session.expires_on.strftime("%Y-%m-%d %H:%M:%S -0000"),
     }
 
-    output["token"] = await analyze_token(session.token, token_verifier)
+    output["token"] = await analyze_token(session.token, issuer)
 
     return output
 
 
-async def analyze_token(
-    token: Token, token_verifier: TokenVerifier
-) -> Dict[str, Any]:
+async def analyze_token(token: Token, issuer: TokenIssuer) -> Dict[str, Any]:
     """Analyze a token and return its expanded information.
 
     Parameters
     ----------
     token : `jwt_authorizer.tokens.Token`
         The encoded token to analyze.
-    token_verifier : `jwt_authorizer.verify.TokenVerifier`
-        Verifier to check the validity of the token.
+    issuer : `jwt_authorizer.issuer.TokenIssuer`
+        Issuer to check the validity of the token.
 
     Returns
     -------
@@ -91,7 +87,7 @@ async def analyze_token(
     }
 
     try:
-        await token_verifier.verify(token)
+        issuer.verify_token(token)
         output["valid"] = True
     except Exception as e:
         output["valid"] = False

@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 
 from jwt_authorizer.handlers import routes
-from jwt_authorizer.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
     from jwt_authorizer.config import Config
@@ -33,6 +32,5 @@ async def get_well_known_jwks(request: web.Request) -> web.Response:
     """
     config: Config = request.config_dict["jwt_authorizer/config"]
 
-    keypair = RSAKeyPair.from_pem(config.issuer.key)
-    jwks = keypair.public_key_as_jwks(kid=config.issuer.kid)
+    jwks = config.issuer.keypair.public_key_as_jwks(kid=config.issuer.kid)
     return web.json_response({"keys": [jwks]})

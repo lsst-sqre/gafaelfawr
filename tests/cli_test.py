@@ -9,7 +9,7 @@ from unittest.mock import ANY
 from click.testing import CliRunner
 
 from jwt_authorizer.cli import main
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 
 
 def test_generate_key() -> None:

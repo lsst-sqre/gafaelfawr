@@ -35,7 +35,6 @@ Secrets beginning or ending in whitespace are not supported.
 
 ``loglevel`` (optional)
     The Python log level to use, in string form.
-    This is not currently used.
 
 ``session_secret_file`` (required)
     File containing the secret used to encrypt the JWT Authorizer session cookie and the Redis session storage.
@@ -93,12 +92,11 @@ Secrets beginning or ending in whitespace are not supported.
 
     ``iss`` (required)
         The value to use for the ``iss`` claim in issued JWTs.
-        Must be a URL, and must support either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
-        Must match an ``issuer`` key whose data matches the rest of these settings.
+        Should support either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
+        JWT Authorizer will provide the ``/.well-known/jwks.json`` route internally.
 
     ``key_id`` (required)
         JWT ``kid`` to use when signing tokens.
-        Must match a member of the ``issuer_key_ids`` list in the corresponding issuer configuration.
 
     ``aud`` (required)
         Values for the ``aud`` claim in issued JWTs.

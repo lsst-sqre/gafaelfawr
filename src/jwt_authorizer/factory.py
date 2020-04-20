@@ -93,17 +93,17 @@ class ComponentFactory:
             A new OIDCProvider.
         """
         assert self._config.oidc
-        http_session = self.create_http_session(request)
         token_verifier = self.create_token_verifier(request)
         issuer = self.create_token_issuer()
         session_store = self.create_session_store(request)
+        http_session = self.create_http_session(request)
         logger = self.create_logger(request)
         return OIDCProvider(
             config=self._config.oidc,
             verifier=token_verifier,
-            http_session=http_session,
             issuer=issuer,
             session_store=session_store,
+            http_session=http_session,
             logger=logger,
         )
 
@@ -124,9 +124,9 @@ class ComponentFactory:
             A new SessionStore.
         """
         key = self._config.session_secret
-        verifier = self.create_token_verifier(request)
+        issuer = self.create_token_issuer()
         logger = self.create_logger(request)
-        return SessionStore(key, self._redis, verifier, logger)
+        return SessionStore(key, self._redis, issuer, logger)
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.

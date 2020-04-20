@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 from tests.support.app import create_test_app, store_secret
 
 if TYPE_CHECKING:

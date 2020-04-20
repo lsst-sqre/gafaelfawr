@@ -37,8 +37,8 @@ async def get_analyze(request: web.Request) -> web.Response:
     session = await get_session(request)
     handle = SessionHandle.from_str(session["ticket"])
     session_store = factory.create_session_store(request)
-    verifier = factory.create_token_verifier(request)
-    result = await analyze_handle(handle, session_store, verifier)
+    issuer = factory.create_token_issuer()
+    result = await analyze_handle(handle, session_store, issuer)
     return web.json_response(result)
 
 
@@ -62,17 +62,17 @@ async def post_analyze(request: web.Request) -> web.Response:
     """
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
-    verifier = factory.create_token_verifier(request)
+    issuer = factory.create_token_issuer()
     data = await request.post()
     handle_or_token = cast(str, data["token"])
 
     try:
         handle = SessionHandle.from_str(handle_or_token)
         token_store = factory.create_session_store(request)
-        result = await analyze_handle(handle, token_store, verifier)
+        result = await analyze_handle(handle, token_store, issuer)
     except InvalidSessionHandleException:
         token = Token(encoded=handle_or_token)
-        analysis = await analyze_token(token, verifier)
+        analysis = await analyze_token(token, issuer)
         result = {"token": analysis}
 
     return web.json_response(result)

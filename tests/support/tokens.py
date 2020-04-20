@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-from jwt_authorizer.config import ALGORITHM
+from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.session import SessionHandle
 from jwt_authorizer.tokens import VerifiedToken
 
