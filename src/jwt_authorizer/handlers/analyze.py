@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, cast
 from aiohttp import web
 from aiohttp_session import get_session
 
-from jwt_authorizer.analyze import analyze_handle, analyze_token
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.session import InvalidSessionHandleException, SessionHandle
 from jwt_authorizer.tokens import Token
@@ -37,8 +36,7 @@ async def get_analyze(request: web.Request) -> web.Response:
     session = await get_session(request)
     handle = SessionHandle.from_str(session["ticket"])
     session_store = factory.create_session_store(request)
-    issuer = factory.create_token_issuer()
-    result = await analyze_handle(handle, session_store, issuer)
+    result = await session_store.analyze_handle(handle)
     return web.json_response(result)
 
 
@@ -62,17 +60,17 @@ async def post_analyze(request: web.Request) -> web.Response:
     """
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
-    issuer = factory.create_token_issuer()
     data = await request.post()
     handle_or_token = cast(str, data["token"])
 
     try:
         handle = SessionHandle.from_str(handle_or_token)
-        token_store = factory.create_session_store(request)
-        result = await analyze_handle(handle, token_store, issuer)
+        session_store = factory.create_session_store(request)
+        result = await session_store.analyze_handle(handle)
     except InvalidSessionHandleException:
         token = Token(encoded=handle_or_token)
-        analysis = await analyze_token(token, issuer)
+        issuer = factory.create_token_issuer()
+        analysis = issuer.analyze_token(token)
         result = {"token": analysis}
 
     return web.json_response(result)

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from jwt_authorizer.issuer import TokenIssuer
     from jwt_authorizer.tokens import VerifiedToken
     from logging import Logger
-    from typing import Optional
+    from typing import Any, Dict, Optional
 
 __all__ = [
     "InvalidSessionHandleException",
@@ -183,6 +183,42 @@ class SessionStore:
         self._redis = redis
         self._issuer = issuer
         self._logger = logger
+
+    async def analyze_handle(self, handle: SessionHandle) -> Dict[str, Any]:
+        """Analyze a ticket and return its expanded information.
+
+        Parameters
+        ----------
+        handle : `jwt_authorizer.session.SessionHandle`
+            The session handle to analyze.
+
+        Returns
+        -------
+        output : Dict[`str`, Any]
+            The contents of the session handle and its underlying session.
+            This will include the session key and secret, the session it
+            references, and the token that session contains.
+        """
+        output: Dict[str, Any] = {
+            "handle": {"key": handle.key, "secret": handle.secret}
+        }
+
+        session = await self.get_session(handle)
+        if not session:
+            output["errors"] = [f"No session found for {handle.encode()}"]
+            return output
+
+        created_at = session.created_at.strftime("%Y-%m-%d %H:%M:%S -0000")
+        expires_on = session.expires_on.strftime("%Y-%m-%d %H:%M:%S -0000")
+        output["session"] = {
+            "email": session.email,
+            "created_at": created_at,
+            "expires_on": expires_on,
+        }
+
+        output["token"] = self._issuer.analyze_token(session.token)
+
+        return output
 
     def delete_session(self, key: str, pipeline: Pipeline) -> None:
         """Delete a session.

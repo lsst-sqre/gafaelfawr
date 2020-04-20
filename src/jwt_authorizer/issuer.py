@@ -34,6 +34,37 @@ class TokenIssuer:
     def __init__(self, config: IssuerConfig,) -> None:
         self._config = config
 
+    def analyze_token(self, token: Token) -> Dict[str, Any]:
+        """Analyze a token and return its expanded information.
+
+        Parameters
+        ----------
+        token : `jwt_authorizer.tokens.Token`
+            The encoded token to analyze.
+
+        Returns
+        -------
+        output : Dict[`str`, Any]
+            The contents of the token.  This will include the capabilities and
+            the header, a flag saying whether it is valid, and any errors.
+        """
+        unverified_token = jwt.decode(
+            token.encoded, algorithms=ALGORITHM, verify=False
+        )
+        output = {
+            "header": jwt.get_unverified_header(token.encoded),
+            "data": unverified_token,
+        }
+
+        try:
+            self.verify_token(token)
+            output["valid"] = True
+        except Exception as e:
+            output["valid"] = False
+            output["errors"] = [str(e)]
+
+        return output
+
     def issue_token(self, claims: Mapping[str, Any]) -> VerifiedToken:
         """Issue a token containing the provided claims.
 
@@ -50,34 +81,6 @@ class TokenIssuer:
         payload = dict(claims)
         payload.update(self._default_attributes())
         return self._encode_token(payload)
-
-    def verify_token(self, token: Token) -> VerifiedToken:
-        """Verify a token issued by this issuer.
-
-        Parameters
-        ----------
-        token : `jwt_authorizer.tokens.Token`
-            An encoded token.
-
-        Returns
-        -------
-        verified_token : `jwt_authorizer.tokens.VerifiedToken`
-            The verified token.
-
-        Raises
-        ------
-        jwt.exceptions.InvalidTokenError
-            The issuer of this token is unknown and therefore the token cannot
-            be verified.
-        """
-        audience = [self._config.aud, self._config.aud_internal]
-        payload = jwt.decode(
-            token.encoded,
-            self._config.keypair.public_key_as_pem(),
-            algorithms=ALGORITHM,
-            audience=audience,
-        )
-        return VerifiedToken(encoded=token.encoded, claims=payload)
 
     def reissue_token(
         self,
@@ -129,6 +132,34 @@ class TokenIssuer:
             payload["act"] = actor_claim
 
         return self._encode_token(payload)
+
+    def verify_token(self, token: Token) -> VerifiedToken:
+        """Verify a token issued by this issuer.
+
+        Parameters
+        ----------
+        token : `jwt_authorizer.tokens.Token`
+            An encoded token.
+
+        Returns
+        -------
+        verified_token : `jwt_authorizer.tokens.VerifiedToken`
+            The verified token.
+
+        Raises
+        ------
+        jwt.exceptions.InvalidTokenError
+            The issuer of this token is unknown and therefore the token cannot
+            be verified.
+        """
+        audience = [self._config.aud, self._config.aud_internal]
+        payload = jwt.decode(
+            token.encoded,
+            self._config.keypair.public_key_as_pem(),
+            algorithms=ALGORITHM,
+            audience=audience,
+        )
+        return VerifiedToken(encoded=token.encoded, claims=payload)
 
     def _default_attributes(
         self, *, internal: bool = False

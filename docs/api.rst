@@ -5,8 +5,6 @@ API reference
 .. automodapi:: jwt_authorizer
    :include-all-objects:
 
-.. automodapi:: jwt_authorizer.analyze
-
 .. automodapi:: jwt_authorizer.app
 
 .. automodapi:: jwt_authorizer.authnz
