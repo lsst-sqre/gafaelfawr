@@ -105,7 +105,7 @@ async def get_token_from_request(request: web.Request) -> Optional[Token]:
     # set its own Authorization header in its JavaScript calls but we won't be
     # able to extract a token from that.
     session = await get_session(request)
-    handle_str = session.get("ticket")
+    handle_str = session.get("handle")
     if handle_str:
         logger.debug("Found valid handle in session")
         handle = SessionHandle.from_str(handle_str)

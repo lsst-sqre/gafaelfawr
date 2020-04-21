@@ -115,7 +115,7 @@ async def _login(request: web.Request) -> web.Response:
             raise web.HTTPInternalServerError(reason=msg, text=msg)
 
         session = await new_session(request)
-        session["ticket"] = auth_session.handle.encode()
+        session["handle"] = auth_session.handle.encode()
 
         logger.info(
             "Successfully authenticated user %s (%s)",

@@ -34,7 +34,7 @@ async def get_analyze(request: web.Request) -> web.Response:
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
     session = await get_session(request)
-    handle = SessionHandle.from_str(session["ticket"])
+    handle = SessionHandle.from_str(session["handle"])
     session_store = factory.create_session_store(request)
     result = await session_store.analyze_handle(handle)
     return web.json_response(result)
