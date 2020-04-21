@@ -69,8 +69,8 @@ async def post_analyze(request: web.Request) -> web.Response:
         result = await session_store.analyze_handle(handle)
     except InvalidSessionHandleException:
         token = Token(encoded=handle_or_token)
-        issuer = factory.create_token_issuer()
-        analysis = issuer.analyze_token(token)
+        verifier = factory.create_token_verifier()
+        analysis = verifier.analyze_token(token)
         result = {"token": analysis}
 
     return web.json_response(result)

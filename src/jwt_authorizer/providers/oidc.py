@@ -134,7 +134,8 @@ class OIDCProvider(Provider):
             msg = f"No id_token in token reply from {self._config.token_url}"
             raise OIDCException(msg)
 
-        token = await self._verifier.verify(Token(encoded=result["id_token"]))
+        unverified_token = Token(encoded=result["id_token"])
+        token = await self._verifier.verify_oidc_token(unverified_token)
 
         handle = SessionHandle()
         token = self._issuer.reissue_token(token, jti=handle.key)

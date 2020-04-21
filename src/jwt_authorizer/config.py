@@ -139,13 +139,6 @@ class IssuerConfig:
     exp_minutes: int
     """Number of minutes into the future that a token should expire."""
 
-    group_mapping: Dict[str, List[str]]
-    """Mapping of a scope to a list of groups receiving that scope.
-
-    Used to determine the scope for a reissued token based on the group
-    memberships indicated in that token.
-    """
-
 
 @dataclass
 class Config:
@@ -157,11 +150,11 @@ class Config:
     loglevel: Optional[str]
     """Log level, chosen from the string levels supported by logging."""
 
-    username_key: str
-    """Token field from which to take the username."""
+    username_claim: str
+    """Token claim from which to take the username."""
 
-    uid_key: str
-    """Token field from which to take the UID."""
+    uid_claim: str
+    """Token claim from which to take the UID."""
 
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
@@ -180,6 +173,13 @@ class Config:
 
     known_capabilities: Dict[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
+
+    group_mapping: Dict[str, List[str]]
+    """Mapping of a scope to a list of groups receiving that scope.
+
+    Used to determine the scope for a reissued token based on the group
+    memberships indicated in that token.
+    """
 
     issuers: Dict[str, Issuer]
     """Known iss (issuer) values and their metadata."""
@@ -201,12 +201,6 @@ class Config:
         keypair = RSAKeyPair.from_pem(
             cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"])
         )
-        group_mapping = {}
-        if settings.get("GROUP_MAPPING"):
-            for key, value in settings["GROUP_MAPPING"].items():
-                assert isinstance(key, str), "group_mapping is malformed"
-                assert isinstance(value, list), "group_mapping is malformed"
-                group_mapping[key] = value
         issuer_config = IssuerConfig(
             iss=settings["OAUTH2_JWT.ISS"],
             kid=settings["OAUTH2_JWT.KEY_ID"],
@@ -214,7 +208,6 @@ class Config:
             aud_internal=settings["OAUTH2_JWT.AUD.INTERNAL"],
             keypair=keypair,
             exp_minutes=settings["OAUTH2_JWT_EXP"],
-            group_mapping=group_mapping,
         )
 
         session_secret = cls._load_secret(
@@ -266,17 +259,25 @@ class Config:
                 )
                 issuers[url] = issuer
 
+        group_mapping = {}
+        if settings.get("GROUP_MAPPING"):
+            for key, value in settings["GROUP_MAPPING"].items():
+                assert isinstance(key, str), "group_mapping is malformed"
+                assert isinstance(value, list), "group_mapping is malformed"
+                group_mapping[key] = value
+
         return cls(
             realm=settings["REALM"],
             loglevel=settings.get("LOGLEVEL", "INFO"),
-            username_key=settings["JWT_USERNAME_KEY"],
-            uid_key=settings["JWT_UID_KEY"],
+            username_claim=settings["JWT_USERNAME_KEY"],
+            uid_claim=settings["JWT_UID_KEY"],
             github=github,
             oidc=oidc,
             issuer=issuer_config,
             session_secret=session_secret,
             redis_url=settings["REDIS_URL"],
             known_capabilities=known_capabilities,
+            group_mapping=group_mapping,
             issuers=issuers,
         )
 

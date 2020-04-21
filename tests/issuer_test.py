@@ -31,7 +31,7 @@ async def test_reissue_token(tmp_path: Path) -> None:
         uid="upstream-user",
         uidNumber="2000",
     )
-    reissued_token = issuer.reissue_token(upstream_token)
+    reissued_token = issuer.reissue_token(upstream_token, jti="new-jti")
 
     assert reissued_token.claims == {
         "act": {
@@ -44,7 +44,7 @@ async def test_reissue_token(tmp_path: Path) -> None:
         "exp": ANY,
         "iat": ANY,
         "iss": local_token.claims["iss"],
-        "jti": upstream_token.claims["jti"],
+        "jti": "new-jti",
         "sub": "upstream",
         "uid": "upstream-user",
         "uidNumber": "2000",
@@ -66,14 +66,13 @@ async def test_reissue_token_scope(tmp_path: Path) -> None:
     upstream_token = create_upstream_test_token(
         config, groups=["user"], scope="read:all"
     )
-    reissued_token = issuer.reissue_token(upstream_token)
-    print(reissued_token.claims)
+    reissued_token = issuer.reissue_token(upstream_token, jti="new-jti")
     assert "scope" not in reissued_token.claims
 
     upstream_token = create_upstream_test_token(
         config, groups=["admin"], scope="other:scope"
     )
-    reissued_token = issuer.reissue_token(upstream_token)
+    reissued_token = issuer.reissue_token(upstream_token, jti="new-jti")
     assert reissued_token.claims["scope"] == "exec:admin read:all"
 
 
@@ -83,7 +82,7 @@ async def test_reissue_token_jti(tmp_path: Path) -> None:
     factory = get_test_factory(app)
     issuer = factory.create_token_issuer()
 
-    upstream_token = create_upstream_test_token(config, jti="some-jti")
-    reissued_token = issuer.reissue_token(upstream_token)
-    assert reissued_token.claims["jti"] == "some-jti"
+    upstream_token = create_upstream_test_token(config)
+    reissued_token = issuer.reissue_token(upstream_token, jti="new-jti")
+    assert reissued_token.claims["jti"] == "new-jti"
     assert reissued_token.claims["act"]["jti"] == upstream_token.claims["jti"]

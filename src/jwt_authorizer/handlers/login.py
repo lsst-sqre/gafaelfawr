@@ -119,8 +119,8 @@ async def _login(request: web.Request) -> web.Response:
 
         logger.info(
             "Successfully authenticated user %s (%s)",
-            auth_session.token.claims[config.username_key],
-            auth_session.token.claims[config.uid_key],
+            auth_session.token.username,
+            auth_session.token.uid,
         )
         raise web.HTTPSeeOther(return_url)
     else:

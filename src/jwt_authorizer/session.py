@@ -17,8 +17,8 @@ from jwt_authorizer.tokens import Token
 if TYPE_CHECKING:
     from aioredis import Redis
     from aioredis.commands import Pipeline
-    from jwt_authorizer.issuer import TokenIssuer
     from jwt_authorizer.tokens import VerifiedToken
+    from jwt_authorizer.verify import TokenVerifier
     from logging import Logger
     from typing import Any, Dict, Optional
 
@@ -169,6 +169,8 @@ class SessionStore:
     key : `str`
         Encryption key for the session store.  Must be a
         `cryptography.fernet.Fernet` key.
+    verifier : `jwt_authorizer.verify.TokenVerifier`
+        A token verifier to check the retrieved token.
     redis : `aioredis.Redis`
         A Redis client configured to talk to the backend store that holds the
         (encrypted) tokens.
@@ -177,11 +179,11 @@ class SessionStore:
     """
 
     def __init__(
-        self, key: str, redis: Redis, issuer: TokenIssuer, logger: Logger
+        self, key: str, verifier: TokenVerifier, redis: Redis, logger: Logger
     ) -> None:
         self._fernet = Fernet(key.encode())
+        self._verifier = verifier
         self._redis = redis
-        self._issuer = issuer
         self._logger = logger
 
     async def analyze_handle(self, handle: SessionHandle) -> Dict[str, Any]:
@@ -216,7 +218,7 @@ class SessionStore:
             "expires_on": expires_on,
         }
 
-        output["token"] = self._issuer.analyze_token(session.token)
+        output["token"] = self._verifier.analyze_token(session.token)
 
         return output
 
@@ -321,7 +323,7 @@ class SessionStore:
 
         unverified_token = Token(encoded=session["token"])
         try:
-            token = self._issuer.verify_token(unverified_token)
+            token = self._verifier.verify_internal_token(unverified_token)
         except InvalidTokenError:
             self._logger.exception(
                 "Token in session %s does not verify", handle.key

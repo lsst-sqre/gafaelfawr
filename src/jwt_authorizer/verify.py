@@ -10,6 +10,7 @@ from cachetools.keys import hashkey
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from jwt.exceptions import InvalidKeyError
 
 from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.tokens import VerifiedToken
@@ -19,9 +20,9 @@ if TYPE_CHECKING:
     from aiohttp import ClientSession
     from cachetools import TTLCache
     from logging import Logger
-    from jwt_authorizer.config import Issuer
+    from jwt_authorizer.config import Config, Issuer
     from jwt_authorizer.tokens import Token
-    from typing import Dict, List, Optional
+    from typing import Any, Dict, List, Mapping, Optional
 
 __all__ = [
     "FetchKeysException",
@@ -33,6 +34,10 @@ __all__ = [
 
 class FetchKeysException(Exception):
     """Cannot retrieve the keys from an issuer."""
+
+
+class MissingClaimsException(Exception):
+    """The token is missing required claims."""
 
 
 class UnknownAlgorithmException(Exception):
@@ -51,8 +56,8 @@ class TokenVerifier:
 
     Parameters
     ----------
-    issuers : Dict[`str`, `jwt_authorizer.config.Issuer`]
-        Known token issuers and their metadata.
+    config : `jwt_authorizer.config.Config`
+        The JWT Authorizer configuration.
     session : `aiohttp.ClientSession`
         The session to use for making requests.
     cache : `cachetools.TTLCache`
@@ -63,18 +68,79 @@ class TokenVerifier:
 
     def __init__(
         self,
-        issuers: Dict[str, Issuer],
+        config: Config,
         session: ClientSession,
         cache: TTLCache,
         logger: Logger,
     ) -> None:
-        self._issuers = issuers
+        self._config = config
         self._session = session
         self._logger = logger
         self._cache = cache
 
-    async def verify(self, token: Token) -> VerifiedToken:
-        """Verifies the provided JWT.
+    def analyze_token(self, token: Token) -> Dict[str, Any]:
+        """Analyze a token and return its expanded information.
+
+        Parameters
+        ----------
+        token : `jwt_authorizer.tokens.Token`
+            The encoded token to analyze.
+
+        Returns
+        -------
+        output : Dict[`str`, Any]
+            The contents of the token.  This will include the capabilities and
+            the header, a flag saying whether it is valid, and any errors.
+        """
+        unverified_token = jwt.decode(
+            token.encoded, algorithms=ALGORITHM, verify=False
+        )
+        output = {
+            "header": jwt.get_unverified_header(token.encoded),
+            "data": unverified_token,
+        }
+
+        try:
+            self.verify_internal_token(token)
+            output["valid"] = True
+        except Exception as e:
+            output["valid"] = False
+            output["errors"] = [str(e)]
+
+        return output
+
+    def verify_internal_token(self, token: Token) -> VerifiedToken:
+        """Verify a token issued by the internal issuer.
+
+        Parameters
+        ----------
+        token : `jwt_authorizer.tokens.Token`
+            An encoded token.
+
+        Returns
+        -------
+        verified_token : `jwt_authorizer.tokens.VerifiedToken`
+            The verified token.
+
+        Raises
+        ------
+        jwt.exceptions.InvalidTokenError
+            The issuer of this token is unknown and therefore the token cannot
+            be verified.
+        MissingClaimsException
+            The token is missing required claims.
+        """
+        audience = [self._config.issuer.aud, self._config.issuer.aud_internal]
+        payload = jwt.decode(
+            token.encoded,
+            self._config.issuer.keypair.public_key_as_pem(),
+            algorithms=ALGORITHM,
+            audience=audience,
+        )
+        return self._build_token(token.encoded, payload)
+
+    async def verify_oidc_token(self, token: Token) -> VerifiedToken:
+        """Verifies the provided JWT from an OpenID Connect provider.
 
         Parameters
         ----------
@@ -88,32 +154,72 @@ class TokenVerifier:
 
         Raises
         ------
-        jwt.exceptions.InvalidIssuerError
-            The issuer of this token is unknown and therefore the token cannot
-            be verified.
-        Exception
-            Some other verification failure.
+        jwt.exceptions.InvalidTokenError
+            The token is invalid or the issuer is unknown.
+        MissingClaimsException
+            The token is missing required claims.
         """
         unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
             token.encoded, algorithms=ALGORITHM, verify=False
         )
+        if "iss" not in unverified_token:
+            raise InvalidKeyError("No iss claim in token")
         self._logger.debug(
             "Verifying token %s from issuer %s",
             unverified_token.get("jti", "UNKNOWN"),
             unverified_token["iss"],
         )
         issuer_url = unverified_token["iss"]
-        if issuer_url not in self._issuers:
+        if issuer_url not in self._config.issuers:
             raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
-        issuer = self._issuers[issuer_url]
+        issuer = self._config.issuers[issuer_url]
 
         key = await self._get_key_as_pem(issuer, unverified_header["kid"])
         payload = jwt.decode(
             token.encoded, key, algorithms=ALGORITHM, audience=issuer.audience
         )
 
-        return VerifiedToken(encoded=token.encoded, claims=payload)
+        return self._build_token(token.encoded, payload)
+
+    def _build_token(
+        self, encoded: str, claims: Mapping[str, Any]
+    ) -> VerifiedToken:
+        """Build a VerifiedToken from an encoded token and its verified claims.
+
+        Parameters
+        ----------
+        encoded : str
+            The encoded form of the token.
+        claims : Mapping[`str`, Any]
+            The claims of a verified token.
+
+        Returns
+        -------
+        token : `VerifiedToken`
+            The resulting token.
+
+        Raises
+        ------
+        MissingClaimsException
+            The token is missing required claims.
+        """
+        if self._config.username_claim not in claims:
+            msg = f"No {self._config.username_claim} claim in token"
+            raise MissingClaimsException(msg)
+        if self._config.uid_claim not in claims:
+            msg = f"No {self._config.uid_claim} claim in token"
+            raise MissingClaimsException(msg)
+
+        return VerifiedToken(
+            encoded=encoded,
+            claims=claims,
+            jti=claims.get("jti", "UNKNOWN"),
+            username=claims[self._config.username_claim],
+            uid=claims[self._config.uid_claim],
+            email=claims.get("email"),
+            scope=claims.get("scope"),
+        )
 
     async def _get_key_as_pem(self, issuer: Issuer, key_id: str) -> bytes:
         """Get the key for an issuer.

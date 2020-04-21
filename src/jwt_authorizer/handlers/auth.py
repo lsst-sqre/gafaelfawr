@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from jwt_authorizer.factory import ComponentFactory
     from jwt_authorizer.tokens import VerifiedToken
     from logging import Logger
+    from typing import Dict
 
 __all__ = ["get_auth"]
 
@@ -85,7 +86,6 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
     logger: Logger = request["safir/logger"]
 
     # Determine the required scopes and authorization strategy from the
@@ -110,32 +110,33 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
     else:
         authorized = all([scope in user_scopes for scope in required_scopes])
 
-    # Return the results.
-    jti = token.claims.get("jti", "UNKNOWN")
-    user = token.claims[config.username_key]
-    required_scopes_str = ", ".join(sorted(required_scopes))
-    if authorized:
-        logger.info(
-            "Token %s (user: %s, scope: %s) authorized (needed %s of %s)",
-            jti,
-            user,
-            token.claims.get("scope", ""),
-            satisfy,
-            required_scopes_str,
-        )
-        return await success(request, token)
-    else:
+    # If not authorized, log and raise the appropriate error.
+    if not authorized:
         logger.error(
-            "Token %s (scope: %s) does not have %s of required scopes %s",
-            jti,
-            token.claims.get("scope", ""),
+            "Token %s (user: %s, scope: %s) not authorized (needed %s of %s)",
+            token.jti,
+            token.username,
+            token.scope,
             satisfy,
-            required_scopes_str,
+            ", ".join(sorted(required_scopes)),
         )
         raise forbidden(request, token, "Missing required scopes")
 
+    # Log and return the results.
+    logger.info(
+        "Token %s (user: %s, scope: %s) authorized (needed %s of %s)",
+        token.jti,
+        token.username,
+        token.scope,
+        satisfy,
+        ", ".join(sorted(required_scopes)),
+    )
+    token = _maybe_reissue_token(request, token)
+    headers = _build_success_headers(request, token)
+    return web.Response(headers=headers, text="ok")
 
-def _check_reissue_token(
+
+def _maybe_reissue_token(
     request: web.Request, token: VerifiedToken
 ) -> VerifiedToken:
     """Possibly reissue the token.
@@ -166,8 +167,6 @@ def _check_reissue_token(
 
     if not request.query.get("audience") == config.issuer.aud_internal:
         return token
-    if not token.claims["iss"] == config.issuer.iss:
-        return token
     if not token.claims["aud"] == config.issuer.aud:
         return token
 
@@ -179,8 +178,10 @@ def _check_reissue_token(
     return issuer.reissue_token(token, jti=handle.key, internal=True)
 
 
-async def success(request: web.Request, token: VerifiedToken) -> web.Response:
-    """Construct a response for successful authorization.
+def _build_success_headers(
+    request: web.Request, token: VerifiedToken
+) -> Dict[str, str]:
+    """Construct the headers for successful authorization.
 
     Parameters
     ----------
@@ -191,31 +192,22 @@ async def success(request: web.Request, token: VerifiedToken) -> web.Response:
 
     Returns
     -------
-    response : `aiohttp.web.Resposne`
-        Response to send.
+    headers : Dict[`str`, `str`]
+        Headers to include in the response.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-
     headers = scope_headers(request, token)
+    if token.email:
+        headers["X-Auth-Request-Email"] = token.email
+    if token.username:
+        headers["X-Auth-Request-User"] = token.username
+    if token.uid:
+        headers["X-Auth-Request-Uid"] = token.uid
 
-    email = token.claims.get("email")
-    if email:
-        headers["X-Auth-Request-Email"] = email
-
-    user = token.claims.get(config.username_key)
-    if user:
-        headers["X-Auth-Request-User"] = user
-
-    uid = token.claims.get(config.uid_key)
-    if uid:
-        headers["X-Auth-Request-Uid"] = uid
-
-    groups_list = token.claims.get("isMemberOf", list())
+    groups_list = token.claims.get("isMemberOf", [])
     if groups_list:
         groups = ",".join([g["name"] for g in groups_list])
         headers["X-Auth-Request-Groups"] = groups
 
-    token = _check_reissue_token(request, token)
     headers["X-Auth-Request-Token"] = token.encoded
 
-    return web.Response(headers=headers, text="ok")
+    return headers

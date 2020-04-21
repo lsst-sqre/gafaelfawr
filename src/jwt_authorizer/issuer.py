@@ -11,11 +11,14 @@ from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from jwt_authorizer.config import IssuerConfig
-    from jwt_authorizer.tokens import Token
+    from jwt_authorizer.config import Config
     from typing import Any, Dict, List, Mapping, Optional, Union
 
-__all__ = ["TokenIssuer"]
+__all__ = ["InvalidTokenClaimsException", "TokenIssuer"]
+
+
+class InvalidTokenClaimsException(Exception):
+    """A token cannot be issued with the provided claims."""
 
 
 class TokenIssuer:
@@ -27,43 +30,12 @@ class TokenIssuer:
 
     Parameters
     ----------
-    config : `jwt_authorizer.config.IssuerConfig`
+    config : `jwt_authorizer.config.Config`
         Configuration parameters for the issuer.
     """
 
-    def __init__(self, config: IssuerConfig) -> None:
+    def __init__(self, config: Config) -> None:
         self._config = config
-
-    def analyze_token(self, token: Token) -> Dict[str, Any]:
-        """Analyze a token and return its expanded information.
-
-        Parameters
-        ----------
-        token : `jwt_authorizer.tokens.Token`
-            The encoded token to analyze.
-
-        Returns
-        -------
-        output : Dict[`str`, Any]
-            The contents of the token.  This will include the capabilities and
-            the header, a flag saying whether it is valid, and any errors.
-        """
-        unverified_token = jwt.decode(
-            token.encoded, algorithms=ALGORITHM, verify=False
-        )
-        output = {
-            "header": jwt.get_unverified_header(token.encoded),
-            "data": unverified_token,
-        }
-
-        try:
-            self.verify_token(token)
-            output["valid"] = True
-        except Exception as e:
-            output["valid"] = False
-            output["errors"] = [str(e)]
-
-        return output
 
     def issue_token(self, claims: Mapping[str, Any]) -> VerifiedToken:
         """Issue a token containing the provided claims.
@@ -84,6 +56,9 @@ class TokenIssuer:
         payload = dict(claims)
         payload.update(self._default_attributes())
 
+        if "jti" not in payload:
+            raise InvalidTokenClaimsException("No jti claim")
+
         if "scope" not in payload:
             scope = self._scope_from_groups(claims.get("isMemberOf", []))
             if scope:
@@ -91,11 +66,43 @@ class TokenIssuer:
 
         return self._encode_token(payload)
 
+    def issue_user_token(
+        self, token: VerifiedToken, *, scope: str, jti: str,
+    ) -> VerifiedToken:
+        """Issue a new user-issued token.
+
+        Issues a long-lived token intended for programmatic use.  The claims
+        of this token will be based on the user's authentication token, but
+        only selective claims will be copied over.
+
+        Paramters
+        ---------
+        token : `jwt_authorizer.tokens.VerifiedToken`
+            The user's authentication token.
+        scope : str
+            The scope of the new token.
+        jti : str
+            The jti (JWT ID) claim for the new token.
+
+        Returns
+        -------
+        user_token : `jwt_authorizer.tokens.VerifiedToken`
+            The new user-issued token.
+        """
+        claims = {"scope": scope, "jti": jti}
+        if token.email:
+            claims["email"] = token.email
+        if token.username:
+            claims[self._config.username_claim] = token.username
+        if token.uid:
+            claims[self._config.uid_claim] = token.uid
+        return self.issue_token(claims)
+
     def reissue_token(
         self,
         token: VerifiedToken,
         *,
-        jti: Optional[str] = None,
+        jti: str,
         scope: Optional[str] = None,
         internal: bool = False,
     ) -> VerifiedToken:
@@ -127,8 +134,7 @@ class TokenIssuer:
         payload = dict(token.claims)
         payload.pop("scope", None)
         payload.update(self._default_attributes(internal=internal))
-        if jti:
-            payload["jti"] = jti
+        payload["jti"] = jti
         if not scope:
             scope = self._scope_from_groups(token.claims.get("isMemberOf", []))
         if scope:
@@ -147,34 +153,6 @@ class TokenIssuer:
 
         return self._encode_token(payload)
 
-    def verify_token(self, token: Token) -> VerifiedToken:
-        """Verify a token issued by this issuer.
-
-        Parameters
-        ----------
-        token : `jwt_authorizer.tokens.Token`
-            An encoded token.
-
-        Returns
-        -------
-        verified_token : `jwt_authorizer.tokens.VerifiedToken`
-            The verified token.
-
-        Raises
-        ------
-        jwt.exceptions.InvalidTokenError
-            The issuer of this token is unknown and therefore the token cannot
-            be verified.
-        """
-        audience = [self._config.aud, self._config.aud_internal]
-        payload = jwt.decode(
-            token.encoded,
-            self._config.keypair.public_key_as_pem(),
-            algorithms=ALGORITHM,
-            audience=audience,
-        )
-        return VerifiedToken(encoded=token.encoded, claims=payload)
-
     def _default_attributes(
         self, *, internal: bool = False
     ) -> Dict[str, Union[str, int]]:
@@ -191,14 +169,17 @@ class TokenIssuer:
         attributes : Dict[`str`, Union[`str`, `int`]]
             Attributes to add to the token under construction.
         """
-        audience = self._config.aud_internal if internal else self._config.aud
+        if internal:
+            audience = self._config.issuer.aud_internal
+        else:
+            audience = self._config.issuer.aud
         expires = datetime.now(timezone.utc) + timedelta(
-            minutes=self._config.exp_minutes
+            minutes=self._config.issuer.exp_minutes
         )
         return {
             "aud": audience,
             "iat": int(datetime.now(timezone.utc).timestamp()),
-            "iss": self._config.iss,
+            "iss": self._config.issuer.iss,
             "exp": int(expires.timestamp()),
         }
 
@@ -217,11 +198,19 @@ class TokenIssuer:
         """
         encoded_token = jwt.encode(
             payload,
-            self._config.keypair.private_key_as_pem(),
+            self._config.issuer.keypair.private_key_as_pem(),
             algorithm=ALGORITHM,
-            headers={"kid": self._config.kid},
+            headers={"kid": self._config.issuer.kid},
         ).decode()
-        return VerifiedToken(encoded=encoded_token, claims=payload)
+        return VerifiedToken(
+            encoded=encoded_token,
+            claims=payload,
+            username=payload[self._config.username_claim],
+            uid=payload[self._config.uid_claim],
+            jti=payload["jti"],
+            email=payload.get("email"),
+            scope=payload.get("scope"),
+        )
 
     def _scope_from_groups(
         self, groups: List[Dict[str, Union[int, str]]]

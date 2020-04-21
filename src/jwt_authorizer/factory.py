@@ -124,9 +124,9 @@ class ComponentFactory:
             A new SessionStore.
         """
         key = self._config.session_secret
-        issuer = self.create_token_issuer()
+        verifier = self.create_token_verifier(request)
         logger = self.create_logger(request)
-        return SessionStore(key, self._redis, issuer, logger)
+        return SessionStore(key, verifier, self._redis, logger)
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.
@@ -136,7 +136,7 @@ class ComponentFactory:
         issuer : `jwt_authorizer.issuer.TokenIssuer`
             A new TokenIssuer.
         """
-        return TokenIssuer(self._config.issuer)
+        return TokenIssuer(self._config)
 
     def create_token_store(
         self, request: Optional[web.Request] = None
@@ -176,7 +176,7 @@ class ComponentFactory:
         http_session = self.create_http_session()
         logger = self.create_logger(request)
         return TokenVerifier(
-            self._config.issuers, http_session, self._key_cache, logger
+            self._config, http_session, self._key_cache, logger
         )
 
     def create_http_session(

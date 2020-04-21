@@ -87,7 +87,6 @@ async def get_tokens(
     response : `aiohttp.web.Response`
         The response.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
 
     session = await get_session(request)
@@ -95,9 +94,8 @@ async def get_tokens(
     session["csrf"] = await generate_token(request)
 
     token_store = factory.create_token_store(request)
-    user_id = token.claims[config.uid_key]
-    await token_store.expire_tokens(user_id)
-    user_tokens = await token_store.get_tokens(user_id)
+    await token_store.expire_tokens(token.uid)
+    user_tokens = await token_store.get_tokens(token.uid)
     forms = {}
     for user_token in user_tokens:
         form = AlterTokenForm()
@@ -174,35 +172,21 @@ async def post_tokens_new(
     if not form.validate():
         return {"form": form, "capabilities": capabilities}
 
-    handle = SessionHandle()
-
-    new_capabilities = []
+    scopes = []
     for capability in capabilities:
         if form[capability].data:
-            new_capabilities.append(capability)
-    scope = " ".join(new_capabilities)
-    claims: Dict[str, object] = {"scope": scope, "jti": handle.key}
-    email = token.claims.get("email")
-    if email:
-        claims["email"] = email
-    user = token.claims.get(config.username_key)
-    if user:
-        claims[config.username_key] = user
-    uid = token.claims[config.uid_key]
-    claims[config.uid_key] = uid
-
-    # FIXME: Copies groups. Useful for WebDAV, maybe not necessary
-    #
-    # claims['isMemberOf'] = decoded_token['isMemberOf']
-
+            scopes.append(capability)
+    scope = " ".join(scopes)
     issuer = factory.create_token_issuer()
+    handle = SessionHandle()
+    user_token = issuer.issue_user_token(token, scope=scope, jti=handle.key)
+
     session_store = factory.create_session_store(request)
     token_store = factory.create_token_store(request)
-    token = issuer.issue_token(claims)
-    auth_session = Session.create(handle, token)
+    user_session = Session.create(handle, user_token)
     pipeline = redis.pipeline()
-    await session_store.store_session(auth_session, pipeline)
-    token_store.store_session(uid, auth_session, pipeline)
+    await session_store.store_session(user_session, pipeline)
+    token_store.store_session(token.uid, user_session, pipeline)
     await pipeline.execute()
 
     message = (
@@ -234,14 +218,12 @@ async def get_token_by_handle(
     response : `aiohttp.web.Response`
         The response.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     handle = request.match_info["handle"]
 
     token_store = factory.create_token_store(request)
-    user_id = token.claims[config.uid_key]
     user_token = None
-    for entry in await token_store.get_tokens(user_id):
+    for entry in await token_store.get_tokens(token.uid):
         if entry.key == handle:
             user_token = entry
             break
@@ -272,7 +254,6 @@ async def post_delete_token(
         Form variables that are processed by the template decorator, which
         turns them into an `aiohttp.web.Response`.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
     factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
     redis: Redis = request.config_dict["jwt_authorizer/redis"]
     handle = request.match_info["handle"]
@@ -285,8 +266,7 @@ async def post_delete_token(
     token_store = factory.create_token_store(request)
     session_store = factory.create_session_store(request)
     pipeline = redis.pipeline()
-    user_id = token.claims[config.uid_key]
-    success = await token_store.revoke_token(user_id, handle, pipeline)
+    success = await token_store.revoke_token(token.uid, handle, pipeline)
     if success:
         session_store.delete_session(handle, pipeline)
         await pipeline.execute()

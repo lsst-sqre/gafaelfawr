@@ -70,7 +70,15 @@ def create_test_token(
         headers={"kid": kid},
     ).decode()
 
-    return VerifiedToken(encoded=encoded, claims=payload)
+    return VerifiedToken(
+        encoded=encoded,
+        claims=payload,
+        jti=payload["jti"],
+        username=payload["uid"],
+        uid=payload["uidNumber"],
+        email=payload["email"],
+        scope=payload.get("scope"),
+    )
 
 
 def create_upstream_test_token(
