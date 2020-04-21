@@ -43,10 +43,10 @@ Secrets beginning or ending in whitespace are not supported.
 ``redis_url`` (required)
     URL for a Redis instance that will be used to store authentication sessions and user-issued tokens.
 
-``jwt_username_key`` (optional, default ``uid``)
+``username_claim`` (optional, default ``uid``)
     The token claim to use as the authenticated user's username.
 
-``jwt_uid_key`` (optional, defualt ``uidNumber``)
+``uid_claim`` (optional, defualt ``uidNumber``)
     The token claim to use as the authenticated user's UID.
 
 ``github`` (optional)
@@ -99,7 +99,7 @@ Secrets beginning or ending in whitespace are not supported.
         If given, only JWTs signed by one of the ``kid`` values listed in this configuration key will be verified and all others will be rejected.
         If omitted, any ``kid`` value matching a key that can be retrieved from the OpenID Connect provider's JWKS URL will be accepted.
 
-``oauth2_jwt`` (required)
+``issuer`` (required)
     Configure the JWT issuer.
 
     ``iss`` (required)
@@ -124,14 +124,9 @@ Secrets beginning or ending in whitespace are not supported.
     ``key_file`` (required)
         File containing the RSA private key (in PEM encoding) to use for signing JWTs.
 
-``oauth2_jwt_exp`` (optional, default 1440)
-    The expiration period of newly-issued JWTs, in minutes.
-    The default is one day.
-
-``issuers`` (required)
-    Must contain a key matching the ``iss`` claim for all supported JWT issuers, including one for the JWT issuer configured with ``oauth2_jwt``.
-    The key must also be a URL that supports either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
-    The following subkeys must be set.
+    ``exp_minutes`` (optional, default 1440)
+        The expiration period of newly-issued JWTs, in minutes.
+        The default is one day.
 
 ``group_mapping`` (optional)
     A dict whose keys are names of scopes and whose values are lists of names of groups (as found in the ``name`` attribute of the values of an ``isMemberOf`` claim in a JWT).

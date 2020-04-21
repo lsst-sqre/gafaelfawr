@@ -190,15 +190,15 @@ class Config:
             The corresponding Config object.
         """
         keypair = RSAKeyPair.from_pem(
-            cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"])
+            cls._load_secret(settings["ISSUER.KEY_FILE"])
         )
         issuer_config = IssuerConfig(
-            iss=settings["OAUTH2_JWT.ISS"],
-            kid=settings["OAUTH2_JWT.KEY_ID"],
-            aud=settings["OAUTH2_JWT.AUD.DEFAULT"],
-            aud_internal=settings["OAUTH2_JWT.AUD.INTERNAL"],
+            iss=settings["ISSUER.ISS"],
+            kid=settings["ISSUER.KEY_ID"],
+            aud=settings["ISSUER.AUD.DEFAULT"],
+            aud_internal=settings["ISSUER.AUD.INTERNAL"],
             keypair=keypair,
-            exp_minutes=settings["OAUTH2_JWT_EXP"],
+            exp_minutes=settings["ISSUER.EXP_MINUTES"],
         )
 
         session_secret = cls._load_secret(
@@ -245,8 +245,8 @@ class Config:
         return cls(
             realm=settings["REALM"],
             loglevel=settings.get("LOGLEVEL", "INFO"),
-            username_claim=settings["JWT_USERNAME_KEY"],
-            uid_claim=settings["JWT_UID_KEY"],
+            username_claim=settings["USERNAME_CLAIM"],
+            uid_claim=settings["UID_CLAIM"],
             github=github,
             oidc=oidc,
             issuer=issuer_config,

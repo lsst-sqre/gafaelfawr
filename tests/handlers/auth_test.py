@@ -21,7 +21,7 @@ def assert_www_authenticate_header_matches(header: str, error: str) -> None:
     header_method, header_info = header.split(" ", 1)
     assert header_method == "Bearer"
     data = header_info.split(",")
-    assert data[0] == 'realm="tokens"'
+    assert data[0] == 'realm="testing"'
     assert data[1] == f'error="{error}"'
     assert data[2].startswith("error_description=")
 

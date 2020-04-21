@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import os
 from typing import TYPE_CHECKING
 
 import mockaioredis
@@ -51,12 +49,7 @@ async def create_test_app(tmp_path: Path, **kwargs: Any) -> web.Application:
     keypair = RSAKeyPair.generate()
     issuer_key = keypair.private_key_as_pem()
     issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
-    kwargs["OAUTH2_JWT.KEY_FILE"] = str(issuer_key_file)
-
-    key = os.urandom(16)
-    key_b64 = base64.urlsafe_b64encode(key)
-    key_file = store_secret(tmp_path, "session-key", key_b64)
-    kwargs["OAUTH2_STORE_SESSION.OAUTH2_PROXY_SECRET_FILE"] = str(key_file)
+    kwargs["ISSUER.KEY_FILE"] = str(issuer_key_file)
 
     redis_pool = await mockaioredis.create_redis_pool("")
     kwargs["REDIS_URL"] = "dummy"
@@ -66,6 +59,7 @@ async def create_test_app(tmp_path: Path, **kwargs: Any) -> web.Application:
         redis_pool=redis_pool,
         http_session=http_session,
         FORCE_ENV_FOR_DYNACONF="testing",
+        REALM="testing",
         **kwargs,
     )
     http_session.set_config(app["jwt_authorizer/config"])
