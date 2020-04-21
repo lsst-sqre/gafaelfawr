@@ -27,6 +27,7 @@ from jwt_authorizer.handlers import init_routes
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
+    from aioredis import Redis
     from typing import Optional
 
 __all__ = ["create_app"]
@@ -34,7 +35,7 @@ __all__ = ["create_app"]
 
 async def create_app(
     settings_path: Optional[str] = None,
-    redis_pool: Optional[aioredis.ConnectionsPool] = None,
+    redis_pool: Optional[Redis] = None,
     http_session: Optional[ClientSession] = None,
     **extra: str,
 ) -> Application:
@@ -44,7 +45,7 @@ async def create_app(
     ----------
     settings_path : `str`, optional
         Additional settings file to load.
-    redis_pool : `aioredis.ConnectionsPool`, optional
+    redis_pool : `aioredis.Redis`, optional
         Redis connection pool.  One will be constructed from the URL in the
         application settings if this is not provided.
     http_session : `aiohttp.ClientSession`, optional
@@ -83,9 +84,9 @@ async def create_app(
     config.log_settings(logger)
 
     key_cache = TTLCache(maxsize=16, ttl=600)
-    factory = ComponentFactory(config, redis_pool, key_cache, http_session)
     if not redis_pool:
         redis_pool = await aioredis.create_redis_pool(config.redis_url)
+    factory = ComponentFactory(config, redis_pool, key_cache, http_session)
 
     app = Application()
     app["safir/config"] = configuration
