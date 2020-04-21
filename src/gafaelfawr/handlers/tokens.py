@@ -38,16 +38,16 @@ class AlterTokenForm(Form):
     csrf = HiddenField("_csrf")
 
 
-def api_capabilities_token_form(
-    capabilities: Dict[str, str],
+def _build_new_token_form(
+    scopes: Dict[str, str],
     data: Optional[MultiDictProxy[Union[str, bytes, web.FileField]]] = None,
 ) -> Form:
-    """Dynamically generates a form with checkboxes for capabilities.
+    """Dynamically generates a form with checkboxes for scopes.
 
     Parameters
     ----------
-    capabilities : Dict[`str`, `str`]
-        A mapping of capability names to descriptions to include in the form.
+    scopes : Dict[`str`, `str`]
+        A mapping of scope names to descriptions to include in the form.
     data : MultiDictProxy[Union[`str`, `bytes`, FileField]], optional
         The submitted form data, if any.
 
@@ -57,16 +57,16 @@ def api_capabilities_token_form(
         The generated form.
     """
 
-    class NewCapabilitiesToken(Form):
+    class NewTokenForm(Form):
         """Stub form, to which fields will be dynamically added."""
 
         submit = SubmitField("Generate New Token")
 
-    NewCapabilitiesToken.capability_names = list(capabilities)
-    for capability, description in capabilities.items():
-        field = BooleanField(label=capability, description=description)
-        setattr(NewCapabilitiesToken, capability, field)
-    return NewCapabilitiesToken(data)
+    NewTokenForm.scope_names = list(scopes)
+    for scope, description in scopes.items():
+        field = BooleanField(label=scope, description=description)
+        setattr(NewTokenForm, scope, field)
+    return NewTokenForm(data)
 
 
 @routes.get("/auth/tokens", name="tokens")
@@ -130,14 +130,14 @@ async def get_tokens_new(
     """
     config: Config = request.config_dict["gafaelfawr/config"]
 
-    form = api_capabilities_token_form(config.known_capabilities)
+    form = _build_new_token_form(config.known_scopes)
 
     session = await get_session(request)
     session["csrf"] = await generate_token(request)
 
     return {
         "form": form,
-        "capabilities": config.known_capabilities,
+        "scopes": config.known_scopes,
         "csrf_token": session["csrf"],
     }
 
@@ -166,17 +166,12 @@ async def post_tokens_new(
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     redis: Redis = request.config_dict["gafaelfawr/redis"]
 
-    capabilities = config.known_capabilities
-    form = api_capabilities_token_form(capabilities, await request.post())
+    form = _build_new_token_form(config.known_scopes, await request.post())
 
     if not form.validate():
-        return {"form": form, "capabilities": capabilities}
+        return {"form": form, "scopes": config.known_scopes}
 
-    scopes = []
-    for capability in capabilities:
-        if form[capability].data:
-            scopes.append(capability)
-    scope = " ".join(scopes)
+    scope = " ".join([s for s in config.known_scopes if form[s].data])
     issuer = factory.create_token_issuer()
     handle = SessionHandle()
     user_token = issuer.issue_user_token(token, scope=scope, jti=handle.key)

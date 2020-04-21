@@ -53,7 +53,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
 
     # Check that the /auth route works and finds our token.
-    r = await client.get("/auth", params={"capability": "read:all"})
+    r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status == 200
     assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
@@ -193,6 +193,6 @@ async def test_cookie_auth_with_token(
     assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
 
     # Now make a request to the /auth endpoint with a bogus token.
-    r = await client.get("/auth", params={"capability": "read:all"})
+    r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status == 200
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"

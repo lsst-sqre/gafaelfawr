@@ -22,7 +22,7 @@ global:
 
   # Sample values.  You can replace these with anything you want to use
   # for a scope.
-  known_capabilities:
+  known_scopes:
     "admin": "Administrative access"
     "read:all": "Can read anything"
 

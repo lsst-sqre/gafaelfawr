@@ -18,10 +18,6 @@ See the `Dynaconf`_ documentation for more details, including how to override sp
 Settings
 ========
 
-.. warning::
-   The names of these configuration settings will change in a future release.
-   Some little-used configuration settings will be deleted.
-
 Some settings are nested, in which case the parent setting takes a dict value.
 The description of that setting will specify whether there is a fixed set of child keys for related settings, or a more general collection of key/value pairs.
 
@@ -153,7 +149,7 @@ Secrets beginning or ending in whitespace are not supported.
     If GitHub authentication is in use, a user's groups will be based on their GitHub team memberships.
     See :ref:`github-groups` for more information.
 
-``known_capabilities`` (optional)
+``known_scopes`` (optional)
     A dict whose keys are known scope names and whose values are human-language descriptions of that scope.
     Used only to construct the web page where a user can create a new API token with a specific set of scopes.
 

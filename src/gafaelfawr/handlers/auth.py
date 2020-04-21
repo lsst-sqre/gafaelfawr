@@ -40,18 +40,19 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
     -----
     Expects the following query parameters to be set:
 
-    capability
-        One or more capabilities to check (required).
+    scope
+        One or more scopes to check (required, may be given multiple times).
     satisfy
-        Require that ``all`` (the default) or ``any`` of the capabilities
-        requested via the ``capbility`` parameter be satisfied.
+        Require that ``all`` (the default) or ``any`` of the scopes requested
+        via the ``scope`` parameter be satisfied.
 
     Expects the following headers to be set in the request:
 
     Authorization
         The JWT token. This must always be the full JWT token. The token
         should be in this  header as type ``Bearer``, but it may be type
-        ``Basic`` if ``x-oauth-basic`` is the username or password.
+        ``Basic`` if ``x-oauth-basic`` is the username or password.  This may
+        be omitted if the user has a valid session cookie instead.
 
     The following headers may be set in the response:
 
@@ -74,11 +75,10 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
         If the token has scopes in the ``scope`` claim or derived from groups
         in the ``isMemberOf`` claim, they will be returned in this header.
     X-Auth-Request-Token-Scopes-Accepted
-        A space-separated list of token capabilities the reliant resource
-        accepts.
+        A space-separated list of token scopes the reliant resource accepts.
     X-Auth-Request-Token-Scopes-Satisfy
-        The strategy the reliant resource uses to accept a capability. Values
-        include ``any`` or ``all``.
+        Whether all requested scopes must be present, or just any one of
+        them.  Will be set to either ``any`` or ``all``.
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
@@ -88,11 +88,7 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
     # request.
     required_scopes = request.query.getall("scope", [])
     if not required_scopes:
-        # Backward compatibility.  Can be removed when all deployments have
-        # been updated.
-        required_scopes = request.query.getall("capability", [])
-    if not required_scopes:
-        msg = "Neither scope nor capability set in the request"
+        msg = "scope parameter not set in the request"
         raise web.HTTPBadRequest(reason=msg, text=msg)
     satisfy = request.query.get("satisfy", "all")
     if satisfy not in ("any", "all"):

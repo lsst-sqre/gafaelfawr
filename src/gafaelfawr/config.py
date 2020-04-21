@@ -165,7 +165,7 @@ class Config:
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
-    known_capabilities: Dict[str, str]
+    known_scopes: Dict[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
     group_mapping: Dict[str, List[str]]
@@ -233,7 +233,7 @@ class Config:
                 key_ids=settings.get("OIDC.KEY_IDS", []),
             )
 
-        known_capabilities = settings.get("KNOWN_CAPABILITIES", {})
+        known_scopes = settings.get("KNOWN_SCOPES", {})
 
         group_mapping = {}
         if settings.get("GROUP_MAPPING"):
@@ -252,7 +252,7 @@ class Config:
             issuer=issuer_config,
             session_secret=session_secret,
             redis_url=settings["REDIS_URL"],
-            known_capabilities=known_capabilities,
+            known_scopes=known_scopes,
             group_mapping=group_mapping,
         )
 

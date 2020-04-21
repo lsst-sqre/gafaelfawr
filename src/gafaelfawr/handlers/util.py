@@ -173,7 +173,7 @@ def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[Token]:
 def scope_headers(
     request: web.Request, token: VerifiedToken
 ) -> Dict[str, str]:
-    """Construct response headers containing capability information.
+    """Construct response headers containing scope information.
 
     Parameters
     ----------
@@ -188,10 +188,6 @@ def scope_headers(
         The headers to include in the response.
     """
     required_scopes = sorted(request.query.getall("scope", []))
-    if not required_scopes:
-        # Backward compatibility.  Can be removed when all deployments have
-        # been updated.
-        required_scopes = sorted(request.query.getall("capability", []))
     satisfy = request.query.get("satisfy", "all")
 
     headers = {

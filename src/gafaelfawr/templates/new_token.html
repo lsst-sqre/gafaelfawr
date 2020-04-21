@@ -19,16 +19,16 @@
 
                 <form action="" method="post" novalidate>
                   <input type="hidden" name="_csrf" value="{{ csrf_token }}" />
-                    <h3>API Capabilities</h3>
-                    {% for capability in capabilities %}
+                    <h3>Token Scopes</h3>
+                    {% for scope in scopes %}
                         <div class="form-group row">
                             <div class="col-md-4">
                                 <div class="form-check">
-                                    {{ form[capability](class="form-check-input") }}
-                                    {{ form[capability].label(class="form-check-label") }}
+                                    {{ form[scope](class="form-check-input") }}
+                                    {{ form[scope].label(class="form-check-label") }}
                                 </div>
                             </div>
-                            <div class="col-md-8 text-dark">{{ form[capability].description }}</div>
+                            <div class="col-md-8 text-dark">{{ form[scope].description }}</div>
                         </div>
                     {% endfor %}
                     <p>{{ form.submit() }}</p>

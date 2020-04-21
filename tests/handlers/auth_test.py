@@ -30,7 +30,7 @@ async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
     setup = await SetupTest.create(tmp_path)
     client = await aiohttp_client(setup.app)
 
-    r = await client.get("/auth", params={"capability": "exec:admin"})
+    r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
     assert_www_authenticate_header_matches(
@@ -39,7 +39,7 @@ async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer"},
     )
     assert r.status == 401
@@ -50,7 +50,7 @@ async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer token"},
     )
     assert r.status == 401
@@ -69,7 +69,7 @@ async def test_access_denied(
 
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 403
@@ -87,7 +87,7 @@ async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
     r = await client.get(
         "/auth",
-        params=[("capability", "exec:test"), ("capability", "exec:admin")],
+        params=[("scope", "exec:test"), ("scope", "exec:admin")],
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 403
@@ -107,7 +107,7 @@ async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 200
@@ -135,8 +135,8 @@ async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
     r = await client.get(
         "/auth",
         params=[
-            ("capability", "exec:admin"),
-            ("capability", "exec:test"),
+            ("scope", "exec:admin"),
+            ("scope", "exec:test"),
             ("satisfy", "any"),
         ],
         headers={"Authorization": f"Bearer {token.encoded}"},
@@ -158,7 +158,7 @@ async def test_forwarded(tmp_path: Path, aiohttp_client: TestClient) -> None:
     # Check that the bogus basic auth parameter is ignored.
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={
             "Authorization": "Basic blah",
             "X-Forwarded-Access-Token": token.encoded,
@@ -169,7 +169,7 @@ async def test_forwarded(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={
             "Authorization": "Basic blah",
             "X-Forwarded-Ticket-Id-Token": token.encoded,
@@ -188,7 +188,7 @@ async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
     assert r.status == 200
@@ -198,7 +198,7 @@ async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
     assert r.status == 200
@@ -210,7 +210,7 @@ async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
-        params={"capability": "exec:admin"},
+        params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
     assert r.status == 200
@@ -227,10 +227,7 @@ async def test_reissue_internal(
 
     r = await client.get(
         "/auth",
-        params={
-            "capability": "exec:admin",
-            "audience": "https://example.com/api",
-        },
+        params={"scope": "exec:admin", "audience": "https://example.com/api"},
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 200

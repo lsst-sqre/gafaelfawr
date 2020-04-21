@@ -11,7 +11,7 @@ testing:
     "exec:admin": ["admin"]
     "exec:test": ["test"]
     "read:all": ["foo", "admin", "org-a-team"]
-  known_capabilities:
+  known_scopes:
     "exec:admin": "admin description"
     "exec:test": "test description"
     "read:all": "can read everything"

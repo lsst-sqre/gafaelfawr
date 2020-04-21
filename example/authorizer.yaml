@@ -13,7 +13,7 @@ default:
   # Sample values for scopes.  You can replace these with anything you
   # want to use for a scope.  Used to populate the new token creation
   # page.
-  known_capabilities:
+  known_scopes:
     "admin": Administrative access
     "read:all": Can read anything
 

@@ -90,7 +90,7 @@ class TokenVerifier:
         Returns
         -------
         output : Dict[`str`, Any]
-            The contents of the token.  This will include the capabilities and
+            The contents of the token.  This will include the claims and
             the header, a flag saying whether it is valid, and any errors.
         """
         unverified_token = jwt.decode(
