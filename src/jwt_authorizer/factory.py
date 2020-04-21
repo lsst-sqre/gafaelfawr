@@ -173,7 +173,7 @@ class ComponentFactory:
         token_verifier : `jwt_authorizer.verify.TokenVerifier`
             A new TokenVerifier.
         """
-        http_session = self.create_http_session()
+        http_session = self.create_http_session(request)
         logger = self.create_logger(request)
         return TokenVerifier(
             self._config, http_session, self._key_cache, logger
