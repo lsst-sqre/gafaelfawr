@@ -1,4 +1,4 @@
-"""Configuration for JWT Authorizer."""
+"""Configuration for Gafaelfawr."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from dynaconf import LazySettings
 
-from jwt_authorizer.keypair import RSAKeyPair
+from gafaelfawr.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
     from typing import Dict, List, Optional
@@ -25,7 +25,7 @@ __all__ = [
 
 @dataclass
 class Configuration:
-    """Configuration for jwt_authorizer.
+    """Configuration for Gafaelfawr.
 
     Notes
     -----
@@ -33,7 +33,7 @@ class Configuration:
     needs to be unified with the main Config struct.
     """
 
-    name: str = os.getenv("SAFIR_NAME", "jwt_authorizer")
+    name: str = os.getenv("SAFIR_NAME", "gafaelfawr")
     """The application's name, which doubles as the root HTTP endpoint path.
 
     Set with the ``SAFIR_NAME`` environment variable.
@@ -45,7 +45,7 @@ class Configuration:
     Set with the ``SAFIR_PROFILE`` environment variable.
     """
 
-    logger_name: str = os.getenv("SAFIR_LOGGER", "jwt_authorizer")
+    logger_name: str = os.getenv("SAFIR_LOGGER", "gafaelfawr")
     """The root name of the application's logger.
 
     Set with the ``SAFIR_LOGGER`` environment variable.
@@ -88,7 +88,7 @@ class OIDCConfig:
     redirect_url: str
     """Return URL to which the authentication provider should send the user.
 
-    This should be the full URL of the /login route of jwt_authorizer.
+    This should be the full URL of the /login route of Gafaelfawr.
     """
 
     token_url: str
@@ -136,7 +136,7 @@ class IssuerConfig:
 
 @dataclass
 class Config:
-    """Configuration for JWT Authorizer."""
+    """Configuration for Gafaelfawr."""
 
     realm: str
     """Realm for HTTP authentication."""

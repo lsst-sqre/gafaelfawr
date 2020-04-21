@@ -9,8 +9,8 @@ from unittest.mock import ANY
 
 import jwt
 
-from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.session import Session, SessionHandle
+from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.session import Session, SessionHandle
 from tests.setup import SetupTest
 
 if TYPE_CHECKING:

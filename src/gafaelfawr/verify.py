@@ -12,16 +12,16 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from jwt.exceptions import InvalidKeyError
 
-from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.tokens import VerifiedToken
-from jwt_authorizer.util import base64_to_number
+from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.util import base64_to_number
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from cachetools import TTLCache
     from logging import Logger
-    from jwt_authorizer.config import Config
-    from jwt_authorizer.tokens import Token
+    from gafaelfawr.config import Config
+    from gafaelfawr.tokens import Token
     from typing import Any, Dict, List, Mapping, Optional
 
 __all__ = [
@@ -57,7 +57,7 @@ class TokenVerifier:
 
     Parameters
     ----------
-    config : `jwt_authorizer.config.Config`
+    config : `gafaelfawr.config.Config`
         The JWT Authorizer configuration.
     session : `aiohttp.ClientSession`
         The session to use for making requests.
@@ -84,7 +84,7 @@ class TokenVerifier:
 
         Parameters
         ----------
-        token : `jwt_authorizer.tokens.Token`
+        token : `gafaelfawr.tokens.Token`
             The encoded token to analyze.
 
         Returns
@@ -115,12 +115,12 @@ class TokenVerifier:
 
         Parameters
         ----------
-        token : `jwt_authorizer.tokens.Token`
+        token : `gafaelfawr.tokens.Token`
             An encoded token.
 
         Returns
         -------
-        verified_token : `jwt_authorizer.tokens.VerifiedToken`
+        verified_token : `gafaelfawr.tokens.VerifiedToken`
             The verified token.
 
         Raises
@@ -145,12 +145,12 @@ class TokenVerifier:
 
         Parameters
         ----------
-        token : `jwt_authorizer.tokens.Token`
+        token : `gafaelfawr.tokens.Token`
             JWT to verify.
 
         Returns
         -------
-        verified_token : `jwt_authorizer.tokens.VerifiedToken`
+        verified_token : `gafaelfawr.tokens.VerifiedToken`
             The verified token contents.
 
         Raises

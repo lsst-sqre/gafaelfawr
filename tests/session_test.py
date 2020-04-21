@@ -1,10 +1,10 @@
-"""Tests for the jwt_authorizer.session package."""
+"""Tests for the gafaelfawr.session package."""
 
 from __future__ import annotations
 
 import pytest
 
-from jwt_authorizer.session import InvalidSessionHandleException, SessionHandle
+from gafaelfawr.session import InvalidSessionHandleException, SessionHandle
 
 
 def test_handle() -> None:

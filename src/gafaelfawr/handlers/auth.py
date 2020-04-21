@@ -6,18 +6,14 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 
-from jwt_authorizer.handlers import routes
-from jwt_authorizer.handlers.util import (
-    authenticated,
-    forbidden,
-    scope_headers,
-)
-from jwt_authorizer.session import SessionHandle
+from gafaelfawr.handlers import routes
+from gafaelfawr.handlers.util import authenticated, forbidden, scope_headers
+from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
-    from jwt_authorizer.config import Config
-    from jwt_authorizer.factory import ComponentFactory
-    from jwt_authorizer.tokens import VerifiedToken
+    from gafaelfawr.config import Config
+    from gafaelfawr.factory import ComponentFactory
+    from gafaelfawr.tokens import VerifiedToken
     from logging import Logger
     from typing import Dict
 
@@ -145,12 +141,12 @@ def _maybe_reissue_token(
     ----------
     request : `aiohttp.web.Request`
         The incoming request.
-    token : `jwt_authorizer.tokens.VerifiedToken`
+    token : `gafaelfawr.tokens.VerifiedToken`
         The current token.
 
     Returns
     -------
-    token : `jwt_authorizer.tokens.VerifiedToken`
+    token : `gafaelfawr.tokens.VerifiedToken`
         An encoded token, which may have been reissued.
 
     Notes
@@ -162,8 +158,8 @@ def _maybe_reissue_token(
     allows passing a more restrictive token to downstream systems that may
     reuse that tokens for their own API calls.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    config: Config = request.config_dict["gafaelfawr/config"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
 
     if not request.query.get("audience") == config.issuer.aud_internal:
         return token
@@ -187,7 +183,7 @@ def _build_success_headers(
     ----------
     request : `aiohttp.web.Request`
         The incoming request.
-    token : `jwt_authorizer.tokens.VerifiedToken`
+    token : `gafaelfawr.tokens.VerifiedToken`
         The token.
 
     Returns

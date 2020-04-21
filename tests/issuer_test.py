@@ -1,4 +1,4 @@
-"""Tests for the jwt_authorizer.issuer package."""
+"""Tests for the gafaelfawr.issuer package."""
 
 from __future__ import annotations
 

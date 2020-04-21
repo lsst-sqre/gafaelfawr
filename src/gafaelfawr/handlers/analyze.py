@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, cast
 from aiohttp import web
 from aiohttp_session import get_session
 
-from jwt_authorizer.handlers import routes
-from jwt_authorizer.session import InvalidSessionHandleException, SessionHandle
-from jwt_authorizer.tokens import Token
+from gafaelfawr.handlers import routes
+from gafaelfawr.session import InvalidSessionHandleException, SessionHandle
+from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
-    from jwt_authorizer.factory import ComponentFactory
+    from gafaelfawr.factory import ComponentFactory
 
 __all__ = ["get_analyze", "post_analyze"]
 
@@ -31,7 +31,7 @@ async def get_analyze(request: web.Request) -> web.Response:
     response : `aiohttp.web.Response`
         The response.
     """
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
 
     session = await get_session(request)
     handle = SessionHandle.from_str(session["handle"])
@@ -58,7 +58,7 @@ async def post_analyze(request: web.Request) -> web.Response:
     response : `aiohttp.web.Response`
         The response.
     """
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
 
     data = await request.post()
     handle_or_token = cast(str, data["token"])

@@ -1,4 +1,4 @@
-"""Flask application routes for JWT Authorizer."""
+"""Application setup for Gafaelfawr."""
 
 from __future__ import annotations
 
@@ -21,9 +21,9 @@ from safir.metadata import setup_metadata
 from safir.middleware import bind_logger
 from structlog import get_logger
 
-from jwt_authorizer.config import Config, Configuration
-from jwt_authorizer.factory import ComponentFactory
-from jwt_authorizer.handlers import init_routes
+from gafaelfawr.config import Config, Configuration
+from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.handlers import init_routes
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
@@ -39,7 +39,7 @@ async def create_app(
     http_session: Optional[ClientSession] = None,
     **extra: str,
 ) -> Application:
-    """Create and configure the JWT Authorizer application.
+    """Create and configure the Gafaelfawr application.
 
     Parameters
     ----------
@@ -90,10 +90,10 @@ async def create_app(
 
     app = Application()
     app["safir/config"] = configuration
-    app["jwt_authorizer/config"] = config
-    app["jwt_authorizer/factory"] = factory
-    app["jwt_authorizer/redis"] = redis_pool
-    setup_metadata(package_name="jwt_authorizer", app=app)
+    app["gafaelfawr/config"] = config
+    app["gafaelfawr/factory"] = factory
+    app["gafaelfawr/redis"] = redis_pool
+    setup_metadata(package_name="gafaelfawr", app=app)
     await setup_middleware(app, config)
     app.on_cleanup.append(on_shutdown)
     app.add_routes(init_routes())
@@ -133,7 +133,7 @@ async def setup_middleware(app: Application, config: Config) -> None:
 
 async def on_shutdown(app: Application) -> None:
     """Cleanly shut down the application."""
-    redis_client = app["jwt_authorizer/redis"]
+    redis_client = app["gafaelfawr/redis"]
     redis_client.close()
     await redis_client.wait_closed()
 

@@ -27,7 +27,7 @@ In addition to the standard JWT claims, the following information is included:
 Groups from GitHub
 ------------------
 
-JWT Authorizer synthesizes groups from GitHub teams.
+Gafaelfawr synthesizes groups from GitHub teams.
 Each team membership that an authenticated user has on GitHub (and releases through the GitHub OAuth authentication) will be mapped to a group in the ``isMemberOf`` claim.
 The default group name is ``<organization>-<team-slug>`` where ``<organization>`` is the ``login`` attribute of the organization containing the team and ``<team-slug>`` is the ``slug`` attribute of the team.
 These values are retrieved through the ``/user/teams`` API route.

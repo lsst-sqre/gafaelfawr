@@ -6,7 +6,7 @@ Prerequisites
 =============
 
 The `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__ must already be configured and working.
-JWT Authorizer expects TLS termination to be done by the ingress controller.
+Gafaelfawr expects TLS termination to be done by the ingress controller.
 
 The instructions below assume that you will use Vault_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets as Kubernetes secrets.
 
@@ -19,9 +19,9 @@ OpenID or OAuth client configuration
 GitHub
 ------
 
-If you will be using GitHub as the authentication provider, you will need to create a GitHub OAuth app for JWT Authorizer and obtain a client ID and secret.
+If you will be using GitHub as the authentication provider, you will need to create a GitHub OAuth app for Gafaelfawr and obtain a client ID and secret.
 To get these values, go to Settings > Developer Settings for either a GitHub user or an organization, go into OAuth Apps, and create a new application.
-The callback URL should be the ``/login`` route under the hostname you will use for your JWT Authorizer deployment.
+The callback URL should be the ``/login`` route under the hostname you will use for your Gafaelfawr deployment.
 
 CILogon
 -------
@@ -62,7 +62,7 @@ This will add the voPerson scope.
 Vault secrets
 =============
 
-The standard Helm chart for JWT Authorizer (described below) assumes that you will use `Vault`_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets in Kubernetes.
+The standard Helm chart for Gafaelfawr (described below) assumes that you will use `Vault`_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets in Kubernetes.
 Create a Vault secret with the following keys:
 
 ``oauth2_proxy_client_secret.txt``
@@ -71,11 +71,11 @@ Create a Vault secret with the following keys:
 
 ``oauth2_proxy_cookie_secret.txt``
     The secret key used to encrypt the oauth2_proxy session.
-    Shared between JWT Authorizer and oauth2_proxy.
+    Shared between Gafaelfawr and oauth2_proxy.
     Should be a 256-bit secret key encoded in URL-safe base64.
 
 ``session_secret.txt``
-    Encryption key for the JWT Authorizer session cookie.
+    Encryption key for the Gafaelfawr session cookie.
     Generate with :py:meth:`cryptography.fernet.Fernet.generate_key`.
 
 ``signing_key.pem``
@@ -87,7 +87,7 @@ You will reference the path to this secret in Vault when configuring the Helm ch
 Helm deployment
 ===============
 
-There is a Helm chart for JWT Authorizer named ``authnz`` available from the `Rubin Observatory charts repository <https://lsst-sqre.github.io/charts/>`__.
+There is a Helm chart for Gafaelfawr named ``authnz`` available from the `Rubin Observatory charts repository <https://lsst-sqre.github.io/charts/>`__.
 
 .. note::
    Documentation for the Helm chart is coming in a future release.
@@ -127,9 +127,9 @@ The typical annotations for a web application used via a web browser are:
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?capability=<capability>"
 
-In both cases, replace ``<hostname>`` with the hostname of the ingress on which the JWT Authorizer routes are configured, and ``<capability>`` with the name of the scope that should be required in order to visit this site.
+In both cases, replace ``<hostname>`` with the hostname of the ingress on which the Gafaelfawr routes are configured, and ``<capability>`` with the name of the scope that should be required in order to visit this site.
 
-This will send a request to the JWT Authorizer ``/auth`` route for each request.
+This will send a request to the Gafaelfawr ``/auth`` route for each request.
 It will find the user's authentication token, check that it is valid, and check that the user has the required scope.
 If the user is not authenticated, they will be redirected to the sign-in URL configured here, which in turn will either send the user to CILogon or to GitHub to authenticate.
 For the CILogon configuration, if the user does not have the required scope, they will also be sent to reauthenticate.
@@ -138,7 +138,7 @@ The GitHub configuration will return a proper 403 error.
 
 If the user authenticates and authorizes successfully, the request will be sent to the application.
 Included in the request will be an ``X-Auth-Request-Token`` header containing the user's JWT.
-This will be a reissued token signed by JWT Authorizer.
+This will be a reissued token signed by Gafaelfawr.
 
 Configuring authentication
 --------------------------
@@ -159,7 +159,7 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     If set to ``any``, the client need only have one of the scopes specified in the ``capability`` parameters.
 
 ``audience``
-    May be set to the internal audience of JWT Authorizer to request a reissued token scoped to the internal audience.
+    May be set to the internal audience of Gafaelfawr to request a reissued token scoped to the internal audience.
 
 These parameters must be URL-encoded as GET parameters to the ``/auth`` route.
 
@@ -199,5 +199,5 @@ The value of that annotation is a comma-separated list of desired headers.
 Verifying tokens
 ----------------
 
-A JWKS for the JWT Authorizer token issuer is available via the ``/.well-known/jwks.json`` route.
-An application may use that URL to retrieve the public key of JWT Authorizer and use it to verify the token signature.
+A JWKS for the Gafaelfawr token issuer is available via the ``/.well-known/jwks.json`` route.
+An application may use that URL to retrieve the public key of Gafaelfawr and use it to verify the token signature.

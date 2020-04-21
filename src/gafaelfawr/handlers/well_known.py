@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 
-from jwt_authorizer.handlers import routes
+from gafaelfawr.handlers import routes
 
 if TYPE_CHECKING:
-    from jwt_authorizer.config import Config
+    from gafaelfawr.config import Config
 
 __all__ = ["get_well_known_jwks"]
 
@@ -30,7 +30,7 @@ async def get_well_known_jwks(request: web.Request) -> web.Response:
     response : `aiohttp.web.Response`
         The outgoing response.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["gafaelfawr/config"]
 
     jwks = config.issuer.keypair.public_key_as_jwks(kid=config.issuer.kid)
     return web.json_response({"keys": [jwks]})

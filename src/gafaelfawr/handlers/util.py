@@ -10,13 +10,13 @@ import jwt
 from aiohttp import web
 from aiohttp_session import get_session
 
-from jwt_authorizer.session import SessionHandle
-from jwt_authorizer.tokens import Token
+from gafaelfawr.session import SessionHandle
+from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
-    from jwt_authorizer.config import Config
-    from jwt_authorizer.factory import ComponentFactory
-    from jwt_authorizer.tokens import VerifiedToken
+    from gafaelfawr.config import Config
+    from gafaelfawr.factory import ComponentFactory
+    from gafaelfawr.tokens import VerifiedToken
     from logger import Logger
     from typing import Any, Awaitable, Callable, Dict, Optional
 
@@ -44,7 +44,7 @@ def authenticated(route: AuthenticatedRoute) -> Route:
     route : `typing.Callable`
         The route that requires authentication.  The token is extracted from
         the incoming request headers, verified, and then passed as a second
-        argument of type `jwt_authorizer.tokens.VerifiedToken` to the route.
+        argument of type `gafaelfawr.tokens.VerifiedToken` to the route.
 
     Response
     --------
@@ -54,9 +54,7 @@ def authenticated(route: AuthenticatedRoute) -> Route:
 
     @wraps(route)
     async def authenticated_route(request: web.Request) -> Any:
-        factory: ComponentFactory = request.config_dict[
-            "jwt_authorizer/factory"
-        ]
+        factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
         logger: Logger = request["safir/logger"]
 
         try:
@@ -89,10 +87,10 @@ async def get_token_from_request(request: web.Request) -> Optional[Token]:
 
     Returns
     -------
-    token : `jwt_authorizer.tokens.Token`, optional
+    token : `gafaelfawr.tokens.Token`, optional
         The token if found, otherwise None.
     """
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     logger: Logger = request["safir/logger"]
 
     # Prefer X-Auth-Request-Token if set.  This is set by the /auth endpoint.
@@ -151,7 +149,7 @@ def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[Token]:
 
     Returns
     -------
-    token : `jwt_authorizer.tokens.Token`, optional
+    token : `gafaelfawr.tokens.Token`, optional
         The token if one was found, otherwise None.
     """
     try:
@@ -181,7 +179,7 @@ def scope_headers(
     ----------
     request : `aiohttp.web.Request`
         The incoming request.
-    token : `jwt_authorizer.tokens.VerifiedToken`
+    token : `gafaelfawr.tokens.VerifiedToken`
         A verified token containing group and scope information.
 
     Returns
@@ -248,7 +246,7 @@ def unauthorized(
     exception : `aiohttp.web.HTTPException`
         Exception to throw.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["gafaelfawr/config"]
 
     realm = config.realm
     info = f'realm="{realm}",error="{error}",error_description="{message}"'

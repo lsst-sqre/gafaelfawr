@@ -14,8 +14,8 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 
-from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.util import number_to_base64
+from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.util import number_to_base64
 
 if TYPE_CHECKING:
     from typing import Dict, Optional

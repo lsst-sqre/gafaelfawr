@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.tokens import VerifiedToken
+from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from jwt_authorizer.config import Config
+    from gafaelfawr.config import Config
     from typing import Any, Dict, List, Optional
 
 __all__ = ["create_oidc_test_token", "create_test_token"]
@@ -31,7 +31,7 @@ def create_test_token(
 
     Parameters
     ----------
-    config : `jwt_authorizer.config.Config`
+    config : `gafaelfawr.config.Config`
         The configuration.
     groups : List[`str`], optional
         Group memberships the generated token should have.
@@ -42,7 +42,7 @@ def create_test_token(
 
     Returns
     -------
-    token : `jwt_authorizer.tokens.VerifiedToken`
+    token : `gafaelfawr.tokens.VerifiedToken`
         The generated token.
     """
     now = datetime.now(timezone.utc)
@@ -90,7 +90,7 @@ def create_oidc_test_token(
 
     Parameters
     ----------
-    config : `jwt_authorizer.config.Config`
+    config : `gafaelfawr.config.Config`
         The configuration.
     groups : List[`str`], optional
         Group memberships the generated token should have.
@@ -99,7 +99,7 @@ def create_oidc_test_token(
 
     Returns
     -------
-    token : `jwt_authorizer.tokens.VerifiedToken`
+    token : `gafaelfawr.tokens.VerifiedToken`
         The new token.
     """
     payload = {

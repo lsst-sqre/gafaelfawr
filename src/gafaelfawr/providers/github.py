@@ -8,14 +8,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from jwt_authorizer.providers.base import Provider, ProviderException
-from jwt_authorizer.session import Session, SessionHandle
+from gafaelfawr.providers.base import Provider, ProviderException
+from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
-    from jwt_authorizer.config import GitHubConfig
-    from jwt_authorizer.issuer import TokenIssuer
-    from jwt_authorizer.session import SessionStore
+    from gafaelfawr.config import GitHubConfig
+    from gafaelfawr.issuer import TokenIssuer
+    from gafaelfawr.session import SessionStore
     from logging import Logger
     from typing import List
 
@@ -74,13 +74,13 @@ class GitHubProvider(Provider):
 
     Parameters
     ----------
-    config : `jwt_authorizer.config.GitHubConfig`
+    config : `gafaelfawr.config.GitHubConfig`
         Configuration for the GitHub authentication provider.
     http_session : `aiohttp.ClientSession`
         Session to use to make HTTP requests.
-    issuer : `jwt_authorizer.issuer.TokenIssuer`
+    issuer : `gafaelfawr.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
-    session_store : `jwt_authorizer.session.SessionStore`
+    session_store : `gafaelfawr.session.SessionStore`
         Store for authentication sessions.
     logger : `logging.Logger`
         Logger for any log messages.
@@ -152,7 +152,7 @@ class GitHubProvider(Provider):
 
         Returns
         -------
-        session : `jwt_authorizer.session.Session`
+        session : `gafaelfawr.session.Session`
             The new authentication session.
 
         Raises

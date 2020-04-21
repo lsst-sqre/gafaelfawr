@@ -2,14 +2,14 @@
 Release procedure
 #################
 
-This page gives an overview of how JWT Authorizer releases are made.
+This page gives an overview of how Gafaelfawr releases are made.
 This information is only useful for maintainers.
 
-JWT Authorizer's releases are largely automated through GitHub Actions (see the `ci.yaml`_ workflow file for details).
-When a semantic version tag is pushed to GitHub, `JWT Authorizer is pushed to Docker Hub`_ with that version.
+Gafaelfawr's releases are largely automated through GitHub Actions (see the `ci.yaml`_ workflow file for details).
+When a semantic version tag is pushed to GitHub, `Gafaelfawr is pushed to Docker Hub`_ with that version.
 
-.. _`JWT Authorizer is pushed to Docker Hub`: https://hub.docker.com/repository/docker/lsstdm/jwt_authorizer
-.. _`ci.yaml`: https://github.com/lsst/jwt_authorizer/blob/master/.github/workflows/ci.yaml
+.. _`Gafaelfawr is pushed to Docker Hub`: https://hub.docker.com/repository/docker/lsstdm/gafaelfawr
+.. _`ci.yaml`: https://github.com/lsst/gafaelfawr/blob/master/.github/workflows/ci.yaml
 
 .. _regular-release:
 
@@ -41,7 +41,7 @@ At the HEAD of the ``master`` branch, create and push a tag with the semantic ve
    git tag -s X.Y.Z -m "X.Y.Z"
    git push --tags
 
-The tag **must** follow the :pep:`440` specification since JWT Authorizer uses setuptools_scm_ to set version metadata based on Git tags.
+The tag **must** follow the :pep:`440` specification since Gafaelfawr uses setuptools_scm_ to set version metadata based on Git tags.
 In particular, **don't** prefix the tag with ``v``.
 
 .. _setuptools_scm: https://github.com/pypa/setuptools_scm

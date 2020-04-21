@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from jwt_authorizer.session import Session
+    from gafaelfawr.session import Session
 
 __all__ = ["Provider", "ProviderException"]
 
@@ -46,7 +46,7 @@ class Provider(metaclass=ABCMeta):
 
         Returns
         -------
-        session : `jwt_authorizer.session.Session`
+        session : `gafaelfawr.session.Session`
             The new authentication session.
 
         Raises

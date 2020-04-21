@@ -1,6 +1,6 @@
 import os
 
-import jwt_authorizer
+import gafaelfawr
 import lsst_sphinx_bootstrap_theme
 
 # Common links and substitutions =============================================
@@ -36,14 +36,14 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "JWT Authorizer"
+project = "Gafaelfawr"
 copyright = (
     "2020 "
     "Association of Universities for Research in Astronomy, Inc. (AURA)"
 )
 author = "LSST Data Management"
 
-version = jwt_authorizer.__version__
+version = gafaelfawr.__version__
 release = version
 
 # List of patterns, relative to source directory, that match files and
@@ -97,7 +97,7 @@ html_context = {
     #     {{ github_repo }}/blob/
     #     {{ github_version }}{{ conf_py_path }}{{ pagename }}{{ suffix }}
     "github_user": "lsst",
-    "github_repo": "jwt_authorizer",
+    "github_repo": "gafaelfawr",
     "conf_py_path": "docs/",
     # GITHUB_REF is available in GitHub Actions, but master is a safe default
     "github_version": os.getenv("GITHUB_REF", default="master") + "/",

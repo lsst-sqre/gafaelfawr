@@ -9,7 +9,7 @@ from unittest.mock import ANY
 
 import jwt
 
-from jwt_authorizer.constants import ALGORITHM
+from gafaelfawr.constants import ALGORITHM
 from tests.setup import SetupTest
 
 if TYPE_CHECKING:

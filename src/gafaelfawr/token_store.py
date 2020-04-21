@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from aioredis import Redis
     from aioredis.commands import Pipeline
     from logging import Logger
-    from jwt_authorizer.session import Session
+    from gafaelfawr.session import Session
     from typing import List, Optional
 
 __all__ = ["TokenEntry", "TokenStore"]
@@ -199,7 +199,7 @@ class TokenStore:
         ----------
         user_id : `str`
             User ID who is issuing the token.
-        session : `jwt_authorizer.session.Session`
+        session : `gafaelfawr.session.Session`
             The newly-issued token to store an index entry for.
         pipeline : `aioredis.commands.Pipeline`
             The pipeline in which to store the session.

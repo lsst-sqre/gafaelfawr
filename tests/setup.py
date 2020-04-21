@@ -10,9 +10,9 @@ from tests.support.tokens import create_oidc_test_token, create_test_token
 if TYPE_CHECKING:
     from aiohttp import web
     from aioredis import Redis
-    from jwt_authorizer.config import Config
-    from jwt_authorizer.factory import ComponentFactory
-    from jwt_authorizer.tokens import VerifiedToken
+    from gafaelfawr.config import Config
+    from gafaelfawr.factory import ComponentFactory
+    from gafaelfawr.tokens import VerifiedToken
     from pathlib import Path
     from typing import Any, List, Optional
 
@@ -41,9 +41,9 @@ class SetupTest:
 
     def __init__(self, app: web.Application) -> None:
         self.app = app
-        self.config: Config = self.app["jwt_authorizer/config"]
-        self.factory: ComponentFactory = self.app["jwt_authorizer/factory"]
-        self.redis: Redis = self.app["jwt_authorizer/redis"]
+        self.config: Config = self.app["gafaelfawr/config"]
+        self.factory: ComponentFactory = self.app["gafaelfawr/factory"]
+        self.redis: Redis = self.app["gafaelfawr/redis"]
 
     def create_token(
         self, *, groups: Optional[List[str]] = None, **claims: str
@@ -59,7 +59,7 @@ class SetupTest:
 
         Returns
         -------
-        token : `jwt_authorizer.tokens.VerifiedToken`
+        token : `gafaelfawr.tokens.VerifiedToken`
             The generated token.
         """
         return create_test_token(self.config, groups=groups, **claims)
@@ -78,7 +78,7 @@ class SetupTest:
 
         Returns
         -------
-        token : `jwt_authorizer.tokens.VerifiedToken`
+        token : `gafaelfawr.tokens.VerifiedToken`
             The generated token.
         """
         return create_oidc_test_token(self.config, groups=groups, **claims)

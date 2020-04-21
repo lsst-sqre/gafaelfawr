@@ -8,8 +8,8 @@ from unittest.mock import ANY
 
 from click.testing import CliRunner
 
-from jwt_authorizer.cli import main
-from jwt_authorizer.constants import ALGORITHM
+from gafaelfawr.cli import main
+from gafaelfawr.constants import ALGORITHM
 
 
 def test_generate_key() -> None:

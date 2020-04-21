@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.util import number_to_base64
+from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.util import number_to_base64
 from tests.setup import SetupTest
 
 if TYPE_CHECKING:

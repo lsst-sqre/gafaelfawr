@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from jwt_authorizer.session import Session, SessionHandle
+from gafaelfawr.session import Session, SessionHandle
 from tests.setup import SetupTest
 
 if TYPE_CHECKING:

@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.tokens import VerifiedToken
+from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from jwt_authorizer.config import Config
+    from gafaelfawr.config import Config
     from typing import Any, Dict, List, Mapping, Optional, Union
 
 __all__ = ["InvalidTokenClaimsException", "TokenIssuer"]
@@ -30,7 +30,7 @@ class TokenIssuer:
 
     Parameters
     ----------
-    config : `jwt_authorizer.config.Config`
+    config : `gafaelfawr.config.Config`
         Configuration parameters for the issuer.
     """
 
@@ -50,7 +50,7 @@ class TokenIssuer:
 
         Returns
         -------
-        token : `jwt_authorizer.tokens.VerifiedToken`
+        token : `gafaelfawr.tokens.VerifiedToken`
             The newly-issued token.
         """
         payload = dict(claims)
@@ -77,7 +77,7 @@ class TokenIssuer:
 
         Parameters
         ----------
-        token : `jwt_authorizer.tokens.VerifiedToken`
+        token : `gafaelfawr.tokens.VerifiedToken`
             The user's authentication token.
         scope : str
             The scope of the new token.
@@ -86,7 +86,7 @@ class TokenIssuer:
 
         Returns
         -------
-        user_token : `jwt_authorizer.tokens.VerifiedToken`
+        user_token : `gafaelfawr.tokens.VerifiedToken`
             The new user-issued token.
         """
         claims = {"scope": scope, "jti": jti}
@@ -116,7 +116,7 @@ class TokenIssuer:
 
         Parameters
         ----------
-        token : `jwt_authorizer.tokens.VerifiedToken`
+        token : `gafaelfawr.tokens.VerifiedToken`
             The token to reissue.
         jti : Optional[`str`], optional
             The jti to use for the new token.
@@ -128,7 +128,7 @@ class TokenIssuer:
 
         Returns
         -------
-        new_token : `jwt_authorizer.tokens.VerifiedToken`
+        new_token : `gafaelfawr.tokens.VerifiedToken`
             The new token.
         """
         payload = dict(token.claims)
@@ -193,7 +193,7 @@ class TokenIssuer:
 
         Returns
         -------
-        token : `jwt_authorizer.tokens.VerifiedToken`
+        token : `gafaelfawr.tokens.VerifiedToken`
             The encoded token.
         """
         encoded_token = jwt.encode(

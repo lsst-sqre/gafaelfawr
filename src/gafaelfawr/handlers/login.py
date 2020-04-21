@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING
 from aiohttp import ClientResponseError, web
 from aiohttp_session import get_session, new_session
 
-from jwt_authorizer.handlers import routes
-from jwt_authorizer.providers.base import ProviderException
+from gafaelfawr.handlers import routes
+from gafaelfawr.providers.base import ProviderException
 
 if TYPE_CHECKING:
-    from jwt_authorizer.config import Config
-    from jwt_authorizer.factory import ComponentFactory
-    from jwt_authorizer.providers.base import Provider
+    from gafaelfawr.config import Config
+    from gafaelfawr.factory import ComponentFactory
+    from gafaelfawr.providers.base import Provider
     from logging import Logger
 
 __all__ = ["get_login", "get_oauth2_callback"]
@@ -85,8 +85,8 @@ async def get_oauth2_callback(request: web.Request) -> web.Response:
 async def _login(request: web.Request) -> web.Response:
     """Internal implementation of get_login and get_oauth2_callback."""
     logger: Logger = request["safir/logger"]
-    config: Config = request.config_dict["jwt_authorizer/config"]
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    config: Config = request.config_dict["gafaelfawr/config"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
 
     if config.github:
         auth_provider: Provider = factory.create_github_provider(request)

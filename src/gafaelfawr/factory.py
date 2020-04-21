@@ -1,4 +1,4 @@
-"""Create JWT Authorizer components."""
+"""Create Gafaelfawr components."""
 
 from __future__ import annotations
 
@@ -6,24 +6,24 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from jwt_authorizer.issuer import TokenIssuer
-from jwt_authorizer.providers.github import GitHubProvider
-from jwt_authorizer.providers.oidc import OIDCProvider
-from jwt_authorizer.session import SessionStore
-from jwt_authorizer.token_store import TokenStore
-from jwt_authorizer.verify import TokenVerifier
+from gafaelfawr.issuer import TokenIssuer
+from gafaelfawr.providers.github import GitHubProvider
+from gafaelfawr.providers.oidc import OIDCProvider
+from gafaelfawr.session import SessionStore
+from gafaelfawr.token_store import TokenStore
+from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession, web
     from aioredis import Redis
     from cachetools import TTLCache
-    from jwt_authorizer.config import Config
+    from gafaelfawr.config import Config
     from logging import Logger
     from typing import Optional
 
 
 class ComponentFactory:
-    """Build JWT Authorizer components.
+    """Build Gafaelfawr components.
 
     Given the application configuration, construct the components of the
     application on demand.  This is broken into a separate class primarily so
@@ -31,8 +31,8 @@ class ComponentFactory:
 
     Parameters
     ----------
-    config : `jwt_authorizer.config.Config`
-        JWT Authorizer configuration.
+    config : `gafaelfawr.config.Config`
+        Gafaelfawr configuration.
     """
 
     def __init__(
@@ -60,7 +60,7 @@ class ComponentFactory:
 
         Returns
         -------
-        provider : `jwt_authorizer.providers.github.GitHubProvider`
+        provider : `gafaelfawr.providers.github.GitHubProvider`
             A new GitHubProvider.
         """
         assert self._config.github
@@ -89,7 +89,7 @@ class ComponentFactory:
 
         Returns
         -------
-        provider : `jwt_authorizer.providers.oidc.OIDCProvider`
+        provider : `gafaelfawr.providers.oidc.OIDCProvider`
             A new OIDCProvider.
         """
         assert self._config.oidc
@@ -120,7 +120,7 @@ class ComponentFactory:
 
         Returns
         -------
-        session_store : `jwt_authorizer.session.SessionStore`
+        session_store : `gafaelfawr.session.SessionStore`
             A new SessionStore.
         """
         key = self._config.session_secret
@@ -133,7 +133,7 @@ class ComponentFactory:
 
         Returns
         -------
-        issuer : `jwt_authorizer.issuer.TokenIssuer`
+        issuer : `gafaelfawr.issuer.TokenIssuer`
             A new TokenIssuer.
         """
         return TokenIssuer(self._config)
@@ -151,7 +151,7 @@ class ComponentFactory:
 
         Returns
         -------
-        token_store : `jwt_authorizer.tokens.TokenStore`
+        token_store : `gafaelfawr.tokens.TokenStore`
             A new TokenStore.
         """
         logger = self.create_logger(request)
@@ -170,7 +170,7 @@ class ComponentFactory:
 
         Returns
         -------
-        token_verifier : `jwt_authorizer.verify.TokenVerifier`
+        token_verifier : `gafaelfawr.verify.TokenVerifier`
             A new TokenVerifier.
         """
         http_session = self.create_http_session(request)
@@ -218,4 +218,4 @@ class ComponentFactory:
         if request:
             return request["safir/logger"]
         else:
-            return structlog.get_logger("jwt_authorizer")
+            return structlog.get_logger("gafaelfawr")

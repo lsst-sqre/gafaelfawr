@@ -1,9 +1,9 @@
-"""Tests for the jwt_authorizer.util package."""
+"""Tests for the gafaelfawr.util package."""
 
 from __future__ import annotations
 
-from jwt_authorizer.keypair import RSAKeyPair
-from jwt_authorizer.util import add_padding, base64_to_number, number_to_base64
+from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.util import add_padding, base64_to_number, number_to_base64
 
 
 def test_add_padding() -> None:

@@ -4,7 +4,7 @@ __all__ = ["get_index"]
 
 from aiohttp import web
 
-from jwt_authorizer.handlers import routes
+from gafaelfawr.handlers import routes
 
 
 @routes.get("/")

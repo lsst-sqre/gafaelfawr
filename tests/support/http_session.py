@@ -10,13 +10,13 @@ from urllib.parse import urljoin
 
 from aiohttp import ClientResponse, ClientSession
 
-from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.providers.github import GitHubProvider
-from jwt_authorizer.util import number_to_base64
+from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.providers.github import GitHubProvider
+from gafaelfawr.util import number_to_base64
 from tests.support.tokens import create_oidc_test_token
 
 if TYPE_CHECKING:
-    from jwt_authorizer.config import Config
+    from gafaelfawr.config import Config
     from typing import Any, Dict, List, Optional
 
 __all__ = ["MockClientSession"]
@@ -45,7 +45,7 @@ class MockClientSession(Mock):
 
         Parameters
         ----------
-        config : `jwt_authorizer.config.Config`
+        config : `gafaelfawr.config.Config`
             The application configuration.
         """
         self.config = config

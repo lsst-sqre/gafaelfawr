@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 from cryptography.fernet import Fernet, InvalidToken
 from jwt.exceptions import InvalidTokenError
 
-from jwt_authorizer.tokens import Token
+from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
     from aioredis import Redis
     from aioredis.commands import Pipeline
-    from jwt_authorizer.tokens import VerifiedToken
-    from jwt_authorizer.verify import TokenVerifier
+    from gafaelfawr.tokens import VerifiedToken
+    from gafaelfawr.verify import TokenVerifier
     from logging import Logger
     from typing import Any, Dict, Optional
 
@@ -140,7 +140,7 @@ class Session:
         ----------
         handle : `SessionHandle`
             The handle for this session.
-        token : `jwt_authorizer.tokens.VerifiedToken`
+        token : `gafaelfawr.tokens.VerifiedToken`
             The token to store in this session.
 
         Returns
@@ -169,7 +169,7 @@ class SessionStore:
     key : `str`
         Encryption key for the session store.  Must be a
         `cryptography.fernet.Fernet` key.
-    verifier : `jwt_authorizer.verify.TokenVerifier`
+    verifier : `gafaelfawr.verify.TokenVerifier`
         A token verifier to check the retrieved token.
     redis : `aioredis.Redis`
         A Redis client configured to talk to the backend store that holds the
@@ -191,7 +191,7 @@ class SessionStore:
 
         Parameters
         ----------
-        handle : `jwt_authorizer.session.SessionHandle`
+        handle : `gafaelfawr.session.SessionHandle`
             The session handle to analyze.
 
         Returns

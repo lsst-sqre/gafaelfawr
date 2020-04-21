@@ -2,14 +2,14 @@
 Configuration settings
 ######################
 
-JWT Authorizer uses `Dynaconf`_ for configuration, so configuration settings can be provided in a large number of ways.
+Gafaelfawr uses `Dynaconf`_ for configuration, so configuration settings can be provided in a large number of ways.
 The recommended approach is to use a YAML file.
-By default, the file ``/etc/jwt-authorizer/authorizer.yaml`` is loaded as configuration settings.
-This path can be overridden via the ``--settings`` option to the ``jwt_authorizer run`` command.
+By default, the file ``/etc/gafaelfawr/authorizer.yaml`` is loaded as configuration settings.
+This path can be overridden via the ``--settings`` option to the ``gafaelfawr run`` command.
 
 .. _Dynaconf: https://dynaconf.readthedocs.io/en/latest/
 
-When configuring JWT Authorizer to run in Kubernetes, consider defining your settings as the value of a ``authorizer.yaml`` key in a config map, and then mounting that config map at ``/etc/jwt-authorizer`` in the pod.
+When configuring Gafaelfawr to run in Kubernetes, consider defining your settings as the value of a ``authorizer.yaml`` key in a config map, and then mounting that config map at ``/etc/gafaelfawr`` in the pod.
 
 See the `Dynaconf`_ documentation for more details, including how to override specific settings with environment variables.
 
@@ -37,7 +37,7 @@ Secrets beginning or ending in whitespace are not supported.
     The Python log level to use, in string form.
 
 ``session_secret_file`` (required)
-    File containing the secret used to encrypt the JWT Authorizer session cookie and the Redis session storage.
+    File containing the secret used to encrypt the Gafaelfawr session cookie and the Redis session storage.
     Must be a Fernet key generated with :py:meth:`cryptography.fernet.Fernet.generate_key`.
 
 ``redis_url`` (required)
@@ -79,7 +79,7 @@ Secrets beginning or ending in whitespace are not supported.
 
     ``redirect_url`` (required)
         The URL to which the OpenID Connect provider should send the user after successful authentication.
-        This must be the full URL of the ``/login`` route of JWT Authorizer.
+        This must be the full URL of the ``/login`` route of Gafaelfawr.
 
     ``token_url`` (required)
         The URL at the OpenID Connect provider from which to request an ID token after authentication.
@@ -105,7 +105,7 @@ Secrets beginning or ending in whitespace are not supported.
     ``iss`` (required)
         The value to use for the ``iss`` claim in issued JWTs.
         Should support either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
-        JWT Authorizer will provide the ``/.well-known/jwks.json`` route internally.
+        Gafaelfawr will provide the ``/.well-known/jwks.json`` route internally.
 
     ``key_id`` (required)
         JWT ``kid`` to use when signing tokens.
@@ -160,8 +160,8 @@ Secrets beginning or ending in whitespace are not supported.
 Examples
 ========
 
-See `authorizer.yaml <https://github.com/lsst/jwt_authorizer/blob/master/example/authorizer.yaml>`__ for an example configuration file.
+See `authorizer.yaml <https://github.com/lsst/gafaelfawr/blob/master/example/authorizer.yaml>`__ for an example configuration file.
 
-See `dev.yaml <https://github.com/lsst/jwt_authorizer/blob/master/example/dev.yaml>`__ for a configuration file designed for a development server running on localhost.
+See `dev.yaml <https://github.com/lsst/gafaelfawr/blob/master/example/dev.yaml>`__ for a configuration file designed for a development server running on localhost.
 **WARNING**: Do not use this configuration for anything other than a local development server.
 It contains published secrets available to anyone on the Internet.

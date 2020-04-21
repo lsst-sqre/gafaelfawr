@@ -1,4 +1,4 @@
-"""The JWT Authorizer service."""
+"""The Gafaelfawr service."""
 
 __all__ = ["__version__"]
 

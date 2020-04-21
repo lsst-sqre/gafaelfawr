@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
-from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.providers.github import GitHubProvider
+from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.providers.github import GitHubProvider
 from tests.setup import SetupTest
 from tests.support.app import store_secret
 

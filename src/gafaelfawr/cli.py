@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import click
 from aiohttp.web import run_app
 
-from jwt_authorizer.app import create_app
-from jwt_authorizer.keypair import RSAKeyPair
+from gafaelfawr.app import create_app
+from gafaelfawr.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
     from typing import Union
@@ -20,9 +20,9 @@ __all__ = ["main", "generate_key", "help", "run"]
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(message="%(version)s")
 def main() -> None:
-    """jwt_authorizer main.
+    """Gafaelfawr main.
 
-    Administrative command-line interface for jwt_authorizer.
+    Administrative command-line interface for gafaelfawr.
     """
     pass
 
@@ -52,7 +52,7 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
     "--settings",
     envvar="SETTINGS_PATH",
     type=str,
-    default="/etc/jwt-authorizer/authorizer.yaml",
+    default="/etc/gafaelfawr/authorizer.yaml",
     help="Application settings file.",
 )
 def run(port: int, settings: str) -> None:

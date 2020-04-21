@@ -5,17 +5,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from jwt_authorizer.providers.base import Provider, ProviderException
-from jwt_authorizer.session import Session, SessionHandle
-from jwt_authorizer.tokens import Token
+from gafaelfawr.providers.base import Provider, ProviderException
+from gafaelfawr.session import Session, SessionHandle
+from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from logging import Logger
-    from jwt_authorizer.config import OIDCConfig
-    from jwt_authorizer.issuer import TokenIssuer
-    from jwt_authorizer.session import SessionStore
-    from jwt_authorizer.verify import TokenVerifier
+    from gafaelfawr.config import OIDCConfig
+    from gafaelfawr.issuer import TokenIssuer
+    from gafaelfawr.session import SessionStore
+    from gafaelfawr.verify import TokenVerifier
 
 __all__ = ["OIDCException", "OIDCProvider"]
 
@@ -29,13 +29,13 @@ class OIDCProvider(Provider):
 
     Parameters
     ----------
-    config : `jwt_authorizer.config.OIDCConfig`
+    config : `gafaelfawr.config.OIDCConfig`
         Configuration for the OpenID Connect authentication provider.
-    verifier : `jwt_authorizer.verify.TokenVerifier`
+    verifier : `gafaelfawr.verify.TokenVerifier`
         Token verifier to use to verify the token returned by the provider.
-    issuer : `jwt_authorizer.issuer.TokenIssuer`
+    issuer : `gafaelfawr.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
-    session_store : `jwt_authorizer.session.SessionStore`
+    session_store : `gafaelfawr.session.SessionStore`
         Store for authentication sessions.
     http_session : `aiohttp.ClientSession`
         Session to use to make HTTP requests.
@@ -100,7 +100,7 @@ class OIDCProvider(Provider):
 
         Returns
         -------
-        session : `jwt_authorizer.session.Session`
+        session : `gafaelfawr.session.Session`
             The new authentication session.
 
         Raises

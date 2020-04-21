@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 import mockaioredis
 from cryptography.fernet import Fernet
 
-from jwt_authorizer.app import create_app
-from jwt_authorizer.keypair import RSAKeyPair
+from gafaelfawr.app import create_app
+from gafaelfawr.keypair import RSAKeyPair
 from tests.support.http_session import MockClientSession
 
 if TYPE_CHECKING:
@@ -62,6 +62,6 @@ async def create_test_app(tmp_path: Path, **kwargs: Any) -> web.Application:
         REALM="testing",
         **kwargs,
     )
-    http_session.set_config(app["jwt_authorizer/config"])
+    http_session.set_config(app["gafaelfawr/config"])
 
     return app

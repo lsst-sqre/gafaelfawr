@@ -10,15 +10,15 @@ from aiohttp_jinja2 import template
 from aiohttp_session import get_session
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
-from jwt_authorizer.handlers import routes
-from jwt_authorizer.handlers.util import authenticated
-from jwt_authorizer.session import Session, SessionHandle
+from gafaelfawr.handlers import routes
+from gafaelfawr.handlers.util import authenticated
+from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
     from aioredis import Redis
-    from jwt_authorizer.config import Config
-    from jwt_authorizer.factory import ComponentFactory
-    from jwt_authorizer.tokens import VerifiedToken
+    from gafaelfawr.config import Config
+    from gafaelfawr.factory import ComponentFactory
+    from gafaelfawr.tokens import VerifiedToken
     from multidict import MultiDictProxy
     from typing import Dict, Optional, Union
 
@@ -87,7 +87,7 @@ async def get_tokens(
     response : `aiohttp.web.Response`
         The response.
     """
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
 
     session = await get_session(request)
     message = session.pop("message", None)
@@ -128,7 +128,7 @@ async def get_tokens_new(
     response : `aiohttp.web.Response`
         The response.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
+    config: Config = request.config_dict["gafaelfawr/config"]
 
     form = api_capabilities_token_form(config.known_capabilities)
 
@@ -162,9 +162,9 @@ async def post_tokens_new(
     response : `aiohttp.web.Response`
         The response.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
-    redis: Redis = request.config_dict["jwt_authorizer/redis"]
+    config: Config = request.config_dict["gafaelfawr/config"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
+    redis: Redis = request.config_dict["gafaelfawr/redis"]
 
     capabilities = config.known_capabilities
     form = api_capabilities_token_form(capabilities, await request.post())
@@ -218,7 +218,7 @@ async def get_token_by_handle(
     response : `aiohttp.web.Response`
         The response.
     """
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     handle = request.match_info["handle"]
 
     token_store = factory.create_token_store(request)
@@ -254,8 +254,8 @@ async def post_delete_token(
         Form variables that are processed by the template decorator, which
         turns them into an `aiohttp.web.Response`.
     """
-    factory: ComponentFactory = request.config_dict["jwt_authorizer/factory"]
-    redis: Redis = request.config_dict["jwt_authorizer/redis"]
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
+    redis: Redis = request.config_dict["gafaelfawr/redis"]
     handle = request.match_info["handle"]
 
     form = AlterTokenForm(await request.post())
