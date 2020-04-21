@@ -7,8 +7,6 @@ API reference
 
 .. automodapi:: jwt_authorizer.app
 
-.. automodapi:: jwt_authorizer.authnz
-
 .. automodapi:: jwt_authorizer.cli
 
 .. automodapi:: jwt_authorizer.config

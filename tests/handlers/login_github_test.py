@@ -91,6 +91,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
                 "iss": "https://test.example.com/",
                 "jti": ANY,
                 "name": "GitHub User",
+                "scope": "read:all",
                 "sub": "githubuser",
                 "uid": "githubuser",
                 "uidNumber": "123456",

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from dataclasses import dataclass
@@ -140,6 +139,13 @@ class IssuerConfig:
     exp_minutes: int
     """Number of minutes into the future that a token should expire."""
 
+    group_mapping: Dict[str, List[str]]
+    """Mapping of a scope to a list of groups receiving that scope.
+
+    Used to determine the scope for a reissued token based on the group
+    memberships indicated in that token.
+    """
+
 
 @dataclass
 class Config:
@@ -162,9 +168,6 @@ class Config:
 
     oidc: Optional[OIDCConfig]
     """Configuration for OpenID Connect authentication."""
-
-    group_mapping: Dict[str, List[str]]
-    """Mapping of a scope to a list of groups receiving that scope."""
 
     issuer: IssuerConfig
     """Configuration for internally-issued tokens."""
@@ -198,6 +201,12 @@ class Config:
         keypair = RSAKeyPair.from_pem(
             cls._load_secret(settings["OAUTH2_JWT.KEY_FILE"])
         )
+        group_mapping = {}
+        if settings.get("GROUP_MAPPING"):
+            for key, value in settings["GROUP_MAPPING"].items():
+                assert isinstance(key, str), "group_mapping is malformed"
+                assert isinstance(value, list), "group_mapping is malformed"
+                group_mapping[key] = value
         issuer_config = IssuerConfig(
             iss=settings["OAUTH2_JWT.ISS"],
             kid=settings["OAUTH2_JWT.KEY_ID"],
@@ -205,6 +214,7 @@ class Config:
             aud_internal=settings["OAUTH2_JWT.AUD.INTERNAL"],
             keypair=keypair,
             exp_minutes=settings["OAUTH2_JWT_EXP"],
+            group_mapping=group_mapping,
         )
 
         session_secret = cls._load_secret(
@@ -236,13 +246,6 @@ class Config:
                 scopes=settings.get("OIDC.SCOPES", []),
             )
 
-        group_mapping = {}
-        if settings.get("GROUP_MAPPING"):
-            for key, value in settings["GROUP_MAPPING"].items():
-                assert isinstance(key, str), "group_mapping is malformed"
-                assert isinstance(value, list), "group_mapping is malformed"
-                group_mapping[key] = value
-
         known_capabilities = settings.get("KNOWN_CAPABILITIES", {})
 
         issuers = {}
@@ -271,7 +274,6 @@ class Config:
             github=github,
             oidc=oidc,
             issuer=issuer_config,
-            group_mapping=group_mapping,
             session_secret=session_secret,
             redis_url=settings["REDIS_URL"],
             known_capabilities=known_capabilities,
@@ -302,9 +304,6 @@ class Config:
                 "Default JWT expiration is %d minutes", self.issuer.exp_minutes
             )
 
-        logger.info(
-            "Configured group mapping: %s", json.dumps(self.group_mapping)
-        )
         logger.info("Configured Redis pool from URL %s", self.redis_url)
 
         for issuer in self.issuers.values():

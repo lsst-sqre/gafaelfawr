@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 
-from jwt_authorizer.authnz import authorize
 from jwt_authorizer.handlers import routes
 from jwt_authorizer.handlers.util import (
     authenticated,
@@ -19,6 +18,7 @@ if TYPE_CHECKING:
     from jwt_authorizer.config import Config
     from jwt_authorizer.factory import ComponentFactory
     from jwt_authorizer.tokens import VerifiedToken
+    from logging import Logger
 
 __all__ = ["get_auth"]
 
@@ -85,9 +85,54 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
-    if not authorize(request, token):
+    config: Config = request.config_dict["jwt_authorizer/config"]
+    logger: Logger = request["safir/logger"]
+
+    # Determine the required scopes and authorization strategy from the
+    # request.
+    required_scopes = request.query.getall("scope", [])
+    if not required_scopes:
+        # Backward compatibility.  Can be removed when all deployments have
+        # been updated.
+        required_scopes = request.query.getall("capability", [])
+    if not required_scopes:
+        msg = "Neither scope nor capability set in the request"
+        raise web.HTTPBadRequest(reason=msg, text=msg)
+    satisfy = request.query.get("satisfy", "all")
+    if satisfy not in ("any", "all"):
+        msg = "satisfy parameter must be any or all"
+        raise web.HTTPBadRequest(reason=msg, text=msg)
+
+    # Determine whether the request is authorized.
+    user_scopes = token.claims.get("scope", "").split()
+    if satisfy == "any":
+        authorized = any([scope in user_scopes for scope in required_scopes])
+    else:
+        authorized = all([scope in user_scopes for scope in required_scopes])
+
+    # Return the results.
+    jti = token.claims.get("jti", "UNKNOWN")
+    user = token.claims[config.username_key]
+    required_scopes_str = ", ".join(sorted(required_scopes))
+    if authorized:
+        logger.info(
+            "Token %s (user: %s, scope: %s) authorized (needed %s of %s)",
+            jti,
+            user,
+            token.claims.get("scope", ""),
+            satisfy,
+            required_scopes_str,
+        )
+        return await success(request, token)
+    else:
+        logger.error(
+            "Token %s (scope: %s) does not have %s of required scopes %s",
+            jti,
+            token.claims.get("scope", ""),
+            satisfy,
+            required_scopes_str,
+        )
         raise forbidden(request, token, "Missing required scopes")
-    return await success(request, token)
 
 
 def _check_reissue_token(

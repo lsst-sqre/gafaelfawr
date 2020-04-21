@@ -77,7 +77,7 @@ async def test_access_denied(
     assert r.status == 403
     body = await r.text()
     assert "Missing required scopes" in body
-    assert r.headers["X-Auth-Request-Token-Scopes"] == ""
+    assert "X-Auth-Request-Token-Scopes" not in r.headers
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
 
@@ -85,7 +85,7 @@ async def test_access_denied(
 async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
     app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
-    token = create_test_token(test_config, groups=["test"])
+    token = create_test_token(test_config, scope="exec:test")
     client = await aiohttp_client(app)
 
     r = await client.get(
@@ -106,7 +106,9 @@ async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
 async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
     app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
-    token = create_test_token(test_config, groups=["admin"])
+    token = create_test_token(
+        test_config, groups=["admin"], scope="exec:admin read:all"
+    )
     client = await aiohttp_client(app)
 
     r = await client.get(
@@ -134,7 +136,7 @@ async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
     """
     app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
-    token = create_test_token(test_config, groups=["test"])
+    token = create_test_token(test_config, groups=["test"], scope="exec:test")
     client = await aiohttp_client(app)
 
     r = await client.get(
@@ -158,7 +160,7 @@ async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
 async def test_forwarded(tmp_path: Path, aiohttp_client: TestClient) -> None:
     app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
-    token = create_test_token(test_config, groups=["admin"])
+    token = create_test_token(test_config, scope="exec:admin")
     client = await aiohttp_client(app)
 
     # Check that the bogus basic auth parameter is ignored.
@@ -188,7 +190,7 @@ async def test_forwarded(tmp_path: Path, aiohttp_client: TestClient) -> None:
 async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
-    token = create_test_token(test_config, groups=["admin"])
+    token = create_test_token(test_config, scope="exec:admin")
     client = await aiohttp_client(app)
 
     basic = f"{token.encoded}:x-oauth-basic".encode()
@@ -231,7 +233,9 @@ async def test_reissue_internal(
     app = await create_test_app(tmp_path)
     test_config = get_test_config(app)
     client = await aiohttp_client(app)
-    token = create_test_token(test_config, groups=["admin"])
+    token = create_test_token(
+        test_config, groups=["admin"], scope="exec:admin"
+    )
 
     r = await client.get(
         "/auth",
@@ -270,6 +274,7 @@ async def test_reissue_internal(
         "isMemberOf": [{"name": "admin"}],
         "iss": "https://test.example.com/",
         "jti": ANY,
+        "scope": "exec:admin read:all",
         "sub": "some-user",
         "uid": "some-user",
         "uidNumber": "1000",

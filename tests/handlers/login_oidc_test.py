@@ -96,6 +96,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
                 "isMemberOf": [{"name": "admin"}],
                 "iss": "https://test.example.com/",
                 "jti": ANY,
+                "scope": "exec:admin read:all",
                 "sub": "some-user",
                 "uid": "some-user",
                 "uidNumber": "1000",

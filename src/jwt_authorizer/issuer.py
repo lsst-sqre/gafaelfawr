@@ -13,7 +13,7 @@ from jwt_authorizer.tokens import VerifiedToken
 if TYPE_CHECKING:
     from jwt_authorizer.config import IssuerConfig
     from jwt_authorizer.tokens import Token
-    from typing import Any, Dict, Mapping, Optional, Union
+    from typing import Any, Dict, List, Mapping, Optional, Union
 
 __all__ = ["TokenIssuer"]
 
@@ -31,7 +31,7 @@ class TokenIssuer:
         Configuration parameters for the issuer.
     """
 
-    def __init__(self, config: IssuerConfig,) -> None:
+    def __init__(self, config: IssuerConfig) -> None:
         self._config = config
 
     def analyze_token(self, token: Token) -> Dict[str, Any]:
@@ -68,6 +68,9 @@ class TokenIssuer:
     def issue_token(self, claims: Mapping[str, Any]) -> VerifiedToken:
         """Issue a token containing the provided claims.
 
+        A scope claim will be added based on any groups in an isMemberOf
+        claim, if a scope claim was not already present.
+
         Parameters
         ----------
         claims : Mapping[`str`, Any]
@@ -80,6 +83,12 @@ class TokenIssuer:
         """
         payload = dict(claims)
         payload.update(self._default_attributes())
+
+        if "scope" not in payload:
+            scope = self._scope_from_groups(claims.get("isMemberOf", []))
+            if scope:
+                payload["scope"] = scope
+
         return self._encode_token(payload)
 
     def reissue_token(
@@ -94,7 +103,9 @@ class TokenIssuer:
 
         This makes a copy of the token, sets the audience, expiration, issuer,
         and issue time as appropriate, and then returns the token in encoded
-        form.
+        form.  The scope claim of the new token will be based on the provided
+        scope, if there is one, and otherwise on the group membership in the
+        token.  The upstream scope claim will be discarded.
 
         Parameters
         ----------
@@ -114,9 +125,12 @@ class TokenIssuer:
             The new token.
         """
         payload = dict(token.claims)
+        payload.pop("scope", None)
         payload.update(self._default_attributes(internal=internal))
         if jti:
             payload["jti"] = jti
+        if not scope:
+            scope = self._scope_from_groups(token.claims.get("isMemberOf", []))
         if scope:
             payload["scope"] = scope
 
@@ -208,3 +222,29 @@ class TokenIssuer:
             headers={"kid": self._config.kid},
         ).decode()
         return VerifiedToken(encoded=encoded_token, claims=payload)
+
+    def _scope_from_groups(
+        self, groups: List[Dict[str, Union[int, str]]]
+    ) -> Optional[str]:
+        """Get scopes from a token's groups.
+
+        Used to determine the scope claim of a reissued token.
+
+        Parameters
+        ----------
+        groups : List[Dict[`str`, Union[`int`, `str`]]]
+            The groups of a token.
+
+        Returns
+        -------
+        scope : str or `None`
+            The scope claim generated from the group membership based on the
+            group_mapping configuration parameter.
+        """
+        token_group_names = {g["name"] for g in groups}
+        scopes = set()
+        for scope, granting_groups in self._config.group_mapping.items():
+            for group in granting_groups:
+                if group in token_group_names:
+                    scopes.add(scope)
+        return " ".join(sorted(scopes))

@@ -10,7 +10,6 @@ import jwt
 from aiohttp import web
 from aiohttp_session import get_session
 
-from jwt_authorizer.authnz import scopes_from_token
 from jwt_authorizer.session import SessionHandle
 from jwt_authorizer.tokens import Token
 
@@ -189,9 +188,6 @@ def scope_headers(
     headers : Dict[`str`, `str`]
         The headers to include in the response.
     """
-    config: Config = request.config_dict["jwt_authorizer/config"]
-
-    user_scopes = sorted(scopes_from_token(token, config.group_mapping))
     required_scopes = sorted(request.query.getall("scope", []))
     if not required_scopes:
         # Backward compatibility.  Can be removed when all deployments have
@@ -199,11 +195,13 @@ def scope_headers(
         required_scopes = sorted(request.query.getall("capability", []))
     satisfy = request.query.get("satisfy", "all")
 
-    return {
-        "X-Auth-Request-Token-Scopes": " ".join(user_scopes),
+    headers = {
         "X-Auth-Request-Scopes-Accepted": " ".join(required_scopes),
         "X-Auth-Request-Scopes-Satisfy": satisfy,
     }
+    if token.claims.get("scope"):
+        headers["X-Auth-Request-Token-Scopes"] = token.claims["scope"]
+    return headers
 
 
 def forbidden(

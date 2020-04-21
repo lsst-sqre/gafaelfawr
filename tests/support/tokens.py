@@ -74,7 +74,10 @@ def create_test_token(
 
 
 def create_upstream_test_token(
-    config: ConfigForTests, **claims: str
+    config: ConfigForTests,
+    *,
+    groups: Optional[List[str]] = None,
+    **claims: str,
 ) -> VerifiedToken:
     """Create a signed token using the upstream issuer.
 
@@ -85,6 +88,8 @@ def create_upstream_test_token(
     ----------
     config : `tests.support.config.ConfigForTests`
         The test configuration.
+    groups : List[`str`], optional
+        Group memberships the generated token should have.
     **claims : `str`, optional
         Other attributes to set or override in the token.
 
@@ -100,6 +105,4 @@ def create_upstream_test_token(
         "jti": handle.key,
     }
     payload.update(claims)
-    return create_test_token(
-        config, groups=["admin"], kid="orig-kid", **payload
-    )
+    return create_test_token(config, groups=groups, kid="orig-kid", **payload)

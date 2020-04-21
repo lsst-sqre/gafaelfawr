@@ -230,7 +230,7 @@ class MockClientSession(Mock):
             "code": "some-code",
             "redirect_uri": self.config.oidc.redirect_url,
         }
-        token = create_upstream_test_token(self.config)
+        token = create_upstream_test_token(self.config, groups=["admin"])
         return {
             "id_token": token.encoded,
             "token_type": "Bearer",
