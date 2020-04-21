@@ -20,12 +20,13 @@ if TYPE_CHECKING:
     from aiohttp import ClientSession
     from cachetools import TTLCache
     from logging import Logger
-    from jwt_authorizer.config import Config, Issuer
+    from jwt_authorizer.config import Config
     from jwt_authorizer.tokens import Token
     from typing import Any, Dict, List, Mapping, Optional
 
 __all__ = [
     "FetchKeysException",
+    "MissingClaimsException",
     "TokenVerifier",
     "UnknownAlgorithmException",
     "UnknownKeyIdException",
@@ -159,6 +160,8 @@ class TokenVerifier:
         MissingClaimsException
             The token is missing required claims.
         """
+        assert self._config.oidc
+
         unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
             token.encoded, algorithms=ALGORITHM, verify=False
@@ -170,14 +173,22 @@ class TokenVerifier:
             unverified_token.get("jti", "UNKNOWN"),
             unverified_token["iss"],
         )
-        issuer_url = unverified_token["iss"]
-        if issuer_url not in self._config.issuers:
-            raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
-        issuer = self._config.issuers[issuer_url]
 
-        key = await self._get_key_as_pem(issuer, unverified_header["kid"])
+        issuer_url = unverified_token["iss"]
+        key_id = unverified_header["kid"]
+        if issuer_url != self._config.oidc.issuer:
+            raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
+        if self._config.oidc.key_ids:
+            if key_id not in self._config.oidc.key_ids:
+                msg = f"kid {key_id} not allowed for {issuer_url}"
+                raise UnknownKeyIdException(msg)
+
+        key = await self._get_key_as_pem(issuer_url, key_id)
         payload = jwt.decode(
-            token.encoded, key, algorithms=ALGORITHM, audience=issuer.audience
+            token.encoded,
+            key,
+            algorithms=ALGORITHM,
+            audience=self._config.oidc.audience,
         )
 
         return self._build_token(token.encoded, payload)
@@ -221,15 +232,15 @@ class TokenVerifier:
             scope=claims.get("scope"),
         )
 
-    async def _get_key_as_pem(self, issuer: Issuer, key_id: str) -> bytes:
+    async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> bytes:
         """Get the key for an issuer.
 
         Gets a key as PEM, given the issuer and the request key ticket_id.
 
         Parameters
         ----------
-        issuer : `jwt_authorizer.config.Issuer`
-            The metadata of the issuer.
+        issuer_url : `str`
+            The URL of the issuer.
         key_id : `str`
             The key ID to retrieve for the issuer in question.
 
@@ -254,28 +265,25 @@ class TokenVerifier:
         This function will automatically cache the last 16 keys for up to 10
         minutes to cut down on network retrieval of the keys.
         """
-        cache_key = hashkey(issuer, key_id)
+        cache_key = hashkey(issuer_url, key_id)
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        self._logger.info("Getting key %s from %s", key_id, issuer.url)
-        if issuer.key_ids and key_id not in issuer.key_ids:
-            msg = f"kid {key_id} not found in configuration for {issuer.url}"
-            raise UnknownKeyIdException(msg)
+        self._logger.info("Getting key %s from %s", key_id, issuer_url)
 
         # Retrieve the JWKS information.
-        keys = await self._get_keys(issuer)
+        keys = await self._get_keys(issuer_url)
 
         # Find the key that we want.
         for k in keys:
             if key_id == k["kid"]:
                 key = k
         if not key:
-            msg = f"Issuer {issuer.url} has no kid {key_id}"
+            msg = f"Issuer {issuer_url} has no kid {key_id}"
             raise UnknownKeyIdException(msg)
         if key["alg"] != ALGORITHM:
             msg = (
-                f"Issuer {issuer.url} kid {key_id} had algorithm"
+                f"Issuer {issuer_url} kid {key_id} had algorithm"
                 f" {key['alg']} not {ALGORITHM}"
             )
             raise UnknownAlgorithmException(msg)
@@ -296,13 +304,13 @@ class TokenVerifier:
             encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo,
         )
 
-    async def _get_keys(self, issuer: Issuer) -> List[Dict[str, str]]:
+    async def _get_keys(self, issuer_url: str) -> List[Dict[str, str]]:
         """Fetch the key set for an issuer.
 
         Parameters
         ----------
-        url : `str`
-            URL to fetch.
+        issuer_url : `str`
+            URL of the issuer.
 
         Returns
         -------
@@ -314,9 +322,9 @@ class TokenVerifier:
         FetchKeysException
             On failure to retrieve a set of keys from the issuer.
         """
-        url = await self._get_jwks_uri(issuer)
+        url = await self._get_jwks_uri(issuer_url)
         if not url:
-            url = urljoin(issuer.url, ".well-known/jwks.json")
+            url = urljoin(issuer_url, ".well-known/jwks.json")
 
         r = await self._session.get(url)
         if r.status != 200:
@@ -330,7 +338,7 @@ class TokenVerifier:
 
         return body["keys"]
 
-    async def _get_jwks_uri(self, issuer: Issuer) -> Optional[str]:
+    async def _get_jwks_uri(self, issuer_url: str) -> Optional[str]:
         """Retrieve the JWKS URI for a given issuer.
 
         Ask for the OpenID Connect metadata and determine the JWKS URI from
@@ -338,12 +346,12 @@ class TokenVerifier:
 
         Parameters
         ----------
-        issuer : `jwt_authorizer.config.Issuer`
-            JWT issuer whose URI to retrieve.
+        issuer_url : `str`
+            URL of the issuer.
 
         Returns
         -------
-        url : `str`, optional
+        url : `str` or `None`
             URI for the JWKS of that issuer, or None if the OpenID Connect
             metadata is not present.
 
@@ -353,14 +361,14 @@ class TokenVerifier:
             If the OpenID Connect metadata doesn't contain the expected
             parameter.
         """
-        url = urljoin(issuer.url, ".well-known/openid-configuration")
+        url = urljoin(issuer_url, ".well-known/openid-configuration")
         r = await self._session.get(url)
         if r.status != 200:
             return None
 
         body = await r.json()
         if "jwks_uri" not in body:
-            msg = f"No jwks_uri property in OIDC metadata for {issuer.url}"
+            msg = f"No jwks_uri property in OIDC metadata for {issuer_url}"
             raise FetchKeysException(msg)
 
         return body["jwks_uri"]

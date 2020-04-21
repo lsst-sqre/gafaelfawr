@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from tests.support.app import create_test_app
+from tests.setup import SetupTest
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -13,13 +13,13 @@ if TYPE_CHECKING:
 
 async def test_get_index(tmp_path: Path, aiohttp_client: TestClient) -> None:
     """Test GET /"""
-    app = await create_test_app(tmp_path)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
 
     response = await client.get("/")
     assert response.status == 200
     data = await response.json()
-    assert data["name"] == app["safir/config"].name
+    assert data["name"] == setup.app["safir/config"].name
     assert isinstance(data["version"], str)
     assert isinstance(data["description"], str)
     assert isinstance(data["repository_url"], str)

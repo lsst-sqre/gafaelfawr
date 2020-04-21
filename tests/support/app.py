@@ -1,4 +1,4 @@
-"""Create objects used for testing."""
+"""Create and configure the test aiohttp application."""
 
 from __future__ import annotations
 
@@ -11,20 +11,15 @@ from cryptography.fernet import Fernet
 
 from jwt_authorizer.app import create_app
 from jwt_authorizer.keypair import RSAKeyPair
-from tests.support.config import ConfigForTests
 from tests.support.http_session import MockClientSession
 
 if TYPE_CHECKING:
     from aiohttp import web
-    from jwt_authorizer.config import Config
-    from jwt_authorizer.factory import ComponentFactory
     from pathlib import Path
     from typing import Any
 
 __all__ = [
     "create_test_app",
-    "get_test_config",
-    "get_test_factory",
     "store_secret",
 ]
 
@@ -63,36 +58,16 @@ async def create_test_app(tmp_path: Path, **kwargs: Any) -> web.Application:
     key_file = store_secret(tmp_path, "session-key", key_b64)
     kwargs["OAUTH2_STORE_SESSION.OAUTH2_PROXY_SECRET_FILE"] = str(key_file)
 
-    test_config = ConfigForTests(
-        keypair=keypair,
-        session_key=key,
-        internal_issuer_url="https://test.example.com/",
-        upstream_issuer_url="https://upstream.example.com/",
-    )
-
     redis_pool = await mockaioredis.create_redis_pool("")
     kwargs["REDIS_URL"] = "dummy"
 
+    http_session = MockClientSession()
     app = await create_app(
         redis_pool=redis_pool,
-        http_session=MockClientSession(test_config),
+        http_session=http_session,
         FORCE_ENV_FOR_DYNACONF="testing",
         **kwargs,
     )
-    app["jwt_authorizer/test_config"] = test_config
-
-    app_config: Config = app["jwt_authorizer/config"]
-    test_config.github = app_config.github
-    test_config.oidc = app_config.oidc
+    http_session.set_config(app["jwt_authorizer/config"])
 
     return app
-
-
-def get_test_config(app: web.Application) -> ConfigForTests:
-    """Return the test configuration for a test application."""
-    return app["jwt_authorizer/test_config"]
-
-
-def get_test_factory(app: web.Application) -> ComponentFactory:
-    """Return the component factory for a test application."""
-    return app["jwt_authorizer/factory"]

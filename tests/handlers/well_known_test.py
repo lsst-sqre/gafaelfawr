@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.util import number_to_base64
-from tests.support.app import create_test_app, get_test_config
+from tests.setup import SetupTest
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -14,15 +14,14 @@ if TYPE_CHECKING:
 
 
 async def test_well_known(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    keypair = test_config.keypair
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
 
     r = await client.get("/.well-known/jwks.json")
     assert r.status == 200
     result = await r.json()
 
+    keypair = setup.config.issuer.keypair
     assert result == {
         "keys": [
             {

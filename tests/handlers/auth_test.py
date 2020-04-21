@@ -10,8 +10,7 @@ from unittest.mock import ANY
 import jwt
 
 from jwt_authorizer.constants import ALGORITHM
-from tests.support.app import create_test_app, get_test_config
-from tests.support.tokens import create_test_token
+from tests.setup import SetupTest
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -28,8 +27,8 @@ def assert_www_authenticate_header_matches(header: str, error: str) -> None:
 
 
 async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    app = await create_test_app(tmp_path)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
 
     r = await client.get("/auth", params={"capability": "exec:admin"})
     assert r.status == 401
@@ -64,10 +63,9 @@ async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
 async def test_access_denied(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(test_config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token()
 
     r = await client.get(
         "/auth",
@@ -83,10 +81,9 @@ async def test_access_denied(
 
 
 async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(test_config, scope="exec:test")
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token(scope="exec:test")
 
     r = await client.get(
         "/auth",
@@ -104,12 +101,9 @@ async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
 
 async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(
-        test_config, groups=["admin"], scope="exec:admin read:all"
-    )
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
     r = await client.get(
         "/auth",
@@ -134,10 +128,9 @@ async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
     with only ``exec:test``.  Ensure they are accepted but also the headers
     don't claim the client has ``exec:admin``.
     """
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(test_config, groups=["test"], scope="exec:test")
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token(groups=["test"], scope="exec:test")
 
     r = await client.get(
         "/auth",
@@ -158,10 +151,9 @@ async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
 
 async def test_forwarded(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(test_config, scope="exec:admin")
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token(groups=["test"], scope="exec:admin")
 
     # Check that the bogus basic auth parameter is ignored.
     r = await client.get(
@@ -188,10 +180,9 @@ async def test_forwarded(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
 
 async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(test_config, scope="exec:admin")
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token(groups=["test"], scope="exec:admin")
 
     basic = f"{token.encoded}:x-oauth-basic".encode()
     basic_b64 = base64.b64encode(basic).decode()
@@ -230,12 +221,9 @@ async def test_reissue_internal(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
     """Test requesting token reissuance to an internal audience."""
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    client = await aiohttp_client(app)
-    token = create_test_token(
-        test_config, groups=["admin"], scope="exec:admin"
-    )
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token(groups=["admin"], scope="exec:admin")
 
     r = await client.get(
         "/auth",
@@ -252,39 +240,37 @@ async def test_reissue_internal(
     assert jwt.get_unverified_header(new_encoded_token) == {
         "alg": ALGORITHM,
         "typ": "JWT",
-        "kid": "some-kid",
+        "kid": setup.config.issuer.kid,
     }
 
     decoded_token = jwt.decode(
         new_encoded_token,
-        test_config.keypair.public_key_as_pem(),
+        setup.config.issuer.keypair.public_key_as_pem(),
         algorithms=ALGORITHM,
-        audience="https://example.com/api",
+        audience=setup.config.issuer.aud_internal,
     )
     assert decoded_token == {
         "act": {
-            "aud": "https://example.com/",
-            "iss": "https://test.example.com/",
-            "jti": "some-unique-id",
+            "aud": setup.config.issuer.aud,
+            "iss": setup.config.issuer.iss,
+            "jti": token.jti,
         },
-        "aud": "https://example.com/api",
-        "email": "some-user@example.com",
+        "aud": setup.config.issuer.aud_internal,
+        "email": token.email,
         "exp": ANY,
         "iat": ANY,
         "isMemberOf": [{"name": "admin"}],
-        "iss": "https://test.example.com/",
+        "iss": setup.config.issuer.iss,
         "jti": ANY,
         "scope": "exec:admin read:all",
-        "sub": "some-user",
-        "uid": "some-user",
-        "uidNumber": "1000",
+        "sub": token.claims["sub"],
+        "uid": token.username,
+        "uidNumber": token.uid,
     }
     now = time.time()
-    exp_minutes = app["jwt_authorizer/config"].issuer.exp_minutes
-    expected_exp = now + exp_minutes * 60
+    expected_exp = now + setup.config.issuer.exp_minutes * 60
     assert expected_exp - 5 <= decoded_token["exp"] <= expected_exp + 5
     assert now - 5 <= decoded_token["iat"] <= now + 5
 
     # No session should be created for internal tokens.
-    redis_client = app["jwt_authorizer/redis"]
-    assert not await redis_client.get(f"session:{decoded_token['jti']}")
+    assert not await setup.redis.get(f"session:{decoded_token['jti']}")

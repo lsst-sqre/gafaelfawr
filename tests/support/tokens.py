@@ -8,18 +8,17 @@ from typing import TYPE_CHECKING
 import jwt
 
 from jwt_authorizer.constants import ALGORITHM
-from jwt_authorizer.session import SessionHandle
 from jwt_authorizer.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from tests.support.config import ConfigForTests
+    from jwt_authorizer.config import Config
     from typing import Any, Dict, List, Optional
 
-__all__ = ["create_test_token", "create_upstream_test_token"]
+__all__ = ["create_oidc_test_token", "create_test_token"]
 
 
 def create_test_token(
-    config: ConfigForTests,
+    config: Config,
     *,
     groups: Optional[List[str]] = None,
     kid: str = "some-kid",
@@ -32,8 +31,8 @@ def create_test_token(
 
     Parameters
     ----------
-    config : `tests.support.config.ConfigForTests`
-        The test configuration.
+    config : `jwt_authorizer.config.Config`
+        The configuration.
     groups : List[`str`], optional
         Group memberships the generated token should have.
     kid : str, optional
@@ -53,7 +52,7 @@ def create_test_token(
         "email": "some-user@example.com",
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
-        "iss": config.internal_issuer_url,
+        "iss": config.issuer.iss,
         "jti": "some-unique-id",
         "sub": "some-user",
         "uid": "some-user",
@@ -65,7 +64,7 @@ def create_test_token(
 
     encoded = jwt.encode(
         payload,
-        config.keypair.private_key_as_pem(),
+        config.issuer.keypair.private_key_as_pem(),
         algorithm=ALGORITHM,
         headers={"kid": kid},
     ).decode()
@@ -81,21 +80,18 @@ def create_test_token(
     )
 
 
-def create_upstream_test_token(
-    config: ConfigForTests,
-    *,
-    groups: Optional[List[str]] = None,
-    **claims: str,
+def create_oidc_test_token(
+    config: Config, *, groups: Optional[List[str]] = None, **claims: str,
 ) -> VerifiedToken:
-    """Create a signed token using the upstream issuer.
+    """Create a signed token using the OpenID Connect issuer.
 
-    This will match the issuer and audience of the upstream issuer for an
-    OpenID Connect authentication, so JWT Authorizer will reissue it.
+    This will match the issuer and audience of the issuer for an OpenID
+    Connect authentication.
 
     Parameters
     ----------
-    config : `tests.support.config.ConfigForTests`
-        The test configuration.
+    config : `jwt_authorizer.config.Config`
+        The configuration.
     groups : List[`str`], optional
         Group memberships the generated token should have.
     **claims : `str`, optional
@@ -106,11 +102,10 @@ def create_upstream_test_token(
     token : `jwt_authorizer.tokens.VerifiedToken`
         The new token.
     """
-    handle = SessionHandle()
     payload = {
         "aud": "https://test.example.com/",
         "iss": "https://upstream.example.com/",
-        "jti": handle.key,
+        "jti": "some-upstream-id",
     }
     payload.update(claims)
     return create_test_token(config, groups=groups, kid="orig-kid", **payload)

@@ -6,12 +6,7 @@ import re
 from typing import TYPE_CHECKING
 
 from jwt_authorizer.session import Session, SessionHandle
-from tests.support.app import (
-    create_test_app,
-    get_test_config,
-    get_test_factory,
-)
-from tests.support.tokens import create_test_token
+from tests.setup import SetupTest
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -21,8 +16,8 @@ if TYPE_CHECKING:
 async def test_tokens_no_auth(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
 
     r = await client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": "foo"}
@@ -34,10 +29,9 @@ async def test_tokens_no_auth(
 async def test_tokens_empty_list(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(test_config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token()
 
     r = await client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
@@ -48,21 +42,16 @@ async def test_tokens_empty_list(
 
 
 async def test_tokens(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    test_factory = get_test_factory(app)
-    token = create_test_token(test_config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token()
 
-    redis_client = app["jwt_authorizer/redis"]
     handle = SessionHandle()
-    scoped_token = create_test_token(
-        test_config, scope="exec:test", jti=handle.encode()
-    )
+    scoped_token = setup.create_token(scope="exec:test", jti=handle.encode())
     session = Session.create(handle, scoped_token)
-    token_store = test_factory.create_token_store()
-    pipeline = redis_client.pipeline()
-    token_store.store_session(token.claims["uidNumber"], session, pipeline)
+    token_store = setup.factory.create_token_store()
+    pipeline = setup.redis.pipeline()
+    token_store.store_session(token.uid, session, pipeline)
     await pipeline.execute()
 
     r = await client.get(
@@ -77,8 +66,8 @@ async def test_tokens(tmp_path: Path, aiohttp_client: TestClient) -> None:
 async def test_tokens_handle_no_auth(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
 
     r = await client.get(
         "/auth/tokens/blah", headers={"X-Auth-Request-Token": "foo"}
@@ -90,24 +79,19 @@ async def test_tokens_handle_no_auth(
 async def test_tokens_handle_get_delete(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    test_factory = get_test_factory(app)
-    token = create_test_token(test_config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token()
 
     handle = SessionHandle()
-    scoped_token = create_test_token(
-        test_config, scope="exec:test", jti=handle.encode()
-    )
+    scoped_token = setup.create_token(scope="exec:test", jti=handle.encode())
     session = Session.create(handle, scoped_token)
 
-    redis_client = app["jwt_authorizer/redis"]
-    session_store = test_factory.create_session_store()
-    token_store = test_factory.create_token_store()
-    pipeline = redis_client.pipeline()
+    session_store = setup.factory.create_session_store()
+    token_store = setup.factory.create_token_store()
+    pipeline = setup.redis.pipeline()
     await session_store.store_session(session, pipeline)
-    token_store.store_session(token.claims["uidNumber"], session, pipeline)
+    token_store.store_session(token.uid, session, pipeline)
     await pipeline.execute()
 
     r = await client.get(
@@ -158,8 +142,8 @@ async def test_tokens_handle_get_delete(
 async def test_tokens_new_no_auth(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
 
     r = await client.get(
         "/auth/tokens/new", headers={"X-Auth-Request-Token": "foo"}
@@ -171,10 +155,9 @@ async def test_tokens_new_no_auth(
 async def test_tokens_new_form(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(test_config, groups=["admin"])
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
     r = await client.get(
         "/auth/tokens/new", headers={"X-Auth-Request-Token": token.encoded}
@@ -190,11 +173,9 @@ async def test_tokens_new_form(
 async def test_tokens_new_create(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    test_factory = get_test_factory(app)
-    token = create_test_token(test_config, groups=["admin"])
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
     r = await client.get(
         "/auth/tokens/new", headers={"X-Auth-Request-Token": token.encoded}
@@ -235,9 +216,8 @@ async def test_tokens_new_create(
     encoded_handle = match.group(1)
     handle = SessionHandle.from_str(encoded_handle)
 
-    test_factory = get_test_factory(app)
-    token_store = test_factory.create_token_store()
-    tokens = await token_store.get_tokens(token.claims["uidNumber"])
+    token_store = setup.factory.create_token_store()
+    tokens = await token_store.get_tokens(token.uid)
     assert len(tokens) == 1
     assert tokens[0].key == handle.key
     assert tokens[0].scope == "read:all"
@@ -246,9 +226,9 @@ async def test_tokens_new_create(
     # The new token should also appear on the list we were redirected to.
     assert tokens[0].key in body
 
-    session_store = test_factory.create_session_store()
+    session_store = setup.factory.create_session_store()
     ticket = SessionHandle.from_str(encoded_handle)
     session = await session_store.get_session(ticket)
     assert session
-    assert session.email == "some-user@example.com"
+    assert session.email == token.email
     assert int(session.token.claims["exp"]) == tokens[0].expires

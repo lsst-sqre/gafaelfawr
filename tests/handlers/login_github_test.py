@@ -8,7 +8,8 @@ from urllib.parse import parse_qs, urlparse
 
 from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.providers.github import GitHubProvider
-from tests.support.app import create_test_app, store_secret
+from tests.setup import SetupTest
+from tests.support.app import store_secret
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -21,8 +22,8 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
         "GITHUB.CLIENT_ID": "some-client-id",
         "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
     }
-    app = await create_test_app(tmp_path, **config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
     r = await client.get(
@@ -79,7 +80,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
         "token": {
             "header": {"alg": ALGORITHM, "typ": "JWT", "kid": "some-kid"},
             "data": {
-                "aud": "https://example.com/",
+                "aud": setup.config.issuer.aud,
                 "email": "githubuser@example.com",
                 "exp": ANY,
                 "iat": ANY,
@@ -88,7 +89,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
                     {"name": "org-other-team", "id": 1001},
                     {"name": "other-org-team-with-very--F279yg", "id": 1002},
                 ],
-                "iss": "https://test.example.com/",
+                "iss": setup.config.issuer.iss,
                 "jti": ANY,
                 "name": "GitHub User",
                 "scope": "read:all",
@@ -110,8 +111,8 @@ async def test_login_redirect_header(
         "GITHUB.CLIENT_ID": "some-client-id",
         "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
     }
-    app = await create_test_app(tmp_path, **config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
     r = await client.get(
@@ -143,8 +144,8 @@ async def test_login_no_destination(
         "GITHUB.CLIENT_ID": "some-client-id",
         "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
     }
-    app = await create_test_app(tmp_path, **config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
     r = await client.get("/login", allow_redirects=False)
@@ -167,8 +168,8 @@ async def test_cookie_auth_with_token(
         "GITHUB.CLIENT_ID": "some-client-id",
         "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
     }
-    app = await create_test_app(tmp_path, **config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
     r = await client.get(

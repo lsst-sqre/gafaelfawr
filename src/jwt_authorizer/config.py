@@ -12,13 +12,12 @@ from dynaconf import LazySettings
 from jwt_authorizer.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional, Tuple
+    from typing import Dict, List, Optional
 
 __all__ = [
     "Config",
     "Configuration",
     "GitHubConfig",
-    "Issuer",
     "IssuerConfig",
     "OIDCConfig",
 ]
@@ -102,19 +101,14 @@ class OIDCConfig:
     specified.
     """
 
+    issuer: str
+    """Expected issuer of the ID token."""
 
-@dataclass(eq=True, frozen=True)
-class Issuer:
-    """Metadata about a token issuer for validation."""
+    audience: str
+    """Expected audience of the ID token."""
 
-    url: str
-    """URL identifying the issuer (matches iss field in tokens)."""
-
-    audience: Tuple[str, ...]
-    """Expected audience for this issuer."""
-
-    key_ids: Tuple[str, ...]
-    """List of valid key IDs this issuer uses."""
+    key_ids: List[str]
+    """List of acceptable kids that may be used to sign the ID token."""
 
 
 @dataclass
@@ -181,9 +175,6 @@ class Config:
     memberships indicated in that token.
     """
 
-    issuers: Dict[str, Issuer]
-    """Known iss (issuer) values and their metadata."""
-
     @classmethod
     def from_dynaconf(cls, settings: LazySettings) -> Config:
         """Construction a Config object from Dynaconf settings.
@@ -237,27 +228,12 @@ class Config:
                 redirect_url=settings["OIDC.REDIRECT_URL"],
                 token_url=settings["OIDC.TOKEN_URL"],
                 scopes=settings.get("OIDC.SCOPES", []),
+                issuer=settings["OIDC.ISSUER"],
+                audience=settings["OIDC.AUDIENCE"],
+                key_ids=settings.get("OIDC.KEY_IDS", []),
             )
 
         known_capabilities = settings.get("KNOWN_CAPABILITIES", {})
-
-        issuers = {}
-        if settings.get("ISSUERS"):
-            for url, info in settings["ISSUERS"].items():
-                audience_setting = info["AUDIENCE"]
-                # Support either str or list values, turning both into tuples
-                # so that the Issuer class is hashable.  This will be cleaned
-                # up when configuration handling is redone.
-                if isinstance(audience_setting, str):
-                    audience: Tuple[str, ...] = (audience_setting,)
-                else:
-                    audience = tuple(audience_setting)
-                issuer = Issuer(
-                    url=url,
-                    audience=audience,
-                    key_ids=tuple(info["ISSUER_KEY_IDS"]),
-                )
-                issuers[url] = issuer
 
         group_mapping = {}
         if settings.get("GROUP_MAPPING"):
@@ -278,7 +254,6 @@ class Config:
             redis_url=settings["REDIS_URL"],
             known_capabilities=known_capabilities,
             group_mapping=group_mapping,
-            issuers=issuers,
         )
 
     def log_settings(self, logger: logging.Logger) -> None:
@@ -306,16 +281,6 @@ class Config:
             )
 
         logger.info("Configured Redis pool from URL %s", self.redis_url)
-
-        for issuer in self.issuers.values():
-            logger.info(
-                "Configured token access for %s (audience: %s, key_ids: %s)",
-                issuer.url,
-                issuer.audience,
-                ", ".join(issuer.key_ids),
-            )
-        if not self.issuers:
-            logger.warning("No issuers configured")
 
     @staticmethod
     def _load_secret(path: str) -> bytes:

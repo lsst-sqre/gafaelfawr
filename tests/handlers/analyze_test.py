@@ -11,12 +11,7 @@ import jwt
 
 from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.session import Session, SessionHandle
-from tests.support.app import (
-    create_test_app,
-    get_test_config,
-    get_test_factory,
-)
-from tests.support.tokens import create_test_token
+from tests.setup import SetupTest
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -26,18 +21,16 @@ if TYPE_CHECKING:
 async def test_analyze_ticket(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    test_factory = get_test_factory(app)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
 
     handle = SessionHandle()
-    token = create_test_token(test_config, groups=["admin"], jti=handle.key)
+    token = setup.create_token(groups=["admin"], jti=handle.key)
     session = Session.create(handle, token)
-    session_store = test_factory.create_session_store()
+    session_store = setup.factory.create_session_store()
     await session_store.store_session(session)
 
-    r = await client.post("/auth/analyze", data={"token": handle.encode()},)
+    r = await client.post("/auth/analyze", data={"token": handle.encode()})
 
     # Check that the results from /analyze include the handle, the session,
     # and the token information.
@@ -46,24 +39,17 @@ async def test_analyze_ticket(
     assert analysis == {
         "handle": {"key": handle.key, "secret": handle.secret},
         "session": {
-            "email": "some-user@example.com",
+            "email": token.email,
             "created_at": ANY,
             "expires_on": ANY,
         },
         "token": {
-            "header": {"alg": ALGORITHM, "typ": "JWT", "kid": "some-kid"},
-            "data": {
-                "aud": "https://example.com/",
-                "email": "some-user@example.com",
-                "exp": ANY,
-                "iat": ANY,
-                "isMemberOf": [{"name": "admin"}],
-                "iss": "https://test.example.com/",
-                "jti": handle.key,
-                "sub": "some-user",
-                "uid": "some-user",
-                "uidNumber": "1000",
+            "header": {
+                "alg": ALGORITHM,
+                "typ": "JWT",
+                "kid": setup.config.issuer.kid,
             },
+            "data": token.claims,
             "valid": True,
         },
     }
@@ -82,10 +68,9 @@ async def test_analyze_ticket(
 async def test_analyze_token(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    app = await create_test_app(tmp_path)
-    test_config = get_test_config(app)
-    token = create_test_token(test_config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    token = setup.create_token()
 
     r = await client.post("/auth/analyze", data={"token": token.encoded})
     assert r.status == 200

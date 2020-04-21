@@ -7,7 +7,8 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from jwt_authorizer.constants import ALGORITHM
-from tests.support.app import create_test_app, store_secret
+from tests.setup import SetupTest
+from tests.support.app import store_secret
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -24,9 +25,13 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
         "OIDC.REDIRECT_URL": "https://example.com/login",
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
+        "OIDC.ISSUER": "https://upstream.example.com/",
+        "OIDC.AUDIENCE": "https://test.example.com/",
+        "OIDC.KEY_IDS": ["orig-kid"],
     }
-    app = await create_test_app(tmp_path, **config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
+    assert setup.config.oidc
 
     # Simulate the initial authentication request.
     r = await client.get(
@@ -35,17 +40,18 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
         allow_redirects=False,
     )
     assert r.status == 303
-    assert r.headers["Location"].startswith("https://example.com/oidc/login")
+    assert r.headers["Location"].startswith(setup.config.oidc.login_url)
     url = urlparse(r.headers["Location"])
     assert url.query
     query = parse_qs(url.query)
+    login_params = {p: [v] for p, v in setup.config.oidc.login_params.items()}
     assert query == {
         "client_id": ["some-client-id"],
-        "redirect_uri": ["https://example.com/login"],
+        "redirect_uri": [setup.config.oidc.redirect_url],
         "response_type": ["code"],
-        "scope": ["openid email voPerson"],
-        "skin": ["test"],
+        "scope": ["openid " + " ".join(setup.config.oidc.scopes)],
         "state": [ANY],
+        **login_params,
     }
 
     # Simulate the return from the provider.
@@ -82,19 +88,23 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
             "expires_on": ANY,
         },
         "token": {
-            "header": {"alg": ALGORITHM, "typ": "JWT", "kid": "some-kid"},
+            "header": {
+                "alg": ALGORITHM,
+                "typ": "JWT",
+                "kid": setup.config.issuer.kid,
+            },
             "data": {
                 "act": {
-                    "aud": "https://test.example.com/",
-                    "iss": "https://upstream.example.com/",
+                    "aud": setup.config.oidc.audience,
+                    "iss": setup.config.oidc.issuer,
                     "jti": ANY,
                 },
-                "aud": "https://example.com/",
+                "aud": setup.config.issuer.aud,
                 "email": "some-user@example.com",
                 "exp": ANY,
                 "iat": ANY,
                 "isMemberOf": [{"name": "admin"}],
-                "iss": "https://test.example.com/",
+                "iss": setup.config.issuer.iss,
                 "jti": ANY,
                 "scope": "exec:admin read:all",
                 "sub": "some-user",
@@ -119,9 +129,12 @@ async def test_login_redirect_header(
         "OIDC.REDIRECT_URL": "https://example.com/login",
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
+        "OIDC.ISSUER": "https://upstream.example.com/",
+        "OIDC.AUDIENCE": "https://test.example.com/",
+        "OIDC.KEY_IDS": ["orig-kid"],
     }
-    app = await create_test_app(tmp_path, **config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
     r = await client.get(
@@ -158,9 +171,12 @@ async def test_oauth2_callback(
         "OIDC.REDIRECT_URL": "https://example.com/oauth2/sign_in",
         "OIDC.TOKEN_URL": "https://example.com/token",
         "OIDC.SCOPES": ["email", "voPerson"],
+        "OIDC.ISSUER": "https://upstream.example.com/",
+        "OIDC.AUDIENCE": "https://test.example.com/",
+        "OIDC.KEY_IDS": ["orig-kid"],
     }
-    app = await create_test_app(tmp_path, **config)
-    client = await aiohttp_client(app)
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
     r = await client.get(

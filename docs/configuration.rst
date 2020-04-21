@@ -87,6 +87,18 @@ Secrets beginning or ending in whitespace are not supported.
     ``scopes`` (optional)
         Scopes to request from the OpenID Connect provider.  The ``openid`` scope will be added automatically and does not need to be specified.
 
+    ``issuer`` (required)
+        The ``iss`` claim value for JWTs signed by the OpenID Connect provider.
+        Must support either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
+
+    ``audience`` (required)
+        The ``aud`` claim value for JWTs signed by the OpenID Connect provider.
+
+    ``key_ids`` (optional)
+        Supported ``kid`` values for this issuer.
+        If given, only JWTs signed by one of the ``kid`` values listed in this configuration key will be verified and all others will be rejected.
+        If omitted, any ``kid`` value matching a key that can be retrieved from the OpenID Connect provider's JWKS URL will be accepted.
+
 ``oauth2_jwt`` (required)
     Configure the JWT issuer.
 
@@ -120,16 +132,6 @@ Secrets beginning or ending in whitespace are not supported.
     Must contain a key matching the ``iss`` claim for all supported JWT issuers, including one for the JWT issuer configured with ``oauth2_jwt``.
     The key must also be a URL that supports either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
     The following subkeys must be set.
-
-    ``audience`` (required)
-        The ``aud`` claim value for JWTs signed with this issuer.
-        May either be a single value or a list of possible values.
-        For the issuer entry for the JWT issuer configured with ``oauth2_jwt``, list both the default and internal ``aud`` claims.
-
-    ``issuer_key_ids`` (required)
-        Supported ``kid`` values for this issuer.
-        Only JWTs signed by one of the ``kid`` values listed in this configuration key can be verified.
-        All others will be rejected.
 
 ``group_mapping`` (optional)
     A dict whose keys are names of scopes and whose values are lists of names of groups (as found in the ``name`` attribute of the values of an ``isMemberOf`` claim in a JWT).

@@ -13,10 +13,10 @@ from aiohttp import ClientResponse, ClientSession
 from jwt_authorizer.constants import ALGORITHM
 from jwt_authorizer.providers.github import GitHubProvider
 from jwt_authorizer.util import number_to_base64
-from tests.support.tokens import create_upstream_test_token
+from tests.support.tokens import create_oidc_test_token
 
 if TYPE_CHECKING:
-    from tests.support.config import ConfigForTests
+    from jwt_authorizer.config import Config
     from typing import Any, Dict, List, Optional
 
 __all__ = ["MockClientSession"]
@@ -34,8 +34,20 @@ class MockClientSession(Mock):
         Test configuration used to determine the mocked responses.
     """
 
-    def __init__(self, config: ConfigForTests) -> None:
+    def __init__(self) -> None:
         super().__init__(spec=ClientSession)
+        self.config: Optional[Config] = None
+
+    def set_config(self, config: Config) -> None:
+        """Set the configuration, used to synthesize responses.
+
+        This must be called before the session is used.
+
+        Parameters
+        ----------
+        config : `jwt_authorizer.config.Config`
+            The application configuration.
+        """
         self.config = config
 
     async def get(
@@ -109,6 +121,7 @@ class MockClientSession(Mock):
         response : `aiohttp.ClientResponse`
             The mocked response, which implements status and json().
         """
+        assert self.config
         assert headers == {"Accept": "application/json"}
         assert raise_for_status
         if url == GitHubProvider._TOKEN_URL:
@@ -140,7 +153,8 @@ class MockClientSession(Mock):
 
     def _build_keys(self, kid: str) -> Dict[str, Any]:
         """Generate the JSON-encoded keys structure for a keypair."""
-        public_numbers = self.config.keypair.public_numbers()
+        assert self.config
+        public_numbers = self.config.issuer.keypair.public_numbers()
         e = number_to_base64(public_numbers.e).decode()
         n = number_to_base64(public_numbers.n).decode()
         return {"keys": [{"alg": ALGORITHM, "e": e, "n": n, "kid": kid}]}
@@ -194,7 +208,7 @@ class MockClientSession(Mock):
             The well-known URL to the OpenID Connect configuration for that
             issuer.
         """
-        base_url = self.config.upstream_issuer_url
+        base_url = "https://upstream.example.com/"
         return urljoin(base_url, "/.well-known/openid-configuration")
 
     def _github_token_post(self, data: Dict[str, str]) -> Dict[str, str]:
@@ -203,6 +217,7 @@ class MockClientSession(Mock):
         Check the provided data against our expectations and return the
         contents of the reply.
         """
+        assert self.config
         assert self.config.github
         assert data == {
             "client_id": self.config.github.client_id,
@@ -222,6 +237,7 @@ class MockClientSession(Mock):
         Check the provided data against our expectations and return the
         contents of the reply.
         """
+        assert self.config
         assert self.config.oidc
         assert data == {
             "grant_type": "authorization_code",
@@ -230,7 +246,7 @@ class MockClientSession(Mock):
             "code": "some-code",
             "redirect_uri": self.config.oidc.redirect_url,
         }
-        token = create_upstream_test_token(self.config, groups=["admin"])
+        token = create_oidc_test_token(self.config, groups=["admin"])
         return {
             "id_token": token.encoded,
             "token_type": "Bearer",

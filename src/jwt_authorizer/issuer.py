@@ -75,8 +75,8 @@ class TokenIssuer:
         of this token will be based on the user's authentication token, but
         only selective claims will be copied over.
 
-        Paramters
-        ---------
+        Parameters
+        ----------
         token : `jwt_authorizer.tokens.VerifiedToken`
             The user's authentication token.
         scope : str
