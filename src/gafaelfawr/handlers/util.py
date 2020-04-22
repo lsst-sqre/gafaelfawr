@@ -120,14 +120,11 @@ async def get_token_from_request(request: web.Request) -> Optional[Token]:
     auth_type, auth_blob = header.split(" ")
     if auth_type.lower() == "bearer":
         return Token(encoded=auth_blob)
-    elif "x-forwarded-access-token" in request.headers:
-        return Token(encoded=request.headers["x-forwarded-access-token"])
-    elif "x-forwarded-ticket-id-token" in request.headers:
-        return Token(encoded=request.headers["x-forwarded-ticket-id-token"])
     elif auth_type.lower() == "basic":
         logger.debug("Using OAuth with Basic")
         return _find_token_in_basic_auth(auth_blob, logger)
     else:
+        logger.debug("Ignoring unknown Authorization type %s", auth_type)
         return None
 
 

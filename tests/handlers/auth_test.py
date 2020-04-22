@@ -150,35 +150,6 @@ async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Groups"] == "test"
 
 
-async def test_forwarded(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
-    token = setup.create_token(groups=["test"], scope="exec:admin")
-
-    # Check that the bogus basic auth parameter is ignored.
-    r = await client.get(
-        "/auth",
-        params={"scope": "exec:admin"},
-        headers={
-            "Authorization": "Basic blah",
-            "X-Forwarded-Access-Token": token.encoded,
-        },
-    )
-    assert r.status == 200
-    assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
-
-    r = await client.get(
-        "/auth",
-        params={"scope": "exec:admin"},
-        headers={
-            "Authorization": "Basic blah",
-            "X-Forwarded-Ticket-Id-Token": token.encoded,
-        },
-    )
-    assert r.status == 200
-    assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
-
-
 async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     setup = await SetupTest.create(tmp_path)
     client = await aiohttp_client(setup.app)
