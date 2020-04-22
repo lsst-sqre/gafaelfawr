@@ -51,6 +51,14 @@ Gafaelfawr supports the following routes:
         Used to prevent session fixation by ensuring that it matches state set in the user's session cookie.
         Only used when completing authentication.
 
+``/logout``
+    Logs out the user.
+    This route takes the following parameters.
+
+    ``rd``
+        The URL to which to send the user after logout.
+        If not set, the ``after_logout_url`` configuration setting is used.
+
 ``/oauth2/callback``
     Identical to the ``/login`` route.
     Provided for backwards compatibility with oauth2_proxy.

@@ -8,6 +8,7 @@ default:
 testing:
   dynaconf_merge: True
   realm: "testing"
+  after_logout_url: "https://example.com/landing"
   group_mapping:
     "exec:admin": ["admin"]
     "exec:test": ["test"]

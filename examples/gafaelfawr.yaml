@@ -17,6 +17,9 @@ default:
   # The URL of a Redis instance used for storing sessions.
   redis_url: "redis://redis.example.com:6379/0"
 
+  # Where to send the user after logging out.
+  after_logout_url: "https://example.com/"
+
   # Configuration for the internal issuer.  This controls the JWTs that
   # are generated internally by Gafaelfawr and passed to the protected
   # applications.

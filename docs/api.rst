@@ -27,6 +27,8 @@ API reference
 
 .. automodapi:: gafaelfawr.handlers.login
 
+.. automodapi:: gafaelfawr.handlers.logout
+
 .. automodapi:: gafaelfawr.handlers.tokens
 
 .. automodapi:: gafaelfawr.handlers.util

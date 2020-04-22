@@ -41,10 +41,15 @@ def authenticated(route: AuthenticatedRoute) -> Route:
         the incoming request headers, verified, and then passed as a second
         argument of type `gafaelfawr.tokens.VerifiedToken` to the route.
 
-    Response
-    --------
+    Returns
+    -------
     response : `typing.Callable`
         The decorator generator.
+
+    Raises
+    ------
+    aiohttp.web.HTTPException
+        If no token is present or the token cannot be verified.
     """
 
     @wraps(route)
@@ -86,7 +91,7 @@ async def get_token_from_request(
 
     Raises
     ------
-    aiohttp.web.HTTPForbidden
+    aiohttp.web.HTTPException
         A token was provided but it could not be verified.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
@@ -229,7 +234,7 @@ def verify_token(request: web.Request, encoded_token: str) -> VerifiedToken:
 
     Raises
     ------
-    aiohttp.web.HTTPForbidden
+    aiohttp.web.HTTPException
         If the token could not be verified.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]

@@ -52,7 +52,7 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
     "--settings",
     envvar="SETTINGS_PATH",
     type=str,
-    default="/etc/gafaelfawr/authorizer.yaml",
+    default="/etc/gafaelfawr/gafaelfawr.yaml",
     help="Application settings file.",
 )
 def run(port: int, settings: str) -> None:

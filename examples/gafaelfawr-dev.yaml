@@ -20,6 +20,9 @@ global:
   # level of the repository.
   redis_url: "redis://localhost:6379/0"
 
+  # Where to send the user after logging out.
+  after_logout_url: "http://localhost:8000"
+
   # Configuration for the JWTs issued by Gafaelfawr.
   issuer:
     iss: "http://localhost:8000"

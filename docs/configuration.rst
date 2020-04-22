@@ -4,12 +4,12 @@ Configuration settings
 
 Gafaelfawr uses `Dynaconf`_ for configuration, so configuration settings can be provided in a large number of ways.
 The recommended approach is to use a YAML file.
-By default, the file ``/etc/gafaelfawr/authorizer.yaml`` is loaded as configuration settings.
+By default, the file ``/etc/gafaelfawr/gafaelfawr.yaml`` is loaded as configuration settings.
 This path can be overridden via the ``--settings`` option to the ``gafaelfawr run`` command.
 
 .. _Dynaconf: https://dynaconf.readthedocs.io/en/latest/
 
-When configuring Gafaelfawr to run in Kubernetes, consider defining your settings as the value of a ``authorizer.yaml`` key in a config map, and then mounting that config map at ``/etc/gafaelfawr`` in the pod.
+When configuring Gafaelfawr to run in Kubernetes, consider defining your settings as the value of a ``gafaelfawr.yaml`` key in a config map, and then mounting that config map at ``/etc/gafaelfawr`` in the pod.
 
 See the `Dynaconf`_ documentation for more details, including how to override specific settings with environment variables.
 
@@ -39,11 +39,38 @@ Secrets beginning or ending in whitespace are not supported.
 ``redis_url`` (required)
     URL for a Redis instance that will be used to store authentication sessions and user-issued tokens.
 
-``username_claim`` (optional, default ``uid``)
-    The token claim to use as the authenticated user's username.
+``after_logout_url`` (required)
+    URL to which to send the user after logout via the ``/logout`` route, if no destination URL was specified with the ``rd`` parameter.
+    Normally this should be set to some top-level landing page for the protected applications.
 
-``uid_claim`` (optional, defualt ``uidNumber``)
-    The token claim to use as the authenticated user's UID.
+``issuer`` (required)
+    Configure the JWT issuer.
+
+    ``iss`` (required)
+        The value to use for the ``iss`` claim in issued JWTs.
+        Should support either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
+        Gafaelfawr will provide the ``/.well-known/jwks.json`` route internally.
+
+    ``key_id`` (required)
+        JWT ``kid`` to use when signing tokens.
+
+    ``aud`` (required)
+        Values for the ``aud`` claim in issued JWTs.
+        By convention these should be URLs.
+        Must have the following keys.
+
+        ``default`` (required)
+            The default ``aud`` claim.
+
+        ``internal`` (required)
+            The internal ``aud`` claim, used instead of ``default`` if the ``audience`` GET parameter to the ``/auth`` route is set and its value matches the value of this key.
+
+    ``key_file`` (required)
+        File containing the RSA private key (in PEM encoding) to use for signing JWTs.
+
+    ``exp_minutes`` (optional, default 1440)
+        The expiration period of newly-issued JWTs, in minutes.
+        The default is one day.
 
 ``github`` (optional)
     Configure GitHub authentication.
@@ -95,34 +122,9 @@ Secrets beginning or ending in whitespace are not supported.
         If given, only JWTs signed by one of the ``kid`` values listed in this configuration key will be verified and all others will be rejected.
         If omitted, any ``kid`` value matching a key that can be retrieved from the OpenID Connect provider's JWKS URL will be accepted.
 
-``issuer`` (required)
-    Configure the JWT issuer.
-
-    ``iss`` (required)
-        The value to use for the ``iss`` claim in issued JWTs.
-        Should support either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
-        Gafaelfawr will provide the ``/.well-known/jwks.json`` route internally.
-
-    ``key_id`` (required)
-        JWT ``kid`` to use when signing tokens.
-
-    ``aud`` (required)
-        Values for the ``aud`` claim in issued JWTs.
-        By convention these should be URLs.
-        Must have the following keys.
-
-        ``default`` (required)
-            The default ``aud`` claim.
-
-        ``internal`` (required)
-            The internal ``aud`` claim, used instead of ``default`` if the ``audience`` GET parameter to the ``/auth`` route is set and its value matches the value of this key.
-
-    ``key_file`` (required)
-        File containing the RSA private key (in PEM encoding) to use for signing JWTs.
-
-    ``exp_minutes`` (optional, default 1440)
-        The expiration period of newly-issued JWTs, in minutes.
-        The default is one day.
+``known_scopes`` (optional)
+    A dict whose keys are known scope names and whose values are human-language descriptions of that scope.
+    Used only to construct the web page where a user can create a new API token with a specific set of scopes.
 
 ``group_mapping`` (optional)
     A dict whose keys are names of scopes and whose values are lists of names of groups (as found in the ``name`` attribute of the values of an ``isMemberOf`` claim in a JWT).
@@ -149,9 +151,11 @@ Secrets beginning or ending in whitespace are not supported.
     If GitHub authentication is in use, a user's groups will be based on their GitHub team memberships.
     See :ref:`github-groups` for more information.
 
-``known_scopes`` (optional)
-    A dict whose keys are known scope names and whose values are human-language descriptions of that scope.
-    Used only to construct the web page where a user can create a new API token with a specific set of scopes.
+``username_claim`` (optional, default ``uid``)
+    The token claim to use as the authenticated user's username.
+
+``uid_claim`` (optional, defualt ``uidNumber``)
+    The token claim to use as the authenticated user's UID.
 
 Examples
 ========

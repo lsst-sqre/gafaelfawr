@@ -85,9 +85,9 @@ async def get_oauth2_callback(request: web.Request) -> web.Response:
 
 async def _login(request: web.Request) -> web.Response:
     """Internal implementation of get_login and get_oauth2_callback."""
-    logger: Logger = request["safir/logger"]
     config: Config = request.config_dict["gafaelfawr/config"]
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
+    logger: Logger = request["safir/logger"]
 
     if config.github:
         auth_provider: Provider = factory.create_github_provider(request)

@@ -155,26 +155,23 @@ class Config:
     loglevel: Optional[str]
     """Log level, chosen from the string levels supported by logging."""
 
-    username_claim: str
-    """Token claim from which to take the username."""
+    session_secret: str
+    """Secret used to encrypt the session cookie and session store."""
 
-    uid_claim: str
-    """Token claim from which to take the UID."""
+    redis_url: str
+    """URL for the Redis server that stores sessions."""
+
+    after_logout_url: str
+    """Default URL to which to send the user after logging out."""
+
+    issuer: IssuerConfig
+    """Configuration for internally-issued tokens."""
 
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
 
     oidc: Optional[OIDCConfig]
     """Configuration for OpenID Connect authentication."""
-
-    issuer: IssuerConfig
-    """Configuration for internally-issued tokens."""
-
-    session_secret: str
-    """Secret used to encrypt the session cookie and session store."""
-
-    redis_url: str
-    """URL for the Redis server that stores sessions."""
 
     known_scopes: Dict[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
@@ -185,6 +182,11 @@ class Config:
     Used to determine the scope for a reissued token based on the group
     memberships indicated in that token.
     """
+    username_claim: str
+    """Token claim from which to take the username."""
+
+    uid_claim: str
+    """Token claim from which to take the UID."""
 
     @classmethod
     def from_dynaconf(cls, settings: LazySettings) -> Config:
@@ -258,15 +260,16 @@ class Config:
         return cls(
             realm=settings["REALM"],
             loglevel=settings.get("LOGLEVEL", "INFO"),
-            username_claim=settings["USERNAME_CLAIM"],
-            uid_claim=settings["UID_CLAIM"],
-            github=github,
-            oidc=oidc,
-            issuer=issuer_config,
             session_secret=session_secret,
             redis_url=settings["REDIS_URL"],
+            after_logout_url=settings["AFTER_LOGOUT_URL"],
+            issuer=issuer_config,
+            github=github,
+            oidc=oidc,
             known_scopes=known_scopes,
             group_mapping=group_mapping,
+            username_claim=settings["USERNAME_CLAIM"],
+            uid_claim=settings["UID_CLAIM"],
         )
 
     def log_settings(self, logger: logging.Logger) -> None:

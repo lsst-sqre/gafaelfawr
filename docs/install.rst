@@ -94,7 +94,7 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
 
 ``host`` (required)
     The FQDN of the host under which Gafaelfawr is running.
-    The ``/auth``, ``/login``, ``/oauth2/callback``, and ``/.well-known/jwks.json`` routes will be claimed under this host by the Gafaelfawr ingress configuration.
+    The ``/auth``, ``/login``, ``/logout``, ``/oauth2/callback``, and ``/.well-known/jwks.json`` routes will be claimed under this host by the Gafaelfawr ingress configuration.
     This setting will be used to derive multiple other URLs, such as the issuer.
 
 ``ingress.host`` (optional)
