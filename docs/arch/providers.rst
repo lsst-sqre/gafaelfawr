@@ -1,6 +1,27 @@
-############
-Token issuer
-############
+########################
+Authentication providers
+########################
+
+Gafaelfawr supports two choices of authentication provider: GitHub and OpenID Connect.
+The authentication provider is chosen based on whether the ``github`` or ``oidc`` settings are present.
+See :ref:`settings` for more information.
+
+OpenID Connect
+==============
+
+When configured to use an OpenID Connect provider, Gafaelfawr obtains the ID token from the provider after authentication and then uses that token as the basis of a newly-issued token.
+All claims will be copied from the ID token with the exception of:
+
+- ``aud``, ``iss``, ``jti``, and ``act`` claims will be copied into a newly-created ``act`` claim and replaced with new values for the local issuer.
+- ``iss`` and ``exp`` claims will be replaced.
+  ``exp`` (expiration) will be set based on the issuer configuration settings.
+  The expiration of the token from the OpenID Connect provider will be ignored.
+- The ``scope`` claim will be dropped.
+  If ``isMemberOf`` is set, a new scope claim will be created based on the ``group_mapping`` configuration setting.
+  See :ref:`settings` for more details.
+
+Registration with the OpenID Connect provider must be done in advance, outside of Gafaelfawr.
+Refresh tokens are not used.
 
 GitHub
 ======

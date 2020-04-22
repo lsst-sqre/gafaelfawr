@@ -116,7 +116,7 @@ async def setup_middleware(app: Application, config: Config) -> None:
 
     # Set up encrypted session storage via a cookie.
     session_storage = EncryptedCookieStorage(
-        config.session_secret, cookie_name="jwts"
+        config.session_secret, cookie_name="gafaelfawr"
     )
     aiohttp_session.setup(app, session_storage)
 

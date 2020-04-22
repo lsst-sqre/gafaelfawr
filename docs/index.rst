@@ -27,7 +27,9 @@ Architecture
 .. toctree::
    :maxdepth: 1
 
-   arch/issuer
+   arch/flow
+   arch/providers
+   arch/session
 
 Development guide
 =================
