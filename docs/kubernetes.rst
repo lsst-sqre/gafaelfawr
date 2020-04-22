@@ -169,29 +169,33 @@ If the user authenticates and authorizes successfully, the request will be sent 
 Included in the request will be an ``X-Auth-Request-Token`` header containing the user's JWT.
 This will be a reissued token signed by Gafaelfawr.
 
+.. _auth-config:
+
 Configuring authentication
 --------------------------
 
 The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts several parameters to customize the authentication request.
 
-``scope``
+``scope`` (required)
     The scope claim that the client JWT must have.
     May be given multiple times.
-    The interpretation of multiple values is determined by the ``satisfy`` parameter.
+    If given multiple times, the meaning is govered by the ``satisfy`` parameter.
     Scopes are determined by mapping the group membership provided by the authentication provider, using the ``group_mapping`` configuration directive.
     See :ref:`settings` for more information.
 
-``satisfy``
-    May be set to ``any`` or ``all``.
-    Optional, defaults to ``all``.
-    If set to ``all``, the client must have a claim listing every scope specified in the ``scope`` parameters.
-    If set to ``any``, the client need only have one of the scopes specified in the ``scope`` parameters.
+``satisfy`` (optional)
+    How to interpret multiple ``scope`` parameters.
+    If set to ``all`` (or unset), the user's token must have all of the given scopes.
+    If set to ``any``, the user's token must have one of the given scopes.
 
-``audience``
-    May be set to the internal audience of Gafaelfawr to request a reissued token scoped to the internal audience.
-    In this case, the protected application will be sent a reissued token and will not have access to the user's original token.
+``audience`` (optional)
+    May be set to the value of the ``issuer.aud.internal`` configuration parameter, in which case a new token will be issued from the user's token with all the same claims but with that audience.
+    This newly-issued token will be returned in the ``X-Auth-Request-Token`` header instead of the user's regular token.
+    The intent of this feature is to send an audience-restricted version of a token to an internal service, which may use it to make subrequests to other internal services but should not be able to make requests to public-facing services.
 
 These parameters must be URL-encoded as GET parameters to the ``/auth`` route.
+
+.. _auth-headers:
 
 Additional authentication headers
 ---------------------------------

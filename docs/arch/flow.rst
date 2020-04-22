@@ -2,6 +2,8 @@
 Authentication flow
 ###################
 
+.. _browser-flow:
+
 Browser flow
 ============
 

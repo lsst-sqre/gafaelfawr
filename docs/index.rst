@@ -28,6 +28,7 @@ Architecture
    :maxdepth: 1
 
    arch/flow
+   arch/routes
    arch/providers
    arch/session
 
