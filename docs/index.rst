@@ -16,7 +16,7 @@ Installation
 .. toctree::
    :maxdepth: 1
 
-   kubernetes
+   install
    configuration
    glossary
    changelog

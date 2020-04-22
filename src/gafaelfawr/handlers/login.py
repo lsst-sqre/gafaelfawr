@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import os
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from aiohttp import ClientResponseError, web
 from aiohttp_session import get_session, new_session
@@ -125,17 +126,24 @@ async def _login(request: web.Request) -> web.Response:
         raise web.HTTPSeeOther(return_url)
     else:
         session = await get_session(request)
-        request_url = request.query.get("rd")
-        if not request_url:
-            request_url = request.headers.get("X-Auth-Request-Redirect")
-        if not request_url:
+        return_url = request.query.get("rd")
+        if not return_url:
+            return_url = request.headers.get("X-Auth-Request-Redirect")
+
+        if not return_url:
             msg = "No destination URL specified"
+            logger.warning(msg)
             raise web.HTTPBadRequest(reason=msg, text=msg)
+        if urlparse(return_url).hostname != request.url.raw_host:
+            msg = f"Redirect URL not at {request.host}"
+            logger.warning(msg)
+            raise web.HTTPBadRequest(reason=msg, text=msg)
+
         if "state" in session:
             state = session["state"]
         else:
             state = base64.urlsafe_b64encode(os.urandom(16)).decode()
             session["state"] = state
-        session["rd"] = request_url
+        session["rd"] = return_url
         redirect_url = auth_provider.get_redirect_url(state)
         raise web.HTTPSeeOther(redirect_url)

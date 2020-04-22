@@ -26,10 +26,9 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
+    return_url = f"https://{client.host}:4444/foo?a=bar&b=baz"
     r = await client.get(
-        "/login",
-        params={"rd": "https://example.com/foo?a=bar&b=baz"},
-        allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False,
     )
     assert r.status == 303
     url = urlparse(r.headers["Location"])
@@ -50,7 +49,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
         allow_redirects=False,
     )
     assert r.status == 303
-    assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
+    assert r.headers["Location"] == return_url
 
     # Check that the /auth route works and finds our token.
     r = await client.get("/auth", params={"scope": "read:all"})
@@ -116,11 +115,10 @@ async def test_login_redirect_header(
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
+    return_url = f"https://{client.host}/foo?a=bar&b=baz"
     r = await client.get(
         "/login",
-        headers={
-            "X-Auth-Request-Redirect": "https://example.com/foo?a=bar&b=baz"
-        },
+        headers={"X-Auth-Request-Redirect": return_url},
         allow_redirects=False,
     )
     assert r.status == 303
@@ -134,7 +132,7 @@ async def test_login_redirect_header(
         allow_redirects=False,
     )
     assert r.status == 303
-    assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
+    assert r.headers["Location"] == return_url
 
 
 async def test_login_no_destination(
@@ -175,9 +173,7 @@ async def test_cookie_auth_with_token(
     # Simulate the initial authentication request.
     r = await client.get(
         "/login",
-        headers={
-            "X-Auth-Request-Redirect": "https://example.com/foo?a=bar&b=baz"
-        },
+        params={"rd": f"https://{client.host}/foo"},
         allow_redirects=False,
     )
     assert r.status == 303
@@ -191,7 +187,7 @@ async def test_cookie_auth_with_token(
         allow_redirects=False,
     )
     assert r.status == 303
-    assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
+    assert r.headers["Location"] == f"https://{client.host}/foo"
 
     # Now make a request to the /auth endpoint with a bogus token.
     r = await client.get("/auth", params={"scope": "read:all"})
@@ -220,7 +216,7 @@ async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
     # Simulate the initial authentication request.
     r = await client.get(
         "/login",
-        headers={"X-Auth-Request-Redirect": "https://example.com/"},
+        headers={"X-Auth-Request-Redirect": f"https://{client.host}"},
         allow_redirects=False,
     )
     assert r.status == 303
@@ -250,3 +246,27 @@ async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert data["token"]["data"]["numeric-uid"] == "123456"
     assert "uid" not in data["token"]["data"]
     assert "uidNumber" not in data["token"]["data"]
+
+
+async def test_bad_redirect(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
+    config = {
+        "GITHUB.CLIENT_ID": "some-client-id",
+        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
+    }
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
+
+    r = await client.get(
+        "/login", params={"rd": "https://example.com/"}, allow_redirects=False,
+    )
+    assert r.status == 400
+
+    r = await client.get(
+        "/login",
+        headers={"X-Auth-Request-Redirect": "https://example.com/"},
+        allow_redirects=False,
+    )
+    assert r.status == 400

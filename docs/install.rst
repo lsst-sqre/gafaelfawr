@@ -1,6 +1,9 @@
-#######################
-Kubernetes installation
-#######################
+##################
+Installation guide
+##################
+
+Gafaelfawr was written to run inside a Kubernetes environment.
+While there is nothing intrinsic in Gafaelfawr that would prevent it from working in some other environment, only installation on Kubernetes has been documented or tested.
 
 Prerequisites
 =============
@@ -140,11 +143,17 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
 
 For an example, see `the configuration for the LSST Science Platform deployments <https://github.com/lsst-sqre/lsp-deploy/blob/master/services/gafaelfawr>`__.
 
+The Helm chart will generate a Gafaelfawr configuration file via a ``ConfigMap`` resource.
+See :ref:`settings` if you need to understand that configuration file or fine-tune its settings.
+
 Application configuration
 =========================
 
 Protecting a service
 --------------------
+
+Gafaelfawr's routes must be exposed under the same hostname as the service that it is protecting.
+IF you need to protect services running under multiple hostnames, you will need to configure Gafaelfawr's ingress to add its routes (specifically ``/auth`` and ``/login``) to each of those hostnames.
 
 Authentication and authorization for a service are configured via annotations on the ingress for that service.
 The typical annotations for a web application used via a web browser are:
@@ -155,7 +164,7 @@ The typical annotations for a web application used via a web browser are:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/auth-request-redirect: $request_uri
     nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
-    nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/oauth2/sign_in"
+    nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
 
 Replace ``<hostname>`` with the hostname of the ingress on which the Gafaelfawr routes are configured, and ``<scope>`` with the name of the scope that should be required in order to visit this site.

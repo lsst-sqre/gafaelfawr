@@ -34,10 +34,9 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert setup.config.oidc
 
     # Simulate the initial authentication request.
+    return_url = f"https://{client.host}:4444/foo?a=bar&b=baz"
     r = await client.get(
-        "/login",
-        params={"rd": "https://example.com/foo?a=bar&b=baz"},
-        allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False,
     )
     assert r.status == 303
     assert r.headers["Location"].startswith(setup.config.oidc.login_url)
@@ -61,7 +60,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
         allow_redirects=False,
     )
     assert r.status == 303
-    assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
+    assert r.headers["Location"] == return_url
 
     # Check that the /auth route works and finds our token.
     r = await client.get("/auth", params={"scope": "exec:admin"})
@@ -138,11 +137,10 @@ async def test_login_redirect_header(
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
+    return_url = f"https://{client.host}/foo?a=bar&b=baz"
     r = await client.get(
         "/login",
-        headers={
-            "X-Auth-Request-Redirect": "https://example.com/foo?a=bar&b=baz"
-        },
+        headers={"X-Auth-Request-Redirect": return_url},
         allow_redirects=False,
     )
     assert r.status == 303
@@ -156,7 +154,7 @@ async def test_login_redirect_header(
         allow_redirects=False,
     )
     assert r.status == 303
-    assert r.headers["Location"] == "https://example.com/foo?a=bar&b=baz"
+    assert r.headers["Location"] == return_url
 
 
 async def test_oauth2_callback(
@@ -180,10 +178,9 @@ async def test_oauth2_callback(
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
+    return_url = f"https://{client.host}/foo"
     r = await client.get(
-        "/login",
-        params={"rd": "https://example.com/foo"},
-        allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False,
     )
     assert r.status == 303
     url = urlparse(r.headers["Location"])
@@ -197,4 +194,4 @@ async def test_oauth2_callback(
         allow_redirects=False,
     )
     assert r.status == 303
-    assert r.headers["Location"] == "https://example.com/foo"
+    assert r.headers["Location"] == return_url
