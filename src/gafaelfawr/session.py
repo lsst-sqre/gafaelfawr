@@ -50,7 +50,7 @@ class SessionHandle:
     present in the token returned to the user and the encrypted session in
     Redis.
 
-    The serialized form of a session handle always starts with ``gsh:``, short
+    The serialized form of a session handle always starts with ``gsh-``, short
     for Gafaelfawr session handle, to make it easier to identify these handles
     in logs.
 
@@ -80,10 +80,10 @@ class SessionHandle:
         InvalidSessionHandleException
             The provided string is not a valid ticket.
         """
-        if not handle.startswith("gsh:"):
-            msg = f"Session handle does not start with gsh:"
+        if not handle.startswith("gsh-"):
+            msg = f"Session handle does not start with gsh-"
             raise InvalidSessionHandleException(msg)
-        trimmed_handle = handle[len("gsh:") :]
+        trimmed_handle = handle[len("gsh-") :]
 
         if "." not in trimmed_handle:
             raise InvalidSessionHandleException("Ticket is malformed")
@@ -95,7 +95,7 @@ class SessionHandle:
 
     def encode(self) -> str:
         """Return the encoded ticket, suitable for putting in a cookie."""
-        return f"gsh:{self.key}.{self.secret}"
+        return f"gsh-{self.key}.{self.secret}"
 
 
 @dataclass

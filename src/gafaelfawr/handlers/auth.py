@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 
 from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.util import authenticated, forbidden, scope_headers
+from gafaelfawr.handlers.util import authenticated
 from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
@@ -36,15 +36,22 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
     response : `aiohttp.web.Response`
         The response.
 
+    Raises
+    ------
+    aiohttp.web.HTTPException
+        Raised on authorization failures or malformed requests.
+
     Notes
     -----
     Expects the following query parameters to be set:
 
     scope
         One or more scopes to check (required, may be given multiple times).
-    satisfy
+    satisfy (optional)
         Require that ``all`` (the default) or ``any`` of the scopes requested
         via the ``scope`` parameter be satisfied.
+    audience (optional)
+        May be set to the internal audience to request token reissuance.
 
     Expects the following headers to be set in the request:
 
@@ -112,7 +119,8 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
             satisfy,
             ", ".join(sorted(required_scopes)),
         )
-        raise forbidden(request, token, "Missing required scopes")
+        error = "Missing required scope"
+        raise web.HTTPForbidden(reason=error, text=error)
 
     # Log and return the results.
     logger.info(
@@ -123,12 +131,12 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
         satisfy,
         ", ".join(sorted(required_scopes)),
     )
-    token = _maybe_reissue_token(request, token)
-    headers = _build_success_headers(request, token)
+    token = maybe_reissue_token(request, token)
+    headers = build_success_headers(request, token)
     return web.Response(headers=headers, text="ok")
 
 
-def _maybe_reissue_token(
+def maybe_reissue_token(
     request: web.Request, token: VerifiedToken
 ) -> VerifiedToken:
     """Possibly reissue the token.
@@ -170,7 +178,7 @@ def _maybe_reissue_token(
     return issuer.reissue_token(token, jti=handle.key, internal=True)
 
 
-def _build_success_headers(
+def build_success_headers(
     request: web.Request, token: VerifiedToken
 ) -> Dict[str, str]:
     """Construct the headers for successful authorization.
@@ -187,7 +195,15 @@ def _build_success_headers(
     headers : Dict[`str`, `str`]
         Headers to include in the response.
     """
-    headers = scope_headers(request, token)
+    required_scopes = sorted(request.query.getall("scope", []))
+    satisfy = request.query.get("satisfy", "all")
+
+    headers = {
+        "X-Auth-Request-Scopes-Accepted": " ".join(required_scopes),
+        "X-Auth-Request-Scopes-Satisfy": satisfy,
+    }
+    if token.claims.get("scope"):
+        headers["X-Auth-Request-Token-Scopes"] = token.claims["scope"]
     if token.email:
         headers["X-Auth-Request-Email"] = token.email
     if token.username:

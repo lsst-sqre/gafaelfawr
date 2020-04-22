@@ -19,7 +19,7 @@ __all__ = ["get_analyze", "post_analyze"]
 
 @routes.get("/auth/analyze")
 async def get_analyze(request: web.Request) -> web.Response:
-    """Analyze a ticket from a web session.
+    """Analyze a session handle from a web session.
 
     Parameters
     ----------

@@ -40,8 +40,8 @@ A session handle stands in for a JWT.
 The corresponding JWT is stored encrypted in the session storage.
 Session handles are used instead of JWTs directly because they are much shorter, and therefore avoid various problems with long HTTP headers.
 
-All session handles are of the form ``gsh:<key>.<secret>``.
-The ``gsh:`` part is a fixed prefix to make it easy to identify session handles.
+All session handles are of the form ``gsh-<key>.<secret>``.
+The ``gsh-`` part is a fixed prefix to make it easy to identify session handles.
 The ``<key>`` is the Redis key under which the encrypted session is stored.
 The ``<secret>`` is an opaque value used to prove that the holder of the session handle is allowed to use it.
 Checking the secret prevents someone who can list the keys in the Redis session store from using those keys as session handles.

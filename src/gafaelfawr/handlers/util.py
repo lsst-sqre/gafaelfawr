@@ -18,17 +18,12 @@ if TYPE_CHECKING:
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
     from logger import Logger
-    from typing import Any, Awaitable, Callable, Dict, Optional
+    from typing import Any, Awaitable, Callable, Optional
 
     Route = Callable[[web.Request], Awaitable[Any]]
     AuthenticatedRoute = Callable[[web.Request, VerifiedToken], Awaitable[Any]]
 
-__all__ = [
-    "forbidden",
-    "get_token_from_request",
-    "scope_headers",
-    "unauthorized",
-]
+__all__ = ["authenticated"]
 
 
 def authenticated(route: AuthenticatedRoute) -> Route:
@@ -54,16 +49,13 @@ def authenticated(route: AuthenticatedRoute) -> Route:
 
     @wraps(route)
     async def authenticated_route(request: web.Request) -> Any:
-        factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
         logger: Logger = request["safir/logger"]
 
         try:
-            encoded_token = await get_token_from_request(request)
-            if not encoded_token:
+            token = await get_token_from_request(request)
+            if not token:
                 logger.info("No token found, returning unauthorized")
                 raise unauthorized(request, "Unable to find token")
-            token_verifier = factory.create_token_verifier(request)
-            token = token_verifier.verify_internal_token(encoded_token)
         except jwt.PyJWTError as e:
             logger.exception("Failed to authenticate token")
             raise unauthorized(request, "Invalid token", str(e))
@@ -73,7 +65,9 @@ def authenticated(route: AuthenticatedRoute) -> Route:
     return authenticated_route
 
 
-async def get_token_from_request(request: web.Request) -> Optional[Token]:
+async def get_token_from_request(
+    request: web.Request,
+) -> Optional[VerifiedToken]:
     """From the request, find the token we need.
 
     It may be an Authorization header of type ``bearer``, in one of type
@@ -87,8 +81,13 @@ async def get_token_from_request(request: web.Request) -> Optional[Token]:
 
     Returns
     -------
-    token : `gafaelfawr.tokens.Token`, optional
+    token : `gafaelfawr.tokens.VerifiedToken`, optional
         The token if found, otherwise None.
+
+    Raises
+    ------
+    aiohttp.web.HTTPForbidden
+        A token was provided but it could not be verified.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     logger: Logger = request["safir/logger"]
@@ -96,7 +95,7 @@ async def get_token_from_request(request: web.Request) -> Optional[Token]:
     # Prefer X-Auth-Request-Token if set.  This is set by the /auth endpoint.
     if request.headers.get("X-Auth-Request-Token"):
         logger.debug("Found token in X-Auth-Request-Token")
-        return Token(encoded=request.headers["X-Auth-Request-Token"])
+        return verify_token(request, request.headers["X-Auth-Request-Token"])
 
     # Failing that, check the session.  Use it if available.  This needs to
     # happen before checking the Authorization header, since JupyterHub will
@@ -113,110 +112,76 @@ async def get_token_from_request(request: web.Request) -> Optional[Token]:
             return auth_session.token
 
     # No session or existing authentication header.  Try the Authorization
-    # header.  This case is used by API calls from clients.
+    # header.  This case is used by API calls from clients.  If we got a
+    # session handle, convert it to a token.  Otherwise, if we got a token,
+    # verify it.
+    handle_or_token = parse_authorization(request)
+    if not handle_or_token:
+        return None
+    elif handle_or_token.startswith("gsh-"):
+        handle = SessionHandle.from_str(handle_or_token)
+        session_store = factory.create_session_store(request)
+        auth_session = await session_store.get_session(handle)
+        return auth_session.token if auth_session else None
+    else:
+        return verify_token(request, handle_or_token)
+
+
+def parse_authorization(request: web.Request) -> Optional[str]:
+    """Find a handle or token in the Authorization header.
+
+    Supports either ``Bearer`` or ``Basic`` authorization types.
+
+    Parameters
+    ----------
+    request : `aiohttp.web.Request`
+        The incoming request.
+
+    Returns
+    -------
+    handle_or_token : `str` or `None`
+        The handle or token if one was found, otherwise None.
+
+    Notes
+    -----
+    A Basic Auth authentication string is normally a username and a password
+    separated by colon and then base64-encoded.  Support a username of the
+    token (or session handle) and a password of ``x-oauth-basic``, or a
+    username of ``x-oauth-basic`` and a password of the token (or session
+    handle).  If neither is the case, assume the token or session handle is
+    the username.
+    """
+    logger: Logger = request["safir/logger"]
+
+    # Parse the header and handle Bearer.
     header = request.headers.get("Authorization")
     if not header or " " not in header:
         return None
     auth_type, auth_blob = header.split(" ")
     if auth_type.lower() == "bearer":
-        return Token(encoded=auth_blob)
-    elif auth_type.lower() == "basic":
-        logger.debug("Using OAuth with Basic")
-        return _find_token_in_basic_auth(auth_blob, logger)
-    else:
+        return auth_blob
+    elif auth_type.lower() != "basic":
         logger.debug("Ignoring unknown Authorization type %s", auth_type)
         return None
 
-
-def _find_token_in_basic_auth(blob: str, logger: Logger) -> Optional[Token]:
-    """Find a token in the Basic Auth authentication string.
-
-    A Basic Auth authentication string is normally a username and a password
-    separated by colon and then base64-encoded.  Support a username of the
-    token and a password of ``x-oauth-basic``, or a username of
-    ``x-oauth-basic`` and a password of the token.  If neither is the case,
-    assume the token is the username.
-
-    Parameters
-    ----------
-    blob : `str`
-        The encoded portion of the ``Authorization`` header.
-    logger : `logging.Logger`
-        Logger to use to report issues.
-
-    Returns
-    -------
-    token : `gafaelfawr.tokens.Token`, optional
-        The token if one was found, otherwise None.
-    """
+    # Basic, the complicated part.
+    logger.debug("Using OAuth with Basic")
     try:
-        basic_auth = base64.b64decode(blob)
-        user, password = basic_auth.strip().split(b":")
+        basic_auth = base64.b64decode(auth_blob).decode()
+        user, password = basic_auth.strip().split(":")
     except Exception as e:
         logger.warning("Invalid Basic auth string: %s", str(e))
         return None
-
-    if password == b"x-oauth-basic":
-        # Recommended default
-        return Token(encoded=user.decode())
-    elif user == b"x-oauth-basic":
-        # ... Could be this though
-        return Token(encoded=password.decode())
+    if password == "x-oauth-basic":
+        return user
+    elif user == "x-oauth-basic":
+        return password
     else:
-        logger.debug("No protocol for token specified, falling back on user")
-        return Token(encoded=user.decode())
-
-
-def scope_headers(
-    request: web.Request, token: VerifiedToken
-) -> Dict[str, str]:
-    """Construct response headers containing scope information.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    token : `gafaelfawr.tokens.VerifiedToken`
-        A verified token containing group and scope information.
-
-    Returns
-    -------
-    headers : Dict[`str`, `str`]
-        The headers to include in the response.
-    """
-    required_scopes = sorted(request.query.getall("scope", []))
-    satisfy = request.query.get("satisfy", "all")
-
-    headers = {
-        "X-Auth-Request-Scopes-Accepted": " ".join(required_scopes),
-        "X-Auth-Request-Scopes-Satisfy": satisfy,
-    }
-    if token.claims.get("scope"):
-        headers["X-Auth-Request-Token-Scopes"] = token.claims["scope"]
-    return headers
-
-
-def forbidden(
-    request: web.Request, token: VerifiedToken, error: str
-) -> web.HTTPException:
-    """Construct exception for a 403 response.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    token : VerifiedToken
-        A verified token containing group and scope information.
-    error : `str`
-        The error message.
-
-    Returns
-    -------
-    exception : `aiohttp.web.HTTPException`
-        Exception to throw.
-    """
-    headers = scope_headers(request, token)
-    return web.HTTPForbidden(headers=headers, reason=error, text=error)
+        logger.info(
+            "Neither username nor password in HTTP Basic is x-oauth-basic,"
+            " assuming handle or token is username"
+        )
+        return user
 
 
 def unauthorized(
@@ -245,3 +210,36 @@ def unauthorized(
     info = f'realm="{realm}",error="{error}",error_description="{message}"'
     headers = {"WWW-Authenticate": f"Bearer {info}"}
     return web.HTTPUnauthorized(headers=headers, reason=error, text=error)
+
+
+def verify_token(request: web.Request, encoded_token: str) -> VerifiedToken:
+    """Verify a token.
+
+    Parameters
+    ----------
+    request : `aiohttp.web.Request`
+        The incoming request.
+    encoded_token : `str`
+        The encoded token.
+
+    Returns
+    -------
+    token : `gafaelfawr.tokens.VerifiedToken`
+        The verified token.
+
+    Raises
+    ------
+    aiohttp.web.HTTPForbidden
+        If the token could not be verified.
+    """
+    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
+    logger: Logger = request["safir/logger"]
+
+    token = Token(encoded=encoded_token)
+    token_verifier = factory.create_token_verifier(request)
+    try:
+        return token_verifier.verify_internal_token(token)
+    except Exception as e:
+        error = f"Invalid token: {str(e)}"
+        logger.warning("%s", error)
+        raise web.HTTPForbidden(reason=error, text=error)

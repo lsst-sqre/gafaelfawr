@@ -48,16 +48,19 @@ async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
         r.headers["WWW-Authenticate"], "Unable to find token"
     )
 
+
+async def test_invalid_auth(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+
     r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer token"},
     )
-    assert r.status == 401
-    assert r.headers["WWW-Authenticate"]
-    assert_www_authenticate_header_matches(
-        r.headers["WWW-Authenticate"], "Invalid token"
-    )
+    assert r.status == 403
 
 
 async def test_access_denied(
@@ -74,10 +77,7 @@ async def test_access_denied(
     )
     assert r.status == 403
     body = await r.text()
-    assert "Missing required scopes" in body
-    assert "X-Auth-Request-Token-Scopes" not in r.headers
-    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
-    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
+    assert "Missing required scope" in body
 
 
 async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
@@ -92,12 +92,7 @@ async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
     )
     assert r.status == 403
     body = await r.text()
-    assert "Missing required scopes" in body
-    assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:test"
-    assert (
-        r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin exec:test"
-    )
-    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
+    assert "Missing required scope" in body
 
 
 async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
@@ -186,6 +181,49 @@ async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     )
     assert r.status == 200
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
+
+
+async def test_handle(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    """Test that a session handle can be used in Authorization."""
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+    handle = await setup.create_session(groups=["test"], scope="exec:admin")
+
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Bearer {handle.encode()}"},
+    )
+    assert r.status == 200
+
+    basic = f"{handle.encode()}:x-oauth-basic".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
+    assert r.status == 200
+
+    basic = f"x-oauth-basic:{handle.encode()}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
+    assert r.status == 200
+
+    # We currently fall back on using the username if x-oauth-basic doesn't
+    # appear anywhere in the auth string.
+    basic = f"{handle.encode()}:something-else".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
+    assert r.status == 200
 
 
 async def test_reissue_internal(

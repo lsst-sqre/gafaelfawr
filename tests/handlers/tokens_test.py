@@ -19,11 +19,21 @@ async def test_tokens_no_auth(
     setup = await SetupTest.create(tmp_path)
     client = await aiohttp_client(setup.app)
 
+    r = await client.get("/auth/tokens")
+    assert r.status == 401
+    assert r.headers["WWW-Authenticate"]
+
+
+async def test_tokens_invalid_auth(
+    tmp_path: Path, aiohttp_client: TestClient
+) -> None:
+    setup = await SetupTest.create(tmp_path)
+    client = await aiohttp_client(setup.app)
+
     r = await client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": "foo"}
     )
-    assert r.status == 401
-    assert r.headers["WWW-Authenticate"]
+    assert r.status == 403
 
 
 async def test_tokens_empty_list(
@@ -69,9 +79,7 @@ async def test_tokens_handle_no_auth(
     setup = await SetupTest.create(tmp_path)
     client = await aiohttp_client(setup.app)
 
-    r = await client.get(
-        "/auth/tokens/blah", headers={"X-Auth-Request-Token": "foo"}
-    )
+    r = await client.get("/auth/tokens/blah")
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
 
@@ -86,7 +94,6 @@ async def test_tokens_handle_get_delete(
     handle = SessionHandle()
     scoped_token = setup.create_token(scope="exec:test", jti=handle.encode())
     session = Session.create(handle, scoped_token)
-
     session_store = setup.factory.create_session_store()
     token_store = setup.factory.create_token_store()
     pipeline = setup.redis.pipeline()
@@ -145,9 +152,7 @@ async def test_tokens_new_no_auth(
     setup = await SetupTest.create(tmp_path)
     client = await aiohttp_client(setup.app)
 
-    r = await client.get(
-        "/auth/tokens/new", headers={"X-Auth-Request-Token": "foo"}
-    )
+    r = await client.get("/auth/tokens/new")
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
 

@@ -56,7 +56,7 @@ session
 
 session handle
     A string provided by a client instead of a JWT to authenticate using a stored session.
-    All Gafaelfawr session handles start with the string ``gsh:``.
+    All Gafaelfawr session handles start with the string ``gsh-``.
     The handle consists of two parts: a key and a secret.
     The key is the Redis key for the stored session.
     The secret proves that the client has the right to use that stored session.
