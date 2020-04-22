@@ -156,8 +156,8 @@ Secrets beginning or ending in whitespace are not supported.
 Examples
 ========
 
-See `authorizer.yaml <https://github.com/lsst/gafaelfawr/blob/master/example/authorizer.yaml>`__ for an example configuration file.
+See `gafaelfawr.yaml <https://github.com/lsst/gafaelfawr/blob/master/examples/gafaelfawr.yaml>`__ for an example configuration file.
 
-See `dev.yaml <https://github.com/lsst/gafaelfawr/blob/master/example/dev.yaml>`__ for a configuration file designed for a development server running on localhost.
+See `gafaelfawr-dev.yaml <https://github.com/lsst/gafaelfawr/blob/master/examples/gafaelfawr-dev.yaml>`__ for a configuration file designed for a development server running on localhost.
 **WARNING**: Do not use this configuration for anything other than a local development server.
 It contains published secrets available to anyone on the Internet.

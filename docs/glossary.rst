@@ -40,6 +40,10 @@ payload
     Consists of key/value pairs.
     The value is normally a `str` but may be an `int` or a more complex structure.
 
+protected application
+    An application that uses Gafaelfawr for authentication and authorization.
+    Gafaelfawr will run as an nginx auth subrequest handler and return headers that nginx will in turn pass to the protected application, which it can use for further authorization and identity decisions.
+
 scope
     A permission that a user holding a token has in some system.
     When requesting authentication from an OpenID Connect provider, the requested scopes control what information is returned about the user in the ID token.
