@@ -45,8 +45,8 @@ async def post_analyze(request: web.Request) -> web.Response:
     """Analyze a token.
 
     Expects a POST with a single parameter, ``token``, which is either a
-    ticket or a full token.  Returns a JSON structure with details about that
-    token.
+    session handle or a token.  Returns a JSON structure with details about
+    that token.
 
     Parameters
     ----------

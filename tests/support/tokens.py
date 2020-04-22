@@ -38,7 +38,7 @@ def create_test_token(
     kid : str, optional
         The kid to set in the envelope.  Defaults to ``some-kid``.
     **claims : `str`, optional
-        Other attributes to set or override in the token.
+        Other claims to set or override in the token.
 
     Returns
     -------
@@ -95,7 +95,7 @@ def create_oidc_test_token(
     groups : List[`str`], optional
         Group memberships the generated token should have.
     **claims : `str`, optional
-        Other attributes to set or override in the token.
+        Other claims to set or override in the token.
 
     Returns
     -------

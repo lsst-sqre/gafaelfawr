@@ -78,7 +78,7 @@ class SessionHandle:
         Raises
         ------
         InvalidSessionHandleException
-            The provided string is not a valid ticket.
+            The provided string is not a valid session handle.
         """
         if not handle.startswith("gsh-"):
             msg = f"Session handle does not start with gsh-"
@@ -94,7 +94,7 @@ class SessionHandle:
         return cls(key=key, secret=secret)
 
     def encode(self) -> str:
-        """Return the encoded ticket, suitable for putting in a cookie."""
+        """Return the encoded session handle."""
         return f"gsh-{self.key}.{self.secret}"
 
 
@@ -187,7 +187,7 @@ class SessionStore:
         self._logger = logger
 
     async def analyze_handle(self, handle: SessionHandle) -> Dict[str, Any]:
-        """Analyze a ticket and return its expanded information.
+        """Analyze a session handle and return its expanded information.
 
         Parameters
         ----------
@@ -250,7 +250,7 @@ class SessionStore:
         -------
         session : `Session` or `None`
             The corresponding session, or `None` if no session exists for this
-            ticket.
+            session handle.
         """
         redis_key = self._redis_key_for_handle(handle)
         encrypted_session = await self._redis.get(redis_key)

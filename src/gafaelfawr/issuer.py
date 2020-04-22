@@ -54,7 +54,7 @@ class TokenIssuer:
             The newly-issued token.
         """
         payload = dict(claims)
-        payload.update(self._default_attributes())
+        payload.update(self._default_claims())
 
         if "jti" not in payload:
             raise InvalidTokenClaimsException("No jti claim")
@@ -121,7 +121,7 @@ class TokenIssuer:
         jti : Optional[`str`], optional
             The jti to use for the new token.
         scope : Optional[`str`], optional
-            If provided, set the scope claim of the reissued ticket to this.
+            If provided, set the scope claim of the reissued token to this.
         internal : `bool`, optional
             If set to True, issue the token with the internal audience instead
             of the external audience.
@@ -133,7 +133,7 @@ class TokenIssuer:
         """
         payload = dict(token.claims)
         payload.pop("scope", None)
-        payload.update(self._default_attributes(internal=internal))
+        payload.update(self._default_claims(internal=internal))
         payload["jti"] = jti
         if not scope:
             scope = self._scope_from_groups(token.claims.get("isMemberOf", []))
@@ -153,10 +153,10 @@ class TokenIssuer:
 
         return self._encode_token(payload)
 
-    def _default_attributes(
+    def _default_claims(
         self, *, internal: bool = False
     ) -> Dict[str, Union[str, int]]:
-        """Return the standard attributes for any new token.
+        """Return the standard claims for any new token.
 
         Parameters
         ----------
@@ -166,7 +166,7 @@ class TokenIssuer:
 
         Returns
         -------
-        attributes : Dict[`str`, Union[`str`, `int`]]
+        claims : Dict[`str`, Union[`str`, `int`]]
             Attributes to add to the token under construction.
         """
         if internal:

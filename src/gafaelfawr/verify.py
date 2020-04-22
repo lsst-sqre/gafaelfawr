@@ -235,7 +235,7 @@ class TokenVerifier:
     async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> bytes:
         """Get the key for an issuer.
 
-        Gets a key as PEM, given the issuer and the request key ticket_id.
+        Gets a key as PEM, given the issuer and the request key ID.
 
         Parameters
         ----------

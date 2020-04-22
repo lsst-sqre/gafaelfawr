@@ -90,7 +90,7 @@ Terms to avoid
 Gafaelfawr avoids the following terms.
 
 attribute
-    Except when referring to LDAP, an attribute doesn't clearly map to a component of a JWT-based authentication system.
+    Except when referring to LDAP or GitHub API results, an attribute doesn't clearly map to a component of a JWT-based authentication system.
     The intended term is probably "claim."
 
 capability

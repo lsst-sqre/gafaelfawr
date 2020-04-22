@@ -59,7 +59,7 @@ class SetupTest:
         groups : List[`str`], optional
             Group memberships the generated token should have.
         **claims : `str`, optional
-            Other attributes to set or override in the token.
+            Other claims to set or override in the token.
 
         Returns
         -------
@@ -83,7 +83,7 @@ class SetupTest:
         groups : List[`str`], optional
             Group memberships the generated token should have.
         **claims : `str`, optional
-            Other attributes to set or override in the token.
+            Other claims to set or override in the token.
 
         Returns
         -------
@@ -102,7 +102,7 @@ class SetupTest:
         groups : List[`str`], optional
             Group memberships the generated token should have.
         **claims : `str`, optional
-            Other attributes to set or override in the token.
+            Other claims to set or override in the token.
 
         Returns
         -------

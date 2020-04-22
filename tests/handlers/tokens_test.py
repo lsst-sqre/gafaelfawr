@@ -232,8 +232,8 @@ async def test_tokens_new_create(
     assert tokens[0].key in body
 
     session_store = setup.factory.create_session_store()
-    ticket = SessionHandle.from_str(encoded_handle)
-    session = await session_store.get_session(ticket)
+    handle = SessionHandle.from_str(encoded_handle)
+    session = await session_store.get_session(handle)
     assert session
     assert session.email == token.email
     assert int(session.token.claims["exp"]) == tokens[0].expires

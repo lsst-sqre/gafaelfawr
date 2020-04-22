@@ -75,8 +75,9 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Groups"] == "admin"
     assert r.headers["X-Auth-Request-Token"]
 
-    # Now ask for the ticket in the encrypted session to be analyzed, and
-    # verify the internals of the ticket from GitHub authentication.
+    # Now ask for the session handle in the encrypted session to be analyzed,
+    # and verify the internals of the session handle from OpenID Connect
+    # authentication.
     r = await client.get("/auth/analyze")
     assert r.status == 200
     data = await r.json()

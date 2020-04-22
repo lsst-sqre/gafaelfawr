@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-async def test_analyze_ticket(
+async def test_analyze_handle(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
     setup = await SetupTest.create(tmp_path)

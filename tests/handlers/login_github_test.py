@@ -65,8 +65,9 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Groups"] == expected
     assert r.headers["X-Auth-Request-Token"]
 
-    # Now ask for the ticket in the encrypted session to be analyzed, and
-    # verify the internals of the ticket from GitHub authentication.
+    # Now ask for the session handle in the encrypted session to be analyzed,
+    # and verify the internals of the session handle from GitHub
+    # authentication.
     r = await client.get("/auth/analyze")
     assert r.status == 200
     data = await r.json()
@@ -240,8 +241,8 @@ async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
 
-    # Now ask for the ticket in the encrypted session to be analyzed, and
-    # verify that the claims were set using our keys.
+    # Now ask for the session handle in the encrypted session to be analyzed,
+    # and verify that the claims were set using our keys.
     r = await client.get("/auth/analyze")
     assert r.status == 200
     data = await r.json()
