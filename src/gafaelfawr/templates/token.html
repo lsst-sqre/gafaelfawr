@@ -1,5 +1,5 @@
 <html lang="en">
-<head>
+  <head>
     <link rel="stylesheet"
           href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
           integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
@@ -8,17 +8,17 @@
             integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
             crossorigin="anonymous"></script>
     <title>Token {{ token.key }}</title>
-</head>
-<body>
+  </head>
 
-<div class="container">
-    <div class="row">
+  <body>
+    <div class="container">
+      <div class="row">
         <div class="col-md-12">
-            {% block content %}
-                <h2>Token {{ token.key }}</h2>
-            {% endblock %}
+          {% block content %}
+          <h2>Token {{ token.key }}</h2>
+          {% endblock %}
         </div>
+      </div>
     </div>
-</div>
-</body>
+  </body>
 </html>
