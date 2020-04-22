@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, Mapping, Optional
+    from typing import Any, Mapping, Optional, Set
 
 __all__ = ["Token", "VerifiedToken"]
 
@@ -47,11 +47,11 @@ class VerifiedToken(Token):
     uid: str
     """The value of the claim named by the uid_claim config setting."""
 
+    scope: Set[str]
+    """The scope claim from the token, split on whitespace."""
+
     jti: str = "UNKNOWN"
     """The jti (JWT ID) claim from the token, or UNKNOWN if there was none."""
 
     email: Optional[str] = None
     """The email claim from the token."""
-
-    scope: Optional[str] = None
-    """The scope claim from the token."""

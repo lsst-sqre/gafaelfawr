@@ -76,7 +76,7 @@ def create_test_token(
         username=payload["uid"],
         uid=payload["uidNumber"],
         email=payload["email"],
-        scope=payload.get("scope"),
+        scope=set(payload.get("scope", "").split()),
     )
 
 

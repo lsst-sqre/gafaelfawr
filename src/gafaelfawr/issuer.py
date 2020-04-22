@@ -89,13 +89,14 @@ class TokenIssuer:
         user_token : `gafaelfawr.tokens.VerifiedToken`
             The new user-issued token.
         """
-        claims = {"scope": scope, "jti": jti}
+        claims = {
+            "scope": scope,
+            "jti": jti,
+            self._config.username_claim: token.username,
+            self._config.uid_claim: token.uid,
+        }
         if token.email:
             claims["email"] = token.email
-        if token.username:
-            claims[self._config.username_claim] = token.username
-        if token.uid:
-            claims[self._config.uid_claim] = token.uid
         return self.issue_token(claims)
 
     def reissue_token(
@@ -209,7 +210,7 @@ class TokenIssuer:
             uid=payload[self._config.uid_claim],
             jti=payload["jti"],
             email=payload.get("email"),
-            scope=payload.get("scope"),
+            scope=set(payload.get("scope", "").split()),
         )
 
     def _scope_from_groups(

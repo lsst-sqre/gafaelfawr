@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
+    from logging import Logger
     from multidict import MultiDictProxy
     from typing import Dict, Optional, Union
 
@@ -38,7 +39,7 @@ class AlterTokenForm(Form):
     csrf = HiddenField("_csrf")
 
 
-def _build_new_token_form(
+def build_new_token_form(
     scopes: Dict[str, str],
     data: Optional[MultiDictProxy[Union[str, bytes, web.FileField]]] = None,
 ) -> Form:
@@ -60,9 +61,9 @@ def _build_new_token_form(
     class NewTokenForm(Form):
         """Stub form, to which fields will be dynamically added."""
 
+        csrf = HiddenField("_csrf")
         submit = SubmitField("Generate New Token")
 
-    NewTokenForm.scope_names = list(scopes)
     for scope, description in scopes.items():
         field = BooleanField(label=scope, description=description)
         setattr(NewTokenForm, scope, field)
@@ -130,21 +131,21 @@ async def get_tokens_new(
     """
     config: Config = request.config_dict["gafaelfawr/config"]
 
-    form = _build_new_token_form(config.known_scopes)
+    scopes = {s: d for s, d in config.known_scopes.items() if s in token.scope}
+    form = build_new_token_form(scopes)
 
     session = await get_session(request)
     session["csrf"] = await generate_token(request)
 
     return {
         "form": form,
-        "scopes": config.known_scopes,
+        "scopes": scopes,
         "csrf_token": session["csrf"],
     }
 
 
 @routes.post("/auth/tokens/new")
 @csrf_protect
-@template("new_token.html")
 @authenticated
 async def post_tokens_new(
     request: web.Request, token: VerifiedToken
@@ -165,13 +166,16 @@ async def post_tokens_new(
     config: Config = request.config_dict["gafaelfawr/config"]
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     redis: Redis = request.config_dict["gafaelfawr/redis"]
+    logger: Logger = request["safir/logger"]
 
-    form = _build_new_token_form(config.known_scopes, await request.post())
-
+    scopes = {s: d for s, d in config.known_scopes.items() if s in token.scope}
+    form = build_new_token_form(scopes, await request.post())
     if not form.validate():
-        return {"form": form, "scopes": config.known_scopes}
+        msg = f"Form validation failed"
+        logger.warning(msg)
+        raise web.HTTPBadRequest(reason=msg, text=msg)
 
-    scope = " ".join([s for s in config.known_scopes if form[s].data])
+    scope = " ".join([s for s in scopes if form[s].data])
     issuer = factory.create_token_issuer()
     handle = SessionHandle()
     user_token = issuer.issue_user_token(token, scope=scope, jti=handle.key)

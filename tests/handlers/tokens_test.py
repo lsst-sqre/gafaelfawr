@@ -169,10 +169,14 @@ async def test_tokens_new_form(
     )
     assert r.status == 200
     body = await r.text()
+
     assert "exec:admin" in body
-    assert "read:all" in body
     assert "admin description" in body
+    assert "read:all" in body
     assert "can read everything" in body
+
+    assert "exec:test" not in body
+    assert "test dsecription" not in body
 
 
 async def test_tokens_new_create(
@@ -207,11 +211,13 @@ async def test_tokens_new_create(
     )
     assert r.status == 403
 
-    # Creating with a valid CSRF token will succeed.
+    # Creating with a valid CSRF token will succeed.  Requesting extraneous
+    # scopes that we don't have is allowed (I cannot find a way to get it to
+    # fail validation), but those requested scopes will be ignored.
     r = await client.post(
         "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
-        data={"read:all": "y", "_csrf": csrf_token},
+        data={"read:all": "y", "exec:test": "y", "_csrf": csrf_token},
     )
     assert r.status == 200
     body = await r.text()

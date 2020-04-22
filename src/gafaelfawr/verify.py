@@ -229,7 +229,7 @@ class TokenVerifier:
             username=claims[self._config.username_claim],
             uid=claims[self._config.uid_claim],
             email=claims.get("email"),
-            scope=claims.get("scope"),
+            scope=set(claims.get("scope", "").split()),
         )
 
     async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> bytes:
