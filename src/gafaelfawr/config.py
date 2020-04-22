@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Config",
-    "Configuration",
     "GitHubConfig",
     "IssuerConfig",
     "OIDCConfig",
@@ -24,13 +23,20 @@ __all__ = [
 
 
 @dataclass
-class Configuration:
-    """Configuration for Gafaelfawr.
+class SafirConfig:
+    """Safir configuration for Gafaelfawr.
 
-    Notes
-    -----
-    This is a temporary hack to allow use of Safir to handle logging.  It
-    needs to be unified with the main Config struct.
+    These configuration settings are used by the Safir middleware.
+    """
+
+    log_level: str
+    """The log level of the application's logger.
+
+    Takes the first value of the following that is set:
+
+    - The ``SAFIR_LOG_LEVEL`` environment variable.
+    - The ``loglevel`` Gafaelfawr configuration setting.
+    - ``INFO``
     """
 
     name: str = os.getenv("SAFIR_NAME", "gafaelfawr")
@@ -49,12 +55,6 @@ class Configuration:
     """The root name of the application's logger.
 
     Set with the ``SAFIR_LOGGER`` environment variable.
-    """
-
-    log_level: str = os.getenv("SAFIR_LOG_LEVEL", "INFO")
-    """The log level of the application's logger.
-
-    Set with the ``SAFIR_LOG_LEVEL`` environment variable.
     """
 
 
@@ -152,9 +152,6 @@ class Config:
     realm: str
     """Realm for HTTP authentication."""
 
-    loglevel: Optional[str]
-    """Log level, chosen from the string levels supported by logging."""
-
     session_secret: str
     """Secret used to encrypt the session cookie and session store."""
 
@@ -187,6 +184,9 @@ class Config:
 
     uid_claim: str
     """Token claim from which to take the UID."""
+
+    safir_config: SafirConfig
+    """Configuration for the Safir middleware."""
 
     @classmethod
     def from_dynaconf(cls, settings: LazySettings) -> Config:
@@ -257,9 +257,11 @@ class Config:
                 assert isinstance(value, list), "group_mapping is malformed"
                 group_mapping[key] = value
 
+        log_level_default = settings.get("LOGLEVEL", "INFO")
+        log_level = os.getenv("SAFIR_LOG_LEVEL", log_level_default)
+
         return cls(
             realm=settings["REALM"],
-            loglevel=settings.get("LOGLEVEL", "INFO"),
             session_secret=session_secret,
             redis_url=settings["REDIS_URL"],
             after_logout_url=settings["AFTER_LOGOUT_URL"],
@@ -270,6 +272,7 @@ class Config:
             group_mapping=group_mapping,
             username_claim=settings["USERNAME_CLAIM"],
             uid_claim=settings["UID_CLAIM"],
+            safir_config=SafirConfig(log_level=log_level),
         )
 
     def log_settings(self, logger: logging.Logger) -> None:

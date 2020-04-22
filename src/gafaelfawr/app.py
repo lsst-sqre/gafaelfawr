@@ -21,7 +21,7 @@ from safir.metadata import setup_metadata
 from safir.middleware import bind_logger
 from structlog import get_logger
 
-from gafaelfawr.config import Config, Configuration
+from gafaelfawr.config import Config
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.handlers import init_routes
 
@@ -73,14 +73,13 @@ async def create_app(
     settings.validators.validate()
     config = Config.from_dynaconf(settings)
 
-    configuration = Configuration()
     configure_logging(
-        profile=configuration.profile,
-        log_level=config.loglevel,
-        name=configuration.logger_name,
+        profile=config.safir_config.profile,
+        log_level=config.safir_config.log_level,
+        name=config.safir_config.logger_name,
     )
 
-    logger = get_logger(configuration.logger_name)
+    logger = get_logger(config.safir_config.logger_name)
     config.log_settings(logger)
 
     key_cache = TTLCache(maxsize=16, ttl=600)
@@ -89,7 +88,7 @@ async def create_app(
     factory = ComponentFactory(config, redis_pool, key_cache, http_session)
 
     app = Application()
-    app["safir/config"] = configuration
+    app["safir/config"] = config.safir_config
     app["gafaelfawr/config"] = config
     app["gafaelfawr/factory"] = factory
     app["gafaelfawr/redis"] = redis_pool
