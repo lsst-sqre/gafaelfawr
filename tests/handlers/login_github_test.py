@@ -196,3 +196,56 @@ async def test_cookie_auth_with_token(
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status == 200
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
+
+
+async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
+    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
+    config = {
+        "GITHUB.CLIENT_ID": "some-client-id",
+        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
+    }
+    setup = await SetupTest.create(tmp_path, **config)
+    client = await aiohttp_client(setup.app)
+
+    # For some reason, Dynaconf doesn't support overriding settings by passing
+    # them as arguments to LazySettings, only setting new parameters.  We
+    # therefore have to override the defaults manually.
+    assert setup.config.github
+    setup.config.username_claim = "username"
+    setup.config.github.username_claim = "username"
+    setup.config.uid_claim = "numeric-uid"
+    setup.config.github.uid_claim = "numeric-uid"
+
+    # Simulate the initial authentication request.
+    r = await client.get(
+        "/login",
+        headers={"X-Auth-Request-Redirect": "https://example.com/"},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    r = await client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+
+    # Check that the /auth route works and sets the headers correctly.
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status == 200
+    assert r.headers["X-Auth-Request-User"] == "githubuser"
+    assert r.headers["X-Auth-Request-Uid"] == "123456"
+
+    # Now ask for the ticket in the encrypted session to be analyzed, and
+    # verify that the claims were set using our keys.
+    r = await client.get("/auth/analyze")
+    assert r.status == 200
+    data = await r.json()
+    assert data["token"]["data"]["username"] == "githubuser"
+    assert data["token"]["data"]["numeric-uid"] == "123456"
+    assert "uid" not in data["token"]["data"]
+    assert "uidNumber" not in data["token"]["data"]

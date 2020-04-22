@@ -170,17 +170,17 @@ class GitHubProvider(Provider):
         handle = SessionHandle()
 
         groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
-        payload = {
+        claims = {
             "email": user_info.email,
             "isMemberOf": groups,
             "jti": handle.key,
             "name": user_info.name,
             "sub": user_info.username,
-            "uidNumber": str(user_info.uid),
-            "uid": user_info.username,
+            self._config.username_claim: user_info.username,
+            self._config.uid_claim: str(user_info.uid),
         }
 
-        token = self._issuer.issue_token(payload)
+        token = self._issuer.issue_token(claims)
         session = Session.create(handle, token)
         await self._session_store.store_session(session)
         return session

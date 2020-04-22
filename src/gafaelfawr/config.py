@@ -60,13 +60,24 @@ class Configuration:
 
 @dataclass
 class GitHubConfig:
-    """Metadata for GitHub authentication."""
+    """Metadata for GitHub authentication.
+
+    Some configuration parameters are duplicated from the main application
+    configuration so that all of the configuration for the GitHub provider is
+    encapsulated here.
+    """
 
     client_id: str
     """Client ID of the GitHub App."""
 
     client_secret: str
     """Secret for the GitHub App."""
+
+    username_claim: str
+    """Name of claim in which to store the username."""
+
+    uid_claim: str
+    """Name of claim in which to store the UID."""
 
 
 @dataclass
@@ -213,6 +224,8 @@ class Config:
             github = GitHubConfig(
                 client_id=settings["GITHUB.CLIENT_ID"],
                 client_secret=client_secret,
+                username_claim=settings["USERNAME_CLAIM"],
+                uid_claim=settings["UID_CLAIM"],
             )
 
         oidc = None

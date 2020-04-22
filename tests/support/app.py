@@ -59,7 +59,6 @@ async def create_test_app(tmp_path: Path, **kwargs: Any) -> web.Application:
         redis_pool=redis_pool,
         http_session=http_session,
         FORCE_ENV_FOR_DYNACONF="testing",
-        REALM="testing",
         **kwargs,
     )
     http_session.set_config(app["gafaelfawr/config"])
