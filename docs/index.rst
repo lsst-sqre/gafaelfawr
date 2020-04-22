@@ -10,6 +10,10 @@ Gafaelfawr requires the Kubernetes `NGINX ingress controller <https://github.com
 
 Gafaelfawr is developed on `GitHub <https://github.com/lsst/gafaelfawr>`__.
 
+Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
+Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
+(If you speak Welsh and can provide a better pronunciation guide, please open an issue!)
+
 Installation
 ============
 
