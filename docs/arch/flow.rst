@@ -11,6 +11,11 @@ The user's interaction with Gafaelfawr is normally initiated by an attempt to vi
 That application uses ingress-nginx Kubernetes annotations to trigger an authentication subrequest to the Gafaelfawr ``/auth`` endpoint.
 That sets off the following interaction:
 
+.. figure:: /_static/flow.png
+   :name: Gafaelfawr browser flow
+
+   Gafaelfawr browser flow
+
 #. The ``/auth`` handler receives the headers of the original request.
    No token is present in an ``Authorization`` header, nor is there an authentication session cookie.
    The ``/auth`` handler therefore returns an HTTP 401 error.

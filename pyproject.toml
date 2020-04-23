@@ -48,6 +48,7 @@ commands = pre-commit run --all-files
 description = Build documentation (HTML) with Sphinx.
 commands =
     python docs/_static/architecture.py
+    seqdiag docs/_static/flow.diag
     sphinx-build -n -T -b html -d {envtmpdir}/doctrees docs docs/_build/html
 
 [testenv:run]
