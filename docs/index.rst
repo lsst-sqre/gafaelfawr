@@ -35,6 +35,7 @@ Architecture
    arch/routes
    arch/providers
    arch/session
+   arch/security
 
 Development guide
 =================
