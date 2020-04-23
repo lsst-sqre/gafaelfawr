@@ -23,7 +23,7 @@ __all__ = [
 ]
 
 
-@dataclass
+@dataclass(frozen=True)
 class SafirConfig:
     """Safir configuration for Gafaelfawr.
 
@@ -59,7 +59,7 @@ class SafirConfig:
     """
 
 
-@dataclass
+@dataclass(frozen=True)
 class IssuerConfig:
     """Configuration for how to issue tokens."""
 
@@ -85,7 +85,7 @@ class IssuerConfig:
     """Mapping of group names to the set of scopes that group grants."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class GitHubConfig:
     """Metadata for GitHub authentication.
 
@@ -107,7 +107,7 @@ class GitHubConfig:
     """Name of claim in which to store the UID."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class OIDCConfig:
     """Configuration for OpenID Connect authentication."""
 
@@ -149,7 +149,7 @@ class OIDCConfig:
     """List of acceptable kids that may be used to sign the ID token."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class Config:
     """Configuration for Gafaelfawr."""
 
