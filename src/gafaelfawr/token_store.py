@@ -206,7 +206,7 @@ class TokenStore:
         """
         entry = TokenEntry(
             key=session.handle.key,
-            scope=session.token.claims["scope"],
+            scope=" ".join(sorted(session.token.scope)),
             expires=session.token.claims["exp"],
         )
         redis_key = self._redis_key_for_user(user_id)

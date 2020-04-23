@@ -139,11 +139,39 @@ async def _login(request: web.Request) -> web.Response:
             logger.warning(msg)
             raise web.HTTPBadRequest(reason=msg, text=msg)
 
+        # Reuse the existing state if one already exists in the session
+        # cookie.
+        #
+        # This is subtle and requires some explanation.  Most modern webapps
+        # involve a lot of background JavaScript.  If the user has a tab open
+        # when their session expires, those background JavaScript requests
+        # will start turning into redirects to Gafaelfawr and thus to this
+        # code.  Since there isn't a good way to see whether a request is a
+        # background JavaScript request versus a browser loading a page, we
+        # will generate an authentication redirect for each one.
+        #
+        # This means that if we generate new random state for each request,
+        # there is a race condition.  The user may go to a page with an
+        # expired session and get redirected to log in.  While they are
+        # logging in at the external provider, another open tab may kick off
+        # one of these JavaScript requests, which generates a new redirect and
+        # replaces the state stored in their session cookie.  Then, when they
+        # return from authentication, the state will have changed, and the
+        # authentication attempt will fail.
+        #
+        # Work around this by reusing the same random state until the user
+        # completes an authentication.  This does not entirely close the
+        # window for the race condition because it's possible that two
+        # requests will both see sessions without state, both generate state,
+        # and then both set cookies, and only one of them will win.  However,
+        # that race condition window is much smaller and is unlikely to
+        # persist across authentication requests.
         if "state" in session:
             state = session["state"]
         else:
             state = base64.urlsafe_b64encode(os.urandom(16)).decode()
             session["state"] = state
+
         session["rd"] = return_url
         redirect_url = auth_provider.get_redirect_url(state)
         raise web.HTTPSeeOther(redirect_url)

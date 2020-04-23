@@ -103,11 +103,10 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
         raise web.HTTPBadRequest(reason=msg, text=msg)
 
     # Determine whether the request is authorized.
-    user_scopes = token.claims.get("scope", "").split()
     if satisfy == "any":
-        authorized = any([scope in user_scopes for scope in required_scopes])
+        authorized = any([scope in token.scope for scope in required_scopes])
     else:
-        authorized = all([scope in user_scopes for scope in required_scopes])
+        authorized = all([scope in token.scope for scope in required_scopes])
 
     # If not authorized, log and raise the appropriate error.
     if not authorized:
@@ -201,15 +200,13 @@ def build_success_headers(
     headers = {
         "X-Auth-Request-Scopes-Accepted": " ".join(required_scopes),
         "X-Auth-Request-Scopes-Satisfy": satisfy,
+        "X-Auth-Request-User": token.username,
+        "X-Auth-Request-Uid": token.uid,
     }
-    if token.claims.get("scope"):
-        headers["X-Auth-Request-Token-Scopes"] = token.claims["scope"]
+    if token.scope:
+        headers["X-Auth-Request-Token-Scopes"] = " ".join(sorted(token.scope))
     if token.email:
         headers["X-Auth-Request-Email"] = token.email
-    if token.username:
-        headers["X-Auth-Request-User"] = token.username
-    if token.uid:
-        headers["X-Auth-Request-Uid"] = token.uid
 
     groups_list = token.claims.get("isMemberOf", [])
     if groups_list:
