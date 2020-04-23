@@ -283,23 +283,38 @@ class Config:
         logger : `logging.Logger`
             The logger to use for those log messages.
         """
-        logger.info("Configured realm %s", self.realm)
-
-        if self.issuer:
-            logger.info(
-                "Configured token issuer: %s with key ID %s",
-                self.issuer.iss,
-                self.issuer.kid,
+        logger.debug("Configured realm %s", self.realm)
+        logger.debug("Configured Redis pool at URL %s", self.redis_url)
+        logger.debug(
+            "Configured landing page after logout: %s", self.after_logout_url
+        )
+        logger.debug(
+            "Configured token issuer %s, key ID %s, audience %s and %s"
+            " (internal), expiration %d minutes",
+            self.issuer.iss,
+            self.issuer.kid,
+            self.issuer.aud,
+            self.issuer.aud_internal,
+            self.issuer.exp_minutes,
+        )
+        if self.github:
+            logger.debug(
+                "Configured GitHub authentication with client ID %s",
+                self.github.client_id,
             )
-            logger.info("Configured default audience: %s", self.issuer.aud)
-            logger.info(
-                "Configured internal audience: %s", self.issuer.aud_internal
+        elif self.oidc:
+            logger.debug(
+                "Configured OpenID Connect authentication: client ID %s,"
+                " login URL %s, token URL %s, redirect URL %s",
+                self.oidc.client_id,
+                self.oidc.login_url,
+                self.oidc.token_url,
+                self.oidc.redirect_url,
             )
-            logger.info(
-                "Default JWT expiration is %d minutes", self.issuer.exp_minutes
-            )
-
-        logger.info("Configured Redis pool from URL %s", self.redis_url)
+        else:
+            logging.error("No authentication provider configured")
+        logger.debug("Configured %s as username claim", self.username_claim)
+        logger.debug("Configured %s as UID claim", self.uid_claim)
 
     @staticmethod
     def _load_secret(path: str) -> bytes:
