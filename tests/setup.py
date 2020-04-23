@@ -25,12 +25,26 @@ class SetupTest:
     settings.
     """
 
-    def __init__(self, app: web.Application, client: TestClient) -> None:
+    def __init__(
+        self, app: web.Application, client: Optional[TestClient] = None
+    ) -> None:
         self.app = app
-        self.client = client
+        self._client = client
         self.config: Config = self.app["gafaelfawr/config"]
         self.factory: ComponentFactory = self.app["gafaelfawr/factory"]
         self.redis: Redis = self.app["gafaelfawr/redis"]
+
+    @property
+    def client(self) -> TestClient:
+        """Return the test client.
+
+        This property is a typing hack to avoid forcing all tests that want to
+        use a client to assert that the client exists.  Instead, assume that
+        the client is available and assert if a test accesses the client but
+        didn't request it be created.
+        """
+        assert self._client
+        return self._client
 
     async def create_session(
         self, *, groups: Optional[List[str]] = None, **claims: str

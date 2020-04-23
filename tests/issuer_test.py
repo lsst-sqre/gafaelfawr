@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
+    setup = await create_test_setup(client=False)
     issuer = setup.factory.create_token_issuer()
 
     local_token = setup.create_token()
@@ -50,7 +50,7 @@ async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
 async def test_reissue_token_scope(
     create_test_setup: SetupTestCallable,
 ) -> None:
-    setup = await create_test_setup()
+    setup = await create_test_setup(client=False)
     issuer = setup.factory.create_token_issuer()
 
     oidc_token = setup.create_oidc_token(groups=["user"], scope="read:all")
@@ -63,7 +63,7 @@ async def test_reissue_token_scope(
 
 
 async def test_reissue_token_jti(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
+    setup = await create_test_setup(client=False)
     issuer = setup.factory.create_token_issuer()
 
     oidc_token = setup.create_oidc_token()

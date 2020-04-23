@@ -59,13 +59,18 @@ def create_test_setup(
     complexity.
     """
 
-    async def _create_test_setup(environment: str = "testing") -> SetupTest:
+    async def _create_test_setup(
+        environment: str = "testing", client: bool = True
+    ) -> SetupTest:
         """Create a test setup for a given environment.
 
         Parameters
         ----------
         environment : `str`, optional
             The name of a configuration environment to use.
+        client : `bool`, optional
+            If set to `False`, do not start a test application or create a
+            client.
 
         Returns
         -------
@@ -73,7 +78,10 @@ def create_test_setup(
             An object encapsulating the test setup.
         """
         app = await create_test_app(tmp_path, environment=environment)
-        client = await aiohttp_client(app)
-        return SetupTest(app, client)
+        if client:
+            client = await aiohttp_client(app)
+            return SetupTest(app, client)
+        else:
+            return SetupTest(app)
 
     return _create_test_setup
