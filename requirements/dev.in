@@ -6,6 +6,7 @@
 #     make update-deps
 
 aiohttp-devtools
+diagrams
 coverage[toml]
 flake8
 holdup

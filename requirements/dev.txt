@@ -99,6 +99,10 @@ devtools==0.5.1 \
     --hash=sha256:51ca8d2e15b8a862875a4837db2bafbc6cda409c069e960aec3f4bbd91fe9c08 \
     --hash=sha256:7a1f7db6ade0a71840ca4014d75dd72390aed2ef04e39e2b2445af7b3a3f4679 \
     # via aiohttp-devtools
+diagrams==0.8.2 \
+    --hash=sha256:8d3a77827a268bf14fb79486c977dfb096689668aa0576c7a9cb60cdc6585f35 \
+    --hash=sha256:d1c744580282a3e725a8a8df76d5dc25710cd687ec5800ba62c821b7248522f5 \
+    # via -r requirements/dev.in
 distlib==0.3.0 \
     --hash=sha256:2e166e231a26b36d6dfe35a48c4464346620f8645ed0ace01ee31822b288de21 \
     # via virtualenv
@@ -130,6 +134,10 @@ gitpython==3.1.1 \
     --hash=sha256:6d4f10e2aaad1864bb0f17ec06a2c2831534140e5883c350d58b4e85189dab74 \
     --hash=sha256:71b8dad7409efbdae4930f2b0b646aaeccce292484ffa0bc74f1195582578b3d \
     # via documenteer
+graphviz==0.13.2 \
+    --hash=sha256:241fb099e32b8e8c2acca747211c8237e40c0b89f24b1622860075d59f4c4b25 \
+    --hash=sha256:60acbeee346e8c14555821eab57dbf68a169e6c10bce40e83c1bf44f63a62a01 \
+    # via diagrams
 hiredis==1.0.1 \
     --hash=sha256:01b577f84c20ecc9c07fc4c184231b08e3c3942de096fa99978e053de231c423 \
     --hash=sha256:01ff0900134166961c9e339df77c33b72f7edc5cb41739f0babcd9faa345926e \
@@ -195,7 +203,7 @@ importlib-metadata==1.6.0 \
 jinja2==2.11.2 \
     --hash=sha256:89aab215427ef59c34ad58735269eb58b1a5808103067f7bb9d5836c651b3bb0 \
     --hash=sha256:f0a4641d3cf955324a89c04f3d94663aa4d638abe8f733ecd3582848e1c37035 \
-    # via sphinx
+    # via diagrams, sphinx
 lsst-sphinx-bootstrap-theme==0.2.2 \
     --hash=sha256:71c14b309cac280301facdd6db4fc43be9b95962e20c16bb84678fd813f2d2a1 \
     # via -r requirements/dev.in
@@ -300,9 +308,9 @@ pluggy==0.13.1 \
     --hash=sha256:15b2acde666561e1298d71b523007ed7364de07029219b604cf808bfa1c765b0 \
     --hash=sha256:966c145cd83c96502c3c3868f50408687b38434af77734af1e9ca461a4081d2d \
     # via pytest
-pre-commit==2.2.0 \
-    --hash=sha256:487c675916e6f99d355ec5595ad77b325689d423ef4839db1ed2f02f639c9522 \
-    --hash=sha256:c0aa11bce04a7b46c5544723aedf4e81a4d5f64ad1205a30a9ea12d5e81969e1 \
+pre-commit==2.3.0 \
+    --hash=sha256:979b53dab1af35063a483bfe13b0fcbbf1a2cf8c46b60e0a9a8d08e8269647a1 \
+    --hash=sha256:f3e85e68c6d1cbe7828d3471896f1b192cfcf1c4d83bf26e26beeb5941855257 \
     # via -r requirements/dev.in
 py==1.8.1 \
     --hash=sha256:5e27081401262157467ad6e7f851b7aa402c5852dbcb3dae06768434de5752aa \

@@ -31,6 +31,7 @@ Architecture
 .. toctree::
    :maxdepth: 1
 
+   arch/overview
    arch/flow
    arch/routes
    arch/providers
