@@ -8,7 +8,6 @@ from urllib.parse import parse_qs, urlparse
 
 from gafaelfawr.constants import ALGORITHM
 from tests.setup import SetupTest
-from tests.support.app import store_secret
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -16,20 +15,7 @@ if TYPE_CHECKING:
 
 
 async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    secret_path = store_secret(tmp_path, "oidc", b"some-client-secret")
-    config = {
-        "OIDC.CLIENT_ID": "some-client-id",
-        "OIDC.CLIENT_SECRET_FILE": str(secret_path),
-        "OIDC.LOGIN_URL": "https://example.com/oidc/login",
-        "OIDC.LOGIN_PARAMS": {"skin": "test"},
-        "OIDC.REDIRECT_URL": "https://example.com/login",
-        "OIDC.TOKEN_URL": "https://example.com/token",
-        "OIDC.SCOPES": ["email", "voPerson"],
-        "OIDC.ISSUER": "https://upstream.example.com/",
-        "OIDC.AUDIENCE": "https://test.example.com/",
-        "OIDC.KEY_IDS": ["orig-kid"],
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="oidc")
     client = await aiohttp_client(setup.app)
     assert setup.config.oidc
 
@@ -45,7 +31,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     query = parse_qs(url.query)
     login_params = {p: [v] for p, v in setup.config.oidc.login_params.items()}
     assert query == {
-        "client_id": ["some-client-id"],
+        "client_id": [setup.config.oidc.client_id],
         "redirect_uri": [setup.config.oidc.redirect_url],
         "response_type": ["code"],
         "scope": ["openid " + " ".join(setup.config.oidc.scopes)],
@@ -120,20 +106,7 @@ async def test_login_redirect_header(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    secret_path = store_secret(tmp_path, "oidc", b"some-client-secret")
-    config = {
-        "OIDC.CLIENT_ID": "some-client-id",
-        "OIDC.CLIENT_SECRET_FILE": str(secret_path),
-        "OIDC.LOGIN_URL": "https://example.com/oidc/login",
-        "OIDC.LOGIN_PARAMS": {"skin": "test"},
-        "OIDC.REDIRECT_URL": "https://example.com/login",
-        "OIDC.TOKEN_URL": "https://example.com/token",
-        "OIDC.SCOPES": ["email", "voPerson"],
-        "OIDC.ISSUER": "https://upstream.example.com/",
-        "OIDC.AUDIENCE": "https://test.example.com/",
-        "OIDC.KEY_IDS": ["orig-kid"],
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="oidc")
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
@@ -161,21 +134,9 @@ async def test_oauth2_callback(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
     """Test the compatibility /oauth2/callback route."""
-    secret_path = store_secret(tmp_path, "oidc", b"some-client-secret")
-    config = {
-        "OIDC.CLIENT_ID": "some-client-id",
-        "OIDC.CLIENT_SECRET_FILE": str(secret_path),
-        "OIDC.LOGIN_URL": "https://example.com/oidc/login",
-        "OIDC.LOGIN_PARAMS": {"skin": "test"},
-        "OIDC.REDIRECT_URL": "https://example.com/oauth2/sign_in",
-        "OIDC.TOKEN_URL": "https://example.com/token",
-        "OIDC.SCOPES": ["email", "voPerson"],
-        "OIDC.ISSUER": "https://upstream.example.com/",
-        "OIDC.AUDIENCE": "https://test.example.com/",
-        "OIDC.KEY_IDS": ["orig-kid"],
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="oidc")
     client = await aiohttp_client(setup.app)
+    assert setup.config.oidc
 
     # Simulate the initial authentication request.
     return_url = f"https://{client.host}/foo"
@@ -185,7 +146,7 @@ async def test_oauth2_callback(
     assert r.status == 303
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
-    assert query["redirect_uri"][0] == "https://example.com/oauth2/sign_in"
+    assert query["redirect_uri"][0] == setup.config.oidc.redirect_url
 
     # Simulate the return from the OpenID Connect provider.
     r = await client.get(

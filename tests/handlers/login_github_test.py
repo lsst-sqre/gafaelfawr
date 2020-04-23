@@ -9,7 +9,6 @@ from urllib.parse import parse_qs, urlparse
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.providers.github import GitHubProvider
 from tests.setup import SetupTest
-from tests.support.app import store_secret
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -17,13 +16,9 @@ if TYPE_CHECKING:
 
 
 async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
-    config = {
-        "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="github")
     client = await aiohttp_client(setup.app)
+    assert setup.config.github
 
     # Simulate the initial authentication request.
     return_url = f"https://{client.host}:4444/foo?a=bar&b=baz"
@@ -37,7 +32,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert url.query
     query = parse_qs(url.query)
     assert query == {
-        "client_id": ["some-client-id"],
+        "client_id": [setup.config.github.client_id],
         "scope": [" ".join(GitHubProvider._SCOPES)],
         "state": [ANY],
     }
@@ -106,12 +101,7 @@ async def test_login_redirect_header(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
-    config = {
-        "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="github")
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
@@ -138,15 +128,9 @@ async def test_login_redirect_header(
 async def test_login_no_destination(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
-    config = {
-        "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="github")
     client = await aiohttp_client(setup.app)
 
-    # Simulate the initial authentication request.
     r = await client.get("/login", allow_redirects=False)
     assert r.status == 400
 
@@ -162,12 +146,7 @@ async def test_cookie_auth_with_token(
     login to get a valid session and then make a request with a bogus
     Authorization header.
     """
-    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
-    config = {
-        "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="github")
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
@@ -196,22 +175,9 @@ async def test_cookie_auth_with_token(
 
 
 async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
-    config = {
-        "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    """Uses an alternate settings environment with non-default claims."""
+    setup = await SetupTest.create(tmp_path, environment="github_claims")
     client = await aiohttp_client(setup.app)
-
-    # For some reason, Dynaconf doesn't support overriding settings by passing
-    # them as arguments to LazySettings, only setting new parameters.  We
-    # therefore have to override the defaults manually.
-    assert setup.config.github
-    setup.config.username_claim = "username"
-    setup.config.github.username_claim = "username"
-    setup.config.uid_claim = "numeric-uid"
-    setup.config.github.uid_claim = "numeric-uid"
 
     # Simulate the initial authentication request.
     r = await client.get(
@@ -242,8 +208,8 @@ async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
     r = await client.get("/auth/analyze")
     assert r.status == 200
     data = await r.json()
-    assert data["token"]["data"]["username"] == "githubuser"
-    assert data["token"]["data"]["numeric-uid"] == "123456"
+    assert data["token"]["data"][setup.config.username_claim] == "githubuser"
+    assert data["token"]["data"][setup.config.uid_claim] == "123456"
     assert "uid" not in data["token"]["data"]
     assert "uidNumber" not in data["token"]["data"]
 
@@ -251,12 +217,7 @@ async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
 async def test_bad_redirect(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
-    config = {
-        "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="github")
     client = await aiohttp_client(setup.app)
 
     r = await client.get(

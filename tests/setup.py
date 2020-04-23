@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
     from pathlib import Path
-    from typing import Any, List, Optional
+    from typing import List, Optional
 
 
 class SetupTest:
@@ -27,17 +27,25 @@ class SetupTest:
     """
 
     @classmethod
-    async def create(cls, tmp_path: Path, **config: Any) -> SetupTest:
+    async def create(
+        cls, tmp_path: Path, *, environment: str = "testing"
+    ) -> SetupTest:
         """Start a configured test aiohttp application.
 
         Parameters
         ----------
         tmp_path : `pathlib.Path`
             Root of the test's temporary directory.
-        **config : `typing.Any`
-            Additional configuration settings to pass to Dynaconf.
+        environment : `str`, optional
+            Settings environment to use.  Choose from an environment defined
+            in ``settings.yaml`` in the same directory as this module.
+
+        Returns
+        -------
+        setup : `SetupTest`
+            A test setup object.
         """
-        app = await create_test_app(tmp_path, **config)
+        app = await create_test_app(tmp_path, environment=environment)
         return cls(app)
 
     def __init__(self, app: web.Application) -> None:

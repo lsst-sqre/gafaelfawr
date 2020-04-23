@@ -4,22 +4,3 @@ default:
   uid_claim: uidNumber
   issuer:
     exp_minutes: 1440  # 1 day
-
-testing:
-  dynaconf_merge: True
-  realm: "testing"
-  after_logout_url: "https://example.com/landing"
-  group_mapping:
-    "exec:admin": ["admin"]
-    "exec:test": ["test"]
-    "read:all": ["foo", "admin", "org-a-team"]
-  known_scopes:
-    "exec:admin": "admin description"
-    "exec:test": "test description"
-    "read:all": "can read everything"
-  issuer:
-    iss: "https://test.example.com/"
-    key_id: "some-kid"
-    aud:
-      default: "https://example.com/"
-      internal: "https://example.com/api"

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
 from tests.setup import SetupTest
-from tests.support.app import store_secret
 
 if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -14,12 +13,7 @@ if TYPE_CHECKING:
 
 
 async def test_logout(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
-    config = {
-        "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="github")
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
@@ -58,12 +52,7 @@ async def test_logout(tmp_path: Path, aiohttp_client: TestClient) -> None:
 async def test_logout_with_url(
     tmp_path: Path, aiohttp_client: TestClient
 ) -> None:
-    secret_path = store_secret(tmp_path, "github", b"some-client-secret")
-    config = {
-        "GITHUB.CLIENT_ID": "some-client-id",
-        "GITHUB.CLIENT_SECRET_FILE": str(secret_path),
-    }
-    setup = await SetupTest.create(tmp_path, **config)
+    setup = await SetupTest.create(tmp_path, environment="github")
     client = await aiohttp_client(setup.app)
 
     # Simulate the initial authentication request.
