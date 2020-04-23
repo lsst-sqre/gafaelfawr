@@ -115,7 +115,7 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
             "Token %s (user: %s, scope: %s) not authorized (needed %s of %s)",
             token.jti,
             token.username,
-            token.scope,
+            ", ".join(sorted(token.scope)) if token.scope else "--none--",
             satisfy,
             ", ".join(sorted(required_scopes)),
         )
@@ -127,7 +127,7 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
         "Token %s (user: %s, scope: %s) authorized (needed %s of %s)",
         token.jti,
         token.username,
-        token.scope,
+        ", ".join(sorted(token.scope)),
         satisfy,
         ", ".join(sorted(required_scopes)),
     )

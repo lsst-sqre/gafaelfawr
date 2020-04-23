@@ -214,7 +214,7 @@ class TokenIssuer:
         )
 
     def _scope_from_groups(
-        self, groups: List[Dict[str, Union[int, str]]]
+        self, groups: List[Dict[str, str]]
     ) -> Optional[str]:
         """Get scopes from a token's groups.
 
@@ -222,8 +222,10 @@ class TokenIssuer:
 
         Parameters
         ----------
-        groups : List[Dict[`str`, Union[`int`, `str`]]]
-            The groups of a token.
+        groups : List[Dict[`str`, `str`]]
+            The groups of a token.  (Technically the value may be `int` but
+            the value of the ``name`` key is always `str` and that's all we
+            look at.)
 
         Returns
         -------
@@ -231,10 +233,8 @@ class TokenIssuer:
             The scope claim generated from the group membership based on the
             group_mapping configuration parameter.
         """
-        token_group_names = {g["name"] for g in groups}
+        group_names = [g["name"] for g in groups]
         scopes = set()
-        for scope, granting_groups in self._config.group_mapping.items():
-            for group in granting_groups:
-                if group in token_group_names:
-                    scopes.add(scope)
+        for group in group_names:
+            scopes.update(self._config.issuer.group_mapping.get(group, set()))
         return " ".join(sorted(scopes))

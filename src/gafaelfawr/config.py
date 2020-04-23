@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -12,7 +13,7 @@ from dynaconf import LazySettings
 from gafaelfawr.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional
+    from typing import Dict, List, Mapping, Optional, Set
 
 __all__ = [
     "Config",
@@ -56,6 +57,32 @@ class SafirConfig:
 
     Set with the ``SAFIR_LOGGER`` environment variable.
     """
+
+
+@dataclass
+class IssuerConfig:
+    """Configuration for how to issue tokens."""
+
+    iss: str
+    """iss (issuer) field in issued tokens."""
+
+    kid: str
+    """kid (key ID) header field in issued tokens."""
+
+    aud: str
+    """Default aud (audience) field in issued tokens."""
+
+    aud_internal: str
+    """Internal aud (audience) field in issued tokens."""
+
+    keypair: RSAKeyPair
+    """RSA key pair for signing and verifying issued tokens."""
+
+    exp_minutes: int
+    """Number of minutes into the future that a token should expire."""
+
+    group_mapping: Mapping[str, Set[str]]
+    """Mapping of group names to the set of scopes that group grants."""
 
 
 @dataclass
@@ -123,29 +150,6 @@ class OIDCConfig:
 
 
 @dataclass
-class IssuerConfig:
-    """Configuration for how to issue tokens."""
-
-    iss: str
-    """iss (issuer) field in issued tokens."""
-
-    kid: str
-    """kid (key ID) header field in issued tokens."""
-
-    aud: str
-    """Default aud (audience) field in issued tokens."""
-
-    aud_internal: str
-    """Internal aud (audience) field in issued tokens."""
-
-    keypair: RSAKeyPair
-    """RSA key pair for signing and verifying issued tokens."""
-
-    exp_minutes: int
-    """Number of minutes into the future that a token should expire."""
-
-
-@dataclass
 class Config:
     """Configuration for Gafaelfawr."""
 
@@ -173,12 +177,6 @@ class Config:
     known_scopes: Dict[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    group_mapping: Dict[str, List[str]]
-    """Mapping of a scope to a list of groups receiving that scope.
-
-    Used to determine the scope for a reissued token based on the group
-    memberships indicated in that token.
-    """
     username_claim: str
     """Token claim from which to take the username."""
 
@@ -202,6 +200,24 @@ class Config:
         config : `Config`
             The corresponding Config object.
         """
+        session_secret = cls._load_secret(
+            settings["SESSION_SECRET_FILE"]
+        ).decode()
+
+        # The group mapping in the settings maps a scope to a list of groups
+        # that provide that scope.  This may be conceptually easier for the
+        # person writing the configuration, but for our purposes we want a map
+        # from a group name to a set of scopes that group provides.
+        #
+        # Reconstruct the group mapping in the form in which we want to use it
+        # internally.
+        group_mapping = defaultdict(set)
+        for scope, groups in settings.get("GROUP_MAPPING", {}).items():
+            assert isinstance(scope, str), "group_mapping is malformed"
+            assert isinstance(groups, list), "group_mapping is malformed"
+            for group in groups:
+                group_mapping[group].add(scope)
+
         keypair = RSAKeyPair.from_pem(
             cls._load_secret(settings["ISSUER.KEY_FILE"])
         )
@@ -212,11 +228,8 @@ class Config:
             aud_internal=settings["ISSUER.AUD.INTERNAL"],
             keypair=keypair,
             exp_minutes=settings["ISSUER.EXP_MINUTES"],
+            group_mapping=group_mapping,
         )
-
-        session_secret = cls._load_secret(
-            settings["SESSION_SECRET_FILE"]
-        ).decode()
 
         github = None
         if settings.get("GITHUB.CLIENT_ID"):
@@ -250,13 +263,6 @@ class Config:
 
         known_scopes = settings.get("KNOWN_SCOPES", {})
 
-        group_mapping = {}
-        if settings.get("GROUP_MAPPING"):
-            for key, value in settings["GROUP_MAPPING"].items():
-                assert isinstance(key, str), "group_mapping is malformed"
-                assert isinstance(value, list), "group_mapping is malformed"
-                group_mapping[key] = value
-
         log_level_default = settings.get("LOGLEVEL", "INFO")
         log_level = os.getenv("SAFIR_LOG_LEVEL", log_level_default)
 
@@ -269,7 +275,6 @@ class Config:
             github=github,
             oidc=oidc,
             known_scopes=known_scopes,
-            group_mapping=group_mapping,
             username_claim=settings["USERNAME_CLAIM"],
             uid_claim=settings["UID_CLAIM"],
             safir_config=SafirConfig(log_level=log_level),
