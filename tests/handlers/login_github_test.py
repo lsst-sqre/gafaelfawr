@@ -8,21 +8,18 @@ from urllib.parse import parse_qs, urlparse
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.providers.github import GitHubProvider
-from tests.setup import SetupTest
 
 if TYPE_CHECKING:
-    from aiohttp.pytest_plugin.test_utils import TestClient
-    from pathlib import Path
+    from tests.setup import SetupTestCallable
 
 
-async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path, environment="github")
-    client = await aiohttp_client(setup.app)
+async def test_login(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup("github")
     assert setup.config.github
 
     # Simulate the initial authentication request.
-    return_url = f"https://{client.host}:4444/foo?a=bar&b=baz"
-    r = await client.get(
+    return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False,
     )
     assert r.status == 303
@@ -38,7 +35,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     }
 
     # Simulate the return from GitHub.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -47,7 +44,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["Location"] == return_url
 
     # Check that the /auth route works and finds our token.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status == 200
     assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
@@ -62,7 +59,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     # Now ask for the session handle in the encrypted session to be analyzed,
     # and verify the internals of the session handle from GitHub
     # authentication.
-    r = await client.get("/auth/analyze")
+    r = await setup.client.get("/auth/analyze")
     assert r.status == 200
     data = await r.json()
     assert data == {
@@ -98,15 +95,14 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
 
 async def test_login_redirect_header(
-    tmp_path: Path, aiohttp_client: TestClient
+    create_test_setup: SetupTestCallable,
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    setup = await SetupTest.create(tmp_path, environment="github")
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup("github")
 
     # Simulate the initial authentication request.
-    return_url = f"https://{client.host}/foo?a=bar&b=baz"
-    r = await client.get(
+    return_url = f"https://{setup.client.host}/foo?a=bar&b=baz"
+    r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": return_url},
         allow_redirects=False,
@@ -116,7 +112,7 @@ async def test_login_redirect_header(
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -126,17 +122,16 @@ async def test_login_redirect_header(
 
 
 async def test_login_no_destination(
-    tmp_path: Path, aiohttp_client: TestClient
+    create_test_setup: SetupTestCallable,
 ) -> None:
-    setup = await SetupTest.create(tmp_path, environment="github")
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup("github")
 
-    r = await client.get("/login", allow_redirects=False)
+    r = await setup.client.get("/login", allow_redirects=False)
     assert r.status == 400
 
 
 async def test_cookie_auth_with_token(
-    tmp_path: Path, aiohttp_client: TestClient
+    create_test_setup: SetupTestCallable,
 ) -> None:
     """Test that cookie auth takes precedence over an Authorization header.
 
@@ -146,13 +141,12 @@ async def test_cookie_auth_with_token(
     login to get a valid session and then make a request with a bogus
     Authorization header.
     """
-    setup = await SetupTest.create(tmp_path, environment="github")
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup("github")
 
     # Simulate the initial authentication request.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
-        params={"rd": f"https://{client.host}/foo"},
+        params={"rd": f"https://{setup.client.host}/foo"},
         allow_redirects=False,
     )
     assert r.status == 303
@@ -160,29 +154,28 @@ async def test_cookie_auth_with_token(
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
     assert r.status == 303
-    assert r.headers["Location"] == f"https://{client.host}/foo"
+    assert r.headers["Location"] == f"https://{setup.client.host}/foo"
 
     # Now make a request to the /auth endpoint with a bogus token.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status == 200
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
 
 
-async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
+async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    setup = await SetupTest.create(tmp_path, environment="github_claims")
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup("github_claims")
 
     # Simulate the initial authentication request.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
-        headers={"X-Auth-Request-Redirect": f"https://{client.host}"},
+        headers={"X-Auth-Request-Redirect": f"https://{setup.client.host}"},
         allow_redirects=False,
     )
     assert r.status == 303
@@ -190,7 +183,7 @@ async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -198,14 +191,14 @@ async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.status == 303
 
     # Check that the /auth route works and sets the headers correctly.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status == 200
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
 
     # Now ask for the session handle in the encrypted session to be analyzed,
     # and verify that the claims were set using our keys.
-    r = await client.get("/auth/analyze")
+    r = await setup.client.get("/auth/analyze")
     assert r.status == 200
     data = await r.json()
     assert data["token"]["data"][setup.config.username_claim] == "githubuser"
@@ -214,18 +207,15 @@ async def test_claim_names(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert "uidNumber" not in data["token"]["data"]
 
 
-async def test_bad_redirect(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path, environment="github")
-    client = await aiohttp_client(setup.app)
+async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup("github")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": "https://example.com/"}, allow_redirects=False,
     )
     assert r.status == 400
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://example.com/"},
         allow_redirects=False,

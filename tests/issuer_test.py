@@ -6,14 +6,12 @@ import time
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
-from tests.setup import SetupTest
-
 if TYPE_CHECKING:
-    from pathlib import Path
+    from tests.setup import SetupTestCallable
 
 
-async def test_reissue_token(tmp_path: Path) -> None:
-    setup = await SetupTest.create(tmp_path)
+async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     issuer = setup.factory.create_token_issuer()
 
     local_token = setup.create_token()
@@ -49,8 +47,10 @@ async def test_reissue_token(tmp_path: Path) -> None:
     assert now - 5 <= reissued_token.claims["iat"] <= now + 5
 
 
-async def test_reissue_token_scope(tmp_path: Path) -> None:
-    setup = await SetupTest.create(tmp_path)
+async def test_reissue_token_scope(
+    create_test_setup: SetupTestCallable,
+) -> None:
+    setup = await create_test_setup()
     issuer = setup.factory.create_token_issuer()
 
     oidc_token = setup.create_oidc_token(groups=["user"], scope="read:all")
@@ -62,8 +62,8 @@ async def test_reissue_token_scope(tmp_path: Path) -> None:
     assert reissued_token.claims["scope"] == "exec:admin read:all"
 
 
-async def test_reissue_token_jti(tmp_path: Path) -> None:
-    setup = await SetupTest.create(tmp_path)
+async def test_reissue_token_jti(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     issuer = setup.factory.create_token_issuer()
 
     oidc_token = setup.create_oidc_token()

@@ -6,44 +6,35 @@ import re
 from typing import TYPE_CHECKING
 
 from gafaelfawr.session import Session, SessionHandle
-from tests.setup import SetupTest
 
 if TYPE_CHECKING:
-    from aiohttp.pytest_plugin.test_utils import TestClient
-    from pathlib import Path
+    from tests.setup import SetupTestCallable
 
 
-async def test_tokens_no_auth(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_tokens_no_auth(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
 
-    r = await client.get("/auth/tokens")
+    r = await setup.client.get("/auth/tokens")
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
 
 
 async def test_tokens_invalid_auth(
-    tmp_path: Path, aiohttp_client: TestClient
+    create_test_setup: SetupTestCallable,
 ) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup()
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": "foo"}
     )
     assert r.status == 403
 
 
-async def test_tokens_empty_list(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_tokens_empty_list(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token()
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
@@ -51,9 +42,8 @@ async def test_tokens_empty_list(
     assert "Generate new token" in body
 
 
-async def test_tokens(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_tokens(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token()
 
     handle = SessionHandle()
@@ -64,7 +54,7 @@ async def test_tokens(tmp_path: Path, aiohttp_client: TestClient) -> None:
     token_store.store_session(token.uid, session, pipeline)
     await pipeline.execute()
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
@@ -74,21 +64,19 @@ async def test_tokens(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
 
 async def test_tokens_handle_no_auth(
-    tmp_path: Path, aiohttp_client: TestClient
+    create_test_setup: SetupTestCallable,
 ) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup()
 
-    r = await client.get("/auth/tokens/blah")
+    r = await setup.client.get("/auth/tokens/blah")
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
 
 
 async def test_tokens_handle_get_delete(
-    tmp_path: Path, aiohttp_client: TestClient
+    create_test_setup: SetupTestCallable,
 ) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup()
     token = setup.create_token()
 
     handle = SessionHandle()
@@ -101,14 +89,14 @@ async def test_tokens_handle_get_delete(
     token_store.store_session(token.uid, session, pipeline)
     await pipeline.execute()
 
-    r = await client.get(
+    r = await setup.client.get(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
     )
     assert r.status == 200
     assert handle.key in await r.text()
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
@@ -118,7 +106,7 @@ async def test_tokens_handle_get_delete(
     csrf_token = csrf_match.group(1)
 
     # Deleting without a CSRF token will fail.
-    r = await client.post(
+    r = await setup.client.post(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE"},
@@ -126,7 +114,7 @@ async def test_tokens_handle_get_delete(
     assert r.status == 403
 
     # Deleting with a bogus CSRF token will fail.
-    r = await client.post(
+    r = await setup.client.post(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE", "_csrf": csrf_token + "xxxx"},
@@ -134,7 +122,7 @@ async def test_tokens_handle_get_delete(
     assert r.status == 403
 
     # Deleting with the correct CSRF will succeed.
-    r = await client.post(
+    r = await setup.client.post(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE", "_csrf": csrf_token},
@@ -143,50 +131,43 @@ async def test_tokens_handle_get_delete(
     body = await r.text()
     assert f"token with the handle {handle.key} was deleted" in body
 
-    assert await token_store.get_tokens(token.claims["uidNumber"]) == []
+    assert await token_store.get_tokens(token.uid) == []
 
 
 async def test_tokens_new_no_auth(
-    tmp_path: Path, aiohttp_client: TestClient
+    create_test_setup: SetupTestCallable,
 ) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup()
 
-    r = await client.get("/auth/tokens/new")
+    r = await setup.client.get("/auth/tokens/new")
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
 
 
-async def test_tokens_new_form(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_tokens_new_form(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens/new", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
     body = await r.text()
 
-    assert "exec:admin" in body
-    assert "admin description" in body
-    assert "read:all" in body
-    assert "can read everything" in body
+    for scope, description in setup.config.known_scopes.items():
+        if scope in ("exec:admin", "read:all"):
+            assert scope in body
+            assert description in body
+        else:
+            assert scope not in body
+            assert description not in body
 
-    assert "exec:test" not in body
-    assert "test dsecription" not in body
 
-
-async def test_tokens_new_create(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_tokens_new_create(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens/new", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status == 200
@@ -196,7 +177,7 @@ async def test_tokens_new_create(
     csrf_token = csrf_match.group(1)
 
     # Creating without a CSRF token will fail.
-    r = await client.post(
+    r = await setup.client.post(
         f"/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y"},
@@ -204,7 +185,7 @@ async def test_tokens_new_create(
     assert r.status == 403
 
     # Deleting with a bogus CSRF token will fail.
-    r = await client.post(
+    r = await setup.client.post(
         f"/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y", "_csrf": csrf_token + "xxxx"},
@@ -214,7 +195,7 @@ async def test_tokens_new_create(
     # Creating with a valid CSRF token will succeed.  Requesting extraneous
     # scopes that we don't have is allowed (I cannot find a way to get it to
     # fail validation), but those requested scopes will be ignored.
-    r = await client.post(
+    r = await setup.client.post(
         "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y", "exec:test": "y", "_csrf": csrf_token},

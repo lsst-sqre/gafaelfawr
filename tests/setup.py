@@ -5,17 +5,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from gafaelfawr.session import Session, SessionHandle
-from tests.support.app import create_test_app
 from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
     from aiohttp import web
+    from aiohttp.pytest_plugin.test_utils import TestClient
     from aioredis import Redis
     from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
-    from pathlib import Path
-    from typing import List, Optional
+    from typing import Awaitable, Callable, List, Optional
 
 
 class SetupTest:
@@ -26,30 +25,9 @@ class SetupTest:
     settings.
     """
 
-    @classmethod
-    async def create(
-        cls, tmp_path: Path, *, environment: str = "testing"
-    ) -> SetupTest:
-        """Start a configured test aiohttp application.
-
-        Parameters
-        ----------
-        tmp_path : `pathlib.Path`
-            Root of the test's temporary directory.
-        environment : `str`, optional
-            Settings environment to use.  Choose from an environment defined
-            in ``settings.yaml`` in the same directory as this module.
-
-        Returns
-        -------
-        setup : `SetupTest`
-            A test setup object.
-        """
-        app = await create_test_app(tmp_path, environment=environment)
-        return cls(app)
-
-    def __init__(self, app: web.Application) -> None:
+    def __init__(self, app: web.Application, client: TestClient) -> None:
         self.app = app
+        self.client = client
         self.config: Config = self.app["gafaelfawr/config"]
         self.factory: ComponentFactory = self.app["gafaelfawr/factory"]
         self.redis: Redis = self.app["gafaelfawr/redis"]
@@ -118,3 +96,8 @@ class SetupTest:
             The generated token.
         """
         return create_oidc_test_token(self.config, groups=groups, **claims)
+
+
+# Type of the pytest fixture that builds the SetupTest object.
+if TYPE_CHECKING:
+    SetupTestCallable = Callable[..., Awaitable[SetupTest]]

@@ -10,52 +10,43 @@ from unittest.mock import ANY
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
-from tests.setup import SetupTest
 
 if TYPE_CHECKING:
-    from aiohttp.pytest_plugin.test_utils import TestClient
-    from pathlib import Path
+    from tests.setup import SetupTestCallable
 
 
-def assert_www_authenticate_header_matches(header: str, error: str) -> None:
-    header_method, header_info = header.split(" ", 1)
-    assert header_method == "Bearer"
-    data = header_info.split(",")
-    assert data[0] == 'realm="testing"'
-    assert data[1] == f'error="{error}"'
+async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
+
+    r = await setup.client.get("/auth", params={"scope": "exec:admin"})
+    assert r.status == 401
+    method, info = r.headers["WWW-Authenticate"].split(" ", 1)
+    assert method == "Bearer"
+    data = info.split(",")
+    assert len(data) == 3
+    assert data[0] == f'realm="{setup.config.realm}"'
+    assert data[1] == f'error="Unable to find token"'
     assert data[2].startswith("error_description=")
 
-
-async def test_no_auth(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
-
-    r = await client.get("/auth", params={"scope": "exec:admin"})
-    assert r.status == 401
-    assert r.headers["WWW-Authenticate"]
-    assert_www_authenticate_header_matches(
-        r.headers["WWW-Authenticate"], "Unable to find token"
-    )
-
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer"},
     )
     assert r.status == 401
-    assert r.headers["WWW-Authenticate"]
-    assert_www_authenticate_header_matches(
-        r.headers["WWW-Authenticate"], "Unable to find token"
-    )
+    method, info = r.headers["WWW-Authenticate"].split(" ", 1)
+    assert method == "Bearer"
+    data = info.split(",")
+    assert len(data) == 3
+    assert data[0] == f'realm="{setup.config.realm}"'
+    assert data[1] == f'error="Unable to find token"'
+    assert data[2].startswith("error_description=")
 
 
-async def test_invalid_auth(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer token"},
@@ -63,14 +54,11 @@ async def test_invalid_auth(
     assert r.status == 403
 
 
-async def test_access_denied(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_access_denied(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token()
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {token.encoded}"},
@@ -80,12 +68,11 @@ async def test_access_denied(
     assert "Missing required scope" in body
 
 
-async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_satisfy_all(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token(scope="exec:test")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params=[("scope", "exec:test"), ("scope", "exec:admin")],
         headers={"Authorization": f"Bearer {token.encoded}"},
@@ -95,12 +82,11 @@ async def test_satisfy_all(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert "Missing required scope" in body
 
 
-async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_success(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {token.encoded}"},
@@ -109,25 +95,24 @@ async def test_success(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:admin read:all"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
-    assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
-    assert r.headers["X-Auth-Request-User"] == "some-user"
-    assert r.headers["X-Auth-Request-Uid"] == "1000"
+    assert r.headers["X-Auth-Request-Email"] == token.email
+    assert r.headers["X-Auth-Request-User"] == token.username
+    assert r.headers["X-Auth-Request-Uid"] == token.uid
     assert r.headers["X-Auth-Request-Groups"] == "admin"
     assert r.headers["X-Auth-Request-Token"] == token.encoded
 
 
-async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
+async def test_success_any(create_test_setup: SetupTestCallable) -> None:
     """Test satisfy=any as an /auth parameter.
 
     Ask for either ``exec:admin`` or ``exec:test`` and pass in credentials
     with only ``exec:test``.  Ensure they are accepted but also the headers
-    don't claim the client has ``exec:admin``.
+    don't claim the setup.client has ``exec:admin``.
     """
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup()
     token = setup.create_token(groups=["test"], scope="exec:test")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params=[
             ("scope", "exec:admin"),
@@ -145,14 +130,13 @@ async def test_success_any(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Groups"] == "test"
 
 
-async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_basic(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token(groups=["test"], scope="exec:admin")
 
     basic = f"{token.encoded}:x-oauth-basic".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -162,7 +146,7 @@ async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
     basic = f"x-oauth-basic:{token.encoded}".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -174,7 +158,7 @@ async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     # appear anywhere in the auth string.
     basic = f"{token.encoded}:something-else".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -183,13 +167,25 @@ async def test_basic(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == "some-user@example.com"
 
 
-async def test_handle(tmp_path: Path, aiohttp_client: TestClient) -> None:
+async def test_basic_failure(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
+
+    for basic in (b"foo:foo", b"x-oauth-basic:foo", b"foo:x-oauth-basic"):
+        basic_b64 = base64.b64encode(basic).decode()
+        r = await setup.client.get(
+            "/auth",
+            params={"scope": "exec:admin"},
+            headers={"Authorization": f"Basic {basic_b64}"},
+        )
+        assert r.status == 403
+
+
+async def test_handle(create_test_setup: SetupTestCallable) -> None:
     """Test that a session handle can be used in Authorization."""
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup()
     handle = await setup.create_session(groups=["test"], scope="exec:admin")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {handle.encode()}"},
@@ -198,7 +194,7 @@ async def test_handle(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
     basic = f"{handle.encode()}:x-oauth-basic".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -207,7 +203,7 @@ async def test_handle(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
     basic = f"x-oauth-basic:{handle.encode()}".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -218,7 +214,7 @@ async def test_handle(tmp_path: Path, aiohttp_client: TestClient) -> None:
     # appear anywhere in the auth string.
     basic = f"{handle.encode()}:something-else".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -226,17 +222,17 @@ async def test_handle(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.status == 200
 
 
-async def test_reissue_internal(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
+async def test_reissue_internal(create_test_setup: SetupTestCallable) -> None:
     """Test requesting token reissuance to an internal audience."""
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup()
     token = setup.create_token(groups=["admin"], scope="exec:admin")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
-        params={"scope": "exec:admin", "audience": "https://example.com/api"},
+        params={
+            "scope": "exec:admin",
+            "audience": setup.config.issuer.aud_internal,
+        },
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 200
@@ -268,7 +264,7 @@ async def test_reissue_internal(
         "isMemberOf": [{"name": "admin"}],
         "iss": setup.config.issuer.iss,
         "jti": ANY,
-        "scope": "exec:admin read:all",
+        "scope": " ".join(sorted(setup.config.issuer.group_mapping["admin"])),
         "sub": token.claims["sub"],
         "uid": token.username,
         "uidNumber": token.uid,

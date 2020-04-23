@@ -6,18 +6,15 @@ from typing import TYPE_CHECKING
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.util import number_to_base64
-from tests.setup import SetupTest
 
 if TYPE_CHECKING:
-    from aiohttp.pytest_plugin.test_utils import TestClient
-    from pathlib import Path
+    from tests.setup import SetupTestCallable
 
 
-async def test_well_known(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_well_known(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
 
-    r = await client.get("/.well-known/jwks.json")
+    r = await setup.client.get("/.well-known/jwks.json")
     assert r.status == 200
     result = await r.json()
 

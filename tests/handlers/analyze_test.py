@@ -11,18 +11,13 @@ import jwt
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.session import Session, SessionHandle
-from tests.setup import SetupTest
 
 if TYPE_CHECKING:
-    from aiohttp.pytest_plugin.test_utils import TestClient
-    from pathlib import Path
+    from tests.setup import SetupTestCallable
 
 
-async def test_analyze_handle(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_analyze_handle(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
 
     handle = SessionHandle()
     token = setup.create_token(groups=["admin"], jti=handle.key)
@@ -30,7 +25,9 @@ async def test_analyze_handle(
     session_store = setup.factory.create_session_store()
     await session_store.store_session(session)
 
-    r = await client.post("/auth/analyze", data={"token": handle.encode()})
+    r = await setup.client.post(
+        "/auth/analyze", data={"token": handle.encode()}
+    )
 
     # Check that the results from /analyze include the handle, the session,
     # and the token information.
@@ -65,14 +62,11 @@ async def test_analyze_handle(
     assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
 
 
-async def test_analyze_token(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
-    setup = await SetupTest.create(tmp_path)
-    client = await aiohttp_client(setup.app)
+async def test_analyze_token(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
     token = setup.create_token()
 
-    r = await client.post("/auth/analyze", data={"token": token.encoded})
+    r = await setup.client.post("/auth/analyze", data={"token": token.encoded})
     assert r.status == 200
     assert await r.json() == {
         "token": {

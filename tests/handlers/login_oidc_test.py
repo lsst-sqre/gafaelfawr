@@ -7,21 +7,18 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from gafaelfawr.constants import ALGORITHM
-from tests.setup import SetupTest
 
 if TYPE_CHECKING:
-    from aiohttp.pytest_plugin.test_utils import TestClient
-    from pathlib import Path
+    from tests.setup import SetupTestCallable
 
 
-async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
-    setup = await SetupTest.create(tmp_path, environment="oidc")
-    client = await aiohttp_client(setup.app)
+async def test_login(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup("oidc")
     assert setup.config.oidc
 
     # Simulate the initial authentication request.
-    return_url = f"https://{client.host}:4444/foo?a=bar&b=baz"
-    r = await client.get(
+    return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False,
     )
     assert r.status == 303
@@ -40,7 +37,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     }
 
     # Simulate the return from the provider.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -49,7 +46,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     assert r.headers["Location"] == return_url
 
     # Check that the /auth route works and finds our token.
-    r = await client.get("/auth", params={"scope": "exec:admin"})
+    r = await setup.client.get("/auth", params={"scope": "exec:admin"})
     assert r.status == 200
     assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:admin read:all"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
@@ -63,7 +60,7 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
     # Now ask for the session handle in the encrypted session to be analyzed,
     # and verify the internals of the session handle from OpenID Connect
     # authentication.
-    r = await client.get("/auth/analyze")
+    r = await setup.client.get("/auth/analyze")
     assert r.status == 200
     data = await r.json()
     assert data == {
@@ -103,15 +100,14 @@ async def test_login(tmp_path: Path, aiohttp_client: TestClient) -> None:
 
 
 async def test_login_redirect_header(
-    tmp_path: Path, aiohttp_client: TestClient
+    create_test_setup: SetupTestCallable,
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    setup = await SetupTest.create(tmp_path, environment="oidc")
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup("oidc")
 
     # Simulate the initial authentication request.
-    return_url = f"https://{client.host}/foo?a=bar&b=baz"
-    r = await client.get(
+    return_url = f"https://{setup.client.host}/foo?a=bar&b=baz"
+    r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": return_url},
         allow_redirects=False,
@@ -121,7 +117,7 @@ async def test_login_redirect_header(
     query = parse_qs(url.query)
 
     # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -130,17 +126,14 @@ async def test_login_redirect_header(
     assert r.headers["Location"] == return_url
 
 
-async def test_oauth2_callback(
-    tmp_path: Path, aiohttp_client: TestClient
-) -> None:
+async def test_oauth2_callback(create_test_setup: SetupTestCallable) -> None:
     """Test the compatibility /oauth2/callback route."""
-    setup = await SetupTest.create(tmp_path, environment="oidc")
-    client = await aiohttp_client(setup.app)
+    setup = await create_test_setup("oidc")
     assert setup.config.oidc
 
     # Simulate the initial authentication request.
-    return_url = f"https://{client.host}/foo"
-    r = await client.get(
+    return_url = f"https://{setup.client.host}/foo"
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False,
     )
     assert r.status == 303
@@ -149,7 +142,7 @@ async def test_oauth2_callback(
     assert query["redirect_uri"][0] == setup.config.oidc.redirect_url
 
     # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
+    r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
