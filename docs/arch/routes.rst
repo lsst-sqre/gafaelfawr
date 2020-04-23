@@ -10,7 +10,7 @@ Gafaelfawr supports the following routes:
 
 ``/auth``
     Perform authentication and authorization checks.
-    Meant to be run as an auth subrequest from nginx.
+    Meant to be run as an auth subrequest from NGINX.
     For documentation on the parameters accepted by this route, see :ref:`auth-config`.
     For more information on how the ``/auth`` route is used, see :ref:`browser-flow`.
 
@@ -38,7 +38,7 @@ Gafaelfawr supports the following routes:
 
     ``rd``
         The return URL to which to send the user after authentication is complete.
-        The URL may instead be provided via the ``X-Auth-Request-Redirect`` header (for which there is built-in support in the Kubernetes nginx-ingress).
+        The URL may instead be provided via the ``X-Auth-Request-Redirect`` header (for which there is built-in support in the Kubernetes ingress-nginx).
         Only used when initiating authentication.
 
     ``code``

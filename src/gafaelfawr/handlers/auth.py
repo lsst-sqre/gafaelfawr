@@ -28,7 +28,7 @@ async def get_auth(request: web.Request, token: VerifiedToken) -> web.Response:
     Parameters
     ----------
     request : `aiohttp.web.Request`
-        The incoming request, normally from nginx's ``auth_request``
+        The incoming request, normally from NGINX's ``auth_request``
         directive.
 
     Returns

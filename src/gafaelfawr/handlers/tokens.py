@@ -155,8 +155,7 @@ async def post_tokens_new(
     Parameters
     ----------
     request : `aiohttp.web.Request`
-        The incoming request, normally from nginx's ``auth_request``
-        directive.
+        The incoming request.
 
     Returns
     -------

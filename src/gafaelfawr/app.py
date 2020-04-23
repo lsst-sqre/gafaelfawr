@@ -110,7 +110,7 @@ async def setup_middleware(app: Application, config: Config) -> None:
     app.middlewares.append(bind_logger)
 
     # Unconditionally trust X-Forwarded-For, since this application is desiged
-    # to run behind an nginx ingress.
+    # to run behind an NGINX ingress.
     await aiohttp_remotes.setup(app, aiohttp_remotes.XForwardedRelaxed())
 
     # Set up encrypted session storage via a cookie.

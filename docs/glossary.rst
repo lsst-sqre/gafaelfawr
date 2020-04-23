@@ -42,7 +42,7 @@ payload
 
 protected application
     An application that uses Gafaelfawr for authentication and authorization.
-    Gafaelfawr will run as an nginx auth subrequest handler and return headers that nginx will in turn pass to the protected application, which it can use for further authorization and identity decisions.
+    Gafaelfawr will run as an NGINX auth subrequest handler and return headers that NGINX will in turn pass to the protected application, which it can use for further authorization and identity decisions.
 
 scope
     A permission that a user holding a token has in some system.

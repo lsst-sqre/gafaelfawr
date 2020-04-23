@@ -8,13 +8,13 @@ Browser flow
 ============
 
 The user's interaction with Gafaelfawr is normally initiated by an attempt to visit a protected application.
-That application uses nginx-ingress Kubernetes annotations to trigger an authentication subrequest to the Gafaelfawr ``/auth`` endpoint.
+That application uses ingress-nginx Kubernetes annotations to trigger an authentication subrequest to the Gafaelfawr ``/auth`` endpoint.
 That sets off the following interaction:
 
 #. The ``/auth`` handler receives the headers of the original request.
    No token is present in an ``Authorization`` header, nor is there an authentication session cookie.
    The ``/auth`` handler therefore returns an HTTP 401 error.
-#. nginx-ingress determines from its annotations that this means the user should be redirected to the ``/login`` route with the original URL included in the ``X-Auth-Request-Redirect`` header.
+#. ingress-nginx determines from its annotations that this means the user should be redirected to the ``/login`` route with the original URL included in the ``X-Auth-Request-Redirect`` header.
    Alternatively, the URL can be included in the ``rd`` parameter to the ``/login`` route, but this requires escaping.
 #. The ``/login`` handler sets a session cookie containing a randomly-generated ``state`` parameter (for session fixation protection).
    It also includes the return URL in that session cookie.
@@ -33,7 +33,7 @@ That sets off the following interaction:
    It retrieves the JWT from the session store and decrypts and verifies it.
    It then checks the ``scope`` claim of that JWT against the requested authentication scope given as a ``scope`` parameter to the ``/auth`` route.
    If the requested scope or scopes are not satisfied, it returns a 403 error.
-   Otherwise, it returns 200, and nginx then proxies the request to the protected application and user interaction continues as normal.
+   Otherwise, it returns 200, and NGINX then proxies the request to the protected application and user interaction continues as normal.
 
 Programmatic flow
 =================
