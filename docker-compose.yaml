@@ -1,5 +1,5 @@
 # Run Redis for testing with a local development server.  This is used by
-# tox -e run, which starts jwt_authorizer in the foreground.
+# tox -e run, which starts gafaelfawr in the foreground.
 
 version: "3"
 services:

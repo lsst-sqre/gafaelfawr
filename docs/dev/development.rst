@@ -2,36 +2,36 @@
 Development guide
 #################
 
-This page provides procedures and guidelines for developing and contributing to JWT Authorizer.
+This page provides procedures and guidelines for developing and contributing to Gafaelfawr.
 
 Scope of contributions
 ======================
 
-JWT Authorizer is an open source package, meaning that you can contribute to JWT Authorizer itself, or fork JWT Authorizer for your own purposes.
+Gafaelfawr is an open source package, meaning that you can contribute to Gafaelfawr itself, or fork Gafaelfawr for your own purposes.
 
-Since JWT Authorizer is intended for internal use by Rubin Observatory, community contributions can only be accepted if they align with Rubin Observatory's aims.
+Since Gafaelfawr is intended for internal use by Rubin Observatory, community contributions can only be accepted if they align with Rubin Observatory's aims.
 For that reason, it's a good idea to propose changes with a new `GitHub issue`_ before investing time in making a pull request.
 
-JWT Authorizer is developed by the LSST SQuaRE team.
+Gafaelfawr is developed by the LSST SQuaRE team.
 
-.. _GitHub issue: https://github.com/lsst/jwt_authorizer/issues/new
+.. _GitHub issue: https://github.com/lsst/gafaelfawr/issues/new
 
 .. _dev-environment:
 
 Setting up a local development environment
 ==========================================
 
-To develop JWT Authorizer, create a virtual environment with your method of choice (like virtualenvwrapper) and then clone or fork, and install:
+To develop Gafaelfawr, create a virtual environment with your method of choice (like virtualenvwrapper) and then clone or fork, and install:
 
 .. code-block:: sh
 
-   git clone https://github.com/lsst/jwt_authorizer.git
-   cd jwt_authorizer
+   git clone https://github.com/lsst/gafaelfawr.git
+   cd gafaelfawr
    make init
 
 This init step does three things:
 
-1. Installs JWT Authorizer in an editable mode with its "dev" extra that includes test and documentation dependencies.
+1. Installs Gafaelfawr in an editable mode with its "dev" extra that includes test and documentation dependencies.
 2. Installs pre-commit and tox.
 3. Installs the pre-commit hooks.
 
@@ -111,7 +111,7 @@ Add a description of new features and fixes as list items under a section at the
 
    - Description of the feature or fix.
 
-If the next version is known (because JWT Authorizer's master branch is being prepared for a new major or minor version), the section may contain that version information:
+If the next version is known (because Gafaelfawr's master branch is being prepared for a new major or minor version), the section may contain that version information:
 
 .. code-block:: rst
 

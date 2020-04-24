@@ -35,7 +35,7 @@ commands =
 [testenv:typing]
 description = Run mypy.
 commands =
-    mypy src/jwt_authorizer tests setup.py
+    mypy src/gafaelfawr tests setup.py
 
 [testenv:lint]
 description = Lint codebase by running pre-commit (Black, isort, Flake8).
@@ -47,6 +47,8 @@ commands = pre-commit run --all-files
 [testenv:docs]
 description = Build documentation (HTML) with Sphinx.
 commands =
+    python docs/_static/architecture.py
+    seqdiag docs/_static/flow.diag
     sphinx-build -n -T -b html -d {envtmpdir}/doctrees docs docs/_build/html
 
 [testenv:run]
@@ -58,7 +60,7 @@ commands_pre =
     docker-compose up -d
     holdup -t 60 -T 5 -i 1 -n tcp://localhost:6379/
 commands =
-    adev runserver --app-factory create_dev_app src/jwt_authorizer/app.py
+    adev runserver --app-factory create_dev_app src/gafaelfawr/app.py
 commands_post =
     docker-compose down
 """
@@ -66,7 +68,7 @@ commands_post =
 [tool.coverage.run]
 parallel = true
 branch = true
-source = ["jwt_authorizer"]
+source = ["gafaelfawr"]
 
 [tool.coverage.paths]
 source = ["src", ".tox/*/site-packages"]
@@ -106,6 +108,6 @@ exclude = '''
 [tool.isort]
 include_trailing_comma = true
 multi_line_output = 3
-known_first_party = ["jwt_authorizer", "tests"]
+known_first_party = ["gafaelfawr", "tests"]
 known_third_party = ["aiohttp", "aiohttp_csrf", "aiohttp_jinja2", "aiohttp_remotes", "aiohttp_session", "aioredis", "cachetools", "click", "cryptography", "dynaconf", "jinja2", "jwt", "mockaioredis", "pytest", "safir", "setuptools", "structlog", "wtforms"]
 skip = ["docs/conf.py"]

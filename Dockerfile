@@ -60,4 +60,4 @@ USER appuser
 
 EXPOSE 8080
 
-ENTRYPOINT ["jwt_authorizer", "run", "--port", "8080"]
+ENTRYPOINT ["gafaelfawr", "run", "--port", "8080"]

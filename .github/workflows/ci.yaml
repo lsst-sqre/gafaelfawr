@@ -55,25 +55,25 @@ jobs:
 
       - name: Pull previous images
         run: |
-          docker pull lsstdm/jwt_authorizer:deps-${{steps.vars.outputs.tag}} || true
-          docker pull lsstdm/jwt_authorizer:${{steps.vars.outputs.tag}} || true
+          docker pull lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} || true
+          docker pull lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}} || true
 
       - name: Build the dependencies Docker image
         run: |
           docker build --target dependencies-image \
-            --cache-from=lsstdm/jwt_authorizer:deps-${{steps.vars.outputs.tag}} \
-            --tag lsstdm/jwt_authorizer:deps-${{steps.vars.outputs.tag}} .
+            --cache-from=lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} \
+            --tag lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} .
 
       - name: Build the runtime Docker image
         run: |
           docker build --target runtime-image \
-            --cache-from=lsstdm/jwt_authorizer:${{steps.vars.outputs.tag}} \
-            --tag lsstdm/jwt_authorizer:${{steps.vars.outputs.tag}} .
+            --cache-from=lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}} \
+            --tag lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}} .
 
       - name: Push Docker images
         run: |
-          docker push lsstdm/jwt_authorizer:deps-${{steps.vars.outputs.tag}}
-          docker push lsstdm/jwt_authorizer:${{steps.vars.outputs.tag}}
+          docker push lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}}
+          docker push lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}}
 
   docs:
     runs-on: ubuntu-latest
@@ -89,6 +89,9 @@ jobs:
       - name: Install tox and LTD Conveyor
         run: pip install tox ltd-conveyor
 
+      - name: Install graphviz
+        run: sudo apt-get install graphviz
+
       - name: Run tox
         run: tox -e docs
 
@@ -96,4 +99,4 @@ jobs:
         env:
           LTD_USERNAME: travis
           LTD_PASSWORD: ${{ secrets.LTD_PASSWORD }}
-        run: ltd upload --product jwt-authorizer --gh --dir docs/_build/html
+        run: ltd upload --product gafaelfawr --gh --dir docs/_build/html

@@ -1,14 +1,18 @@
-##############
-JWT Authorizer
-##############
+##########
+Gafaelfawr
+##########
 
-JWT Authorizer is the authentication and authorization front-end for the Vera C. Rubin Observatory Science Platform.
-It's primary purpose is to serve as an nginx ``auth_request`` backend.
+Gafaelfawr is the authentication and authorization front-end for the Vera C. Rubin Observatory Science Platform.
+It's primary purpose is to serve as an NGINX ``auth_request`` backend.
 It also provides a web page where people can create and manage long-lived tokens for use outside of a web browser.
 As a component of the Science Platform, it is designed for deployment with Kubernetes.
-JWT Authorizer requires the Kubernetes `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__.
+Gafaelfawr requires the Kubernetes `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__.
 
-JWT Authorizer is developed on `GitHub <https://github.com/lsst/jwt_authorizer>`__.
+Gafaelfawr is developed on `GitHub <https://github.com/lsst/gafaelfawr>`__.
+
+Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
+Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
+(If you speak Welsh and can provide a better pronunciation guide, please open an issue!)
 
 Installation
 ============
@@ -16,8 +20,9 @@ Installation
 .. toctree::
    :maxdepth: 1
 
-   kubernetes
+   install
    configuration
+   glossary
    changelog
 
 Architecture
@@ -26,7 +31,12 @@ Architecture
 .. toctree::
    :maxdepth: 1
 
-   arch/issuer
+   arch/overview
+   arch/flow
+   arch/routes
+   arch/providers
+   arch/session
+   arch/security
 
 Development guide
 =================

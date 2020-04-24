@@ -2,41 +2,53 @@
 API reference
 #############
 
-.. automodapi:: jwt_authorizer
+.. automodapi:: gafaelfawr
    :include-all-objects:
 
-.. automodapi:: jwt_authorizer.analyze
+.. automodapi:: gafaelfawr.app
 
-.. automodapi:: jwt_authorizer.app
+.. automodapi:: gafaelfawr.cli
 
-.. automodapi:: jwt_authorizer.authnz
+.. automodapi:: gafaelfawr.config
 
-.. automodapi:: jwt_authorizer.cli
-
-.. automodapi:: jwt_authorizer.config
-
-.. automodapi:: jwt_authorizer.handlers
+.. automodapi:: gafaelfawr.constants
    :include-all-objects:
 
-.. automodapi:: jwt_authorizer.handlers.analyze
+.. automodapi:: gafaelfawr.issuer
 
-.. automodapi:: jwt_authorizer.handlers.auth
+.. automodapi:: gafaelfawr.handlers
+   :include-all-objects:
 
-.. automodapi:: jwt_authorizer.handlers.index
+.. automodapi:: gafaelfawr.handlers.analyze
 
-.. automodapi:: jwt_authorizer.handlers.login
+.. automodapi:: gafaelfawr.handlers.auth
 
-.. automodapi:: jwt_authorizer.handlers.tokens
+.. automodapi:: gafaelfawr.handlers.index
 
-.. automodapi:: jwt_authorizer.handlers.util
+.. automodapi:: gafaelfawr.handlers.login
 
-.. automodapi:: jwt_authorizer.handlers.well_known
+.. automodapi:: gafaelfawr.handlers.logout
 
-.. automodapi:: jwt_authorizer.session
+.. automodapi:: gafaelfawr.handlers.tokens
 
-.. automodapi:: jwt_authorizer.tokens
-   :no-inherited-members:
+.. automodapi:: gafaelfawr.handlers.util
 
-.. automodapi:: jwt_authorizer.util
+.. automodapi:: gafaelfawr.handlers.well_known
 
-.. automodapi:: jwt_authorizer.verify
+.. automodapi:: gafaelfawr.keypair
+
+.. automodapi:: gafaelfawr.providers.base
+
+.. automodapi:: gafaelfawr.providers.github
+
+.. automodapi:: gafaelfawr.providers.oidc
+
+.. automodapi:: gafaelfawr.session
+
+.. automodapi:: gafaelfawr.token_store
+
+.. automodapi:: gafaelfawr.tokens
+
+.. automodapi:: gafaelfawr.util
+
+.. automodapi:: gafaelfawr.verify

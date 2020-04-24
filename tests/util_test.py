@@ -1,9 +1,9 @@
-"""Tests for the jwt_authorizer.tokens package."""
+"""Tests for the gafaelfawr.util package."""
 
 from __future__ import annotations
 
-from jwt_authorizer.util import add_padding, base64_to_number, number_to_base64
-from tests.util import RSAKeyPair
+from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.util import add_padding, base64_to_number, number_to_base64
 
 
 def test_add_padding() -> None:
@@ -15,7 +15,7 @@ def test_add_padding() -> None:
 
 
 def test_base64_to_number() -> None:
-    keypair = RSAKeyPair()
+    keypair = RSAKeyPair.generate()
     for n in (
         0,
         1,

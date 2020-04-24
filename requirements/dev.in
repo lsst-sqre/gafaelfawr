@@ -7,14 +7,16 @@
 
 aiohttp-devtools
 coverage[toml]
+diagrams
+documenteer>=0.5,<0.6
 flake8
 holdup
+lsst-sphinx-bootstrap-theme<0.3
 mockaioredis
 mypy
 pre-commit
 pytest
 pytest-aiohttp
-documenteer>=0.5,<0.6
-lsst-sphinx-bootstrap-theme<0.3
-sphinx-prompt
+seqdiag
 sphinx-automodapi==0.12
+sphinx-prompt
