@@ -110,34 +110,38 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
     The name of a persistent volume claim to use for Redis storage.
     If not given, Redis will use ``emptyDir``, which is ephemeral storage that will be cleared on every pod restart (thus invalidating all user authentication sessions and user-issued tokens).
 
-``vault_secrets.path`` (required)
+``vault_secrets_path`` (required)
     The path in Vault for the Vault secret containing the secret keys described in :ref:`vault-secrets`.
 
 ``user_scope`` (required)
     The token scope to require before allowing access to the ``/auth/tokens`` route, which allows the user to issue and revoke their own tokens.
 
-``config.loglevel`` (optional)
+``loglevel`` (optional)
     The Python logging level.
     Set to one of the (all-caps) string log level values from the Python :py:mod:`logging` module.
 
-``config.session_length`` (optional)
+``issuer.exp_minutes`` (optional)
     The lifetime (in minutes) of the issued JWTs and thus the user's authentication session.
     The default is 1440 (one day).
 
-``config.github.client_id``
+``github.client_id``
     The client ID for the GitHub OAuth App if using GitHub as the identity provider.
     Only set either this or ``cilogon.client_id``.
 
-``config.cilogon.client_id``
+``cilogon.client_id``
     The client ID for CILogon if using CILogon as the identity provider.
     Only set either this or ``github.client_id``.
 
-``config.known_scopes``
+``cilogon.redirect_url``
+    The full redirect URL for CILogon if using CILogon as the identity provider.
+    Set this if you need to change the redirect URL to the ``/oauth2/callback`` route instead of the ``/login`` route.
+
+``known_scopes``
     Mapping of scope names to descriptions.
     This is used to populate the new token creation page.
     It is copied directly to the ``known_scopes`` configuration setting documented in :ref:`settings`.
 
-``config.group_mapping``
+``group_mapping``
     Mapping of scope names to lists of groups that provide that scope.
     Tokens from an OpenID Connect provider such as CILogon that include groups in an ``isMemberOf`` claim will be granted scopes based on this mapping.
 
