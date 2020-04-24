@@ -2,6 +2,48 @@
 Change log
 ##########
 
+1.0.0 (2020-04-24)
+==================
+
+JWT Authorizer has been renamed to Gafaelfawr.
+It is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
+Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
+
+As of this release, Gafaelfawr supports OpenID Connect directly and no longer uses oauth2_proxy.
+There are new options to configure the OpenID Connect support.
+
+The configuration has been substantially overhauled in this release and many configuration options have changed names.
+Please review the documentation thoroughly before upgrading.
+
+- Rename the application to Gafaelfawr and the Python package to gafaelfawr.
+- Add native support for OpenID Connect.
+- Fix a security weakness where a user could request a token with any known scope, regardless of the scopes of their own authentication token.
+  The scopes of user-issued tokens are now limited to the scopes of the token used to authenticate to the token creation page.
+- The ``/auth`` route now takes a ``scope`` parameter instead of a ``capability`` parameter to specify the scopes required for authorization.
+- Rename ``Capability`` to ``Scope`` in the headers exposed after successful authorization.
+- Overhaul how authentication sessions and user-issued tokens are stored in Redis.
+  This will invalidate all existing sessions and user-issued tokens on upgrade.
+  Sessions are now encrypted with Fernet rather than with the complex encryption required for oauth2_proxy compatibility.
+- Significantly overhaul the configuration settings.
+  Delete the unused configuration options ```www_authenticate``, ``no_authorize``, ``no_verify``, and ``set_user_headers``.
+  Eliminate the ``issuers`` setting in favor of configuring the upstream issuer in the OpenID Connect configuration.
+  Rename the configuration settings for the internal issuer.
+- Always set the ``scope`` claim when issuing internal tokens, based on group membership, and only check the ``scope`` claim during authorization.
+- Add a new ``/logout`` route.
+- Simplify token verification for internally-issued tokens and avoid needless HTTP requests to the JWKS route.
+- Require that all tokens have claims for the username and UID (the claim names are configurable).
+- Add ``/oauth2/callback`` as an alias for the ``/login`` route for backwards compatibility with oauth2_proxy deployments.
+- Drop support for reading tokens from ``X-Forwarded-Access-Token`` or ``X-Forwarded-Ticket-Id-Token`` headers.
+- Protect against open redirects in the ``/login`` route.
+  The destination URL now must be at the same host as the ``/login`` route.
+- Add the ``generate-key`` CLI command to ease generation of a new signing key.
+- Remove support for configuring secrets directly and only read them from files.
+  It simplifies the code and improves testing to have only one mechanism of secret management.
+- Improve logging somewhat (although it's still not structured or documented).
+- Cleanly shut down Redis connections when shutting down the server.
+- Add architecture documentation and a glossary of terms to the manual.
+- Flesh out the Kubernetes installation documentation and document the standard Helm chart.
+
 0.3.0 (2020-04-20)
 ==================
 
@@ -13,7 +55,7 @@ A new configuration key, ``session_secret`` is now required and is used to encry
 - Add support for GitHub authentication.
   This is done via a new ``/login`` route and support for authentication credentials stored in a cookie.
 - Add a (partial) manual.
-  The formatted text is published at `jwt-authorizer.lsst.io <https://jwt-authorizer.lsst.io>`__.
+  The formatted text is published at `gafaelfawr.lsst.io <https://gafaelfawr.lsst.io>`__.
   Included are partial installation instructions, a guide to configuration settings, and API documentation.
 - Add support for serving ``/.well-known/jwks.json`` for the internal token signing key, based on the configured private key.
   A separate static web service is no longer required.
