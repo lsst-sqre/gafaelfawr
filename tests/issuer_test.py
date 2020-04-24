@@ -18,8 +18,8 @@ async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
     claims = {
         "email": "other-user@example.com",
         "sub": "upstream",
-        setup.config.username_claim: "upstream-user",
-        setup.config.uid_claim: "2000",
+        setup.config.issuer.username_claim: "upstream-user",
+        setup.config.issuer.uid_claim: "2000",
     }
     oidc_token = setup.create_oidc_token(groups=[], **claims)
     reissued_token = issuer.reissue_token(oidc_token, jti="new-jti")
@@ -37,8 +37,8 @@ async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
         "iss": local_token.claims["iss"],
         "jti": "new-jti",
         "sub": "upstream",
-        setup.config.username_claim: "upstream-user",
-        setup.config.uid_claim: "2000",
+        setup.config.issuer.username_claim: "upstream-user",
+        setup.config.issuer.uid_claim: "2000",
     }
 
     now = time.time()

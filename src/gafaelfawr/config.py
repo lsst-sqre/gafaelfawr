@@ -84,6 +84,44 @@ class IssuerConfig:
     group_mapping: Mapping[str, Set[str]]
     """Mapping of group names to the set of scopes that group grants."""
 
+    username_claim: str
+    """Token claim from which to take the username."""
+
+    uid_claim: str
+    """Token claim from which to take the UID."""
+
+
+@dataclass(frozen=True)
+class VerifierConfig:
+    """Configuration for how to verify tokens."""
+
+    iss: str
+    """iss (issuer) field in issued tokens."""
+
+    aud: str
+    """Default aud (audience) field in issued tokens."""
+
+    aud_internal: str
+    """Internal aud (audience) field in issued tokens."""
+
+    keypair: RSAKeyPair
+    """RSA key pair for signing and verifying issued tokens."""
+
+    username_claim: str
+    """Token claim from which to take the username."""
+
+    uid_claim: str
+    """Token claim from which to take the UID."""
+
+    oidc_iss: Optional[str]
+    """Expected issuer of the ID token from an OpenID Connect provider."""
+
+    oidc_aud: Optional[str]
+    """Expected audience of the ID token an OpenID Connect provider."""
+
+    oidc_kids: List[str]
+    """List of acceptable kids that may be used to sign the ID token."""
+
 
 @dataclass(frozen=True)
 class GitHubConfig:
@@ -151,7 +189,13 @@ class OIDCConfig:
 
 @dataclass(frozen=True)
 class Config:
-    """Configuration for Gafaelfawr."""
+    """Configuration for Gafaelfawr.
+
+    Some configuration parameters from the settings file are copied into
+    multiple configuration dataclasses.  This allows the configuration for
+    each internal component to be self-contained and unaware of the
+    configuration of the rest of the application.
+    """
 
     realm: str
     """Realm for HTTP authentication."""
@@ -168,6 +212,9 @@ class Config:
     issuer: IssuerConfig
     """Configuration for internally-issued tokens."""
 
+    verifier: VerifierConfig
+    """Configuration for the token verifier."""
+
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
 
@@ -176,12 +223,6 @@ class Config:
 
     known_scopes: Dict[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
-
-    username_claim: str
-    """Token claim from which to take the username."""
-
-    uid_claim: str
-    """Token claim from which to take the UID."""
 
     safir_config: SafirConfig
     """Configuration for the Safir middleware."""
@@ -229,6 +270,20 @@ class Config:
             keypair=keypair,
             exp_minutes=settings["ISSUER.EXP_MINUTES"],
             group_mapping=group_mapping,
+            username_claim=settings["USERNAME_CLAIM"],
+            uid_claim=settings["UID_CLAIM"],
+        )
+
+        verifier_config = VerifierConfig(
+            iss=settings["ISSUER.ISS"],
+            aud=settings["ISSUER.AUD.DEFAULT"],
+            aud_internal=settings["ISSUER.AUD.INTERNAL"],
+            keypair=keypair,
+            username_claim=settings["USERNAME_CLAIM"],
+            uid_claim=settings["UID_CLAIM"],
+            oidc_iss=settings.get("OIDC.ISSUER"),
+            oidc_aud=settings.get("OIDC.AUDIENCE"),
+            oidc_kids=settings.get("OIDC.KEY_IDS", []),
         )
 
         github = None
@@ -272,11 +327,10 @@ class Config:
             redis_url=settings["REDIS_URL"],
             after_logout_url=settings["AFTER_LOGOUT_URL"],
             issuer=issuer_config,
+            verifier=verifier_config,
             github=github,
             oidc=oidc,
             known_scopes=known_scopes,
-            username_claim=settings["USERNAME_CLAIM"],
-            uid_claim=settings["UID_CLAIM"],
             safir_config=SafirConfig(log_level=log_level),
         )
 
@@ -302,6 +356,10 @@ class Config:
             self.issuer.aud_internal,
             self.issuer.exp_minutes,
         )
+        logger.debug(
+            "Configured %s as username claim", self.issuer.username_claim
+        )
+        logger.debug("Configured %s as UID claim", self.issuer.uid_claim)
         if self.github:
             logger.debug(
                 "Configured GitHub authentication with client ID %s",
@@ -318,8 +376,6 @@ class Config:
             )
         else:
             logging.error("No authentication provider configured")
-        logger.debug("Configured %s as username claim", self.username_claim)
-        logger.debug("Configured %s as UID claim", self.uid_claim)
 
     @staticmethod
     def _load_secret(path: str) -> bytes:

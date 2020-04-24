@@ -171,6 +171,7 @@ async def test_cookie_auth_with_token(
 async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     """Uses an alternate settings environment with non-default claims."""
     setup = await create_test_setup("github_claims")
+    assert setup.config.github
 
     # Simulate the initial authentication request.
     r = await setup.client.get(
@@ -201,10 +202,11 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     r = await setup.client.get("/auth/analyze")
     assert r.status == 200
     data = await r.json()
-    assert data["token"]["data"][setup.config.username_claim] == "githubuser"
-    assert data["token"]["data"][setup.config.uid_claim] == "123456"
-    assert "uid" not in data["token"]["data"]
-    assert "uidNumber" not in data["token"]["data"]
+    token_data = data["token"]["data"]
+    assert token_data[setup.config.github.username_claim] == "githubuser"
+    assert token_data[setup.config.github.uid_claim] == "123456"
+    assert "uid" not in token_data
+    assert "uidNumber" not in token_data
 
 
 async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
