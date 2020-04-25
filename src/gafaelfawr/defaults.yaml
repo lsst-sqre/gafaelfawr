@@ -1,6 +1,0 @@
-default:
-  dynaconf_merge: True
-  username_claim: uid
-  uid_claim: uidNumber
-  issuer:
-    exp_minutes: 1440  # 1 day

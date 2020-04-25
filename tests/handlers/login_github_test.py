@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 async def test_login(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup("github")
+    setup = await create_test_setup()
     assert setup.config.github
 
     # Simulate the initial authentication request.
@@ -98,7 +98,7 @@ async def test_login_redirect_header(
     create_test_setup: SetupTestCallable,
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    setup = await create_test_setup("github")
+    setup = await create_test_setup()
 
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}/foo?a=bar&b=baz"
@@ -124,7 +124,7 @@ async def test_login_redirect_header(
 async def test_login_no_destination(
     create_test_setup: SetupTestCallable,
 ) -> None:
-    setup = await create_test_setup("github")
+    setup = await create_test_setup()
 
     r = await setup.client.get("/login", allow_redirects=False)
     assert r.status == 400
@@ -141,7 +141,7 @@ async def test_cookie_auth_with_token(
     login to get a valid session and then make a request with a bogus
     Authorization header.
     """
-    setup = await create_test_setup("github")
+    setup = await create_test_setup()
 
     # Simulate the initial authentication request.
     r = await setup.client.get(
@@ -170,7 +170,7 @@ async def test_cookie_auth_with_token(
 
 async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    setup = await create_test_setup("github_claims")
+    setup = await create_test_setup("github-claims")
     assert setup.config.github
 
     # Simulate the initial authentication request.
@@ -210,7 +210,7 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
 
 
 async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup("github")
+    setup = await create_test_setup()
 
     r = await setup.client.get(
         "/login", params={"rd": "https://example.com/"}, allow_redirects=False,

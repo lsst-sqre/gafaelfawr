@@ -12,7 +12,7 @@ from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
     from gafaelfawr.config import IssuerConfig
-    from typing import Any, Dict, List, Mapping, Optional, Union
+    from typing import Any, Dict, List, Mapping, Optional, Set, Union
 
 __all__ = ["InvalidTokenClaimsException", "TokenIssuer"]
 
@@ -234,7 +234,7 @@ class TokenIssuer:
             group_mapping configuration parameter.
         """
         group_names = [g["name"] for g in groups]
-        scopes = set()
+        scopes: Set[str] = set()
         for group in group_names:
             scopes.update(self._config.group_mapping.get(group, set()))
         return " ".join(sorted(scopes))

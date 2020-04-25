@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import mockaioredis
@@ -14,12 +14,36 @@ from tests.support.http_session import MockClientSession
 
 if TYPE_CHECKING:
     from aiohttp import web
-    from pathlib import Path
 
-__all__ = [
-    "create_test_app",
-    "store_secret",
-]
+__all__ = ["create_test_app"]
+
+
+def build_settings(tmp_path: Path, template_name: str, **kwargs: Path) -> Path:
+    """Construct a configuration file from a format template.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        The root of the temporary area.
+    template_name : `str`
+        Name of the configuration template to use.
+    **kwargs : `str`
+        The values to substitute into the template.
+
+    Returns
+    -------
+    settings_path : `pathlib.Path`
+        The path to the newly-constructed configuration file.
+    """
+    template_file = template_name + ".yaml.in"
+    template_path = Path(__file__).parent.parent / "settings" / template_file
+    with template_path.open("r") as f:
+        template = f.read()
+    settings = template.format(**kwargs)
+    settings_path = tmp_path / "gafaelfawr.yaml"
+    with settings_path.open("w") as f:
+        f.write(settings)
+    return settings_path
 
 
 def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
@@ -41,7 +65,7 @@ def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
 
 
 async def create_test_app(
-    tmp_path: Path, *, environment: str = "testing"
+    tmp_path: Path, *, environment: str = "github"
 ) -> web.Application:
     """Configured aiohttp Application for testing.
 
@@ -50,39 +74,34 @@ async def create_test_app(
     tmp_path : `pathlib.Path`
         Temporary directory in which to store secrets.
     environment : `str`, optional
-        Settings environment to use.  Choose from an environment defined in
-        ``settings.yaml`` in the same directory as this module.
+        Settings template to use.
 
     Returns
     -------
     app : `aiohttp.web.Application`
         The configured test application.
     """
-    settings = {}
-
     session_secret = Fernet.generate_key()
     session_secret_file = store_secret(tmp_path, "session", session_secret)
-    settings["SESSION_SECRET_FILE"] = str(session_secret_file)
-
     issuer_key = RSAKeyPair.generate().private_key_as_pem()
     issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
-    settings["ISSUER.KEY_FILE"] = str(issuer_key_file)
-
     github_secret_file = store_secret(tmp_path, "github", b"github-secret")
-    settings["GITHUB.CLIENT_SECRET_FILE"] = str(github_secret_file)
-
     oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
-    settings["OIDC.CLIENT_SECRET_FILE"] = str(oidc_secret_file)
 
-    settings_path = os.path.join(os.path.dirname(__file__), "settings.yaml")
+    settings_path = build_settings(
+        tmp_path,
+        environment,
+        session_secret_file=session_secret_file,
+        issuer_key_file=issuer_key_file,
+        github_secret_file=github_secret_file,
+        oidc_secret_file=oidc_secret_file,
+    )
     redis_pool = await mockaioredis.create_redis_pool("")
     http_session = MockClientSession()
     app = await create_app(
-        settings_path=settings_path,
+        settings_path=str(settings_path),
         redis_pool=redis_pool,
         http_session=http_session,
-        FORCE_ENV_FOR_DYNACONF=environment,
-        **settings,
     )
     http_session.set_config(app["gafaelfawr/config"])
 

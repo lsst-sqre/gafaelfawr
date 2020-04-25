@@ -20,9 +20,9 @@ aioredis
 cachetools
 click
 cryptography
-dynaconf
 importlib_metadata; python_version < "3.8"
 jinja2
+pydantic
 PyJWT
 pyyaml
 safir
