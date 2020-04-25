@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, validator
+from pydantic import AnyHttpUrl, BaseModel, validator
 
 __all__ = [
     "GitHubSettings",
@@ -74,19 +74,19 @@ class OIDCSettings(BaseModel):
     client_secret_file: str
     """File containing secret for talking to the OpenID Connect provider."""
 
-    login_url: str
+    login_url: AnyHttpUrl
     """URL to which to send the user to initiate authentication."""
 
     login_params: Dict[str, str] = {}
     """Additional parameters to the login URL."""
 
-    redirect_url: str
+    redirect_url: AnyHttpUrl
     """Return URL to which the authentication provider should send the user.
 
     This should be the full URL of the /login route of Gafaelfawr.
     """
 
-    token_url: str
+    token_url: AnyHttpUrl
     """URL at which to redeem the authentication code for a token."""
 
     scopes: List[str] = []
@@ -132,7 +132,7 @@ class Settings(BaseModel):
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
-    after_logout_url: str
+    after_logout_url: AnyHttpUrl
     """Default URL to which to send the user after logging out."""
 
     username_claim: str = "uid"
