@@ -1,4 +1,4 @@
-# Example configuration file for Gafaelfawr.
+# Example configuration file for Gafaelfawr using OpenID Connect.
 #
 # The recommended installation method is to use the Helm chart, which will
 # generate this file based on Helm values as a ConfigMap.  However, this
@@ -32,21 +32,9 @@ issuer:
   key_file: "/path/to/issuer-key"
   exp_minutes: 1440  # 1 day
 
-# To get these values, go to Settings > Developer Settings for either a
-# GitHub user or an organization, go into OAuth Apps, and create a new
-# application.
-#
-# Delete if you don't want to use GitHub authentication.
-github:
-  client_id: "<github-client-id>"
-  client_secret_file: "/path/to/github-client-secret"
-
 # To get these values, register with an OpenID Connect provider and use
 # the values that they provide.  This example is for CILogon; many of the
 # values will need to be different for another provider.
-#
-# Delete if you don't want to use OpenID Connect authentication.  Either
-# this stanza or the github stanza must be provided.
 oidc:
   client_id: "cilogon:/client_id/..."
   client_secret_file: "/path/to/oidc-client-secret"
