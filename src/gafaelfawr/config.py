@@ -227,7 +227,7 @@ class Config:
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    safir_config: SafirConfig
+    safir: SafirConfig
     """Configuration for the Safir middleware."""
 
     @classmethod
@@ -330,7 +330,7 @@ class Config:
             github=github_config,
             oidc=oidc_config,
             known_scopes=settings.known_scopes or {},
-            safir_config=SafirConfig(log_level=log_level),
+            safir=SafirConfig(log_level=log_level),
         )
 
     def log_settings(self, logger: logging.Logger) -> None:

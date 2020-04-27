@@ -59,12 +59,12 @@ async def create_app(
     config = Config.from_file(settings_path)
 
     configure_logging(
-        profile=config.safir_config.profile,
-        log_level=config.safir_config.log_level,
-        name=config.safir_config.logger_name,
+        profile=config.safir.profile,
+        log_level=config.safir.log_level,
+        name=config.safir.logger_name,
     )
 
-    logger = get_logger(config.safir_config.logger_name)
+    logger = get_logger(config.safir.logger_name)
     config.log_settings(logger)
 
     key_cache = TTLCache(maxsize=16, ttl=600)
@@ -73,7 +73,7 @@ async def create_app(
     factory = ComponentFactory(config, redis_pool, key_cache, http_session)
 
     app = Application()
-    app["safir/config"] = config.safir_config
+    app["safir/config"] = config.safir
     app["gafaelfawr/config"] = config
     app["gafaelfawr/factory"] = factory
     app["gafaelfawr/redis"] = redis_pool
