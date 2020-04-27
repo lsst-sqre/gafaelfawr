@@ -19,10 +19,11 @@ if TYPE_CHECKING:
     from gafaelfawr.providers.base import Provider
     from logging import Logger
 
-__all__ = ["get_login", "get_oauth2_callback"]
+__all__ = ["get_login"]
 
 
 @routes.get("/login", name="login")
+@routes.get("/oauth2/callback")
 async def get_login(request: web.Request) -> web.Response:
     """Handle an initial login.
 
@@ -46,45 +47,12 @@ async def get_login(request: web.Request) -> web.Response:
 
     Notes
     -----
-    This generates new authentication state each time the user goes to the
-    /login handler.  In practice, JavaScript may kick off multiple
-    authentication attempts at the same time, which can cause a successful
-    authentication to be rejected if another request has overridden the state.
-    The state should be reused for some interval.
+    Also export the login handler at ``/oauth2/callback``, the route used by
+    oauth2_proxy, for compatibility with older oauth2_proxy installations.
+    This avoids needing to change the redirect_uri registered with an OpenID
+    Connect provider.  It can be removed once all registrations have been
+    updated with the ``/login`` route.
     """
-    return await _login(request)
-
-
-@routes.get("/oauth2/callback")
-async def get_oauth2_callback(request: web.Request) -> web.Response:
-    """Alias for /login for oauth2_proxy support.
-
-    Export the login handler on the route used by oauth2_proxy for
-    compatibility with older oauth2_proxy installations.  This avoids needing
-    to change the redirect_uri registered with an OpenID Connect provider.  It
-    can be removed once all registrations have been updated with the /login
-    route.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-
-    Raises
-    ------
-    NotImplementedError
-        If no authentication provider is configured.
-    """
-    return await _login(request)
-
-
-async def _login(request: web.Request) -> web.Response:
-    """Internal implementation of get_login and get_oauth2_callback."""
     config: Config = request.config_dict["gafaelfawr/config"]
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     logger: Logger = request["safir/logger"]
