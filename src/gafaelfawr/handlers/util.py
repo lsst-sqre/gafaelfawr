@@ -192,7 +192,7 @@ def parse_authorization(request: web.Request) -> Optional[str]:
 def unauthorized(
     request: web.Request, error: str, message: str = ""
 ) -> web.HTTPException:
-    """Construct exception for a 401 response.
+    """Construct exception for a 401 response (403 for AJAX).
 
     Parameters
     ----------
@@ -208,13 +208,33 @@ def unauthorized(
     -------
     exception : `aiohttp.web.HTTPException`
         Exception to throw.
+
+    Notes
+    -----
+    If the request contains X-Requested-With: XMLHttpRequest, return 403
+    rather than 401.  The presence of this header indicates an AJAX request,
+    which in turn means that the request is not under full control of the
+    browser window.  The redirect ingress-nginx will send will therefore not
+    result in the user going to the authentication provider properly, but may
+    result in a spurious request from background AJAX that cannot be
+    completed.  That, in turn, can cause unnecessary load on the
+    authentication provider and may result in rate limiting.
+
+    Checking for this header does not catch all requests that are pointless to
+    redirect (image and CSS requests, for instance), and not all AJAX requests
+    will send the header, but every request with this header should be
+    pointless to redirect, so at least it cuts down on the noise.
     """
     config: Config = request.config_dict["gafaelfawr/config"]
 
-    realm = config.realm
-    info = f'realm="{realm}",error="{error}",error_description="{message}"'
-    headers = {"WWW-Authenticate": f"Bearer {info}"}
-    return web.HTTPUnauthorized(headers=headers, reason=error, text=error)
+    requested_with = request.headers.get("X-Requested-With")
+    if requested_with and requested_with.lower() == "xmlhttprequest":
+        return web.HTTPForbidden(reason=error, text=error)
+    else:
+        realm = config.realm
+        info = f'realm="{realm}",error="{error}",error_description="{message}"'
+        headers = {"WWW-Authenticate": f"Bearer {info}"}
+        return web.HTTPUnauthorized(headers=headers, reason=error, text=error)
 
 
 def verify_token(request: web.Request, encoded_token: str) -> VerifiedToken:
