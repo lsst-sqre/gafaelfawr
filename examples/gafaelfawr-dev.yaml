@@ -11,48 +11,47 @@
 # Anyone in the world can decrypt and forge any identity information of
 # any server that uses these settings.
 
-global:
-  realm: "localhost"
-  loglevel: "DEBUG"
-  session_secret_file: "examples/secrets/session-secret"
+realm: "localhost"
+loglevel: "DEBUG"
+session_secret_file: "examples/secrets/session-secret"
 
-  # This Redis will be started by the docker-compose.yaml file at the top
-  # level of the repository.
-  redis_url: "redis://localhost:6379/0"
+# This Redis will be started by the docker-compose.yaml file at the top
+# level of the repository.
+redis_url: "redis://localhost:6379/0"
 
-  # Where to send the user after logging out.
-  after_logout_url: "http://localhost:8000"
+# Where to send the user after logging out.
+after_logout_url: "http://localhost:8000"
 
-  # Configuration for the JWTs issued by Gafaelfawr.
-  issuer:
-    iss: "http://localhost:8000"
-    key_id: "localhost-key-id"
-    aud:
-      default: "http://localhost"
-      internal: "http://localhost/internal"
-    key_file: "examples/secrets/issuer-key"
-    exp_minutes: 1440  # 1 day
+# Configuration for the JWTs issued by Gafaelfawr.
+issuer:
+  iss: "http://localhost:8000"
+  key_id: "localhost-key-id"
+  aud:
+    default: "http://localhost"
+    internal: "http://localhost/internal"
+  key_file: "examples/secrets/issuer-key"
+  exp_minutes: 1440  # 1 day
 
-  # To get these values, go to Settings > Developer Settings for either a
-  # GitHub user or an organization, go into OAuth Apps, and create a new
-  # application.
-  github:
-    client_id: "<github-client-id>"
-    client_secret_file: "examples/secrets/github-client-secret"
+# To get these values, go to Settings > Developer Settings for either a
+# GitHub user or an organization, go into OAuth Apps, and create a new
+# application.
+github:
+  client_id: "<github-client-id>"
+  client_secret_file: "examples/secrets/github-client-secret"
 
-  # Sample values.  You can replace these with anything you want to use
-  # for a scope.
-  known_scopes:
-    "admin": "Administrative access"
-    "read:all": "Can read anything"
+# Sample values.  You can replace these with anything you want to use
+# for a scope.
+known_scopes:
+  "admin": "Administrative access"
+  "read:all": "Can read anything"
 
-  # To get scopes based on GitHub team membership, replace <org> with the
-  # name of the GitHub organization and <team> with the name of the team
-  # in that organization.  (This may be truncated for long names; see the
-  # manual.)  Members of that team will then get the scope listed on the
-  # left.  Add as many entries as you'd like.
-  group_mapping:
-    "admin":
-      - "<org>-<team>"
-    "read:all":
-      - "<org>-<other-team>"
+# To get scopes based on GitHub team membership, replace <org> with the
+# name of the GitHub organization and <team> with the name of the team
+# in that organization.  (This may be truncated for long names; see the
+# manual.)  Members of that team will then get the scope listed on the
+# left.  Add as many entries as you'd like.
+group_mapping:
+  "admin":
+    - "<org>-<team>"
+  "read:all":
+    - "<org>-<other-team>"

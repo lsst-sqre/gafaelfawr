@@ -8,18 +8,21 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from dynaconf import LazySettings
+import yaml
 
 from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.settings import Settings
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Mapping, Optional, Set
+    from typing import Mapping, Optional, FrozenSet, Tuple
 
 __all__ = [
     "Config",
     "GitHubConfig",
     "IssuerConfig",
     "OIDCConfig",
+    "SafirConfig",
+    "VerifierConfig",
 ]
 
 
@@ -81,8 +84,46 @@ class IssuerConfig:
     exp_minutes: int
     """Number of minutes into the future that a token should expire."""
 
-    group_mapping: Mapping[str, Set[str]]
+    group_mapping: Mapping[str, FrozenSet[str]]
     """Mapping of group names to the set of scopes that group grants."""
+
+    username_claim: str
+    """Token claim from which to take the username."""
+
+    uid_claim: str
+    """Token claim from which to take the UID."""
+
+
+@dataclass(frozen=True)
+class VerifierConfig:
+    """Configuration for how to verify tokens."""
+
+    iss: str
+    """iss (issuer) field in issued tokens."""
+
+    aud: str
+    """Default aud (audience) field in issued tokens."""
+
+    aud_internal: str
+    """Internal aud (audience) field in issued tokens."""
+
+    keypair: RSAKeyPair
+    """RSA key pair for signing and verifying issued tokens."""
+
+    username_claim: str
+    """Token claim from which to take the username."""
+
+    uid_claim: str
+    """Token claim from which to take the UID."""
+
+    oidc_iss: Optional[str]
+    """Expected issuer of the ID token from an OpenID Connect provider."""
+
+    oidc_aud: Optional[str]
+    """Expected audience of the ID token an OpenID Connect provider."""
+
+    oidc_kids: Tuple[str, ...]
+    """List of acceptable kids that may be used to sign the ID token."""
 
 
 @dataclass(frozen=True)
@@ -120,7 +161,7 @@ class OIDCConfig:
     login_url: str
     """URL to which to send the user to initiate authentication."""
 
-    login_params: Dict[str, str]
+    login_params: Mapping[str, str]
     """Additional parameters to the login URL."""
 
     redirect_url: str
@@ -132,7 +173,7 @@ class OIDCConfig:
     token_url: str
     """URL at which to redeem the authentication code for a token."""
 
-    scopes: List[str]
+    scopes: Tuple[str, ...]
     """Scopes to request from the authentication provider.
 
     The ``openid`` scope will always be added and does not need to be
@@ -145,13 +186,19 @@ class OIDCConfig:
     audience: str
     """Expected audience of the ID token."""
 
-    key_ids: List[str]
+    key_ids: Tuple[str, ...]
     """List of acceptable kids that may be used to sign the ID token."""
 
 
 @dataclass(frozen=True)
 class Config:
-    """Configuration for Gafaelfawr."""
+    """Configuration for Gafaelfawr.
+
+    Some configuration parameters from the settings file are copied into
+    multiple configuration dataclasses.  This allows the configuration for
+    each internal component to be self-contained and unaware of the
+    configuration of the rest of the application.
+    """
 
     realm: str
     """Realm for HTTP authentication."""
@@ -168,41 +215,49 @@ class Config:
     issuer: IssuerConfig
     """Configuration for internally-issued tokens."""
 
+    verifier: VerifierConfig
+    """Configuration for the token verifier."""
+
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
 
     oidc: Optional[OIDCConfig]
     """Configuration for OpenID Connect authentication."""
 
-    known_scopes: Dict[str, str]
+    known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    username_claim: str
-    """Token claim from which to take the username."""
-
-    uid_claim: str
-    """Token claim from which to take the UID."""
-
-    safir_config: SafirConfig
+    safir: SafirConfig
     """Configuration for the Safir middleware."""
 
     @classmethod
-    def from_dynaconf(cls, settings: LazySettings) -> Config:
-        """Construction a Config object from Dynaconf settings.
+    def from_file(cls, path: str) -> Config:
+        """Construct a Config object from a settings file.
 
         Parameters
         ----------
-        settings : `dynaconf.LazySettings`
-            Dynaconf settings.
+        path : `str`
+            Path to the settings file in YAML.
 
         Returns
         -------
         config : `Config`
             The corresponding Config object.
         """
-        session_secret = cls._load_secret(
-            settings["SESSION_SECRET_FILE"]
-        ).decode()
+        with open(path, "r") as f:
+            raw_settings = yaml.safe_load(f)
+        settings = Settings.parse_obj(raw_settings)
+
+        # Load the secrets from disk.
+        key = cls._load_secret(settings.issuer.key_file)
+        keypair = RSAKeyPair.from_pem(key)
+        session_secret = cls._load_secret(settings.session_secret_file)
+        if settings.github:
+            path = settings.github.client_secret_file
+            github_secret = cls._load_secret(path).decode()
+        if settings.oidc:
+            path = settings.oidc.client_secret_file
+            oidc_secret = cls._load_secret(path).decode()
 
         # The group mapping in the settings maps a scope to a list of groups
         # that provide that scope.  This may be conceptually easier for the
@@ -212,72 +267,70 @@ class Config:
         # Reconstruct the group mapping in the form in which we want to use it
         # internally.
         group_mapping = defaultdict(set)
-        for scope, groups in settings.get("GROUP_MAPPING", {}).items():
-            assert isinstance(scope, str), "group_mapping is malformed"
-            assert isinstance(groups, list), "group_mapping is malformed"
+        for scope, groups in settings.group_mapping.items():
             for group in groups:
                 group_mapping[group].add(scope)
+        group_mapping_frozen = {
+            k: frozenset(v) for k, v in group_mapping.items()
+        }
 
-        keypair = RSAKeyPair.from_pem(
-            cls._load_secret(settings["ISSUER.KEY_FILE"])
-        )
+        # Build the Config object.
         issuer_config = IssuerConfig(
-            iss=settings["ISSUER.ISS"],
-            kid=settings["ISSUER.KEY_ID"],
-            aud=settings["ISSUER.AUD.DEFAULT"],
-            aud_internal=settings["ISSUER.AUD.INTERNAL"],
+            iss=settings.issuer.iss,
+            kid=settings.issuer.key_id,
+            aud=settings.issuer.aud.default,
+            aud_internal=settings.issuer.aud.internal,
             keypair=keypair,
-            exp_minutes=settings["ISSUER.EXP_MINUTES"],
-            group_mapping=group_mapping,
+            exp_minutes=settings.issuer.exp_minutes,
+            group_mapping=group_mapping_frozen,
+            username_claim=settings.username_claim,
+            uid_claim=settings.uid_claim,
         )
-
-        github = None
-        if settings.get("GITHUB.CLIENT_ID"):
-            client_secret = cls._load_secret(
-                settings["GITHUB.CLIENT_SECRET_FILE"]
-            ).decode()
-            github = GitHubConfig(
-                client_id=settings["GITHUB.CLIENT_ID"],
-                client_secret=client_secret,
-                username_claim=settings["USERNAME_CLAIM"],
-                uid_claim=settings["UID_CLAIM"],
+        verifier_config = VerifierConfig(
+            iss=settings.issuer.iss,
+            aud=settings.issuer.aud.default,
+            aud_internal=settings.issuer.aud.internal,
+            keypair=keypair,
+            username_claim=settings.username_claim,
+            uid_claim=settings.uid_claim,
+            oidc_iss=settings.oidc.issuer if settings.oidc else None,
+            oidc_aud=settings.oidc.audience if settings.oidc else None,
+            oidc_kids=tuple(settings.oidc.key_ids if settings.oidc else []),
+        )
+        github_config = None
+        if settings.github:
+            github_config = GitHubConfig(
+                client_id=settings.github.client_id,
+                client_secret=github_secret,
+                username_claim=settings.username_claim,
+                uid_claim=settings.uid_claim,
             )
-
-        oidc = None
-        if settings.get("OIDC.LOGIN_URL"):
-            client_secret = cls._load_secret(
-                settings["OIDC.CLIENT_SECRET_FILE"]
-            ).decode()
-            oidc = OIDCConfig(
-                client_id=settings["OIDC.CLIENT_ID"],
-                client_secret=client_secret,
-                login_url=settings["OIDC.LOGIN_URL"],
-                login_params=settings.get("OIDC.LOGIN_PARAMS", {}),
-                redirect_url=settings["OIDC.REDIRECT_URL"],
-                token_url=settings["OIDC.TOKEN_URL"],
-                scopes=settings.get("OIDC.SCOPES", []),
-                issuer=settings["OIDC.ISSUER"],
-                audience=settings["OIDC.AUDIENCE"],
-                key_ids=settings.get("OIDC.KEY_IDS", []),
+        oidc_config = None
+        if settings.oidc:
+            oidc_config = OIDCConfig(
+                client_id=settings.oidc.client_id,
+                client_secret=oidc_secret,
+                login_url=str(settings.oidc.login_url),
+                login_params=settings.oidc.login_params,
+                redirect_url=str(settings.oidc.redirect_url),
+                token_url=str(settings.oidc.token_url),
+                scopes=tuple(settings.oidc.scopes),
+                issuer=settings.oidc.issuer,
+                audience=settings.oidc.audience,
+                key_ids=tuple(settings.oidc.key_ids),
             )
-
-        known_scopes = settings.get("KNOWN_SCOPES", {})
-
-        log_level_default = settings.get("LOGLEVEL", "INFO")
-        log_level = os.getenv("SAFIR_LOG_LEVEL", log_level_default)
-
+        log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
         return cls(
-            realm=settings["REALM"],
-            session_secret=session_secret,
-            redis_url=settings["REDIS_URL"],
-            after_logout_url=settings["AFTER_LOGOUT_URL"],
+            realm=settings.realm,
+            session_secret=session_secret.decode(),
+            redis_url=settings.redis_url,
+            after_logout_url=str(settings.after_logout_url),
             issuer=issuer_config,
-            github=github,
-            oidc=oidc,
-            known_scopes=known_scopes,
-            username_claim=settings["USERNAME_CLAIM"],
-            uid_claim=settings["UID_CLAIM"],
-            safir_config=SafirConfig(log_level=log_level),
+            verifier=verifier_config,
+            github=github_config,
+            oidc=oidc_config,
+            known_scopes=settings.known_scopes or {},
+            safir=SafirConfig(log_level=log_level),
         )
 
     def log_settings(self, logger: logging.Logger) -> None:
@@ -302,6 +355,10 @@ class Config:
             self.issuer.aud_internal,
             self.issuer.exp_minutes,
         )
+        logger.debug(
+            "Configured %s as username claim", self.issuer.username_claim
+        )
+        logger.debug("Configured %s as UID claim", self.issuer.uid_claim)
         if self.github:
             logger.debug(
                 "Configured GitHub authentication with client ID %s",
@@ -318,8 +375,6 @@ class Config:
             )
         else:
             logging.error("No authentication provider configured")
-        logger.debug("Configured %s as username claim", self.username_claim)
-        logger.debug("Configured %s as UID claim", self.uid_claim)
 
     @staticmethod
     def _load_secret(path: str) -> bytes:

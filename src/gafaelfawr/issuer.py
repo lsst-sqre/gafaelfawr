@@ -11,8 +11,8 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from gafaelfawr.config import Config
-    from typing import Any, Dict, List, Mapping, Optional, Union
+    from gafaelfawr.config import IssuerConfig
+    from typing import Any, Dict, List, Mapping, Optional, Set, Union
 
 __all__ = ["InvalidTokenClaimsException", "TokenIssuer"]
 
@@ -30,11 +30,11 @@ class TokenIssuer:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
+    config : `gafaelfawr.config.IssuerConfig`
         Configuration parameters for the issuer.
     """
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: IssuerConfig) -> None:
         self._config = config
 
     def issue_token(self, claims: Mapping[str, Any]) -> VerifiedToken:
@@ -171,16 +171,16 @@ class TokenIssuer:
             Attributes to add to the token under construction.
         """
         if internal:
-            audience = self._config.issuer.aud_internal
+            audience = self._config.aud_internal
         else:
-            audience = self._config.issuer.aud
+            audience = self._config.aud
         expires = datetime.now(timezone.utc) + timedelta(
-            minutes=self._config.issuer.exp_minutes
+            minutes=self._config.exp_minutes
         )
         return {
             "aud": audience,
             "iat": int(datetime.now(timezone.utc).timestamp()),
-            "iss": self._config.issuer.iss,
+            "iss": self._config.iss,
             "exp": int(expires.timestamp()),
         }
 
@@ -199,9 +199,9 @@ class TokenIssuer:
         """
         encoded_token = jwt.encode(
             payload,
-            self._config.issuer.keypair.private_key_as_pem(),
+            self._config.keypair.private_key_as_pem(),
             algorithm=ALGORITHM,
-            headers={"kid": self._config.issuer.kid},
+            headers={"kid": self._config.kid},
         ).decode()
         return VerifiedToken(
             encoded=encoded_token,
@@ -234,7 +234,7 @@ class TokenIssuer:
             group_mapping configuration parameter.
         """
         group_names = [g["name"] for g in groups]
-        scopes = set()
+        scopes: Set[str] = set()
         for group in group_names:
-            scopes.update(self._config.issuer.group_mapping.get(group, set()))
+            scopes.update(self._config.group_mapping.get(group, set()))
         return " ".join(sorted(scopes))

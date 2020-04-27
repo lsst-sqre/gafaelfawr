@@ -60,7 +60,7 @@ def create_test_setup(
     """
 
     async def _create_test_setup(
-        environment: str = "testing", client: bool = True
+        environment: str = "github", client: bool = True
     ) -> SetupTest:
         """Create a test setup for a given environment.
 

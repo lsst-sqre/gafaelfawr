@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from aiohttp import ClientSession
     from cachetools import TTLCache
     from logging import Logger
-    from gafaelfawr.config import Config
+    from gafaelfawr.config import VerifierConfig
     from gafaelfawr.tokens import Token
     from typing import Any, Dict, List, Mapping, Optional
 
@@ -57,7 +57,7 @@ class TokenVerifier:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
+    config : `gafaelfawr.config.VerifierConfig`
         The JWT Authorizer configuration.
     session : `aiohttp.ClientSession`
         The session to use for making requests.
@@ -69,7 +69,7 @@ class TokenVerifier:
 
     def __init__(
         self,
-        config: Config,
+        config: VerifierConfig,
         session: ClientSession,
         cache: TTLCache,
         logger: Logger,
@@ -131,10 +131,10 @@ class TokenVerifier:
         MissingClaimsException
             The token is missing required claims.
         """
-        audience = [self._config.issuer.aud, self._config.issuer.aud_internal]
+        audience = [self._config.aud, self._config.aud_internal]
         payload = jwt.decode(
             token.encoded,
-            self._config.issuer.keypair.public_key_as_pem(),
+            self._config.keypair.public_key_as_pem(),
             algorithms=ALGORITHM,
             audience=audience,
         )
@@ -160,8 +160,6 @@ class TokenVerifier:
         MissingClaimsException
             The token is missing required claims.
         """
-        assert self._config.oidc
-
         unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
             token.encoded, algorithms=ALGORITHM, verify=False
@@ -176,10 +174,10 @@ class TokenVerifier:
 
         issuer_url = unverified_token["iss"]
         key_id = unverified_header["kid"]
-        if issuer_url != self._config.oidc.issuer:
+        if issuer_url != self._config.oidc_iss:
             raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
-        if self._config.oidc.key_ids:
-            if key_id not in self._config.oidc.key_ids:
+        if self._config.oidc_kids:
+            if key_id not in self._config.oidc_kids:
                 msg = f"kid {key_id} not allowed for {issuer_url}"
                 raise UnknownKeyIdException(msg)
 
@@ -188,7 +186,7 @@ class TokenVerifier:
             token.encoded,
             key,
             algorithms=ALGORITHM,
-            audience=self._config.oidc.audience,
+            audience=self._config.oidc_aud,
         )
 
         return self._build_token(token.encoded, payload)

@@ -136,7 +136,7 @@ class ComponentFactory:
         issuer : `gafaelfawr.issuer.TokenIssuer`
             A new TokenIssuer.
         """
-        return TokenIssuer(self._config)
+        return TokenIssuer(self._config.issuer)
 
     def create_token_store(
         self, request: Optional[web.Request] = None
@@ -176,7 +176,7 @@ class ComponentFactory:
         http_session = self.create_http_session(request)
         logger = self.create_logger(request)
         return TokenVerifier(
-            self._config, http_session, self._key_cache, logger
+            self._config.verifier, http_session, self._key_cache, logger
         )
 
     def create_http_session(
