@@ -2,6 +2,29 @@
 Change log
 ##########
 
+1.1.0 (2020-04-28)
+==================
+
+This release overhauls configuration parsing and removes use of Dynaconf.
+As a result, the top-level environment key in configuration files is no longer required (or supported).
+All configuration settings should now be at the top level.
+
+This release also adds support for specifying the type of authentication challenges to unauthenticated users.
+
+- Replace Dyanconf with pydantic for configuration parsing.
+  This should produce much better diagnostics for invalid configuration files.
+  This also eliminates the Dynaconf environment key that was previously expected to be the top-level key of the configuration file.
+  Existing configuration files will need to be flattened by removing that key and elevating configuration settings to the top level.
+- Add support for an ``auth_type`` parameter to the ``/auth`` route.
+  This can be set to ``basic`` to request that unauthenticated users be challenged for Basic authentication instead of Bearer.
+  That in turn will cause pop-up authentication prompting in a web browser.
+- Fix syntax of ``WWW-Authenticate`` challenges and return them in more cases.
+  Attempt to properly implement RFC 6750, including using proper ``error`` attributes, including challenges in some 400 and 403 replies, and including the ``scope`` attribute where appropriate.
+- Return 403 instead of 401 for unauthenticated AJAX requests.
+  401 triggers the redirect handling in ingress-nginx, but this is pointless for AJAX requests, which cannot navigate the redirect to an external authentication provider.
+  Worse, AJAX requests may be frequently retried on error (such as an expired credential), which if redirected can create a low-grade denial of service attack on the authentication provider, trigger rate limiting, and cause other issues.
+  AJAX requests, as detected by ``X-Requested-With: XMLHttpRequest`` in the request headers, now get a 403 reply if they have missing or expired credentials.
+
 1.0.0 (2020-04-24)
 ==================
 
