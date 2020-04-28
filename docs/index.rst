@@ -37,6 +37,7 @@ Architecture
    arch/providers
    arch/session
    arch/security
+   arch/references
 
 Development guide
 =================
