@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
-    from typing import Awaitable, Callable, List, Optional
+    from typing import Awaitable, Callable, List, Optional, Union
 
 
 class SetupTest:
@@ -74,7 +74,7 @@ class SetupTest:
         return handle
 
     def create_token(
-        self, *, groups: Optional[List[str]] = None, **claims: str
+        self, *, groups: Optional[List[str]] = None, **claims: Union[str, int]
     ) -> VerifiedToken:
         """Create a signed internal token.
 
@@ -82,7 +82,7 @@ class SetupTest:
         ----------
         groups : List[`str`], optional
             Group memberships the generated token should have.
-        **claims : `str`, optional
+        **claims : Union[`str`, `int`], optional
             Other claims to set or override in the token.
 
         Returns
@@ -90,7 +90,9 @@ class SetupTest:
         token : `gafaelfawr.tokens.VerifiedToken`
             The generated token.
         """
-        return create_test_token(self.config, groups=groups, **claims)
+        return create_test_token(
+            self.config, groups=groups, kid="some-kid", **claims
+        )
 
     def create_oidc_token(
         self, *, groups: Optional[List[str]] = None, **claims: str

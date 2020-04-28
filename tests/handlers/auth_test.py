@@ -3,16 +3,67 @@
 from __future__ import annotations
 
 import base64
+import re
 import time
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.handlers.util import AuthChallenge, AuthError, AuthType
 
 if TYPE_CHECKING:
     from tests.setup import SetupTestCallable
+
+
+def parse_www_authenticate(header: str) -> AuthChallenge:
+    """Parse a ``WWW-Authenticate`` header into this representation.
+
+    A ``WWW-Authenticate`` header consists of one or mor challenges, each of
+    which is an auth type, whitespace, and a series of attributes in the form
+    of key="value", separated by a comma and whitespace.
+
+    We only support a single challenge here, since Gafaelfawr only returns a
+    single challenge.
+    """
+    auth_type_name, info = header.split(None, 1)
+    auth_type = AuthType[auth_type_name]
+
+    # A half-assed regex parser for the WWW-Authenticate header.
+    #
+    # Repeatedly match key/value pairs in the form key="value" and iterate
+    # on them as matches.  The key will be match group 1 and the value will
+    # be match group 2.
+    #
+    # Each attribute has to either start at the beginning of the portion of
+    # the header after the auth type (\A) or follow a previous attribute with
+    # a comma and whitespace (,\s*), ensuring there isn't any extraneous junk
+    # in the header.
+    error = None
+    error_description = None
+    scope = None
+    for attribute in re.finditer(r'(?:\A|,\s*)([^ "=]+)="([^"]+)"', info):
+        if attribute.group(1) == "realm":
+            realm = attribute.group(2)
+        elif attribute.group(1) == "error":
+            error = attribute.group(2)
+        elif attribute.group(1) == "error_description":
+            error_description = attribute.group(2)
+        elif attribute.group(1) == "scope":
+            scope = attribute.group(2)
+        else:
+            assert False, f"unexpected attribute {attribute.group(1)}"
+    assert realm
+
+    return AuthChallenge(
+        auth_type=auth_type,
+        realm=realm,
+        error=AuthError[error] if error else None,
+        error_description=error_description,
+        scope=scope,
+    )
 
 
 async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
@@ -20,27 +71,36 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
 
     r = await setup.client.get("/auth", params={"scope": "exec:admin"})
     assert r.status == 401
-    method, info = r.headers["WWW-Authenticate"].split(" ", 1)
-    assert method == "Bearer"
-    data = info.split(",")
-    assert len(data) == 3
-    assert data[0] == f'realm="{setup.config.realm}"'
-    assert data[1] == f'error="Unable to find token"'
-    assert data[2].startswith("error_description=")
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert not authenticate.error
+    assert not authenticate.scope
 
     r = await setup.client.get(
-        "/auth",
-        params={"scope": "exec:admin"},
-        headers={"Authorization": "Bearer"},
+        "/auth", params={"scope": "exec:admin", "auth_type": "bearer"}
     )
     assert r.status == 401
-    method, info = r.headers["WWW-Authenticate"].split(" ", 1)
-    assert method == "Bearer"
-    data = info.split(",")
-    assert len(data) == 3
-    assert data[0] == f'realm="{setup.config.realm}"'
-    assert data[1] == f'error="Unable to find token"'
-    assert data[2].startswith("error_description=")
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert not authenticate.error
+    assert not authenticate.scope
+
+    r = await setup.client.get(
+        "/auth", params={"scope": "exec:admin", "auth_type": "bogus"}
+    )
+    assert r.status == 400
+
+    r = await setup.client.get(
+        "/auth", params={"scope": "exec:admin", "auth_type": "basic"}
+    )
+    assert r.status == 401
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Basic
+    assert authenticate.realm == setup.config.realm
+    assert not authenticate.error
+    assert not authenticate.scope
 
 
 async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
@@ -49,9 +109,38 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
+        headers={"Authorization": "Bearer"},
+    )
+    assert r.status == 400
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_request
+
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer token"},
     )
-    assert r.status == 403
+    assert r.status == 401
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_token
+
+    # Create an expired token.
+    exp = int((datetime.now(timezone.utc) - timedelta(days=24)).timestamp())
+    token = setup.create_token(exp=exp, scope="exec:admin")
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Bearer {token.encoded}"},
+    )
+    assert r.status == 401
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_token
 
 
 async def test_access_denied(create_test_setup: SetupTestCallable) -> None:
@@ -64,6 +153,11 @@ async def test_access_denied(create_test_setup: SetupTestCallable) -> None:
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 403
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.insufficient_scope
+    assert authenticate.scope == "exec:admin"
     body = await r.text()
     assert "Missing required scope" in body
 
@@ -78,6 +172,11 @@ async def test_satisfy_all(create_test_setup: SetupTestCallable) -> None:
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 403
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.insufficient_scope
+    assert authenticate.scope == "exec:admin exec:test"
     body = await r.text()
     assert "Missing required scope" in body
 
@@ -174,10 +273,16 @@ async def test_basic_failure(create_test_setup: SetupTestCallable) -> None:
         basic_b64 = base64.b64encode(basic).decode()
         r = await setup.client.get(
             "/auth",
-            params={"scope": "exec:admin"},
+            params={"scope": "exec:admin", "auth_type": "basic"},
             headers={"Authorization": f"Basic {basic_b64}"},
         )
-        assert r.status == 403
+        assert r.status == 401
+        authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+        assert authenticate.auth_type == AuthType.Basic
+        assert authenticate.realm == setup.config.realm
+        assert not authenticate.error
+        assert not authenticate.error_description
+        assert not authenticate.scope
 
 
 async def test_handle(create_test_setup: SetupTestCallable) -> None:
@@ -288,3 +393,8 @@ async def test_ajax_unauthorized(create_test_setup: SetupTestCallable) -> None:
         headers={"X-Requested-With": "XMLHttpRequest"},
     )
     assert r.status == 403
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert not authenticate.error
+    assert not authenticate.scope
