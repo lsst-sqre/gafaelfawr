@@ -276,3 +276,15 @@ async def test_reissue_internal(create_test_setup: SetupTestCallable) -> None:
 
     # No session should be created for internal tokens.
     assert not await setup.redis.get(f"session:{decoded_token['jti']}")
+
+
+async def test_ajax_unauthorized(create_test_setup: SetupTestCallable) -> None:
+    """Test that AJAX requests without auth get 403, not 401."""
+    setup = await create_test_setup()
+
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert r.status == 403

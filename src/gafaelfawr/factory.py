@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from aioredis import Redis
     from cachetools import TTLCache
     from gafaelfawr.config import Config
+    from gafaelfawr.providers.base import Provider
     from logging import Logger
     from typing import Optional
 
@@ -47,40 +48,12 @@ class ComponentFactory:
         self._key_cache = key_cache
         self._http_session = http_session
 
-    def create_github_provider(self, request: web.Request) -> GitHubProvider:
-        """Create a GitHub authentication provider.
+    def create_provider(self, request: web.Request) -> Provider:
+        """Create an authentication provider.
 
-        Takes the incoming request to get access to the per-request logger and
-        the client HTTP session.
-
-        Parameters
-        ----------
-        request : `aiohttp.web.Request`
-            The incoming request.
-
-        Returns
-        -------
-        provider : `gafaelfawr.providers.github.GitHubProvider`
-            A new GitHubProvider.
-        """
-        assert self._config.github
-        http_session = self.create_http_session(request)
-        issuer = self.create_token_issuer()
-        session_store = self.create_session_store(request)
-        logger = self.create_logger(request)
-        return GitHubProvider(
-            config=self._config.github,
-            http_session=http_session,
-            issuer=issuer,
-            session_store=session_store,
-            logger=logger,
-        )
-
-    def create_oidc_provider(self, request: web.Request) -> OIDCProvider:
-        """Create an OpenID Connect authentication provider.
-
-        Takes the incoming request to get access to the per-request logger and
-        the client HTTP session.
+        Create a provider object for the configured external authentication
+        provider.  Takes the incoming request to get access to the per-request
+        logger and the client HTTP session.
 
         Parameters
         ----------
@@ -89,23 +62,39 @@ class ComponentFactory:
 
         Returns
         -------
-        provider : `gafaelfawr.providers.oidc.OIDCProvider`
-            A new OIDCProvider.
+        provider : `gafaelfawr.providers.base.Provider`
+            A new Provider.
+
+        Raises
+        ------
+        NotImplementedError
+            None of the authentication providers are configured.
         """
-        assert self._config.oidc
-        token_verifier = self.create_token_verifier(request)
+        http_session = self.create_http_session(request)
         issuer = self.create_token_issuer()
         session_store = self.create_session_store(request)
-        http_session = self.create_http_session(request)
         logger = self.create_logger(request)
-        return OIDCProvider(
-            config=self._config.oidc,
-            verifier=token_verifier,
-            issuer=issuer,
-            session_store=session_store,
-            http_session=http_session,
-            logger=logger,
-        )
+        if self._config.github:
+            return GitHubProvider(
+                config=self._config.github,
+                http_session=http_session,
+                issuer=issuer,
+                session_store=session_store,
+                logger=logger,
+            )
+        elif self._config.oidc:
+            token_verifier = self.create_token_verifier(request)
+            return OIDCProvider(
+                config=self._config.oidc,
+                verifier=token_verifier,
+                issuer=issuer,
+                session_store=session_store,
+                http_session=http_session,
+                logger=logger,
+            )
+        else:
+            # This should be caught during configuration file parsing.
+            raise NotImplementedError("No authentication provider configured")
 
     def create_session_store(
         self, request: Optional[web.Request] = None
