@@ -13,10 +13,10 @@ from aiohttp import ClientResponse, ClientSession
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.util import number_to_base64
-from tests.support.tokens import create_oidc_test_token
 
 if TYPE_CHECKING:
     from gafaelfawr.config import Config
+    from gafaelfawr.tokens import Token
     from typing import Any, Dict, List, Optional
 
 __all__ = ["MockClientSession"]
@@ -37,6 +37,8 @@ class MockClientSession(Mock):
     def __init__(self) -> None:
         super().__init__(spec=ClientSession)
         self.config: Optional[Config] = None
+        self.oidc_token: Optional[Token] = None
+        self.oidc_token_response: Optional[ClientResponse] = None
 
     def set_config(self, config: Config) -> None:
         """Set the configuration, used to synthesize responses.
@@ -49,6 +51,28 @@ class MockClientSession(Mock):
             The application configuration.
         """
         self.config = config
+
+    def set_oidc_token(self, token: Token) -> None:
+        """Set the token that will be returned from the OIDC token endpoint.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.tokens.Token`
+            The token.
+        """
+        self.oidc_token = token
+
+    def set_oidc_token_response(self, response: ClientResponse) -> None:
+        """Set the raw response from the OIDC token request.
+
+        Used to test error handling.
+
+        Parameters
+        ----------
+        response : `aiohttp.ClientResponse`
+            The raw response to return (probably mocked).
+        """
+        self.oidc_token_response = response
 
     async def get(
         self,
@@ -127,7 +151,10 @@ class MockClientSession(Mock):
             assert raise_for_status
             return self._build_json_response(self._github_token_post(data))
         elif self.config.oidc and url == self.config.oidc.token_url:
-            return self._build_json_response(self._oidc_token_post(data))
+            if self.oidc_token_response:
+                return self.oidc_token_response
+            else:
+                return self._build_json_response(self._oidc_token_post(data))
         else:
             r = Mock(spec=ClientResponse)
             r.status = 404
@@ -239,6 +266,7 @@ class MockClientSession(Mock):
         """
         assert self.config
         assert self.config.oidc
+        assert self.oidc_token
         assert data == {
             "grant_type": "authorization_code",
             "client_id": self.config.oidc.client_id,
@@ -246,8 +274,7 @@ class MockClientSession(Mock):
             "code": "some-code",
             "redirect_uri": self.config.oidc.redirect_url,
         }
-        token = create_oidc_test_token(self.config, groups=["admin"])
         return {
-            "id_token": token.encoded,
+            "id_token": self.oidc_token.encoded,
             "token_type": "Bearer",
         }
