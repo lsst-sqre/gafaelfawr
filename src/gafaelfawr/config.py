@@ -373,8 +373,6 @@ class Config:
                 self.oidc.token_url,
                 self.oidc.redirect_url,
             )
-        else:
-            logging.error("No authentication provider configured")
 
     @staticmethod
     def _load_secret(path: str) -> bytes:

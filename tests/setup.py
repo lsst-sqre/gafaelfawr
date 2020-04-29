@@ -8,12 +8,13 @@ from gafaelfawr.session import Session, SessionHandle
 from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
-    from aiohttp import web
+    from aiohttp import ClientResponse, web
     from aiohttp.pytest_plugin.test_utils import TestClient
     from aioredis import Redis
     from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
-    from gafaelfawr.tokens import VerifiedToken
+    from gafaelfawr.tokens import Token, VerifiedToken
+    from tests.support.http_session import MockClientSession
     from typing import Awaitable, Callable, List, Optional, Union
 
 
@@ -112,6 +113,30 @@ class SetupTest:
             The generated token.
         """
         return create_oidc_test_token(self.config, groups=groups, **claims)
+
+    def set_oidc_token(self, token: Token) -> None:
+        """Set the token that will be returned from the OIDC token endpoint.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.tokens.Token`
+            The token.
+        """
+        http_session: MockClientSession = self.app["safir/http_session"]
+        http_session.set_oidc_token(token)
+
+    def set_oidc_token_response(self, response: ClientResponse) -> None:
+        """Set the raw response from the OIDC token request.
+
+        Used to test error handling.
+
+        Parameters
+        ----------
+        response : `aiohttp.ClientResponse`
+            The raw response to return (probably mocked).
+        """
+        http_session: MockClientSession = self.app["safir/http_session"]
+        http_session.set_oidc_token_response(response)
 
 
 # Type of the pytest fixture that builds the SetupTest object.
