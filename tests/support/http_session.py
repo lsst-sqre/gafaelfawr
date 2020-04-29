@@ -123,8 +123,8 @@ class MockClientSession(Mock):
         """
         assert self.config
         assert headers == {"Accept": "application/json"}
-        assert raise_for_status
         if url == GitHubProvider._TOKEN_URL:
+            assert raise_for_status
             return self._build_json_response(self._github_token_post(data))
         elif self.config.oidc and url == self.config.oidc.token_url:
             return self._build_json_response(self._oidc_token_post(data))

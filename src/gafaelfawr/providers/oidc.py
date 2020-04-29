@@ -127,16 +127,32 @@ class OIDCProvider(Provider):
             self._config.token_url,
             data=data,
             headers={"Accept": "application/json"},
-            raise_for_status=True,
         )
-        result = await r.json()
+
+        # If the call failed, try to extract an error from the reply.  If that
+        # fails, just raise an exception for the HTTP status.
+        try:
+            result = await r.json()
+        except Exception:
+            if r.status != 200:
+                r.raise_for_status()
+            else:
+                msg = "Response from {self._config.token_url} not valid JSON"
+                raise OIDCException(msg)
+        if r.status != 200 and "error" in result:
+            msg = result["error"] + ": " + result["error_description"]
+            raise OIDCException(msg)
+        elif r.status != 200:
+            r.raise_for_status()
         if "id_token" not in result:
             msg = f"No id_token in token reply from {self._config.token_url}"
             raise OIDCException(msg)
 
+        # Extract and verify the token.
         unverified_token = Token(encoded=result["id_token"])
         token = await self._verifier.verify_oidc_token(unverified_token)
 
+        # Store it as a session and return the session.
         handle = SessionHandle()
         token = self._issuer.reissue_token(token, jti=handle.key)
         session = Session.create(handle, token)
