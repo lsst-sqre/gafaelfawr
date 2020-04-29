@@ -2,6 +2,12 @@
 Change log
 ##########
 
+1.1.1 (2020-04-29)
+==================
+
+- Include any errors from the external OpenID Connect provider in the error message if retrieving an ID token fails.
+  Previous versions only reported a generic error message, which was missing error details from the JSON body of the upstream error, if available.
+
 1.1.0 (2020-04-28)
 ==================
 
