@@ -178,6 +178,17 @@ It will find the user's authentication token, check that it is valid, and check 
 If the user is not authenticated, they will be redirected to the sign-in URL configured here, which in turn will either send the user to CILogon or to GitHub to authenticate.
 If the user is already authenticated but does not have the desired scope, they will receive a 403 error.
 
+The typical annotations for a API that expects direct requests from programs are:
+
+.. code-block:: yaml
+
+   annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
+
+The difference in this case is that the 401 error when authentication is not provided will be returned to the client, rather than returning a redirect to the login page.
+
 If the user authenticates and authorizes successfully, the request will be sent to the application.
 Included in the request will be an ``X-Auth-Request-Token`` header containing the user's JWT.
 This will be a reissued token signed by Gafaelfawr.
@@ -200,6 +211,11 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     How to interpret multiple ``scope`` parameters.
     If set to ``all`` (or unset), the user's token must have all of the given scopes.
     If set to ``any``, the user's token must have one of the given scopes.
+
+``auth_type`` (optional)
+    Controls the authentication type in the challenge returned in ``WWW-Authenticate`` if the user is not authenticated.
+    By default, this is ``bearer``.
+    Applications that want to prompt for HTTP Basic Authentication should set this to ``basic`` instead.
 
 ``audience`` (optional)
     May be set to the value of the ``issuer.aud.internal`` configuration parameter, in which case a new token will be issued from the user's token with all the same claims but with that audience.

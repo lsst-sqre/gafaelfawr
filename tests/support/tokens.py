@@ -12,17 +12,17 @@ from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
     from gafaelfawr.config import Config
-    from typing import Any, Dict, List, Optional
+    from typing import Any, Dict, List, Optional, Union
 
 __all__ = ["create_oidc_test_token", "create_test_token"]
 
 
 def create_test_token(
     config: Config,
-    *,
     groups: Optional[List[str]] = None,
+    *,
     kid: str = "some-kid",
-    **claims: str,
+    **claims: Union[str, int],
 ) -> VerifiedToken:
     """Create a signed token using the configured test issuer.
 
@@ -37,7 +37,7 @@ def create_test_token(
         Group memberships the generated token should have.
     kid : str, optional
         The kid to set in the envelope.  Defaults to ``some-kid``.
-    **claims : `str`, optional
+    **claims : Union[`str`, `int`], optional
         Other claims to set or override in the token.
 
     Returns

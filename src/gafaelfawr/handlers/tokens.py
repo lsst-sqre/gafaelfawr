@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import wraps
 from typing import TYPE_CHECKING
 
 from aiohttp import web
@@ -11,7 +12,13 @@ from aiohttp_session import get_session
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
 from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.util import authenticated
+from gafaelfawr.handlers.util import (
+    AuthChallenge,
+    AuthError,
+    AuthType,
+    InvalidTokenException,
+    verify_token,
+)
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
@@ -21,7 +28,10 @@ if TYPE_CHECKING:
     from gafaelfawr.tokens import VerifiedToken
     from logging import Logger
     from multidict import MultiDictProxy
-    from typing import Dict, Optional, Union
+    from typing import Any, Awaitable, Callable, Dict, Optional, Union
+
+    Route = Callable[[web.Request], Awaitable[Any]]
+    AuthenticatedRoute = Callable[[web.Request, VerifiedToken], Awaitable[Any]]
 
 __all__ = [
     "get_token_by_handle",
@@ -30,6 +40,65 @@ __all__ = [
     "post_delete_token",
     "post_tokens_new",
 ]
+
+
+def authenticated(route: AuthenticatedRoute) -> Route:
+    """Decorator to mark a route as requiring authentication.
+
+    The authorization token is extracted from the X-Auth-Request-Token header
+    and verified, and then passed as an additional parameter to the wrapped
+    function.  If the token is missing or invalid, returns a 401 error to the
+    user.
+
+    Parameters
+    ----------
+    route : `typing.Callable`
+        The route that requires authentication.  The token is extracted from
+        the incoming request headers, verified, and then passed as a second
+        argument of type `gafaelfawr.tokens.VerifiedToken` to the route.
+
+    Returns
+    -------
+    response : `typing.Callable`
+        The decorator generator.
+
+    Raises
+    ------
+    aiohttp.web.HTTPException
+        If no token is present or the token cannot be verified.
+    """
+
+    @wraps(route)
+    async def authenticated_route(request: web.Request) -> Any:
+        config: Config = request.config_dict["gafaelfawr/config"]
+        logger: Logger = request["safir/logger"]
+
+        if not request.headers.get("X-Auth-Request-Token"):
+            challenge = AuthChallenge(AuthType.Bearer, config.realm)
+            headers = {"WWW-Authenticate": challenge.as_header()}
+            msg = "No authentication token found"
+            raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
+
+        encoded_token = request.headers["X-Auth-Request-Token"]
+        try:
+            token = verify_token(request, encoded_token)
+        except InvalidTokenException as e:
+            error = "Failed to authenticate token"
+            challenge = AuthChallenge(
+                auth_type=AuthType.Bearer,
+                realm=config.realm,
+                error=AuthError.invalid_token,
+                error_description=f"{error}: {str(e)}",
+            )
+            logger.warning(challenge.error_description)
+            headers = {"WWW-Authenticate": challenge.as_header()}
+            raise web.HTTPUnauthorized(
+                headers=headers, reason=error, text=challenge.error_description
+            )
+
+        return await route(request, token)
+
+    return authenticated_route
 
 
 class AlterTokenForm(Form):

@@ -23,11 +23,17 @@ async def test_tokens_invalid_auth(
     create_test_setup: SetupTestCallable,
 ) -> None:
     setup = await create_test_setup()
+    token = setup.create_token()
 
     r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": "foo"}
     )
-    assert r.status == 403
+    assert r.status == 401
+
+    r = await setup.client.get(
+        "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded + "xxx"}
+    )
+    assert r.status == 401
 
 
 async def test_tokens_empty_list(create_test_setup: SetupTestCallable) -> None:
