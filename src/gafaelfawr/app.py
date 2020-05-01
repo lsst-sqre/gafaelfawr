@@ -92,11 +92,12 @@ async def create_app(
 
 async def setup_middleware(app: Application, config: Config) -> None:
     """Add middleware to the application."""
-    app.middlewares.append(bind_logger)
-
     # Unconditionally trust X-Forwarded-For, since this application is desiged
     # to run behind an NGINX ingress.
     await aiohttp_remotes.setup(app, aiohttp_remotes.XForwardedRelaxed())
+
+    # Create a custom logger for each request with request information bound.
+    app.middlewares.append(bind_logger)
 
     # Set up encrypted session storage via a cookie.
     session_storage = EncryptedCookieStorage(
@@ -109,6 +110,7 @@ async def setup_middleware(app: Application, config: Config) -> None:
     csrf_storage = aiohttp_csrf.storage.SessionStorage("csrf")
     aiohttp_csrf.setup(app, policy=csrf_policy, storage=csrf_storage)
 
+    # Configure Jinja2 templating of responses.
     templates_path = os.path.join(os.path.dirname(__file__), "templates")
     aiohttp_jinja2.setup(
         app, loader=jinja2.FileSystemLoader(templates_path),

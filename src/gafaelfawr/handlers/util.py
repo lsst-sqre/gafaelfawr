@@ -15,6 +15,7 @@ from gafaelfawr.tokens import Token
 if TYPE_CHECKING:
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
+    from structlog import BoundLogger
     from typing import Optional
 
 __all__ = [
@@ -119,9 +120,10 @@ def verify_token(request: web.Request, encoded_token: str) -> VerifiedToken:
         If the token is missing required claims.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
+    logger: BoundLogger = request["safir/logger"]
 
     token = Token(encoded=encoded_token)
-    token_verifier = factory.create_token_verifier(request)
+    token_verifier = factory.create_token_verifier(request, logger)
     try:
         return token_verifier.verify_internal_token(token)
     except jwt.InvalidTokenError as e:

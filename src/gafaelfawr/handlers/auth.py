@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
-    from logging import Logger
+    from structlog import BoundLogger
     from typing import Dict, Optional
 
 __all__ = ["get_auth"]
@@ -110,7 +110,7 @@ async def get_auth(request: web.Request) -> web.Response:
         If the request is unauthenticated, this header will be set.
     """
     config: Config = request.config_dict["gafaelfawr/config"]
-    logger: Logger = request["safir/logger"]
+    logger: BoundLogger = request["safir/logger"]
 
     # Determine the required scopes, authorization strategy, and desired auth
     # type for challenges from the request.
@@ -226,7 +226,7 @@ async def get_token_from_request(
         A token was provided but it could not be verified.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: Logger = request["safir/logger"]
+    logger: BoundLogger = request["safir/logger"]
 
     # Use the session cookie if it is available.  This check has to be before
     # checking the Authorization header, since JupyterHub will set its own
@@ -237,7 +237,7 @@ async def get_token_from_request(
     if handle_str:
         logger.debug("Found valid handle in session")
         handle = SessionHandle.from_str(handle_str)
-        session_store = factory.create_session_store(request)
+        session_store = factory.create_session_store(request, logger)
         auth_session = await session_store.get_session(handle)
         if auth_session:
             return auth_session.token
@@ -251,7 +251,7 @@ async def get_token_from_request(
         return None
     elif handle_or_token.startswith("gsh-"):
         handle = SessionHandle.from_str(handle_or_token)
-        session_store = factory.create_session_store(request)
+        session_store = factory.create_session_store(request, logger)
         auth_session = await session_store.get_session(handle)
         return auth_session.token if auth_session else None
     else:
@@ -287,7 +287,7 @@ def parse_authorization(request: web.Request) -> Optional[str]:
     handle).  If neither is the case, assume the token or session handle is
     the username.
     """
-    logger: Logger = request["safir/logger"]
+    logger: BoundLogger = request["safir/logger"]
 
     # Parse the header and handle Bearer.
     header = request.headers.get("Authorization")

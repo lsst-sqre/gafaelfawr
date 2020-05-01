@@ -11,11 +11,11 @@ from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
-    from logging import Logger
     from gafaelfawr.config import OIDCConfig
     from gafaelfawr.issuer import TokenIssuer
     from gafaelfawr.session import SessionStore
     from gafaelfawr.verify import TokenVerifier
+    from structlog import BoundLogger
 
 __all__ = ["OIDCException", "OIDCProvider"]
 
@@ -39,7 +39,7 @@ class OIDCProvider(Provider):
         Store for authentication sessions.
     http_session : `aiohttp.ClientSession`
         Session to use to make HTTP requests.
-    logger : `logging.Logger`
+    logger : `structlog.BoundLogger`
         Logger for any log messages.
     """
 
@@ -51,7 +51,7 @@ class OIDCProvider(Provider):
         issuer: TokenIssuer,
         session_store: SessionStore,
         http_session: ClientSession,
-        logger: Logger,
+        logger: BoundLogger,
     ) -> None:
         self._config = config
         self._verifier = verifier

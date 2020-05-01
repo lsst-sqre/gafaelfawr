@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from cachetools import TTLCache
     from gafaelfawr.config import Config
     from gafaelfawr.providers.base import Provider
-    from logging import Logger
+    from structlog import BoundLogger
     from typing import Optional
 
 
@@ -48,7 +48,9 @@ class ComponentFactory:
         self._key_cache = key_cache
         self._http_session = http_session
 
-    def create_provider(self, request: web.Request) -> Provider:
+    def create_provider(
+        self, request: web.Request, logger: BoundLogger
+    ) -> Provider:
         """Create an authentication provider.
 
         Create a provider object for the configured external authentication
@@ -58,7 +60,9 @@ class ComponentFactory:
         Parameters
         ----------
         request : `aiohttp.web.Request`
-            The incoming request.
+            The incoming request, used to get the `~aiohttp.ClientSession`.
+        logger : `structlog.BoundLogger`
+            The logger to use.
 
         Returns
         -------
@@ -73,7 +77,6 @@ class ComponentFactory:
         http_session = self.create_http_session(request)
         issuer = self.create_token_issuer()
         session_store = self.create_session_store(request)
-        logger = self.create_logger(request)
         if self._config.github:
             return GitHubProvider(
                 config=self._config.github,
@@ -97,24 +100,28 @@ class ComponentFactory:
             raise NotImplementedError("No authentication provider configured")
 
     def create_session_store(
-        self, request: Optional[web.Request] = None
+        self,
+        request: Optional[web.Request] = None,
+        logger: Optional[BoundLogger] = None,
     ) -> SessionStore:
         """Create a SessionStore.
 
         Parameters
         ----------
-        request : `aiohttp.web.Request`, optional
-            The incoming request, used to get a logger.  If not given, the
-            base logger will be used.
+        request : `aiohttp.web.Request`
+            The incoming request, used to get the `~aiohttp.ClientSession`.
+        logger : `structlog.BoundLogger`, optional
+            The logger to use.  If not given, the base logger will be used.
 
         Returns
         -------
         session_store : `gafaelfawr.session.SessionStore`
             A new SessionStore.
         """
+        if not logger:
+            logger = structlog.get_logger("gafaelfawr")
         key = self._config.session_secret
         verifier = self.create_token_verifier(request)
-        logger = self.create_logger(request)
         return SessionStore(key, verifier, self._redis, logger)
 
     def create_token_issuer(self) -> TokenIssuer:
@@ -128,42 +135,48 @@ class ComponentFactory:
         return TokenIssuer(self._config.issuer)
 
     def create_token_store(
-        self, request: Optional[web.Request] = None
+        self, logger: Optional[BoundLogger] = None
     ) -> TokenStore:
         """Create a TokenStore.
 
         Parameters
         ----------
-        request : `aiohttp.web.Request`, optional
-            The incoming request, used to get a logger.  If not given, the
-            base logger will be used.
+        logger : `structlog.BoundLogger`, optional
+            The logger to use.  If not given, the base logger will be used.
 
         Returns
         -------
         token_store : `gafaelfawr.tokens.TokenStore`
             A new TokenStore.
         """
-        logger = self.create_logger(request)
+        if not logger:
+            logger = structlog.get_logger("gafaelfawr")
         return TokenStore(self._redis, logger)
 
     def create_token_verifier(
-        self, request: Optional[web.Request] = None
+        self,
+        request: Optional[web.Request] = None,
+        logger: Optional[BoundLogger] = None,
     ) -> TokenVerifier:
         """Create a TokenVerifier from a web request.
 
         Parameters
         ----------
         request : `aiohttp.web.Request`, optional
-            The incoming request, used to get a logger.  If not given, the
-            base logger will be used.
+            The incoming request, used to get the `~aiohttp.ClientSession`.
+            This may be omitted only in the test suite, which provides a mock
+            `~aiohttp.ClientSession` via a different mechanism.
+        logger : `structlog.BoundLogger`, optional
+            The logger to use.  If not given, the base logger will be used.
 
         Returns
         -------
         token_verifier : `gafaelfawr.verify.TokenVerifier`
             A new TokenVerifier.
         """
+        if not logger:
+            logger = structlog.get_logger("gafaelfawr")
         http_session = self.create_http_session(request)
-        logger = self.create_logger(request)
         return TokenVerifier(
             self._config.verifier, http_session, self._key_cache, logger
         )
@@ -197,14 +210,3 @@ class ComponentFactory:
             return self._http_session
         assert request
         return request.config_dict["safir/http_session"]
-
-    def create_logger(self, request: Optional[web.Request] = None) -> Logger:
-        """Create a logger.
-
-        Prefers the per-request logger if available.  Otherwise, returns a
-        top-level logger for the application.
-        """
-        if request:
-            return request["safir/logger"]
-        else:
-            return structlog.get_logger("gafaelfawr")

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from aioredis.commands import Pipeline
     from gafaelfawr.tokens import VerifiedToken
     from gafaelfawr.verify import TokenVerifier
-    from logging import Logger
+    from structlog import BoundLogger
     from typing import Any, Dict, Optional
 
 __all__ = [
@@ -174,12 +174,16 @@ class SessionStore:
     redis : `aioredis.Redis`
         A Redis client configured to talk to the backend store that holds the
         (encrypted) tokens.
-    logger : `logging.Logger`
+    logger : `structlog.BoundLogger`
         Logger for diagnostics.
     """
 
     def __init__(
-        self, key: str, verifier: TokenVerifier, redis: Redis, logger: Logger
+        self,
+        key: str,
+        verifier: TokenVerifier,
+        redis: Redis,
+        logger: BoundLogger,
     ) -> None:
         self._fernet = Fernet(key.encode())
         self._verifier = verifier

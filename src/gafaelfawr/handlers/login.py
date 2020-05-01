@@ -15,7 +15,7 @@ from gafaelfawr.providers.base import ProviderException
 
 if TYPE_CHECKING:
     from gafaelfawr.factory import ComponentFactory
-    from logging import Logger
+    from structlog import BoundLogger
 
 __all__ = ["get_login"]
 
@@ -80,7 +80,7 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
         external authentication provider.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: Logger = request["safir/logger"]
+    logger: BoundLogger = request["safir/logger"]
 
     # Determine where the user is trying to go.
     session = await get_session(request)
@@ -132,7 +132,7 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
         session["state"] = state
 
     # Get the authentication provider URL send the user there.
-    auth_provider = factory.create_provider(request)
+    auth_provider = factory.create_provider(request, logger)
     redirect_url = auth_provider.get_redirect_url(state)
     raise web.HTTPSeeOther(redirect_url)
 
@@ -160,7 +160,7 @@ async def handle_provider_return(request: web.Request) -> web.Response:
         external authentication provider.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: Logger = request["safir/logger"]
+    logger: BoundLogger = request["safir/logger"]
 
     # Extract details from the reply, check state, and get the return URL.
     session = await get_session(request)
@@ -172,7 +172,7 @@ async def handle_provider_return(request: web.Request) -> web.Response:
     return_url = session.pop("rd")
 
     # Build a session based on the reply from the authentication provider.
-    auth_provider = factory.create_provider(request)
+    auth_provider = factory.create_provider(request, logger)
     try:
         auth_session = await auth_provider.create_session(code, state)
     except ProviderException as e:

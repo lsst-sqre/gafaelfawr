@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from aioredis import Redis
     from aioredis.commands import Pipeline
-    from logging import Logger
     from gafaelfawr.session import Session
+    from structlog import BoundLogger
     from typing import List, Optional
 
 __all__ = ["TokenEntry", "TokenStore"]
@@ -96,11 +96,11 @@ class TokenStore:
     ----------
     redis : `aioredis.Redis`
         Redis client used to store and retrieve tokens.
-    logger : `logging.Logger`
+    logger : `structlog.BoundLogger`
         Logger to report any errors.
     """
 
-    def __init__(self, redis: Redis, logger: Logger) -> None:
+    def __init__(self, redis: Redis, logger: BoundLogger) -> None:
         self._redis = redis
         self._logger = logger
 
