@@ -22,6 +22,7 @@ Installation
 
    install
    configuration
+   logging
    glossary
    changelog
 
