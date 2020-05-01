@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import re
 import time
 from datetime import datetime, timedelta, timezone
@@ -15,6 +16,7 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.handlers.util import AuthChallenge, AuthError, AuthType
 
 if TYPE_CHECKING:
+    from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
 
 
@@ -398,3 +400,23 @@ async def test_ajax_unauthorized(create_test_setup: SetupTestCallable) -> None:
     assert authenticate.realm == setup.config.realm
     assert not authenticate.error
     assert not authenticate.scope
+
+
+async def test_logging(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
+    setup = await create_test_setup()
+    token = setup.create_token(scope="exec:admin")
+
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Bearer {token.encoded}"},
+    )
+    assert r.status == 200
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data["path"] == "/auth"
+    assert data["method"] == "GET"
+    assert data["request_id"]
+    assert data["remote"] == "127.0.0.1"
+    assert data["user_agent"]
