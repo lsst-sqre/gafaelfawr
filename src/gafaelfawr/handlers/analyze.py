@@ -31,14 +31,24 @@ async def get_analyze(request: web.Request) -> web.Response:
     -------
     response : `aiohttp.web.Response`
         The response.
+
+    Raises
+    ------
+    aiohttp.web.HTTPException
+        If the user is not logged in.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     logger: BoundLogger = request["safir/logger"]
 
     session = await get_session(request)
+    if "handle" not in session:
+        msg = "Not logged in"
+        logger.warning(msg)
+        raise web.HTTPBadRequest(reason=msg, text=msg)
     handle = SessionHandle.from_str(session["handle"])
     session_store = factory.create_session_store(request, logger)
     result = await session_store.analyze_handle(handle)
+    logger.info("Analyzed user session")
     return web.json_response(result)
 
 
@@ -69,11 +79,13 @@ async def post_analyze(request: web.Request) -> web.Response:
     try:
         handle = SessionHandle.from_str(handle_or_token)
         session_store = factory.create_session_store(request, logger)
+        logger.info("Analyzed user-provided session handle")
         result = await session_store.analyze_handle(handle)
     except InvalidSessionHandleException:
         token = Token(encoded=handle_or_token)
         verifier = factory.create_token_verifier(request, logger)
         analysis = verifier.analyze_token(token)
+        logger.info("Analyzed user-provided token")
         result = {"token": analysis}
 
     return web.json_response(result)

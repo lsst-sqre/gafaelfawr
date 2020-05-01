@@ -210,6 +210,7 @@ async def get_tokens_new(
         The response.
     """
     config: Config = request.config_dict["gafaelfawr/config"]
+    logger: BoundLogger = request["safir/logger"]
 
     scopes = {s: d for s, d in config.known_scopes.items() if s in token.scope}
     form = build_new_token_form(scopes)
@@ -217,6 +218,7 @@ async def get_tokens_new(
     session = await get_session(request)
     session["csrf"] = await generate_token(request)
 
+    logger.info("Returned token creation form")
     return {
         "form": form,
         "scopes": scopes,
@@ -310,8 +312,10 @@ async def get_token_by_handle(
 
     if not user_token:
         msg = f"No token with handle {handle} found"
+        logger.warning(msg)
         raise web.HTTPNotFound(reason=msg, text=msg)
 
+    logger.info("Viewed token %s", handle)
     return {"token": user_token}
 
 
