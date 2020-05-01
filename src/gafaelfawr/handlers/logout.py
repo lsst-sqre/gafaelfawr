@@ -44,6 +44,10 @@ async def get_logout(request: web.Request) -> web.Response:
     logger: BoundLogger = request["safir/logger"]
 
     session = await get_session(request)
+    if session.get("handle"):
+        logger.info("Successful logout")
+    else:
+        logger.info("Logout of already-logged-out session")
     session.invalidate()
 
     redirect_url = request.query.get("rd")

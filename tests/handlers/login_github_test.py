@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
@@ -10,10 +11,13 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.providers.github import GitHubProvider
 
 if TYPE_CHECKING:
+    from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
 
 
-async def test_login(create_test_setup: SetupTestCallable) -> None:
+async def test_login(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
     setup = await create_test_setup()
     assert setup.config.github
 
@@ -33,8 +37,21 @@ async def test_login(create_test_setup: SetupTestCallable) -> None:
         "scope": [" ".join(GitHubProvider._SCOPES)],
         "state": [ANY],
     }
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "event": "Redirecting user to GitHub for authentication",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/login",
+        "return_url": return_url,
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "user_agent": ANY,
+    }
 
     # Simulate the return from GitHub.
+    caplog.clear()
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -42,6 +59,21 @@ async def test_login(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 303
     assert r.headers["Location"] == return_url
+    data = json.loads(caplog.record_tuples[-1][2])
+    assert data == {
+        "event": "Successfully authenticated user githubuser (123456)",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/login",
+        "return_url": return_url,
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "scope": "read:all",
+        "token": ANY,
+        "user": "githubuser",
+        "user_agent": ANY,
+    }
 
     # Check that the /auth route works and finds our token.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
