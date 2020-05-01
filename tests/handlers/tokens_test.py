@@ -2,25 +2,42 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import TYPE_CHECKING
+from unittest.mock import ANY
 
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
+    from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
 
 
-async def test_tokens_no_auth(create_test_setup: SetupTestCallable) -> None:
+async def test_tokens_no_auth(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
     setup = await create_test_setup()
 
     r = await setup.client.get("/auth/tokens")
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
 
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "event": "No authentication token found",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/tokens",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "user_agent": ANY,
+    }
+
 
 async def test_tokens_invalid_auth(
-    create_test_setup: SetupTestCallable,
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
 ) -> None:
     setup = await create_test_setup()
     token = setup.create_token()
@@ -29,6 +46,18 @@ async def test_tokens_invalid_auth(
         "/auth/tokens", headers={"X-Auth-Request-Token": "foo"}
     )
     assert r.status == 401
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "event": "Failed to authenticate token",
+        "error": "Not enough segments",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/tokens",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "user_agent": ANY,
+    }
 
     r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded + "xxx"}
@@ -80,7 +109,7 @@ async def test_tokens_handle_no_auth(
 
 
 async def test_tokens_handle_get_delete(
-    create_test_setup: SetupTestCallable,
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
 ) -> None:
     setup = await create_test_setup()
     token = setup.create_token()
@@ -128,6 +157,7 @@ async def test_tokens_handle_get_delete(
     assert r.status == 403
 
     # Deleting with the correct CSRF will succeed.
+    caplog.clear()
     r = await setup.client.post(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
@@ -136,6 +166,20 @@ async def test_tokens_handle_get_delete(
     assert r.status == 200
     body = await r.text()
     assert f"token with the handle {handle.key} was deleted" in body
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "event": f"Deleted token {handle.key}",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "POST",
+        "path": f"/auth/tokens/{handle.key}",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "scope": " ".join(sorted(token.scope)),
+        "token": token.jti,
+        "user": token.username,
+        "user_agent": ANY,
+    }
 
     assert await token_store.get_tokens(token.uid) == []
 
@@ -169,7 +213,9 @@ async def test_tokens_new_form(create_test_setup: SetupTestCallable) -> None:
             assert description not in body
 
 
-async def test_tokens_new_create(create_test_setup: SetupTestCallable) -> None:
+async def test_tokens_new_create(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
     setup = await create_test_setup()
     token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
@@ -190,7 +236,7 @@ async def test_tokens_new_create(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 403
 
-    # Deleting with a bogus CSRF token will fail.
+    # Creating with a bogus CSRF token will fail.
     r = await setup.client.post(
         f"/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
@@ -201,6 +247,7 @@ async def test_tokens_new_create(create_test_setup: SetupTestCallable) -> None:
     # Creating with a valid CSRF token will succeed.  Requesting extraneous
     # scopes that we don't have is allowed (I cannot find a way to get it to
     # fail validation), but those requested scopes will be ignored.
+    caplog.clear()
     r = await setup.client.post(
         "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
@@ -213,6 +260,21 @@ async def test_tokens_new_create(create_test_setup: SetupTestCallable) -> None:
     assert match
     encoded_handle = match.group(1)
     handle = SessionHandle.from_str(encoded_handle)
+
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "event": f"Created token {handle.key} with scope read:all",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "POST",
+        "path": f"/auth/tokens/new",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "scope": " ".join(sorted(token.scope)),
+        "token": token.jti,
+        "user": token.username,
+        "user_agent": ANY,
+    }
 
     token_store = setup.factory.create_token_store()
     tokens = await token_store.get_tokens(token.uid)

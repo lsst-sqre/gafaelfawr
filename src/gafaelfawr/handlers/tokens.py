@@ -74,9 +74,10 @@ def authenticated(route: AuthenticatedRoute) -> Route:
         logger: BoundLogger = request["safir/logger"]
 
         if not request.headers.get("X-Auth-Request-Token"):
+            msg = "No authentication token found"
+            logger.warning(msg)
             challenge = AuthChallenge(AuthType.Bearer, config.realm)
             headers = {"WWW-Authenticate": challenge.as_header()}
-            msg = "No authentication token found"
             raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
 
         encoded_token = request.headers["X-Auth-Request-Token"]
@@ -84,17 +85,25 @@ def authenticated(route: AuthenticatedRoute) -> Route:
             token = verify_token(request, encoded_token)
         except InvalidTokenException as e:
             error = "Failed to authenticate token"
+            logger.warning(error, error=str(e))
             challenge = AuthChallenge(
                 auth_type=AuthType.Bearer,
                 realm=config.realm,
                 error=AuthError.invalid_token,
                 error_description=f"{error}: {str(e)}",
             )
-            logger.warning(challenge.error_description)
             headers = {"WWW-Authenticate": challenge.as_header()}
             raise web.HTTPUnauthorized(
                 headers=headers, reason=error, text=challenge.error_description
             )
+
+        # On success, add some context to the logger.
+        logger = logger.bind(
+            token=token.jti,
+            user=token.username,
+            scope=" ".join(sorted(token.scope)),
+        )
+        request["safir/logger"] = logger
 
         return await route(request, token)
 
@@ -173,6 +182,7 @@ async def get_tokens(
         form.csrf.data = session["csrf"]
         forms[user_token.key] = form
 
+    logger.info("Listed tokens")
     return {
         "message": message,
         "tokens": user_tokens,
@@ -264,6 +274,7 @@ async def post_tokens_new(
     session = await get_session(request)
     session["message"] = message
 
+    logger.info("Created token %s with scope %s", handle.key, scope)
     location = request.app.router["tokens"].url_for()
     raise web.HTTPFound(location)
 
@@ -348,5 +359,6 @@ async def post_delete_token(
     session = await get_session(request)
     session["message"] = message
 
+    logger.info("Deleted token %s", handle)
     location = request.app.router["tokens"].url_for()
     raise web.HTTPFound(location)
