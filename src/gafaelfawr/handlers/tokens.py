@@ -26,8 +26,8 @@ if TYPE_CHECKING:
     from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
-    from logging import Logger
     from multidict import MultiDictProxy
+    from structlog import BoundLogger
     from typing import Any, Awaitable, Callable, Dict, Optional, Union
 
     Route = Callable[[web.Request], Awaitable[Any]]
@@ -71,12 +71,13 @@ def authenticated(route: AuthenticatedRoute) -> Route:
     @wraps(route)
     async def authenticated_route(request: web.Request) -> Any:
         config: Config = request.config_dict["gafaelfawr/config"]
-        logger: Logger = request["safir/logger"]
+        logger: BoundLogger = request["safir/logger"]
 
         if not request.headers.get("X-Auth-Request-Token"):
+            msg = "No authentication token found"
+            logger.warning(msg)
             challenge = AuthChallenge(AuthType.Bearer, config.realm)
             headers = {"WWW-Authenticate": challenge.as_header()}
-            msg = "No authentication token found"
             raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
 
         encoded_token = request.headers["X-Auth-Request-Token"]
@@ -84,17 +85,25 @@ def authenticated(route: AuthenticatedRoute) -> Route:
             token = verify_token(request, encoded_token)
         except InvalidTokenException as e:
             error = "Failed to authenticate token"
+            logger.warning(error, error=str(e))
             challenge = AuthChallenge(
                 auth_type=AuthType.Bearer,
                 realm=config.realm,
                 error=AuthError.invalid_token,
                 error_description=f"{error}: {str(e)}",
             )
-            logger.warning(challenge.error_description)
             headers = {"WWW-Authenticate": challenge.as_header()}
             raise web.HTTPUnauthorized(
                 headers=headers, reason=error, text=challenge.error_description
             )
+
+        # On success, add some context to the logger.
+        logger = logger.bind(
+            token=token.jti,
+            user=token.username,
+            scope=" ".join(sorted(token.scope)),
+        )
+        request["safir/logger"] = logger
 
         return await route(request, token)
 
@@ -158,12 +167,13 @@ async def get_tokens(
         The response.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
+    logger: BoundLogger = request["safir/logger"]
 
     session = await get_session(request)
     message = session.pop("message", None)
     session["csrf"] = await generate_token(request)
 
-    token_store = factory.create_token_store(request)
+    token_store = factory.create_token_store(logger)
     await token_store.expire_tokens(token.uid)
     user_tokens = await token_store.get_tokens(token.uid)
     forms = {}
@@ -172,6 +182,7 @@ async def get_tokens(
         form.csrf.data = session["csrf"]
         forms[user_token.key] = form
 
+    logger.info("Listed tokens")
     return {
         "message": message,
         "tokens": user_tokens,
@@ -199,6 +210,7 @@ async def get_tokens_new(
         The response.
     """
     config: Config = request.config_dict["gafaelfawr/config"]
+    logger: BoundLogger = request["safir/logger"]
 
     scopes = {s: d for s, d in config.known_scopes.items() if s in token.scope}
     form = build_new_token_form(scopes)
@@ -206,6 +218,7 @@ async def get_tokens_new(
     session = await get_session(request)
     session["csrf"] = await generate_token(request)
 
+    logger.info("Returned token creation form")
     return {
         "form": form,
         "scopes": scopes,
@@ -234,7 +247,7 @@ async def post_tokens_new(
     config: Config = request.config_dict["gafaelfawr/config"]
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     redis: Redis = request.config_dict["gafaelfawr/redis"]
-    logger: Logger = request["safir/logger"]
+    logger: BoundLogger = request["safir/logger"]
 
     scopes = {s: d for s, d in config.known_scopes.items() if s in token.scope}
     form = build_new_token_form(scopes, await request.post())
@@ -248,8 +261,8 @@ async def post_tokens_new(
     handle = SessionHandle()
     user_token = issuer.issue_user_token(token, scope=scope, jti=handle.key)
 
-    session_store = factory.create_session_store(request)
-    token_store = factory.create_token_store(request)
+    session_store = factory.create_session_store(request, logger)
+    token_store = factory.create_token_store(logger)
     user_session = Session.create(handle, user_token)
     pipeline = redis.pipeline()
     await session_store.store_session(user_session, pipeline)
@@ -263,6 +276,7 @@ async def post_tokens_new(
     session = await get_session(request)
     session["message"] = message
 
+    logger.info("Created token %s with scope %s", handle.key, scope)
     location = request.app.router["tokens"].url_for()
     raise web.HTTPFound(location)
 
@@ -286,9 +300,10 @@ async def get_token_by_handle(
         The response.
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
+    logger: BoundLogger = request["safir/logger"]
     handle = request.match_info["handle"]
 
-    token_store = factory.create_token_store(request)
+    token_store = factory.create_token_store(logger)
     user_token = None
     for entry in await token_store.get_tokens(token.uid):
         if entry.key == handle:
@@ -297,8 +312,10 @@ async def get_token_by_handle(
 
     if not user_token:
         msg = f"No token with handle {handle} found"
+        logger.warning(msg)
         raise web.HTTPNotFound(reason=msg, text=msg)
 
+    logger.info("Viewed token %s", handle)
     return {"token": user_token}
 
 
@@ -323,6 +340,7 @@ async def post_delete_token(
     """
     factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
     redis: Redis = request.config_dict["gafaelfawr/redis"]
+    logger: BoundLogger = request["safir/logger"]
     handle = request.match_info["handle"]
 
     form = AlterTokenForm(await request.post())
@@ -330,8 +348,8 @@ async def post_delete_token(
         msg = "Invalid deletion request"
         raise web.HTTPForbidden(reason=msg, text=msg)
 
-    token_store = factory.create_token_store(request)
-    session_store = factory.create_session_store(request)
+    token_store = factory.create_token_store(logger)
+    session_store = factory.create_session_store(request, logger)
     pipeline = redis.pipeline()
     success = await token_store.revoke_token(token.uid, handle, pipeline)
     if success:
@@ -345,5 +363,6 @@ async def post_delete_token(
     session = await get_session(request)
     session["message"] = message
 
+    logger.info("Deleted token %s", handle)
     location = request.app.router["tokens"].url_for()
     raise web.HTTPFound(location)

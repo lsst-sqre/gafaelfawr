@@ -16,6 +16,14 @@ if TYPE_CHECKING:
     from tests.setup import SetupTestCallable
 
 
+async def test_analyze_no_auth(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
+
+    r = await setup.client.get("/auth/analyze")
+    assert r.status == 400
+    assert "Not logged in" in await r.text()
+
+
 async def test_analyze_handle(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
 

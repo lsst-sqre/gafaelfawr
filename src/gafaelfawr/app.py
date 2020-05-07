@@ -11,11 +11,12 @@ import aiohttp_remotes
 import aiohttp_session
 import aioredis
 import jinja2
+from aiohttp import web
 from aiohttp.web import Application
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from cachetools import TTLCache
 from safir.http import init_http_session
-from safir.logging import configure_logging
+from safir.logging import configure_logging, response_logger
 from safir.metadata import setup_metadata
 from safir.middleware import bind_logger
 from structlog import get_logger
@@ -27,7 +28,10 @@ from gafaelfawr.handlers import init_routes
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from aioredis import Redis
-    from typing import Optional
+    from structlog import BoundLogger
+    from typing import Awaitable, Callable, Optional
+
+    Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 
 __all__ = ["create_app"]
 
@@ -92,11 +96,13 @@ async def create_app(
 
 async def setup_middleware(app: Application, config: Config) -> None:
     """Add middleware to the application."""
-    app.middlewares.append(bind_logger)
-
     # Unconditionally trust X-Forwarded-For, since this application is desiged
     # to run behind an NGINX ingress.
     await aiohttp_remotes.setup(app, aiohttp_remotes.XForwardedRelaxed())
+
+    # Create a custom logger for each request with request information bound.
+    app.middlewares.append(bind_logger)
+    app.middlewares.append(bind_logging_context)
 
     # Set up encrypted session storage via a cookie.
     session_storage = EncryptedCookieStorage(
@@ -109,10 +115,55 @@ async def setup_middleware(app: Application, config: Config) -> None:
     csrf_storage = aiohttp_csrf.storage.SessionStorage("csrf")
     aiohttp_csrf.setup(app, policy=csrf_policy, storage=csrf_storage)
 
+    # Configure Jinja2 templating of responses.
     templates_path = os.path.join(os.path.dirname(__file__), "templates")
     aiohttp_jinja2.setup(
         app, loader=jinja2.FileSystemLoader(templates_path),
     )
+
+
+@web.middleware
+async def bind_logging_context(
+    request: web.Request, handler: Handler
+) -> web.StreamResponse:
+    """Bind additional context to the context-local structlog logger.
+
+    Parameters
+    ----------
+    request
+        The aiohttp.web request.
+    handler
+        The application's request handler.
+
+    Returns
+    -------
+    response
+        The response with a new ``logger`` key attached to it.
+
+    Notes
+    -----
+    This adds the following additional context fields to the structlog logger:
+
+    ``remote``
+        The IP address of the originating client.
+
+    ``user_agent``
+        The User-Agent header of the incoming request.
+
+    Eventually this context should be incorporated into Safir.
+    """
+    logger: BoundLogger = request["safir/logger"]
+
+    logger = logger.bind(remote=request.remote)
+    user_agent = request.headers.get("User-Agent")
+    if user_agent:
+        logger = logger.bind(user_agent=user_agent)
+
+    request["safir/logger"] = logger
+    response_logger.set(logger)
+
+    response = await handler(request)
+    return response
 
 
 async def on_shutdown(app: Application) -> None:

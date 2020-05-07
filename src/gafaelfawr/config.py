@@ -49,7 +49,7 @@ class SafirConfig:
     Set with the ``SAFIR_NAME`` environment variable.
     """
 
-    profile: str = os.getenv("SAFIR_PROFILE", "development")
+    profile: str = os.getenv("SAFIR_PROFILE", "production")
     """Application run profile: "development" or "production".
 
     Set with the ``SAFIR_PROFILE`` environment variable.

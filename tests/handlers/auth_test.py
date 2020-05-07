@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import re
 import time
 from datetime import datetime, timedelta, timezone
@@ -15,6 +16,7 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.handlers.util import AuthChallenge, AuthError, AuthType
 
 if TYPE_CHECKING:
+    from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
 
 
@@ -159,7 +161,7 @@ async def test_access_denied(create_test_setup: SetupTestCallable) -> None:
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin"
     body = await r.text()
-    assert "Missing required scope" in body
+    assert "Token missing required scope" in body
 
 
 async def test_satisfy_all(create_test_setup: SetupTestCallable) -> None:
@@ -178,7 +180,7 @@ async def test_satisfy_all(create_test_setup: SetupTestCallable) -> None:
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin exec:test"
     body = await r.text()
-    assert "Missing required scope" in body
+    assert "Token missing required scope" in body
 
 
 async def test_success(create_test_setup: SetupTestCallable) -> None:
@@ -398,3 +400,112 @@ async def test_ajax_unauthorized(create_test_setup: SetupTestCallable) -> None:
     assert authenticate.realm == setup.config.realm
     assert not authenticate.error
     assert not authenticate.scope
+
+
+async def test_logging(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
+    setup = await create_test_setup()
+    token = setup.create_token(scope="exec:admin")
+
+    # Successful request.
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={
+            "Authorization": f"Bearer {token.encoded}",
+            "X-Original-Uri": "/foo",
+            "X-Forwarded-For": "192.0.2.1",
+        },
+    )
+    assert r.status == 200
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "auth_uri": "/foo",
+        "event": "Token authorized",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth",
+        "remote": "192.0.2.1",
+        "request_id": ANY,
+        "required_scope": "exec:admin",
+        "satisfy": "all",
+        "scope": "exec:admin",
+        "token": token.jti,
+        "user": token.username,
+        "user_agent": ANY,
+    }
+    caplog.clear()
+
+    # Authorization failed.
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:test", "satisfy": "any"},
+        headers={
+            "Authorization": f"Bearer {token.encoded}",
+            "X-Original-Uri": "/foo",
+        },
+    )
+    assert r.status == 403
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "auth_uri": "/foo",
+        "event": "Token missing required scope",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "required_scope": "exec:test",
+        "satisfy": "any",
+        "scope": "exec:admin",
+        "token": token.jti,
+        "user": token.username,
+        "user_agent": ANY,
+    }
+    caplog.clear()
+
+    # No token found.
+    r = await setup.client.get("/auth", params={"scope": "exec:admin"})
+    assert r.status == 401
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "auth_uri": "NONE",
+        "event": "No token found, returning unauthorized",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "required_scope": "exec:admin",
+        "satisfy": "all",
+        "user_agent": ANY,
+    }
+    caplog.clear()
+
+    # Invalid token.
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Bearer blah"},
+    )
+    assert r.status == 401
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "auth_uri": "NONE",
+        "error": "Not enough segments",
+        "event": "Invalid token",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "required_scope": "exec:admin",
+        "satisfy": "all",
+        "user_agent": ANY,
+    }
+    caplog.clear()

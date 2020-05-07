@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from gafaelfawr.config import GitHubConfig
     from gafaelfawr.issuer import TokenIssuer
     from gafaelfawr.session import SessionStore
-    from logging import Logger
+    from structlog import BoundLogger
     from typing import List
 
 __all__ = ["GitHubException", "GitHubProvider"]
@@ -82,7 +82,7 @@ class GitHubProvider(Provider):
         Issuer to use to generate new tokens.
     session_store : `gafaelfawr.session.SessionStore`
         Store for authentication sessions.
-    logger : `logging.Logger`
+    logger : `structlog.BoundLogger`
         Logger for any log messages.
     """
 
@@ -111,7 +111,7 @@ class GitHubProvider(Provider):
         http_session: ClientSession,
         issuer: TokenIssuer,
         session_store: SessionStore,
-        logger: Logger,
+        logger: BoundLogger,
     ) -> None:
         self._config = config
         self._http_session = http_session

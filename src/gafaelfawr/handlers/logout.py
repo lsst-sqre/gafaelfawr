@@ -12,7 +12,7 @@ from gafaelfawr.handlers import routes
 
 if TYPE_CHECKING:
     from gafaelfawr.config import Config
-    from logging import Logger
+    from structlog import BoundLogger
 
 __all__ = ["get_logout"]
 
@@ -41,9 +41,13 @@ async def get_logout(request: web.Request) -> web.Response:
         the requested redirect URL is not valid.
     """
     config: Config = request.config_dict["gafaelfawr/config"]
-    logger: Logger = request["safir/logger"]
+    logger: BoundLogger = request["safir/logger"]
 
     session = await get_session(request)
+    if session.get("handle"):
+        logger.info("Successful logout")
+    else:
+        logger.info("Logout of already-logged-out session")
     session.invalidate()
 
     redirect_url = request.query.get("rd")

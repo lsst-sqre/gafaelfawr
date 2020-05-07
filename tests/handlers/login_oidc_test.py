@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from asyncio import Future
 from typing import TYPE_CHECKING
@@ -13,11 +14,14 @@ from aiohttp import ClientResponse, ClientResponseError
 from gafaelfawr.constants import ALGORITHM
 
 if TYPE_CHECKING:
+    from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
     from typing import Any
 
 
-async def test_login(create_test_setup: SetupTestCallable) -> None:
+async def test_login(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
     setup = await create_test_setup("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token(token)
@@ -42,8 +46,22 @@ async def test_login(create_test_setup: SetupTestCallable) -> None:
         "state": [ANY],
         **login_params,
     }
+    data = json.loads(caplog.record_tuples[0][2])
+    login_url = setup.config.oidc.login_url
+    assert data == {
+        "event": f"Redirecting user to {login_url} for authentication",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/login",
+        "return_url": return_url,
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "user_agent": ANY,
+    }
 
     # Simulate the return from the provider.
+    caplog.clear()
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -52,11 +70,28 @@ async def test_login(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 303
     assert r.headers["Location"] == return_url
 
+    expected_scopes_set = setup.config.issuer.group_mapping["admin"]
+    expected_scopes = " ".join(sorted(expected_scopes_set))
+    data = json.loads(caplog.record_tuples[-1][2])
+    event = f"Successfully authenticated user {token.username} ({token.uid})"
+    assert data == {
+        "event": event,
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/login",
+        "return_url": return_url,
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "scope": expected_scopes,
+        "token": ANY,
+        "user": token.username,
+        "user_agent": ANY,
+    }
+
     # Check that the /auth route works and finds our token.
     r = await setup.client.get("/auth", params={"scope": "exec:admin"})
     assert r.status == 200
-    expected_scopes_set = setup.config.issuer.group_mapping["admin"]
-    expected_scopes = " ".join(sorted(expected_scopes_set))
     assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
@@ -164,7 +199,9 @@ async def test_oauth2_callback(create_test_setup: SetupTestCallable) -> None:
     assert r.headers["Location"] == return_url
 
 
-async def test_token_error(create_test_setup: SetupTestCallable) -> None:
+async def test_token_error(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
     """Test an error return from the OIDC token endpoint."""
     setup = await create_test_setup("oidc")
     assert setup.config.oidc
@@ -194,6 +231,7 @@ async def test_token_error(create_test_setup: SetupTestCallable) -> None:
     setup.set_oidc_token_response(response)
 
     # Simulate the return from the OpenID Connect provider.
+    caplog.clear()
     r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
@@ -201,6 +239,19 @@ async def test_token_error(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 500
     assert "error_code: description" in await r.text()
+    data = json.loads(caplog.record_tuples[-1][2])
+    assert data == {
+        "error": "error_code: description",
+        "event": "Provider authentication failed",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/oauth2/callback",
+        "return_url": return_url,
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "user_agent": ANY,
+    }
 
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should

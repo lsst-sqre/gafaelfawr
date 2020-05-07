@@ -2,6 +2,18 @@
 Change log
 ##########
 
+1.1.2 (2020-05-07)
+==================
+
+This release changes Gafaelfawr's logging format and standardizes the contents of the logs.
+All logs are now in JSON.
+See `the new logging documentation <https://gafaelfawr.lsst.io/logging.html>`__ for more information.
+
+- Default to JSON logging (controlled via ``SAFIR_PROFILE``)
+- Add remote IP and ``User-Agent`` header field values to all logs.
+- Add more structured information to authentication logging.
+- Ensure each route logs at least one event.
+
 1.1.1 (2020-04-29)
 ==================
 

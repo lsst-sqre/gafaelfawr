@@ -8,7 +8,7 @@ It also provides a web page where people can create and manage long-lived tokens
 As a component of the Science Platform, it is designed for deployment with Kubernetes.
 Gafaelfawr requires the Kubernetes `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__.
 
-Gafaelfawr is developed on `GitHub <https://github.com/lsst/gafaelfawr>`__.
+Gafaelfawr is developed on `GitHub <https://github.com/lsst-sqre/gafaelfawr>`__.
 
 Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
 Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
@@ -22,6 +22,7 @@ Installation
 
    install
    configuration
+   logging
    glossary
    changelog
 

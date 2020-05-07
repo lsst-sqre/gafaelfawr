@@ -19,9 +19,9 @@ from gafaelfawr.util import base64_to_number
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from cachetools import TTLCache
-    from logging import Logger
     from gafaelfawr.config import VerifierConfig
     from gafaelfawr.tokens import Token
+    from structlog import BoundLogger
     from typing import Any, Dict, List, Mapping, Optional
 
 __all__ = [
@@ -63,7 +63,7 @@ class TokenVerifier:
         The session to use for making requests.
     cache : `cachetools.TTLCache`
         Cache in which to store issuer keys.
-    logger : `logging.Logger`
+    logger : `structlog.BoundLogger`
         Logger to use to report status information.
     """
 
@@ -72,12 +72,12 @@ class TokenVerifier:
         config: VerifierConfig,
         session: ClientSession,
         cache: TTLCache,
-        logger: Logger,
+        logger: BoundLogger,
     ) -> None:
         self._config = config
         self._session = session
-        self._logger = logger
         self._cache = cache
+        self._logger = logger
 
     def analyze_token(self, token: Token) -> Dict[str, Any]:
         """Analyze a token and return its expanded information.
