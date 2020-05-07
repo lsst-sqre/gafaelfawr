@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import dataclass
+from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 from aiohttp import web
@@ -23,7 +25,7 @@ if TYPE_CHECKING:
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
     from structlog import BoundLogger
-    from typing import Dict, Optional
+    from typing import Dict, Optional, Set
 
 __all__ = ["get_auth"]
 
@@ -36,6 +38,33 @@ class InvalidRequestException(Exception):
     or parameter value, repeats the same parameter, uses more than one method
     for including an access token, or is otherwise malformed."
     """
+
+
+class Satisfy(Enum):
+    """Authorization strategies.
+
+    Controls how to do authorization when there are multiple required scopes.
+    A strategy of ANY allows the request if the authentication token has any
+    of the required scopes.  A strategy of ALL requires that the
+    authentication token have all the required scopes.
+    """
+
+    ANY = auto()
+    ALL = auto()
+
+
+@dataclass
+class AuthConfig:
+    """Configuration for an authorization request."""
+
+    scopes: Set[str]
+    """The scopes the authentication token must have."""
+
+    satisfy: Satisfy
+    """The authorization strategy if multiple scopes are required."""
+
+    auth_type: AuthType
+    """The authentication type to use in challenges."""
 
 
 @routes.get("/auth")
@@ -114,23 +143,11 @@ async def get_auth(request: web.Request) -> web.Response:
 
     # Determine the required scopes, authorization strategy, and desired auth
     # type for challenges from the request.
-    required_scopes = request.query.getall("scope", [])
-    if not required_scopes:
-        msg = "scope parameter not set in the request"
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    satisfy = request.query.get("satisfy", "all")
-    if satisfy not in ("any", "all"):
-        msg = "satisfy parameter must be any or all"
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    auth_type_name = request.query.get("auth_type", "bearer")
-    if auth_type_name not in ("basic", "bearer"):
-        msg = "auth_type parameter must be basic or bearer"
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    auth_type = AuthType[auth_type_name.capitalize()]
+    auth_config = parse_auth_config(request)
     logger = logger.bind(
         auth_uri=request.headers.get("X-Original-Uri", "NONE"),
-        required_scope=" ".join(sorted(required_scopes)),
-        satisfy=satisfy,
+        required_scope=" ".join(sorted(auth_config.scopes)),
+        satisfy=auth_config.satisfy.name.lower(),
     )
 
     # Check authentication and return an appropriate challenge and error
@@ -139,12 +156,14 @@ async def get_auth(request: web.Request) -> web.Response:
         token = await get_token_from_request(request, logger)
         if not token:
             logger.info("No token found, returning unauthorized")
-            challenge = AuthChallenge(auth_type=auth_type, realm=config.realm)
+            challenge = AuthChallenge(
+                auth_type=auth_config.auth_type, realm=config.realm
+            )
             raise unauthorized(request, challenge, "Authentication required")
     except InvalidRequestException as e:
         logger.warning("Invalid Authorization header", error=str(e))
         challenge = AuthChallenge(
-            auth_type=auth_type,
+            auth_type=auth_config.auth_type,
             realm=config.realm,
             error=AuthError.invalid_request,
             error_description=str(e),
@@ -154,7 +173,7 @@ async def get_auth(request: web.Request) -> web.Response:
     except InvalidTokenException as e:
         logger.warning("Invalid token", error=str(e))
         challenge = AuthChallenge(
-            auth_type=auth_type,
+            auth_type=auth_config.auth_type,
             realm=config.realm,
             error=AuthError.invalid_token,
             error_description=str(e),
@@ -169,32 +188,98 @@ async def get_auth(request: web.Request) -> web.Response:
     )
 
     # Determine whether the request is authorized.
-    if satisfy == "any":
-        authorized = any([scope in token.scope for scope in required_scopes])
+    if auth_config.satisfy == Satisfy.ANY:
+        authorized = any([s in token.scope for s in auth_config.scopes])
     else:
-        authorized = all([scope in token.scope for scope in required_scopes])
+        authorized = all([s in token.scope for s in auth_config.scopes])
 
-    # If not authorized, log and raise the appropriate error.  Here, we always
-    # return a 403 and include the desired scope in the resulting challenge,
-    # since that may be useful for debugging issues.
+    # If not authorized, log and raise the appropriate error.
     if not authorized:
-        error = "Token missing required scope"
-        logger.warning(error)
-        challenge = AuthChallenge(
-            auth_type=auth_type,
-            realm=config.realm,
-            error=AuthError.insufficient_scope,
-            error_description=error,
-            scope=" ".join(sorted(required_scopes)),
-        )
-        headers = {"WWW-Authenticate": challenge.as_header()}
-        raise web.HTTPForbidden(headers=headers, reason=error, text=error)
+        logger.warning("Token missing required scope")
+        raise forbidden(request, auth_config)
 
     # Log and return the results.
     logger.info("Token authorized")
     token = maybe_reissue_token(request, token, logger)
-    headers = build_success_headers(request, token)
+    headers = build_success_headers(auth_config, token)
     return web.Response(headers=headers, text="ok")
+
+
+@routes.get("/auth/forbidden")
+async def get_auth_forbidden(request: web.Request) -> web.Response:
+    """Error page for HTTP Forbidden (403) errors.
+
+    Parameters
+    ----------
+    request : `aiohttp.web.Request`
+        The incoming request via NGINX's ``error_page`` directive.
+
+    Returns
+    -------
+    response : `aiohttp.web.Response`
+        The response.
+
+    Notes
+    -----
+    This route exists because we want to set a ``Cache-Control`` header on 403
+    errors so that the browser will not cache them.  This doesn't appear to
+    easily be possible with ingress-nginx without using a custom error page,
+    since headers returned by an ``auth_request`` handler are not passed back
+    to the client.
+
+    This route is configured as a custom error page using an annotation like:
+
+    .. code-block:: yaml
+
+       nginx.ingress.kubernetes.io/configuration-snippet: |
+         error_page 403 = "/auth/forbidden?scope=<scope>";
+
+    It takes the same parameters as the ``/auth`` route and uses them to
+    construct an appropriate challenge.
+    """
+    logger: BoundLogger = request["safir/logger"]
+
+    auth_config = parse_auth_config(request)
+    logger.warning("Serving uncached 403 page")
+    raise forbidden(request, auth_config)
+
+
+def parse_auth_config(request: web.Request) -> AuthConfig:
+    """Parse request parameters to determine authorization parameters.
+
+    Parameters
+    ----------
+    request : `aiohttp.web.Request`
+        The incoming request.
+
+    Returns
+    -------
+    auth_config : `AuthConfig`
+        The configuration parameters of the requested authorization action.
+
+    Raises
+    ------
+    aiohttp.web.HTTPException
+        If the configuration parameters are invalid.
+    """
+    required_scopes = request.query.getall("scope", [])
+    if not required_scopes:
+        msg = "scope parameter not set in the request"
+        raise web.HTTPBadRequest(reason=msg, text=msg)
+    satisfy = request.query.get("satisfy", "all")
+    if satisfy not in ("any", "all"):
+        msg = "satisfy parameter must be any or all"
+        raise web.HTTPBadRequest(reason=msg, text=msg)
+    auth_type = request.query.get("auth_type", "bearer")
+    if auth_type not in ("basic", "bearer"):
+        msg = "auth_type parameter must be basic or bearer"
+        raise web.HTTPBadRequest(reason=msg, text=msg)
+
+    return AuthConfig(
+        scopes=set(required_scopes),
+        satisfy=Satisfy[satisfy.upper()],
+        auth_type=AuthType[auth_type.capitalize()],
+    )
 
 
 async def get_token_from_request(
@@ -365,13 +450,51 @@ def unauthorized(
     reasons.  The string form of this exception is suitable for use as the
     ``error_description`` attribute of a ``WWW-Authenticate`` header.
     """
-    headers = {"WWW-Authenticate": challenge.as_header()}
+    headers = {
+        "Cache-Control": "no-cache, must-revalidate",
+        "WWW-Authenticate": challenge.as_header(),
+    }
 
     requested_with = request.headers.get("X-Requested-With")
     if requested_with and requested_with.lower() == "xmlhttprequest":
         return web.HTTPForbidden(headers=headers, reason=error, text=error)
     else:
         return web.HTTPUnauthorized(headers=headers, reason=error, text=error)
+
+
+def forbidden(
+    request: web.Request, auth_config: AuthConfig
+) -> web.HTTPException:
+    """Construct exception for a 403 response.
+
+    Parameters
+    ----------
+    request : `aiohttp.web.Request`
+        The incoming request.
+    auth_config : `AuthConfig`
+        Requested authorization parameters, used to construct the challenge.
+
+    Returns
+    -------
+    exception : `aiohttp.web.HTTPException`
+        The exception to raise, either HTTPForbidden (for AJAX) or
+        HTTPUnauthorized.
+    """
+    config: Config = request.config_dict["gafaelfawr/config"]
+
+    error = "Token missing required scope"
+    challenge = AuthChallenge(
+        auth_type=auth_config.auth_type,
+        realm=config.realm,
+        error=AuthError.insufficient_scope,
+        error_description=error,
+        scope=" ".join(sorted(auth_config.scopes)),
+    )
+    headers = {
+        "Cache-Control": "no-cache, must-revalidate",
+        "WWW-Authenticate": challenge.as_header(),
+    }
+    return web.HTTPForbidden(headers=headers, reason=error, text=error)
 
 
 def maybe_reissue_token(
@@ -420,14 +543,14 @@ def maybe_reissue_token(
 
 
 def build_success_headers(
-    request: web.Request, token: VerifiedToken
+    auth_config: AuthConfig, token: VerifiedToken
 ) -> Dict[str, str]:
     """Construct the headers for successful authorization.
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
+    auth_config : `AuthConfig`
+        Configuration parameters for the authorization.
     token : `gafaelfawr.tokens.VerifiedToken`
         The token.
 
@@ -436,12 +559,9 @@ def build_success_headers(
     headers : Dict[`str`, `str`]
         Headers to include in the response.
     """
-    required_scopes = sorted(request.query.getall("scope", []))
-    satisfy = request.query.get("satisfy", "all")
-
     headers = {
-        "X-Auth-Request-Scopes-Accepted": " ".join(required_scopes),
-        "X-Auth-Request-Scopes-Satisfy": satisfy,
+        "X-Auth-Request-Scopes-Accepted": " ".join(sorted(auth_config.scopes)),
+        "X-Auth-Request-Scopes-Satisfy": auth_config.satisfy.name.lower(),
         "X-Auth-Request-User": token.username,
         "X-Auth-Request-Uid": token.uid,
     }

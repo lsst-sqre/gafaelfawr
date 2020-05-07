@@ -73,6 +73,7 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
 
     r = await setup.client.get("/auth", params={"scope": "exec:admin"})
     assert r.status == 401
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
@@ -83,6 +84,7 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
         "/auth", params={"scope": "exec:admin", "auth_type": "bearer"}
     )
     assert r.status == 401
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
@@ -98,6 +100,7 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
         "/auth", params={"scope": "exec:admin", "auth_type": "basic"}
     )
     assert r.status == 401
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert authenticate.auth_type == AuthType.Basic
     assert authenticate.realm == setup.config.realm
@@ -125,6 +128,7 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
         headers={"Authorization": "Bearer token"},
     )
     assert r.status == 401
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
@@ -139,6 +143,7 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 401
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
@@ -155,11 +160,44 @@ async def test_access_denied(create_test_setup: SetupTestCallable) -> None:
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 403
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin"
+    body = await r.text()
+    assert "Token missing required scope" in body
+
+
+async def test_auth_forbidden(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
+
+    r = await setup.client.get(
+        "/auth/forbidden",
+        params=[("scope", "exec:test"), ("scope", "exec:admin")],
+    )
+    assert r.status == 403
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.insufficient_scope
+    assert authenticate.scope == "exec:admin exec:test"
+    body = await r.text()
+    assert "Token missing required scope" in body
+
+    r = await setup.client.get(
+        "/auth/forbidden",
+        params={"scope": "exec:admin", "auth_type": "basic"},
+    )
+    assert r.status == 403
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Basic
+    assert authenticate.realm == setup.config.realm
+    assert not authenticate.error
+    assert not authenticate.scope
     body = await r.text()
     assert "Token missing required scope" in body
 
@@ -174,6 +212,7 @@ async def test_satisfy_all(create_test_setup: SetupTestCallable) -> None:
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
     assert r.status == 403
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
