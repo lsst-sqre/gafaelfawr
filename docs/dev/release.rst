@@ -9,7 +9,7 @@ Gafaelfawr's releases are largely automated through GitHub Actions (see the `ci.
 When a semantic version tag is pushed to GitHub, `Gafaelfawr is pushed to Docker Hub`_ with that version.
 
 .. _`Gafaelfawr is pushed to Docker Hub`: https://hub.docker.com/repository/docker/lsstdm/gafaelfawr
-.. _`ci.yaml`: https://github.com/lsst/gafaelfawr/blob/master/.github/workflows/ci.yaml
+.. _`ci.yaml`: https://github.com/lsst-sqre/gafaelfawr/blob/master/.github/workflows/ci.yaml
 
 .. _regular-release:
 

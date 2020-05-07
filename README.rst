@@ -17,10 +17,10 @@ Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arth
 Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
 (If you speak Welsh and can provide a better pronunciation guide, please open an issue!)
 
-.. |Build| image:: https://github.com/lsst/gafaelfawr/workflows/CI/badge.svg
+.. |Build| image:: https://github.com/lsst-sqre/gafaelfawr/workflows/CI/badge.svg
    :alt: GitHub Actions
    :scale: 100%
-   :target: https://github.com/lsst/gafaelfawr/actions
+   :target: https://github.com/lsst-sqre/gafaelfawr/actions
 
 .. |Docker| image:: https://img.shields.io/docker/v/lsstsqre/gafaelfawr?sort=semver
    :alt: Docker Hub repository

@@ -14,7 +14,7 @@ For that reason, it's a good idea to propose changes with a new `GitHub issue`_ 
 
 Gafaelfawr is developed by the LSST SQuaRE team.
 
-.. _GitHub issue: https://github.com/lsst/gafaelfawr/issues/new
+.. _GitHub issue: https://github.com/lsst-sqre/gafaelfawr/issues/new
 
 .. _dev-environment:
 
@@ -25,7 +25,7 @@ To develop Gafaelfawr, create a virtual environment with your method of choice (
 
 .. code-block:: sh
 
-   git clone https://github.com/lsst/gafaelfawr.git
+   git clone https://github.com/lsst-sqre/gafaelfawr.git
    cd gafaelfawr
    make init
 
