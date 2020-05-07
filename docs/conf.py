@@ -59,7 +59,7 @@ default_role = "py:obj"
 # Intersphinx ================================================================
 
 intersphinx_mapping = {
-    "aiohttp": ("https://aiohttp.readthedocs.io/en/stable/", None),
+    "aiohttp": ("https://docs.aiohttp.org/en/stable/", None),
     "aiohttp_session": (
         "https://aiohttp-session.readthedocs.io/en/stable/",
         None,
