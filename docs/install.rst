@@ -198,6 +198,32 @@ If the user authenticates and authorizes successfully, the request will be sent 
 Included in the request will be an ``X-Auth-Request-Token`` header containing the user's JWT.
 This will be a reissued token signed by Gafaelfawr.
 
+.. _error-caching:
+
+Disabling error caching
+-----------------------
+
+Web browsers cache 403 (HTTP Forbidden) error replies by default.
+Unfortunately, NGINX does not pass a ``Cache-Control`` response header from an ``auth_request`` handler back to the client.
+It also does not set ``Cache-Control`` on a 403 response itself, and the Kubernetes ingress-nginx does not provide a configuration knob to change that.
+This can cause user confusion; if they reauthenticate after a 403 error and obtain additional group memberships, they may still get a 403 error when they return to the page they were trying to access even if they now have access.
+
+This can be avoided by setting a custom error page that sets a ``Cache-Control`` header to tell the browser not to cache the error.
+Gafaelfawr provides ``/auth/forbidden`` as a custom error handler for this purpose.
+To use this, add the following annotation to the ingress for the application:
+
+.. code-block:: yaml
+
+   annotations:
+     nginx.ingress.kubernetes.io/configuration-snippet: |
+       error_page 403 = "/auth/forbidden?scope=<scope>";
+
+The parameters to the ``/auth/forbidden`` URL must be the same as the parameters given in the ``auth-url`` annotation.
+The scheme and host of the URL defined for the 403 error must be omitted so that NGINX will generate an internal redirect, which in turn requires (as with the rest of Gafaelfawr) that the Gafaelfawr ``/auth`` route be defined on the same virtual host as the protected application.
+
+Be aware that this will intercept **all** 403 errors from the protected application, not just ones from Gafaelfawr.
+If the protected application returns its own 403 errors, the resulting error will probably be nonsensical, and this facility may not be usable.
+
 .. _auth-config:
 
 Configuring authentication

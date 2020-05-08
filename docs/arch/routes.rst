@@ -17,6 +17,12 @@ Gafaelfawr supports the following routes:
     The response from this route includes various headers that provide information about the JWT claims.
     For a complete list, see :ref:`auth-headers`.
 
+``/auth/forbidden``
+    Helper error page route for ``/auth``.
+    Serves a 403 (HTTP Forbidden) error with an appropriate challenge given the same request parameters as an ``/auth`` request.
+    For more information on how this route is used, see :ref:`error-caching`.
+    For documentation on the parameters accepted by this route, see :ref:`auth-config`.
+
 ``/auth/analyze``
     Analyze a token or session handle and return information about it as JSON.
     If the request method is GET, uses the session handle from the user's session cookie or from an ``Authentication`` header.

@@ -2,8 +2,11 @@
 Change log
 ##########
 
-1.1.2 (2020-05-07)
+1.2.0 (2020-05-07)
 ==================
+
+New in this release is an ``/auth/forbidden`` route that can be used to provide a non-cached 403 error page.
+See `the documentation <https://gafaelfawr.lsst.io/install.html#disabling-error-caching>`__ for more information.
 
 This release changes Gafaelfawr's logging format and standardizes the contents of the logs.
 All logs are now in JSON.
