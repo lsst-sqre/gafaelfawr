@@ -14,6 +14,7 @@ from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.settings import Settings
 
 if TYPE_CHECKING:
+    from ipaddress import _BaseNetwork
     from typing import Mapping, Optional, FrozenSet, Tuple
 
 __all__ = [
@@ -209,6 +210,18 @@ class Config:
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
+    proxies: Tuple[_BaseNetwork, ...]
+    """Trusted proxy IP netblocks in front of Gafaelfawr.
+
+    If this is set to a non-empty list, it will be used as the trusted list of
+    proxies when parsing ``X-Forwarded-For`` for the ``/auth`` route.  IP
+    addresses from that header will be discarded from the right side when they
+    match an entry in this list until a non-matching IP is reached or there is
+    only one IP left, and then that IP will be used as the remote IP for
+    logging purposes.  This will allow logging of accurate client IP
+    addresses.
+    """
+
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
 
@@ -324,6 +337,7 @@ class Config:
             realm=settings.realm,
             session_secret=session_secret.decode(),
             redis_url=settings.redis_url,
+            proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
             issuer=issuer_config,
             verifier=verifier_config,

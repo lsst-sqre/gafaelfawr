@@ -1,6 +1,8 @@
 realm: "testing"
 session_secret_file: "{session_secret_file}"
 redis_url: "dummy"
+proxies:
+  - "10.0.0.0/8"
 after_logout_url: "https://example.com/landing"
 group_mapping:
   "exec:admin": ["admin"]

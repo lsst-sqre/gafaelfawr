@@ -39,6 +39,13 @@ Secrets beginning or ending in whitespace are not supported.
 ``redis_url`` (required)
     URL for a Redis instance that will be used to store authentication sessions and user-issued tokens.
 
+``proxies`` (optional)
+    List of IPs or network ranges (in CIDR notation) that should be assumed to be upstream proxies.
+    Gafaelfawr by default uses the last address in an ``X-Forwarded-For`` header, if present, as the IP address of the client for logging purposes.
+    If this configuration option is set, the right-most IP address in ``X-Forwarded-For`` that does not match one of the IPs or network ranges given in this option will be used as the client IP address for logging purposes.
+    If all IP addresses in ``X-Forwarded-For`` match entries in this list, the left-most will be logged as the client IP address.
+    See :ref:`client-ips` for more information.
+
 ``after_logout_url`` (required)
     URL to which to send the user after logout via the ``/logout`` route, if no destination URL was specified with the ``rd`` parameter.
     Normally this should be set to some top-level landing page for the protected applications.
