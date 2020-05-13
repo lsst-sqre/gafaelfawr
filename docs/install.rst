@@ -113,6 +113,11 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
 ``vault_secrets_path`` (required)
     The path in Vault for the Vault secret containing the secret keys described in :ref:`vault-secrets`.
 
+``proxies`` (optional)
+    A list of network blocks that should be treated as internal to the cluster and therefore ignored when analyzing ``X-Forwarded-For`` to find the true client IP.
+    If not set, defaults to the `RFC 1918 private address spaces <https://tools.ietf.org/html/rfc1918>`__.
+    See :ref:`client-ips` and the ``proxies`` documentation in :ref:`settings` for more information.
+
 ``user_scope`` (required)
     The token scope to require before allowing access to the ``/auth/tokens`` route, which allows the user to issue and revoke their own tokens.
 
