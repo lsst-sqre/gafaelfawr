@@ -176,7 +176,7 @@ The typical annotations for a web application used via a web browser are:
 
    annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/auth-request-redirect: $request_uri
+    nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
