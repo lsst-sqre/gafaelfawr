@@ -484,14 +484,14 @@ async def test_logging(
         params={"scope": "exec:test", "satisfy": "any"},
         headers={
             "Authorization": f"Bearer {token.encoded}",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
             "X-Forwarded-For": "192.0.2.1, 172.24.0.4",
         },
     )
     assert r.status == 403
     data = json.loads(caplog.record_tuples[0][2])
     assert data == {
-        "auth_uri": "/foo",
+        "auth_uri": "https://example.com/foo",
         "event": "Token missing required scope",
         "level": "warning",
         "logger": "gafaelfawr",
@@ -515,12 +515,14 @@ async def test_logging(
         headers={
             "X-Forwarded-For": "2001:db8:85a3:8d3:1319:8a2e:370:734, 10.0.0.1",
             "X-Forwarded-Proto": "https, http",
+            "X-Original-URI": "/foo",
+            "X-Original-URL": "https://example.com/foo",
         },
     )
     assert r.status == 401
     data = json.loads(caplog.record_tuples[0][2])
     assert data == {
-        "auth_uri": "NONE",
+        "auth_uri": "/foo",
         "event": "No token found, returning unauthorized",
         "level": "info",
         "logger": "gafaelfawr",
