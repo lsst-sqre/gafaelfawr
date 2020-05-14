@@ -2,7 +2,7 @@
 Change log
 ##########
 
-1.2.1 (unreleased)
+1.2.1 (2020-05-14)
 ==================
 
 Gafaelfawr can now analyze the ``X-Forwarded-For`` header to determine the true client IP for logging purposes.
@@ -12,6 +12,8 @@ See `the logging documentation <https://gafaelfawr.lsst.io/logging.html#client-i
 - Add new ``proxies`` setting to configure what network blocks should be treated as internal to the Kubernetes cluster.
 - Set the client IP to the right-most IP in ``X-Forwarded-For`` that is not in a network block listed in ``proxies``.
 - Document the necessary NGINX ingress configuration for ``X-Forwarded-For`` analysis to work correctly.
+- Fall back on logging ``X-Original-URL`` if ``X-Original-URI`` is not set.
+- Stop recommending setting the ``auth-request-redirect`` annotation and do recommend setting the ``auth-method`` annotation.
 
 1.2.0 (2020-05-07)
 ==================
