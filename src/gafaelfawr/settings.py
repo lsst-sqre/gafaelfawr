@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import AnyHttpUrl, BaseModel, validator
+from pydantic import AnyHttpUrl, BaseModel, IPvAnyNetwork, validator
 
 __all__ = [
     "GitHubSettings",
@@ -131,6 +131,18 @@ class Settings(BaseModel):
 
     redis_url: str
     """URL for the Redis server that stores sessions."""
+
+    proxies: Optional[List[IPvAnyNetwork]]
+    """Trusted proxy IP netblocks in front of Gafaelfawr.
+
+    If this is set to a non-empty list, it will be used as the trusted list of
+    proxies when parsing ``X-Forwarded-For`` for the ``/auth`` route.  IP
+    addresses from that header will be discarded from the right side when they
+    are within a netblock in this list until a non-matching IP is reached or
+    there is only one IP left, and then that IP will be used as the remote IP
+    for logging purposes.  This will allow logging of accurate client IP
+    addresses.
+    """
 
     after_logout_url: AnyHttpUrl
     """Default URL to which to send the user after logging out."""

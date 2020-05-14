@@ -113,6 +113,11 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
 ``vault_secrets_path`` (required)
     The path in Vault for the Vault secret containing the secret keys described in :ref:`vault-secrets`.
 
+``proxies`` (optional)
+    A list of network blocks that should be treated as internal to the cluster and therefore ignored when analyzing ``X-Forwarded-For`` to find the true client IP.
+    If not set, defaults to the `RFC 1918 private address spaces <https://tools.ietf.org/html/rfc1918>`__.
+    See :ref:`client-ips` and the ``proxies`` documentation in :ref:`settings` for more information.
+
 ``user_scope`` (required)
     The token scope to require before allowing access to the ``/auth/tokens`` route, which allows the user to issue and revoke their own tokens.
 
@@ -171,7 +176,7 @@ The typical annotations for a web application used via a web browser are:
 
    annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/auth-request-redirect: $request_uri
+    nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"

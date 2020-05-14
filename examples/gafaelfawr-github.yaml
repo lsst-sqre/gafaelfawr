@@ -17,6 +17,11 @@ session_secret_file: "/path/to/session-secret"
 # The URL of a Redis instance used for storing sessions.
 redis_url: "redis://redis.example.com:6379/0"
 
+# The IP address ranges used internally in the Kubernetes cluster.  Used
+# to determine the external IP address for logging purposes.
+proxies:
+  - "10.0.0.0/8"
+
 # Where to send the user after logging out.
 after_logout_url: "https://example.com/"
 

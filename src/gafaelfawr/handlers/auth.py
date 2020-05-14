@@ -144,8 +144,17 @@ async def get_auth(request: web.Request) -> web.Response:
     # Determine the required scopes, authorization strategy, and desired auth
     # type for challenges from the request.
     auth_config = parse_auth_config(request)
+
+    # Configure logging context.
+    #
+    # X-Original-URI will only be set if the auth-method annotation is set.
+    # That is recommended, but allow for the case where it isn't set and fall
+    # back on X-Original-URL, which is set unconditionally.
+    auth_uri = request.headers.get("X-Original-URI")
+    if not auth_uri:
+        auth_uri = request.headers.get("X-Original-URL", "NONE")
     logger = logger.bind(
-        auth_uri=request.headers.get("X-Original-Uri", "NONE"),
+        auth_uri=auth_uri,
         required_scope=" ".join(sorted(auth_config.scopes)),
         satisfy=auth_config.satisfy.name.lower(),
     )

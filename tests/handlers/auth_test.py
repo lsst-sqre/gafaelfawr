@@ -444,10 +444,11 @@ async def test_ajax_unauthorized(create_test_setup: SetupTestCallable) -> None:
 async def test_logging(
     create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
 ) -> None:
+    """These tests also test X-Forwarded-For and friends."""
     setup = await create_test_setup()
     token = setup.create_token(scope="exec:admin")
 
-    # Successful request.
+    # Successful request with X-Forwarded-For.
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
@@ -477,25 +478,26 @@ async def test_logging(
     }
     caplog.clear()
 
-    # Authorization failed.
+    # Authorization failed with chained X-Forwarded-For.
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:test", "satisfy": "any"},
         headers={
             "Authorization": f"Bearer {token.encoded}",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
+            "X-Forwarded-For": "192.0.2.1, 172.24.0.4",
         },
     )
     assert r.status == 403
     data = json.loads(caplog.record_tuples[0][2])
     assert data == {
-        "auth_uri": "/foo",
+        "auth_uri": "https://example.com/foo",
         "event": "Token missing required scope",
         "level": "warning",
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth",
-        "remote": "127.0.0.1",
+        "remote": "172.24.0.4",
         "request_id": ANY,
         "required_scope": "exec:test",
         "satisfy": "any",
@@ -506,18 +508,27 @@ async def test_logging(
     }
     caplog.clear()
 
-    # No token found.
-    r = await setup.client.get("/auth", params={"scope": "exec:admin"})
+    # No token found with chained X-Forwarded-For and trusted proxies.
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={
+            "X-Forwarded-For": "2001:db8:85a3:8d3:1319:8a2e:370:734, 10.0.0.1",
+            "X-Forwarded-Proto": "https, http",
+            "X-Original-URI": "/foo",
+            "X-Original-URL": "https://example.com/foo",
+        },
+    )
     assert r.status == 401
     data = json.loads(caplog.record_tuples[0][2])
     assert data == {
-        "auth_uri": "NONE",
+        "auth_uri": "/foo",
         "event": "No token found, returning unauthorized",
         "level": "info",
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth",
-        "remote": "127.0.0.1",
+        "remote": "2001:db8:85a3:8d3:1319:8a2e:370:734",
         "request_id": ANY,
         "required_scope": "exec:admin",
         "satisfy": "all",
@@ -525,7 +536,7 @@ async def test_logging(
     }
     caplog.clear()
 
-    # Invalid token.
+    # Invalid token with no X-Forwarded-For.
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
@@ -545,6 +556,37 @@ async def test_logging(
         "request_id": ANY,
         "required_scope": "exec:admin",
         "satisfy": "all",
+        "user_agent": ANY,
+    }
+    caplog.clear()
+
+    # Successful request where all IP addresses are proxies.
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={
+            "Authorization": f"Bearer {token.encoded}",
+            "X-Original-Uri": "/foo",
+            "X-Forwarded-For": "10.255.4.3, 10.0.3.1",
+            "X-Forwarded-Proto": "https",
+        },
+    )
+    assert r.status == 200
+    data = json.loads(caplog.record_tuples[0][2])
+    assert data == {
+        "auth_uri": "/foo",
+        "event": "Token authorized",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth",
+        "remote": "10.255.4.3",
+        "request_id": ANY,
+        "required_scope": "exec:admin",
+        "satisfy": "all",
+        "scope": "exec:admin",
+        "token": token.jti,
+        "user": token.username,
         "user_agent": ANY,
     }
     caplog.clear()

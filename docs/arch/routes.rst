@@ -57,6 +57,9 @@ Gafaelfawr supports the following routes:
         Used to prevent session fixation by ensuring that it matches state set in the user's session cookie.
         Only used when completing authentication.
 
+    The ``X-Forwarded-Host`` header is used (and trusted) to determine the host of the ``/login`` route.
+    Only return URLs at that same host are permitted.
+
 ``/logout``
     Logs out the user.
     This route takes the following parameters.
@@ -64,6 +67,9 @@ Gafaelfawr supports the following routes:
     ``rd``
         The URL to which to send the user after logout.
         If not set, the ``after_logout_url`` configuration setting is used.
+
+    The ``X-Forwarded-Host`` header is used (and trusted) to determine the host of the ``/login`` route.
+    Only return URLs at that same host are permitted in the ``rd`` parameter.
 
 ``/oauth2/callback``
     Identical to the ``/login`` route.

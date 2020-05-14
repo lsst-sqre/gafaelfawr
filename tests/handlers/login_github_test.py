@@ -255,3 +255,25 @@ async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
         allow_redirects=False,
     )
     assert r.status == 400
+
+    # But if we're deployed under example.com as determined by the
+    # X-Forwarded-Host header, this will be allowed.
+    r = await setup.client.get(
+        "/login",
+        params={"rd": "https://example.com/"},
+        headers={
+            "X-Forwarded-For": "192.168.0.1",
+            "X-Forwarded-Host": "example.com",
+        },
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    assert r.headers["Location"] == "https://example.com/"
