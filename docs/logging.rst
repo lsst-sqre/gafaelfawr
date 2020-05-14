@@ -73,6 +73,7 @@ Client IP addresses
 ===================
 
 Gafaelfawr attempts to determine the IP address of the client to log as the ``remote`` log attribute.
+(It does not attempt to log the client hostname.)
 Since Gafaelfawr always expects to be running behind a proxy server, the IP address is taken from the ``X-Forwarded-For`` HTTP header if present.
 (If not present, the connecting IP address will be used as the IP address of the remote client, but this almost certainly indicates Gafaelfawr has not been deployed correclty.)
 
