@@ -175,8 +175,8 @@ class GitHubProvider(Provider):
             "isMemberOf": groups,
             "jti": handle.key,
             "name": user_info.name,
-            "sub": user_info.username,
-            self._config.username_claim: user_info.username,
+            "sub": user_info.username.lower(),
+            self._config.username_claim: user_info.username.lower(),
             self._config.uid_claim: str(user_info.uid),
         }
 
@@ -208,7 +208,7 @@ class GitHubProvider(Provider):
         will be truncated to 25 characters and the first six characters of a
         hash of the full name will be appended for uniqueness.
         """
-        group_name = f"{organization}-{team_slug}"
+        group_name = f"{organization.lower()}-{team_slug}"
         if len(group_name) > 32:
             name_hash = hashlib.sha256(group_name.encode()).digest()
             suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]

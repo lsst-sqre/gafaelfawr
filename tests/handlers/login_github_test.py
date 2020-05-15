@@ -342,3 +342,55 @@ async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 303
     assert r.headers["Location"] == "https://example.com/"
+
+
+async def test_github_uppercase(create_test_setup: SetupTestCallable,) -> None:
+    """Tests that usernames and organization names are forced to lowercase.
+
+    We do not test that slugs are forced to lowercase (and do not change the
+    case of slugs) because GitHub should already be coercing lowercase when
+    creating the slug.
+    """
+    setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="A User",
+        username="SomeUser",
+        uid=1000,
+        email="user@example.com",
+        teams=[
+            GitHubTeam(
+                slug="a-team", gid=1000, organization="ORG", group_name=""
+            ),
+        ],
+    )
+    setup.set_github_userinfo(userinfo)
+
+    # Simulate the initial authentication request.
+    r = await setup.client.get(
+        "/login",
+        headers={"X-Auth-Request-Redirect": f"https://{setup.client.host}"},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+
+    # The user returned by the /auth route should be forced to lowercase.
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    assert r.status == 200
+    assert r.headers["X-Auth-Request-User"] == "someuser"
+
+    # Likewise for the user embedded in the token.
+    r = await setup.client.get("/auth/analyze")
+    assert r.status == 200
+    data = await r.json()
+    assert data["token"]["data"]["sub"] == "someuser"
+    assert data["token"]["data"]["uid"] == "someuser"

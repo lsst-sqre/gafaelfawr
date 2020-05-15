@@ -153,7 +153,9 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
 
 ``group_mapping``
     Mapping of scope names to lists of groups that provide that scope.
-    Tokens from an OpenID Connect provider such as CILogon that include groups in an ``isMemberOf`` claim will be granted scopes based on this mapping.
+    When GitHub is used as the provider, group membership will be synthesized from GitHub team membership.
+    See :ref:`github-groups` for more information.
+    When an OpenID Connect provider such as CILogon is used as the provider, group membership will be taken from the ``isMemberOf`` claim of the token returned by the provider.
 
 For an example, see `the configuration for the LSST Science Platform deployments <https://github.com/lsst-sqre/lsp-deploy/blob/master/services/gafaelfawr>`__.
 
