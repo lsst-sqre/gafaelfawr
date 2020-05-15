@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from aioredis import Redis
     from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
+    from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.tokens import Token, VerifiedToken
     from tests.support.http_session import MockClientSession
     from typing import Awaitable, Callable, List, Optional, Union
@@ -113,6 +114,17 @@ class SetupTest:
             The generated token.
         """
         return create_oidc_test_token(self.config, groups=groups, **claims)
+
+    def set_github_userinfo(self, userinfo: GitHubUserInfo) -> None:
+        """Set the GitHub user information to return from the GitHub API.
+
+        Parameters
+        ----------
+        userinfo : `gafaelfawr.providers.github.GitHubUserInfo`
+            User information to use to synthesize GitHub API responses.
+        """
+        http_session: MockClientSession = self.app["safir/http_session"]
+        http_session.set_github_userinfo(userinfo)
 
     def set_oidc_token(self, token: Token) -> None:
         """Set the token that will be returned from the OIDC token endpoint.

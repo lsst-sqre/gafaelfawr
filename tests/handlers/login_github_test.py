@@ -8,7 +8,11 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.providers.github import GitHubProvider
+from gafaelfawr.providers.github import (
+    GitHubProvider,
+    GitHubTeam,
+    GitHubUserInfo,
+)
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
@@ -20,6 +24,27 @@ async def test_login(
 ) -> None:
     setup = await create_test_setup()
     assert setup.config.github
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[
+            GitHubTeam(
+                slug="a-team", gid=1000, organization="org", group_name=""
+            ),
+            GitHubTeam(
+                slug="other-team", gid=1001, organization="org", group_name=""
+            ),
+            GitHubTeam(
+                slug="team-with-very-long-name",
+                gid=1002,
+                organization="other-org",
+                group_name="",
+            ),
+        ],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
@@ -131,6 +156,14 @@ async def test_login_redirect_header(
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}/foo?a=bar&b=baz"
@@ -174,6 +207,18 @@ async def test_cookie_auth_with_token(
     Authorization header.
     """
     setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[
+            GitHubTeam(
+                slug="a-team", gid=1000, organization="org", group_name=""
+            ),
+        ],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     r = await setup.client.get(
@@ -204,6 +249,18 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     """Uses an alternate settings environment with non-default claims."""
     setup = await create_test_setup("github-claims")
     assert setup.config.github
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[
+            GitHubTeam(
+                slug="a-team", gid=1000, organization="org", group_name=""
+            ),
+        ],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     r = await setup.client.get(
@@ -243,6 +300,14 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
 
 async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[],
+    )
+    setup.set_github_userinfo(userinfo)
 
     r = await setup.client.get(
         "/login", params={"rd": "https://example.com/"}, allow_redirects=False,

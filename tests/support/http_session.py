@@ -16,6 +16,7 @@ from gafaelfawr.util import number_to_base64
 
 if TYPE_CHECKING:
     from gafaelfawr.config import Config
+    from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.tokens import Token
     from typing import Any, Dict, List, Optional
 
@@ -37,6 +38,7 @@ class MockClientSession(Mock):
     def __init__(self) -> None:
         super().__init__(spec=ClientSession)
         self.config: Optional[Config] = None
+        self.github_userinfo: Optional[GitHubUserInfo] = None
         self.oidc_token: Optional[Token] = None
         self.oidc_token_response: Optional[ClientResponse] = None
 
@@ -51,6 +53,16 @@ class MockClientSession(Mock):
             The application configuration.
         """
         self.config = config
+
+    def set_github_userinfo(self, userinfo: GitHubUserInfo) -> None:
+        """Set the GitHub user information to return.
+
+        Parameters
+        ----------
+        userinfo : `gafaelfawr.providers.github.GitHubUserInfo`
+            User information to use to synthesize GitHub API responses.
+        """
+        self.github_userinfo = userinfo
 
     def set_oidc_token(self, token: Token) -> None:
         """Set the token that will be returned from the OIDC token endpoint.
@@ -191,10 +203,11 @@ class MockClientSession(Mock):
 
         Eventually this will be configurable.
         """
+        assert self.github_userinfo
         return {
-            "login": "githubuser",
-            "id": 123456,
-            "name": "GitHub User",
+            "login": self.github_userinfo.username,
+            "id": self.github_userinfo.uid,
+            "name": self.github_userinfo.name,
         }
 
     def _github_teams_data(self) -> List[Dict[str, Any]]:
@@ -202,28 +215,26 @@ class MockClientSession(Mock):
 
         Eventually this will be configurable.
         """
-        return [
-            {"slug": "a-team", "id": 1000, "organization": {"login": "org"}},
-            {
-                "slug": "other-team",
-                "id": 1001,
-                "organization": {"login": "org"},
-            },
-            {
-                "slug": "team-with-very-long-name",
-                "id": 1002,
-                "organization": {"login": "other-org"},
-            },
-        ]
+        assert self.github_userinfo
+        result = []
+        for team in self.github_userinfo.teams:
+            data = {
+                "slug": team.slug,
+                "id": team.gid,
+                "organization": {"login": team.organization},
+            }
+            result.append(data)
+        return result
 
     def _github_emails_data(self) -> List[Dict[str, Any]]:
         """Return emails data for a GitHub user.
 
         Eventually this will be configurable.
         """
+        assert self.github_userinfo
         return [
             {"email": "otheremail@example.com", "primary": False},
-            {"email": "githubuser@example.com", "primary": True},
+            {"email": self.github_userinfo.email, "primary": True},
         ]
 
     def _openid_url(self) -> str:
