@@ -2,6 +2,12 @@
 Change log
 ##########
 
+1.3.0 (unreleased)
+==================
+
+- Lowercase GitHub usernames when constructing identity tokens.
+- Lowercase GitHub organization names when constructing group membership.
+
 1.2.1 (2020-05-14)
 ==================
 
