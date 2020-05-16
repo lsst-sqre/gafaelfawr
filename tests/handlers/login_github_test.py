@@ -30,17 +30,12 @@ async def test_login(
         uid=123456,
         email="githubuser@example.com",
         teams=[
-            GitHubTeam(
-                slug="a-team", gid=1000, organization="org", group_name=""
-            ),
-            GitHubTeam(
-                slug="other-team", gid=1001, organization="org", group_name=""
-            ),
+            GitHubTeam(slug="a-team", gid=1000, organization="org"),
+            GitHubTeam(slug="other-team", gid=1001, organization="org"),
             GitHubTeam(
                 slug="team-with-very-long-name",
                 gid=1002,
                 organization="other-org",
-                group_name="",
             ),
         ],
     )
@@ -212,11 +207,7 @@ async def test_cookie_auth_with_token(
         username="githubuser",
         uid=123456,
         email="githubuser@example.com",
-        teams=[
-            GitHubTeam(
-                slug="a-team", gid=1000, organization="org", group_name=""
-            ),
-        ],
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
     setup.set_github_userinfo(userinfo)
 
@@ -254,11 +245,7 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
         username="githubuser",
         uid=123456,
         email="githubuser@example.com",
-        teams=[
-            GitHubTeam(
-                slug="a-team", gid=1000, organization="org", group_name=""
-            ),
-        ],
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
     setup.set_github_userinfo(userinfo)
 
@@ -357,11 +344,7 @@ async def test_github_uppercase(create_test_setup: SetupTestCallable,) -> None:
         username="SomeUser",
         uid=1000,
         email="user@example.com",
-        teams=[
-            GitHubTeam(
-                slug="a-team", gid=1000, organization="ORG", group_name=""
-            ),
-        ],
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
     setup.set_github_userinfo(userinfo)
 

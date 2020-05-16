@@ -23,11 +23,7 @@ async def test_logout(
         username="githubuser",
         uid=123456,
         email="githubuser@example.com",
-        teams=[
-            GitHubTeam(
-                slug="a-team", gid=1000, organization="org", group_name=""
-            ),
-        ],
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
     setup.set_github_userinfo(userinfo)
 
@@ -83,11 +79,7 @@ async def test_logout_with_url(create_test_setup: SetupTestCallable) -> None:
         username="githubuser",
         uid=123456,
         email="githubuser@example.com",
-        teams=[
-            GitHubTeam(
-                slug="a-team", gid=1000, organization="org", group_name=""
-            ),
-        ],
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
     setup.set_github_userinfo(userinfo)
 
