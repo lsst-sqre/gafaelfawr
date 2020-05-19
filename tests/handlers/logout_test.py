@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
+from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
+
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
@@ -16,6 +18,14 @@ async def test_logout(
     create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
 ) -> None:
     setup = await create_test_setup("github")
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     r = await setup.client.get(
@@ -64,6 +74,14 @@ async def test_logout(
 
 async def test_logout_with_url(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup("github")
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     r = await setup.client.get(

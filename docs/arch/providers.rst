@@ -36,9 +36,9 @@ In addition to the standard JWT claims, the following information is included:
     ``name`` is a string and ``id`` is a number.
     See :ref:`github-groups` for more details.
 ``sub``
-    The ``login`` attribute returned by the ``/user`` API route.
+    The ``login`` attribute returned by the ``/user`` API route, forced to lowercase.
 ``uid``
-    The ``login`` attribute returned by the ``/user`` API route.
+    The ``login`` attribute returned by the ``/user`` API route, forced to lowercase.
 ``uidNumber``
     The ``id`` attribute returned by the ``/user`` API route, converted to a string.
     The hope is that this is suitable for a unique UID.
@@ -50,7 +50,7 @@ Groups from GitHub
 
 Gafaelfawr synthesizes groups from GitHub teams.
 Each team membership that an authenticated user has on GitHub (and releases through the GitHub OAuth authentication) will be mapped to a group in the ``isMemberOf`` claim.
-The default group name is ``<organization>-<team-slug>`` where ``<organization>`` is the ``login`` attribute of the organization containing the team and ``<team-slug>`` is the ``slug`` attribute of the team.
+The default group name is ``<organization>-<team-slug>`` where ``<organization>`` is the ``login`` attribute (forced to lowercase) of the organization containing the team and ``<team-slug>`` is the ``slug`` attribute of the team.
 These values are retrieved through the ``/user/teams`` API route.
 The ``slug`` attribute is constructed by GitHub based on the name.
 It's a canonicalization of the name that removes case differences and replaces special characters like space with a dash.

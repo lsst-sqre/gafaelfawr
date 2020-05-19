@@ -8,7 +8,11 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.providers.github import GitHubProvider
+from gafaelfawr.providers.github import (
+    GitHubProvider,
+    GitHubTeam,
+    GitHubUserInfo,
+)
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
@@ -20,6 +24,22 @@ async def test_login(
 ) -> None:
     setup = await create_test_setup()
     assert setup.config.github
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[
+            GitHubTeam(slug="a-team", gid=1000, organization="org"),
+            GitHubTeam(slug="other-team", gid=1001, organization="org"),
+            GitHubTeam(
+                slug="team-with-very-long-name",
+                gid=1002,
+                organization="other-org",
+            ),
+        ],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
@@ -131,6 +151,14 @@ async def test_login_redirect_header(
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}/foo?a=bar&b=baz"
@@ -174,6 +202,14 @@ async def test_cookie_auth_with_token(
     Authorization header.
     """
     setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     r = await setup.client.get(
@@ -204,6 +240,14 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     """Uses an alternate settings environment with non-default claims."""
     setup = await create_test_setup("github-claims")
     assert setup.config.github
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
+    )
+    setup.set_github_userinfo(userinfo)
 
     # Simulate the initial authentication request.
     r = await setup.client.get(
@@ -243,6 +287,14 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
 
 async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[],
+    )
+    setup.set_github_userinfo(userinfo)
 
     r = await setup.client.get(
         "/login", params={"rd": "https://example.com/"}, allow_redirects=False,
@@ -277,3 +329,51 @@ async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 303
     assert r.headers["Location"] == "https://example.com/"
+
+
+async def test_github_uppercase(create_test_setup: SetupTestCallable,) -> None:
+    """Tests that usernames and organization names are forced to lowercase.
+
+    We do not test that slugs are forced to lowercase (and do not change the
+    case of slugs) because GitHub should already be coercing lowercase when
+    creating the slug.
+    """
+    setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="A User",
+        username="SomeUser",
+        uid=1000,
+        email="user@example.com",
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
+    )
+    setup.set_github_userinfo(userinfo)
+
+    # Simulate the initial authentication request.
+    r = await setup.client.get(
+        "/login",
+        headers={"X-Auth-Request-Redirect": f"https://{setup.client.host}"},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 303
+
+    # The user returned by the /auth route should be forced to lowercase.
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    assert r.status == 200
+    assert r.headers["X-Auth-Request-User"] == "someuser"
+
+    # Likewise for the user embedded in the token.
+    r = await setup.client.get("/auth/analyze")
+    assert r.status == 200
+    data = await r.json()
+    assert data["token"]["data"]["sub"] == "someuser"
+    assert data["token"]["data"]["uid"] == "someuser"

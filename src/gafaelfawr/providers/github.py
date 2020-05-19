@@ -36,17 +36,31 @@ class GitHubTeam:
     organization: str
     """The organization (its login attribute) of which the team is a part."""
 
-    group_name: str
-    """A group name constructed from the slug and organization.
-
-    The default construction is the organization name (from the login field),
-    a dash, and the team slug.  If this is over 32 characters, it will be
-    truncated to 25 characters and the first six characters of a hash of the
-    full name will be appended for uniqueness.
-    """
-
     gid: int
     """The GitHub ID of the team, hopefully usable as a GID."""
+
+    @property
+    def group_name(self) -> str:
+        """The group name corresponding to this GitHub team.
+
+        Returns
+        -------
+        group_name : `str`
+            The name of the group.
+
+        Notes
+        -----
+        The default construction is the organization name (from the login
+        field), a dash, and the team slug.  If this is over 32 characters, it
+        will be truncated to 25 characters and the first six characters of a
+        hash of the full name will be appended for uniqueness.
+        """
+        group_name = f"{self.organization.lower()}-{self.slug}"
+        if len(group_name) > 32:
+            name_hash = hashlib.sha256(group_name.encode()).digest()
+            suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
+            group_name = group_name[:25] + "-" + suffix
+        return group_name
 
 
 @dataclass(frozen=True)
@@ -175,8 +189,8 @@ class GitHubProvider(Provider):
             "isMemberOf": groups,
             "jti": handle.key,
             "name": user_info.name,
-            "sub": user_info.username,
-            self._config.username_claim: user_info.username,
+            "sub": user_info.username.lower(),
+            self._config.username_claim: user_info.username.lower(),
             self._config.uid_claim: str(user_info.uid),
         }
 
@@ -184,36 +198,6 @@ class GitHubProvider(Provider):
         session = Session.create(handle, token)
         await self._session_store.store_session(session)
         return session
-
-    @staticmethod
-    def _build_group_name(team_slug: str, organization: str) -> str:
-        """Construct a group name from the team slug and organization name.
-
-        Parameters
-        ----------
-        team_slug : `str`
-            The slug attribute of the GitHub team.
-        organization : `str`
-            The name of the organization that owns the team.
-
-        Returns
-        -------
-        group_name : `str`
-            The name of the group.
-
-        Notes
-        -----
-        The default construction is the organization name (from the login
-        field), a dash, and the team slug.  If this is over 32 characters, it
-        will be truncated to 25 characters and the first six characters of a
-        hash of the full name will be appended for uniqueness.
-        """
-        group_name = f"{organization}-{team_slug}"
-        if len(group_name) > 32:
-            name_hash = hashlib.sha256(group_name.encode()).digest()
-            suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
-            group_name = group_name[:25] + "-" + suffix
-        return group_name
 
     async def _get_access_token(self, code: str, state: str) -> str:
         """Given the code from a successful authentication, get a token.
@@ -303,13 +287,9 @@ class GitHubProvider(Provider):
         for team in teams_data:
             slug = team["slug"]
             organization = team["organization"]["login"]
-            group_name = self._build_group_name(slug, organization)
             teams.append(
                 GitHubTeam(
-                    slug=slug,
-                    organization=organization,
-                    group_name=group_name,
-                    gid=team["id"],
+                    slug=slug, organization=organization, gid=team["id"],
                 )
             )
 

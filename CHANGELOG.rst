@@ -2,6 +2,16 @@
 Change log
 ##########
 
+1.3.0 (2020-05-19)
+==================
+
+This release changes the construction of identity and groups from GitHub authentication by coercing identifiers to lowercase.
+GitHub is case-preserving but case-insensitive, which is complex for protected applications to deal with.
+This change ensures Gafaelfawr exposes a consistent canonical identity to downstream applications that is also compatible with other systems that expect lowercase identifiers, such as Kubernetes namespaces.
+
+- Lowercase GitHub usernames when constructing identity tokens.
+- Lowercase GitHub organization names when constructing group membership.
+
 1.2.1 (2020-05-14)
 ==================
 
