@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sys
-from asyncio import Future
 from typing import TYPE_CHECKING
 from unittest.mock import ANY, Mock
 from urllib.parse import urljoin
@@ -174,19 +172,9 @@ class MockClientSession(Mock):
 
     @staticmethod
     def _build_json_response(result: Any) -> ClientResponse:
-        """Build a successful aiohttp client response.
-
-        This is more complicated than it will eventually need to be to work
-        around the lack of an AsyncMock in Python 3.7.  The complexity can be
-        removed when we require a minimum version of Python 3.8.
-        """
+        """Build a successful aiohttp client response."""
         r = Mock(spec=ClientResponse)
-        if sys.version_info[0] == 3 and sys.version_info[1] < 8:
-            future: Future[Any] = Future()
-            future.set_result(result)
-            r.json.return_value = future
-        else:
-            r.json.return_value = result
+        r.json.return_value = result
         r.status = 200
         return r
 

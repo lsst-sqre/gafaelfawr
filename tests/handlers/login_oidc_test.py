@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
-from asyncio import Future
 from typing import TYPE_CHECKING
 from unittest.mock import ANY, Mock
 from urllib.parse import parse_qs, urlparse
@@ -16,7 +14,6 @@ from gafaelfawr.constants import ALGORITHM
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
-    from typing import Any
 
 
 async def test_login(
@@ -218,12 +215,7 @@ async def test_token_error(
     # Build a mock error response.
     response = Mock(spec=ClientResponse)
     response_body = {"error": "error_code", "error_description": "description"}
-    if sys.version_info[0] == 3 and sys.version_info[1] < 8:
-        future: Future[Any] = Future()
-        future.set_result(response_body)
-        response.json.return_value = future
-    else:
-        response.json.return_value = response_body
+    response.json.return_value = response_body
     response.status = 400
     response.raise_for_status = Mock(
         side_effect=ClientResponseError(Mock(), ())
@@ -256,12 +248,7 @@ async def test_token_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    if sys.version_info[0] == 3 and sys.version_info[1] < 8:
-        future = Future()
-        future.set_result({"foo": "bar"})
-        response.json.return_value = future
-    else:
-        response.json.return_value = {"foo": "bar"}
+    response.json.return_value = {"foo": "bar"}
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False,
     )

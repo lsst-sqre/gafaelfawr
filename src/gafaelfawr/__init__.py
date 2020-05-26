@@ -2,13 +2,7 @@
 
 __all__ = ["__version__"]
 
-import sys
-
-if sys.version_info < (3, 8):
-    from importlib_metadata import version, PackageNotFoundError
-else:
-    from importlib.metadata import version, PackageNotFoundError
-
+from importlib.metadata import PackageNotFoundError, version
 
 __version__: str
 """The application version string (PEP 440 / SemVer compatible)."""
