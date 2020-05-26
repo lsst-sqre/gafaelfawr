@@ -9,6 +9,7 @@ This release drops support for Python 3.7.
 Python 3.8 or later is now required.
 
 - Require Python 3.8 and drop Python 3.7 support.
+- The output from the ``/auth/analyze`` route is now sorted and formatted to be easier for humans to read and compare.
 
 1.3.0 (2020-05-19)
 ==================

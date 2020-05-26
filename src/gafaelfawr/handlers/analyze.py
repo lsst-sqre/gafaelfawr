@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+import json
 from typing import TYPE_CHECKING, cast
 
 from aiohttp import web
@@ -49,7 +51,8 @@ async def get_analyze(request: web.Request) -> web.Response:
     session_store = factory.create_session_store(request, logger)
     result = await session_store.analyze_handle(handle)
     logger.info("Analyzed user session")
-    return web.json_response(result)
+    formatter = functools.partial(json.dumps, sort_keys=True, indent=4)
+    return web.json_response(result, dumps=formatter)
 
 
 @routes.post("/auth/analyze")
@@ -88,4 +91,5 @@ async def post_analyze(request: web.Request) -> web.Response:
         logger.info("Analyzed user-provided token")
         result = {"token": analysis}
 
-    return web.json_response(result)
+    formatter = functools.partial(json.dumps, sort_keys=True, indent=4)
+    return web.json_response(result, dumps=formatter)
