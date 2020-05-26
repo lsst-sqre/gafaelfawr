@@ -15,7 +15,7 @@ from gafaelfawr.settings import Settings
 
 if TYPE_CHECKING:
     from ipaddress import _BaseNetwork
-    from typing import Mapping, Optional, FrozenSet, Tuple
+    from typing import Any, Mapping, Optional, FrozenSet, Tuple
 
 __all__ = [
     "Config",
@@ -244,13 +244,15 @@ class Config:
     """Configuration for the Safir middleware."""
 
     @classmethod
-    def from_file(cls, path: str) -> Config:
+    def from_file(cls, path: str, **overrides: Any) -> Config:
         """Construct a Config object from a settings file.
 
         Parameters
         ----------
         path : `str`
             Path to the settings file in YAML.
+        **overrides : `typing.Any`
+            Settings that override settings read from the configuration file.
 
         Returns
         -------
@@ -259,6 +261,7 @@ class Config:
         """
         with open(path, "r") as f:
             raw_settings = yaml.safe_load(f)
+        raw_settings.update(overrides)
         settings = Settings.parse_obj(raw_settings)
 
         # Load the secrets from disk.

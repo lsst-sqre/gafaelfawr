@@ -238,7 +238,9 @@ async def test_cookie_auth_with_token(
 
 async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    setup = await create_test_setup("github-claims")
+    setup = await create_test_setup(
+        username_claim="username", uid_claim="numeric-uid"
+    )
     assert setup.config.github
     userinfo = GitHubUserInfo(
         name="GitHub User",
@@ -279,8 +281,8 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 200
     data = await r.json()
     token_data = data["token"]["data"]
-    assert token_data[setup.config.github.username_claim] == "githubuser"
-    assert token_data[setup.config.github.uid_claim] == "123456"
+    assert token_data["username"] == "githubuser"
+    assert token_data["numeric-uid"] == "123456"
     assert "uid" not in token_data
     assert "uidNumber" not in token_data
 

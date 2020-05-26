@@ -42,6 +42,7 @@ async def create_app(
     settings_path: str,
     redis_pool: Optional[Redis] = None,
     http_session: Optional[ClientSession] = None,
+    **settings: Any,
 ) -> Application:
     """Create and configure the Gafaelfawr application.
 
@@ -56,13 +57,15 @@ async def create_app(
         Client session to use if provided.  If one is not provided, it will be
         created dynamically by safir.  The provided session is not closed on
         app shutdown.
+    **settings : `typing.Any`
+        Settings that override settings read from the configuration file.
 
     Returns
     -------
     application: `aiohttp.web.Application`
         The constructed application.
     """
-    config = Config.from_file(settings_path)
+    config = Config.from_file(settings_path, **settings)
 
     configure_logging(
         profile=config.safir.profile,
