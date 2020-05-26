@@ -473,6 +473,7 @@ async def test_logging(
         "satisfy": "all",
         "scope": "exec:admin",
         "token": token.jti,
+        "token_source": "bearer",
         "user": token.username,
         "user_agent": ANY,
     }
@@ -503,6 +504,7 @@ async def test_logging(
         "satisfy": "any",
         "scope": "exec:admin",
         "token": token.jti,
+        "token_source": "bearer",
         "user": token.username,
         "user_agent": ANY,
     }
@@ -556,6 +558,7 @@ async def test_logging(
         "request_id": ANY,
         "required_scope": "exec:admin",
         "satisfy": "all",
+        "token_source": "bearer",
         "user_agent": ANY,
     }
     caplog.clear()
@@ -586,6 +589,7 @@ async def test_logging(
         "satisfy": "all",
         "scope": "exec:admin",
         "token": token.jti,
+        "token_source": "bearer",
         "user": token.username,
         "user_agent": ANY,
     }

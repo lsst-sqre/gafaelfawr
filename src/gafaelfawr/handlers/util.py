@@ -13,6 +13,7 @@ from aiohttp import web
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
+    from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
     from structlog import BoundLogger
@@ -23,6 +24,7 @@ __all__ = [
     "AuthError",
     "AuthType",
     "InvalidTokenException",
+    "RequestContext",
     "verify_token",
 ]
 
@@ -87,6 +89,50 @@ class AuthChallenge:
         return f"{self.auth_type.name} {info}"
 
 
+@dataclass
+class RequestContext:
+    """Holds the incoming request and its surrounding context.
+
+    The primary reason for the existence of this class is to allow the
+    functions involved in request processing to repeated rebind the request
+    logger to include more information, without having to pass both the
+    request and the logger separately to every function.
+    """
+
+    request: web.Request
+    """The incoming request."""
+
+    config: Config
+    """Gafaelfawr's configuration."""
+
+    factory: ComponentFactory
+    """A factory for constructing Gafaelfawr components."""
+
+    logger: BoundLogger
+    """The request logger, rebound with discovered context."""
+
+    @classmethod
+    def from_request(cls, request: web.Request) -> RequestContext:
+        """Construct a RequestContext from an incoming request.
+
+        Parameters
+        ----------
+        request : aiohttp.web.Request
+            The incoming request.
+
+        Returns
+        -------
+        context : RequestContext
+            The newly-created context.
+        """
+        config: Config = request.config_dict["gafaelfawr/config"]
+        factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
+        logger: BoundLogger = request["safir/logger"]
+        return cls(
+            request=request, config=config, factory=factory, logger=logger
+        )
+
+
 class InvalidTokenException(Exception):
     """The provided token was invalid.
 
@@ -97,13 +143,13 @@ class InvalidTokenException(Exception):
     """
 
 
-def verify_token(request: web.Request, encoded_token: str) -> VerifiedToken:
+def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
     """Verify a token.
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
+    context : `gafaelfawr.handlers.util.RequestContext`
+        The context of the incoming request.
     encoded_token : `str`
         The encoded token.
 
@@ -119,11 +165,10 @@ def verify_token(request: web.Request, encoded_token: str) -> VerifiedToken:
     gafaelfawr.verify.MissingClaimsException
         If the token is missing required claims.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: BoundLogger = request["safir/logger"]
-
     token = Token(encoded=encoded_token)
-    token_verifier = factory.create_token_verifier(request, logger)
+    token_verifier = context.factory.create_token_verifier(
+        context.request, context.logger
+    )
     try:
         return token_verifier.verify_internal_token(token)
     except jwt.InvalidTokenError as e:

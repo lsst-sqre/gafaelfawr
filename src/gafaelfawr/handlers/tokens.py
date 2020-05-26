@@ -17,6 +17,7 @@ from gafaelfawr.handlers.util import (
     AuthError,
     AuthType,
     InvalidTokenException,
+    RequestContext,
     verify_token,
 )
 from gafaelfawr.session import Session, SessionHandle
@@ -70,25 +71,24 @@ def authenticated(route: AuthenticatedRoute) -> Route:
 
     @wraps(route)
     async def authenticated_route(request: web.Request) -> Any:
-        config: Config = request.config_dict["gafaelfawr/config"]
-        logger: BoundLogger = request["safir/logger"]
+        context = RequestContext.from_request(request)
 
         if not request.headers.get("X-Auth-Request-Token"):
             msg = "No authentication token found"
-            logger.warning(msg)
-            challenge = AuthChallenge(AuthType.Bearer, config.realm)
+            context.logger.warning(msg)
+            challenge = AuthChallenge(AuthType.Bearer, context.config.realm)
             headers = {"WWW-Authenticate": challenge.as_header()}
             raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
 
         encoded_token = request.headers["X-Auth-Request-Token"]
         try:
-            token = verify_token(request, encoded_token)
+            token = verify_token(context, encoded_token)
         except InvalidTokenException as e:
             error = "Failed to authenticate token"
-            logger.warning(error, error=str(e))
+            context.logger.warning(error, error=str(e))
             challenge = AuthChallenge(
                 auth_type=AuthType.Bearer,
-                realm=config.realm,
+                realm=context.config.realm,
                 error=AuthError.invalid_token,
                 error_description=f"{error}: {str(e)}",
             )
@@ -98,12 +98,12 @@ def authenticated(route: AuthenticatedRoute) -> Route:
             )
 
         # On success, add some context to the logger.
-        logger = logger.bind(
+        context.logger = context.logger.bind(
             token=token.jti,
             user=token.username,
             scope=" ".join(sorted(token.scope)),
         )
-        request["safir/logger"] = logger
+        request["safir/logger"] = context.logger
 
         return await route(request, token)
 

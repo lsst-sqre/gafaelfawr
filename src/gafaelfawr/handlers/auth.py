@@ -16,15 +16,13 @@ from gafaelfawr.handlers.util import (
     AuthError,
     AuthType,
     InvalidTokenException,
+    RequestContext,
     verify_token,
 )
 from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
-    from structlog import BoundLogger
     from typing import Dict, Optional, Set
 
 __all__ = ["get_auth"]
@@ -138,8 +136,7 @@ async def get_auth(request: web.Request) -> web.Response:
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
-    config: Config = request.config_dict["gafaelfawr/config"]
-    logger: BoundLogger = request["safir/logger"]
+    context = RequestContext.from_request(request)
 
     # Determine the required scopes, authorization strategy, and desired auth
     # type for challenges from the request.
@@ -153,7 +150,7 @@ async def get_auth(request: web.Request) -> web.Response:
     auth_uri = request.headers.get("X-Original-URI")
     if not auth_uri:
         auth_uri = request.headers.get("X-Original-URL", "NONE")
-    logger = logger.bind(
+    context.logger = context.logger.bind(
         auth_uri=auth_uri,
         required_scope=" ".join(sorted(auth_config.scopes)),
         satisfy=auth_config.satisfy.name.lower(),
@@ -162,35 +159,35 @@ async def get_auth(request: web.Request) -> web.Response:
     # Check authentication and return an appropriate challenge and error
     # status if authentication failed.
     try:
-        token = await get_token_from_request(request, logger)
+        token = await get_token_from_request(context)
         if not token:
-            logger.info("No token found, returning unauthorized")
+            context.logger.info("No token found, returning unauthorized")
             challenge = AuthChallenge(
-                auth_type=auth_config.auth_type, realm=config.realm
+                auth_type=auth_config.auth_type, realm=context.config.realm
             )
             raise unauthorized(request, challenge, "Authentication required")
     except InvalidRequestException as e:
-        logger.warning("Invalid Authorization header", error=str(e))
+        context.logger.warning("Invalid Authorization header", error=str(e))
         challenge = AuthChallenge(
             auth_type=auth_config.auth_type,
-            realm=config.realm,
+            realm=context.config.realm,
             error=AuthError.invalid_request,
             error_description=str(e),
         )
         headers = {"WWW-Authenticate": challenge.as_header()}
         raise web.HTTPBadRequest(headers=headers, reason=str(e), text=str(e))
     except InvalidTokenException as e:
-        logger.warning("Invalid token", error=str(e))
+        context.logger.warning("Invalid token", error=str(e))
         challenge = AuthChallenge(
             auth_type=auth_config.auth_type,
-            realm=config.realm,
+            realm=context.config.realm,
             error=AuthError.invalid_token,
             error_description=str(e),
         )
         raise unauthorized(request, challenge, str(e))
 
     # Add user information to the logger.
-    logger = logger.bind(
+    context.logger = context.logger.bind(
         token=token.jti,
         user=token.username,
         scope=" ".join(sorted(token.scope)),
@@ -204,12 +201,12 @@ async def get_auth(request: web.Request) -> web.Response:
 
     # If not authorized, log and raise the appropriate error.
     if not authorized:
-        logger.warning("Token missing required scope")
-        raise forbidden(request, auth_config)
+        context.logger.warning("Token missing required scope")
+        raise forbidden(context, auth_config)
 
     # Log and return the results.
-    logger.info("Token authorized")
-    token = maybe_reissue_token(request, token, logger)
+    context.logger.info("Token authorized")
+    token = maybe_reissue_token(context, token)
     headers = build_success_headers(auth_config, token)
     return web.Response(headers=headers, text="ok")
 
@@ -246,11 +243,10 @@ async def get_auth_forbidden(request: web.Request) -> web.Response:
     It takes the same parameters as the ``/auth`` route and uses them to
     construct an appropriate challenge.
     """
-    logger: BoundLogger = request["safir/logger"]
-
+    context = RequestContext.from_request(request)
     auth_config = parse_auth_config(request)
-    logger.warning("Serving uncached 403 page")
-    raise forbidden(request, auth_config)
+    context.logger.warning("Serving uncached 403 page")
+    raise forbidden(context, auth_config)
 
 
 def parse_auth_config(request: web.Request) -> AuthConfig:
@@ -292,20 +288,19 @@ def parse_auth_config(request: web.Request) -> AuthConfig:
 
 
 async def get_token_from_request(
-    request: web.Request, logger: BoundLogger,
+    context: RequestContext,
 ) -> Optional[VerifiedToken]:
     """From the request, find the token we need.
 
     It may be in the session cookie or in an ``Authorization`` header, and the
     ``Authorization`` header may use type ``Basic`` (of various types) or
-    ``Bearer``.
+    ``Bearer``.  Rebinds the logging context to include the source of the
+    token, if one is found.
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    logger : `structlog.BoundLogger`
-        Logger to use.
+    context : `gafaelfawr.handlers.util.RequestContext`
+        The context of the incoming request.
 
     Returns
     -------
@@ -319,18 +314,18 @@ async def get_token_from_request(
     gafaelfawr.handlers.util.InvalidTokenException
         A token was provided but it could not be verified.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-
     # Use the session cookie if it is available.  This check has to be before
     # checking the Authorization header, since JupyterHub will set its own
     # Authorization header in its AJAX calls but we won't be able to extract a
     # token from that and will return 400 for them.
-    session = await get_session(request)
+    session = await get_session(context.request)
     handle_str = session.get("handle")
     if handle_str:
-        logger.debug("Found valid handle in session")
+        context.logger = context.logger.bind(token_source="cookie")
         handle = SessionHandle.from_str(handle_str)
-        session_store = factory.create_session_store(request, logger)
+        session_store = context.factory.create_session_store(
+            context.request, context.logger
+        )
         auth_session = await session_store.get_session(handle)
         if auth_session:
             return auth_session.token
@@ -339,31 +334,30 @@ async def get_token_from_request(
     # header.  This case is used by API calls from clients.  If we got a
     # session handle, convert it to a token.  Otherwise, if we got a token,
     # verify it.
-    handle_or_token = parse_authorization(request, logger)
+    handle_or_token = parse_authorization(context)
     if not handle_or_token:
         return None
     elif handle_or_token.startswith("gsh-"):
         handle = SessionHandle.from_str(handle_or_token)
-        session_store = factory.create_session_store(request, logger)
+        session_store = context.factory.create_session_store(
+            context.request, context.logger
+        )
         auth_session = await session_store.get_session(handle)
         return auth_session.token if auth_session else None
     else:
-        return verify_token(request, handle_or_token)
+        return verify_token(context, handle_or_token)
 
 
-def parse_authorization(
-    request: web.Request, logger: BoundLogger
-) -> Optional[str]:
+def parse_authorization(context: RequestContext) -> Optional[str]:
     """Find a handle or token in the Authorization header.
 
-    Supports either ``Bearer`` or ``Basic`` authorization types.
+    Supports either ``Bearer`` or ``Basic`` authorization types.  Rebinds the
+    logging context to include the source of the token, if one is found.
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    logger : `structlog.BoundLogger`
-        Logger to use.
+    context : `gafaelfawr.handlers.util.RequestContext`
+        The context of the incoming request.
 
     Returns
     -------
@@ -385,14 +379,14 @@ def parse_authorization(
     the username.
     """
     # Parse the header and handle Bearer.
-    header = request.headers.get("Authorization")
+    header = context.request.headers.get("Authorization")
     if not header:
         return None
     if " " not in header:
         raise InvalidRequestException("malformed Authorization header")
     auth_type, auth_blob = header.split(" ")
     if auth_type.lower() == "bearer":
-        logger.debug("Found token via Bearer auth")
+        context.logger = context.logger.bind(token_source="bearer")
         return auth_blob
     elif auth_type.lower() != "basic":
         msg = f"unkonwn Authorization type {auth_type}"
@@ -406,16 +400,17 @@ def parse_authorization(
         msg = f"invalid Basic auth string: {str(e)}"
         raise InvalidRequestException(msg)
     if password == "x-oauth-basic":
-        logger.debug("Found token via Basic auth username")
+        context.logger = context.logger.bind(token_source="basic-username")
         return user
     elif user == "x-oauth-basic":
-        logger.debug("Found token via Basic auth password")
+        context.logger = context.logger.bind(token_source="basic-password")
         return password
     else:
-        logger.info(
+        context.logger.info(
             "Neither username nor password in HTTP Basic is x-oauth-basic,"
             " assuming handle or token is username"
         )
+        context.logger = context.logger.bind(token_source="basic-username")
         return user
 
 
@@ -472,14 +467,14 @@ def unauthorized(
 
 
 def forbidden(
-    request: web.Request, auth_config: AuthConfig
+    context: RequestContext, auth_config: AuthConfig
 ) -> web.HTTPException:
     """Construct exception for a 403 response.
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
+    context : `gafaelfawr.handlers.util.RequestContext`
+        The context of the incoming request.
     auth_config : `AuthConfig`
         Requested authorization parameters, used to construct the challenge.
 
@@ -489,12 +484,10 @@ def forbidden(
         The exception to raise, either HTTPForbidden (for AJAX) or
         HTTPUnauthorized.
     """
-    config: Config = request.config_dict["gafaelfawr/config"]
-
     error = "Token missing required scope"
     challenge = AuthChallenge(
         auth_type=auth_config.auth_type,
-        realm=config.realm,
+        realm=context.config.realm,
         error=AuthError.insufficient_scope,
         error_description=error,
         scope=" ".join(sorted(auth_config.scopes)),
@@ -507,18 +500,16 @@ def forbidden(
 
 
 def maybe_reissue_token(
-    request: web.Request, token: VerifiedToken, logger: BoundLogger
+    context: RequestContext, token: VerifiedToken
 ) -> VerifiedToken:
     """Possibly reissue the token.
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
+    context : `gafaelfawr.handlers.util.RequestContext`
+        The context of the incoming request.
     token : `gafaelfawr.tokens.VerifiedToken`
         The current token.
-    logger : `structlog.BoundLogger`
-        Logger to use.
 
     Returns
     -------
@@ -534,20 +525,18 @@ def maybe_reissue_token(
     allows passing a more restrictive token to downstream systems that may
     reuse that tokens for their own API calls.
     """
-    config: Config = request.config_dict["gafaelfawr/config"]
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-
-    if not request.query.get("audience") == config.issuer.aud_internal:
+    aud_internal = context.config.issuer.aud_internal
+    if not context.request.query.get("audience") == aud_internal:
         return token
-    if not token.claims["aud"] == config.issuer.aud:
+    if not token.claims["aud"] == context.config.issuer.aud:
         return token
 
     # Create a new handle just to get a new key for the jti.  The reissued
     # internal token is never stored in a session and cannot be accessed via a
     # session handle, so we don't use the handle to store it.
-    issuer = factory.create_token_issuer()
+    issuer = context.factory.create_token_issuer()
     handle = SessionHandle()
-    logger.info("Reissuing token to audience %s", config.issuer.aud_internal)
+    context.logger.info("Reissuing token to audience %s", aud_internal)
     return issuer.reissue_token(token, jti=handle.key, internal=True)
 
 

@@ -46,6 +46,10 @@ All authenticated routes add the following attributes once the user's token has 
 ``token``
     The ``jti`` claim of the token.
 
+``token_source``
+    Where the token was found.
+    Chosen from ``cookie`` (found in the session cookie), ``bearer`` (provided as a bearer token in an ``Authorization`` header), or ``basic-username`` or ``basic-password`` (provided as the username or password in an HTTP Basic ``Authorization`` header).
+
 ``user``
     The username claim of the token (configured via the ``username_claim`` configuration parameter).
 
