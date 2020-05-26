@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from aiohttp import web
 
 from gafaelfawr.handlers import routes
-
-if TYPE_CHECKING:
-    from gafaelfawr.config import Config
-    from structlog import BoundLogger
+from gafaelfawr.handlers.util import RequestContext
 
 __all__ = ["get_well_known_jwks"]
 
@@ -31,9 +26,8 @@ async def get_well_known_jwks(request: web.Request) -> web.Response:
     response : `aiohttp.web.Response`
         The outgoing response.
     """
-    config: Config = request.config_dict["gafaelfawr/config"]
-    logger: BoundLogger = request["safir/logger"]
-
-    jwks = config.issuer.keypair.public_key_as_jwks(kid=config.issuer.kid)
-    logger.info("Returned JWKS")
+    context = RequestContext.from_request(request)
+    keypair = context.config.issuer.keypair
+    jwks = keypair.public_key_as_jwks(kid=context.config.issuer.kid)
+    context.logger.info("Returned JWKS")
     return web.json_response({"keys": [jwks]})

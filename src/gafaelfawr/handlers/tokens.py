@@ -23,12 +23,8 @@ from gafaelfawr.handlers.util import (
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
-    from aioredis import Redis
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
     from multidict import MultiDictProxy
-    from structlog import BoundLogger
     from typing import Any, Awaitable, Callable, Dict, Optional, Union
 
     Route = Callable[[web.Request], Awaitable[Any]]
@@ -166,14 +162,13 @@ async def get_tokens(
     response : `aiohttp.web.Response`
         The response.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: BoundLogger = request["safir/logger"]
+    context = RequestContext.from_request(request)
 
     session = await get_session(request)
     message = session.pop("message", None)
     session["csrf"] = await generate_token(request)
 
-    token_store = factory.create_token_store(logger)
+    token_store = context.factory.create_token_store(context.logger)
     await token_store.expire_tokens(token.uid)
     user_tokens = await token_store.get_tokens(token.uid)
     forms = {}
@@ -182,7 +177,7 @@ async def get_tokens(
         form.csrf.data = session["csrf"]
         forms[user_token.key] = form
 
-    logger.info("Listed tokens")
+    context.logger.info("Listed tokens")
     return {
         "message": message,
         "tokens": user_tokens,
@@ -209,16 +204,19 @@ async def get_tokens_new(
     response : `aiohttp.web.Response`
         The response.
     """
-    config: Config = request.config_dict["gafaelfawr/config"]
-    logger: BoundLogger = request["safir/logger"]
+    context = RequestContext.from_request(request)
 
-    scopes = {s: d for s, d in config.known_scopes.items() if s in token.scope}
+    scopes = {
+        s: d
+        for s, d in context.config.known_scopes.items()
+        if s in token.scope
+    }
     form = build_new_token_form(scopes)
 
     session = await get_session(request)
     session["csrf"] = await generate_token(request)
 
-    logger.info("Returned token creation form")
+    context.logger.info("Returned token creation form")
     return {
         "form": form,
         "scopes": scopes,
@@ -244,27 +242,30 @@ async def post_tokens_new(
     response : `aiohttp.web.Response`
         The response.
     """
-    config: Config = request.config_dict["gafaelfawr/config"]
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    redis: Redis = request.config_dict["gafaelfawr/redis"]
-    logger: BoundLogger = request["safir/logger"]
+    context = RequestContext.from_request(request)
 
-    scopes = {s: d for s, d in config.known_scopes.items() if s in token.scope}
+    scopes = {
+        s: d
+        for s, d in context.config.known_scopes.items()
+        if s in token.scope
+    }
     form = build_new_token_form(scopes, await request.post())
     if not form.validate():
         msg = f"Form validation failed"
-        logger.warning(msg)
+        context.logger.warning(msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
 
     scope = " ".join([s for s in scopes if form[s].data])
-    issuer = factory.create_token_issuer()
+    issuer = context.factory.create_token_issuer()
     handle = SessionHandle()
     user_token = issuer.issue_user_token(token, scope=scope, jti=handle.key)
 
-    session_store = factory.create_session_store(request, logger)
-    token_store = factory.create_token_store(logger)
+    session_store = context.factory.create_session_store(
+        context.request, context.logger
+    )
+    token_store = context.factory.create_token_store(context.logger)
     user_session = Session.create(handle, user_token)
-    pipeline = redis.pipeline()
+    pipeline = context.redis.pipeline()
     await session_store.store_session(user_session, pipeline)
     token_store.store_session(token.uid, user_session, pipeline)
     await pipeline.execute()
@@ -276,7 +277,7 @@ async def post_tokens_new(
     session = await get_session(request)
     session["message"] = message
 
-    logger.info("Created token %s with scope %s", handle.key, scope)
+    context.logger.info("Created token %s with scope %s", handle.key, scope)
     location = request.app.router["tokens"].url_for()
     raise web.HTTPFound(location)
 
@@ -299,11 +300,10 @@ async def get_token_by_handle(
     response : `aiohttp.web.Response`
         The response.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: BoundLogger = request["safir/logger"]
+    context = RequestContext.from_request(request)
     handle = request.match_info["handle"]
 
-    token_store = factory.create_token_store(logger)
+    token_store = context.factory.create_token_store(context.logger)
     user_token = None
     for entry in await token_store.get_tokens(token.uid):
         if entry.key == handle:
@@ -312,10 +312,10 @@ async def get_token_by_handle(
 
     if not user_token:
         msg = f"No token with handle {handle} found"
-        logger.warning(msg)
+        context.logger.warning(msg)
         raise web.HTTPNotFound(reason=msg, text=msg)
 
-    logger.info("Viewed token %s", handle)
+    context.logger.info("Viewed token %s", handle)
     return {"token": user_token}
 
 
@@ -338,9 +338,7 @@ async def post_delete_token(
         Form variables that are processed by the template decorator, which
         turns them into an `aiohttp.web.Response`.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    redis: Redis = request.config_dict["gafaelfawr/redis"]
-    logger: BoundLogger = request["safir/logger"]
+    context = RequestContext.from_request(request)
     handle = request.match_info["handle"]
 
     form = AlterTokenForm(await request.post())
@@ -348,9 +346,11 @@ async def post_delete_token(
         msg = "Invalid deletion request"
         raise web.HTTPForbidden(reason=msg, text=msg)
 
-    token_store = factory.create_token_store(logger)
-    session_store = factory.create_session_store(request, logger)
-    pipeline = redis.pipeline()
+    token_store = context.factory.create_token_store(context.logger)
+    session_store = context.factory.create_session_store(
+        context.request, context.logger
+    )
+    pipeline = context.redis.pipeline()
     success = await token_store.revoke_token(token.uid, handle, pipeline)
     if success:
         session_store.delete_session(handle, pipeline)
@@ -363,6 +363,6 @@ async def post_delete_token(
     session = await get_session(request)
     session["message"] = message
 
-    logger.info("Deleted token %s", handle)
+    context.logger.info("Deleted token %s", handle)
     location = request.app.router["tokens"].url_for()
     raise web.HTTPFound(location)

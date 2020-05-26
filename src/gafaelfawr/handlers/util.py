@@ -13,6 +13,7 @@ from aiohttp import web
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
+    from aioredis import Redis
     from gafaelfawr.config import Config
     from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
@@ -111,6 +112,9 @@ class RequestContext:
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
 
+    redis: Redis
+    """Connection pool to use to talk to Redis."""
+
     @classmethod
     def from_request(cls, request: web.Request) -> RequestContext:
         """Construct a RequestContext from an incoming request.
@@ -128,8 +132,13 @@ class RequestContext:
         config: Config = request.config_dict["gafaelfawr/config"]
         factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
         logger: BoundLogger = request["safir/logger"]
+        redis: Redis = request.config_dict["gafaelfawr/redis"]
         return cls(
-            request=request, config=config, factory=factory, logger=logger
+            request=request,
+            config=config,
+            factory=factory,
+            logger=logger,
+            redis=redis,
         )
 
 

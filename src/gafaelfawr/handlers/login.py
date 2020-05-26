@@ -4,18 +4,14 @@ from __future__ import annotations
 
 import base64
 import os
-from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from aiohttp import ClientResponseError, web
 from aiohttp_session import get_session, new_session
 
 from gafaelfawr.handlers import routes
+from gafaelfawr.handlers.util import RequestContext
 from gafaelfawr.providers.base import ProviderException
-
-if TYPE_CHECKING:
-    from gafaelfawr.factory import ComponentFactory
-    from structlog import BoundLogger
 
 __all__ = ["get_login"]
 
@@ -79,8 +75,7 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
         Error or redirect depending on the validity of the response from the
         external authentication provider.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: BoundLogger = request["safir/logger"]
+    context = RequestContext.from_request(request)
 
     # Determine where the user is trying to go.
     session = await get_session(request)
@@ -92,12 +87,12 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
     # request.
     if not return_url:
         msg = "No destination URL specified"
-        logger.warning(msg)
+        context.logger.warning(msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
-    logger = logger.bind(return_url=return_url)
+    context.logger = context.logger.bind(return_url=return_url)
     if urlparse(return_url).hostname != request.url.raw_host:
         msg = f"Redirect URL not at {request.host}"
-        logger.warning(msg)
+        context.logger.warning(msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
     session["rd"] = return_url
 
@@ -133,7 +128,9 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
         session["state"] = state
 
     # Get the authentication provider URL send the user there.
-    auth_provider = factory.create_provider(request, logger)
+    auth_provider = context.factory.create_provider(
+        context.request, context.logger
+    )
     redirect_url = auth_provider.get_redirect_url(state)
     raise web.HTTPSeeOther(redirect_url)
 
@@ -160,8 +157,7 @@ async def handle_provider_return(request: web.Request) -> web.Response:
         Error or redirect depending on the validity of the response from the
         external authentication provider.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: BoundLogger = request["safir/logger"]
+    context = RequestContext.from_request(request)
 
     # Extract details from the reply, check state, and get the return URL.
     session = await get_session(request)
@@ -171,29 +167,31 @@ async def handle_provider_return(request: web.Request) -> web.Response:
         msg = "Authentication state mismatch"
         raise web.HTTPForbidden(reason=msg, text=msg)
     return_url = session.pop("rd")
-    logger = logger.bind(return_url=return_url)
+    context.logger = context.logger.bind(return_url=return_url)
 
     # Build a session based on the reply from the authentication provider.
-    auth_provider = factory.create_provider(request, logger)
+    auth_provider = context.factory.create_provider(
+        context.request, context.logger
+    )
     try:
         auth_session = await auth_provider.create_session(code, state)
     except ProviderException as e:
-        logger.warning("Provider authentication failed", error=str(e))
+        context.logger.warning("Provider authentication failed", error=str(e))
         raise web.HTTPInternalServerError(reason=str(e), text=str(e))
     except ClientResponseError as e:
         msg = "Cannot contact authentication provider"
-        logger.exception(msg, error=str(e))
+        context.logger.exception(msg, error=str(e))
         raise web.HTTPInternalServerError(reason=msg, text=msg)
 
     # Store the session and send the user back to what they were doing.
     session = await new_session(request)
     session["handle"] = auth_session.handle.encode()
-    logger = logger.bind(
+    context.logger = context.logger.bind(
         user=auth_session.token.username,
         token=auth_session.token.jti,
         scope=" ".join(sorted(auth_session.token.scope)),
     )
-    logger.info(
+    context.logger.info(
         "Successfully authenticated user %s (%s)",
         auth_session.token.username,
         auth_session.token.uid,
