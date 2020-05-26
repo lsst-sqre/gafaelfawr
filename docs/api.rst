@@ -52,3 +52,5 @@ API reference
 .. automodapi:: gafaelfawr.util
 
 .. automodapi:: gafaelfawr.verify
+
+.. automodapi:: gafaelfawr.x_forwarded
