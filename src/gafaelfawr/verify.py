@@ -166,14 +166,18 @@ class TokenVerifier:
         )
         if "iss" not in unverified_token:
             raise InvalidKeyError("No iss claim in token")
-        self._logger.debug(
-            "Verifying token %s from issuer %s",
-            unverified_token.get("jti", "UNKNOWN"),
-            unverified_token["iss"],
-        )
-
         issuer_url = unverified_token["iss"]
         key_id = unverified_header["kid"]
+
+        if "jti" in unverified_token:
+            self._logger.debug(
+                "Verifying token %s from issuer %s",
+                unverified_token["jti"],
+                issuer_url,
+            )
+        else:
+            self._logger.debug("Verifying token from issuer %s", issuer_url)
+
         if issuer_url != self._config.oidc_iss:
             raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
         if self._config.oidc_kids:
@@ -267,7 +271,7 @@ class TokenVerifier:
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        self._logger.info("Getting key %s from %s", key_id, issuer_url)
+        self._logger.debug("Getting key %s from %s", key_id, issuer_url)
 
         # Retrieve the JWKS information.
         keys = await self._get_keys(issuer_url)

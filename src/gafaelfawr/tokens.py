@@ -50,8 +50,8 @@ class VerifiedToken(Token):
     scope: Set[str]
     """The scope claim from the token, split on whitespace."""
 
-    jti: str = "UNKNOWN"
-    """The jti (JWT ID) claim from the token, or UNKNOWN if there was none."""
+    jti: Optional[str] = None
+    """The jti (JWT ID) claim from the token."""
 
     email: Optional[str] = None
     """The email claim from the token."""

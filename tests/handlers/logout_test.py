@@ -127,7 +127,7 @@ async def test_logout_not_logged_in(
     r = await setup.client.get("/logout", allow_redirects=False)
     assert r.status == 303
     assert r.headers["Location"] == setup.config.after_logout_url
-    data = json.loads(caplog.record_tuples[0][2])
+    data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "event": "Logout of already-logged-out session",
         "level": "info",

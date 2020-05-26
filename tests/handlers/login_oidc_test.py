@@ -43,7 +43,7 @@ async def test_login(
         "state": [ANY],
         **login_params,
     }
-    data = json.loads(caplog.record_tuples[0][2])
+    data = json.loads(caplog.record_tuples[-1][2])
     login_url = setup.config.oidc.login_url
     assert data == {
         "event": f"Redirecting user to {login_url} for authentication",

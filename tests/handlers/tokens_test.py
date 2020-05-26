@@ -23,7 +23,7 @@ async def test_tokens_no_auth(
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
 
-    data = json.loads(caplog.record_tuples[0][2])
+    data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "event": "No authentication token found",
         "level": "warning",
@@ -46,7 +46,7 @@ async def test_tokens_invalid_auth(
         "/auth/tokens", headers={"X-Auth-Request-Token": "foo"}
     )
     assert r.status == 401
-    data = json.loads(caplog.record_tuples[0][2])
+    data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "event": "Failed to authenticate token",
         "error": "Not enough segments",

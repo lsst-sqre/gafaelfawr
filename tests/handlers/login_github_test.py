@@ -57,7 +57,7 @@ async def test_login(
         "scope": [" ".join(GitHubProvider._SCOPES)],
         "state": [ANY],
     }
-    data = json.loads(caplog.record_tuples[0][2])
+    data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "event": "Redirecting user to GitHub for authentication",
         "level": "info",

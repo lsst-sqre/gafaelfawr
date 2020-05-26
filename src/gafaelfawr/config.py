@@ -360,6 +360,9 @@ class Config:
         logger.debug(
             "Configured landing page after logout: %s", self.after_logout_url
         )
+        if self.proxies:
+            proxies = ", ".join([str(p) for p in self.proxies])
+            logger.debug("Configured trusted proxy IPs: %s", proxies)
         logger.debug(
             "Configured token issuer %s, key ID %s, audience %s and %s"
             " (internal), expiration %d minutes",

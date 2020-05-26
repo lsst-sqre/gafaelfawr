@@ -459,7 +459,7 @@ async def test_logging(
         },
     )
     assert r.status == 200
-    data = json.loads(caplog.record_tuples[0][2])
+    data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "auth_uri": "/foo",
         "event": "Token authorized",

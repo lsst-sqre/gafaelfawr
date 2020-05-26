@@ -245,7 +245,7 @@ async def get_auth_forbidden(request: web.Request) -> web.Response:
     """
     context = RequestContext.from_request(request)
     auth_config = parse_auth_config(request)
-    context.logger.warning("Serving uncached 403 page")
+    context.logger.info("Serving uncached 403 page")
     raise forbidden(context, auth_config)
 
 

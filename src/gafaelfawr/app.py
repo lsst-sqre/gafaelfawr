@@ -92,6 +92,7 @@ async def create_app(
     else:
         app.cleanup_ctx.append(init_http_session)
 
+    logger.info("Starting")
     return app
 
 
