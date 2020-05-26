@@ -323,9 +323,7 @@ async def get_token_from_request(
     if handle_str:
         context.logger = context.logger.bind(token_source="cookie")
         handle = SessionHandle.from_str(handle_str)
-        session_store = context.factory.create_session_store(
-            context.request, context.logger
-        )
+        session_store = context.factory.create_session_store()
         auth_session = await session_store.get_session(handle)
         if auth_session:
             return auth_session.token
@@ -339,9 +337,7 @@ async def get_token_from_request(
         return None
     elif handle_or_token.startswith("gsh-"):
         handle = SessionHandle.from_str(handle_or_token)
-        session_store = context.factory.create_session_store(
-            context.request, context.logger
-        )
+        session_store = context.factory.create_session_store()
         auth_session = await session_store.get_session(handle)
         return auth_session.token if auth_session else None
     else:

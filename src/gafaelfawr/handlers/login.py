@@ -128,9 +128,7 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
         session["state"] = state
 
     # Get the authentication provider URL send the user there.
-    auth_provider = context.factory.create_provider(
-        context.request, context.logger
-    )
+    auth_provider = context.factory.create_provider()
     redirect_url = auth_provider.get_redirect_url(state)
     raise web.HTTPSeeOther(redirect_url)
 
@@ -170,9 +168,7 @@ async def handle_provider_return(request: web.Request) -> web.Response:
     context.logger = context.logger.bind(return_url=return_url)
 
     # Build a session based on the reply from the authentication provider.
-    auth_provider = context.factory.create_provider(
-        context.request, context.logger
-    )
+    auth_provider = context.factory.create_provider()
     try:
         auth_session = await auth_provider.create_session(code, state)
     except ProviderException as e:

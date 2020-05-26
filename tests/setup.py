@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from cachetools import TTLCache
+
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.session import Session, SessionHandle
+from tests.support.http_session import MockClientSession
 from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
@@ -12,10 +16,8 @@ if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
     from aioredis import Redis
     from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.tokens import Token, VerifiedToken
-    from tests.support.http_session import MockClientSession
     from typing import Awaitable, Callable, List, Optional, Union
 
 
@@ -33,8 +35,13 @@ class SetupTest:
         self.app = app
         self._client = client
         self.config: Config = self.app["gafaelfawr/config"]
-        self.factory: ComponentFactory = self.app["gafaelfawr/factory"]
         self.redis: Redis = self.app["gafaelfawr/redis"]
+        self.factory = ComponentFactory(
+            config=self.config,
+            redis=self.redis,
+            key_cache=TTLCache(maxsize=16, ttl=600),
+            http_session=self.app["safir/http_session"],
+        )
 
     @property
     def client(self) -> TestClient:

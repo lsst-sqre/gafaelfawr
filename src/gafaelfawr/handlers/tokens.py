@@ -168,7 +168,7 @@ async def get_tokens(
     message = session.pop("message", None)
     session["csrf"] = await generate_token(request)
 
-    token_store = context.factory.create_token_store(context.logger)
+    token_store = context.factory.create_token_store()
     await token_store.expire_tokens(token.uid)
     user_tokens = await token_store.get_tokens(token.uid)
     forms = {}
@@ -260,10 +260,8 @@ async def post_tokens_new(
     handle = SessionHandle()
     user_token = issuer.issue_user_token(token, scope=scope, jti=handle.key)
 
-    session_store = context.factory.create_session_store(
-        context.request, context.logger
-    )
-    token_store = context.factory.create_token_store(context.logger)
+    session_store = context.factory.create_session_store()
+    token_store = context.factory.create_token_store()
     user_session = Session.create(handle, user_token)
     pipeline = context.redis.pipeline()
     await session_store.store_session(user_session, pipeline)
@@ -303,7 +301,7 @@ async def get_token_by_handle(
     context = RequestContext.from_request(request)
     handle = request.match_info["handle"]
 
-    token_store = context.factory.create_token_store(context.logger)
+    token_store = context.factory.create_token_store()
     user_token = None
     for entry in await token_store.get_tokens(token.uid):
         if entry.key == handle:
@@ -346,10 +344,8 @@ async def post_delete_token(
         msg = "Invalid deletion request"
         raise web.HTTPForbidden(reason=msg, text=msg)
 
-    token_store = context.factory.create_token_store(context.logger)
-    session_store = context.factory.create_session_store(
-        context.request, context.logger
-    )
+    token_store = context.factory.create_token_store()
+    session_store = context.factory.create_session_store()
     pipeline = context.redis.pipeline()
     success = await token_store.revoke_token(token.uid, handle, pipeline)
     if success:

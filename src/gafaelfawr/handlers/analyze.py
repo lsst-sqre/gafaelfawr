@@ -43,9 +43,7 @@ async def get_analyze(request: web.Request) -> web.Response:
         context.logger.warning(msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
     handle = SessionHandle.from_str(session["handle"])
-    session_store = context.factory.create_session_store(
-        context.request, context.logger
-    )
+    session_store = context.factory.create_session_store()
     result = await session_store.analyze_handle(handle)
     context.logger.info("Analyzed user session")
     formatter = functools.partial(json.dumps, sort_keys=True, indent=4)
@@ -76,16 +74,12 @@ async def post_analyze(request: web.Request) -> web.Response:
 
     try:
         handle = SessionHandle.from_str(handle_or_token)
-        session_store = context.factory.create_session_store(
-            context.request, context.logger
-        )
+        session_store = context.factory.create_session_store()
         context.logger.info("Analyzed user-provided session handle")
         result = await session_store.analyze_handle(handle)
     except InvalidSessionHandleException:
         token = Token(encoded=handle_or_token)
-        verifier = context.factory.create_token_verifier(
-            context.request, context.logger
-        )
+        verifier = context.factory.create_token_verifier()
         analysis = verifier.analyze_token(token)
         context.logger.info("Analyzed user-provided token")
         result = {"token": analysis}

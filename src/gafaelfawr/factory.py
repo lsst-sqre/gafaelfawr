@@ -14,7 +14,7 @@ from gafaelfawr.token_store import TokenStore
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
-    from aiohttp import ClientSession, web
+    from aiohttp import ClientSession
     from aioredis import Redis
     from cachetools import TTLCache
     from gafaelfawr.config import Config
@@ -38,31 +38,28 @@ class ComponentFactory:
 
     def __init__(
         self,
+        *,
         config: Config,
         redis: Redis,
         key_cache: TTLCache,
-        http_session: Optional[ClientSession],
+        http_session: ClientSession,
+        logger: Optional[BoundLogger] = None,
     ) -> None:
+        if not logger:
+            logger = structlog.get_logger("gafaelfawr")
+
         self._config = config
         self._redis = redis
         self._key_cache = key_cache
         self._http_session = http_session
+        self._logger = logger
 
-    def create_provider(
-        self, request: web.Request, logger: BoundLogger
-    ) -> Provider:
+    def create_provider(self) -> Provider:
         """Create an authentication provider.
 
         Create a provider object for the configured external authentication
         provider.  Takes the incoming request to get access to the per-request
         logger and the client HTTP session.
-
-        Parameters
-        ----------
-        request : `aiohttp.web.Request`
-            The incoming request, used to get the `~aiohttp.ClientSession`.
-        logger : `structlog.BoundLogger`
-            The logger to use.
 
         Returns
         -------
@@ -74,55 +71,41 @@ class ComponentFactory:
         NotImplementedError
             None of the authentication providers are configured.
         """
-        http_session = self.create_http_session(request)
         issuer = self.create_token_issuer()
-        session_store = self.create_session_store(request)
+        session_store = self.create_session_store()
         if self._config.github:
             return GitHubProvider(
                 config=self._config.github,
-                http_session=http_session,
+                http_session=self._http_session,
                 issuer=issuer,
                 session_store=session_store,
-                logger=logger,
+                logger=self._logger,
             )
         elif self._config.oidc:
-            token_verifier = self.create_token_verifier(request)
+            token_verifier = self.create_token_verifier()
             return OIDCProvider(
                 config=self._config.oidc,
                 verifier=token_verifier,
                 issuer=issuer,
                 session_store=session_store,
-                http_session=http_session,
-                logger=logger,
+                http_session=self._http_session,
+                logger=self._logger,
             )
         else:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
 
-    def create_session_store(
-        self,
-        request: Optional[web.Request] = None,
-        logger: Optional[BoundLogger] = None,
-    ) -> SessionStore:
+    def create_session_store(self) -> SessionStore:
         """Create a SessionStore.
-
-        Parameters
-        ----------
-        request : `aiohttp.web.Request`
-            The incoming request, used to get the `~aiohttp.ClientSession`.
-        logger : `structlog.BoundLogger`, optional
-            The logger to use.  If not given, the base logger will be used.
 
         Returns
         -------
         session_store : `gafaelfawr.session.SessionStore`
             A new SessionStore.
         """
-        if not logger:
-            logger = structlog.get_logger("gafaelfawr")
         key = self._config.session_secret
-        verifier = self.create_token_verifier(request)
-        return SessionStore(key, verifier, self._redis, logger)
+        verifier = self.create_token_verifier()
+        return SessionStore(key, verifier, self._redis, self._logger)
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.
@@ -134,79 +117,27 @@ class ComponentFactory:
         """
         return TokenIssuer(self._config.issuer)
 
-    def create_token_store(
-        self, logger: Optional[BoundLogger] = None
-    ) -> TokenStore:
+    def create_token_store(self) -> TokenStore:
         """Create a TokenStore.
-
-        Parameters
-        ----------
-        logger : `structlog.BoundLogger`, optional
-            The logger to use.  If not given, the base logger will be used.
 
         Returns
         -------
         token_store : `gafaelfawr.tokens.TokenStore`
             A new TokenStore.
         """
-        if not logger:
-            logger = structlog.get_logger("gafaelfawr")
-        return TokenStore(self._redis, logger)
+        return TokenStore(self._redis, self._logger)
 
-    def create_token_verifier(
-        self,
-        request: Optional[web.Request] = None,
-        logger: Optional[BoundLogger] = None,
-    ) -> TokenVerifier:
+    def create_token_verifier(self) -> TokenVerifier:
         """Create a TokenVerifier from a web request.
-
-        Parameters
-        ----------
-        request : `aiohttp.web.Request`, optional
-            The incoming request, used to get the `~aiohttp.ClientSession`.
-            This may be omitted only in the test suite, which provides a mock
-            `~aiohttp.ClientSession` via a different mechanism.
-        logger : `structlog.BoundLogger`, optional
-            The logger to use.  If not given, the base logger will be used.
 
         Returns
         -------
         token_verifier : `gafaelfawr.verify.TokenVerifier`
             A new TokenVerifier.
         """
-        if not logger:
-            logger = structlog.get_logger("gafaelfawr")
-        http_session = self.create_http_session(request)
         return TokenVerifier(
-            self._config.verifier, http_session, self._key_cache, logger
+            self._config.verifier,
+            self._http_session,
+            self._key_cache,
+            self._logger,
         )
-
-    def create_http_session(
-        self, request: Optional[web.Request] = None
-    ) -> ClientSession:
-        """Create an aiohttp client session.
-
-        Parameters
-        ----------
-        request : `aiohttp.web.Request`
-            The incoming request, used to get the Safir-created session.
-
-        Returns
-        -------
-        http_session : `aiohttp.ClientSession`
-            An aiohttp client session.
-
-        Notes
-        -----
-        Normally, we use the HTTP session put into the app by Safir.  This is
-        not created at the time the component factory is initialized during
-        app creation, so we pull it from the request.
-
-        However, in the test suite, we create a mock HTTP client session,
-        which is injected into the component factory on creation.  In that
-        case, we prefer that one.
-        """
-        if self._http_session:
-            return self._http_session
-        assert request
-        return request.config_dict["safir/http_session"]

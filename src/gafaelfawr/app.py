@@ -24,7 +24,6 @@ from safir.middleware import bind_logger
 from structlog import get_logger
 
 from gafaelfawr.config import Config
-from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.handlers import init_routes
 
 if TYPE_CHECKING:
@@ -77,12 +76,11 @@ async def create_app(
     key_cache = TTLCache(maxsize=16, ttl=600)
     if not redis_pool:
         redis_pool = await aioredis.create_redis_pool(config.redis_url)
-    factory = ComponentFactory(config, redis_pool, key_cache, http_session)
 
     app = Application()
     app["safir/config"] = config.safir
     app["gafaelfawr/config"] = config
-    app["gafaelfawr/factory"] = factory
+    app["gafaelfawr/key_cache"] = key_cache
     app["gafaelfawr/redis"] = redis_pool
     setup_metadata(package_name="gafaelfawr", app=app)
     await setup_middleware(app, config)

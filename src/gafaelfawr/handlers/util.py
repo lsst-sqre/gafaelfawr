@@ -10,12 +10,14 @@ from typing import TYPE_CHECKING
 import jwt
 from aiohttp import web
 
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
+    from aiohttp import ClientSession
     from aioredis import Redis
+    from cachetools import TTLCache
     from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.tokens import VerifiedToken
     from structlog import BoundLogger
     from typing import Optional
@@ -106,9 +108,6 @@ class RequestContext:
     config: Config
     """Gafaelfawr's configuration."""
 
-    factory: ComponentFactory
-    """A factory for constructing Gafaelfawr components."""
-
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
 
@@ -130,15 +129,33 @@ class RequestContext:
             The newly-created context.
         """
         config: Config = request.config_dict["gafaelfawr/config"]
-        factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-        logger: BoundLogger = request["safir/logger"]
         redis: Redis = request.config_dict["gafaelfawr/redis"]
-        return cls(
-            request=request,
-            config=config,
-            factory=factory,
-            logger=logger,
-            redis=redis,
+        logger: BoundLogger = request["safir/logger"]
+
+        return cls(request=request, config=config, logger=logger, redis=redis)
+
+    @property
+    def factory(self) -> ComponentFactory:
+        """A factory for constructing Gafaelfawr components.
+
+        This is constructed on the fly at each reference to ensure that we get
+        the latest logger, which may have additional bound context.
+        """
+        key_cache: TTLCache = self.request.config_dict["gafaelfawr/key_cache"]
+
+        # Tests inject an override http_session in the config dict.
+        http_session: ClientSession = self.request.config_dict.get(
+            "safir/http_session"
+        )
+        if not http_session:
+            http_session = self.request["safir/http_session"]
+
+        return ComponentFactory(
+            config=self.config,
+            redis=self.redis,
+            key_cache=key_cache,
+            http_session=http_session,
+            logger=self.logger,
         )
 
 
@@ -175,9 +192,7 @@ def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
         If the token is missing required claims.
     """
     token = Token(encoded=encoded_token)
-    token_verifier = context.factory.create_token_verifier(
-        context.request, context.logger
-    )
+    token_verifier = context.factory.create_token_verifier()
     try:
         return token_verifier.verify_internal_token(token)
     except jwt.InvalidTokenError as e:
