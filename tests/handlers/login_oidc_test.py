@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY, Mock
 from urllib.parse import parse_qs, urlparse
 
-from aiohttp import ClientResponse, ClientResponseError
+from aiohttp import ClientConnectionError, ClientResponse, ClientResponseError
 
 from gafaelfawr.constants import ALGORITHM
 
@@ -303,3 +303,34 @@ async def test_token_error(
     )
     assert r.status == 500
     assert "Cannot contact authentication provider" in await r.text()
+
+
+async def test_connection_error(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup("oidc")
+    assert setup.config.oidc
+
+    # Simulate the initial authentication request.
+    return_url = f"https://{setup.client.host}/foo"
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Build a mock error response.
+    response = Mock(spec=ClientResponse)
+    response.status = 500
+    response.raise_for_status = Mock(
+        side_effect=ClientConnectionError("no one is listening")
+    )
+    setup.set_oidc_token_response(response)
+
+    # Check that the error is shown to the user.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 500
+    assert "no one is listening" in await r.text()

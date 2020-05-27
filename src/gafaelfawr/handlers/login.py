@@ -6,7 +6,7 @@ import base64
 import os
 from urllib.parse import urlparse
 
-from aiohttp import ClientResponseError, web
+from aiohttp import ClientError, web
 from aiohttp_session import get_session, new_session
 
 from gafaelfawr.handlers import routes
@@ -174,10 +174,10 @@ async def handle_provider_return(request: web.Request) -> web.Response:
     except ProviderException as e:
         context.logger.warning("Provider authentication failed", error=str(e))
         raise web.HTTPInternalServerError(reason=str(e), text=str(e))
-    except ClientResponseError as e:
+    except ClientError as e:
         msg = "Cannot contact authentication provider"
         context.logger.exception(msg, error=str(e))
-        raise web.HTTPInternalServerError(reason=msg, text=msg)
+        raise web.HTTPInternalServerError(reason=msg, text=f"{msg}: {str(e)}")
 
     # Store the session and send the user back to what they were doing.
     session = await new_session(request)
