@@ -110,6 +110,9 @@ async def get_auth(request: web.Request) -> web.Response:
 
     The following headers may be set in the response:
 
+    X-Auth-Request-Client-Ip
+        The IP address of the client, as determined after parsing
+        X-Forwarded-For headers.
     X-Auth-Request-Email
         If enabled and email is available, this will be set based on the
         ``email`` claim.
@@ -207,7 +210,7 @@ async def get_auth(request: web.Request) -> web.Response:
     # Log and return the results.
     context.logger.info("Token authorized")
     token = maybe_reissue_token(context, token)
-    headers = build_success_headers(auth_config, token)
+    headers = build_success_headers(request, auth_config, token)
     return web.Response(headers=headers, text="ok")
 
 
@@ -537,12 +540,14 @@ def maybe_reissue_token(
 
 
 def build_success_headers(
-    auth_config: AuthConfig, token: VerifiedToken
+    request: web.Request, auth_config: AuthConfig, token: VerifiedToken
 ) -> Dict[str, str]:
     """Construct the headers for successful authorization.
 
     Parameters
     ----------
+    request : `aiohttp.web.Request`
+        The incoming request.
     auth_config : `AuthConfig`
         Configuration parameters for the authorization.
     token : `gafaelfawr.tokens.VerifiedToken`
@@ -554,6 +559,7 @@ def build_success_headers(
         Headers to include in the response.
     """
     headers = {
+        "X-Auth-Request-Client-Ip": request.remote,
         "X-Auth-Request-Scopes-Accepted": " ".join(sorted(auth_config.scopes)),
         "X-Auth-Request-Scopes-Satisfy": auth_config.satisfy.name.lower(),
         "X-Auth-Request-User": token.username,

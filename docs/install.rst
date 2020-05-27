@@ -270,6 +270,10 @@ Additional authentication headers
 The following headers may be requested by the application by adding them to the ``nginx.ingress.kubernetes.io/auth-response-headers`` annotation for the ingress rule.
 The value of that annotation is a comma-separated list of desired headers.
 
+``X-Auth-Request-Client-Ip``
+    The IP address of the client, as determined after parsing ``X-Forwarded-For`` headers.
+    See :ref:`client-ips` for more information.
+
 ``X-Auth-Request-Email``
     If enabled and the claim is available, this will be set based on the ``email`` claim in the token.
 

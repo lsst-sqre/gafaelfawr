@@ -10,6 +10,7 @@ Python 3.8 or later is now required.
 
 - Require Python 3.8 and drop Python 3.7 support.
 - Include ``token_source`` in logs of the ``/auth`` route to record how the client passed in the authentication token.
+- Set the ``X-Auth-Request-Client-Ip`` header to the calculated client IP on a successful reply from the ``/auth`` route.
 - The output from the ``/auth/analyze`` route is now sorted and formatted to be easier for humans to read and compare.
 - Include more information in the user-facing error message when a connection to the authentication provider's callback endpoint fails.
 

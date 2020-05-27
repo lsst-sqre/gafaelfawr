@@ -459,6 +459,7 @@ async def test_logging(
         },
     )
     assert r.status == 200
+    assert r.headers["X-Auth-Request-Client-Ip"] == "192.0.2.1"
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "auth_uri": "/foo",
@@ -575,6 +576,7 @@ async def test_logging(
         },
     )
     assert r.status == 200
+    assert r.headers["X-Auth-Request-Client-Ip"] == "10.255.4.3"
     data = json.loads(caplog.record_tuples[0][2])
     assert data == {
         "auth_uri": "/foo",
