@@ -30,22 +30,27 @@ __all__ = [
     "TokenVerifier",
     "UnknownAlgorithmException",
     "UnknownKeyIdException",
+    "VerifyTokenException",
 ]
 
 
-class FetchKeysException(Exception):
+class VerifyTokenException(Exception):
+    """Base exception class for failure in verifying a token."""
+
+
+class FetchKeysException(VerifyTokenException):
     """Cannot retrieve the keys from an issuer."""
 
 
-class MissingClaimsException(Exception):
+class MissingClaimsException(VerifyTokenException):
     """The token is missing required claims."""
 
 
-class UnknownAlgorithmException(Exception):
+class UnknownAlgorithmException(VerifyTokenException):
     """The issuer key was for an unsupported algorithm."""
 
 
-class UnknownKeyIdException(Exception):
+class UnknownKeyIdException(VerifyTokenException):
     """The reqeusted key ID was not found for an issuer."""
 
 
@@ -157,8 +162,8 @@ class TokenVerifier:
         ------
         jwt.exceptions.InvalidTokenError
             The token is invalid or the issuer is unknown.
-        MissingClaimsException
-            The token is missing required claims.
+        VerifyTokenException
+            The token failed to verify or was invalid in some way.
         """
         unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
@@ -337,11 +342,11 @@ class TokenVerifier:
             raise FetchKeysException(msg)
 
         body = await r.json()
-        if "keys" not in body:
+        try:
+            return body["keys"]
+        except Exception:
             msg = f"No keys property in JWKS metadata for {url}"
             raise FetchKeysException(msg)
-
-        return body["keys"]
 
     async def _get_jwks_uri(self, issuer_url: str) -> Optional[str]:
         """Retrieve the JWKS URI for a given issuer.
@@ -372,8 +377,8 @@ class TokenVerifier:
             return None
 
         body = await r.json()
-        if "jwks_uri" not in body:
+        try:
+            return body["jwks_uri"]
+        except Exception:
             msg = f"No jwks_uri property in OIDC metadata for {issuer_url}"
             raise FetchKeysException(msg)
-
-        return body["jwks_uri"]

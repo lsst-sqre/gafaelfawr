@@ -202,7 +202,7 @@ async def test_oauth2_callback(create_test_setup: SetupTestCallable) -> None:
     assert r.headers["Location"] == return_url
 
 
-async def test_token_error(
+async def test_callback_error(
     create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
@@ -355,3 +355,30 @@ async def test_connection_error(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 500
     assert "no one is listening" in await r.text()
+
+
+async def test_verify_error(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup("oidc")
+    token = setup.create_oidc_token(groups=["admin"])
+    setup.set_oidc_token_response("some-code", token)
+    assert setup.config.oidc
+
+    # Simulate the initial authentication request.
+    return_url = f"https://{setup.client.host}/foo"
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False,
+    )
+    assert r.status == 303
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Returning from OpenID Connect login should fail because we haven't
+    # registered the signing key, and therefore attempting to retrieve it will
+    # fail, causing a token verification error.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status == 500
+    assert "token verification failed" in await r.text()
