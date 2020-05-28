@@ -73,8 +73,10 @@ class XForwardedFiltered(XForwardedBase):
             if not forwarded_for:
                 return await handler(request)
 
+            index = 0
             for ip in forwarded_for:
                 if any((ip in network for network in self._trusted)):
+                    index += 1
                     continue
                 overrides["remote"] = str(ip)
                 break
@@ -82,11 +84,18 @@ class XForwardedFiltered(XForwardedBase):
             # If all the IP addresses are from trusted networks, take the
             # left-most.
             if "remote" not in overrides:
+                index = -1
                 overrides["remote"] = str(forwarded_for[-1])
 
-            proto = self.get_forwarded_proto(headers)
+            # Ideally this should take the scheme corresponding to the entry
+            # in X-Forwarded-For that was chosen, but some proxies (the
+            # Kubernetes NGINX ingress, for example) only retain one element
+            # in X-Forwarded-Proto.  In that case, use what we have.
+            proto = list(reversed(self.get_forwarded_proto(headers)))
             if proto:
-                overrides["scheme"] = proto[-1]
+                if index >= len(proto):
+                    index = -1
+                overrides["scheme"] = proto[index]
 
             host = self.get_forwarded_host(headers)
             if host is not None:
