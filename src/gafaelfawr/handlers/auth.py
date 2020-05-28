@@ -562,11 +562,10 @@ def build_success_headers(
         "X-Auth-Request-Client-Ip": request.remote,
         "X-Auth-Request-Scopes-Accepted": " ".join(sorted(auth_config.scopes)),
         "X-Auth-Request-Scopes-Satisfy": auth_config.satisfy.name.lower(),
+        "X-Auth-Request-Token-Scopes": " ".join(sorted(token.scope)),
         "X-Auth-Request-User": token.username,
         "X-Auth-Request-Uid": token.uid,
     }
-    if token.scope:
-        headers["X-Auth-Request-Token-Scopes"] = " ".join(sorted(token.scope))
     if token.email:
         headers["X-Auth-Request-Email"] = token.email
 

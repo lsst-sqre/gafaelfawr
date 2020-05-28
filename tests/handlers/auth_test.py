@@ -106,6 +106,26 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
     assert not authenticate.scope
 
 
+async def test_invalid(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
+
+    r = await setup.client.get("/auth")
+    assert r.status == 400
+    assert "scope parameter not set" in await r.text()
+
+    r = await setup.client.get(
+        "/auth", params={"scope": "exec:admin", "satisfy": "foo"}
+    )
+    assert r.status == 400
+    assert "satisfy parameter must be any or all" in await r.text()
+
+    r = await setup.client.get(
+        "/auth", params={"scope": "exec:admin", "auth_type": "foo"}
+    )
+    assert r.status == 400
+    assert "auth_type parameter must be basic or bearer" in await r.text()
+
+
 async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
 
@@ -113,6 +133,17 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer"},
+    )
+    assert r.status == 400
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_request
+
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": "token foo"},
     )
     assert r.status == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
@@ -311,6 +342,18 @@ async def test_basic(create_test_setup: SetupTestCallable) -> None:
 
 async def test_basic_failure(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
+
+    basic_b64 = base64.b64encode(b"bogus-string").decode()
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
+    assert r.status == 400
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_request
 
     for basic in (b"foo:foo", b"x-oauth-basic:foo", b"foo:x-oauth-basic"):
         basic_b64 = base64.b64encode(basic).decode()
