@@ -10,7 +10,7 @@ from cachetools.keys import hashkey
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from jwt.exceptions import InvalidKeyError
+from jwt.exceptions import InvalidIssuerError
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.tokens import VerifiedToken
@@ -165,8 +165,10 @@ class TokenVerifier:
             token.encoded, algorithms=ALGORITHM, verify=False
         )
         if "iss" not in unverified_token:
-            raise InvalidKeyError("No iss claim in token")
+            raise InvalidIssuerError("No iss claim in token")
         issuer_url = unverified_token["iss"]
+        if "kid" not in unverified_header:
+            raise UnknownKeyIdException("No kid in token header")
         key_id = unverified_header["kid"]
 
         if "jti" in unverified_token:
@@ -179,7 +181,7 @@ class TokenVerifier:
             self._logger.debug("Verifying token from issuer %s", issuer_url)
 
         if issuer_url != self._config.oidc_iss:
-            raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
+            raise InvalidIssuerError(f"Unknown issuer: {issuer_url}")
         if self._config.oidc_kids:
             if key_id not in self._config.oidc_kids:
                 msg = f"kid {key_id} not allowed for {issuer_url}"
@@ -277,6 +279,7 @@ class TokenVerifier:
         keys = await self._get_keys(issuer_url)
 
         # Find the key that we want.
+        key = None
         for k in keys:
             if key_id == k["kid"]:
                 key = k
