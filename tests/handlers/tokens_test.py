@@ -230,7 +230,7 @@ async def test_tokens_new_create(
 
     # Creating without a CSRF token will fail.
     r = await setup.client.post(
-        f"/auth/tokens/new",
+        "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y"},
     )
@@ -238,7 +238,7 @@ async def test_tokens_new_create(
 
     # Creating with a bogus CSRF token will fail.
     r = await setup.client.post(
-        f"/auth/tokens/new",
+        "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y", "_csrf": csrf_token + "xxxx"},
     )
@@ -267,7 +267,7 @@ async def test_tokens_new_create(
         "level": "info",
         "logger": "gafaelfawr",
         "method": "POST",
-        "path": f"/auth/tokens/new",
+        "path": "/auth/tokens/new",
         "remote": "127.0.0.1",
         "request_id": ANY,
         "scope": " ".join(sorted(token.scope)),

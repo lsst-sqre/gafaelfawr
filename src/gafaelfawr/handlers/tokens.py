@@ -251,7 +251,7 @@ async def post_tokens_new(
     }
     form = build_new_token_form(scopes, await request.post())
     if not form.validate():
-        msg = f"Form validation failed"
+        msg = "Form validation failed"
         context.logger.warning(msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
 

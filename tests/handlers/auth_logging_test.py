@@ -201,7 +201,7 @@ async def test_invalid_token(
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
-        headers={"Authorization": f"Bearer blah"},
+        headers={"Authorization": "Bearer blah"},
     )
     assert r.status == 401
     data = json.loads(caplog.record_tuples[-1][2])
