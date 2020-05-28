@@ -3,22 +3,27 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import ANY, Mock
+from urllib.parse import urljoin
 
+from aiohttp import ClientResponse
 from cachetools import TTLCache
 
 from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.session import Session, SessionHandle
-from tests.support.http_session import MockClientSession
 from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
-    from aiohttp import ClientResponse, web
+    from aiohttp import web
     from aiohttp.pytest_plugin.test_utils import TestClient
     from aioredis import Redis
     from gafaelfawr.config import Config
     from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.tokens import Token, VerifiedToken
-    from typing import Awaitable, Callable, List, Optional, Union
+    from tests.support.http_session import MockClientSession
+    from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
 
 class SetupTest:
@@ -54,6 +59,11 @@ class SetupTest:
         """
         assert self._client
         return self._client
+
+    @property
+    def http_session(self) -> MockClientSession:
+        """Return the mock ClientSession used for outbound calls."""
+        return self.app["safir/http_session"]
 
     async def create_session(
         self, *, groups: Optional[List[str]] = None, **claims: str
@@ -104,12 +114,19 @@ class SetupTest:
         )
 
     def create_oidc_token(
-        self, *, groups: Optional[List[str]] = None, **claims: str
+        self,
+        *,
+        kid: Optional[str] = None,
+        groups: Optional[List[str]] = None,
+        **claims: str,
     ) -> VerifiedToken:
         """Create a signed OpenID Connect token.
 
         Parameters
         ----------
+        kid : `str`, optional
+            Key ID for the token header.  Defaults to the first key in the
+            key_ids configuration for the OpenID Connect provider.
         groups : List[`str`], optional
             Group memberships the generated token should have.
         **claims : `str`, optional
@@ -120,42 +137,186 @@ class SetupTest:
         token : `gafaelfawr.tokens.VerifiedToken`
             The generated token.
         """
-        return create_oidc_test_token(self.config, groups=groups, **claims)
+        if not kid:
+            assert self.config.oidc
+            kid = self.config.oidc.key_ids[0]
+        return create_oidc_test_token(
+            self.config, kid, groups=groups, **claims
+        )
 
-    def set_github_userinfo(self, userinfo: GitHubUserInfo) -> None:
+    def set_github_userinfo_response(
+        self, token: str, userinfo: GitHubUserInfo
+    ) -> None:
         """Set the GitHub user information to return from the GitHub API.
 
         Parameters
         ----------
+        token : `str`
+            The token that the client must send.
         userinfo : `gafaelfawr.providers.github.GitHubUserInfo`
             User information to use to synthesize GitHub API responses.
         """
-        http_session: MockClientSession = self.app["safir/http_session"]
-        http_session.set_github_userinfo(userinfo)
+        assert self.config.github
 
-    def set_oidc_token(self, token: Token) -> None:
+        def user_handler(
+            headers: Dict[str, str], raise_for_status: bool
+        ) -> ClientResponse:
+            assert headers == {"Authorization": f"token {token}"}
+            assert raise_for_status
+            response = {
+                "login": userinfo.username,
+                "id": userinfo.uid,
+                "name": userinfo.name,
+            }
+            return self._build_json_response(response)
+
+        def teams_handler(
+            headers: Dict[str, str], raise_for_status: bool
+        ) -> ClientResponse:
+            assert headers == {"Authorization": f"token {token}"}
+            assert raise_for_status
+            response = []
+            for team in userinfo.teams:
+                data = {
+                    "slug": team.slug,
+                    "id": team.gid,
+                    "organization": {"login": team.organization},
+                }
+                response.append(data)
+            return self._build_json_response(response)
+
+        def emails_handler(
+            headers: Dict[str, str], raise_for_status: bool
+        ) -> ClientResponse:
+            assert headers == {"Authorization": f"token {token}"}
+            assert raise_for_status
+            response = [
+                {"email": "otheremail@example.com", "primary": False},
+                {"email": userinfo.email, "primary": True},
+            ]
+            return self._build_json_response(response)
+
+        self.http_session.add_get_handler(
+            GitHubProvider._USER_URL, user_handler
+        )
+        self.http_session.add_get_handler(
+            GitHubProvider._TEAMS_URL, teams_handler
+        )
+        self.http_session.add_get_handler(
+            GitHubProvider._EMAILS_URL, emails_handler
+        )
+
+    def set_github_token_response(self, code: str, token: str) -> None:
+        """Set the token that will be returned GitHub token endpoint.
+
+        Parameters
+        ----------
+        code : `str`
+            The code that Gafaelfawr must send.
+        token : `str`
+            The token to return, which will be expected by the user info
+            endpoings.
+        """
+        assert self.config.github
+
+        def handler(
+            data: Dict[str, str],
+            headers: Dict[str, str],
+            raise_for_status: bool,
+        ) -> ClientResponse:
+            assert self.config.github
+            assert raise_for_status
+            assert headers == {"Accept": "application/json"}
+            assert data == {
+                "client_id": self.config.github.client_id,
+                "client_secret": self.config.github.client_secret,
+                "code": code,
+                "state": ANY,
+            }
+            response = {
+                "access_token": token,
+                "scope": ",".join(GitHubProvider._SCOPES),
+                "token_type": "bearer",
+            }
+            return self._build_json_response(response)
+
+        self.http_session.add_post_handler(GitHubProvider._TOKEN_URL, handler)
+
+    def set_oidc_configuration_response(
+        self, keypair: RSAKeyPair, kid: Optional[str] = None
+    ) -> None:
+        """Register the callbacks for upstream signing key configuration.
+
+        Parameters
+        ----------
+        keypair : `gafaelfawr.keypair.RSAKeyPair`
+            The key pair used to sign the token, which will be used to
+            register the keys callback.
+        kid : `str`, optional
+            Key ID for the key.  If not given, defaults to the first key ID in
+            the configured key_ids list.
+        """
+        assert self.config.oidc
+        iss = self.config.oidc.issuer
+        config_url = urljoin(iss, "/.well-known/openid-configuration")
+        jwks_url = urljoin(iss, "/jwks.json")
+        oidc_kid = kid if kid else self.config.oidc.key_ids[0]
+
+        def config_handler(
+            headers: Dict[str, str], raise_for_status: bool
+        ) -> ClientResponse:
+            return self._build_json_response({"jwks_uri": jwks_url})
+
+        def jwks_handler(
+            headers: Dict[str, str], raise_for_status: bool
+        ) -> ClientResponse:
+            jwks = keypair.public_key_as_jwks(oidc_kid)
+            return self._build_json_response({"keys": [jwks]})
+
+        self.http_session.add_get_handler(config_url, config_handler)
+        self.http_session.add_get_handler(jwks_url, jwks_handler)
+
+    def set_oidc_token_response(self, code: str, token: Token) -> None:
         """Set the token that will be returned from the OIDC token endpoint.
 
         Parameters
         ----------
+        code : `str`
+            The code that Gafaelfawr must send.
         token : `gafaelfawr.tokens.Token`
             The token.
         """
-        http_session: MockClientSession = self.app["safir/http_session"]
-        http_session.set_oidc_token(token)
+        assert self.config.oidc
 
-    def set_oidc_token_response(self, response: ClientResponse) -> None:
-        """Set the raw response from the OIDC token request.
+        def handler(
+            data: Dict[str, str],
+            headers: Dict[str, str],
+            raise_for_status: bool,
+        ) -> ClientResponse:
+            assert self.config.oidc
+            assert headers == {"Accept": "application/json"}
+            assert data == {
+                "grant_type": "authorization_code",
+                "client_id": self.config.oidc.client_id,
+                "client_secret": self.config.oidc.client_secret,
+                "code": code,
+                "redirect_uri": self.config.oidc.redirect_url,
+            }
+            response = {
+                "id_token": token.encoded,
+                "token_type": "Bearer",
+            }
+            return self._build_json_response(response)
 
-        Used to test error handling.
+        self.http_session.add_post_handler(self.config.oidc.token_url, handler)
 
-        Parameters
-        ----------
-        response : `aiohttp.ClientResponse`
-            The raw response to return (probably mocked).
-        """
-        http_session: MockClientSession = self.app["safir/http_session"]
-        http_session.set_oidc_token_response(response)
+    @staticmethod
+    def _build_json_response(response: Any) -> ClientResponse:
+        """Build a successful aiohttp client response."""
+        r = Mock(spec=ClientResponse)
+        r.json.return_value = response
+        r.status = 200
+        return r
 
 
 # Type of the pytest fixture that builds the SetupTest object.

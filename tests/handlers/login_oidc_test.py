@@ -14,6 +14,7 @@ from gafaelfawr.constants import ALGORITHM
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
+    from typing import Dict
 
 
 async def test_login(
@@ -21,7 +22,8 @@ async def test_login(
 ) -> None:
     setup = await create_test_setup("oidc")
     token = setup.create_oidc_token(groups=["admin"])
-    setup.set_oidc_token(token)
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     assert setup.config.oidc
 
     # Simulate the initial authentication request.
@@ -43,6 +45,8 @@ async def test_login(
         "state": [ANY],
         **login_params,
     }
+
+    # Verify the logging.
     data = json.loads(caplog.record_tuples[-1][2])
     login_url = setup.config.oidc.login_url
     assert data == {
@@ -58,7 +62,6 @@ async def test_login(
     }
 
     # Simulate the return from the provider.
-    caplog.clear()
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -67,6 +70,7 @@ async def test_login(
     assert r.status == 303
     assert r.headers["Location"] == return_url
 
+    # Verify the logging.
     expected_scopes_set = setup.config.issuer.group_mapping["admin"]
     expected_scopes = " ".join(sorted(expected_scopes_set))
     data = json.loads(caplog.record_tuples[-1][2])
@@ -146,7 +150,8 @@ async def test_login_redirect_header(
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     setup = await create_test_setup("oidc")
     token = setup.create_oidc_token(groups=["admin"])
-    setup.set_oidc_token(token)
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}/foo?a=bar&b=baz"
@@ -173,7 +178,8 @@ async def test_oauth2_callback(create_test_setup: SetupTestCallable) -> None:
     """Test the compatibility /oauth2/callback route."""
     setup = await create_test_setup("oidc")
     token = setup.create_oidc_token(groups=["admin"])
-    setup.set_oidc_token(token)
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     assert setup.config.oidc
 
     # Simulate the initial authentication request.
@@ -212,15 +218,24 @@ async def test_token_error(
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
-    # Build a mock error response.
+    # Build an error response to return from the OIDC token URL.
     response = Mock(spec=ClientResponse)
-    response_body = {"error": "error_code", "error_description": "description"}
-    response.json.return_value = response_body
+    response.json.return_value = {
+        "error": "error_code",
+        "error_description": "description",
+    }
     response.status = 400
-    response.raise_for_status = Mock(
-        side_effect=ClientResponseError(Mock(), ())
-    )
-    setup.set_oidc_token_response(response)
+    response.raise_for_status.side_effect = ClientResponseError(Mock(), ())
+
+    # Build a handler for the token URL that returns that error.
+    def handler(
+        data: Dict[str, str], headers: Dict[str, str], raise_for_status: bool
+    ) -> ClientResponse:
+        assert headers == {"Accept": "application/json"}
+        return response
+
+    # Register it.
+    setup.http_session.add_post_handler(setup.config.oidc.token_url, handler)
 
     # Simulate the return from the OpenID Connect provider.
     caplog.clear()
@@ -318,13 +333,19 @@ async def test_connection_error(create_test_setup: SetupTestCallable) -> None:
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
-    # Build a mock error response.
-    response = Mock(spec=ClientResponse)
-    response.status = 500
-    response.raise_for_status = Mock(
-        side_effect=ClientConnectionError("no one is listening")
-    )
-    setup.set_oidc_token_response(response)
+    # Build a mock error handler.
+    def handler(
+        data: Dict[str, str], headers: Dict[str, str], raise_for_status: bool
+    ) -> ClientResponse:
+        response = Mock(spec=ClientResponse)
+        response.status = 500
+        response.raise_for_status = Mock(
+            side_effect=ClientConnectionError("no one is listening")
+        )
+        return response
+
+    # Register it.
+    setup.http_session.add_post_handler(setup.config.oidc.token_url, handler)
 
     # Check that the error is shown to the user.
     r = await setup.client.get(

@@ -41,7 +41,7 @@ async def test_analyze(create_test_setup: SetupTestCallable) -> None:
     verifier = setup.factory.create_token_verifier()
 
     # Unknown issuer.
-    token = setup.create_oidc_token()
+    token = setup.create_oidc_token(kid="kid")
     data = verifier.analyze_token(token)
     assert data == {
         "header": {"alg": ALGORITHM, "kid": ANY, "typ": "JWT"},
@@ -92,6 +92,7 @@ async def test_verify_oidc(create_test_setup: SetupTestCallable) -> None:
     assert str(excinfo.value) == expected
 
     # Missing username claim.
+    setup.set_oidc_configuration_response(keypair)
     kid = setup.config.verifier.oidc_kids[0]
     token = encode_token(payload, setup.config.issuer.keypair, kid=kid)
     with pytest.raises(MissingClaimsException) as excinfo:
@@ -113,6 +114,7 @@ async def test_verify_oidc_no_kids(
 ) -> None:
     setup = await create_test_setup(environment="oidc-no-kids", client=False)
     verifier = setup.factory.create_token_verifier()
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair, "kid")
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)

@@ -11,8 +11,9 @@ if TYPE_CHECKING:
 
 
 async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(client=False)
+    setup = await create_test_setup(environment="oidc", client=False)
     issuer = setup.factory.create_token_issuer()
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
     local_token = setup.create_token()
     claims = {
@@ -50,8 +51,9 @@ async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
 async def test_reissue_token_scope(
     create_test_setup: SetupTestCallable,
 ) -> None:
-    setup = await create_test_setup(client=False)
+    setup = await create_test_setup(environment="oidc", client=False)
     issuer = setup.factory.create_token_issuer()
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
     oidc_token = setup.create_oidc_token(groups=["user"], scope="read:all")
     reissued_token = issuer.reissue_token(oidc_token, jti="new-jti")
@@ -63,8 +65,9 @@ async def test_reissue_token_scope(
 
 
 async def test_reissue_token_jti(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(client=False)
+    setup = await create_test_setup(environment="oidc", client=False)
     issuer = setup.factory.create_token_issuer()
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
     oidc_token = setup.create_oidc_token()
     reissued_token = issuer.reissue_token(oidc_token, jti="new-jti")

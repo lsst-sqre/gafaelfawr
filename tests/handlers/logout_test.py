@@ -18,6 +18,7 @@ async def test_logout(
     create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
 ) -> None:
     setup = await create_test_setup("github")
+    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -25,7 +26,7 @@ async def test_logout(
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    setup.set_github_userinfo(userinfo)
+    setup.set_github_userinfo_response("some-github-token", userinfo)
 
     # Simulate the initial authentication request.
     r = await setup.client.get(
@@ -74,6 +75,7 @@ async def test_logout(
 
 async def test_logout_with_url(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup("github")
+    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -81,7 +83,7 @@ async def test_logout_with_url(create_test_setup: SetupTestCallable) -> None:
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    setup.set_github_userinfo(userinfo)
+    setup.set_github_userinfo_response("some-github-token", userinfo)
 
     # Simulate the initial authentication request.
     r = await setup.client.get(

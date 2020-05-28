@@ -99,14 +99,11 @@ async def create_test_app(
         github_secret_file=github_secret_file,
         oidc_secret_file=oidc_secret_file,
     )
-    redis_pool = await mockaioredis.create_redis_pool("")
-    http_session = MockClientSession()
     app = await create_app(
         settings_path=str(settings_path),
-        redis_pool=redis_pool,
-        http_session=http_session,
+        redis_pool=await mockaioredis.create_redis_pool(""),
+        http_session=MockClientSession(),
         **settings,
     )
-    http_session.set_config(app["gafaelfawr/config"])
 
     return app
