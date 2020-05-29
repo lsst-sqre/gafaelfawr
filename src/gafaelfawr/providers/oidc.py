@@ -5,9 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
+import jwt
+
 from gafaelfawr.providers.base import Provider, ProviderException
 from gafaelfawr.session import Session, SessionHandle
 from gafaelfawr.tokens import Token
+from gafaelfawr.verify import VerifyTokenException
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
@@ -150,7 +153,11 @@ class OIDCProvider(Provider):
 
         # Extract and verify the token.
         unverified_token = Token(encoded=result["id_token"])
-        token = await self._verifier.verify_oidc_token(unverified_token)
+        try:
+            token = await self._verifier.verify_oidc_token(unverified_token)
+        except (jwt.InvalidTokenError, VerifyTokenException) as e:
+            msg = f"OpenID Connect token verification failed: {str(e)}"
+            raise OIDCException(msg)
 
         # Store it as a session and return the session.
         handle = SessionHandle()

@@ -2,23 +2,18 @@
 
 from __future__ import annotations
 
-import sys
-from asyncio import Future
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, Mock
-from urllib.parse import urljoin
+from unittest.mock import Mock
 
 from aiohttp import ClientResponse, ClientSession
 
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.providers.github import GitHubProvider
-from gafaelfawr.util import number_to_base64
-
 if TYPE_CHECKING:
-    from gafaelfawr.config import Config
-    from gafaelfawr.providers.github import GitHubUserInfo
-    from gafaelfawr.tokens import Token
-    from typing import Any, Dict, List, Optional
+    from typing import Callable, Dict, Optional
+
+    GetCallback = Callable[[Dict[str, str], bool], ClientResponse]
+    PostCallback = Callable[
+        [Dict[str, str], Dict[str, str], bool], ClientResponse
+    ]
 
 __all__ = ["MockClientSession"]
 
@@ -28,63 +23,42 @@ class MockClientSession(Mock):
 
     Intercepts get and post calls and constructs return values based on test
     configuration data.
-
-    Parameters
-    ----------
-    config : `tests.support.config.ConfigForTests`
-        Test configuration used to determine the mocked responses.
     """
 
     def __init__(self) -> None:
         super().__init__(spec=ClientSession)
-        self.config: Optional[Config] = None
-        self.github_userinfo: Optional[GitHubUserInfo] = None
-        self.oidc_token: Optional[Token] = None
-        self.oidc_token_response: Optional[ClientResponse] = None
+        self._get_handler: Dict[str, GetCallback] = {}
+        self._post_handler: Dict[str, PostCallback] = {}
 
-    def set_config(self, config: Config) -> None:
-        """Set the configuration, used to synthesize responses.
-
-        This must be called before the session is used.
+    def add_get_handler(
+        self, url: str, callback: GetCallback, raise_for_status: bool = False
+    ) -> None:
+        """Set up a handler for a get call.
 
         Parameters
         ----------
-        config : `gafaelfawr.config.Config`
-            The application configuration.
+        url : `str`
+            The URL to handle.
+        callback : `typing.Callable`
+            The response to return to this reqeust, called with the headers of
+            the request and the raise_for_status argument.
         """
-        self.config = config
+        self._get_handler[url] = callback
 
-    def set_github_userinfo(self, userinfo: GitHubUserInfo) -> None:
-        """Set the GitHub user information to return.
+    def add_post_handler(
+        self, url: str, callback: PostCallback, raise_for_status: bool = False
+    ) -> None:
+        """Set up a handler for a get call.
 
         Parameters
         ----------
-        userinfo : `gafaelfawr.providers.github.GitHubUserInfo`
-            User information to use to synthesize GitHub API responses.
+        url : `str`
+            The URL to handle.
+        callback : `typing.Callable`
+            The response to return to this reqeust, called with the data,
+            headers, and raise_for_status argument of the request.
         """
-        self.github_userinfo = userinfo
-
-    def set_oidc_token(self, token: Token) -> None:
-        """Set the token that will be returned from the OIDC token endpoint.
-
-        Parameters
-        ----------
-        token : `gafaelfawr.tokens.Token`
-            The token.
-        """
-        self.oidc_token = token
-
-    def set_oidc_token_response(self, response: ClientResponse) -> None:
-        """Set the raw response from the OIDC token request.
-
-        Used to test error handling.
-
-        Parameters
-        ----------
-        response : `aiohttp.ClientResponse`
-            The raw response to return (probably mocked).
-        """
-        self.oidc_token_response = response
+        self._post_handler[url] = callback
 
     async def get(
         self,
@@ -109,23 +83,10 @@ class MockClientSession(Mock):
         response : `aiohttp.ClientResponse`
             The mocked response, which implements status and json().
         """
-        if url == GitHubProvider._USER_URL:
-            assert headers == {"Authorization": "token some-github-token"}
-            assert raise_for_status
-            return self._build_json_response(self._github_user_data())
-        elif url == GitHubProvider._TEAMS_URL:
-            assert headers == {"Authorization": "token some-github-token"}
-            assert raise_for_status
-            return self._build_json_response(self._github_teams_data())
-        elif url == GitHubProvider._EMAILS_URL:
-            assert headers == {"Authorization": "token some-github-token"}
-            assert raise_for_status
-            return self._build_json_response(self._github_emails_data())
-        elif url == self._openid_url():
-            jwks_uri = "https://example.com/jwks.json"
-            return self._build_json_response({"jwks_uri": jwks_uri})
-        elif url == "https://example.com/jwks.json":
-            return self._build_json_response(self._build_keys("orig-kid"))
+        if url in self._get_handler:
+            if not headers:
+                headers = {}
+            return self._get_handler[url](headers, raise_for_status)
         else:
             r = Mock(spec=ClientResponse)
             r.status = 404
@@ -157,135 +118,9 @@ class MockClientSession(Mock):
         response : `aiohttp.ClientResponse`
             The mocked response, which implements status and json().
         """
-        assert self.config
-        assert headers == {"Accept": "application/json"}
-        if url == GitHubProvider._TOKEN_URL:
-            assert raise_for_status
-            return self._build_json_response(self._github_token_post(data))
-        elif self.config.oidc and url == self.config.oidc.token_url:
-            if self.oidc_token_response:
-                return self.oidc_token_response
-            else:
-                return self._build_json_response(self._oidc_token_post(data))
+        if url in self._post_handler:
+            return self._post_handler[url](data, headers, raise_for_status)
         else:
             r = Mock(spec=ClientResponse)
             r.status = 404
             return r
-
-    @staticmethod
-    def _build_json_response(result: Any) -> ClientResponse:
-        """Build a successful aiohttp client response.
-
-        This is more complicated than it will eventually need to be to work
-        around the lack of an AsyncMock in Python 3.7.  The complexity can be
-        removed when we require a minimum version of Python 3.8.
-        """
-        r = Mock(spec=ClientResponse)
-        if sys.version_info[0] == 3 and sys.version_info[1] < 8:
-            future: Future[Any] = Future()
-            future.set_result(result)
-            r.json.return_value = future
-        else:
-            r.json.return_value = result
-        r.status = 200
-        return r
-
-    def _build_keys(self, kid: str) -> Dict[str, Any]:
-        """Generate the JSON-encoded keys structure for a keypair."""
-        assert self.config
-        public_numbers = self.config.issuer.keypair.public_numbers()
-        e = number_to_base64(public_numbers.e).decode()
-        n = number_to_base64(public_numbers.n).decode()
-        return {"keys": [{"alg": ALGORITHM, "e": e, "n": n, "kid": kid}]}
-
-    def _github_user_data(self) -> Dict[str, Any]:
-        """Return data for a GitHub user.
-
-        Eventually this will be configurable.
-        """
-        assert self.github_userinfo
-        return {
-            "login": self.github_userinfo.username,
-            "id": self.github_userinfo.uid,
-            "name": self.github_userinfo.name,
-        }
-
-    def _github_teams_data(self) -> List[Dict[str, Any]]:
-        """Return teams data for a GitHub user.
-
-        Eventually this will be configurable.
-        """
-        assert self.github_userinfo
-        result = []
-        for team in self.github_userinfo.teams:
-            data = {
-                "slug": team.slug,
-                "id": team.gid,
-                "organization": {"login": team.organization},
-            }
-            result.append(data)
-        return result
-
-    def _github_emails_data(self) -> List[Dict[str, Any]]:
-        """Return emails data for a GitHub user.
-
-        Eventually this will be configurable.
-        """
-        assert self.github_userinfo
-        return [
-            {"email": "otheremail@example.com", "primary": False},
-            {"email": self.github_userinfo.email, "primary": True},
-        ]
-
-    def _openid_url(self) -> str:
-        """Return a OpenID Connect configuration retrieval URL.
-
-        Returns
-        -------
-        url : `str`
-            The well-known URL to the OpenID Connect configuration for that
-            issuer.
-        """
-        base_url = "https://upstream.example.com/"
-        return urljoin(base_url, "/.well-known/openid-configuration")
-
-    def _github_token_post(self, data: Dict[str, str]) -> Dict[str, str]:
-        """Handle a POST requesting a GitHub token.
-
-        Check the provided data against our expectations and return the
-        contents of the reply.
-        """
-        assert self.config
-        assert self.config.github
-        assert data == {
-            "client_id": self.config.github.client_id,
-            "client_secret": self.config.github.client_secret,
-            "code": "some-code",
-            "state": ANY,
-        }
-        return {
-            "access_token": "some-github-token",
-            "scope": ",".join(GitHubProvider._SCOPES),
-            "token_type": "bearer",
-        }
-
-    def _oidc_token_post(self, data: Dict[str, str]) -> Dict[str, str]:
-        """Handle a POST to get an ID token from OpenID Connect.
-
-        Check the provided data against our expectations and return the
-        contents of the reply.
-        """
-        assert self.config
-        assert self.config.oidc
-        assert self.oidc_token
-        assert data == {
-            "grant_type": "authorization_code",
-            "client_id": self.config.oidc.client_id,
-            "client_secret": self.config.oidc.client_secret,
-            "code": "some-code",
-            "redirect_uri": self.config.oidc.redirect_url,
-        }
-        return {
-            "id_token": self.oidc_token.encoded,
-            "token_type": "Bearer",
-        }

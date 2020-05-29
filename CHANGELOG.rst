@@ -2,6 +2,19 @@
 Change log
 ##########
 
+1.3.1 (2020-05-29)
+==================
+
+This release drops support for Python 3.7.
+Python 3.8 or later is now required.
+
+- Require Python 3.8 and drop Python 3.7 support.
+- Include ``token_source`` in logs of the ``/auth`` route to record how the client passed in the authentication token.
+- Set the ``X-Auth-Request-Client-Ip`` header to the calculated client IP on a successful reply from the ``/auth`` route.
+- The output from the ``/auth/analyze`` route is now sorted and formatted to be easier for humans to read and compare.
+- Include more information in the user-facing error message when a connection to the authentication provider's callback endpoint fails.
+- Report a better error message if the OpenID Connect provider doesn't have a JWKS entry for the key ID of the identity token.
+
 1.3.0 (2020-05-19)
 ==================
 

@@ -81,7 +81,7 @@ class SessionHandle:
             The provided string is not a valid session handle.
         """
         if not handle.startswith("gsh-"):
-            msg = f"Session handle does not start with gsh-"
+            msg = "Session handle does not start with gsh-"
             raise InvalidSessionHandleException(msg)
         trimmed_handle = handle[len("gsh-") :]
 

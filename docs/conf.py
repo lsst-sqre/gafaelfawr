@@ -60,6 +60,10 @@ default_role = "py:obj"
 
 intersphinx_mapping = {
     "aiohttp": ("https://docs.aiohttp.org/en/stable/", None),
+    "aiohttp_remotes": (
+        "https://aiohttp-remotes.readthedocs.io/en/latest/",
+        None,
+    ),
     "aiohttp_session": (
         "https://aiohttp-session.readthedocs.io/en/stable/",
         None,
@@ -70,7 +74,7 @@ intersphinx_mapping = {
     "dynaconf": ("https://dynaconf.readthedocs.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
-    "structlog": ("http://www.structlog.org/en/stable/", None),
+    "structlog": ("https://www.structlog.org/en/stable/", None),
     "wtforms": ("https://wtforms.readthedocs.io/en/stable/", None),
 }
 

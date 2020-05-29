@@ -23,7 +23,7 @@ async def test_tokens_no_auth(
     assert r.status == 401
     assert r.headers["WWW-Authenticate"]
 
-    data = json.loads(caplog.record_tuples[0][2])
+    data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "event": "No authentication token found",
         "level": "warning",
@@ -46,7 +46,7 @@ async def test_tokens_invalid_auth(
         "/auth/tokens", headers={"X-Auth-Request-Token": "foo"}
     )
     assert r.status == 401
-    data = json.loads(caplog.record_tuples[0][2])
+    data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "event": "Failed to authenticate token",
         "error": "Not enough segments",
@@ -230,7 +230,7 @@ async def test_tokens_new_create(
 
     # Creating without a CSRF token will fail.
     r = await setup.client.post(
-        f"/auth/tokens/new",
+        "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y"},
     )
@@ -238,7 +238,7 @@ async def test_tokens_new_create(
 
     # Creating with a bogus CSRF token will fail.
     r = await setup.client.post(
-        f"/auth/tokens/new",
+        "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y", "_csrf": csrf_token + "xxxx"},
     )
@@ -267,7 +267,7 @@ async def test_tokens_new_create(
         "level": "info",
         "logger": "gafaelfawr",
         "method": "POST",
-        "path": f"/auth/tokens/new",
+        "path": "/auth/tokens/new",
         "remote": "127.0.0.1",
         "request_id": ANY,
         "scope": " ".join(sorted(token.scope)),

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from aiohttp.pytest_plugin.test_utils import TestClient
     from pathlib import Path
     from tests.setup import SetupTestCallable
-    from typing import Awaitable, Callable
+    from typing import Any, Awaitable, Callable
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def create_test_setup(
     """
 
     async def _create_test_setup(
-        environment: str = "github", client: bool = True
+        environment: str = "github", client: bool = True, **settings: Any,
     ) -> SetupTest:
         """Create a test setup for a given environment.
 
@@ -71,13 +71,17 @@ def create_test_setup(
         client : `bool`, optional
             If set to `False`, do not start a test application or create a
             client.
+        **settings : `typing.Any`
+            Settings that override settings from the configuration file.
 
         Returns
         -------
         setup : `SetupTest`
             An object encapsulating the test setup.
         """
-        app = await create_test_app(tmp_path, environment=environment)
+        app = await create_test_app(
+            tmp_path, environment=environment, **settings
+        )
         if client:
             client = await aiohttp_client(app)
             return SetupTest(app, client)

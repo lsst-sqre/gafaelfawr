@@ -10,10 +10,14 @@ from typing import TYPE_CHECKING
 import jwt
 from aiohttp import web
 
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
-    from gafaelfawr.factory import ComponentFactory
+    from aiohttp import ClientSession
+    from aioredis import Redis
+    from cachetools import TTLCache
+    from gafaelfawr.config import Config
     from gafaelfawr.tokens import VerifiedToken
     from structlog import BoundLogger
     from typing import Optional
@@ -23,6 +27,7 @@ __all__ = [
     "AuthError",
     "AuthType",
     "InvalidTokenException",
+    "RequestContext",
     "verify_token",
 ]
 
@@ -87,6 +92,73 @@ class AuthChallenge:
         return f"{self.auth_type.name} {info}"
 
 
+@dataclass
+class RequestContext:
+    """Holds the incoming request and its surrounding context.
+
+    The primary reason for the existence of this class is to allow the
+    functions involved in request processing to repeated rebind the request
+    logger to include more information, without having to pass both the
+    request and the logger separately to every function.
+    """
+
+    request: web.Request
+    """The incoming request."""
+
+    config: Config
+    """Gafaelfawr's configuration."""
+
+    logger: BoundLogger
+    """The request logger, rebound with discovered context."""
+
+    redis: Redis
+    """Connection pool to use to talk to Redis."""
+
+    @classmethod
+    def from_request(cls, request: web.Request) -> RequestContext:
+        """Construct a RequestContext from an incoming request.
+
+        Parameters
+        ----------
+        request : aiohttp.web.Request
+            The incoming request.
+
+        Returns
+        -------
+        context : RequestContext
+            The newly-created context.
+        """
+        config: Config = request.config_dict["gafaelfawr/config"]
+        redis: Redis = request.config_dict["gafaelfawr/redis"]
+        logger: BoundLogger = request["safir/logger"]
+
+        return cls(request=request, config=config, logger=logger, redis=redis)
+
+    @property
+    def factory(self) -> ComponentFactory:
+        """A factory for constructing Gafaelfawr components.
+
+        This is constructed on the fly at each reference to ensure that we get
+        the latest logger, which may have additional bound context.
+        """
+        key_cache: TTLCache = self.request.config_dict["gafaelfawr/key_cache"]
+
+        # Tests inject an override http_session in the config dict.
+        http_session: ClientSession = self.request.config_dict.get(
+            "safir/http_session"
+        )
+        if not http_session:
+            http_session = self.request["safir/http_session"]
+
+        return ComponentFactory(
+            config=self.config,
+            redis=self.redis,
+            key_cache=key_cache,
+            http_session=http_session,
+            logger=self.logger,
+        )
+
+
 class InvalidTokenException(Exception):
     """The provided token was invalid.
 
@@ -97,13 +169,13 @@ class InvalidTokenException(Exception):
     """
 
 
-def verify_token(request: web.Request, encoded_token: str) -> VerifiedToken:
+def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
     """Verify a token.
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
+    context : `gafaelfawr.handlers.util.RequestContext`
+        The context of the incoming request.
     encoded_token : `str`
         The encoded token.
 
@@ -119,11 +191,8 @@ def verify_token(request: web.Request, encoded_token: str) -> VerifiedToken:
     gafaelfawr.verify.MissingClaimsException
         If the token is missing required claims.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: BoundLogger = request["safir/logger"]
-
     token = Token(encoded=encoded_token)
-    token_verifier = factory.create_token_verifier(request, logger)
+    token_verifier = context.factory.create_token_verifier()
     try:
         return token_verifier.verify_internal_token(token)
     except jwt.InvalidTokenError as e:

@@ -81,7 +81,11 @@ def create_test_token(
 
 
 def create_oidc_test_token(
-    config: Config, *, groups: Optional[List[str]] = None, **claims: str,
+    config: Config,
+    kid: str,
+    *,
+    groups: Optional[List[str]] = None,
+    **claims: str,
 ) -> VerifiedToken:
     """Create a signed token using the OpenID Connect issuer.
 
@@ -92,6 +96,8 @@ def create_oidc_test_token(
     ----------
     config : `gafaelfawr.config.Config`
         The configuration.
+    kid : `str`
+        Key ID for the token header.
     groups : List[`str`], optional
         Group memberships the generated token should have.
     **claims : `str`, optional
@@ -108,4 +114,4 @@ def create_oidc_test_token(
         "jti": "some-upstream-id",
     }
     payload.update(claims)
-    return create_test_token(config, groups=groups, kid="orig-kid", **payload)
+    return create_test_token(config, groups=groups, kid=kid, **payload)

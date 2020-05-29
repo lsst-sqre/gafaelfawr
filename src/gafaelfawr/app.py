@@ -13,8 +13,6 @@ import aioredis
 import jinja2
 from aiohttp import web
 from aiohttp.web import Application
-from aiohttp_remotes.exceptions import RemoteError
-from aiohttp_remotes.x_forwarded import XForwardedBase
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from cachetools import TTLCache
 from safir.http import init_http_session
@@ -24,15 +22,14 @@ from safir.middleware import bind_logger
 from structlog import get_logger
 
 from gafaelfawr.config import Config
-from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.handlers import init_routes
+from gafaelfawr.x_forwarded import XForwardedFiltered
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from aioredis import Redis
-    from ipaddress import _BaseNetwork
     from structlog import BoundLogger
-    from typing import Any, Awaitable, Callable, Dict, Optional, Sequence
+    from typing import Any, Awaitable, Callable, Optional
 
     Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 
@@ -43,6 +40,7 @@ async def create_app(
     settings_path: str,
     redis_pool: Optional[Redis] = None,
     http_session: Optional[ClientSession] = None,
+    **settings: Any,
 ) -> Application:
     """Create and configure the Gafaelfawr application.
 
@@ -57,13 +55,15 @@ async def create_app(
         Client session to use if provided.  If one is not provided, it will be
         created dynamically by safir.  The provided session is not closed on
         app shutdown.
+    **settings : `typing.Any`
+        Settings that override settings read from the configuration file.
 
     Returns
     -------
     application: `aiohttp.web.Application`
         The constructed application.
     """
-    config = Config.from_file(settings_path)
+    config = Config.from_file(settings_path, **settings)
 
     configure_logging(
         profile=config.safir.profile,
@@ -77,12 +77,11 @@ async def create_app(
     key_cache = TTLCache(maxsize=16, ttl=600)
     if not redis_pool:
         redis_pool = await aioredis.create_redis_pool(config.redis_url)
-    factory = ComponentFactory(config, redis_pool, key_cache, http_session)
 
     app = Application()
     app["safir/config"] = config.safir
     app["gafaelfawr/config"] = config
-    app["gafaelfawr/factory"] = factory
+    app["gafaelfawr/key_cache"] = key_cache
     app["gafaelfawr/redis"] = redis_pool
     setup_metadata(package_name="gafaelfawr", app=app)
     await setup_middleware(app, config)
@@ -94,90 +93,8 @@ async def create_app(
     else:
         app.cleanup_ctx.append(init_http_session)
 
+    logger.info("Starting")
     return app
-
-
-class XForwardedFiltered(XForwardedBase):
-    """Middleware to update the request based on ``X-Forwarded-For``.
-
-    The semantics we want aren't supported by either of the
-    :py:mod:`aiohttp_remotes` middleware classes, so we implement our own.
-    This is similar to `~aiohttp_remotes.XForwardedRelaxed` except that it
-    takes the rightmost IP address that is not contained within one of the
-    trusted networks.
-
-    Parameters
-    ----------
-    trusted : Sequence[Union[`ipaddress.IPv4Network`, `ipaddress.IPv6Network`]]
-        List of trusted networks that should be skipped over when finding the
-        actual client IP address.
-    """
-
-    def __init__(self, trusted: Sequence[_BaseNetwork]):
-        self._trusted = trusted
-
-    @web.middleware
-    async def middleware(
-        self, request: web.Request, handler: Handler
-    ) -> web.StreamResponse:
-        """Replace request information with details from proxy.
-
-        Honor ``X-Forwarded-For`` and related headers.
-
-        Parameters
-        ----------
-        request
-            The aiohttp.web request.
-        handler
-            The application's request handler.
-
-        Returns
-        -------
-        response
-            The response with a new ``logger`` key attached to it.
-
-        Notes
-        -----
-        The remote IP address will be replaced with the right-most IP address
-        in ``X-Forwarded-For`` that is not contained within one of the trusted
-        networks.  The last entry of ``X-Forwarded-Proto`` and the contents of
-        ``X-Forwarded-Host`` will be used unconditionally if they are present
-        and ``X-Forwarded-For`` is also present.
-        """
-        try:
-            # https://github.com/python/mypy/issues/8772
-            overrides: Dict[str, Any] = {}
-            headers = request.headers
-
-            forwarded_for = list(reversed(self.get_forwarded_for(headers)))
-            if not forwarded_for:
-                return await handler(request)
-
-            for ip in forwarded_for:
-                if any((ip in network for network in self._trusted)):
-                    continue
-                overrides["remote"] = str(ip)
-                break
-
-            # If all the IP addresses are from trusted networks, take the
-            # left-most.
-            if "remote" not in overrides:
-                overrides["remote"] = str(forwarded_for[-1])
-
-            proto = self.get_forwarded_proto(headers)
-            if proto:
-                overrides["scheme"] = proto[-1]
-
-            host = self.get_forwarded_host(headers)
-            if host is not None:
-                overrides["host"] = host
-
-            request = request.clone(**overrides)
-            return await handler(request)
-
-        except RemoteError as exc:
-            exc.log(request)
-            return await self.raise_error(request)
 
 
 async def setup_middleware(app: Application, config: Config) -> None:

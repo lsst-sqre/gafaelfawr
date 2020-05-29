@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+import functools
+import json
+from typing import cast
 
 from aiohttp import web
 from aiohttp_session import get_session
 
 from gafaelfawr.handlers import routes
+from gafaelfawr.handlers.util import RequestContext
 from gafaelfawr.session import InvalidSessionHandleException, SessionHandle
 from gafaelfawr.tokens import Token
-
-if TYPE_CHECKING:
-    from gafaelfawr.factory import ComponentFactory
-    from structlog import BoundLogger
 
 __all__ = ["get_analyze", "post_analyze"]
 
@@ -37,19 +36,18 @@ async def get_analyze(request: web.Request) -> web.Response:
     aiohttp.web.HTTPException
         If the user is not logged in.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: BoundLogger = request["safir/logger"]
-
+    context = RequestContext.from_request(request)
     session = await get_session(request)
     if "handle" not in session:
         msg = "Not logged in"
-        logger.warning(msg)
+        context.logger.warning(msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
     handle = SessionHandle.from_str(session["handle"])
-    session_store = factory.create_session_store(request, logger)
+    session_store = context.factory.create_session_store()
     result = await session_store.analyze_handle(handle)
-    logger.info("Analyzed user session")
-    return web.json_response(result)
+    context.logger.info("Analyzed user session")
+    formatter = functools.partial(json.dumps, sort_keys=True, indent=4)
+    return web.json_response(result, dumps=formatter)
 
 
 @routes.post("/auth/analyze")
@@ -70,22 +68,21 @@ async def post_analyze(request: web.Request) -> web.Response:
     response : `aiohttp.web.Response`
         The response.
     """
-    factory: ComponentFactory = request.config_dict["gafaelfawr/factory"]
-    logger: BoundLogger = request["safir/logger"]
-
+    context = RequestContext.from_request(request)
     data = await request.post()
     handle_or_token = cast(str, data["token"])
 
     try:
         handle = SessionHandle.from_str(handle_or_token)
-        session_store = factory.create_session_store(request, logger)
-        logger.info("Analyzed user-provided session handle")
+        session_store = context.factory.create_session_store()
+        context.logger.info("Analyzed user-provided session handle")
         result = await session_store.analyze_handle(handle)
     except InvalidSessionHandleException:
         token = Token(encoded=handle_or_token)
-        verifier = factory.create_token_verifier(request, logger)
+        verifier = context.factory.create_token_verifier()
         analysis = verifier.analyze_token(token)
-        logger.info("Analyzed user-provided token")
+        context.logger.info("Analyzed user-provided token")
         result = {"token": analysis}
 
-    return web.json_response(result)
+    formatter = functools.partial(json.dumps, sort_keys=True, indent=4)
+    return web.json_response(result, dumps=formatter)

@@ -14,6 +14,7 @@ from tests.support.http_session import MockClientSession
 
 if TYPE_CHECKING:
     from aiohttp import web
+    from typing import Any
 
 __all__ = ["create_test_app"]
 
@@ -65,7 +66,7 @@ def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
 
 
 async def create_test_app(
-    tmp_path: Path, *, environment: str = "github"
+    tmp_path: Path, *, environment: str = "github", **settings: Any
 ) -> web.Application:
     """Configured aiohttp Application for testing.
 
@@ -75,6 +76,8 @@ async def create_test_app(
         Temporary directory in which to store secrets.
     environment : `str`, optional
         Settings template to use.
+    **settings : Any
+        Settings that override settings read from the configuration file.
 
     Returns
     -------
@@ -96,13 +99,11 @@ async def create_test_app(
         github_secret_file=github_secret_file,
         oidc_secret_file=oidc_secret_file,
     )
-    redis_pool = await mockaioredis.create_redis_pool("")
-    http_session = MockClientSession()
     app = await create_app(
         settings_path=str(settings_path),
-        redis_pool=redis_pool,
-        http_session=http_session,
+        redis_pool=await mockaioredis.create_redis_pool(""),
+        http_session=MockClientSession(),
+        **settings,
     )
-    http_session.set_config(app["gafaelfawr/config"])
 
     return app

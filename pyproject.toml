@@ -46,9 +46,14 @@ commands = pre-commit run --all-files
 
 [testenv:docs]
 description = Build documentation (HTML) with Sphinx.
+whitelist_externals =
+    convert
+    mv
 commands =
     python docs/_static/architecture.py
     seqdiag docs/_static/flow.diag
+    convert -background white -alpha remove -alpha off docs/_static/flow.png docs/_static/flow-fixed.png
+    mv docs/_static/flow-fixed.png docs/_static/flow.png
     sphinx-build -n -T -b html -d {envtmpdir}/doctrees docs docs/_build/html
 
 [testenv:run]

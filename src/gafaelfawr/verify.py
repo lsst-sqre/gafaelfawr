@@ -10,7 +10,7 @@ from cachetools.keys import hashkey
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from jwt.exceptions import InvalidKeyError
+from jwt.exceptions import InvalidIssuerError
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.tokens import VerifiedToken
@@ -30,22 +30,27 @@ __all__ = [
     "TokenVerifier",
     "UnknownAlgorithmException",
     "UnknownKeyIdException",
+    "VerifyTokenException",
 ]
 
 
-class FetchKeysException(Exception):
+class VerifyTokenException(Exception):
+    """Base exception class for failure in verifying a token."""
+
+
+class FetchKeysException(VerifyTokenException):
     """Cannot retrieve the keys from an issuer."""
 
 
-class MissingClaimsException(Exception):
+class MissingClaimsException(VerifyTokenException):
     """The token is missing required claims."""
 
 
-class UnknownAlgorithmException(Exception):
+class UnknownAlgorithmException(VerifyTokenException):
     """The issuer key was for an unsupported algorithm."""
 
 
-class UnknownKeyIdException(Exception):
+class UnknownKeyIdException(VerifyTokenException):
     """The reqeusted key ID was not found for an issuer."""
 
 
@@ -157,25 +162,31 @@ class TokenVerifier:
         ------
         jwt.exceptions.InvalidTokenError
             The token is invalid or the issuer is unknown.
-        MissingClaimsException
-            The token is missing required claims.
+        VerifyTokenException
+            The token failed to verify or was invalid in some way.
         """
         unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
             token.encoded, algorithms=ALGORITHM, verify=False
         )
         if "iss" not in unverified_token:
-            raise InvalidKeyError("No iss claim in token")
-        self._logger.debug(
-            "Verifying token %s from issuer %s",
-            unverified_token.get("jti", "UNKNOWN"),
-            unverified_token["iss"],
-        )
-
+            raise InvalidIssuerError("No iss claim in token")
         issuer_url = unverified_token["iss"]
+        if "kid" not in unverified_header:
+            raise UnknownKeyIdException("No kid in token header")
         key_id = unverified_header["kid"]
+
+        if "jti" in unverified_token:
+            self._logger.debug(
+                "Verifying token %s from issuer %s",
+                unverified_token["jti"],
+                issuer_url,
+            )
+        else:
+            self._logger.debug("Verifying token from issuer %s", issuer_url)
+
         if issuer_url != self._config.oidc_iss:
-            raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
+            raise InvalidIssuerError(f"Unknown issuer: {issuer_url}")
         if self._config.oidc_kids:
             if key_id not in self._config.oidc_kids:
                 msg = f"kid {key_id} not allowed for {issuer_url}"
@@ -267,12 +278,13 @@ class TokenVerifier:
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        self._logger.info("Getting key %s from %s", key_id, issuer_url)
+        self._logger.debug("Getting key %s from %s", key_id, issuer_url)
 
         # Retrieve the JWKS information.
         keys = await self._get_keys(issuer_url)
 
         # Find the key that we want.
+        key = None
         for k in keys:
             if key_id == k["kid"]:
                 key = k
@@ -330,11 +342,11 @@ class TokenVerifier:
             raise FetchKeysException(msg)
 
         body = await r.json()
-        if "keys" not in body:
+        try:
+            return body["keys"]
+        except Exception:
             msg = f"No keys property in JWKS metadata for {url}"
             raise FetchKeysException(msg)
-
-        return body["keys"]
 
     async def _get_jwks_uri(self, issuer_url: str) -> Optional[str]:
         """Retrieve the JWKS URI for a given issuer.
@@ -365,8 +377,8 @@ class TokenVerifier:
             return None
 
         body = await r.json()
-        if "jwks_uri" not in body:
+        try:
+            return body["jwks_uri"]
+        except Exception:
             msg = f"No jwks_uri property in OIDC metadata for {issuer_url}"
             raise FetchKeysException(msg)
-
-        return body["jwks_uri"]

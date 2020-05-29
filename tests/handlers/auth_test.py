@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import json
 import re
 import time
 from datetime import datetime, timedelta, timezone
@@ -16,7 +15,6 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.handlers.util import AuthChallenge, AuthError, AuthType
 
 if TYPE_CHECKING:
-    from _pytest.logging import LogCaptureFixture
     from tests.setup import SetupTestCallable
 
 
@@ -108,6 +106,26 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
     assert not authenticate.scope
 
 
+async def test_invalid(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
+
+    r = await setup.client.get("/auth")
+    assert r.status == 400
+    assert "scope parameter not set" in await r.text()
+
+    r = await setup.client.get(
+        "/auth", params={"scope": "exec:admin", "satisfy": "foo"}
+    )
+    assert r.status == 400
+    assert "satisfy parameter must be any or all" in await r.text()
+
+    r = await setup.client.get(
+        "/auth", params={"scope": "exec:admin", "auth_type": "foo"}
+    )
+    assert r.status == 400
+    assert "auth_type parameter must be basic or bearer" in await r.text()
+
+
 async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
 
@@ -115,6 +133,17 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer"},
+    )
+    assert r.status == 400
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_request
+
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": "token foo"},
     )
     assert r.status == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
@@ -229,9 +258,13 @@ async def test_success(create_test_setup: SetupTestCallable) -> None:
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
-        headers={"Authorization": f"Bearer {token.encoded}"},
+        headers={
+            "Authorization": f"Bearer {token.encoded}",
+            "X-Forwarded-For": "192.0.2.1",
+        },
     )
     assert r.status == 200
+    assert r.headers["X-Auth-Request-Client-Ip"] == "192.0.2.1"
     assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:admin read:all"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
@@ -309,6 +342,18 @@ async def test_basic(create_test_setup: SetupTestCallable) -> None:
 
 async def test_basic_failure(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
+
+    basic_b64 = base64.b64encode(b"bogus-string").decode()
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
+    assert r.status == 400
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_request
 
     for basic in (b"foo:foo", b"x-oauth-basic:foo", b"foo:x-oauth-basic"):
         basic_b64 = base64.b64encode(basic).decode()
@@ -439,154 +484,3 @@ async def test_ajax_unauthorized(create_test_setup: SetupTestCallable) -> None:
     assert authenticate.realm == setup.config.realm
     assert not authenticate.error
     assert not authenticate.scope
-
-
-async def test_logging(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    """These tests also test X-Forwarded-For and friends."""
-    setup = await create_test_setup()
-    token = setup.create_token(scope="exec:admin")
-
-    # Successful request with X-Forwarded-For.
-    r = await setup.client.get(
-        "/auth",
-        params={"scope": "exec:admin"},
-        headers={
-            "Authorization": f"Bearer {token.encoded}",
-            "X-Original-Uri": "/foo",
-            "X-Forwarded-For": "192.0.2.1",
-        },
-    )
-    assert r.status == 200
-    data = json.loads(caplog.record_tuples[0][2])
-    assert data == {
-        "auth_uri": "/foo",
-        "event": "Token authorized",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth",
-        "remote": "192.0.2.1",
-        "request_id": ANY,
-        "required_scope": "exec:admin",
-        "satisfy": "all",
-        "scope": "exec:admin",
-        "token": token.jti,
-        "user": token.username,
-        "user_agent": ANY,
-    }
-    caplog.clear()
-
-    # Authorization failed with chained X-Forwarded-For.
-    r = await setup.client.get(
-        "/auth",
-        params={"scope": "exec:test", "satisfy": "any"},
-        headers={
-            "Authorization": f"Bearer {token.encoded}",
-            "X-Original-URL": "https://example.com/foo",
-            "X-Forwarded-For": "192.0.2.1, 172.24.0.4",
-        },
-    )
-    assert r.status == 403
-    data = json.loads(caplog.record_tuples[0][2])
-    assert data == {
-        "auth_uri": "https://example.com/foo",
-        "event": "Token missing required scope",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth",
-        "remote": "172.24.0.4",
-        "request_id": ANY,
-        "required_scope": "exec:test",
-        "satisfy": "any",
-        "scope": "exec:admin",
-        "token": token.jti,
-        "user": token.username,
-        "user_agent": ANY,
-    }
-    caplog.clear()
-
-    # No token found with chained X-Forwarded-For and trusted proxies.
-    r = await setup.client.get(
-        "/auth",
-        params={"scope": "exec:admin"},
-        headers={
-            "X-Forwarded-For": "2001:db8:85a3:8d3:1319:8a2e:370:734, 10.0.0.1",
-            "X-Forwarded-Proto": "https, http",
-            "X-Original-URI": "/foo",
-            "X-Original-URL": "https://example.com/foo",
-        },
-    )
-    assert r.status == 401
-    data = json.loads(caplog.record_tuples[0][2])
-    assert data == {
-        "auth_uri": "/foo",
-        "event": "No token found, returning unauthorized",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth",
-        "remote": "2001:db8:85a3:8d3:1319:8a2e:370:734",
-        "request_id": ANY,
-        "required_scope": "exec:admin",
-        "satisfy": "all",
-        "user_agent": ANY,
-    }
-    caplog.clear()
-
-    # Invalid token with no X-Forwarded-For.
-    r = await setup.client.get(
-        "/auth",
-        params={"scope": "exec:admin"},
-        headers={"Authorization": f"Bearer blah"},
-    )
-    assert r.status == 401
-    data = json.loads(caplog.record_tuples[0][2])
-    assert data == {
-        "auth_uri": "NONE",
-        "error": "Not enough segments",
-        "event": "Invalid token",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "required_scope": "exec:admin",
-        "satisfy": "all",
-        "user_agent": ANY,
-    }
-    caplog.clear()
-
-    # Successful request where all IP addresses are proxies.
-    r = await setup.client.get(
-        "/auth",
-        params={"scope": "exec:admin"},
-        headers={
-            "Authorization": f"Bearer {token.encoded}",
-            "X-Original-Uri": "/foo",
-            "X-Forwarded-For": "10.255.4.3, 10.0.3.1",
-            "X-Forwarded-Proto": "https",
-        },
-    )
-    assert r.status == 200
-    data = json.loads(caplog.record_tuples[0][2])
-    assert data == {
-        "auth_uri": "/foo",
-        "event": "Token authorized",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth",
-        "remote": "10.255.4.3",
-        "request_id": ANY,
-        "required_scope": "exec:admin",
-        "satisfy": "all",
-        "scope": "exec:admin",
-        "token": token.jti,
-        "user": token.username,
-        "user_agent": ANY,
-    }
-    caplog.clear()

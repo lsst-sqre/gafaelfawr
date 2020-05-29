@@ -20,7 +20,6 @@ aioredis
 cachetools
 click
 cryptography
-importlib_metadata; python_version < "3.8"
 jinja2
 pydantic
 PyJWT
