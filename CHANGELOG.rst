@@ -2,7 +2,7 @@
 Change log
 ##########
 
-1.3.1 (unreleased)
+1.3.1 (2020-05-29)
 ==================
 
 This release drops support for Python 3.7.
