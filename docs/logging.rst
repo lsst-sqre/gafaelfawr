@@ -108,6 +108,18 @@ Making this work properly requires some additional configuration:
    This comes with some caveats and drawbacks.
    See `this Medium post <https://medium.com/pablo-perez/k8s-externaltrafficpolicy-local-or-cluster-40b259a19404>`__ for more details.
 
+If you are using the `NGINX ingress Helm chart <https://github.com/helm/charts/tree/master/stable/nginx-ingress>`__, you can make both of the required NGINX ingress changes with the following ``values.yaml`` file:
+
+.. code-block:: yaml
+
+   nginx-ingress:
+     controller:
+       config:
+         compute-full-forwarded-for: "true"
+         use-forwarded-headers: "true"
+       service:
+         externalTrafficPolicy: Local
+
 For the curious, here are the details of why these changes are required.
 
 Determining the client IP from ``X-Forwarded-For`` is complicated because Gafaelfawr's ``/auth`` route is called via an NGINX ``auth_request`` directive.

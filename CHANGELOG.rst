@@ -2,6 +2,12 @@
 Change log
 ##########
 
+1.3.2 (2020-06-08)
+==================
+
+- Work around an NGINX ingress bug in 1.39.1 by allowing multiple ``X-Forwarded-Proto`` headers in the incoming request.
+- Document how to configure NGINX ingress with the official Helm chart to support logging accurate client IPs.
+
 1.3.1 (2020-05-29)
 ==================
 

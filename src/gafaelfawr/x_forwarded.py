@@ -10,7 +10,8 @@ from aiohttp_remotes.x_forwarded import XForwardedBase
 
 if TYPE_CHECKING:
     from ipaddress import _BaseNetwork
-    from typing import Any, Awaitable, Callable, Dict, Sequence
+    from multidict import CIMultiDictProxy
+    from typing import Any, Awaitable, Callable, Dict, List, Sequence
 
     Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 
@@ -35,6 +36,31 @@ class XForwardedFiltered(XForwardedBase):
 
     def __init__(self, trusted: Sequence[_BaseNetwork]):
         self._trusted = trusted
+
+    def get_forwarded_proto(self, headers: CIMultiDictProxy) -> List[str]:
+        """Get X-Forwarded-Proto values.
+
+        This replaces the base class version to remove the exception when
+        multiple ``X-Forwarded-Proto`` headers are present.  This is a
+        workaround for a bug in version 1.39.1 of the Kubernetes NGINX
+        ingress.  See https://github.com/kubernetes/ingress-nginx/issues/5670.
+
+        Parameters
+        ----------
+        headers : `multidict.CIMultiDictProxy`
+            The headers of the request.
+
+        Returns
+        -------
+        forwarded_proto : List[`str`]
+            A list of schemes from the ``X-Forwarded-Proto`` header.
+        """
+        forwarded_proto: List[str] = headers.getall("X-Forwarded-Proto", [])
+        if not forwarded_proto:
+            return []
+        forwarded_proto = forwarded_proto[0].split(",")
+        forwarded_proto = [p.strip() for p in forwarded_proto]
+        return forwarded_proto
 
     @web.middleware
     async def middleware(

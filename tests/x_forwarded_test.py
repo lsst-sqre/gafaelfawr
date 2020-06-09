@@ -151,4 +151,4 @@ async def test_too_many_headers(aiohttp_client: TestClientCallable) -> None:
             ("X-Forwarded-Host", "example.com"),
         ],
     )
-    assert resp.status == 400
+    assert resp.status == 200
