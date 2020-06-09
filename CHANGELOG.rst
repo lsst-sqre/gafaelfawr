@@ -2,7 +2,7 @@
 Change log
 ##########
 
-1.3.2 (unreleased)
+1.3.2 (2020-06-08)
 ==================
 
 - Work around an NGINX ingress bug in 1.39.1 by allowing multiple ``X-Forwarded-Proto`` headers in the incoming request.
