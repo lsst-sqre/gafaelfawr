@@ -24,7 +24,7 @@ jobs:
 
       - name: Cache tox environments
         id: cache-tox
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: .tox
           # requirements/*.txt, pyproject.toml, and .pre-commit-config.yaml
