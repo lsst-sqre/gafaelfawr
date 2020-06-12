@@ -296,8 +296,8 @@ mypy==0.780 \
     --hash=sha256:d3b4941de44341227ece1caaf5b08b23e42ad4eeb8b603219afb11e9d4cfb437 \
     --hash=sha256:eadb865126da4e3c4c95bdb47fe1bb087a3e3ea14d39a3b13224b8a4d9f9a102 \
     # via -r requirements/dev.in
-nodeenv==1.3.5 \
-    --hash=sha256:5b2438f2e42af54ca968dd1b374d14a1194848955187b0e5e4be1f73813a5212 \
+nodeenv==1.4.0 \
+    --hash=sha256:4b0b77afa3ba9b54f4b6396e60b0c83f59eaeb2d63dc3cc7a70f7f4af96c82bc \
     # via pre-commit
 packaging==20.4 \
     --hash=sha256:4357f74f47b9c12db93624a82154e9b120fa8293699949152b22065d556079f8 \
