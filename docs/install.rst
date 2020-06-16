@@ -104,7 +104,19 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
 
 ``image`` (optional)
     The Docker image to use for the Gafaelfawr application.
-    If not set, defaults to the image corresponding to the ``appVersion`` metadata property of the chart, which is normally the latest stable release.
+    Takes the following subkeys:
+
+    ``repository`` (optional)
+        The name of the Docker repository from which to pull an image.
+        Defaults to the official release repository.
+
+    ``tag`` (optional)
+        The version of image to use.
+        If not set, defaults to the image corresponding to the ``appVersion`` metadata property of the chart, which is normally the latest stable release.
+
+    ``pullPolicy`` (optional)
+        Kubernetes pull policy for the image.
+        Defaults to ``Always``.
 
 ``redis_claim`` (optional)
     The name of a persistent volume claim to use for Redis storage.
