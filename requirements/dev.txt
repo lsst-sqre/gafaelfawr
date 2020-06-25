@@ -466,9 +466,9 @@ watchgod==0.6 \
     --hash=sha256:59700dab7445aa8e6067a5b94f37bae90fc367554549b1ed2e9d0f4f38a90d2a \
     --hash=sha256:e9cca0ab9c63f17fc85df9fd8bd18156ff00aff04ebe5976cee473f4968c6858 \
     # via aiohttp-devtools
-wcwidth==0.2.4 \
-    --hash=sha256:79375666b9954d4a1a10739315816324c3e73110af9d0e102d906fdb0aec009f \
-    --hash=sha256:8c6b5b6ee1360b842645f336d9e5d68c55817c26d3050f46b235ef2bc650e48f \
+wcwidth==0.2.5 \
+    --hash=sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784 \
+    --hash=sha256:c4d647b99872929fdb7bdcaa4fbe7f01413ed3d98077df798530e5b04f116c83 \
     # via pytest
 webcolors==1.11.1 \
     --hash=sha256:76f360636957d1c976db7466bc71dcb713bb95ac8911944dffc55c01cb516de6 \
