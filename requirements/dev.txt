@@ -103,9 +103,9 @@ devtools==0.5.1 \
     --hash=sha256:51ca8d2e15b8a862875a4837db2bafbc6cda409c069e960aec3f4bbd91fe9c08 \
     --hash=sha256:7a1f7db6ade0a71840ca4014d75dd72390aed2ef04e39e2b2445af7b3a3f4679 \
     # via aiohttp-devtools
-diagrams==0.14.0 \
-    --hash=sha256:0c6fd33d6419a423e5c9fab04a04af12206747ece4a04ed4c6dd854b81cba9f9 \
-    --hash=sha256:afcebb0df7f1443063c304c80d7021f69eadd9ce759a32441d5c2fbe1a5b16fe \
+diagrams==0.15.0 \
+    --hash=sha256:1c1637846d8ba57f0e5f3c731631665071d558aa1ea3dcda73c11a4698a4b612 \
+    --hash=sha256:ee1430394c1dc3534db3352f1d08f47d4ca3b1ccc28f3673598526a55bdf20ed \
     # via -r requirements/dev.in
 distlib==0.3.1 \
     --hash=sha256:8c09de2c67b3e7deef7184574fc060ab8a793e7adbb183d942c389c8b13c52fb \
