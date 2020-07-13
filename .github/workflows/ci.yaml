@@ -96,6 +96,6 @@ jobs:
 
       - name: Upload to LSST the Docs
         env:
-          LTD_USERNAME: travis
+          LTD_USERNAME: ${{ secrets.LTD_USERNAME }}
           LTD_PASSWORD: ${{ secrets.LTD_PASSWORD }}
         run: ltd upload --product gafaelfawr --gh --dir docs/_build/html
