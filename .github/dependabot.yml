@@ -3,16 +3,9 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
 
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "daily"
-
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    allow:
-      - dependency-type: "all"
+      interval: "weekly"
