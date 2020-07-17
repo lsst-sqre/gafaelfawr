@@ -11,8 +11,9 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from gafaelfawr.config import Config
     from typing import Any, Dict, List, Optional, Union
+
+    from gafaelfawr.config import Config
 
 __all__ = ["create_oidc_test_token", "create_test_token"]
 

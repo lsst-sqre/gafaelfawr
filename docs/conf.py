@@ -1,7 +1,8 @@
 import os
 
-import gafaelfawr
 import lsst_sphinx_bootstrap_theme
+
+import gafaelfawr
 
 # Common links and substitutions =============================================
 

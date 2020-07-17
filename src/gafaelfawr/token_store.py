@@ -8,11 +8,13 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from typing import List, Optional
+
     from aioredis import Redis
     from aioredis.commands import Pipeline
-    from gafaelfawr.session import Session
     from structlog import BoundLogger
-    from typing import List, Optional
+
+    from gafaelfawr.session import Session
 
 __all__ = ["TokenEntry", "TokenStore"]
 

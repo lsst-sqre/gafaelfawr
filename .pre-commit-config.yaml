@@ -5,24 +5,24 @@ repos:
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
-        args: ["--allow-multiple-documents"]
+        args: [--allow-multiple-documents]
       - id: trailing-whitespace
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-markup
     rev: v1.0.0
     hooks:
       - id: rst-linter
-        name: "Check rST"
-        files: "(README\\.rst)|(CHANGELOG\\.rst)"
+        name: Check rST
+        files: (README\.rst)|(CHANGELOG\.rst)
 
   - repo: https://github.com/asottile/seed-isort-config
-    rev: v2.1.1
+    rev: v2.2.0
     hooks:
       - id: seed-isort-config
-        args: ["--exclude=docs/.*\\.py", "--application-directories=src"]
+        args: [--exclude=docs/.*\.py, --application-directories=src]
 
   - repo: https://github.com/timothycrosley/isort
-    rev: 4.3.21-2
+    rev: 5.1.1
     hooks:
       - id: isort
         additional_dependencies:
@@ -34,6 +34,6 @@ repos:
       - id: black
 
   - repo: https://gitlab.com/pycqa/flake8
-    rev: 3.8.1
+    rev: 3.8.3
     hooks:
       - id: flake8

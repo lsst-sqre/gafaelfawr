@@ -15,7 +15,7 @@ from gafaelfawr.settings import Settings
 
 if TYPE_CHECKING:
     from ipaddress import _BaseNetwork
-    from typing import Any, Mapping, Optional, FrozenSet, Tuple
+    from typing import Any, FrozenSet, Mapping, Optional, Tuple
 
 __all__ = [
     "Config",

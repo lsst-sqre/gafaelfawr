@@ -14,11 +14,12 @@ from gafaelfawr.verify import VerifyTokenException
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
+    from structlog import BoundLogger
+
     from gafaelfawr.config import OIDCConfig
     from gafaelfawr.issuer import TokenIssuer
     from gafaelfawr.session import SessionStore
     from gafaelfawr.verify import TokenVerifier
-    from structlog import BoundLogger
 
 __all__ = ["OIDCException", "OIDCProvider"]
 

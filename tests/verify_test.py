@@ -23,8 +23,9 @@ from gafaelfawr.verify import (
 )
 
 if TYPE_CHECKING:
-    from tests.setup import SetupTestCallable
     from typing import Any, Dict, Optional
+
+    from tests.setup import SetupTestCallable
 
 
 def encode_token(

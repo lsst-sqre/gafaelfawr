@@ -23,9 +23,11 @@ from gafaelfawr.handlers.util import (
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
-    from gafaelfawr.tokens import VerifiedToken
-    from multidict import MultiDictProxy
     from typing import Any, Awaitable, Callable, Dict, Optional, Union
+
+    from multidict import MultiDictProxy
+
+    from gafaelfawr.tokens import VerifiedToken
 
     Route = Callable[[web.Request], Awaitable[Any]]
     AuthenticatedRoute = Callable[[web.Request, VerifiedToken], Awaitable[Any]]

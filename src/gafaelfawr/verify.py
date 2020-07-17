@@ -17,12 +17,14 @@ from gafaelfawr.tokens import VerifiedToken
 from gafaelfawr.util import base64_to_number
 
 if TYPE_CHECKING:
+    from typing import Any, Dict, List, Mapping, Optional
+
     from aiohttp import ClientSession
     from cachetools import TTLCache
+    from structlog import BoundLogger
+
     from gafaelfawr.config import VerifierConfig
     from gafaelfawr.tokens import Token
-    from structlog import BoundLogger
-    from typing import Any, Dict, List, Mapping, Optional
 
 __all__ = [
     "FetchKeysException",

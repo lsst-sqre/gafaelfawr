@@ -9,6 +9,7 @@ from unittest.mock import ANY
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
+
     from tests.setup import SetupTestCallable
 
 

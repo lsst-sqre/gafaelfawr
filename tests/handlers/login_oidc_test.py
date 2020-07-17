@@ -12,9 +12,11 @@ from aiohttp import ClientConnectionError, ClientResponse, ClientResponseError
 from gafaelfawr.constants import ALGORITHM
 
 if TYPE_CHECKING:
-    from _pytest.logging import LogCaptureFixture
-    from tests.setup import SetupTestCallable
     from typing import Dict
+
+    from _pytest.logging import LogCaptureFixture
+
+    from tests.setup import SetupTestCallable
 
 
 async def test_login(

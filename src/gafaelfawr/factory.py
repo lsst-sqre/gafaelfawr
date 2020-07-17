@@ -14,13 +14,15 @@ from gafaelfawr.token_store import TokenStore
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
+    from typing import Optional
+
     from aiohttp import ClientSession
     from aioredis import Redis
     from cachetools import TTLCache
+    from structlog import BoundLogger
+
     from gafaelfawr.config import Config
     from gafaelfawr.providers.base import Provider
-    from structlog import BoundLogger
-    from typing import Optional
 
 
 class ComponentFactory:

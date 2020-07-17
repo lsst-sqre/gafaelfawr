@@ -14,13 +14,15 @@ from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
+    from typing import Optional
+
     from aiohttp import ClientSession
     from aioredis import Redis
     from cachetools import TTLCache
+    from structlog import BoundLogger
+
     from gafaelfawr.config import Config
     from gafaelfawr.tokens import VerifiedToken
-    from structlog import BoundLogger
-    from typing import Optional
 
 __all__ = [
     "AuthChallenge",
