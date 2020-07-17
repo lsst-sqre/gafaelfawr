@@ -13,8 +13,9 @@ from gafaelfawr.keypair import RSAKeyPair
 from tests.support.http_session import MockClientSession
 
 if TYPE_CHECKING:
-    from aiohttp import web
     from typing import Any
+
+    from aiohttp import web
 
 __all__ = ["create_test_app"]
 

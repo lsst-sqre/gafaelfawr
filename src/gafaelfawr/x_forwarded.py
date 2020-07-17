@@ -10,8 +10,9 @@ from aiohttp_remotes.x_forwarded import XForwardedBase
 
 if TYPE_CHECKING:
     from ipaddress import _BaseNetwork
-    from multidict import CIMultiDictProxy
     from typing import Any, Awaitable, Callable, Dict, List, Sequence
+
+    from multidict import CIMultiDictProxy
 
     Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 

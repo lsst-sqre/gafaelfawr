@@ -16,14 +16,16 @@ from gafaelfawr.session import Session, SessionHandle
 from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
+    from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+
     from aiohttp import web
     from aiohttp.pytest_plugin.test_utils import TestClient
     from aioredis import Redis
+
     from gafaelfawr.config import Config
     from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.tokens import Token, VerifiedToken
     from tests.support.http_session import MockClientSession
-    from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
 
 class SetupTest:

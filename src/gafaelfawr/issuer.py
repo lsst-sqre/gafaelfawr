@@ -11,8 +11,9 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from gafaelfawr.config import IssuerConfig
     from typing import Any, Dict, List, Mapping, Optional, Set, Union
+
+    from gafaelfawr.config import IssuerConfig
 
 __all__ = ["InvalidTokenClaimsException", "TokenIssuer"]
 

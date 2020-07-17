@@ -15,12 +15,14 @@ from jwt.exceptions import InvalidTokenError
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
+    from typing import Any, Dict, Optional
+
     from aioredis import Redis
     from aioredis.commands import Pipeline
+    from structlog import BoundLogger
+
     from gafaelfawr.tokens import VerifiedToken
     from gafaelfawr.verify import TokenVerifier
-    from structlog import BoundLogger
-    from typing import Any, Dict, Optional
 
 __all__ = [
     "InvalidSessionHandleException",

@@ -26,10 +26,11 @@ from gafaelfawr.handlers import init_routes
 from gafaelfawr.x_forwarded import XForwardedFiltered
 
 if TYPE_CHECKING:
+    from typing import Any, Awaitable, Callable, Optional
+
     from aiohttp import ClientSession
     from aioredis import Redis
     from structlog import BoundLogger
-    from typing import Any, Awaitable, Callable, Optional
 
     Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 

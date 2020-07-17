@@ -15,8 +15,9 @@ from aiohttp import web
 from gafaelfawr.x_forwarded import XForwardedFiltered
 
 if TYPE_CHECKING:
-    from aiohttp.pytest_plugin.test_utils import TestClient
     from typing import Awaitable, Callable
+
+    from aiohttp.pytest_plugin.test_utils import TestClient
 
     Handler = Callable[[web.Request], Awaitable[web.Response]]
     TestClientCallable = Callable[[web.Application], Awaitable[TestClient]]

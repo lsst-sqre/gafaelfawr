@@ -16,6 +16,7 @@ from gafaelfawr.providers.github import (
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
+
     from tests.setup import SetupTestCallable
 
 

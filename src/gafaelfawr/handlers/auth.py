@@ -22,8 +22,9 @@ from gafaelfawr.handlers.util import (
 from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
-    from gafaelfawr.tokens import VerifiedToken
     from typing import Dict, Optional, Set
+
+    from gafaelfawr.tokens import VerifiedToken
 
 __all__ = ["get_auth"]
 

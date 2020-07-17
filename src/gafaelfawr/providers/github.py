@@ -12,12 +12,14 @@ from gafaelfawr.providers.base import Provider, ProviderException
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
+    from typing import List
+
     from aiohttp import ClientSession
+    from structlog import BoundLogger
+
     from gafaelfawr.config import GitHubConfig
     from gafaelfawr.issuer import TokenIssuer
     from gafaelfawr.session import SessionStore
-    from structlog import BoundLogger
-    from typing import List
 
 __all__ = ["GitHubException", "GitHubProvider"]
 

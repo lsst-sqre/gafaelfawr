@@ -10,11 +10,13 @@ from tests.setup import SetupTest
 from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Any, Awaitable, Callable
+
     from aiohttp import web
     from aiohttp.pytest_plugin.test_utils import TestClient
-    from pathlib import Path
+
     from tests.setup import SetupTestCallable
-    from typing import Any, Awaitable, Callable
 
 
 @pytest.fixture
