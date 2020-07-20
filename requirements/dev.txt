@@ -197,9 +197,9 @@ holdup==1.8.0 \
     --hash=sha256:405347f13ab1fcc4f56557a3f97af63fe5a52c16e8b8359bc79946262b22c262 \
     --hash=sha256:8ce9113bb1687af59fdd8205ceb6ad0acc20c80933fba1c6916ee83bbb27de58 \
     # via -r requirements/dev.in
-identify==1.4.23 \
-    --hash=sha256:882c4b08b4569517b5f2257ecca180e01f38400a17f429f5d0edff55530c41c7 \
-    --hash=sha256:f89add935982d5bc62913ceee16c9297d8ff14b226e9d3072383a4e38136b656 \
+identify==1.4.24 \
+    --hash=sha256:06b4373546ae55eaaefdac54f006951dbd968fe2912846c00e565b09cfaed101 \
+    --hash=sha256:5519601b70c831011fb425ffd214101df7639ba3980f24dc283f7675b19127b3 \
     # via pre-commit
 idna==2.10 \
     --hash=sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6 \
