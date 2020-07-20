@@ -22,7 +22,7 @@ repos:
         args: [--exclude=docs/.*\.py, --application-directories=src]
 
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.1.1
+    rev: 5.1.3
     hooks:
       - id: isort
         additional_dependencies:
