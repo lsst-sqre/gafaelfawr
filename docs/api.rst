@@ -45,6 +45,8 @@ API reference
 
 .. automodapi:: gafaelfawr.session
 
+.. automodapi:: gafaelfawr.settings
+
 .. automodapi:: gafaelfawr.token_store
 
 .. automodapi:: gafaelfawr.tokens

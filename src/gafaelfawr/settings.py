@@ -1,7 +1,7 @@
 """Model for the Gafaelfawr configuration settings file.
 
 Gafaelfawr has two internal configuration containers: `Settings` and
-`~gafaelfwar.config.Config`.  Config is in the correct structure for internal
+`~gafaelfawr.config.Config`.  Config is in the correct structure for internal
 use by the Gafaelfawr code.  Settings, defined here, is the data model used to
 parse and validate the on-disk configuration file.  Settings is then converted
 to Config for internal use.
