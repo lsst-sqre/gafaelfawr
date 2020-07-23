@@ -72,6 +72,10 @@ If you are using it, create a Vault secret with the following keys:
     The GitHub secret, obtained when creating the OAuth App as described above.
     This is not required if you are using CILogin authentication.
 
+``redis-password``
+    The password to use for Redis authentication.
+    This should be set to a long, randomly-generated alphanumeric string.
+
 ``session-secret``
     Encryption key for the Gafaelfawr session cookie.
     Generate with :py:meth:`cryptography.fernet.Fernet.generate_key`.
@@ -208,6 +212,7 @@ The typical annotations for a API that expects direct requests from programs are
 
    annotations:
     kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
 

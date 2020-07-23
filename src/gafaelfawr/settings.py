@@ -132,6 +132,9 @@ class Settings(BaseModel):
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
+    redis_password_file: Optional[str] = None
+    """File containing the password to use when connecting to Redis."""
+
     proxies: Optional[List[IPvAnyNetwork]]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 

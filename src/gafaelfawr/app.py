@@ -77,7 +77,9 @@ async def create_app(
 
     key_cache = TTLCache(maxsize=16, ttl=600)
     if not redis_pool:
-        redis_pool = await aioredis.create_redis_pool(config.redis_url)
+        redis_pool = await aioredis.create_redis_pool(
+            config.redis_url, password=config.redis_password
+        )
 
     app = Application()
     app["safir/config"] = config.safir

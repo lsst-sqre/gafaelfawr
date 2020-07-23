@@ -39,6 +39,10 @@ Secrets beginning or ending in whitespace are not supported.
 ``redis_url`` (required)
     URL for a Redis instance that will be used to store authentication sessions and user-issued tokens.
 
+``redis_password_file`` (optional)
+    File containing the password to use to connect to Redis.
+    If not set, Gafaelfawr will assume that Redis does not require authentication.
+
 ``proxies`` (optional)
     List of IPs or network ranges (in CIDR notation) that should be assumed to be upstream proxies.
     Gafaelfawr by default uses the last address in an ``X-Forwarded-For`` header, if present, as the IP address of the client for logging purposes.
