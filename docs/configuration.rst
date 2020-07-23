@@ -2,16 +2,16 @@
 Configuration settings
 ######################
 
-Gafaelfawr uses `Dynaconf`_ for configuration, so configuration settings can be provided in a large number of ways.
+Gafaelfawr uses `pydantic`_ for configuration, so configuration settings can be provided in a large number of ways.
 The recommended approach is to use a YAML file.
 By default, the file ``/etc/gafaelfawr/gafaelfawr.yaml`` is loaded as configuration settings.
 This path can be overridden via the ``--settings`` option to the ``gafaelfawr run`` command.
 
-.. _Dynaconf: https://dynaconf.readthedocs.io/en/latest/
+.. _pydantic: https://pydantic-docs.helpmanual.io/
 
 When configuring Gafaelfawr to run in Kubernetes, consider defining your settings as the value of a ``gafaelfawr.yaml`` key in a config map, and then mounting that config map at ``/etc/gafaelfawr`` in the pod.
 
-See the `Dynaconf`_ documentation for more details, including how to override specific settings with environment variables.
+See the `pydantic`_ documentation for more details, including how to override specific settings with environment variables.
 
 .. _settings:
 
