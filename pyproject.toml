@@ -114,5 +114,5 @@ exclude = '''
 include_trailing_comma = true
 multi_line_output = 3
 known_first_party = ["gafaelfawr", "tests"]
-known_third_party = ["aiohttp", "aiohttp_csrf", "aiohttp_jinja2", "aiohttp_remotes", "aiohttp_session", "aioredis", "cachetools", "click", "cryptography", "jinja2", "jwt", "mockaioredis", "pydantic", "pytest", "safir", "setuptools", "structlog", "wtforms", "yaml"]
+known_third_party = ["aiohttp", "aiohttp_csrf", "aiohttp_jinja2", "aiohttp_remotes", "aiohttp_session", "aioredis", "aioresponses", "cachetools", "click", "cryptography", "jinja2", "jwt", "mockaioredis", "pydantic", "pytest", "safir", "setuptools", "structlog", "wtforms", "yaml"]
 skip = ["docs/conf.py"]

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, Mock
+from unittest.mock import ANY
 from urllib.parse import urljoin
 
-from aiohttp import ClientResponse
+from aiohttp import ClientSession
+from aioresponses import CallbackResult
 from cachetools import TTLCache
 
 from gafaelfawr.factory import ComponentFactory
@@ -16,16 +17,16 @@ from gafaelfawr.session import Session, SessionHandle
 from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+    from typing import Any, Awaitable, Callable, List, Optional, Union
 
     from aiohttp import web
     from aiohttp.pytest_plugin.test_utils import TestClient
     from aioredis import Redis
+    from aioresponses import aioresponses
 
     from gafaelfawr.config import Config
     from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.tokens import Token, VerifiedToken
-    from tests.support.http_session import MockClientSession
 
 
 class SetupTest:
@@ -37,17 +38,22 @@ class SetupTest:
     """
 
     def __init__(
-        self, app: web.Application, client: Optional[TestClient] = None
+        self,
+        app: web.Application,
+        responses: aioresponses,
+        client: Optional[TestClient] = None,
     ) -> None:
         self.app = app
+        self.responses = responses
         self._client = client
+        self._session = ClientSession()
         self.config: Config = self.app["gafaelfawr/config"]
         self.redis: Redis = self.app["gafaelfawr/redis"]
         self.factory = ComponentFactory(
             config=self.config,
             redis=self.redis,
             key_cache=TTLCache(maxsize=16, ttl=600),
-            http_session=self.app["safir/http_session"],
+            http_session=self._session,
         )
 
     @property
@@ -63,9 +69,9 @@ class SetupTest:
         return self._client
 
     @property
-    def http_session(self) -> MockClientSession:
-        """Return the mock ClientSession used for outbound calls."""
-        return self.app["safir/http_session"]
+    def http_session(self) -> ClientSession:
+        """Return a ClientSession usable for outbound calls."""
+        return self._session
 
     async def create_session(
         self, *, groups: Optional[List[str]] = None, **claims: str
@@ -160,23 +166,17 @@ class SetupTest:
         """
         assert self.config.github
 
-        def user_handler(
-            headers: Dict[str, str], raise_for_status: bool
-        ) -> ClientResponse:
-            assert headers == {"Authorization": f"token {token}"}
-            assert raise_for_status
+        def user_handler(url: str, **kwargs: Any) -> CallbackResult:
+            assert kwargs["headers"] == {"Authorization": f"token {token}"}
             response = {
                 "login": userinfo.username,
                 "id": userinfo.uid,
                 "name": userinfo.name,
             }
-            return self._build_json_response(response)
+            return CallbackResult(payload=response, status=200)
 
-        def teams_handler(
-            headers: Dict[str, str], raise_for_status: bool
-        ) -> ClientResponse:
-            assert headers == {"Authorization": f"token {token}"}
-            assert raise_for_status
+        def teams_handler(url: str, **kwargs: Any) -> CallbackResult:
+            assert kwargs["headers"] == {"Authorization": f"token {token}"}
             response = []
             for team in userinfo.teams:
                 data = {
@@ -185,28 +185,19 @@ class SetupTest:
                     "organization": {"login": team.organization},
                 }
                 response.append(data)
-            return self._build_json_response(response)
+            return CallbackResult(payload=response, status=200)
 
-        def emails_handler(
-            headers: Dict[str, str], raise_for_status: bool
-        ) -> ClientResponse:
-            assert headers == {"Authorization": f"token {token}"}
-            assert raise_for_status
+        def emails_handler(url: str, **kwargs: Any) -> CallbackResult:
+            assert kwargs["headers"] == {"Authorization": f"token {token}"}
             response = [
                 {"email": "otheremail@example.com", "primary": False},
                 {"email": userinfo.email, "primary": True},
             ]
-            return self._build_json_response(response)
+            return CallbackResult(payload=response, status=200)
 
-        self.http_session.add_get_handler(
-            GitHubProvider._USER_URL, user_handler
-        )
-        self.http_session.add_get_handler(
-            GitHubProvider._TEAMS_URL, teams_handler
-        )
-        self.http_session.add_get_handler(
-            GitHubProvider._EMAILS_URL, emails_handler
-        )
+        self.responses.get(GitHubProvider._USER_URL, callback=user_handler)
+        self.responses.get(GitHubProvider._TEAMS_URL, callback=teams_handler)
+        self.responses.get(GitHubProvider._EMAILS_URL, callback=emails_handler)
 
     def set_github_token_response(self, code: str, token: str) -> None:
         """Set the token that will be returned GitHub token endpoint.
@@ -221,15 +212,10 @@ class SetupTest:
         """
         assert self.config.github
 
-        def handler(
-            data: Dict[str, str],
-            headers: Dict[str, str],
-            raise_for_status: bool,
-        ) -> ClientResponse:
+        def handler(url: str, **kwargs: Any) -> CallbackResult:
             assert self.config.github
-            assert raise_for_status
-            assert headers == {"Accept": "application/json"}
-            assert data == {
+            assert kwargs["headers"] == {"Accept": "application/json"}
+            assert kwargs["data"] == {
                 "client_id": self.config.github.client_id,
                 "client_secret": self.config.github.client_secret,
                 "code": code,
@@ -240,9 +226,9 @@ class SetupTest:
                 "scope": ",".join(GitHubProvider._SCOPES),
                 "token_type": "bearer",
             }
-            return self._build_json_response(response)
+            return CallbackResult(payload=response, status=200)
 
-        self.http_session.add_post_handler(GitHubProvider._TOKEN_URL, handler)
+        self.responses.post(GitHubProvider._TOKEN_URL, callback=handler)
 
     def set_oidc_configuration_response(
         self, keypair: RSAKeyPair, kid: Optional[str] = None
@@ -263,20 +249,10 @@ class SetupTest:
         config_url = urljoin(iss, "/.well-known/openid-configuration")
         jwks_url = urljoin(iss, "/jwks.json")
         oidc_kid = kid if kid else self.config.oidc.key_ids[0]
+        jwks = keypair.public_key_as_jwks(oidc_kid)
 
-        def config_handler(
-            headers: Dict[str, str], raise_for_status: bool
-        ) -> ClientResponse:
-            return self._build_json_response({"jwks_uri": jwks_url})
-
-        def jwks_handler(
-            headers: Dict[str, str], raise_for_status: bool
-        ) -> ClientResponse:
-            jwks = keypair.public_key_as_jwks(oidc_kid)
-            return self._build_json_response({"keys": [jwks]})
-
-        self.http_session.add_get_handler(config_url, config_handler)
-        self.http_session.add_get_handler(jwks_url, jwks_handler)
+        self.responses.get(config_url, payload={"jwks_uri": jwks_url})
+        self.responses.get(jwks_url, payload={"keys": [jwks]})
 
     def set_oidc_token_response(self, code: str, token: Token) -> None:
         """Set the token that will be returned from the OIDC token endpoint.
@@ -290,14 +266,10 @@ class SetupTest:
         """
         assert self.config.oidc
 
-        def handler(
-            data: Dict[str, str],
-            headers: Dict[str, str],
-            raise_for_status: bool,
-        ) -> ClientResponse:
+        def handler(url: str, **kwargs: Any) -> CallbackResult:
             assert self.config.oidc
-            assert headers == {"Accept": "application/json"}
-            assert data == {
+            assert kwargs["headers"] == {"Accept": "application/json"}
+            assert kwargs["data"] == {
                 "grant_type": "authorization_code",
                 "client_id": self.config.oidc.client_id,
                 "client_secret": self.config.oidc.client_secret,
@@ -308,17 +280,9 @@ class SetupTest:
                 "id_token": token.encoded,
                 "token_type": "Bearer",
             }
-            return self._build_json_response(response)
+            return CallbackResult(payload=response, status=200)
 
-        self.http_session.add_post_handler(self.config.oidc.token_url, handler)
-
-    @staticmethod
-    def _build_json_response(response: Any) -> ClientResponse:
-        """Build a successful aiohttp client response."""
-        r = Mock(spec=ClientResponse)
-        r.json.return_value = response
-        r.status = 200
-        return r
+        self.responses.post(self.config.oidc.token_url, callback=handler)
 
 
 # Type of the pytest fixture that builds the SetupTest object.

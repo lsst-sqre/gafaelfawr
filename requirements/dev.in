@@ -6,6 +6,7 @@
 #     make update-deps
 
 aiohttp-devtools
+aioresponses
 coverage[toml]
 diagrams
 documenteer>=0.5,<0.6

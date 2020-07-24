@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import jwt
+from aiohttp import ClientError
 from cachetools.keys import hashkey
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -338,10 +339,13 @@ class TokenVerifier:
         if not url:
             url = urljoin(issuer_url, ".well-known/jwks.json")
 
-        r = await self._session.get(url)
-        if r.status != 200:
-            msg = f"Cannot retrieve keys from {url}"
-            raise FetchKeysException(msg)
+        try:
+            r = await self._session.get(url)
+            if r.status != 200:
+                msg = f"Cannot retrieve keys from {url}"
+                raise FetchKeysException(msg)
+        except ClientError:
+            raise FetchKeysException(f"Cannot retrieve keys from {url}")
 
         body = await r.json()
         try:
@@ -374,8 +378,11 @@ class TokenVerifier:
             parameter.
         """
         url = urljoin(issuer_url, ".well-known/openid-configuration")
-        r = await self._session.get(url)
-        if r.status != 200:
+        try:
+            r = await self._session.get(url)
+            if r.status != 200:
+                return None
+        except ClientError:
             return None
 
         body = await r.json()
