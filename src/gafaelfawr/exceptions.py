@@ -6,6 +6,8 @@ __all__ = [
     "DeserializeException",
     "FetchKeysException",
     "GitHubException",
+    "InvalidClientException",
+    "InvalidGrantException",
     "InvalidRequestException",
     "InvalidSessionHandleException",
     "InvalidTokenClaimsException",
@@ -13,6 +15,7 @@ __all__ = [
     "MissingClaimsException",
     "OIDCException",
     "ProviderException",
+    "UnauthorizedClientException",
     "UnknownAlgorithmException",
     "UnknownKeyIdException",
     "VerifyTokenException",
@@ -28,13 +31,33 @@ class DeserializeException(Exception):
     """
 
 
+class InvalidClientException(Exception):
+    """The provided client_id and client_secret could not be validated.
+
+    This corresponds to the ``invalid_client`` error in RFC 6749: "Client
+    authentication failed (e.g., unknown client, no client authentication
+    included, or unsupported authentication method)."
+    """
+
+
+class InvalidGrantException(Exception):
+    """The provided authorization code is not valid.
+
+    This corresponds to the ``invalid_grant`` error in RFC 6749: "The provided
+    authorization grant (e.g., authorization code, resource owner credentials)
+    or refresh token is invalid, expired, revoked, does not match the
+    redirection URI used in the authorization request, or was issued to
+    another client."
+    """
+
+
 class InvalidRequestException(Exception):
     """The provided Authorization header could not be parsed.
 
-    This corresponds to the ``invalid_request`` error in RFC 6750: "The
-    request is missing a required parameter, includes an unsupported parameter
-    or parameter value, repeats the same parameter, uses more than one method
-    for including an access token, or is otherwise malformed."
+    This corresponds to the ``invalid_request`` error in RFC 6749 and 6750:
+    "The request is missing a required parameter, includes an unsupported
+    parameter or parameter value, repeats the same parameter, uses more than
+    one method for including an access token, or is otherwise malformed."
     """
 
 
@@ -66,6 +89,13 @@ class GitHubException(ProviderException):
 
 class OIDCException(ProviderException):
     """The OpenID Connect provider returned an error from an API call."""
+
+
+class UnauthorizedClientException(Exception):
+    """The client is not authorized to request an authorization code.
+
+    This corresponds to the ``unauthorized_client`` error in RFC 6749.
+    """
 
 
 class VerifyTokenException(Exception):

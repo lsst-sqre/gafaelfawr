@@ -306,7 +306,7 @@ async def get_token_from_request(
 
     Raises
     ------
-    InvalidRequestException
+    gafaelfawr.exceptions.InvalidRequestException
         The Authorization header was malformed.
     gafaelfawr.handlers.util.InvalidTokenException
         A token was provided but it could not be verified.
@@ -359,7 +359,7 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
 
     Raises
     ------
-    InvalidRequestException
+    gafaelfawr.exceptions.InvalidRequestException
         If the Authorization header is malformed.
 
     Notes

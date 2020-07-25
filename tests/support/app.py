@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,9 +13,11 @@ from gafaelfawr.app import create_app
 from gafaelfawr.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
-    from typing import Any
+    from typing import Any, List, Optional
 
     from aiohttp import web
+
+    from gafaelfawr.config import OIDCClient
 
 __all__ = ["create_test_app"]
 
@@ -66,7 +69,11 @@ def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
 
 
 async def create_test_app(
-    tmp_path: Path, *, environment: str = "github", **settings: Any
+    tmp_path: Path,
+    *,
+    environment: str = "github",
+    oidc_clients: Optional[List[OIDCClient]] = None,
+    **settings: Any,
 ) -> web.Application:
     """Configured aiohttp Application for testing.
 
@@ -76,6 +83,9 @@ async def create_test_app(
         Temporary directory in which to store secrets.
     environment : `str`, optional
         Settings template to use.
+    oidc_clients : List[`gafaelfawr.config.OIDCClient`], optional
+        If present, serialize the provided OpenID Connect clients into a
+        secret and include its path in the configuration.
     **settings : Any
         Settings that override settings read from the configuration file.
 
@@ -90,6 +100,15 @@ async def create_test_app(
     issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
     github_secret_file = store_secret(tmp_path, "github", b"github-secret")
     oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
+
+    if oidc_clients:
+        oidc_path = tmp_path / "oidc.json"
+        clients_data = [
+            {"id": c.client_id, "secret": c.client_secret}
+            for c in oidc_clients
+        ]
+        oidc_path.write_text(json.dumps(clients_data))
+        settings["oidc_server_secrets_file"] = str(oidc_path)
 
     settings_path = build_settings(
         tmp_path,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from collections import defaultdict
@@ -22,6 +23,8 @@ __all__ = [
     "GitHubConfig",
     "IssuerConfig",
     "OIDCConfig",
+    "OIDCClient",
+    "OIDCServerConfig",
     "SafirConfig",
     "VerifierConfig",
 ]
@@ -192,6 +195,25 @@ class OIDCConfig:
 
 
 @dataclass(frozen=True)
+class OIDCClient:
+    """Configuration for a single OpenID Connect client of our server."""
+
+    client_id: str
+    """Unique identifier of the client."""
+
+    client_secret: str
+    """Secret used to authenticate this client."""
+
+
+@dataclass(frozen=True)
+class OIDCServerConfig:
+    """Configuration for the OpenID Connect server."""
+
+    clients: Tuple[OIDCClient, ...]
+    """Supported OpenID Connect clients."""
+
+
+@dataclass(frozen=True)
 class Config:
     """Configuration for Gafaelfawr.
 
@@ -240,6 +262,9 @@ class Config:
     oidc: Optional[OIDCConfig]
     """Configuration for OpenID Connect authentication."""
 
+    oidc_server: Optional[OIDCServerConfig]
+    """Configuration for the OpenID Connect server."""
+
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
@@ -281,6 +306,21 @@ class Config:
         if settings.oidc:
             path = settings.oidc.client_secret_file
             oidc_secret = cls._load_secret(path).decode()
+
+        # If there is an OpenID Connect server configuration, load it from a
+        # file in JSON format.  (It contains secrets.)
+        oidc_server_config = None
+        if settings.oidc_server_secrets_file:
+            path = settings.oidc_server_secrets_file
+            oidc_secrets_json = cls._load_secret(path).decode()
+            oidc_secrets = json.loads(oidc_secrets_json)
+            oidc_clients = tuple(
+                (
+                    OIDCClient(client_id=c["id"], client_secret=c["secret"])
+                    for c in oidc_secrets
+                )
+            )
+            oidc_server_config = OIDCServerConfig(clients=oidc_clients)
 
         # The group mapping in the settings maps a scope to a list of groups
         # that provide that scope.  This may be conceptually easier for the
@@ -354,6 +394,7 @@ class Config:
             verifier=verifier_config,
             github=github_config,
             oidc=oidc_config,
+            oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
             safir=SafirConfig(log_level=log_level),
         )

@@ -165,6 +165,9 @@ class Settings(BaseModel):
     oidc: Optional[OIDCSettings] = None
     """Settings for the OpenID Connect authentication provider."""
 
+    oidc_server_secrets_file: Optional[str] = None
+    """Path to file containing OpenID Connect client secrets in JSON."""
+
     known_scopes: Dict[str, str] = {}
     """Known scopes (the keys) and their descriptions (the values)."""
 

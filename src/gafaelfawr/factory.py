@@ -7,9 +7,11 @@ from typing import TYPE_CHECKING
 import structlog
 
 from gafaelfawr.issuer import TokenIssuer
+from gafaelfawr.oidc import OIDCServer
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
 from gafaelfawr.storage.base import RedisStorage
+from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.session import SerializedSession, SessionStore
 from gafaelfawr.storage.user_token import UserTokenStore
 from gafaelfawr.verify import TokenVerifier
@@ -56,6 +58,28 @@ class ComponentFactory:
         self._key_cache = key_cache
         self._http_session = http_session
         self._logger = logger
+
+    def create_oidc_server(self) -> OIDCServer:
+        """Create a minimalist OpenID Connect server.
+
+        Returns
+        -------
+        oidc_server : `gafaelfawr.openid.OIDCServer`
+            A new OpenID Connect server.
+        """
+        assert self._config.oidc_server
+        key = self._config.session_secret
+        storage = RedisStorage(OIDCAuthorization, key, self._redis)
+        authorization_store = OIDCAuthorizationStore(storage)
+        issuer = self.create_token_issuer()
+        session_store = self.create_session_store()
+        return OIDCServer(
+            config=self._config.oidc_server,
+            authorization_store=authorization_store,
+            issuer=issuer,
+            session_store=session_store,
+            logger=self._logger,
+        )
 
     def create_provider(self) -> Provider:
         """Create an authentication provider.
