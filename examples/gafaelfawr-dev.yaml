@@ -18,6 +18,7 @@ session_secret_file: "examples/secrets/session-secret"
 # This Redis will be started by the docker-compose.yaml file at the top
 # level of the repository.
 redis_url: "redis://localhost:6379/0"
+redis_password_file: "examples/secrets/redis-password"
 
 # Where to send the user after logging out.
 after_logout_url: "http://localhost:8000"
@@ -34,7 +35,8 @@ issuer:
 
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
-# application.
+# application.  Set the homepage URL to http://localhost:8000/ and the
+# authorization callback URL to http://localhost:8000/login.
 github:
   client_id: "<github-client-id>"
   client_secret_file: "examples/secrets/github-client-secret"

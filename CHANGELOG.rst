@@ -2,6 +2,12 @@
 Change log
 ##########
 
+1.4.0 (unreleased)
+==================
+
+- Add support for a password-protected Redis backend.
+  This uses a new configuration parameter, ``redis_password_file``, which points to a file containing the password for Redis.
+
 1.3.2 (2020-06-08)
 ==================
 

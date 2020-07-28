@@ -2,16 +2,16 @@
 Configuration settings
 ######################
 
-Gafaelfawr uses `Dynaconf`_ for configuration, so configuration settings can be provided in a large number of ways.
+Gafaelfawr uses `pydantic`_ for configuration, so configuration settings can be provided in a large number of ways.
 The recommended approach is to use a YAML file.
 By default, the file ``/etc/gafaelfawr/gafaelfawr.yaml`` is loaded as configuration settings.
 This path can be overridden via the ``--settings`` option to the ``gafaelfawr run`` command.
 
-.. _Dynaconf: https://dynaconf.readthedocs.io/en/latest/
+.. _pydantic: https://pydantic-docs.helpmanual.io/
 
 When configuring Gafaelfawr to run in Kubernetes, consider defining your settings as the value of a ``gafaelfawr.yaml`` key in a config map, and then mounting that config map at ``/etc/gafaelfawr`` in the pod.
 
-See the `Dynaconf`_ documentation for more details, including how to override specific settings with environment variables.
+See the `pydantic`_ documentation for more details, including how to override specific settings with environment variables.
 
 .. _settings:
 
@@ -38,6 +38,10 @@ Secrets beginning or ending in whitespace are not supported.
 
 ``redis_url`` (required)
     URL for a Redis instance that will be used to store authentication sessions and user-issued tokens.
+
+``redis_password_file`` (optional)
+    File containing the password to use to connect to Redis.
+    If not set, Gafaelfawr will assume that Redis does not require authentication.
 
 ``proxies`` (optional)
     List of IPs or network ranges (in CIDR notation) that should be assumed to be upstream proxies.
@@ -167,7 +171,9 @@ Secrets beginning or ending in whitespace are not supported.
 Examples
 ========
 
-See `gafaelfawr.yaml <https://github.com/lsst-sqre/gafaelfawr/blob/master/examples/gafaelfawr.yaml>`__ for an example configuration file.
+See `gafaelfawr-github.yaml <https://github.com/lsst-sqre/gafaelfawr/blob/master/examples/gafaelfawr-github.yaml>`__ and `gafaelfawr-oidc.yaml <https://github.com/lsst-sqre/gafaelfawr/blob/master/examples/gafaelfawr-oidc.yaml>`__ for example configuration files.
+The first configures GitHub authentication.
+The second OpenID Connect.
 
 See `gafaelfawr-dev.yaml <https://github.com/lsst-sqre/gafaelfawr/blob/master/examples/gafaelfawr-dev.yaml>`__ for a configuration file designed for a development server running on localhost.
 **WARNING**: Do not use this configuration for anything other than a local development server.

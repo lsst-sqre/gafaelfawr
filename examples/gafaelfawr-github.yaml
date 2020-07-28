@@ -14,8 +14,9 @@ realm: "example.com"
 # Generate this with cryptography.fernet.Fernet.generate_key().
 session_secret_file: "/path/to/session-secret"
 
-# The URL of a Redis instance used for storing sessions.
+# The URL of and password for a Redis instance used for storing sessions.
 redis_url: "redis://redis.example.com:6379/0"
+redis_password_file: "/path/to/redis-password"
 
 # The IP address ranges used internally in the Kubernetes cluster.  Used
 # to determine the external IP address for logging purposes.

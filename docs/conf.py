@@ -72,7 +72,6 @@ intersphinx_mapping = {
     "aioredis": ("https://aioredis.readthedocs.io/en/latest/", None),
     "cachetools": ("https://cachetools.readthedocs.io/en/stable/", None),
     "cryptography": ("https://cryptography.io/en/latest/", None),
-    "dynaconf": ("https://dynaconf.readthedocs.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
     "structlog": ("https://www.structlog.org/en/stable/", None),
@@ -161,7 +160,7 @@ autosummary_generate = True
 
 automodapi_inheritance_diagram = False
 automodapi_toctreedirnm = "api"
-automodsumm_inherited_members = True
+automodsumm_inherited_members = False
 
 # Docstrings for classes and methods are inherited from parents.
 autodoc_inherit_docstrings = True

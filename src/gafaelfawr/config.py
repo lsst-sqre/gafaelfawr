@@ -210,6 +210,9 @@ class Config:
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
+    redis_password: Optional[str]
+    """Password for the Redis server that stores sessions."""
+
     proxies: Tuple[_BaseNetwork, ...]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
@@ -268,6 +271,10 @@ class Config:
         key = cls._load_secret(settings.issuer.key_file)
         keypair = RSAKeyPair.from_pem(key)
         session_secret = cls._load_secret(settings.session_secret_file)
+        redis_password = None
+        if settings.redis_password_file:
+            path = settings.redis_password_file
+            redis_password = cls._load_secret(path).decode()
         if settings.github:
             path = settings.github.client_secret_file
             github_secret = cls._load_secret(path).decode()
@@ -340,6 +347,7 @@ class Config:
             realm=settings.realm,
             session_secret=session_secret.decode(),
             redis_url=settings.redis_url,
+            redis_password=redis_password,
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
             issuer=issuer_config,

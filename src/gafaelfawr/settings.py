@@ -1,7 +1,7 @@
 """Model for the Gafaelfawr configuration settings file.
 
 Gafaelfawr has two internal configuration containers: `Settings` and
-`~gafaelfwar.config.Config`.  Config is in the correct structure for internal
+`~gafaelfawr.config.Config`.  Config is in the correct structure for internal
 use by the Gafaelfawr code.  Settings, defined here, is the data model used to
 parse and validate the on-disk configuration file.  Settings is then converted
 to Config for internal use.
@@ -131,6 +131,9 @@ class Settings(BaseModel):
 
     redis_url: str
     """URL for the Redis server that stores sessions."""
+
+    redis_password_file: Optional[str] = None
+    """File containing the password to use when connecting to Redis."""
 
     proxies: Optional[List[IPvAnyNetwork]]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
