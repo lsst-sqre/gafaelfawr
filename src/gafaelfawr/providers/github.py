@@ -12,7 +12,7 @@ from gafaelfawr.providers.base import Provider, ProviderException
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
-    from typing import List
+    from typing import Dict, List
 
     from aiohttp import ClientSession
     from structlog import BoundLogger
@@ -186,15 +186,16 @@ class GitHubProvider(Provider):
         handle = SessionHandle()
 
         groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
-        claims = {
+        claims: Dict[str, object] = {
             "email": user_info.email,
-            "isMemberOf": groups,
             "jti": handle.key,
             "name": user_info.name,
             "sub": user_info.username.lower(),
             self._config.username_claim: user_info.username.lower(),
             self._config.uid_claim: str(user_info.uid),
         }
+        if groups:
+            claims["isMemberOf"] = groups
 
         token = self._issuer.issue_token(claims)
         session = Session.create(handle, token)
