@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from aiohttp import ClientSession
 from aioresponses import CallbackResult
@@ -151,6 +151,40 @@ class SetupTest:
         return create_oidc_test_token(
             self.config, kid, groups=groups, **claims
         )
+
+    async def github_login(self, userinfo: GitHubUserInfo) -> None:
+        """Simulate a GitHub login and create a session.
+
+        This method is used by tests to populate a valid session handle in the
+        test client's cookie-based session so that other tests that require an
+        existing authentication can be run.
+
+        Parameters
+        ----------
+        userinfo : `gafaelfawr.providers.github.GitHubUserInfo`
+            User information to use to synthesize GitHub API responses.
+        """
+        self.set_github_token_response("some-code", "some-github-token")
+        self.set_github_userinfo_response("some-github-token", userinfo)
+
+        # Simulate the initial authentication request.
+        r = await self.client.get(
+            "/login",
+            params={"rd": f"https://{self.client.host}"},
+            allow_redirects=False,
+        )
+        assert r.status == 303
+        url = urlparse(r.headers["Location"])
+        query = parse_qs(url.query)
+
+        # Simulate the return from GitHub, which will set the authentication
+        # cookie.
+        r = await self.client.get(
+            "/login",
+            params={"code": "some-code", "state": query["state"][0]},
+            allow_redirects=False,
+        )
+        assert r.status == 303
 
     def set_github_userinfo_response(
         self, token: str, userinfo: GitHubUserInfo

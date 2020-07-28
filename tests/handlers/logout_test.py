@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urlparse
 
 from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
 
@@ -19,7 +18,6 @@ async def test_logout(
     create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
 ) -> None:
     setup = await create_test_setup("github")
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -27,26 +25,7 @@ async def test_logout(
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
-
-    # Simulate the initial authentication request.
-    r = await setup.client.get(
-        "/login",
-        params={"rd": f"https://{setup.client.host}"},
-        allow_redirects=False,
-    )
-    assert r.status == 303
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from GitHub, which will set the authentication
-    # cookie.
-    r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
-    )
-    assert r.status == 303
+    await setup.github_login(userinfo)
 
     # Confirm that we're logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
@@ -76,7 +55,6 @@ async def test_logout(
 
 async def test_logout_with_url(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup("github")
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -84,26 +62,7 @@ async def test_logout_with_url(create_test_setup: SetupTestCallable) -> None:
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
-
-    # Simulate the initial authentication request.
-    r = await setup.client.get(
-        "/login",
-        params={"rd": f"https://{setup.client.host}"},
-        allow_redirects=False,
-    )
-    assert r.status == 303
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from GitHub, which will set the authentication
-    # cookie.
-    r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
-    )
-    assert r.status == 303
+    await setup.github_login(userinfo)
 
     # Confirm that we're logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
