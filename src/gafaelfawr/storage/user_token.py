@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from gafaelfawr.storage.base import Serializable
+
 if TYPE_CHECKING:
+    from dataclasses import InitVar
     from typing import List, Optional
 
     from aioredis import Redis
@@ -16,11 +19,11 @@ if TYPE_CHECKING:
 
     from gafaelfawr.session import Session
 
-__all__ = ["TokenEntry", "TokenStore"]
+__all__ = ["UserTokenEntry", "UserTokenStore"]
 
 
 @dataclass
-class TokenEntry:
+class UserTokenEntry(Serializable):
     """An index entry for a user-issued token.
 
     Users can issue and manage their own tokens.  The token proper is stored
@@ -39,34 +42,19 @@ class TokenEntry:
     expires: int
     """When the token expires, in seconds since epoch."""
 
-    encoded: Optional[str] = None
+    encoded: InitVar[Optional[str]] = None
     """The encoded form of the entry, if available.
 
     This may seem odd to include, but we have to have the encoded form in
-    order to delete a token from a Redis set.
+    order to delete a token from a Redis set, and it needs to match what is
+    stored in Redis exactly.
     """
 
+    def __post_init__(self, encoded: Optional[str] = None) -> None:
+        self._encoded = encoded
+
     @classmethod
-    def from_json(cls, data: str) -> TokenEntry:
-        """Deserialize a token entry from JSON.
-
-        Parameters
-        ----------
-        data : `str`
-            Encoded JSON form of a token index entry.
-
-        Returns
-        -------
-        entry : `TokenEntry`
-            The corresponding token index entry.
-
-        Raises
-        ------
-        json.JSONDecodeError
-            The JSON is invalid.
-        KeyError
-            The JSON is missing a required field.
-        """
+    def from_json(cls, data: str) -> UserTokenEntry:
         entry = json.loads(data)
         return cls(
             key=entry["key"],
@@ -75,14 +63,14 @@ class TokenEntry:
             encoded=data,
         )
 
-    def to_json(self) -> str:
-        """Encode a token entry into JSON.
+    @property
+    def lifetime(self) -> Optional[int]:
+        return self.expires - int(time.time())
 
-        Returns
-        -------
-        data : `str`
-            The JSON corresponding to the entry.
-        """
+    def to_json(self) -> str:
+        if self._encoded:
+            return self._encoded
+
         data = {
             "key": self.key,
             "scope": self.scope,
@@ -91,8 +79,12 @@ class TokenEntry:
         return json.dumps(data)
 
 
-class TokenStore:
+class UserTokenStore:
     """Store, retrieve, revoke, and expire user-created tokens.
+
+    This does not use the generic Redis storage layer because there is no
+    overlap.  This store uses sets in Redis, so storing, retrieving, and
+    deleting are all different, and does not encrypt the entries.
 
     Parameters
     ----------
@@ -106,7 +98,7 @@ class TokenStore:
         self._redis = redis
         self._logger = logger
 
-    async def get_tokens(self, user_id: str) -> List[TokenEntry]:
+    async def get_tokens(self, user_id: str) -> List[UserTokenEntry]:
         """Retrieve index entries for all tokens for a given user.
 
         Parameters
@@ -116,7 +108,7 @@ class TokenStore:
 
         Returns
         -------
-        token_entries : List[`TokenEntry`]
+        token_entries : List[`UserTokenEntry`]
             The index entries for all of that user's tokens.
         """
         redis_key = self._redis_key_for_user(user_id)
@@ -125,7 +117,7 @@ class TokenStore:
         entries = []
         for serialized_entry in serialized_entries:
             try:
-                entry = TokenEntry.from_json(serialized_entry)
+                entry = UserTokenEntry.from_json(serialized_entry)
             except (json.JSONDecodeError, KeyError):
                 self._logger.exception("Invalid token entry for %s", user_id)
                 continue
@@ -142,18 +134,17 @@ class TokenStore:
             The user ID.
         """
         entries = await self.get_tokens(user_id)
-        now = datetime.now(tz=timezone.utc)
         expired = []
         for entry in entries:
-            exp = datetime.fromtimestamp(entry.expires, tz=timezone.utc)
-            if exp < now:
+            lifetime = entry.lifetime
+            if lifetime and lifetime < 0:
                 expired.append(entry)
 
         if expired:
             redis_key = self._redis_key_for_user(user_id)
             pipeline = self._redis.pipeline()
             for entry in expired:
-                pipeline.srem(redis_key, entry.encoded)
+                pipeline.srem(redis_key, entry.to_json())
             await pipeline.execute()
 
     async def revoke_token(
@@ -183,7 +174,7 @@ class TokenStore:
         for entry in entries:
             if entry.key == key:
                 redis_key = self._redis_key_for_user(user_id)
-                pipeline.srem(redis_key, entry.encoded)
+                pipeline.srem(redis_key, entry.to_json())
                 return True
         return False
 
@@ -206,7 +197,7 @@ class TokenStore:
         pipeline : `aioredis.commands.Pipeline`
             The pipeline in which to store the session.
         """
-        entry = TokenEntry(
+        entry = UserTokenEntry(
             key=session.handle.key,
             scope=" ".join(sorted(session.token.scope)),
             expires=session.token.claims["exp"],

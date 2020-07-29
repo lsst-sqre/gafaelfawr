@@ -53,7 +53,7 @@ API reference
 
 .. automodapi:: gafaelfawr.storage.session
 
-.. automodapi:: gafaelfawr.token_store
+.. automodapi:: gafaelfawr.storage.user_token
 
 .. automodapi:: gafaelfawr.tokens
 
