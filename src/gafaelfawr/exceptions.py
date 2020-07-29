@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "DeserializeException",
     "FetchKeysException",
     "GitHubException",
     "InvalidRequestException",
@@ -16,6 +17,15 @@ __all__ = [
     "UnknownKeyIdException",
     "VerifyTokenException",
 ]
+
+
+class DeserializeException(Exception):
+    """A stored object could not be decrypted or deserialized.
+
+    Used for data stored in the backing store, such as sessions or user
+    tokens.  Should normally be treated the same as a missing object, but
+    reported separately so that an error can be logged.
+    """
 
 
 class InvalidRequestException(Exception):

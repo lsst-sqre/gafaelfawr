@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import OIDCConfig
     from gafaelfawr.issuer import TokenIssuer
-    from gafaelfawr.session import SessionStore
+    from gafaelfawr.storage.session import SessionStore
     from gafaelfawr.verify import TokenVerifier
 
 __all__ = ["OIDCProvider"]
@@ -35,7 +35,7 @@ class OIDCProvider(Provider):
         Token verifier to use to verify the token returned by the provider.
     issuer : `gafaelfawr.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
-    session_store : `gafaelfawr.session.SessionStore`
+    session_store : `gafaelfawr.storage.session.SessionStore`
         Store for authentication sessions.
     http_session : `aiohttp.ClientSession`
         Session to use to make HTTP requests.

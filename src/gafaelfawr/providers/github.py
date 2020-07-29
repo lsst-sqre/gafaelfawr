@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import GitHubConfig
     from gafaelfawr.issuer import TokenIssuer
-    from gafaelfawr.session import SessionStore
+    from gafaelfawr.storage.session import SessionStore
 
 __all__ = ["GitHubProvider"]
 
@@ -93,7 +93,7 @@ class GitHubProvider(Provider):
         Session to use to make HTTP requests.
     issuer : `gafaelfawr.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
-    session_store : `gafaelfawr.session.SessionStore`
+    session_store : `gafaelfawr.storage.session.SessionStore`
         Store for authentication sessions.
     logger : `structlog.BoundLogger`
         Logger for any log messages.

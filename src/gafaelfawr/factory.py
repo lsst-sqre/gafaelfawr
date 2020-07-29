@@ -9,7 +9,8 @@ import structlog
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
-from gafaelfawr.session import SessionStore
+from gafaelfawr.storage.base import RedisStorage
+from gafaelfawr.storage.session import SerializedSession, SessionStore
 from gafaelfawr.token_store import TokenStore
 from gafaelfawr.verify import TokenVerifier
 
@@ -102,12 +103,13 @@ class ComponentFactory:
 
         Returns
         -------
-        session_store : `gafaelfawr.session.SessionStore`
+        session_store : `gafaelfawr.storage.session.SessionStore`
             A new SessionStore.
         """
         key = self._config.session_secret
+        storage = RedisStorage(SerializedSession, key, self._redis)
         verifier = self.create_token_verifier()
-        return SessionStore(key, verifier, self._redis, self._logger)
+        return SessionStore(storage, verifier, self._logger)
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.

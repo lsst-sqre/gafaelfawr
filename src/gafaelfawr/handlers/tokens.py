@@ -351,7 +351,7 @@ async def post_delete_token(
     pipeline = context.redis.pipeline()
     success = await token_store.revoke_token(token.uid, handle, pipeline)
     if success:
-        session_store.delete_session(handle, pipeline)
+        await session_store.delete_session(handle, pipeline)
         await pipeline.execute()
 
     if success:
