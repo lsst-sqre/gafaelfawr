@@ -11,12 +11,12 @@ from aiohttp_jinja2 import template
 from aiohttp_session import get_session
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
+from gafaelfawr.exceptions import InvalidTokenException
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import (
     AuthChallenge,
     AuthError,
     AuthType,
-    InvalidTokenException,
     RequestContext,
     verify_token,
 )

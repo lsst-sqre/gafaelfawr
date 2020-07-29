@@ -12,14 +12,14 @@ import pytest
 from jwt.exceptions import InvalidIssuerError
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.keypair import RSAKeyPair
-from gafaelfawr.tokens import Token
-from gafaelfawr.verify import (
+from gafaelfawr.exceptions import (
     FetchKeysException,
     MissingClaimsException,
     UnknownAlgorithmException,
     UnknownKeyIdException,
 )
+from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
     from typing import Any, Dict, Optional

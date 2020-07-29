@@ -14,6 +14,8 @@ API reference
 .. automodapi:: gafaelfawr.constants
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.exceptions
+
 .. automodapi:: gafaelfawr.issuer
 
 .. automodapi:: gafaelfawr.handlers

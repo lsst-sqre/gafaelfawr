@@ -14,6 +14,12 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from jwt.exceptions import InvalidIssuerError
 
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.exceptions import (
+    FetchKeysException,
+    MissingClaimsException,
+    UnknownAlgorithmException,
+    UnknownKeyIdException,
+)
 from gafaelfawr.tokens import VerifiedToken
 from gafaelfawr.util import base64_to_number
 
@@ -27,34 +33,7 @@ if TYPE_CHECKING:
     from gafaelfawr.config import VerifierConfig
     from gafaelfawr.tokens import Token
 
-__all__ = [
-    "FetchKeysException",
-    "MissingClaimsException",
-    "TokenVerifier",
-    "UnknownAlgorithmException",
-    "UnknownKeyIdException",
-    "VerifyTokenException",
-]
-
-
-class VerifyTokenException(Exception):
-    """Base exception class for failure in verifying a token."""
-
-
-class FetchKeysException(VerifyTokenException):
-    """Cannot retrieve the keys from an issuer."""
-
-
-class MissingClaimsException(VerifyTokenException):
-    """The token is missing required claims."""
-
-
-class UnknownAlgorithmException(VerifyTokenException):
-    """The issuer key was for an unsupported algorithm."""
-
-
-class UnknownKeyIdException(VerifyTokenException):
-    """The reqeusted key ID was not found for an issuer."""
+__all__ = ["TokenVerifier"]
 
 
 class TokenVerifier:
@@ -136,7 +115,7 @@ class TokenVerifier:
         jwt.exceptions.InvalidTokenError
             The issuer of this token is unknown and therefore the token cannot
             be verified.
-        MissingClaimsException
+        gafaelfawr.exceptions.MissingClaimsException
             The token is missing required claims.
         """
         audience = [self._config.aud, self._config.aud_internal]
@@ -165,7 +144,7 @@ class TokenVerifier:
         ------
         jwt.exceptions.InvalidTokenError
             The token is invalid or the issuer is unknown.
-        VerifyTokenException
+        gafaelfawr.exceptions.VerifyTokenException
             The token failed to verify or was invalid in some way.
         """
         unverified_header = jwt.get_unverified_header(token.encoded)
@@ -224,7 +203,7 @@ class TokenVerifier:
 
         Raises
         ------
-        MissingClaimsException
+        gafaelfawr.exceptions.MissingClaimsException
             The token is missing required claims.
         """
         if self._config.username_claim not in claims:

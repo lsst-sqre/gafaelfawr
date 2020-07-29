@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from gafaelfawr.providers.base import Provider, ProviderException
+from gafaelfawr.exceptions import GitHubException
+from gafaelfawr.providers.base import Provider
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
@@ -21,11 +22,7 @@ if TYPE_CHECKING:
     from gafaelfawr.issuer import TokenIssuer
     from gafaelfawr.session import SessionStore
 
-__all__ = ["GitHubException", "GitHubProvider"]
-
-
-class GitHubException(ProviderException):
-    """GitHub returned an error from an API call."""
+__all__ = ["GitHubProvider"]
 
 
 @dataclass(frozen=True)
@@ -176,7 +173,7 @@ class GitHubProvider(Provider):
         aiohttp.ClientResponseError
             An HTTP client error occurred trying to talk to the authentication
             provider.
-        GitHubException
+        gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to a request.
         """
         self._logger.info("Getting user information from GitHub")
@@ -221,7 +218,7 @@ class GitHubProvider(Provider):
         ------
         aiohttp.ClientResponseError
             An error occurred trying to talk to GitHub.
-        GitHubException
+        gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to the request for the access
             token.
         """
@@ -261,7 +258,7 @@ class GitHubProvider(Provider):
         ------
         aiohttp.ClientResponseError
             An error occurred trying to talk to GitHub.
-        GitHubException
+        gafaelfawr.exceptions.GitHubException
             User has no primary email address.
         """
         self._logger.debug("Fetching user data from %s", self._USER_URL)

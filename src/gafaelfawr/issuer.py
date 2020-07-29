@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.exceptions import InvalidTokenClaimsException
 from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
@@ -15,11 +16,7 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import IssuerConfig
 
-__all__ = ["InvalidTokenClaimsException", "TokenIssuer"]
-
-
-class InvalidTokenClaimsException(Exception):
-    """A token cannot be issued with the provided claims."""
+__all__ = ["TokenIssuer"]
 
 
 class TokenIssuer:
@@ -53,6 +50,11 @@ class TokenIssuer:
         -------
         token : `gafaelfawr.tokens.VerifiedToken`
             The newly-issued token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.InvalidTokenClaimsException
+            If the provided claims do not include a ``jti`` claim.
         """
         payload = dict(claims)
         payload.update(self._default_claims())

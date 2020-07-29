@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 import pytest
 from cryptography.fernet import Fernet
 
-from gafaelfawr.session import InvalidSessionHandleException, SessionHandle
+from gafaelfawr.exceptions import InvalidSessionHandleException
+from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
     from tests.setup import SetupTestCallable

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from cryptography.fernet import Fernet, InvalidToken
 from jwt.exceptions import InvalidTokenError
 
+from gafaelfawr.exceptions import InvalidSessionHandleException
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
@@ -25,15 +26,10 @@ if TYPE_CHECKING:
     from gafaelfawr.verify import TokenVerifier
 
 __all__ = [
-    "InvalidSessionHandleException",
     "Session",
     "SessionHandle",
     "SessionStore",
 ]
-
-
-class InvalidSessionHandleException(Exception):
-    """Session handle is not in expected format."""
 
 
 def _random_128_bits() -> str:
@@ -79,7 +75,7 @@ class SessionHandle:
 
         Raises
         ------
-        InvalidSessionHandleException
+        gafaelfawr.exceptions.InvalidSessionHandleException
             The provided string is not a valid session handle.
         """
         if not handle.startswith("gsh-"):
