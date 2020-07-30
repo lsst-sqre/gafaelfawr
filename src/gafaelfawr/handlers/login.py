@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import base64
 import os
-from urllib.parse import urlparse
 
 from aiohttp import ClientError, web
 from aiohttp_session import get_session, new_session
 
 from gafaelfawr.exceptions import ProviderException
 from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.util import RequestContext
+from gafaelfawr.handlers.util import RequestContext, validate_return_url
 
 __all__ = ["get_login"]
 
@@ -82,18 +81,7 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
     return_url = request.query.get("rd")
     if not return_url:
         return_url = request.headers.get("X-Auth-Request-Redirect")
-
-    # Validate the return URL, including that it's at the same host as this
-    # request.
-    if not return_url:
-        msg = "No destination URL specified"
-        context.logger.warning(msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    context.logger = context.logger.bind(return_url=return_url)
-    if urlparse(return_url).hostname != request.url.raw_host:
-        msg = f"Redirect URL not at {request.host}"
-        context.logger.warning(msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
+    validate_return_url(context, return_url)
     session["rd"] = return_url
 
     # Reuse the existing state if one already exists in the session cookie.

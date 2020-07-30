@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 import jwt
 from aiohttp import web
@@ -16,6 +17,7 @@ from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
     from typing import Optional
+    from urllib.parse import ParseResult
 
     from aiohttp import ClientSession
     from aioredis import Redis
@@ -30,6 +32,7 @@ __all__ = [
     "AuthError",
     "AuthType",
     "RequestContext",
+    "validate_return_url",
     "verify_token",
 ]
 
@@ -161,12 +164,50 @@ class RequestContext:
         )
 
 
+def validate_return_url(
+    context: RequestContext, return_url: Optional[str]
+) -> ParseResult:
+    """Validate a return URL for use in a redirect.
+
+    Verify that the given URL is not `None` and is at the same host as the
+    current route.
+
+    Parameters
+    ----------
+    context : `RequestContext`
+        The context of the incoming request.
+    return_url : `str` or `None`
+        The URL provided by the client, or `None` if none was provided.
+
+    Returns
+    -------
+    parsed_return_url : `urllib.parse.ParseResult`
+        The parsed return URL.
+
+    Raises
+    ------
+    aiohttp.web.HTTPError
+        An appropriate error if the return URL was invalid or missing.
+    """
+    if not return_url:
+        msg = "No destination URL specified"
+        context.logger.warning("Bad return URL", error=msg)
+        raise web.HTTPBadRequest(reason=msg, text=msg)
+    context.logger = context.logger.bind(return_url=return_url)
+    parsed_return_url = urlparse(return_url)
+    if parsed_return_url.hostname != context.request.url.raw_host:
+        msg = f"URL is not at {context.request.host}"
+        context.logger.warning("Bad return URL", error=msg)
+        raise web.HTTPBadRequest(reason=msg, text=msg)
+    return parsed_return_url
+
+
 def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
     """Verify a token.
 
     Parameters
     ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
+    context : `RequestContext`
         The context of the incoming request.
     encoded_token : `str`
         The encoded token.

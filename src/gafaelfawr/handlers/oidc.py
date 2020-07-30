@@ -22,6 +22,7 @@ from gafaelfawr.handlers.util import (
     AuthError,
     AuthType,
     RequestContext,
+    validate_return_url,
     verify_token,
 )
 from gafaelfawr.session import SessionHandle
@@ -183,7 +184,9 @@ async def get_login(request: web.Request) -> web.Response:
     scope = request.query.get("scope")
     client_id = request.query.get("client_id")
     state = request.query.get("state")
-    return_url = request.query.get("redirect_uri")
+    redirect_uri = request.query.get("redirect_uri")
+    parsed_redirect_uri = validate_return_url(context, redirect_uri)
+
     if response_type != "code" or not client_id or not scope:
         msg = "Malformed OpenID Connect login request"
         context.logger.warning("Invalid request", error=msg)
@@ -192,23 +195,6 @@ async def get_login(request: web.Request) -> web.Response:
         msg = "Scope of login request must be openid"
         context.logger.warning("Invalid request", error=msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
-
-    # Parse and validate the return URL, including that it's at the same host
-    # as this request.
-    if not return_url:
-        msg = "No destination URL specified"
-        context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    context.logger = context.logger.bind(return_url=return_url)
-    parsed_return_url = urlparse(return_url)
-    if parsed_return_url.hostname != request.url.raw_host:
-        msg = f"Redirect URL not at {request.host}"
-        context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    if parsed_return_url.query:
-        return_query = parse_qsl(parsed_return_url.query)
-    else:
-        return_query = []
 
     # Get the user's session.  If they are not already authenticated, send
     # them to the login endpoint.
@@ -226,10 +212,15 @@ async def get_login(request: web.Request) -> web.Response:
         context.logger.info("Redirecting user for authentication")
         raise web.HTTPFound(login_url.geturl())
 
+    if parsed_redirect_uri.query:
+        return_query = parse_qsl(parsed_redirect_uri.query)
+    else:
+        return_query = []
+
     # Get an authorization code, returning an error via redirect if needed.
     oidc_server = context.factory.create_oidc_server()
     try:
-        code = await oidc_server.issue_code(client_id, return_url, handle)
+        code = await oidc_server.issue_code(client_id, redirect_uri, handle)
     except UnauthorizedClientException as e:
         query = [
             ("error", "unauthorized_client"),
@@ -238,7 +229,7 @@ async def get_login(request: web.Request) -> web.Response:
         if state:
             query.append(("state", state))
         return_query.extend(query)
-        error_url = parsed_return_url._replace(query=urlencode(return_query))
+        error_url = parsed_redirect_uri._replace(query=urlencode(return_query))
         context.logger.warning(
             "Unauthorized OpenID Connect client", error=str(e)
         )
@@ -249,7 +240,7 @@ async def get_login(request: web.Request) -> web.Response:
     if state:
         query.append(("state", state))
     return_query.extend(query)
-    redirect_url = parsed_return_url._replace(query=urlencode(return_query))
+    redirect_url = parsed_redirect_uri._replace(query=urlencode(return_query))
     context.logger.info("Returned OpenID Connect authorization code")
     raise web.HTTPFound(redirect_url.geturl())
 
