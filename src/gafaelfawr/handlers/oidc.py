@@ -4,42 +4,28 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from functools import wraps
 from typing import TYPE_CHECKING
-from urllib.parse import parse_qsl, urlencode, urlparse
+from urllib.parse import parse_qsl, urlencode
 
 from aiohttp import web
-from aiohttp_session import get_session
 
-from gafaelfawr.exceptions import (
-    InvalidRequestError,
-    InvalidTokenException,
-    OIDCServerError,
-)
+from gafaelfawr.exceptions import InvalidRequestError, OIDCServerError
 from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.util import (
-    AuthChallenge,
-    AuthError,
-    AuthType,
-    RequestContext,
-    validate_return_url,
-    verify_token,
+from gafaelfawr.handlers.decorators import (
+    authenticated_jwt,
+    authenticated_session,
 )
-from gafaelfawr.session import SessionHandle
+from gafaelfawr.handlers.util import RequestContext, validate_return_url
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
 
 if TYPE_CHECKING:
-    from typing import Awaitable, Callable, Optional
+    from typing import Optional
     from urllib.parse import ParseResult
 
     from multidict import MultiDictProxy
 
+    from gafaelfawr.session import Session
     from gafaelfawr.tokens import VerifiedToken
-
-    Route = Callable[[web.Request], Awaitable[web.Response]]
-    AuthenticatedRoute = Callable[
-        [web.Request, VerifiedToken], Awaitable[web.Response]
-    ]
 
 __all__ = ["get_login", "get_userinfo", "post_token"]
 
@@ -123,119 +109,9 @@ class AuthenticationRequest:
         )
 
 
-def authenticated_jwt(route: AuthenticatedRoute) -> Route:
-    """Deocrator to mark a route as requiring JWT authentication.
-
-    The JWT must be provided as a bearer token in an Authorization header.  If
-    the token is missing or invalid, return a 401 error to the caller.  Used
-    to protect OpenID Connect routes.
-
-    Parameters
-    ----------
-    route : `typing.Callable`
-        The route that requires authentication.  The token is extracted from
-        the incoming request headers, verified, and then passed as a second
-        argument of type `gafaelfawr.tokens.VerifiedToken` to the route.
-
-    Returns
-    -------
-    response : `typing.Callable`
-        The decorator generator.
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        If no token is present or the token cannot be verified.
-    """
-
-    @wraps(route)
-    async def authenticated_route(request: web.Request) -> web.Response:
-        context = RequestContext.from_request(request)
-
-        try:
-            unverified_token = parse_authorization(context)
-        except InvalidRequestError as e:
-            msg = "Invalid Authorization header"
-            context.logger.warning(msg, error=str(e))
-            challenge = AuthChallenge(
-                auth_type=AuthType.Bearer,
-                realm=context.config.realm,
-                error=AuthError.invalid_request,
-                error_description=str(e),
-            )
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPBadRequest(
-                headers=headers, reason=str(e), text=str(e)
-            )
-        try:
-            token = verify_token(context, unverified_token)
-        except InvalidTokenException as e:
-            context.logger.warning("Invalid token", error=str(e))
-            challenge = AuthChallenge(
-                auth_type=AuthType.Bearer,
-                realm=context.config.realm,
-                error=AuthError.invalid_token,
-                error_description=str(e),
-            )
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPUnauthorized(
-                headers=headers, reason=str(e), text=str(e)
-            )
-
-        # Add user information to the logger.
-        context.rebind_logger(
-            token=token.jti,
-            user=token.username,
-            scope=" ".join(sorted(token.scope)),
-        )
-
-        return await route(request, token)
-
-    return authenticated_route
-
-
-def parse_authorization(context: RequestContext) -> str:
-    """Find a JWT in the Authorization header.
-
-    Requires the ``Bearer`` authorization type.  Rebinds the logging context
-    to include the source of the token, if one is found.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
-        The context of the incoming request.
-
-    Returns
-    -------
-    handle_or_token : `str` or `None`
-        The handle or token if one was found, otherwise None.
-
-    Raises
-    ------
-    gafaelfawr.exceptions.InvalidRequestError
-        If no token is present or the Authorization header cannot be parsed.
-    """
-    header = context.request.headers.get("Authorization")
-    if not header:
-        msg = "No authentication token found"
-        context.logger.warning(msg)
-        challenge = AuthChallenge(AuthType.Bearer, context.config.realm)
-        headers = {"WWW-Authenticate": challenge.as_header()}
-        raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
-
-    if " " not in header:
-        raise InvalidRequestError("malformed Authorization header")
-    auth_type, auth_blob = header.split(" ")
-    if auth_type.lower() == "bearer":
-        context.rebind_logger(token_source="bearer")
-        return auth_blob
-    else:
-        msg = f"unkonwn Authorization type {auth_type}"
-        raise InvalidRequestError(msg)
-
-
 @routes.get("/auth/openid/login")
-async def get_login(request: web.Request) -> web.Response:
+@authenticated_session
+async def get_login(request: web.Request, session: Session) -> web.Response:
     """Authenticate the user for an OpenID Connect server flow.
 
     Authenticates the user and then returns an authorization code to the
@@ -245,6 +121,8 @@ async def get_login(request: web.Request) -> web.Response:
     ----------
     request : `aiohttp.web.Request`
         The incoming request.
+    session : `gafaelfawr.session.Session`
+        The authentication session.
 
     Returns
     -------
@@ -279,30 +157,9 @@ async def get_login(request: web.Request) -> web.Response:
         return_url = build_return_url(auth_request, **e.as_dict())
         raise web.HTTPFound(return_url)
 
-    # Get the user's session.  If they are not already authenticated, send
-    # them to the login endpoint.
-    session = await get_session(request)
-    auth_session = None
-    if "handle" in session:
-        handle = SessionHandle.from_str(session["handle"])
-        session_store = context.factory.create_session_store()
-        auth_session = await session_store.get_session(handle)
-    if not auth_session:
-        login_base_url = str(request.app.router["login"].url_for())
-        login_url = urlparse(login_base_url)._replace(
-            query=urlencode({"rd": str(request.url)})
-        )
-        context.logger.info("Redirecting user for authentication")
-        raise web.HTTPFound(login_url.geturl())
-    context.rebind_logger(
-        token=auth_session.token.jti,
-        user=auth_session.token.username,
-        scope=" ".join(sorted(auth_session.token.scope)),
-    )
-
     # Get an authorization code and return it.
     code = await oidc_server.issue_code(
-        auth_request.client_id, auth_request.redirect_uri, handle
+        auth_request.client_id, auth_request.redirect_uri, session.handle
     )
     return_url = build_return_url(auth_request, code=code.encode())
     context.logger.info("Returned OpenID Connect authorization code")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from functools import wraps
 from typing import TYPE_CHECKING
 
 from aiohttp import web
@@ -11,26 +10,17 @@ from aiohttp_jinja2 import template
 from aiohttp_session import get_session
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
-from gafaelfawr.exceptions import InvalidTokenException
 from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.util import (
-    AuthChallenge,
-    AuthError,
-    AuthType,
-    RequestContext,
-    verify_token,
-)
+from gafaelfawr.handlers.decorators import authenticated_token
+from gafaelfawr.handlers.util import RequestContext
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, Dict, Optional, Union
+    from typing import Dict, Optional, Union
 
     from multidict import MultiDictProxy
 
     from gafaelfawr.tokens import VerifiedToken
-
-    Route = Callable[[web.Request], Awaitable[Any]]
-    AuthenticatedRoute = Callable[[web.Request, VerifiedToken], Awaitable[Any]]
 
 __all__ = [
     "get_token_by_handle",
@@ -39,72 +29,6 @@ __all__ = [
     "post_delete_token",
     "post_tokens_new",
 ]
-
-
-def authenticated(route: AuthenticatedRoute) -> Route:
-    """Decorator to mark a route as requiring authentication.
-
-    The authorization token is extracted from the X-Auth-Request-Token header
-    and verified, and then passed as an additional parameter to the wrapped
-    function.  If the token is missing or invalid, returns a 401 error to the
-    user.
-
-    Parameters
-    ----------
-    route : `typing.Callable`
-        The route that requires authentication.  The token is extracted from
-        the incoming request headers, verified, and then passed as a second
-        argument of type `gafaelfawr.tokens.VerifiedToken` to the route.
-
-    Returns
-    -------
-    response : `typing.Callable`
-        The decorator generator.
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        If no token is present or the token cannot be verified.
-    """
-
-    @wraps(route)
-    async def authenticated_route(request: web.Request) -> Any:
-        context = RequestContext.from_request(request)
-
-        if not request.headers.get("X-Auth-Request-Token"):
-            msg = "No authentication token found"
-            context.logger.warning(msg)
-            challenge = AuthChallenge(AuthType.Bearer, context.config.realm)
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
-
-        encoded_token = request.headers["X-Auth-Request-Token"]
-        try:
-            token = verify_token(context, encoded_token)
-        except InvalidTokenException as e:
-            error = "Failed to authenticate token"
-            context.logger.warning(error, error=str(e))
-            challenge = AuthChallenge(
-                auth_type=AuthType.Bearer,
-                realm=context.config.realm,
-                error=AuthError.invalid_token,
-                error_description=f"{error}: {str(e)}",
-            )
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPUnauthorized(
-                headers=headers, reason=error, text=challenge.error_description
-            )
-
-        # On success, add some context to the logger.
-        context.rebind_logger(
-            token=token.jti,
-            user=token.username,
-            scope=" ".join(sorted(token.scope)),
-        )
-
-        return await route(request, token)
-
-    return authenticated_route
 
 
 class AlterTokenForm(Form):
@@ -147,7 +71,7 @@ def build_new_token_form(
 
 @routes.get("/auth/tokens", name="tokens")
 @template("tokens.html")
-@authenticated
+@authenticated_token
 async def get_tokens(
     request: web.Request, token: VerifiedToken
 ) -> Dict[str, object]:
@@ -189,7 +113,7 @@ async def get_tokens(
 
 @routes.get("/auth/tokens/new")
 @template("new_token.html")
-@authenticated
+@authenticated_token
 async def get_tokens_new(
     request: web.Request, token: VerifiedToken
 ) -> Dict[str, object]:
@@ -227,7 +151,7 @@ async def get_tokens_new(
 
 @routes.post("/auth/tokens/new")
 @csrf_protect
-@authenticated
+@authenticated_token
 async def post_tokens_new(
     request: web.Request, token: VerifiedToken
 ) -> Dict[str, object]:
@@ -283,7 +207,7 @@ async def post_tokens_new(
 
 @routes.get("/auth/tokens/{handle}")
 @template("token.html")
-@authenticated
+@authenticated_token
 async def get_token_by_handle(
     request: web.Request, token: VerifiedToken
 ) -> Dict[str, object]:
@@ -320,7 +244,7 @@ async def get_token_by_handle(
 
 @routes.post("/auth/tokens/{handle}")
 @csrf_protect
-@authenticated
+@authenticated_token
 async def post_delete_token(
     request: web.Request, token: VerifiedToken
 ) -> web.Response:
