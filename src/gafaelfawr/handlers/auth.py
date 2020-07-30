@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TYPE_CHECKING
@@ -17,6 +16,7 @@ from gafaelfawr.handlers.util import (
     AuthError,
     AuthType,
     RequestContext,
+    parse_authorization,
     verify_token,
 )
 from gafaelfawr.session import SessionHandle
@@ -326,7 +326,7 @@ async def get_token_from_request(
     # header.  This case is used by API calls from clients.  If we got a
     # session handle, convert it to a token.  Otherwise, if we got a token,
     # verify it.
-    handle_or_token = parse_authorization(context)
+    handle_or_token = parse_authorization(context, allow_basic=True)
     if not handle_or_token:
         return None
     elif handle_or_token.startswith("gsh-"):
@@ -336,72 +336,6 @@ async def get_token_from_request(
         return auth_session.token if auth_session else None
     else:
         return verify_token(context, handle_or_token)
-
-
-def parse_authorization(context: RequestContext) -> Optional[str]:
-    """Find a handle or token in the Authorization header.
-
-    Supports either ``Bearer`` or ``Basic`` authorization types.  Rebinds the
-    logging context to include the source of the token, if one is found.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
-        The context of the incoming request.
-
-    Returns
-    -------
-    handle_or_token : `str` or `None`
-        The handle or token if one was found, otherwise None.
-
-    Raises
-    ------
-    gafaelfawr.exceptions.InvalidRequestError
-        If the Authorization header is malformed.
-
-    Notes
-    -----
-    A Basic Auth authentication string is normally a username and a password
-    separated by colon and then base64-encoded.  Support a username of the
-    token (or session handle) and a password of ``x-oauth-basic``, or a
-    username of ``x-oauth-basic`` and a password of the token (or session
-    handle).  If neither is the case, assume the token or session handle is
-    the username.
-    """
-    # Parse the header and handle Bearer.
-    header = context.request.headers.get("Authorization")
-    if not header:
-        return None
-    if " " not in header:
-        raise InvalidRequestError("malformed Authorization header")
-    auth_type, auth_blob = header.split(" ")
-    if auth_type.lower() == "bearer":
-        context.rebind_logger(token_source="bearer")
-        return auth_blob
-    elif auth_type.lower() != "basic":
-        msg = f"unkonwn Authorization type {auth_type}"
-        raise InvalidRequestError(msg)
-
-    # Basic, the complicated part.
-    try:
-        basic_auth = base64.b64decode(auth_blob).decode()
-        user, password = basic_auth.strip().split(":")
-    except Exception as e:
-        msg = f"invalid Basic auth string: {str(e)}"
-        raise InvalidRequestError(msg)
-    if password == "x-oauth-basic":
-        context.rebind_logger(token_source="basic-username")
-        return user
-    elif user == "x-oauth-basic":
-        context.rebind_logger(token_source="basic-password")
-        return password
-    else:
-        context.logger.info(
-            "Neither username nor password in HTTP Basic is x-oauth-basic,"
-            " assuming handle or token is username"
-        )
-        context.rebind_logger(token_source="basic-username")
-        return user
 
 
 def unauthorized(

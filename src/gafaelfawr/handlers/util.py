@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -11,7 +12,7 @@ from urllib.parse import urlparse
 import jwt
 from aiohttp import web
 
-from gafaelfawr.exceptions import InvalidTokenException
+from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenException
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.tokens import Token
 
@@ -176,6 +177,78 @@ class RequestContext:
         """
         self.logger = self.logger.bind(**values)
         self.request["safir/logger"] = self.logger
+
+
+def parse_authorization(
+    context: RequestContext, *, allow_basic: bool = False
+) -> Optional[str]:
+    """Find a handle or token in the Authorization header.
+
+    Supports either ``Bearer`` or (optionally) ``Basic`` authorization types.
+    Rebinds the logging context to include the source of the token, if one is
+    found.
+
+    Parameters
+    ----------
+    context : `gafaelfawr.handlers.util.RequestContext`
+        The context of the incoming request.
+    allow_basic : `bool`, optional
+        Whether to allow HTTP Basic authentication (default: `False`).
+
+    Returns
+    -------
+    handle_or_token : `str` or `None`
+        The handle or token if one was found, otherwise None.
+
+    Raises
+    ------
+    gafaelfawr.exceptions.InvalidRequestError
+        If the Authorization header is malformed.
+
+    Notes
+    -----
+    A Basic Auth authentication string is normally a username and a password
+    separated by colon and then base64-encoded.  Support a username of the
+    token (or session handle) and a password of ``x-oauth-basic``, or a
+    username of ``x-oauth-basic`` and a password of the token (or session
+    handle).  If neither is the case, assume the token or session handle is
+    the username.
+    """
+    header = context.request.headers.get("Authorization")
+
+    # Parse the header and handle Bearer.
+    if not header:
+        return None
+    if " " not in header:
+        raise InvalidRequestError("Malformed Authorization header")
+    auth_type, auth_blob = header.split(" ")
+    if auth_type.lower() == "bearer":
+        context.rebind_logger(token_source="bearer")
+        return auth_blob
+
+    # The only remaining permitted authentication type is (possibly) basic.
+    if not allow_basic or auth_type.lower() != "basic":
+        raise InvalidRequestError(f"Unknown Authorization type {auth_type}")
+
+    # Basic, the complicated part because we are very flexible.
+    try:
+        basic_auth = base64.b64decode(auth_blob).decode()
+        user, password = basic_auth.strip().split(":")
+    except Exception as e:
+        raise InvalidRequestError(f"Invalid Basic auth string: {str(e)}")
+    if password == "x-oauth-basic":
+        context.rebind_logger(token_source="basic-username")
+        return user
+    elif user == "x-oauth-basic":
+        context.rebind_logger(token_source="basic-password")
+        return password
+    else:
+        context.logger.info(
+            "Neither username nor password in HTTP Basic is x-oauth-basic,"
+            " assuming handle or token is username"
+        )
+        context.rebind_logger(token_source="basic-username")
+        return user
 
 
 def validate_return_url(

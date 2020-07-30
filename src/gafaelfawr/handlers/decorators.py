@@ -15,6 +15,7 @@ from gafaelfawr.handlers.util import (
     AuthError,
     AuthType,
     RequestContext,
+    parse_authorization,
     verify_token,
 )
 from gafaelfawr.session import SessionHandle
@@ -80,6 +81,12 @@ def authenticated_jwt(route: AuthenticatedRoute) -> Route:
             raise web.HTTPBadRequest(
                 headers=headers, reason=str(e), text=str(e)
             )
+        if not unverified_token:
+            msg = "No authentication token found"
+            context.logger.warning(msg)
+            challenge = AuthChallenge(AuthType.Bearer, context.config.realm)
+            headers = {"WWW-Authenticate": challenge.as_header()}
+            raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
         try:
             token = verify_token(context, unverified_token)
         except InvalidTokenException as e:
@@ -228,43 +235,3 @@ def authenticated_token(route: AuthenticatedRoute) -> Route:
         return await route(request, token)
 
     return authenticated_route
-
-
-def parse_authorization(context: RequestContext) -> str:
-    """Find a JWT in the Authorization header.
-
-    Requires the ``Bearer`` authorization type.  Rebinds the logging context
-    to include the source of the token, if one is found.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
-        The context of the incoming request.
-
-    Returns
-    -------
-    handle_or_token : `str` or `None`
-        The handle or token if one was found, otherwise None.
-
-    Raises
-    ------
-    gafaelfawr.exceptions.InvalidRequestError
-        If no token is present or the Authorization header cannot be parsed.
-    """
-    header = context.request.headers.get("Authorization")
-    if not header:
-        msg = "No authentication token found"
-        context.logger.warning(msg)
-        challenge = AuthChallenge(AuthType.Bearer, context.config.realm)
-        headers = {"WWW-Authenticate": challenge.as_header()}
-        raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
-
-    if " " not in header:
-        raise InvalidRequestError("malformed Authorization header")
-    auth_type, auth_blob = header.split(" ")
-    if auth_type.lower() == "bearer":
-        context.rebind_logger(token_source="bearer")
-        return auth_blob
-    else:
-        msg = f"unkonwn Authorization type {auth_type}"
-        raise InvalidRequestError(msg)
