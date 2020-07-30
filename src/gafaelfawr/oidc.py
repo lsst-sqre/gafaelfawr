@@ -78,6 +78,10 @@ class OIDCServer:
         self._session_store = session_store
         self._logger = logger
 
+    def is_valid_client(self, client_id: str) -> bool:
+        """Whether a client_id is a valid registered client."""
+        return any((c.client_id == client_id for c in self._config.clients))
+
     async def issue_code(
         self, client_id: str, redirect_uri: str, session_handle: SessionHandle
     ) -> OIDCAuthorizationCode:
@@ -103,7 +107,7 @@ class OIDCServer:
             The provided client ID is not registered as an OpenID Connect
             client.
         """
-        if not any((c.client_id == client_id for c in self._config.clients)):
+        if not self.is_valid_client(client_id):
             raise UnauthorizedClientException(f"Unknown client ID {client_id}")
         return await self._authorization_store.create(
             client_id, redirect_uri, session_handle

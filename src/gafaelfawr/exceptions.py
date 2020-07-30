@@ -15,7 +15,7 @@ __all__ = [
     "GitHubException",
     "InvalidClientError",
     "InvalidGrantError",
-    "InvalidRequestException",
+    "InvalidRequestError",
     "InvalidSessionHandleException",
     "InvalidTokenClaimsException",
     "InvalidTokenException",
@@ -89,7 +89,7 @@ class InvalidGrantError(OIDCServerError):
         }
 
 
-class InvalidRequestException(Exception):
+class InvalidRequestError(OIDCServerError):
     """The provided Authorization header could not be parsed.
 
     This corresponds to the ``invalid_request`` error in RFC 6749 and 6750:
@@ -97,6 +97,9 @@ class InvalidRequestException(Exception):
     parameter or parameter value, repeats the same parameter, uses more than
     one method for including an access token, or is otherwise malformed."
     """
+
+    error = "invalid_request"
+    message = "Invalid request"
 
 
 class InvalidSessionHandleException(Exception):

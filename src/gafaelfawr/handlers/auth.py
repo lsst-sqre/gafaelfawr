@@ -10,10 +10,7 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 from aiohttp_session import get_session
 
-from gafaelfawr.exceptions import (
-    InvalidRequestException,
-    InvalidTokenException,
-)
+from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenException
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import (
     AuthChallenge,
@@ -163,7 +160,7 @@ async def get_auth(request: web.Request) -> web.Response:
                 auth_type=auth_config.auth_type, realm=context.config.realm
             )
             raise unauthorized(request, challenge, "Authentication required")
-    except InvalidRequestException as e:
+    except InvalidRequestError as e:
         context.logger.warning("Invalid Authorization header", error=str(e))
         challenge = AuthChallenge(
             auth_type=auth_config.auth_type,
@@ -306,7 +303,7 @@ async def get_token_from_request(
 
     Raises
     ------
-    gafaelfawr.exceptions.InvalidRequestException
+    gafaelfawr.exceptions.InvalidRequestError
         The Authorization header was malformed.
     gafaelfawr.handlers.util.InvalidTokenException
         A token was provided but it could not be verified.
@@ -359,7 +356,7 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
 
     Raises
     ------
-    gafaelfawr.exceptions.InvalidRequestException
+    gafaelfawr.exceptions.InvalidRequestError
         If the Authorization header is malformed.
 
     Notes
@@ -376,14 +373,14 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
     if not header:
         return None
     if " " not in header:
-        raise InvalidRequestException("malformed Authorization header")
+        raise InvalidRequestError("malformed Authorization header")
     auth_type, auth_blob = header.split(" ")
     if auth_type.lower() == "bearer":
         context.rebind_logger(token_source="bearer")
         return auth_blob
     elif auth_type.lower() != "basic":
         msg = f"unkonwn Authorization type {auth_type}"
-        raise InvalidRequestException(msg)
+        raise InvalidRequestError(msg)
 
     # Basic, the complicated part.
     try:
@@ -391,7 +388,7 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
         user, password = basic_auth.strip().split(":")
     except Exception as e:
         msg = f"invalid Basic auth string: {str(e)}"
-        raise InvalidRequestException(msg)
+        raise InvalidRequestError(msg)
     if password == "x-oauth-basic":
         context.rebind_logger(token_source="basic-username")
         return user

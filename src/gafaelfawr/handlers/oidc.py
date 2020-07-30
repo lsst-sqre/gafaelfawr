@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from functools import wraps
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode, urlparse
@@ -11,10 +12,9 @@ from aiohttp import web
 from aiohttp_session import get_session
 
 from gafaelfawr.exceptions import (
-    InvalidRequestException,
+    InvalidRequestError,
     InvalidTokenException,
     OIDCServerError,
-    UnauthorizedClientException,
 )
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import (
@@ -42,6 +42,85 @@ if TYPE_CHECKING:
     ]
 
 __all__ = ["get_login", "get_userinfo", "post_token"]
+
+
+@dataclass
+class AuthenticationRequest:
+    """Represents an authentication request to the login endpoint.
+
+    See `Authentication Request
+    <https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest>`__
+    in the OpenID Connect specification.
+    """
+
+    scope: str
+    """The requested scope."""
+
+    response_type: str
+    """The requested response type."""
+
+    client_id: str
+    """The ID of the client requesting user authentication."""
+
+    redirect_uri: str
+    """Redirection URI to which the response will be sent."""
+
+    parsed_redirect_uri: ParseResult
+    """The parsed version of redirect_uri."""
+
+    state: Optional[str]
+    """An optional opaque value to maintain state across the request."""
+
+    @classmethod
+    def from_context(cls, context: RequestContext) -> AuthenticationRequest:
+        """Parse query parameters into an authentication request.
+
+        The client_id is not validated by this method, since this needs to
+        happen before any error is reported via redirect.  This method assumes
+        this has already been done.
+
+        Parameters
+        ----------
+        context : `gafaelfawr.handlers.util.RequestContext`
+            The incoming request context.
+
+        Returns
+        -------
+        request : `AuthenticationRequest`
+            The parsed authentication request.
+
+        Raises
+        ------
+        aiohttp.web.HTTPException
+            The request is invalid in a way that prevents redirecting back to
+            the client, so the error should be reported directly to the user.
+        gafaelfawr.exceptions.InvalidRequestError
+            The request is invalid in a way that can be reported back to the
+            caller.
+        """
+        scope = context.request.query.get("scope")
+        response_type = context.request.query.get("response_type")
+        client_id = context.request.query["client_id"]
+        state = context.request.query.get("state")
+        redirect_uri = context.request.query.get("redirect_uri")
+        parsed_redirect_uri = validate_return_url(context, redirect_uri)
+
+        # Validate the rest of the request.
+        if response_type != "code":
+            msg = "code is the only supported response_type"
+            raise InvalidRequestError(msg)
+        if scope != "openid":
+            raise InvalidRequestError("openid is the only supported scope")
+
+        # Create and return the object.
+        return cls(
+            scope=scope,
+            response_type=response_type,
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            parsed_redirect_uri=parsed_redirect_uri,
+            state=state,
+        )
 
 
 def authenticated_jwt(route: AuthenticatedRoute) -> Route:
@@ -75,7 +154,7 @@ def authenticated_jwt(route: AuthenticatedRoute) -> Route:
 
         try:
             unverified_token = parse_authorization(context)
-        except InvalidRequestException as e:
+        except InvalidRequestError as e:
             msg = "Invalid Authorization header"
             context.logger.warning(msg, error=str(e))
             challenge = AuthChallenge(
@@ -133,7 +212,7 @@ def parse_authorization(context: RequestContext) -> str:
 
     Raises
     ------
-    gafaelfawr.exceptions.InvalidRequestException
+    gafaelfawr.exceptions.InvalidRequestError
         If no token is present or the Authorization header cannot be parsed.
     """
     header = context.request.headers.get("Authorization")
@@ -145,14 +224,14 @@ def parse_authorization(context: RequestContext) -> str:
         raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
 
     if " " not in header:
-        raise InvalidRequestException("malformed Authorization header")
+        raise InvalidRequestError("malformed Authorization header")
     auth_type, auth_blob = header.split(" ")
     if auth_type.lower() == "bearer":
         context.rebind_logger(token_source="bearer")
         return auth_blob
     else:
         msg = f"unkonwn Authorization type {auth_type}"
-        raise InvalidRequestException(msg)
+        raise InvalidRequestError(msg)
 
 
 @routes.get("/auth/openid/login")
@@ -178,23 +257,27 @@ async def get_login(request: web.Request) -> web.Response:
         The redirect or exception.
     """
     context = RequestContext.from_request(request)
+    oidc_server = context.factory.create_oidc_server()
 
-    # Get the parameters from the login request.
-    response_type = request.query.get("response_type")
-    scope = request.query.get("scope")
+    # Check the client_id first, since if it is not valid, we cannot continue
+    # or send any errors back to the client via redirect.
     client_id = request.query.get("client_id")
-    state = request.query.get("state")
-    redirect_uri = request.query.get("redirect_uri")
-    parsed_redirect_uri = validate_return_url(context, redirect_uri)
+    if not client_id:
+        msg = "Missing client_id in OpenID Connect request"
+        context.logger.warning("Invalid request", error=msg)
+        raise web.HTTPBadRequest(reason=msg, text=msg)
+    if not oidc_server.is_valid_client(client_id):
+        msg = "Unknown client_id {client_id} in OpenID Connect request"
+        context.logger.warning("Invalid request", error=msg)
+        raise web.HTTPBadRequest(reason=msg, text=msg)
 
-    if response_type != "code" or not client_id or not scope:
-        msg = "Malformed OpenID Connect login request"
-        context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    if scope != "openid":
-        msg = "Scope of login request must be openid"
-        context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
+    # Parse the authentication request.
+    try:
+        auth_request = AuthenticationRequest.from_context(context)
+    except OIDCServerError as e:
+        e.log_warning(context.logger)
+        return_url = build_return_url(auth_request, **e.as_dict())
+        raise web.HTTPFound(return_url)
 
     # Get the user's session.  If they are not already authenticated, send
     # them to the login endpoint.
@@ -217,42 +300,37 @@ async def get_login(request: web.Request) -> web.Response:
         scope=" ".join(sorted(auth_session.token.scope)),
     )
 
-    # Get an authorization code, returning an error via redirect if needed.
-    oidc_server = context.factory.create_oidc_server()
-    try:
-        code = await oidc_server.issue_code(client_id, redirect_uri, handle)
-    except UnauthorizedClientException as e:
-        context.logger.warning("Invalid request", error=str(e))
-        raise web.HTTPBadRequest(reason=str(e), text=str(e))
-
-    # Return the authorization code to the client via redirect.
-    return_url = build_return_url(
-        parsed_redirect_uri, code=code.encode(), state=state
+    # Get an authorization code and return it.
+    code = await oidc_server.issue_code(
+        auth_request.client_id, auth_request.redirect_uri, handle
     )
+    return_url = build_return_url(auth_request, code=code.encode())
     context.logger.info("Returned OpenID Connect authorization code")
     raise web.HTTPFound(return_url)
 
 
 def build_return_url(
-    redirect_uri: ParseResult, **params: Optional[str]
+    auth_request: AuthenticationRequest, **params: str
 ) -> str:
     """Construct a return URL for a redirect.
 
     Parameters
     ----------
-    redirect_uri : `urllib.parse.ParseResult`
-        The parsed base redirect URI provided by the client.
-    **params : `str` or `None`
+    auth_request : `AuthenticationRequest`
+        The authentication request from the client.
+    **params : `str`
         Additional parameters to add to that URI to create the return URL.
-        Parameters set to `None` will be ignored.
 
     Returns
     -------
     return_url : `str`
         The return URL to which the user should be redirected.
     """
+    redirect_uri = auth_request.parsed_redirect_uri
     query = parse_qsl(redirect_uri.query) if redirect_uri.query else []
-    query.extend(((k, v) for k, v in params.items() if v is not None))
+    query.extend(params.items())
+    if auth_request.state:
+        query.append(("state", auth_request.state))
     return_url = redirect_uri._replace(query=urlencode(query))
     return return_url.geturl()
 
