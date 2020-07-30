@@ -9,13 +9,14 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 from aiohttp_session import get_session
 
-from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenException
+from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenError
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import (
     AuthChallenge,
     AuthError,
     AuthType,
     RequestContext,
+    error_as_www_authenticate,
     parse_authorization,
     verify_token,
 )
@@ -154,31 +155,24 @@ async def get_auth(request: web.Request) -> web.Response:
     # status if authentication failed.
     try:
         token = await get_token_from_request(context)
-        if not token:
-            context.logger.info("No token found, returning unauthorized")
-            challenge = AuthChallenge(
-                auth_type=auth_config.auth_type, realm=context.config.realm
-            )
-            raise unauthorized(request, challenge, "Authentication required")
     except InvalidRequestError as e:
-        context.logger.warning("Invalid Authorization header", error=str(e))
+        e.log_warning(context.logger)
+        raise error_as_www_authenticate(context, auth_config.auth_type, e)
+    except InvalidTokenError as e:
+        e.log_warning(context.logger)
         challenge = AuthChallenge(
             auth_type=auth_config.auth_type,
             realm=context.config.realm,
-            error=AuthError.invalid_request,
-            error_description=str(e),
-        )
-        headers = {"WWW-Authenticate": challenge.as_header()}
-        raise web.HTTPBadRequest(headers=headers, reason=str(e), text=str(e))
-    except InvalidTokenException as e:
-        context.logger.warning("Invalid token", error=str(e))
-        challenge = AuthChallenge(
-            auth_type=auth_config.auth_type,
-            realm=context.config.realm,
-            error=AuthError.invalid_token,
+            error=AuthError[e.error],
             error_description=str(e),
         )
         raise unauthorized(request, challenge, str(e))
+    if not token:
+        context.logger.info("No token found, returning unauthorized")
+        challenge = AuthChallenge(
+            auth_type=auth_config.auth_type, realm=context.config.realm
+        )
+        raise unauthorized(request, challenge, "Authentication required")
 
     # Add user information to the logger.
     context.rebind_logger(
@@ -305,7 +299,7 @@ async def get_token_from_request(
     ------
     gafaelfawr.exceptions.InvalidRequestError
         The Authorization header was malformed.
-    gafaelfawr.handlers.util.InvalidTokenException
+    gafaelfawr.handlers.util.InvalidTokenError
         A token was provided but it could not be verified.
     """
     # Use the session cookie if it is available.  This check has to be before

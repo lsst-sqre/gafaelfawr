@@ -9,12 +9,12 @@ from urllib.parse import urlencode, urlparse
 from aiohttp import web
 from aiohttp_session import get_session
 
-from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenException
+from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenError
 from gafaelfawr.handlers.util import (
     AuthChallenge,
-    AuthError,
     AuthType,
     RequestContext,
+    error_as_www_authenticate,
     parse_authorization,
     verify_token,
 )
@@ -69,18 +69,8 @@ def authenticated_jwt(route: AuthenticatedRoute) -> Route:
         try:
             unverified_token = parse_authorization(context)
         except InvalidRequestError as e:
-            msg = "Invalid Authorization header"
-            context.logger.warning(msg, error=str(e))
-            challenge = AuthChallenge(
-                auth_type=AuthType.Bearer,
-                realm=context.config.realm,
-                error=AuthError.invalid_request,
-                error_description=str(e),
-            )
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPBadRequest(
-                headers=headers, reason=str(e), text=str(e)
-            )
+            e.log_warning(context.logger)
+            raise error_as_www_authenticate(context, AuthType.Bearer, e)
         if not unverified_token:
             msg = "No authentication token found"
             context.logger.warning(msg)
@@ -89,18 +79,9 @@ def authenticated_jwt(route: AuthenticatedRoute) -> Route:
             raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
         try:
             token = verify_token(context, unverified_token)
-        except InvalidTokenException as e:
-            context.logger.warning("Invalid token", error=str(e))
-            challenge = AuthChallenge(
-                auth_type=AuthType.Bearer,
-                realm=context.config.realm,
-                error=AuthError.invalid_token,
-                error_description=str(e),
-            )
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPUnauthorized(
-                headers=headers, reason=str(e), text=str(e)
-            )
+        except InvalidTokenError as e:
+            e.log_warning(context.logger)
+            raise error_as_www_authenticate(context, AuthType.Bearer, e)
 
         # Add user information to the logger.
         context.rebind_logger(
@@ -201,29 +182,19 @@ def authenticated_token(route: AuthenticatedRoute) -> Route:
     async def authenticated_route(request: web.Request) -> Any:
         context = RequestContext.from_request(request)
 
-        if not request.headers.get("X-Auth-Request-Token"):
+        encoded_token = request.headers.get("X-Auth-Request-Token")
+        if not encoded_token:
             msg = "No authentication token found"
             context.logger.warning(msg)
             challenge = AuthChallenge(AuthType.Bearer, context.config.realm)
             headers = {"WWW-Authenticate": challenge.as_header()}
             raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
 
-        encoded_token = request.headers["X-Auth-Request-Token"]
         try:
             token = verify_token(context, encoded_token)
-        except InvalidTokenException as e:
-            error = "Failed to authenticate token"
-            context.logger.warning(error, error=str(e))
-            challenge = AuthChallenge(
-                auth_type=AuthType.Bearer,
-                realm=context.config.realm,
-                error=AuthError.invalid_token,
-                error_description=f"{error}: {str(e)}",
-            )
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPUnauthorized(
-                headers=headers, reason=error, text=challenge.error_description
-            )
+        except InvalidTokenError as e:
+            e.log_warning(context.logger)
+            raise error_as_www_authenticate(context, AuthType.Bearer, e)
 
         # On success, add some context to the logger.
         context.rebind_logger(

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from aiohttp import web
+
 if TYPE_CHECKING:
-    from typing import ClassVar, Dict
+    from typing import ClassVar, Dict, Type
 
     from structlog import BoundLogger
 
@@ -18,8 +20,10 @@ __all__ = [
     "InvalidRequestError",
     "InvalidSessionHandleException",
     "InvalidTokenClaimsException",
-    "InvalidTokenException",
+    "InvalidTokenError",
     "MissingClaimsException",
+    "OAuthError",
+    "OAuthBearerError",
     "OIDCException",
     "ProviderException",
     "UnauthorizedClientException",
@@ -38,12 +42,18 @@ class DeserializeException(Exception):
     """
 
 
-class OIDCServerError(Exception):
-    """An error occurred while processing an OpenID Connect server request."""
+class OAuthError(Exception):
+    """An OAuth-related error occurred.
 
-    # These class variables must be overridden in subclasses.
-    error: ClassVar[str] = "unknown_error"
+    This class represents both OpenID Connect errors and OAuth 2.0 errors,
+    including errors when parsing Authorization headers and bearer tokens.
+    """
+
+    error: ClassVar[str] = "invalid_request"
+    """The RFC 6749 or RFC 6750 error code for this exception."""
+
     message: ClassVar[str] = "Unknown error"
+    """The summary message to use when logging this error."""
 
     def as_dict(self) -> Dict[str, str]:
         """Return the JSON form of this exception, ready for serialization."""
@@ -57,7 +67,7 @@ class OIDCServerError(Exception):
         logger.warning("%s", self.message, error=str(self))
 
 
-class InvalidClientError(OIDCServerError):
+class InvalidClientError(OAuthError):
     """The provided client_id and client_secret could not be validated.
 
     This corresponds to the ``invalid_client`` error in RFC 6749: "Client
@@ -69,7 +79,7 @@ class InvalidClientError(OIDCServerError):
     message = "Unauthorized client"
 
 
-class InvalidGrantError(OIDCServerError):
+class InvalidGrantError(OAuthError):
     """The provided authorization code is not valid.
 
     This corresponds to the ``invalid_grant`` error in RFC 6749: "The provided
@@ -89,7 +99,18 @@ class InvalidGrantError(OIDCServerError):
         }
 
 
-class InvalidRequestError(OIDCServerError):
+class OAuthBearerError(OAuthError):
+    """An error that can be returned as a ``WWW-Authenticate`` challenge.
+
+    Represents the subset of OAuth 2.0 errors defined in RFC 6750 as valid
+    errors to return in a ``WWW-Authenticate`` header.
+    """
+
+    exception: ClassVar[Type[web.HTTPException]] = web.HTTPBadRequest
+    """The exception class corresponding to the usual HTTP error."""
+
+
+class InvalidRequestError(OAuthBearerError):
     """The provided Authorization header could not be parsed.
 
     This corresponds to the ``invalid_request`` error in RFC 6749 and 6750:
@@ -102,15 +123,7 @@ class InvalidRequestError(OIDCServerError):
     message = "Invalid request"
 
 
-class InvalidSessionHandleException(Exception):
-    """Session handle is not in expected format."""
-
-
-class InvalidTokenClaimsException(Exception):
-    """A token cannot be issued with the provided claims."""
-
-
-class InvalidTokenException(Exception):
+class InvalidTokenError(OAuthBearerError):
     """The provided token was invalid.
 
     This corresponds to the ``invalid_token`` error in RFC 6750: "The access
@@ -118,6 +131,18 @@ class InvalidTokenException(Exception):
     reasons."  The string form of this exception is suitable for use as the
     ``error_description`` attribute of a ``WWW-Authenticate`` header.
     """
+
+    error = "invalid_token"
+    message = "Invalid token"
+    exception = web.HTTPUnauthorized
+
+
+class InvalidSessionHandleException(Exception):
+    """Session handle is not in expected format."""
+
+
+class InvalidTokenClaimsException(Exception):
+    """A token cannot be issued with the provided claims."""
 
 
 class ProviderException(Exception):

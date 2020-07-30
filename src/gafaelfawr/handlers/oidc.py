@@ -9,7 +9,7 @@ from urllib.parse import parse_qsl, urlencode
 
 from aiohttp import web
 
-from gafaelfawr.exceptions import InvalidRequestError, OIDCServerError
+from gafaelfawr.exceptions import InvalidRequestError, OAuthError
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.decorators import (
     authenticated_jwt,
@@ -152,7 +152,7 @@ async def get_login(request: web.Request, session: Session) -> web.Response:
     # Parse the authentication request.
     try:
         auth_request = AuthenticationRequest.from_context(context)
-    except OIDCServerError as e:
+    except OAuthError as e:
         e.log_warning(context.logger)
         return_url = build_return_url(auth_request, **e.as_dict())
         raise web.HTTPFound(return_url)
@@ -269,7 +269,7 @@ async def post_token(request: web.Request) -> web.Response:
         token = await oidc_server.redeem_code(
             client_id, client_secret, redirect_uri, authorization_code,
         )
-    except OIDCServerError as e:
+    except OAuthError as e:
         e.log_warning(context.logger)
         return web.json_response(e.as_dict, status=400)
 

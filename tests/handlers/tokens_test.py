@@ -49,7 +49,7 @@ async def test_tokens_invalid_auth(
     assert r.status == 401
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
-        "event": "Failed to authenticate token",
+        "event": "Invalid token",
         "error": "Not enough segments",
         "level": "warning",
         "logger": "gafaelfawr",
