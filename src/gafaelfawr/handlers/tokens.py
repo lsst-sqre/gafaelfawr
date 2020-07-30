@@ -96,12 +96,11 @@ def authenticated(route: AuthenticatedRoute) -> Route:
             )
 
         # On success, add some context to the logger.
-        context.logger = context.logger.bind(
+        context.rebind_logger(
             token=token.jti,
             user=token.username,
             scope=" ".join(sorted(token.scope)),
         )
-        request["safir/logger"] = context.logger
 
         return await route(request, token)
 

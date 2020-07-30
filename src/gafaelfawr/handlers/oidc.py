@@ -103,12 +103,11 @@ def authenticated_jwt(route: AuthenticatedRoute) -> Route:
             )
 
         # Add user information to the logger.
-        context.logger = context.logger.bind(
+        context.rebind_logger(
             token=token.jti,
             user=token.username,
             scope=" ".join(sorted(token.scope)),
         )
-        request["safir/logger"] = context.logger
 
         return await route(request, token)
 
@@ -148,7 +147,7 @@ def parse_authorization(context: RequestContext) -> str:
         raise InvalidRequestException("malformed Authorization header")
     auth_type, auth_blob = header.split(" ")
     if auth_type.lower() == "bearer":
-        context.logger = context.logger.bind(token_source="bearer")
+        context.rebind_logger(token_source="bearer")
         return auth_blob
     else:
         msg = f"unkonwn Authorization type {auth_type}"
@@ -211,6 +210,11 @@ async def get_login(request: web.Request) -> web.Response:
         )
         context.logger.info("Redirecting user for authentication")
         raise web.HTTPFound(login_url.geturl())
+    context.rebind_logger(
+        token=auth_session.token.jti,
+        user=auth_session.token.username,
+        scope=" ".join(sorted(auth_session.token.scope)),
+    )
 
     if parsed_redirect_uri.query:
         return_query = parse_qsl(parsed_redirect_uri.query)

@@ -147,7 +147,7 @@ async def get_auth(request: web.Request) -> web.Response:
     auth_uri = request.headers.get("X-Original-URI")
     if not auth_uri:
         auth_uri = request.headers.get("X-Original-URL", "NONE")
-    context.logger = context.logger.bind(
+    context.rebind_logger(
         auth_uri=auth_uri,
         required_scope=" ".join(sorted(auth_config.scopes)),
         satisfy=auth_config.satisfy.name.lower(),
@@ -184,7 +184,7 @@ async def get_auth(request: web.Request) -> web.Response:
         raise unauthorized(request, challenge, str(e))
 
     # Add user information to the logger.
-    context.logger = context.logger.bind(
+    context.rebind_logger(
         token=token.jti,
         user=token.username,
         scope=" ".join(sorted(token.scope)),
@@ -318,7 +318,7 @@ async def get_token_from_request(
     session = await get_session(context.request)
     handle_str = session.get("handle")
     if handle_str:
-        context.logger = context.logger.bind(token_source="cookie")
+        context.rebind_logger(token_source="cookie")
         handle = SessionHandle.from_str(handle_str)
         session_store = context.factory.create_session_store()
         auth_session = await session_store.get_session(handle)
@@ -379,7 +379,7 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
         raise InvalidRequestException("malformed Authorization header")
     auth_type, auth_blob = header.split(" ")
     if auth_type.lower() == "bearer":
-        context.logger = context.logger.bind(token_source="bearer")
+        context.rebind_logger(token_source="bearer")
         return auth_blob
     elif auth_type.lower() != "basic":
         msg = f"unkonwn Authorization type {auth_type}"
@@ -393,17 +393,17 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
         msg = f"invalid Basic auth string: {str(e)}"
         raise InvalidRequestException(msg)
     if password == "x-oauth-basic":
-        context.logger = context.logger.bind(token_source="basic-username")
+        context.rebind_logger(token_source="basic-username")
         return user
     elif user == "x-oauth-basic":
-        context.logger = context.logger.bind(token_source="basic-password")
+        context.rebind_logger(token_source="basic-password")
         return password
     else:
         context.logger.info(
             "Neither username nor password in HTTP Basic is x-oauth-basic,"
             " assuming handle or token is username"
         )
-        context.logger = context.logger.bind(token_source="basic-username")
+        context.rebind_logger(token_source="basic-username")
         return user
 
 

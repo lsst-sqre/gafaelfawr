@@ -163,6 +163,20 @@ class RequestContext:
             logger=self.logger,
         )
 
+    def rebind_logger(self, **values: Optional[str]) -> None:
+        """Add the given values to the logging context.
+
+        Also updates the logging context stored in the request object in case
+        the request context later needs to be recreated from the request.
+
+        Parameters
+        ----------
+        **values : `str` or `None`
+            Additional values that should be added to the logging context.
+        """
+        self.logger = self.logger.bind(**values)
+        self.request["safir/logger"] = self.logger
+
 
 def validate_return_url(
     context: RequestContext, return_url: Optional[str]
@@ -193,7 +207,7 @@ def validate_return_url(
         msg = "No destination URL specified"
         context.logger.warning("Bad return URL", error=msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
-    context.logger = context.logger.bind(return_url=return_url)
+    context.rebind_logger(return_url=return_url)
     parsed_return_url = urlparse(return_url)
     if parsed_return_url.hostname != context.request.url.raw_host:
         msg = f"URL is not at {context.request.host}"

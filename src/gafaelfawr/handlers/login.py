@@ -153,7 +153,7 @@ async def handle_provider_return(request: web.Request) -> web.Response:
         msg = "Authentication state mismatch"
         raise web.HTTPForbidden(reason=msg, text=msg)
     return_url = session.pop("rd")
-    context.logger = context.logger.bind(return_url=return_url)
+    context.rebind_logger(return_url=return_url)
 
     # Build a session based on the reply from the authentication provider.
     auth_provider = context.factory.create_provider()
@@ -170,14 +170,12 @@ async def handle_provider_return(request: web.Request) -> web.Response:
     # Store the session and send the user back to what they were doing.
     session = await new_session(request)
     session["handle"] = auth_session.handle.encode()
-    context.logger = context.logger.bind(
-        user=auth_session.token.username,
-        token=auth_session.token.jti,
-        scope=" ".join(sorted(auth_session.token.scope)),
-    )
     context.logger.info(
         "Successfully authenticated user %s (%s)",
         auth_session.token.username,
         auth_session.token.uid,
+        user=auth_session.token.username,
+        token=auth_session.token.jti,
+        scope=" ".join(sorted(auth_session.token.scope)),
     )
     raise web.HTTPSeeOther(return_url)
