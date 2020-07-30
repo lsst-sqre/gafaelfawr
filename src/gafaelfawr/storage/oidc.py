@@ -5,10 +5,14 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from gafaelfawr.constants import OIDC_AUTHORIZATION_LIFETIME
-from gafaelfawr.exceptions import DeserializeException
+from gafaelfawr.exceptions import (
+    DeserializeException,
+    InvalidGrantError,
+    InvalidSessionHandleException,
+)
 from gafaelfawr.session import SessionHandle
 from gafaelfawr.storage.base import Serializable
 
@@ -30,6 +34,32 @@ class OIDCAuthorizationCode(SessionHandle):
     Identical to a session handle in behavior.  This class exists to give it a
     new type for better type checking.
     """
+
+    @classmethod
+    def from_str(cls, code: str) -> OIDCAuthorizationCode:
+        """Parse a serialized code into a `OIDCAuthorizationCode`.
+
+        Parameters
+        ----------
+        code : `str`
+            The authorization code.
+
+        Returns
+        -------
+        code : `OIDCAuthorizationCode`
+            The decoded authorization code.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.InvalidGrantError
+            The provided string is not a valid authorization code.
+        """
+        try:
+            handle = SessionHandle.from_str(code)
+        except InvalidSessionHandleException as e:
+            raise InvalidGrantError(str(e))
+
+        return cls(key=handle.key, secret=handle.secret)
 
 
 @dataclass
@@ -100,9 +130,8 @@ class OIDCAuthorization(Serializable):
     @classmethod
     def from_json(cls, data: str) -> OIDCAuthorization:
         authorization = json.loads(data)
-        code = OIDCAuthorizationCode.from_str(authorization["code"])
         return cls(
-            code=cast(OIDCAuthorizationCode, code),
+            code=OIDCAuthorizationCode.from_str(authorization["code"]),
             client_id=authorization["client_id"],
             redirect_uri=authorization["redirect_uri"],
             session_handle=SessionHandle.from_str(

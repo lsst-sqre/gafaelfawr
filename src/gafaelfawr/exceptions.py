@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import ClassVar, Dict
+
+    from structlog import BoundLogger
+
 __all__ = [
     "DeserializeException",
     "FetchKeysException",
     "GitHubException",
-    "InvalidClientException",
-    "InvalidGrantException",
+    "InvalidClientError",
+    "InvalidGrantError",
     "InvalidRequestException",
     "InvalidSessionHandleException",
     "InvalidTokenClaimsException",
@@ -31,7 +38,26 @@ class DeserializeException(Exception):
     """
 
 
-class InvalidClientException(Exception):
+class OIDCServerError(Exception):
+    """An error occurred while processing an OpenID Connect server request."""
+
+    # These class variables must be overridden in subclasses.
+    error: ClassVar[str] = "unknown_error"
+    message: ClassVar[str] = "Unknown error"
+
+    def as_dict(self) -> Dict[str, str]:
+        """Return the JSON form of this exception, ready for serialization."""
+        return {
+            "error": self.error,
+            "error_description": str(self),
+        }
+
+    def log_warning(self, logger: BoundLogger) -> None:
+        """Log this error to the provided logger."""
+        logger.warning("%s", self.message, error=str(self))
+
+
+class InvalidClientError(OIDCServerError):
     """The provided client_id and client_secret could not be validated.
 
     This corresponds to the ``invalid_client`` error in RFC 6749: "Client
@@ -39,8 +65,11 @@ class InvalidClientException(Exception):
     included, or unsupported authentication method)."
     """
 
+    error = "invalid_client"
+    message = "Unauthorized client"
 
-class InvalidGrantException(Exception):
+
+class InvalidGrantError(OIDCServerError):
     """The provided authorization code is not valid.
 
     This corresponds to the ``invalid_grant`` error in RFC 6749: "The provided
@@ -49,6 +78,15 @@ class InvalidGrantException(Exception):
     redirection URI used in the authorization request, or was issued to
     another client."
     """
+
+    error = "invalid_grant"
+    message = "Invalid authorization code"
+
+    def as_dict(self) -> Dict[str, str]:
+        return {
+            "error": self.error,
+            "error_description": self.message,
+        }
 
 
 class InvalidRequestException(Exception):

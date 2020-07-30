@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 from gafaelfawr.exceptions import (
     DeserializeException,
-    InvalidClientException,
-    InvalidGrantException,
+    InvalidClientError,
+    InvalidGrantError,
     UnauthorizedClientException,
 )
 from gafaelfawr.session import SessionHandle
@@ -137,10 +137,10 @@ class OIDCServer:
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidClientException
+        gafaelfawr.exceptions.InvalidClientError
             If the client ID is not known or the client secret does not match
             the client ID.
-        gafaelfawr.exceptions.InvalidGrantException
+        gafaelfawr.exceptions.InvalidGrantError
             If the code is not valid, the client is not allowed to use it,
             or the underlying authorization or session does not exist.
         """
@@ -149,30 +149,30 @@ class OIDCServer:
             authorization = await self._authorization_store.get(code)
         except DeserializeException as e:
             msg = f"Cannot get authorization for {code.key}: {str(e)}"
-            raise InvalidGrantException(msg)
+            raise InvalidGrantError(msg)
         if not authorization:
             msg = f"Unknown authoriation code {code.key}"
-            raise InvalidGrantException(msg)
+            raise InvalidGrantError(msg)
 
         if authorization.client_id != client_id:
             msg = (
                 f"Authorization client ID mismatch for {code.key}:"
                 f" {authorization.client_id} != {client_id}"
             )
-            raise InvalidGrantException(msg)
+            raise InvalidGrantError(msg)
         if authorization.redirect_uri != redirect_uri:
             msg = (
                 f"Authorization redirect URI mismatch for {code.key}:"
                 f" {authorization.redirect_uri} != {redirect_uri}"
             )
-            raise InvalidGrantException(msg)
+            raise InvalidGrantError(msg)
 
         session = await self._session_store.get_session(
             authorization.session_handle
         )
         if not session:
             msg = f"Invalid underlying session for authorization {code.key}"
-            raise InvalidGrantException(msg)
+            raise InvalidGrantError(msg)
         token = self._issuer.reissue_token(
             session.token, jti=code.key, scope="openid", internal=True
         )
@@ -196,16 +196,16 @@ class OIDCServer:
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidClientException
+        gafaelfawr.exceptions.InvalidClientError
             If the client ID isn't known or the secret doesn't match.
         """
         if not client_secret:
-            raise InvalidClientException("No client_secret provided")
+            raise InvalidClientError("No client_secret provided")
         for client in self._config.clients:
             if client.client_id == client_id:
                 if client.client_secret == client_secret:
                     return
                 else:
                     msg = f"Invalid secret for {client_id}"
-                    raise InvalidClientException(msg)
-        raise InvalidClientException(f"Unknown client ID {client_id}")
+                    raise InvalidClientError(msg)
+        raise InvalidClientError(f"Unknown client ID {client_id}")

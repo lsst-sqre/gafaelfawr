@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import time
 from functools import wraps
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode, urlparse
 
 from aiohttp import web
 from aiohttp_session import get_session
 
 from gafaelfawr.exceptions import (
-    InvalidClientException,
-    InvalidGrantException,
     InvalidRequestException,
-    InvalidSessionHandleException,
     InvalidTokenException,
+    OIDCServerError,
     UnauthorizedClientException,
 )
 from gafaelfawr.handlers import routes
@@ -305,11 +303,11 @@ async def post_token(request: web.Request) -> web.Response:
     grant_type = get_form_value(data, "grant_type")
     client_id = get_form_value(data, "client_id")
     client_secret = get_form_value(data, "client_secret")
-    encoded_code = get_form_value(data, "code")
+    code = get_form_value(data, "code")
     redirect_uri = get_form_value(data, "redirect_uri")
 
     # Check the request parameters.
-    if not grant_type or not client_id or not encoded_code or not redirect_uri:
+    if not grant_type or not client_id or not code or not redirect_uri:
         msg = "Invalid token request"
         context.logger.warning("Invalid request", error=msg)
         error = {
@@ -329,34 +327,13 @@ async def post_token(request: web.Request) -> web.Response:
     # Redeem the provided code for a token.
     oidc_server = context.factory.create_oidc_server()
     try:
-        code = OIDCAuthorizationCode.from_str(encoded_code)
+        authorization_code = OIDCAuthorizationCode.from_str(code)
         token = await oidc_server.redeem_code(
-            client_id,
-            client_secret,
-            redirect_uri,
-            cast(OIDCAuthorizationCode, code),
+            client_id, client_secret, redirect_uri, authorization_code,
         )
-    except InvalidSessionHandleException as e:
-        context.logger.warning("Cannot parse authorization code", error=str(e))
-        error = {
-            "error": "invalid_grant",
-            "error_description": "Invalid authorization code",
-        }
-        return web.json_response(error, status=400)
-    except InvalidClientException as e:
-        context.logger.warning("Unauthorized client", error=str(e))
-        error = {
-            "error": "invalid_client",
-            "error_description": str(e),
-        }
-        return web.json_response(error, status=400)
-    except InvalidGrantException as e:
-        context.logger.warning("Invalid authorization code", error=str(e))
-        error = {
-            "error": "invalid_grant",
-            "error_description": "Invalid authorization code",
-        }
-        return web.json_response(error, status=400)
+    except OIDCServerError as e:
+        e.log_warning(context.logger)
+        return web.json_response(e.as_dict, status=400)
 
     # Return the token to the caller.
     response = {

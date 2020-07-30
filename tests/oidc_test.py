@@ -12,8 +12,8 @@ from cryptography.fernet import Fernet
 
 from gafaelfawr.config import OIDCClient
 from gafaelfawr.exceptions import (
-    InvalidClientException,
-    InvalidGrantException,
+    InvalidClientError,
+    InvalidGrantError,
     UnauthorizedClientException,
 )
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
@@ -105,26 +105,26 @@ async def test_redeem_code_errors(
     redirect_uri = "https://example.com/"
     code = await oidc_server.issue_code("client-2", redirect_uri, handle)
 
-    with pytest.raises(InvalidClientException):
+    with pytest.raises(InvalidClientError):
         await oidc_server.redeem_code(
             "some-client", "some-secret", redirect_uri, code
         )
-    with pytest.raises(InvalidClientException):
+    with pytest.raises(InvalidClientError):
         await oidc_server.redeem_code(
             "client-2", "some-secret", redirect_uri, code
         )
-    with pytest.raises(InvalidGrantException):
+    with pytest.raises(InvalidGrantError):
         await oidc_server.redeem_code(
             "client-2",
             "client-2-secret",
             redirect_uri,
             OIDCAuthorizationCode(),
         )
-    with pytest.raises(InvalidGrantException):
+    with pytest.raises(InvalidGrantError):
         await oidc_server.redeem_code(
             "client-1", "client-1-secret", redirect_uri, code
         )
-    with pytest.raises(InvalidGrantException):
+    with pytest.raises(InvalidGrantError):
         await oidc_server.redeem_code(
             "client-2", "client-2-secret", "https://foo.example.com/", code
         )
