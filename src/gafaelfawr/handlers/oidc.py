@@ -326,6 +326,15 @@ async def post_token(request: web.Request) -> web.Response:
         e.log_warning(context.logger)
         return web.json_response(e.as_dict, status=400)
 
+    # Log the token redemption.
+    context.logger.info(
+        "Retrieved token for user %s via OpenID Connect",
+        token.username,
+        user=token.username,
+        token=token.jti,
+        scope=" ".join(sorted(token.scope)),
+    )
+
     # Return the token to the caller.
     response = {
         "access_token": token.encoded,
