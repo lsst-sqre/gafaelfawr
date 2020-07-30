@@ -104,7 +104,7 @@ class OIDCServer:
             client.
         """
         if not any((c.client_id == client_id for c in self._config.clients)):
-            raise UnauthorizedClientException(f"unknown client ID {client_id}")
+            raise UnauthorizedClientException(f"Unknown client ID {client_id}")
         return await self._authorization_store.create(
             client_id, redirect_uri, session_handle
         )

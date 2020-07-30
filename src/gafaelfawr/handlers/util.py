@@ -200,7 +200,7 @@ def validate_return_url(
 
     Raises
     ------
-    aiohttp.web.HTTPError
+    aiohttp.web.HTTPException
         An appropriate error if the return URL was invalid or missing.
     """
     if not return_url:

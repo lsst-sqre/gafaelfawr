@@ -30,6 +30,7 @@ from gafaelfawr.storage.oidc import OIDCAuthorizationCode
 
 if TYPE_CHECKING:
     from typing import Awaitable, Callable, Optional
+    from urllib.parse import ParseResult
 
     from multidict import MultiDictProxy
 
@@ -216,37 +217,44 @@ async def get_login(request: web.Request) -> web.Response:
         scope=" ".join(sorted(auth_session.token.scope)),
     )
 
-    if parsed_redirect_uri.query:
-        return_query = parse_qsl(parsed_redirect_uri.query)
-    else:
-        return_query = []
-
     # Get an authorization code, returning an error via redirect if needed.
     oidc_server = context.factory.create_oidc_server()
     try:
         code = await oidc_server.issue_code(client_id, redirect_uri, handle)
     except UnauthorizedClientException as e:
-        query = [
-            ("error", "unauthorized_client"),
-            ("error_description", str(e)),
-        ]
-        if state:
-            query.append(("state", state))
-        return_query.extend(query)
-        error_url = parsed_redirect_uri._replace(query=urlencode(return_query))
-        context.logger.warning(
-            "Unauthorized OpenID Connect client", error=str(e)
-        )
-        raise web.HTTPFound(error_url.geturl())
+        context.logger.warning("Invalid request", error=str(e))
+        raise web.HTTPBadRequest(reason=str(e), text=str(e))
 
     # Return the authorization code to the client via redirect.
-    query = [("code", code.encode())]
-    if state:
-        query.append(("state", state))
-    return_query.extend(query)
-    redirect_url = parsed_redirect_uri._replace(query=urlencode(return_query))
+    return_url = build_return_url(
+        parsed_redirect_uri, code=code.encode(), state=state
+    )
     context.logger.info("Returned OpenID Connect authorization code")
-    raise web.HTTPFound(redirect_url.geturl())
+    raise web.HTTPFound(return_url)
+
+
+def build_return_url(
+    redirect_uri: ParseResult, **params: Optional[str]
+) -> str:
+    """Construct a return URL for a redirect.
+
+    Parameters
+    ----------
+    redirect_uri : `urllib.parse.ParseResult`
+        The parsed base redirect URI provided by the client.
+    **params : `str` or `None`
+        Additional parameters to add to that URI to create the return URL.
+        Parameters set to `None` will be ignored.
+
+    Returns
+    -------
+    return_url : `str`
+        The return URL to which the user should be redirected.
+    """
+    query = parse_qsl(redirect_uri.query) if redirect_uri.query else []
+    query.extend(((k, v) for k, v in params.items() if v is not None))
+    return_url = redirect_uri._replace(query=urlencode(query))
+    return return_url.geturl()
 
 
 def get_form_value(data: MultiDictProxy, key: str) -> Optional[str]:
