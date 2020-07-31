@@ -7,9 +7,7 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 
 if TYPE_CHECKING:
-    from typing import ClassVar, Dict, Type
-
-    from structlog import BoundLogger
+    from typing import ClassVar, Type
 
 __all__ = [
     "DeserializeException",
@@ -55,16 +53,8 @@ class OAuthError(Exception):
     message: ClassVar[str] = "Unknown error"
     """The summary message to use when logging this error."""
 
-    def as_dict(self) -> Dict[str, str]:
-        """Return the JSON form of this exception, ready for serialization."""
-        return {
-            "error": self.error,
-            "error_description": str(self),
-        }
-
-    def log_warning(self, logger: BoundLogger) -> None:
-        """Log this error to the provided logger."""
-        logger.warning("%s", self.message, error=str(self))
+    hide_error: ClassVar[bool] = False
+    """Whether to hide the details of the error from the client."""
 
 
 class InvalidClientError(OAuthError):
@@ -91,12 +81,7 @@ class InvalidGrantError(OAuthError):
 
     error = "invalid_grant"
     message = "Invalid authorization code"
-
-    def as_dict(self) -> Dict[str, str]:
-        return {
-            "error": self.error,
-            "error_description": self.message,
-        }
+    hide_error = True
 
 
 class OAuthBearerError(OAuthError):

@@ -16,6 +16,7 @@ from gafaelfawr.exceptions import (
     InvalidRequestError,
     InvalidTokenError,
     OAuthBearerError,
+    OAuthError,
 )
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.tokens import Token
@@ -183,10 +184,10 @@ class AuthChallenge:
         return f"{self.auth_type.name} {info}"
 
 
-def error_as_www_authenticate(
+def generate_challenge(
     context: RequestContext, auth_type: AuthType, exc: OAuthBearerError
 ) -> web.HTTPException:
-    """Convert an exception into an HTTP error.
+    """Convert an exception into an HTTP error with ``WWW-Authenticate``.
 
     Parameters
     ----------
@@ -201,7 +202,9 @@ def error_as_www_authenticate(
     -------
     aiohttp.web.HTTPException
         A prepopulated `~aiohttp.web.HTTPException` object ready for raising.
+        The headers will contain a ``WWW-Authenticate`` challenge.
     """
+    context.logger.warning("%s", exc.message, error=str(exc))
     challenge = AuthChallenge(
         auth_type=auth_type,
         realm=context.config.realm,
@@ -210,6 +213,31 @@ def error_as_www_authenticate(
     )
     headers = {"WWW-Authenticate": challenge.as_header()}
     return exc.exception(headers=headers, reason=exc.message, text=str(exc))
+
+
+def generate_json_response(
+    context: RequestContext, exc: OAuthError
+) -> web.Response:
+    """Convert an exception into an HTTP error with a JSON body.
+
+    Parameters
+    ----------
+    context : `RequestContext`
+        The context of the incoming request.
+    exc : `gafaelfawr.exceptions.OAuthError`
+        An exception representing an OAuth 2.0 or OpenID Connect error.
+
+    Returns
+    -------
+    web.Response
+        A JSON response with status 400.
+    """
+    context.logger.warning("%s", exc.message, error=str(exc))
+    response = {
+        "error": exc.error,
+        "error_description": exc.message if exc.hide_error else str(exc),
+    }
+    return web.json_response(response, status=400)
 
 
 def parse_authorization(

@@ -11,7 +11,11 @@ from aiohttp import web
 from gafaelfawr.exceptions import InvalidRequestError, OAuthError
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.decorators import authenticated_session
-from gafaelfawr.handlers.util import RequestContext, validate_return_url
+from gafaelfawr.handlers.util import (
+    RequestContext,
+    generate_json_response,
+    validate_return_url,
+)
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
 
 if TYPE_CHECKING:
@@ -82,9 +86,12 @@ async def get_login(request: web.Request, session: Session) -> web.Response:
         error = "openid is the only supported scope"
     if error:
         e = InvalidRequestError(error)
-        e.log_warning(context.logger)
+        context.logger.warning("%s", e.message, error=str(e))
         return_url = build_return_url(
-            parsed_redirect_uri, state=state, **e.as_dict()
+            parsed_redirect_uri,
+            state=state,
+            error=e.error,
+            error_description=str(e),
         )
         raise web.HTTPFound(return_url)
 
@@ -201,8 +208,7 @@ async def post_token(request: web.Request) -> web.Response:
             client_id, client_secret, redirect_uri, authorization_code,
         )
     except OAuthError as e:
-        e.log_warning(context.logger)
-        return web.json_response(e.as_dict(), status=400)
+        return generate_json_response(context, e)
 
     # Log the token redemption.
     context.logger.info(

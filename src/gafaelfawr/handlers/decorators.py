@@ -14,7 +14,7 @@ from gafaelfawr.handlers.util import (
     AuthChallenge,
     AuthType,
     RequestContext,
-    error_as_www_authenticate,
+    generate_challenge,
     parse_authorization,
     verify_token,
 )
@@ -69,8 +69,7 @@ def authenticated_jwt(route: AuthenticatedRoute) -> Route:
         try:
             unverified_token = parse_authorization(context)
         except InvalidRequestError as e:
-            e.log_warning(context.logger)
-            raise error_as_www_authenticate(context, AuthType.Bearer, e)
+            raise generate_challenge(context, AuthType.Bearer, e)
         if not unverified_token:
             msg = "No authentication token found"
             context.logger.warning(msg)
@@ -80,8 +79,7 @@ def authenticated_jwt(route: AuthenticatedRoute) -> Route:
         try:
             token = verify_token(context, unverified_token)
         except InvalidTokenError as e:
-            e.log_warning(context.logger)
-            raise error_as_www_authenticate(context, AuthType.Bearer, e)
+            raise generate_challenge(context, AuthType.Bearer, e)
 
         # Add user information to the logger.
         context.rebind_logger(
@@ -194,8 +192,7 @@ def authenticated_token(route: AuthenticatedRoute) -> Route:
         try:
             token = verify_token(context, encoded_token)
         except InvalidTokenError as e:
-            e.log_warning(context.logger)
-            raise error_as_www_authenticate(context, AuthType.Bearer, e)
+            raise generate_challenge(context, AuthType.Bearer, e)
 
         # On success, add some context to the logger.
         context.rebind_logger(

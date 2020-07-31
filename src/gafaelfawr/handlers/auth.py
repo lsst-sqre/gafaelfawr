@@ -16,7 +16,7 @@ from gafaelfawr.handlers.util import (
     AuthError,
     AuthType,
     RequestContext,
-    error_as_www_authenticate,
+    generate_challenge,
     parse_authorization,
     verify_token,
 )
@@ -156,10 +156,9 @@ async def get_auth(request: web.Request) -> web.Response:
     try:
         token = await get_token_from_request(context)
     except InvalidRequestError as e:
-        e.log_warning(context.logger)
-        raise error_as_www_authenticate(context, auth_config.auth_type, e)
+        raise generate_challenge(context, auth_config.auth_type, e)
     except InvalidTokenError as e:
-        e.log_warning(context.logger)
+        context.logger.warning("%s", e.message, error=str(e))
         challenge = AuthChallenge(
             auth_type=auth_config.auth_type,
             realm=context.config.realm,
