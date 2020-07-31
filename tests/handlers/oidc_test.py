@@ -101,12 +101,3 @@ async def test_login(create_test_setup: SetupTestCallable) -> None:
     expected_exp = now + setup.config.issuer.exp_minutes * 60
     assert expected_exp - 5 <= token.claims["exp"] <= expected_exp
     assert now - 5 <= token.claims["iat"] <= now
-
-    # Test the user information endpoint.
-    r = await setup.client.get(
-        "/auth/openid/userinfo",
-        headers={"Authorization": f"Bearer {token.encoded}"},
-    )
-    assert r.status == 200
-    data = await r.json()
-    assert data == expected_claims

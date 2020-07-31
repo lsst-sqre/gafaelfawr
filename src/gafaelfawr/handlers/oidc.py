@@ -11,10 +11,7 @@ from aiohttp import web
 
 from gafaelfawr.exceptions import InvalidRequestError, OAuthError
 from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.decorators import (
-    authenticated_jwt,
-    authenticated_session,
-)
+from gafaelfawr.handlers.decorators import authenticated_session
 from gafaelfawr.handlers.util import RequestContext, validate_return_url
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
 
@@ -25,9 +22,8 @@ if TYPE_CHECKING:
     from multidict import MultiDictProxy
 
     from gafaelfawr.session import Session
-    from gafaelfawr.tokens import VerifiedToken
 
-__all__ = ["get_login", "get_userinfo", "post_token"]
+__all__ = ["get_login", "post_token"]
 
 
 @dataclass
@@ -290,27 +286,3 @@ async def post_token(request: web.Request) -> web.Response:
         "id_token": token.encoded,
     }
     return web.json_response(response)
-
-
-@routes.get("/auth/openid/userinfo")
-@authenticated_jwt
-async def get_userinfo(
-    request: web.Request, token: VerifiedToken
-) -> web.Response:
-    """Return information about the holder of a JWT.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The token of the authenticated user.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
-    context = RequestContext.from_request(request)
-    context.logger.info("Returned user information")
-    return web.json_response(token.claims)
