@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode
 
@@ -24,85 +23,6 @@ if TYPE_CHECKING:
     from gafaelfawr.session import Session
 
 __all__ = ["get_login", "post_token"]
-
-
-@dataclass
-class AuthenticationRequest:
-    """Represents an authentication request to the login endpoint.
-
-    See `Authentication Request
-    <https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest>`__
-    in the OpenID Connect specification.
-    """
-
-    scope: str
-    """The requested scope."""
-
-    response_type: str
-    """The requested response type."""
-
-    client_id: str
-    """The ID of the client requesting user authentication."""
-
-    redirect_uri: str
-    """Redirection URI to which the response will be sent."""
-
-    parsed_redirect_uri: ParseResult
-    """The parsed version of redirect_uri."""
-
-    state: Optional[str]
-    """An optional opaque value to maintain state across the request."""
-
-    @classmethod
-    def from_context(cls, context: RequestContext) -> AuthenticationRequest:
-        """Parse query parameters into an authentication request.
-
-        The client_id is not validated by this method, since this needs to
-        happen before any error is reported via redirect.  This method assumes
-        this has already been done.
-
-        Parameters
-        ----------
-        context : `gafaelfawr.handlers.util.RequestContext`
-            The incoming request context.
-
-        Returns
-        -------
-        request : `AuthenticationRequest`
-            The parsed authentication request.
-
-        Raises
-        ------
-        aiohttp.web.HTTPException
-            The request is invalid in a way that prevents redirecting back to
-            the client, so the error should be reported directly to the user.
-        gafaelfawr.exceptions.InvalidRequestError
-            The request is invalid in a way that can be reported back to the
-            caller.
-        """
-        scope = context.request.query.get("scope")
-        response_type = context.request.query.get("response_type")
-        client_id = context.request.query["client_id"]
-        state = context.request.query.get("state")
-        redirect_uri = context.request.query.get("redirect_uri")
-        parsed_redirect_uri = validate_return_url(context, redirect_uri)
-
-        # Validate the rest of the request.
-        if response_type != "code":
-            msg = "code is the only supported response_type"
-            raise InvalidRequestError(msg)
-        if scope != "openid":
-            raise InvalidRequestError("openid is the only supported scope")
-
-        # Create and return the object.
-        return cls(
-            scope=scope,
-            response_type=response_type,
-            client_id=client_id,
-            redirect_uri=redirect_uri,
-            parsed_redirect_uri=parsed_redirect_uri,
-            state=state,
-        )
 
 
 @routes.get("/auth/openid/login")
@@ -133,57 +53,72 @@ async def get_login(request: web.Request, session: Session) -> web.Response:
     context = RequestContext.from_request(request)
     oidc_server = context.factory.create_oidc_server()
 
-    # Check the client_id first, since if it is not valid, we cannot continue
-    # or send any errors back to the client via redirect.
+    # Check the client_id and redirect_uri first, since if they are not valid,
+    # we cannot continue or send any errors back to the client via redirect.
     client_id = request.query.get("client_id")
     if not client_id:
         msg = "Missing client_id in OpenID Connect request"
         context.logger.warning("Invalid request", error=msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
     if not oidc_server.is_valid_client(client_id):
-        msg = "Unknown client_id {client_id} in OpenID Connect request"
+        msg = f"Unknown client_id {client_id} in OpenID Connect request"
         context.logger.warning("Invalid request", error=msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
+    redirect_uri = request.query.get("redirect_uri")
+    parsed_redirect_uri = validate_return_url(context, redirect_uri)
 
     # Parse the authentication request.
-    try:
-        auth_request = AuthenticationRequest.from_context(context)
-    except OAuthError as e:
+    response_type = request.query.get("response_type")
+    scope = request.query.get("scope")
+    state = request.query.get("state")
+    error = None
+    if not response_type:
+        error = "Missing response_type parameter"
+    elif response_type != "code":
+        error = "code is the only supported response_type"
+    elif not scope:
+        error = "Missing scope parameter"
+    elif scope != "openid":
+        error = "openid is the only supported scope"
+    if error:
+        e = InvalidRequestError(error)
         e.log_warning(context.logger)
-        return_url = build_return_url(auth_request, **e.as_dict())
+        return_url = build_return_url(
+            parsed_redirect_uri, state=state, **e.as_dict()
+        )
         raise web.HTTPFound(return_url)
 
     # Get an authorization code and return it.
     code = await oidc_server.issue_code(
-        auth_request.client_id, auth_request.redirect_uri, session.handle
+        client_id, redirect_uri, session.handle
     )
-    return_url = build_return_url(auth_request, code=code.encode())
+    return_url = build_return_url(
+        parsed_redirect_uri, state=state, code=code.encode()
+    )
     context.logger.info("Returned OpenID Connect authorization code")
     raise web.HTTPFound(return_url)
 
 
 def build_return_url(
-    auth_request: AuthenticationRequest, **params: str
+    redirect_uri: ParseResult, **params: Optional[str]
 ) -> str:
     """Construct a return URL for a redirect.
 
     Parameters
     ----------
-    auth_request : `AuthenticationRequest`
-        The authentication request from the client.
-    **params : `str`
+    redirect_uri : `urllib.parse.ParseResult`
+        The parsed return URI from the client.
+    **params : `str` or `None`
         Additional parameters to add to that URI to create the return URL.
+        Any parameters set to `None` will be ignored.
 
     Returns
     -------
     return_url : `str`
         The return URL to which the user should be redirected.
     """
-    redirect_uri = auth_request.parsed_redirect_uri
     query = parse_qsl(redirect_uri.query) if redirect_uri.query else []
-    query.extend(params.items())
-    if auth_request.state:
-        query.append(("state", auth_request.state))
+    query.extend(((k, v) for (k, v) in params.items() if v is not None))
     return_url = redirect_uri._replace(query=urlencode(query))
     return return_url.geturl()
 

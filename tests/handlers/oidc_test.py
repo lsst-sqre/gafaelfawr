@@ -12,6 +12,7 @@ from gafaelfawr.config import OIDCClient
 from gafaelfawr.providers.github import GitHubUserInfo
 from gafaelfawr.session import SessionHandle
 from gafaelfawr.tokens import Token
+from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
@@ -130,12 +131,10 @@ async def test_unauthenticated(
     assert not url.scheme
     assert not url.netloc
     assert url.path == "/login"
-    assert url.query
-    query = parse_qs(url.query)
     expected_url = setup.client.make_url("/auth/openid/login").with_query(
         **login_params
     )
-    assert query == {"rd": [str(expected_url)]}
+    assert query_from_url(r.headers["Location"]) == {"rd": [str(expected_url)]}
 
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
@@ -147,4 +146,153 @@ async def test_unauthenticated(
         "remote": "127.0.0.1",
         "request_id": ANY,
         "user_agent": ANY,
+    }
+
+
+async def test_login_errors(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    setup = await create_test_setup(oidc_clients=clients)
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[],
+    )
+    await setup.github_login(userinfo)
+
+    # No parameters at all.
+    caplog.clear()
+    r = await setup.client.get("/auth/openid/login", allow_redirects=False)
+    assert r.status == 400
+    assert "Missing client_id" in await r.text()
+
+    log = json.loads(caplog.record_tuples[0][2])
+    assert log == {
+        "error": "Missing client_id in OpenID Connect request",
+        "event": "Invalid request",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/openid/login",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "scope": "",
+        "token": ANY,
+        "token_source": "cookie",
+        "user": "githubuser",
+        "user_agent": ANY,
+    }
+
+    # Bad client ID.
+    login_params = {"client_id": "bad-client"}
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status == 400
+    assert "Unknown client_id bad-client" in await r.text()
+
+    # Good client ID but missing redirect_uri.
+    login_params["client_id"] = "some-id"
+    caplog.clear()
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status == 400
+    assert "No destination URL" in await r.text()
+
+    log = json.loads(caplog.record_tuples[0][2])
+    assert log == {
+        "error": "No destination URL specified",
+        "event": "Bad return URL",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/openid/login",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "scope": "",
+        "token": ANY,
+        "token_source": "cookie",
+        "user": "githubuser",
+        "user_agent": ANY,
+    }
+
+    # Bad redirect_uri.
+    login_params["redirect_uri"] = "https://example.com/"
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status == 400
+    assert "URL is not at" in await r.text()
+
+    # Valid redirect_uri but missing response_type.
+    login_params["redirect_uri"] = f"https://{setup.client.host}/app"
+    caplog.clear()
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status == 302
+    url = urlparse(r.headers["Location"])
+    assert url.scheme == "https"
+    assert url.netloc == f"{setup.client.host}"
+    assert url.path == "/app"
+    assert url.query
+    query = parse_qs(url.query)
+    assert query == {
+        "error": ["invalid_request"],
+        "error_description": ["Missing response_type parameter"],
+    }
+
+    log = json.loads(caplog.record_tuples[0][2])
+    assert log == {
+        "error": "Missing response_type parameter",
+        "event": "Invalid request",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/openid/login",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "return_url": login_params["redirect_uri"],
+        "scope": "",
+        "token": ANY,
+        "token_source": "cookie",
+        "user": "githubuser",
+        "user_agent": ANY,
+    }
+
+    # Invalid response_type.
+    login_params["response_type"] = "bogus"
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status == 302
+    assert query_from_url(r.headers["Location"]) == {
+        "error": ["invalid_request"],
+        "error_description": ["code is the only supported response_type"],
+    }
+
+    # Valid response_type but missing scope.
+    login_params["response_type"] = "code"
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status == 302
+    assert query_from_url(r.headers["Location"]) == {
+        "error": ["invalid_request"],
+        "error_description": ["Missing scope parameter"],
+    }
+
+    # Invalid scope.
+    login_params["scope"] = "user:email"
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status == 302
+    assert query_from_url(r.headers["Location"]) == {
+        "error": ["invalid_request"],
+        "error_description": ["openid is the only supported scope"],
     }

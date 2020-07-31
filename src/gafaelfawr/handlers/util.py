@@ -312,13 +312,13 @@ def validate_return_url(
     if not return_url:
         msg = "No destination URL specified"
         context.logger.warning("Bad return URL", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
+        raise web.HTTPBadRequest(reason="Bad return URL", text=msg)
     context.rebind_logger(return_url=return_url)
     parsed_return_url = urlparse(return_url)
     if parsed_return_url.hostname != context.request.url.raw_host:
         msg = f"URL is not at {context.request.host}"
         context.logger.warning("Bad return URL", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
+        raise web.HTTPBadRequest(reason="Bad return URL", text=msg)
     return parsed_return_url
 
 

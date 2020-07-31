@@ -145,6 +145,7 @@ def authenticated_session(route: SessionRoute) -> Route:
             token=auth_session.token.jti,
             user=auth_session.token.username,
             scope=" ".join(sorted(auth_session.token.scope)),
+            token_source="cookie",
         )
 
         return await route(request, auth_session)

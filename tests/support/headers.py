@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, urlparse
 
 from gafaelfawr.handlers.util import AuthChallenge, AuthError, AuthType
+
+if TYPE_CHECKING:
+    from typing import Dict, List
 
 
 def parse_www_authenticate(header: str) -> AuthChallenge:
@@ -53,3 +58,21 @@ def parse_www_authenticate(header: str) -> AuthChallenge:
         error_description=error_description,
         scope=scope,
     )
+
+
+def query_from_url(url: str) -> Dict[str, List[str]]:
+    """Parse a URL and return its query.
+
+    Parameters
+    ----------
+    url : `str`
+        The URL.
+
+    Returns
+    -------
+    query : Dict[`str`, List[`str`]]
+        The query in the form returned by :py:func:`urllib.parse.parse_qs`.
+    """
+    parsed_url = urlparse(url)
+    assert parsed_url.query
+    return parse_qs(parsed_url.query)
