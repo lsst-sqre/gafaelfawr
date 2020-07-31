@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
@@ -13,6 +14,8 @@ from gafaelfawr.session import SessionHandle
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
+    from _pytest.logging import LogCaptureFixture
+
     from tests.setup import SetupTestCallable
 
 
@@ -101,3 +104,47 @@ async def test_login(create_test_setup: SetupTestCallable) -> None:
     expected_exp = now + setup.config.issuer.exp_minutes * 60
     assert expected_exp - 5 <= token.claims["exp"] <= expected_exp
     assert now - 5 <= token.claims["iat"] <= now
+
+
+async def test_unauthenticated(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    setup = await create_test_setup(oidc_clients=clients)
+
+    return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
+    login_params = {
+        "response_type": "code",
+        "scope": "openid",
+        "client_id": "some-id",
+        "state": "random-state",
+        "redirect_uri": return_url,
+    }
+    caplog.clear()
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False,
+    )
+
+    assert r.status == 302
+    url = urlparse(r.headers["Location"])
+    assert not url.scheme
+    assert not url.netloc
+    assert url.path == "/login"
+    assert url.query
+    query = parse_qs(url.query)
+    expected_url = setup.client.make_url("/auth/openid/login").with_query(
+        **login_params
+    )
+    assert query == {"rd": [str(expected_url)]}
+
+    log = json.loads(caplog.record_tuples[0][2])
+    assert log == {
+        "event": "Redirecting user for authentication",
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/openid/login",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "user_agent": ANY,
+    }
