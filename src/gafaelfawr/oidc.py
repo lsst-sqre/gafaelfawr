@@ -155,7 +155,7 @@ class OIDCServer:
             msg = f"Cannot get authorization for {code.key}: {str(e)}"
             raise InvalidGrantError(msg)
         if not authorization:
-            msg = f"Unknown authoriation code {code.key}"
+            msg = f"Unknown authorization code {code.key}"
             raise InvalidGrantError(msg)
 
         if authorization.client_id != client_id:

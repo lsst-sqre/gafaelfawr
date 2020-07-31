@@ -202,7 +202,7 @@ async def post_token(request: web.Request) -> web.Response:
         )
     except OAuthError as e:
         e.log_warning(context.logger)
-        return web.json_response(e.as_dict, status=400)
+        return web.json_response(e.as_dict(), status=400)
 
     # Log the token redemption.
     context.logger.info(
