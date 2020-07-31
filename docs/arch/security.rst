@@ -91,6 +91,8 @@ To-do
   This appears not to be supported by the NGINX ingress at present.
 - Optionally do not expose the user's JWT to a protected application.
 - Explore using the nascent support for token reissuance to provide more protection against reuse of JWTs by protected applications.
+- Register the ``redirect_uri`` along with the client for OpenID Connect clients and validate that the requested ``redirect_uri`` matches.
+  This would allow using the OpenID Connect support to authenticate sites on other hosts, including chaining Gafaelfawr instances, since it would allow safely removing the restriction that ``redirect_uri`` must be on the same host as Gafaelfawr.
 
 Logging
 =======

@@ -28,6 +28,16 @@ Gafaelfawr supports the following routes:
     If the request method is GET, uses the session handle from the user's session cookie or from an ``Authentication`` header.
     If the request method is POST, uses a session handle or JWT from the ``token`` form parameter, provided in the POST.
 
+``/auth/openid/login``
+    Initiates or completes an OpenID Connect authentication request.
+    The parameters to this route are those for the Authentication Request in the Authorization Code Flow as defined in `OpenID Connect`_.
+
+.. _OpenID Connect: https://openid.net/specs/openid-connect-core-1_0.html
+
+``/auth/openid/token``
+    Retrieves a JWT given an OpenID Connect authorization code obtained via an authentication request.
+    The parameters to this route are those for the Token Request in the Authorization Code Flow in `OpenID Connect`_.
+
 ``/auth/tokens``
     Displays all user-issued tokens for the authenticated user.
 
@@ -37,6 +47,12 @@ Gafaelfawr supports the following routes:
 ``/auth/tokens/<key>``
     Displays details about a user-issued token or processes a revocation request for that token.
     The ``<key>`` portion of the route must be the session key (from a session handle, for example).
+
+``/auth/userinfo``
+    Returns the claims of a JWT, issued by Gafaelfawr, in JSON format.
+    The JWT must be presented as a bearer token in an ``Authorization`` header as defined in `RFC 6750`_.
+
+.. _RFC 6750: https://tools.ietf.org/html/rfc6750
 
 ``/login``
     Initiates or completes an authentication rqeuest.

@@ -46,12 +46,14 @@ The ``<key>`` is the Redis key under which the encrypted session is stored.
 The ``<secret>`` is an opaque value used to prove that the holder of the session handle is allowed to use it.
 Checking the secret prevents someone who can list the keys in the Redis session store from using those keys as session handles.
 
+The same representation is used for authorization codes issued by the OpenID Connect server.
+
 Session storage
 ===============
 
 Currently, the only supported backend for session storage is Redis.
 Sessions are stored under a Redis key of ``session:<key>`` where ``<key>`` is the session key from the session handle.
-The value is JSON encrypted with :py:class:`~cryptography.fernet.Fernet`.
+The value is JSON-encrypted with :py:class:`~cryptography.fernet.Fernet`.
 The decrypted session has the following keys:
 
 ``secret``
@@ -72,6 +74,35 @@ The decrypted session has the following keys:
     Taken from the ``exp`` claim of the JWT.
 
 The Redis key will be set to expire at the same time represented by ``expires_on``.
+
+Authorization code storage
+==========================
+
+Authorization codes returned by the OpenID Connect server are stored in Redis in a way very similar to sessions.
+The authorization code uses the same data structure and representation as a session handle.
+Authorizations are stored under a Redis key of ``oidc:<key>`` where ``<key>`` is the key from a handle.
+The value os JSON-encrypted with :py:class:`~cryptography.fernet.Fernet`.
+The decrypted authorization has the following keys:
+
+``secret``
+    The authorization secret, matching the ``<secret>`` portion of the authorization code.
+
+``client_id``
+    The client ID for whom the authorization was issued.
+
+``redirect_uri``
+    The redirect URI presented at the time of code issuance.
+
+``session_handle``
+    The handle for the underlying authorization session.
+    This is used to retrieve the user's token for token issuance.
+
+``created_at``
+    The time at which the authorization code was created in integer seconds since epoch.
+
+Authorization codes are valid for one hour.
+They are single-use.
+Once the authorization code has been redeemed, the authorization is deleted from Redis.
 
 User token storage
 ==================
