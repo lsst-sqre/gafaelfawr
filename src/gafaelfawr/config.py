@@ -97,6 +97,9 @@ class IssuerConfig:
     uid_claim: str
     """Token claim from which to take the UID."""
 
+    influxdb_secret: Optional[str]
+    """Shared secret for issuing InfluxDB authentication tokens."""
+
 
 @dataclass(frozen=True)
 class VerifierConfig:
@@ -300,6 +303,10 @@ class Config:
         if settings.redis_password_file:
             path = settings.redis_password_file
             redis_password = cls._load_secret(path).decode()
+        influxdb_secret = None
+        if settings.issuer.influxdb_secret_file:
+            path = settings.issuer.influxdb_secret_file
+            influxdb_secret = cls._load_secret(path).decode()
         if settings.github:
             path = settings.github.client_secret_file
             github_secret = cls._load_secret(path).decode()
@@ -348,6 +355,7 @@ class Config:
             group_mapping=group_mapping_frozen,
             username_claim=settings.username_claim,
             uid_claim=settings.uid_claim,
+            influxdb_secret=influxdb_secret,
         )
         verifier_config = VerifierConfig(
             iss=settings.issuer.iss,

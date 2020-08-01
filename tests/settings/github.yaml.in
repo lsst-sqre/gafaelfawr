@@ -16,6 +16,7 @@ issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"
   key_file: "{issuer_key_file}"
+  influxdb_secret_file: "{influxdb_secret_file}"
   aud:
     default: "https://example.com/"
     internal: "https://example.com/api"

@@ -98,6 +98,7 @@ async def create_test_app(
     session_secret_file = store_secret(tmp_path, "session", session_secret)
     issuer_key = RSAKeyPair.generate().private_key_as_pem()
     issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
+    influxdb_secret_file = store_secret(tmp_path, "influxdb", b"influx-secret")
     github_secret_file = store_secret(tmp_path, "github", b"github-secret")
     oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
 
@@ -117,6 +118,7 @@ async def create_test_app(
         issuer_key_file=issuer_key_file,
         github_secret_file=github_secret_file,
         oidc_secret_file=oidc_secret_file,
+        influxdb_secret_file=influxdb_secret_file,
     )
     app = await create_app(
         settings_path=str(settings_path),
