@@ -54,9 +54,9 @@ certifi==2020.6.20 \
     --hash=sha256:5930595817496dd21bb8dc35dad090f1c2cd0adfaf21204bf6732ca5d8ee34d3 \
     --hash=sha256:8fc0819f1f30ba15bdb34cceffb9ef04d99f420f68eb75d901e9560b8749fc41 \
     # via requests
-cfgv==3.1.0 \
-    --hash=sha256:1ccf53320421aeeb915275a196e23b3b8ae87dea8ac6698b1638001d4a486d53 \
-    --hash=sha256:c8e8f552ffcc6194f4e18dd4f68d9aef0c0d58ae7e7be8c82bee3c5e9edfa513 \
+cfgv==3.2.0 \
+    --hash=sha256:32e43d604bbe7896fe7c248a9c2276447dbef840feb28fe20494f62af110211d \
+    --hash=sha256:cf22deb93d4bcf92f345a5c3cd39d3d41d6340adc60c78bbbd6588c384fda6a1 \
     # via pre-commit
 chardet==3.0.4 \
     --hash=sha256:84ab92ed1c4d4f16916e05906b6b75a6c0fb5db821cc65e70cbd64a3e2a5eaae \
@@ -102,9 +102,9 @@ coverage[toml]==5.2.1 \
     --hash=sha256:ce7866f29d3025b5b34c2e944e66ebef0d92e4a4f2463f7266daa03a1332a651 \
     --hash=sha256:e26c993bd4b220429d4ec8c1468eca445a4064a61c74ca08da7429af9bc53bb0 \
     # via -r requirements/dev.in
-devtools==0.5.1 \
-    --hash=sha256:51ca8d2e15b8a862875a4837db2bafbc6cda409c069e960aec3f4bbd91fe9c08 \
-    --hash=sha256:7a1f7db6ade0a71840ca4014d75dd72390aed2ef04e39e2b2445af7b3a3f4679 \
+devtools==0.6 \
+    --hash=sha256:3f2d4eb2de2a8501c41330524414b495d7bbf3066384b3cec5fa784a0d07099b \
+    --hash=sha256:bba4886df5adbcedafa2ec0e5fb2c255a82ce94ec822a12aa16f1f104e9eed36 \
     # via aiohttp-devtools
 diagrams==0.16.0 \
     --hash=sha256:595082a3a0c84dc0073dea0ad6ed652d9a66253b31f479731b6c488c65718da0 \
@@ -209,6 +209,10 @@ imagesize==1.2.0 \
     --hash=sha256:6965f19a6a2039c7d48bca7dba2473069ff854c36ae6f19d2cde309d998228a1 \
     --hash=sha256:b1f6b5a4eab1f73479a50fb79fcf729514a900c341d8503d62a62dbc4127a2b1 \
     # via sphinx
+iniconfig==1.0.1 \
+    --hash=sha256:80cf40c597eb564e86346103f609d74efce0f6b4d4f30ec8ce9e2c26411ba437 \
+    --hash=sha256:e5f92f89355a67de0595932a6c6c02ab4afddc6fcdc0bfc5becd0d60884d3f69 \
+    # via pytest
 jinja2==2.11.2 \
     --hash=sha256:89aab215427ef59c34ad58735269eb58b1a5808103067f7bb9d5836c651b3bb0 \
     --hash=sha256:f0a4641d3cf955324a89c04f3d94663aa4d638abe8f733ecd3582848e1c37035 \
@@ -376,9 +380,9 @@ pytest-aiohttp==0.3.0 \
 pytest-sugar==0.9.4 \
     --hash=sha256:b1b2186b0a72aada6859bea2a5764145e3aaa2c1cfbb23c3a19b5f7b697563d3 \
     # via -r requirements/dev.in
-pytest==5.4.3 \
-    --hash=sha256:5c0db86b698e8f170ba4582a492248919255fcd4c79b1ee64ace34301fb589a1 \
-    --hash=sha256:7979331bfcba207414f5e1263b5a0f8f521d0f457318836a7355531ed1a4c7d8 \
+pytest==6.0.1 \
+    --hash=sha256:85228d75db9f45e06e57ef9bf4429267f81ac7c0d742cc9ed63d09886a9fe6f4 \
+    --hash=sha256:8b6007800c53fdacd5a5c192203f4e531eb2a1540ad9c752e052ec0f7143dbad \
     # via -r requirements/dev.in, pytest-aiohttp, pytest-sugar
 pytz==2020.1 \
     --hash=sha256:a494d53b6d39c3c6e44c3bec237336e14305e4f29bbf800b599253057fbb79ed \
@@ -439,7 +443,7 @@ termcolor==1.1.0 \
 toml==0.10.1 \
     --hash=sha256:926b612be1e5ce0634a2ca03470f95169cf16f939018233a670519cb4ac58b0f \
     --hash=sha256:bda89d5935c2eac546d648028b9901107a595863cb36bae0c73ac804a9b4ce88 \
-    # via coverage, pre-commit
+    # via coverage, pre-commit, pytest
 typed-ast==1.4.1 \
     --hash=sha256:0666aa36131496aed8f7be0410ff974562ab7eeac11ef351def9ea6fa28f6355 \
     --hash=sha256:0c2c07682d61a629b68433afb159376e24e5b2fd4641d35424e462169c0a7919 \
@@ -467,49 +471,45 @@ typing-extensions==3.7.4.2 \
     --hash=sha256:6e95524d8a547a91e08f404ae485bbb71962de46967e1b71a0cb89af24e761c5 \
     --hash=sha256:79ee589a3caca649a9bfd2a8de4709837400dfa00b6cc81962a1e6a1815969ae \
     --hash=sha256:f8d2bd89d25bc39dabe7d23df520442fa1d8969b82544370e03d88b5a591c392 \
-    # via mypy, yarl
+    # via mypy
 urllib3==1.25.10 \
     --hash=sha256:91056c15fa70756691db97756772bb1eb9678fa585d9184f24534b100dc60f4a \
     --hash=sha256:e7983572181f5e1522d9c98453462384ee92a0be7fac5f1413a1e35c56cc0461 \
     # via requests
-virtualenv==20.0.28 \
-    --hash=sha256:688a61d7976d82b92f7906c367e83bb4b3f0af96f8f75bfcd3da95608fe8ac6c \
-    --hash=sha256:8f582a030156282a9ee9d319984b759a232b07f86048c1d6a9e394afa44e78c8 \
+virtualenv==20.0.29 \
+    --hash=sha256:8aa9c37b082664dbce2236fa420759c02d64109d8e6013593ad13914718a30fd \
+    --hash=sha256:f14a0a98ea4397f0d926cff950361766b6a73cd5975ae7eb259d12919f819a25 \
     # via pre-commit
 watchgod==0.6 \
     --hash=sha256:59700dab7445aa8e6067a5b94f37bae90fc367554549b1ed2e9d0f4f38a90d2a \
     --hash=sha256:e9cca0ab9c63f17fc85df9fd8bd18156ff00aff04ebe5976cee473f4968c6858 \
     # via aiohttp-devtools
-wcwidth==0.2.5 \
-    --hash=sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784 \
-    --hash=sha256:c4d647b99872929fdb7bdcaa4fbe7f01413ed3d98077df798530e5b04f116c83 \
-    # via pytest
 webcolors==1.11.1 \
     --hash=sha256:76f360636957d1c976db7466bc71dcb713bb95ac8911944dffc55c01cb516de6 \
     --hash=sha256:b8cd5d865a25c51ff1218f0c90d0c0781fc64312a49b746b320cf50de1648f6e \
     # via blockdiag
-yarl==1.5.0 \
-    --hash=sha256:1707230e1ea48ea06a3e20acb4ce05a38d2465bd9566c21f48f6212a88e47536 \
-    --hash=sha256:1f269e8e6676193a94635399a77c9059e1826fb6265c9204c9e5a8ccd36006e1 \
-    --hash=sha256:2657716c1fc998f5f2675c0ee6ce91282e0da0ea9e4a94b584bb1917e11c1559 \
-    --hash=sha256:431faa6858f0ea323714d8b7b4a7da1db2eeb9403607f0eaa3800ab2c5a4b627 \
-    --hash=sha256:5bbcb195da7de57f4508b7508c33f7593e9516e27732d08b9aad8586c7b8c384 \
-    --hash=sha256:5c82f5b1499342339f22c83b97dbe2b8a09e47163fab86cd934a8dd46620e0fb \
-    --hash=sha256:5d410f69b4f92c5e1e2a8ffb73337cd8a274388c6975091735795588a538e605 \
-    --hash=sha256:66b4f345e9573e004b1af184bc00431145cf5e089a4dcc1351505c1f5750192c \
-    --hash=sha256:875b2a741ce0208f3b818008a859ab5d0f461e98a32bbdc6af82231a9e761c55 \
-    --hash=sha256:9a3266b047d15e78bba38c8455bf68b391c040231ca5965ef867f7cbbc60bde5 \
-    --hash=sha256:9a592c4aa642249e9bdaf76897d90feeb08118626b363a6be8788a9b300274b5 \
-    --hash=sha256:a1772068401d425e803999dada29a6babf041786e08be5e79ef63c9ecc4c9575 \
-    --hash=sha256:b065a5c3e050395ae563019253cc6c769a50fd82d7fa92d07476273521d56b7c \
-    --hash=sha256:b325fefd574ebef50e391a1072d1712a60348ca29c183e1d546c9d87fec2cd32 \
-    --hash=sha256:cf5eb664910d759bbae0b76d060d6e21f8af5098242d66c448bbebaf2a7bfa70 \
-    --hash=sha256:f058b6541477022c7b54db37229f87dacf3b565de4f901ff5a0a78556a174fea \
-    --hash=sha256:f5cfed0766837303f688196aa7002730d62c5cc802d98c6395ea1feb87252727 \
+yarl==1.5.1 \
+    --hash=sha256:040b237f58ff7d800e6e0fd89c8439b841f777dd99b4a9cca04d6935564b9409 \
+    --hash=sha256:17668ec6722b1b7a3a05cc0167659f6c95b436d25a36c2d52db0eca7d3f72593 \
+    --hash=sha256:3a584b28086bc93c888a6c2aa5c92ed1ae20932f078c46509a66dce9ea5533f2 \
+    --hash=sha256:4439be27e4eee76c7632c2427ca5e73703151b22cae23e64adb243a9c2f565d8 \
+    --hash=sha256:48e918b05850fffb070a496d2b5f97fc31d15d94ca33d3d08a4f86e26d4e7c5d \
+    --hash=sha256:9102b59e8337f9874638fcfc9ac3734a0cfadb100e47d55c20d0dc6087fb4692 \
+    --hash=sha256:9b930776c0ae0c691776f4d2891ebc5362af86f152dd0da463a6614074cb1b02 \
+    --hash=sha256:b3b9ad80f8b68519cc3372a6ca85ae02cc5a8807723ac366b53c0f089db19e4a \
+    --hash=sha256:bc2f976c0e918659f723401c4f834deb8a8e7798a71be4382e024bcc3f7e23a8 \
+    --hash=sha256:c22c75b5f394f3d47105045ea551e08a3e804dc7e01b37800ca35b58f856c3d6 \
+    --hash=sha256:c52ce2883dc193824989a9b97a76ca86ecd1fa7955b14f87bf367a61b6232511 \
+    --hash=sha256:ce584af5de8830d8701b8979b18fcf450cef9a382b1a3c8ef189bedc408faf1e \
+    --hash=sha256:da456eeec17fa8aa4594d9a9f27c0b1060b6a75f2419fe0c00609587b2695f4a \
+    --hash=sha256:db6db0f45d2c63ddb1a9d18d1b9b22f308e52c83638c26b422d520a815c4b3fb \
+    --hash=sha256:df89642981b94e7db5596818499c4b2219028f2a528c9c37cc1de45bf2fd3a3f \
+    --hash=sha256:f18d68f2be6bf0e89f1521af2b1bb46e66ab0018faafa81d70f358153170a317 \
+    --hash=sha256:f379b7f83f23fe12823085cd6b906edc49df969eb99757f58ff382349a3303c6 \
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==49.2.0 \
-    --hash=sha256:272c7f48f5cddc5af5901f4265274c421c7eede5c8bc454ac2903d3f8fc365e9 \
-    --hash=sha256:afe9e81fee0270d3f60d52608549cc8ec4c46dada8c95640c1a00160f577acf2 \
+setuptools==49.2.1 \
+    --hash=sha256:1a4299a49e3dfe2d79d774ec70746a97d54feacb283e8b689a2bef3eb62e0fe8 \
+    --hash=sha256:88094d17c8d273390659a72e9d93374cd7bfd188c12bf2747b306e2bed48df18 \
     # via blockdiag, sphinx
