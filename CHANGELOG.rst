@@ -8,6 +8,7 @@ Change log
 This release adds a minimalist OpenID Connect server to support protected applications that only understand OpenID Connect.
 The initial implementation is intended to support `Chronograf <https://www.influxdata.com/time-series-platform/chronograf/>`__.
 Other applications may or may not work.
+It also adds optional support for issuing InfluxDB authentication tokens.
 
 - Add support for a password-protected Redis backend.
   This uses a new configuration parameter, ``redis_password_file``, which points to a file containing the password for Redis.
@@ -16,6 +17,9 @@ Other applications may or may not work.
   The authentication endpoint is ``/auth/openid/login`` and the token endpoint is ``/auth/openid/token``.
 - Add a user information endpoint (``/auth/userinfo``) that accepts a JWT and returns its claims.
   Intended primarily for use with OpenID Connect.
+- Add support for issuing InfluxDB authentication tokens via a new ``/auth/tokens/influxdb/new`` route.
+  InfluxDB requires JWTs with the HS256 algorithm and a shared secret.
+  This feature is enabled by configuring the shared secret via the ``issuer.influxdb_secret_file`` configuration option.
 
 1.3.2 (2020-06-08)
 ==================

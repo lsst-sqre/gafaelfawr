@@ -183,3 +183,25 @@ Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com``
 * ``GENERIC_SCOPES``: ``openid``
 * ``PUBLIC_URL``: ``https://example.com/chronograf``
 * ``TOKEN_SECRET``: ``pCY29u3qMTdWCNetOUD3OShsqwPm+pYKDNt6dqy01qw=``
+
+.. _influxdb:
+
+Authenticating to InfluxDB
+==========================
+
+.. warning::
+
+   InfluxDB 2.x is not supported.
+   These tokens will only work with InfluxDB 1.x.
+
+Gafaelfawr optionally supports issuing tokens for InfluxDB 1.x authentication.
+To enable this support, set ``issuer.influxdb.enabled`` to true in :ref:`helm-settings`.
+Then, create an ``influxdb-secret`` Vault secret key with the shared key that InfluxDB uses to verify the token.
+This can be any string of characters, such as the results of ``os.urandom(32).hex()``.
+The same secret must be configured in the `InfluxDB configuration file <https://docs.influxdata.com/influxdb/v1.8/administration/authentication_and_authorization/>`__.
+
+This will enable creation of new InfluxDB tokens via the ``/auth/tokens/influxdb/new`` route.
+Users can authenticate to this route with either a web session or a bearer token.
+The result is a JSON object containing a ``token`` key, the contents of which are the bearer token to present to InfluxDB.
+
+The token will contain a ``sub`` claim matching the user's Gafaelfawr username and will expire at the same time as the token or session used to authenticate to this route.

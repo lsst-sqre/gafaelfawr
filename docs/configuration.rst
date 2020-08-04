@@ -83,6 +83,10 @@ Secrets beginning or ending in whitespace are not supported.
         The expiration period of newly-issued JWTs, in minutes.
         The default is one day.
 
+    ``influxdb_secret_file`` (optional)
+        File containing the shared secret for issuing InfluxDB tokens.
+        If not set, issuance of InfluxDB tokens will be disabled.
+
 ``github`` (optional)
     Configure GitHub authentication.
     Users who go to the ``/login`` route will be sent to GitHub for authentication, and their token created based on their GitHub user metadata.
