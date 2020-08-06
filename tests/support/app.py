@@ -41,12 +41,10 @@ def build_settings(tmp_path: Path, template_name: str, **kwargs: Path) -> Path:
     """
     template_file = template_name + ".yaml.in"
     template_path = Path(__file__).parent.parent / "settings" / template_file
-    with template_path.open("r") as f:
-        template = f.read()
+    template = template_path.read_text()
     settings = template.format(**kwargs)
     settings_path = tmp_path / "gafaelfawr.yaml"
-    with settings_path.open("w") as f:
-        f.write(settings)
+    settings_path.write_text(settings)
     return settings_path
 
 
@@ -63,8 +61,7 @@ def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
         The value of the secret.
     """
     secret_path = tmp_path / name
-    with secret_path.open(mode="wb") as f:
-        f.write(secret)
+    secret_path.write_bytes(secret)
     return secret_path
 
 
