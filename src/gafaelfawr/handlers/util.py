@@ -25,9 +25,7 @@ if TYPE_CHECKING:
     from typing import Optional
     from urllib.parse import ParseResult
 
-    from aiohttp import ClientSession
     from aioredis import Redis
-    from cachetools import TTLCache
     from structlog import BoundLogger
 
     from gafaelfawr.config import Config
@@ -92,20 +90,11 @@ class RequestContext:
         This is constructed on the fly at each reference to ensure that we get
         the latest logger, which may have additional bound context.
         """
-        key_cache: TTLCache = self.request.config_dict["gafaelfawr/key_cache"]
-
-        # Tests inject an override http_session in the config dict.
-        http_session: ClientSession = self.request.config_dict.get(
-            "safir/http_session"
-        )
-        if not http_session:
-            http_session = self.request["safir/http_session"]
-
         return ComponentFactory(
             config=self.config,
             redis=self.redis,
-            key_cache=key_cache,
-            http_session=http_session,
+            key_cache=self.request.config_dict["gafaelfawr/key_cache"],
+            http_session=self.request.config_dict["safir/http_session"],
             logger=self.logger,
         )
 
