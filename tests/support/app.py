@@ -10,7 +10,6 @@ from cryptography.fernet import Fernet
 
 from gafaelfawr.app import create_app
 from gafaelfawr.keypair import RSAKeyPair
-from tests.support.http_session import MockClientSession
 
 if TYPE_CHECKING:
     from typing import Any
@@ -103,7 +102,6 @@ async def create_test_app(
     app = await create_app(
         settings_path=str(settings_path),
         redis_pool=await mockaioredis.create_redis_pool(""),
-        http_session=MockClientSession(),
         **settings,
     )
 

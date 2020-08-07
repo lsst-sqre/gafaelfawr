@@ -9,9 +9,9 @@ from urllib.parse import urlparse
 from aiohttp import ClientError, web
 from aiohttp_session import get_session, new_session
 
+from gafaelfawr.exceptions import ProviderException
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import RequestContext
-from gafaelfawr.providers.base import ProviderException
 
 __all__ = ["get_login"]
 

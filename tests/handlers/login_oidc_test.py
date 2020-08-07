@@ -4,16 +4,12 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, Mock
+from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
-
-from aiohttp import ClientConnectionError, ClientResponse, ClientResponseError
 
 from gafaelfawr.constants import ALGORITHM
 
 if TYPE_CHECKING:
-    from typing import Dict
-
     from _pytest.logging import LogCaptureFixture
 
     from tests.setup import SetupTestCallable
@@ -220,24 +216,15 @@ async def test_callback_error(
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
-    # Build an error response to return from the OIDC token URL.
-    response = Mock(spec=ClientResponse)
-    response.json.return_value = {
+    # Build an error response to return from the OIDC token URL and register
+    # it as a result.
+    response = {
         "error": "error_code",
         "error_description": "description",
     }
-    response.status = 400
-    response.raise_for_status.side_effect = ClientResponseError(Mock(), ())
-
-    # Build a handler for the token URL that returns that error.
-    def handler(
-        data: Dict[str, str], headers: Dict[str, str], raise_for_status: bool
-    ) -> ClientResponse:
-        assert headers == {"Accept": "application/json"}
-        return response
-
-    # Register it.
-    setup.http_session.add_post_handler(setup.config.oidc.token_url, handler)
+    setup.responses.post(
+        setup.config.oidc.token_url, payload=response, status=400
+    )
 
     # Simulate the return from the OpenID Connect provider.
     caplog.clear()
@@ -265,7 +252,9 @@ async def test_callback_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    response.json.return_value = {"foo": "bar"}
+    setup.responses.post(
+        setup.config.oidc.token_url, payload={"foo": "bar"}, status=400
+    )
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False,
     )
@@ -279,7 +268,9 @@ async def test_callback_error(
     assert "Cannot contact authentication provider" in await r.text()
 
     # Now try a reply that returns 200 but doesn't have the field we need.
-    response.status = 200
+    setup.responses.post(
+        setup.config.oidc.token_url, payload={"foo": "bar"}, status=200
+    )
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False,
     )
@@ -292,9 +283,8 @@ async def test_callback_error(
     assert r.status == 500
     assert "No id_token in token reply" in await r.text()
 
-    # Raise an exception on the json() method while returning 200, simulating
-    # invalid JSON from upstream.
-    response.json.side_effect = ValueError("foo")
+    # Return invalid JSON, which should raise an error during JSON decoding.
+    setup.responses.post(setup.config.oidc.token_url, body="foo", status=200)
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False,
     )
@@ -308,7 +298,7 @@ async def test_callback_error(
     assert "not valid JSON" in await r.text()
 
     # Finally, return invalid JSON and an error reply.
-    response.status = 400
+    setup.responses.post(setup.config.oidc.token_url, body="foo", status=400)
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False,
     )
@@ -335,28 +325,15 @@ async def test_connection_error(create_test_setup: SetupTestCallable) -> None:
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
-    # Build a mock error handler.
-    def handler(
-        data: Dict[str, str], headers: Dict[str, str], raise_for_status: bool
-    ) -> ClientResponse:
-        response = Mock(spec=ClientResponse)
-        response.status = 500
-        response.raise_for_status = Mock(
-            side_effect=ClientConnectionError("no one is listening")
-        )
-        return response
-
-    # Register it.
-    setup.http_session.add_post_handler(setup.config.oidc.token_url, handler)
-
-    # Check that the error is shown to the user.
+    # Do not register a response for the callback request to the OIDC provider
+    # and check that an appropriate error is shown to the user.
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
     assert r.status == 500
-    assert "no one is listening" in await r.text()
+    assert "Connection refused" in await r.text()
 
 
 async def test_verify_error(create_test_setup: SetupTestCallable) -> None:

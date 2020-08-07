@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 import pytest
 from cryptography.fernet import Fernet
 
-from gafaelfawr.session import InvalidSessionHandleException, SessionHandle
+from gafaelfawr.exceptions import InvalidSessionHandleException
+from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
     from tests.setup import SetupTestCallable
@@ -44,35 +45,6 @@ def test_handle_from_str() -> None:
     assert handle.key == "MLF5MB3Peg79wEC0BY8U8Q"
     assert handle.secret == "ChbkqEyp3EIJ2e_1Sqff3w"
     assert handle.encode() == handle_str
-
-
-async def test_analyze_handle(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(client=False)
-    handle = await setup.create_session()
-    session_store = setup.factory.create_session_store()
-    session = await session_store.get_session(handle)
-    assert session
-    verifier = setup.factory.create_token_verifier()
-
-    # Handle with no session.
-    bad_handle = SessionHandle()
-    assert await session_store.analyze_handle(bad_handle) == {
-        "handle": {"key": bad_handle.key, "secret": bad_handle.secret},
-        "errors": [f"No session found for {bad_handle.encode()}"],
-    }
-
-    # Valid session handle.
-    created_at = session.created_at.strftime("%Y-%m-%d %H:%M:%S -0000")
-    expires_on = session.expires_on.strftime("%Y-%m-%d %H:%M:%S -0000")
-    assert await session_store.analyze_handle(handle) == {
-        "handle": {"key": handle.key, "secret": handle.secret},
-        "session": {
-            "email": session.email,
-            "created_at": created_at,
-            "expires_on": expires_on,
-        },
-        "token": verifier.analyze_token(session.token),
-    }
 
 
 async def test_get_session(create_test_setup: SetupTestCallable) -> None:

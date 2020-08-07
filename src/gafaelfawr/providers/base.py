@@ -8,11 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from gafaelfawr.session import Session
 
-__all__ = ["Provider", "ProviderException"]
-
-
-class ProviderException(Exception):
-    """A provider returned an error from an API call."""
+__all__ = ["Provider"]
 
 
 class Provider(metaclass=ABCMeta):
@@ -54,6 +50,6 @@ class Provider(metaclass=ABCMeta):
         aiohttp.ClientResponseError
             An HTTP client error occurred trying to talk to the authentication
             provider.
-        ProviderException
+        gafaelfawr.exceptions.ProviderException
             The provider responded with an error to a request.
         """

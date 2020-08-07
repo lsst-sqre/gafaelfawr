@@ -3,37 +3,17 @@
 from __future__ import annotations
 
 import base64
-import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from cryptography.fernet import Fernet, InvalidToken
-from jwt.exceptions import InvalidTokenError
-
-from gafaelfawr.tokens import Token
+from gafaelfawr.exceptions import InvalidSessionHandleException
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Optional
-
-    from aioredis import Redis
-    from aioredis.commands import Pipeline
-    from structlog import BoundLogger
-
     from gafaelfawr.tokens import VerifiedToken
-    from gafaelfawr.verify import TokenVerifier
 
-__all__ = [
-    "InvalidSessionHandleException",
-    "Session",
-    "SessionHandle",
-    "SessionStore",
-]
-
-
-class InvalidSessionHandleException(Exception):
-    """Session handle is not in expected format."""
+__all__ = ["Session", "SessionHandle"]
 
 
 def _random_128_bits() -> str:
@@ -79,7 +59,7 @@ class SessionHandle:
 
         Raises
         ------
-        InvalidSessionHandleException
+        gafaelfawr.exceptions.InvalidSessionHandleException
             The provided string is not a valid session handle.
         """
         if not handle.startswith("gsh-"):
@@ -161,230 +141,3 @@ class Session:
             created_at=datetime.fromtimestamp(iat, tz=timezone.utc),
             expires_on=datetime.fromtimestamp(exp, tz=timezone.utc),
         )
-
-
-class SessionStore:
-    """Stores and retrieves sessions.
-
-    Parameters
-    ----------
-    key : `str`
-        Encryption key for the session store.  Must be a
-        `cryptography.fernet.Fernet` key.
-    verifier : `gafaelfawr.verify.TokenVerifier`
-        A token verifier to check the retrieved token.
-    redis : `aioredis.Redis`
-        A Redis client configured to talk to the backend store that holds the
-        (encrypted) tokens.
-    logger : `structlog.BoundLogger`
-        Logger for diagnostics.
-    """
-
-    def __init__(
-        self,
-        key: str,
-        verifier: TokenVerifier,
-        redis: Redis,
-        logger: BoundLogger,
-    ) -> None:
-        self._fernet = Fernet(key.encode())
-        self._verifier = verifier
-        self._redis = redis
-        self._logger = logger
-
-    async def analyze_handle(self, handle: SessionHandle) -> Dict[str, Any]:
-        """Analyze a session handle and return its expanded information.
-
-        Parameters
-        ----------
-        handle : `gafaelfawr.session.SessionHandle`
-            The session handle to analyze.
-
-        Returns
-        -------
-        output : Dict[`str`, Any]
-            The contents of the session handle and its underlying session.
-            This will include the session key and secret, the session it
-            references, and the token that session contains.
-        """
-        output: Dict[str, Any] = {
-            "handle": {"key": handle.key, "secret": handle.secret}
-        }
-
-        session = await self.get_session(handle)
-        if not session:
-            output["errors"] = [f"No session found for {handle.encode()}"]
-            return output
-
-        created_at = session.created_at.strftime("%Y-%m-%d %H:%M:%S -0000")
-        expires_on = session.expires_on.strftime("%Y-%m-%d %H:%M:%S -0000")
-        output["session"] = {
-            "email": session.email,
-            "created_at": created_at,
-            "expires_on": expires_on,
-        }
-
-        output["token"] = self._verifier.analyze_token(session.token)
-
-        return output
-
-    def delete_session(self, key: str, pipeline: Pipeline) -> None:
-        """Delete a session.
-
-        To allow the caller to batch this with other Redis modifications, the
-        deletion is done using the provided pipeline.  The caller is
-        responsible for executing the pipeline.
-
-        Parameters
-        ----------
-        key : `str`
-            The key of the session.
-        pipeline : `aioredis.commands.Pipeline`
-            The pipeline to use to delete the sesion.
-        """
-        pipeline.delete(f"session:{key}")
-
-    async def get_session(self, handle: SessionHandle) -> Optional[Session]:
-        """Retrieve and decrypt the session for a handle.
-
-        Parameters
-        ----------
-        handle : `SessionHandle`
-            The handle corresponding to the session.
-
-        Returns
-        -------
-        session : `Session` or `None`
-            The corresponding session, or `None` if no session exists for this
-            session handle.
-        """
-        redis_key = self._redis_key_for_handle(handle)
-        encrypted_session = await self._redis.get(redis_key)
-        if not encrypted_session:
-            return None
-        return await self._decrypt_session(handle, encrypted_session)
-
-    async def store_session(
-        self, session: Session, pipeline: Optional[Pipeline] = None,
-    ) -> None:
-        """Store a session.
-
-        To allow the caller to batch this with other Redis modifications, if a
-        pipeline is provided, the session will be stored but the pipeline will
-        not be executed.  In this case, the caller is responsible for
-        executing the pipeline.
-
-        Parameters
-        ----------
-        session : `Session`
-            The session to store.
-        pipeline : `aioredis.commands.Pipeline`, optional
-            The pipeline in which to store the session.
-        """
-        encrypted_session = self._encrypt_session(session)
-        now = datetime.now(timezone.utc)
-        expires = int((session.expires_on - now).total_seconds())
-        redis_key = self._redis_key_for_handle(session.handle)
-        if pipeline:
-            pipeline.set(redis_key, encrypted_session, expire=expires)
-        else:
-            await self._redis.set(redis_key, encrypted_session, expire=expires)
-
-    async def _decrypt_session(
-        self, handle: SessionHandle, encrypted_session: bytes
-    ) -> Optional[Session]:
-        """Decrypt a session and validate the secret.
-
-        If the key exists but the secret doesn't match, we return None exactly
-        as if no key exists to not leak information to an attacker, but we log
-        a loud error message.  If the Redis session cannot be decrypted, treat
-        it as if it were missing (chances are the key was changed).
-
-        Parameters
-        ----------
-        handle : `SessionHandle`
-            The handle for the session.
-        encrypted_session : `bytes`
-            The encrypted session.
-
-        Returns
-        -------
-        session : `Sesssion` or None
-            The decrypted sesssion or None if it could not be decrypted.
-        """
-        try:
-            session = json.loads(self._fernet.decrypt(encrypted_session))
-        except InvalidToken:
-            self._logger.exception(
-                "Cannot decrypt session data for %s", handle.key
-            )
-            return None
-        except json.JSONDecodeError:
-            self._logger.exception("Invalid session data for %s", handle.key)
-            return None
-
-        if session["secret"] != handle.secret:
-            self._logger.error("Secret mismatch for %s", handle.key)
-            return None
-
-        unverified_token = Token(encoded=session["token"])
-        try:
-            token = self._verifier.verify_internal_token(unverified_token)
-        except InvalidTokenError:
-            self._logger.exception(
-                "Token in session %s does not verify", handle.key
-            )
-            return None
-
-        try:
-            return Session(
-                handle=handle,
-                token=token,
-                email=session["email"],
-                created_at=datetime.fromtimestamp(
-                    session["created_at"], tz=timezone.utc
-                ),
-                expires_on=datetime.fromtimestamp(
-                    session["expires_on"], tz=timezone.utc
-                ),
-            )
-        except Exception:
-            self._logger.exception("Invalid session data for %s", handle.key)
-            return None
-
-    def _encrypt_session(self, session: Session) -> bytes:
-        """Serialize and encrypt a session.
-
-        Parameters
-        ----------
-        session : `Session`
-            The session to serialize and encrypt.
-
-        Returns
-        -------
-        session : `bytes`
-            The encrypted session information.
-        """
-        data = {
-            "secret": session.handle.secret,
-            "token": session.token.encoded,
-            "email": session.email,
-            "created_at": int(session.created_at.timestamp()),
-            "expires_on": int(session.expires_on.timestamp()),
-        }
-        return self._fernet.encrypt(json.dumps(data).encode())
-
-    def _redis_key_for_handle(self, handle: SessionHandle) -> str:
-        """Determine the Redis key for a session handle.
-
-        Parameters
-        ----------
-        handle : `SessionHandle`
-            The session handle.
-
-        Returns
-        -------
-        redis_key : `str`
-            The key to use in Redis.
-        """
-        return f"session:{handle.key}"

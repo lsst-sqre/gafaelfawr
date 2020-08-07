@@ -10,12 +10,15 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 from aiohttp_session import get_session
 
+from gafaelfawr.exceptions import (
+    InvalidRequestException,
+    InvalidTokenException,
+)
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import (
     AuthChallenge,
     AuthError,
     AuthType,
-    InvalidTokenException,
     RequestContext,
     verify_token,
 )
@@ -27,16 +30,6 @@ if TYPE_CHECKING:
     from gafaelfawr.tokens import VerifiedToken
 
 __all__ = ["get_auth"]
-
-
-class InvalidRequestException(Exception):
-    """The provided Authorization header could not be parsed.
-
-    This corresponds to the ``invalid_request`` error in RFC 6750: "The
-    request is missing a required parameter, includes an unsupported parameter
-    or parameter value, repeats the same parameter, uses more than one method
-    for including an access token, or is otherwise malformed."
-    """
 
 
 class Satisfy(Enum):

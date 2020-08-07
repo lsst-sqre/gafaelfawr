@@ -9,8 +9,9 @@ import structlog
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
-from gafaelfawr.session import SessionStore
-from gafaelfawr.token_store import TokenStore
+from gafaelfawr.storage.base import RedisStorage
+from gafaelfawr.storage.session import SerializedSession, SessionStore
+from gafaelfawr.storage.user_token import UserTokenStore
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
@@ -102,12 +103,13 @@ class ComponentFactory:
 
         Returns
         -------
-        session_store : `gafaelfawr.session.SessionStore`
+        session_store : `gafaelfawr.storage.session.SessionStore`
             A new SessionStore.
         """
         key = self._config.session_secret
+        storage = RedisStorage(SerializedSession, key, self._redis)
         verifier = self.create_token_verifier()
-        return SessionStore(key, verifier, self._redis, self._logger)
+        return SessionStore(storage, verifier, self._logger)
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.
@@ -118,16 +120,6 @@ class ComponentFactory:
             A new TokenIssuer.
         """
         return TokenIssuer(self._config.issuer)
-
-    def create_token_store(self) -> TokenStore:
-        """Create a TokenStore.
-
-        Returns
-        -------
-        token_store : `gafaelfawr.tokens.TokenStore`
-            A new TokenStore.
-        """
-        return TokenStore(self._redis, self._logger)
 
     def create_token_verifier(self) -> TokenVerifier:
         """Create a TokenVerifier from a web request.
@@ -143,3 +135,13 @@ class ComponentFactory:
             self._key_cache,
             self._logger,
         )
+
+    def create_user_token_store(self) -> UserTokenStore:
+        """Create a UserTokenStore.
+
+        Returns
+        -------
+        token_store : `gafaelfawr.storage.user_token.UserTokenStore`
+            A new TokenStore.
+        """
+        return UserTokenStore(self._redis, self._logger)

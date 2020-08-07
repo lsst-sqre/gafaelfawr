@@ -85,9 +85,9 @@ async def test_tokens(create_test_setup: SetupTestCallable) -> None:
     handle = SessionHandle()
     scoped_token = setup.create_token(scope="exec:test", jti=handle.encode())
     session = Session.create(handle, scoped_token)
-    token_store = setup.factory.create_token_store()
+    user_token_store = setup.factory.create_user_token_store()
     pipeline = setup.redis.pipeline()
-    token_store.store_session(token.uid, session, pipeline)
+    user_token_store.store_session(token.uid, session, pipeline)
     await pipeline.execute()
 
     r = await setup.client.get(
@@ -119,10 +119,10 @@ async def test_tokens_handle_get_delete(
     scoped_token = setup.create_token(scope="exec:test", jti=handle.encode())
     session = Session.create(handle, scoped_token)
     session_store = setup.factory.create_session_store()
-    token_store = setup.factory.create_token_store()
+    user_token_store = setup.factory.create_user_token_store()
     pipeline = setup.redis.pipeline()
     await session_store.store_session(session, pipeline)
-    token_store.store_session(token.uid, session, pipeline)
+    user_token_store.store_session(token.uid, session, pipeline)
     await pipeline.execute()
 
     r = await setup.client.get(
@@ -182,7 +182,7 @@ async def test_tokens_handle_get_delete(
         "user_agent": ANY,
     }
 
-    assert await token_store.get_tokens(token.uid) == []
+    assert await user_token_store.get_tokens(token.uid) == []
 
 
 async def test_tokens_new_no_auth(
@@ -277,8 +277,8 @@ async def test_tokens_new_create(
         "user_agent": ANY,
     }
 
-    token_store = setup.factory.create_token_store()
-    tokens = await token_store.get_tokens(token.uid)
+    user_token_store = setup.factory.create_user_token_store()
+    tokens = await user_token_store.get_tokens(token.uid)
     assert len(tokens) == 1
     assert tokens[0].key == handle.key
     assert tokens[0].scope == "read:all"

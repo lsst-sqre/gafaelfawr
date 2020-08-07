@@ -28,7 +28,6 @@ from gafaelfawr.x_forwarded import XForwardedFiltered
 if TYPE_CHECKING:
     from typing import Any, Awaitable, Callable, Optional
 
-    from aiohttp import ClientSession
     from aioredis import Redis
     from structlog import BoundLogger
 
@@ -38,10 +37,7 @@ __all__ = ["create_app"]
 
 
 async def create_app(
-    settings_path: str,
-    redis_pool: Optional[Redis] = None,
-    http_session: Optional[ClientSession] = None,
-    **settings: Any,
+    settings_path: str, redis_pool: Optional[Redis] = None, **settings: Any,
 ) -> Application:
     """Create and configure the Gafaelfawr application.
 
@@ -52,10 +48,6 @@ async def create_app(
     redis_pool : `aioredis.Redis`, optional
         Redis connection pool.  One will be constructed from the URL in the
         application settings if this is not provided.
-    http_session : `aiohttp.ClientSession`, optional
-        Client session to use if provided.  If one is not provided, it will be
-        created dynamically by safir.  The provided session is not closed on
-        app shutdown.
     **settings : `typing.Any`
         Settings that override settings read from the configuration file.
 
@@ -90,11 +82,7 @@ async def create_app(
     await setup_middleware(app, config)
     app.on_cleanup.append(on_shutdown)
     app.add_routes(init_routes())
-
-    if http_session:
-        app["safir/http_session"] = http_session
-    else:
-        app.cleanup_ctx.append(init_http_session)
+    app.cleanup_ctx.append(init_http_session)
 
     logger.info("Starting")
     return app

@@ -14,6 +14,8 @@ API reference
 .. automodapi:: gafaelfawr.constants
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.exceptions
+
 .. automodapi:: gafaelfawr.issuer
 
 .. automodapi:: gafaelfawr.handlers
@@ -47,7 +49,11 @@ API reference
 
 .. automodapi:: gafaelfawr.settings
 
-.. automodapi:: gafaelfawr.token_store
+.. automodapi:: gafaelfawr.storage.base
+
+.. automodapi:: gafaelfawr.storage.session
+
+.. automodapi:: gafaelfawr.storage.user_token
 
 .. automodapi:: gafaelfawr.tokens
 

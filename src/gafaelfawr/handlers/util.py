@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import jwt
 from aiohttp import web
 
+from gafaelfawr.exceptions import InvalidTokenException
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.tokens import Token
 
@@ -28,7 +29,6 @@ __all__ = [
     "AuthChallenge",
     "AuthError",
     "AuthType",
-    "InvalidTokenException",
     "RequestContext",
     "verify_token",
 ]
@@ -161,16 +161,6 @@ class RequestContext:
         )
 
 
-class InvalidTokenException(Exception):
-    """The provided token was invalid.
-
-    This corresponds to the ``invalid_token`` error in RFC 6750: "The access
-    token provided is expired, revoked, malformed, or invalid for other
-    reasons.  The string form of this exception is suitable for use as the
-    ``error_description`` attribute of a ``WWW-Authenticate`` header.
-    """
-
-
 def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
     """Verify a token.
 
@@ -188,9 +178,9 @@ def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
 
     Raises
     ------
-    InvalidTokenException
+    gafaelfawr.exceptions.InvalidTokenException
         If the token could not be verified.
-    gafaelfawr.verify.MissingClaimsException
+    gafaelfawr.exceptions.MissingClaimsException
         If the token is missing required claims.
     """
     token = Token(encoded=encoded_token)

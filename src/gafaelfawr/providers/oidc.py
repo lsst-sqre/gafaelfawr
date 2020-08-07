@@ -7,10 +7,10 @@ from urllib.parse import urlencode
 
 import jwt
 
-from gafaelfawr.providers.base import Provider, ProviderException
+from gafaelfawr.exceptions import OIDCException, VerifyTokenException
+from gafaelfawr.providers.base import Provider
 from gafaelfawr.session import Session, SessionHandle
 from gafaelfawr.tokens import Token
-from gafaelfawr.verify import VerifyTokenException
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
@@ -18,14 +18,10 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import OIDCConfig
     from gafaelfawr.issuer import TokenIssuer
-    from gafaelfawr.session import SessionStore
+    from gafaelfawr.storage.session import SessionStore
     from gafaelfawr.verify import TokenVerifier
 
-__all__ = ["OIDCException", "OIDCProvider"]
-
-
-class OIDCException(ProviderException):
-    """The OpenID Connect provider returned an error from an API call."""
+__all__ = ["OIDCProvider"]
 
 
 class OIDCProvider(Provider):
@@ -39,7 +35,7 @@ class OIDCProvider(Provider):
         Token verifier to use to verify the token returned by the provider.
     issuer : `gafaelfawr.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
-    session_store : `gafaelfawr.session.SessionStore`
+    session_store : `gafaelfawr.storage.session.SessionStore`
         Store for authentication sessions.
     http_session : `aiohttp.ClientSession`
         Session to use to make HTTP requests.
@@ -114,7 +110,7 @@ class OIDCProvider(Provider):
             provider.
         jwt.exceptions.InvalidTokenError
             The token returned by the OpenID Connect provider was invalid.
-        OIDCException
+        gafaelfawr.exceptions.OIDCException
             The OpenID Connect provider responded with an error to a request.
         """
         data = {

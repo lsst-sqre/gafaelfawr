@@ -8,24 +8,21 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from gafaelfawr.providers.base import Provider, ProviderException
+from gafaelfawr.exceptions import GitHubException
+from gafaelfawr.providers.base import Provider
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
-    from typing import List
+    from typing import Dict, List
 
     from aiohttp import ClientSession
     from structlog import BoundLogger
 
     from gafaelfawr.config import GitHubConfig
     from gafaelfawr.issuer import TokenIssuer
-    from gafaelfawr.session import SessionStore
+    from gafaelfawr.storage.session import SessionStore
 
-__all__ = ["GitHubException", "GitHubProvider"]
-
-
-class GitHubException(ProviderException):
-    """GitHub returned an error from an API call."""
+__all__ = ["GitHubProvider"]
 
 
 @dataclass(frozen=True)
@@ -96,7 +93,7 @@ class GitHubProvider(Provider):
         Session to use to make HTTP requests.
     issuer : `gafaelfawr.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
-    session_store : `gafaelfawr.session.SessionStore`
+    session_store : `gafaelfawr.storage.session.SessionStore`
         Store for authentication sessions.
     logger : `structlog.BoundLogger`
         Logger for any log messages.
@@ -176,7 +173,7 @@ class GitHubProvider(Provider):
         aiohttp.ClientResponseError
             An HTTP client error occurred trying to talk to the authentication
             provider.
-        GitHubException
+        gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to a request.
         """
         self._logger.info("Getting user information from GitHub")
@@ -186,15 +183,16 @@ class GitHubProvider(Provider):
         handle = SessionHandle()
 
         groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
-        claims = {
+        claims: Dict[str, object] = {
             "email": user_info.email,
-            "isMemberOf": groups,
             "jti": handle.key,
             "name": user_info.name,
             "sub": user_info.username.lower(),
             self._config.username_claim: user_info.username.lower(),
             self._config.uid_claim: str(user_info.uid),
         }
+        if groups:
+            claims["isMemberOf"] = groups
 
         token = self._issuer.issue_token(claims)
         session = Session.create(handle, token)
@@ -220,7 +218,7 @@ class GitHubProvider(Provider):
         ------
         aiohttp.ClientResponseError
             An error occurred trying to talk to GitHub.
-        GitHubException
+        gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to the request for the access
             token.
         """
@@ -260,7 +258,7 @@ class GitHubProvider(Provider):
         ------
         aiohttp.ClientResponseError
             An error occurred trying to talk to GitHub.
-        GitHubException
+        gafaelfawr.exceptions.GitHubException
             User has no primary email address.
         """
         self._logger.debug("Fetching user data from %s", self._USER_URL)

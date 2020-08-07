@@ -27,12 +27,23 @@ async def test_analyze_no_auth(create_test_setup: SetupTestCallable) -> None:
 async def test_analyze_handle(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
 
+    # Handle with no session.
+    bad_handle = SessionHandle()
+    r = await setup.client.post(
+        "/auth/analyze", data={"token": bad_handle.encode()}
+    )
+    analysis = await r.json()
+    assert analysis == {
+        "handle": {"key": bad_handle.key, "secret": bad_handle.secret},
+        "errors": [f"No session found for {bad_handle.encode()}"],
+    }
+
+    # Valid session handle.
     handle = SessionHandle()
     token = setup.create_token(groups=["admin"], jti=handle.key)
     session = Session.create(handle, token)
     session_store = setup.factory.create_session_store()
     await session_store.store_session(session)
-
     r = await setup.client.post(
         "/auth/analyze", data={"token": handle.encode()}
     )

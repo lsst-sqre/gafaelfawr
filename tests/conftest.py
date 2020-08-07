@@ -5,13 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from aioresponses import aioresponses
 
 from tests.setup import SetupTest
 from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Awaitable, Callable
+    from typing import Any, Awaitable, Callable, Iterable
 
     from aiohttp import web
     from aiohttp.pytest_plugin.test_utils import TestClient
@@ -20,8 +21,24 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
+def responses() -> Iterable[aioresponses]:
+    """Create an aioresponses context manager.
+
+    This can be used to mock responses to calls in an `aiohttp.ClientSession`.
+
+    Returns
+    -------
+    mock : `aioresponses.aioresponses`
+        The mock object with which URLs and callbacks can be registered.
+    """
+    with aioresponses(passthrough=["http://127.0.0.1"]) as mock:
+        yield mock
+
+
+@pytest.fixture
 def create_test_setup(
     tmp_path: Path,
+    responses: aioresponses,
     aiohttp_client: Callable[[web.Application], Awaitable[TestClient]],
 ) -> SetupTestCallable:
     """Create a test setup.
@@ -30,6 +47,8 @@ def create_test_setup(
     ----------
     tmp_path : `pathlib.Path`
         Path to a per-test temporary directory, injected as a fixture.
+    responses : `aioresponses.aioresponses`
+        Mock object for `aiohttp.ClientSession` call handling.
     aiohttp_client : `typing.Callable`
         Function creates an aiohttp test client.
 
@@ -86,8 +105,8 @@ def create_test_setup(
         )
         if client:
             client = await aiohttp_client(app)
-            return SetupTest(app, client)
+            return SetupTest(app, responses, client)
         else:
-            return SetupTest(app)
+            return SetupTest(app, responses)
 
     return _create_test_setup
