@@ -6,7 +6,12 @@ import re
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
-from gafaelfawr.handlers.util import AuthChallenge, AuthError, AuthType
+from gafaelfawr.handlers.util import (
+    AuthChallenge,
+    AuthError,
+    AuthErrorChallenge,
+    AuthType,
+)
 
 if TYPE_CHECKING:
     from typing import Dict, List
@@ -51,13 +56,18 @@ def parse_www_authenticate(header: str) -> AuthChallenge:
             assert False, f"unexpected attribute {attribute.group(1)}"
     assert realm
 
-    return AuthChallenge(
-        auth_type=auth_type,
-        realm=realm,
-        error=AuthError[error] if error else None,
-        error_description=error_description,
-        scope=scope,
-    )
+    if error:
+        assert error_description
+        return AuthErrorChallenge(
+            auth_type=auth_type,
+            realm=realm,
+            error=AuthError[error],
+            error_description=error_description,
+            scope=scope,
+        )
+    else:
+        assert not error_description
+        return AuthChallenge(auth_type=auth_type, realm=realm)
 
 
 def query_from_url(url: str) -> Dict[str, List[str]]:

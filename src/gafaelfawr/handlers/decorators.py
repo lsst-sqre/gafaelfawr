@@ -11,10 +11,10 @@ from aiohttp_session import get_session
 
 from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenError
 from gafaelfawr.handlers.util import (
-    AuthChallenge,
     AuthType,
     RequestContext,
     generate_challenge,
+    generate_unauthorized_challenge,
     parse_authorization,
     verify_token,
 )
@@ -71,11 +71,7 @@ def authenticated_jwt(route: AuthenticatedRoute) -> Route:
         except InvalidRequestError as e:
             raise generate_challenge(context, AuthType.Bearer, e)
         if not unverified_token:
-            msg = "No authentication token found"
-            context.logger.warning(msg)
-            challenge = AuthChallenge(AuthType.Bearer, context.config.realm)
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
+            raise generate_unauthorized_challenge(context, AuthType.Bearer)
         try:
             token = verify_token(context, unverified_token)
         except InvalidTokenError as e:
@@ -183,12 +179,7 @@ def authenticated_token(route: AuthenticatedRoute) -> Route:
 
         encoded_token = request.headers.get("X-Auth-Request-Token")
         if not encoded_token:
-            msg = "No authentication token found"
-            context.logger.warning(msg)
-            challenge = AuthChallenge(AuthType.Bearer, context.config.realm)
-            headers = {"WWW-Authenticate": challenge.as_header()}
-            raise web.HTTPUnauthorized(headers=headers, reason=msg, text=msg)
-
+            raise generate_unauthorized_challenge(context, AuthType.Bearer)
         try:
             token = verify_token(context, encoded_token)
         except InvalidTokenError as e:

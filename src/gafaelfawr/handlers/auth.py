@@ -12,11 +12,12 @@ from aiohttp_session import get_session
 from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenError
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import (
-    AuthChallenge,
     AuthError,
+    AuthErrorChallenge,
     AuthType,
     RequestContext,
     generate_challenge,
+    generate_unauthorized_challenge,
     parse_authorization,
     verify_token,
 )
@@ -158,20 +159,13 @@ async def get_auth(request: web.Request) -> web.Response:
     except InvalidRequestError as e:
         raise generate_challenge(context, auth_config.auth_type, e)
     except InvalidTokenError as e:
-        context.logger.warning("%s", e.message, error=str(e))
-        challenge = AuthChallenge(
-            auth_type=auth_config.auth_type,
-            realm=context.config.realm,
-            error=AuthError[e.error],
-            error_description=str(e),
+        raise generate_unauthorized_challenge(
+            context, auth_config.auth_type, e, ajax_forbidden=True
         )
-        raise unauthorized(request, challenge, str(e))
     if not token:
-        context.logger.info("No token found, returning unauthorized")
-        challenge = AuthChallenge(
-            auth_type=auth_config.auth_type, realm=context.config.realm
+        raise generate_unauthorized_challenge(
+            context, auth_config.auth_type, ajax_forbidden=True
         )
-        raise unauthorized(request, challenge, "Authentication required")
 
     # Add user information to the logger.
     context.rebind_logger(
@@ -331,58 +325,6 @@ async def get_token_from_request(
         return verify_token(context, handle_or_token)
 
 
-def unauthorized(
-    request: web.Request, challenge: AuthChallenge, error: str,
-) -> web.HTTPException:
-    """Construct exception for a 401 response (403 for AJAX).
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    challenge : `AuthChallenge`
-        The challenge used to construct the WWW-Authenticate header.
-    error : `str`
-        The error message to use as the body of the message.
-
-    Returns
-    -------
-    exception : `aiohttp.web.HTTPException`
-        The exception to raise, either HTTPForbidden (for AJAX) or
-        HTTPUnauthorized.
-
-    Notes
-    -----
-    If the request contains X-Requested-With: XMLHttpRequest, return 403
-    rather than 401.  The presence of this header indicates an AJAX request,
-    which in turn means that the request is not under full control of the
-    browser window.  The redirect ingress-nginx will send will therefore not
-    result in the user going to the authentication provider properly, but may
-    result in a spurious request from background AJAX that cannot be
-    completed.  That, in turn, can cause unnecessary load on the
-    authentication provider and may result in rate limiting.
-
-    Checking for this header does not catch all requests that are pointless to
-    redirect (image and CSS requests, for instance), and not all AJAX requests
-    will send the header, but every request with this header should be
-    pointless to redirect, so at least it cuts down on the noise.
-    This corresponds to the ``invalid_token`` error in RFC 6750: "The access
-    token provided is expired, revoked, malformed, or invalid for other
-    reasons.  The string form of this exception is suitable for use as the
-    ``error_description`` attribute of a ``WWW-Authenticate`` header.
-    """
-    headers = {
-        "Cache-Control": "no-cache, must-revalidate",
-        "WWW-Authenticate": challenge.as_header(),
-    }
-
-    requested_with = request.headers.get("X-Requested-With")
-    if requested_with and requested_with.lower() == "xmlhttprequest":
-        return web.HTTPForbidden(headers=headers, reason=error, text=error)
-    else:
-        return web.HTTPUnauthorized(headers=headers, reason=error, text=error)
-
-
 def forbidden(
     context: RequestContext, auth_config: AuthConfig
 ) -> web.HTTPException:
@@ -402,7 +344,7 @@ def forbidden(
         HTTPUnauthorized.
     """
     error = "Token missing required scope"
-    challenge = AuthChallenge(
+    challenge = AuthErrorChallenge(
         auth_type=auth_config.auth_type,
         realm=context.config.realm,
         error=AuthError.insufficient_scope,

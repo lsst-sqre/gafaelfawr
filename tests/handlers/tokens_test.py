@@ -26,8 +26,8 @@ async def test_tokens_no_auth(
 
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
-        "event": "No authentication token found",
-        "level": "warning",
+        "event": "No token found, returning unauthorized",
+        "level": "info",
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth/tokens",

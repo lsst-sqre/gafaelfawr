@@ -133,7 +133,7 @@ class AuthError(Enum):
 
 @dataclass
 class AuthChallenge:
-    """Represents the components of a WWW-Authenticate header."""
+    """Represents a ``WWW-Authenticate`` header for a simple challenge."""
 
     auth_type: AuthType
     """The authentication type (the first part of the header)."""
@@ -141,10 +141,25 @@ class AuthChallenge:
     realm: str
     """The value of the realm attribute."""
 
-    error: Optional[AuthError] = None
+    def as_header(self) -> str:
+        """Construct the WWW-Authenticate header for this challenge.
+
+        Returns
+        -------
+        header : `str`
+            Contents of the WWW-Authenticate header.
+        """
+        return f'{self.auth_type.name} realm="{self.realm}"'
+
+
+@dataclass
+class AuthErrorChallenge(AuthChallenge):
+    """Represents a ``WWW-Authenticate`` header for an error challenge."""
+
+    error: AuthError
     """The value of the error attribute if present."""
 
-    error_description: Optional[str] = None
+    error_description: str
     """The value of the error description attribute if present."""
 
     scope: Optional[str] = None
@@ -158,16 +173,15 @@ class AuthChallenge:
         header : `str`
             Contents of the WWW-Authenticate header.
         """
-        if self.auth_type == AuthType.Basic or not self.error:
+        if self.auth_type == AuthType.Basic:
+            # Basic doesn't support error information.
             return f'{self.auth_type.name} realm="{self.realm}"'
 
-        error_description = self.error_description
-        if error_description:
-            # Strip invalid characters from the description.
-            error_description = re.sub(r'["\\]', "", error_description)
+        # Strip invalid characters from the description.
+        error_description = re.sub(r'["\\]', "", self.error_description)
+
         info = f'realm="{self.realm}", error="{self.error.name}"'
-        if error_description:
-            info += f', error_description="{error_description}"'
+        info += f', error_description="{error_description}"'
         if self.scope:
             info += f', scope="{self.scope}"'
         return f"{self.auth_type.name} {info}"
@@ -194,14 +208,99 @@ def generate_challenge(
         The headers will contain a ``WWW-Authenticate`` challenge.
     """
     context.logger.warning("%s", exc.message, error=str(exc))
-    challenge = AuthChallenge(
+    challenge = AuthErrorChallenge(
         auth_type=auth_type,
         realm=context.config.realm,
         error=AuthError[exc.error],
         error_description=str(exc),
     )
-    headers = {"WWW-Authenticate": challenge.as_header()}
+    headers = {
+        "Cache-Control": "no-cache, must-revalidate",
+        "WWW-Authenticate": challenge.as_header(),
+    }
     return exc.exception(headers=headers, reason=exc.message, text=str(exc))
+
+
+def generate_unauthorized_challenge(
+    context: RequestContext,
+    auth_type: AuthType,
+    exc: Optional[InvalidTokenError] = None,
+    *,
+    ajax_forbidden: bool = False,
+) -> web.HTTPException:
+    """Construct exception for a 401 response with AJAX handling.
+
+    This is a special case of :py:func:`generate_challenge` for generating 401
+    Unauthorized challenges.  For these, the exception is optional, since
+    there is no error and thus no ``error_description`` field if the token was
+    simply not present.
+
+    Parameters
+    ----------
+    request : `aiohttp.web.Request`
+        The incoming request.
+    auth_type : `AuthType`
+        The type of authentication to request.
+    exc : `gafaelfawr.exceptions.OAuthBearerError`, optional
+        An exception representing a bearer token error.  If not present,
+        assumes that no token was provided and there was no error.
+    ajax_forbidden : `bool`, optional
+        If set to `True`, check to see if the request was sent via AJAX (see
+        Notes) and, if so, convert it to a 403 error.  The default is `False`.
+
+    Returns
+    -------
+    exception : `aiohttp.web.HTTPException`
+        The exception to raise, either HTTPForbidden (for AJAX) or
+        HTTPUnauthorized.
+
+    Notes
+    -----
+    If the request contains X-Requested-With: XMLHttpRequest, return 403
+    rather than 401.  The presence of this header indicates an AJAX request,
+    which in turn means that the request is not under full control of the
+    browser window.  The redirect ingress-nginx will send will therefore not
+    result in the user going to the authentication provider properly, but may
+    result in a spurious request from background AJAX that cannot be
+    completed.  That, in turn, can cause unnecessary load on the
+    authentication provider and may result in rate limiting.
+
+    Checking for this header does not catch all requests that are pointless to
+    redirect (image and CSS requests, for instance), and not all AJAX requests
+    will send the header, but every request with this header should be
+    pointless to redirect, so at least it cuts down on the noise.
+    This corresponds to the ``invalid_token`` error in RFC 6750: "The access
+    token provided is expired, revoked, malformed, or invalid for other
+    reasons.  The string form of this exception is suitable for use as the
+    ``error_description`` attribute of a ``WWW-Authenticate`` header.
+    """
+    if exc:
+        context.logger.warning("%s", exc.message, error=str(exc))
+        challenge: AuthChallenge = AuthErrorChallenge(
+            auth_type=auth_type,
+            realm=context.config.realm,
+            error=AuthError[exc.error],
+            error_description=str(exc),
+        )
+        reason = exc.message
+        text = str(exc)
+    else:
+        context.logger.info("No token found, returning unauthorized")
+        challenge = AuthChallenge(
+            auth_type=auth_type, realm=context.config.realm
+        )
+        reason = "Authentication required"
+        text = "Authentication required"
+
+    headers = {
+        "Cache-Control": "no-cache, must-revalidate",
+        "WWW-Authenticate": challenge.as_header(),
+    }
+    requested_with = context.request.headers.get("X-Requested-With")
+    if requested_with and requested_with.lower() == "xmlhttprequest":
+        return web.HTTPForbidden(headers=headers, reason=reason, text=text)
+    else:
+        return web.HTTPUnauthorized(headers=headers, reason=reason, text=text)
 
 
 def generate_json_response(
