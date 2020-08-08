@@ -24,6 +24,7 @@ Installation
    applications
    configuration
    logging
+   cli
    glossary
    changelog
 

@@ -26,6 +26,7 @@ extensions = [
     "sphinx-prompt",
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
+    "sphinx_click",
     "documenteer.sphinxext",
 ]
 

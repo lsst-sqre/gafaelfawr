@@ -321,6 +321,10 @@ packaging==20.4 \
     --hash=sha256:4357f74f47b9c12db93624a82154e9b120fa8293699949152b22065d556079f8 \
     --hash=sha256:998416ba6962ae7fbd6596850b80e17859a5753ba17c32284f67bfff33784181 \
     # via pytest, pytest-sugar, sphinx
+pbr==5.4.5 \
+    --hash=sha256:07f558fece33b05caf857474a366dfcc00562bca13dd8b47b2b3e22d9f9bf55c \
+    --hash=sha256:579170e23f8e0c2f24b0de612f71f648eccb79fb1322c814ae6b3c07b5ba23e8 \
+    # via sphinx-click
 pillow==7.2.0 \
     --hash=sha256:0295442429645fa16d05bd567ef5cff178482439c9aad0411d3f0ce9b88b3a6f \
     --hash=sha256:06aba4169e78c439d528fdeb34762c3b61a70813527a2c57f0540541e9f433a8 \
@@ -429,6 +433,10 @@ sphinx-automodapi==0.12 \
     --hash=sha256:83bef65c2862fc377c7758efddd9426a6a299bd6e55156389c00ae7216d8e4f4 \
     --hash=sha256:a1338bc0a7f5c9bb317ecf7c7abd489c7cff452098205ef5110f733570516ac0 \
     # via -r requirements/dev.in
+sphinx-click==2.5.0 \
+    --hash=sha256:6848ba2d084ef2feebae0ce3603c1c02a2ba5ded54fb6c0cf24fd01204a945f3 \
+    --hash=sha256:8ba44ca446ba4bb0585069b8aabaa81e833472d6669b36924a398405311d206f \
+    # via -r requirements/dev.in
 sphinx-prompt==1.2.0 \
     --hash=sha256:3255438fa2480863cadbcebb098421f0cece761e0a440f577f891dc6779960e3 \
     --hash=sha256:577f9923f8850acbfc644eb2e1438f76166779aae15a81fc7a47a5aff2941fc7 \
@@ -436,7 +444,7 @@ sphinx-prompt==1.2.0 \
 sphinx==1.7.9 \
     --hash=sha256:217a7705adcb573da5bbe1e0f5cab4fa0bd89fd9342c9159121746f593c2d5a4 \
     --hash=sha256:a602513f385f1d5785ff1ca420d9c7eb1a1b63381733b2f0ea8188a391314a86 \
-    # via documenteer, sphinx-automodapi, sphinx-prompt
+    # via documenteer, sphinx-automodapi, sphinx-click, sphinx-prompt
 sphinxcontrib-serializinghtml==1.1.4 \
     --hash=sha256:eaa0eccc86e982a9b939b2b82d12cc5d013385ba5eadcc7e4fed23f4405f77bc \
     --hash=sha256:f242a81d423f59617a8e5cf16f5d4d74e28ee9a66f9e5b637a18082991db5a9a \
@@ -517,7 +525,7 @@ yarl==1.5.1 \
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==49.3.0 \
-    --hash=sha256:912c5cdd856fc0261147e81e71cb45c47636c0e3cfe6d64bf442412685277470 \
-    --hash=sha256:a7081c404f4437a0318785d5d18ac79e54f1d583c437f2f004a131d0f48f1ae4 \
+setuptools==49.3.1 \
+    --hash=sha256:1c7b51fba5d83160d540d18b2bf08fd546357488adf9ddbca08cc1e997bd5c18 \
+    --hash=sha256:b90e630c5d6b118357392245a9a3b34d22e06fe94538b4b0830a7b4b693a0e5c \
     # via blockdiag, sphinx
