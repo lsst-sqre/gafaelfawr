@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 def parse_www_authenticate(header: str) -> AuthChallenge:
     """Parse a ``WWW-Authenticate`` header into this representation.
 
-    A ``WWW-Authenticate`` header consists of one or mor challenges, each of
+    A ``WWW-Authenticate`` header consists of one or more challenges, each of
     which is an auth type, whitespace, and a series of attributes in the form
     of key="value", separated by a comma and whitespace.
 
