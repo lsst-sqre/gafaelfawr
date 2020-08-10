@@ -8,7 +8,11 @@ from urllib.parse import parse_qsl, urlencode
 
 from aiohttp import web
 
-from gafaelfawr.exceptions import InvalidRequestError, OAuthError
+from gafaelfawr.exceptions import (
+    InvalidRequestError,
+    OAuthError,
+    UnsupportedGrantTypeError,
+)
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.decorators import authenticated_session
 from gafaelfawr.handlers.util import (
@@ -184,21 +188,11 @@ async def post_token(request: web.Request) -> web.Response:
 
     # Check the request parameters.
     if not grant_type or not client_id or not code or not redirect_uri:
-        msg = "Invalid token request"
-        context.logger.warning("Invalid request", error=msg)
-        error = {
-            "error": "invalid_request",
-            "error_description": msg,
-        }
-        return web.json_response(error, status=400)
+        exc: OAuthError = InvalidRequestError("Invalid token request")
+        return generate_json_response(context, exc)
     if grant_type != "authorization_code":
-        msg = f"Invalid grant type {grant_type}"
-        context.logger.warning("Invalid request", error=msg)
-        error = {
-            "error": "unsupported_grant_type",
-            "error_description": msg,
-        }
-        return web.json_response(error, status=400)
+        exc = UnsupportedGrantTypeError(f"Invalid grant type {grant_type}")
+        return generate_json_response(context, exc)
 
     # Redeem the provided code for a token.
     oidc_server = context.factory.create_oidc_server()

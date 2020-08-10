@@ -103,6 +103,7 @@ async def test_authorization_failed(
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "auth_uri": "/foo",
+        "error": "Token missing required scope",
         "event": "Token missing required scope",
         "level": "warning",
         "logger": "gafaelfawr",

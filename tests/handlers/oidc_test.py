@@ -389,7 +389,7 @@ async def test_token_errors(
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
         "error": "Invalid grant type bogus",
-        "event": "Invalid request",
+        "event": "Unsupported grant type",
         "level": "warning",
         "logger": "gafaelfawr",
         "method": "POST",

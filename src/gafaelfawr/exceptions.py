@@ -85,11 +85,24 @@ class InvalidGrantError(OAuthError):
     hide_error = True
 
 
+class UnsupportedGrantTypeError(OAuthError):
+    """The grant type is not supported.
+
+    This corresponds to the ``unsupported_grant_type`` error in RFC 6749: "The
+    authorization grant type is not supported by the authorization server."
+    """
+
+    error = "unsupported_grant_type"
+    message = "Unsupported grant type"
+
+
 class OAuthBearerError(OAuthError):
     """An error that can be returned as a ``WWW-Authenticate`` challenge.
 
     Represents the subset of OAuth 2.0 errors defined in RFC 6750 as valid
-    errors to return in a ``WWW-Authenticate`` header.
+    errors to return in a ``WWW-Authenticate`` header.  The string form of
+    this exception is suitable for use as the ``error_description`` attribute
+    of a ``WWW-Authenticate`` header.
     """
 
     exception: ClassVar[Type[web.HTTPException]] = web.HTTPBadRequest
@@ -114,13 +127,24 @@ class InvalidTokenError(OAuthBearerError):
 
     This corresponds to the ``invalid_token`` error in RFC 6750: "The access
     token provided is expired, revoked, malformed, or invalid for other
-    reasons."  The string form of this exception is suitable for use as the
-    ``error_description`` attribute of a ``WWW-Authenticate`` header.
+    reasons."
     """
 
     error = "invalid_token"
     message = "Invalid token"
     exception = web.HTTPUnauthorized
+
+
+class InsufficientScopeError(OAuthBearerError):
+    """The provided token does not have the right authorization scope.
+
+    This corresponds to the ``insufficient_scope`` error in RFC 6750: "The
+    request requires higher privileges than provided by the access token."
+    """
+
+    error = "insufficient_scope"
+    message = "Token missing required scope"
+    exception = web.HTTPForbidden
 
 
 class InvalidSessionHandleException(Exception):

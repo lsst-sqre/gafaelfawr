@@ -22,7 +22,7 @@ from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Optional, Set
     from urllib.parse import ParseResult
 
     from aioredis import Redis
@@ -188,7 +188,10 @@ class AuthErrorChallenge(AuthChallenge):
 
 
 def generate_challenge(
-    context: RequestContext, auth_type: AuthType, exc: OAuthBearerError
+    context: RequestContext,
+    auth_type: AuthType,
+    exc: OAuthBearerError,
+    scopes: Optional[Set[str]] = None,
 ) -> web.HTTPException:
     """Convert an exception into an HTTP error with ``WWW-Authenticate``.
 
@@ -200,6 +203,9 @@ def generate_challenge(
         The type of authentication to request.
     exc : `gafaelfawr.exceptions.OAuthBearerError`
         An exception representing a bearer token error.
+    scopes : Set[`str`], optional
+        Optional scopes to include in the challenge, primarily intended for
+        `~gafaelfawr.exceptions.InsufficientScopeError` exceptions.
 
     Returns
     -------
@@ -213,6 +219,7 @@ def generate_challenge(
         realm=context.config.realm,
         error=AuthError[exc.error],
         error_description=str(exc),
+        scope=" ".join(sorted(scopes)) if scopes else None,
     )
     headers = {
         "Cache-Control": "no-cache, must-revalidate",
