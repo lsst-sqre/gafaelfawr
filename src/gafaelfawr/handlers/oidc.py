@@ -213,11 +213,15 @@ async def post_token(request: web.Request) -> web.Response:
         scope=" ".join(sorted(token.scope)),
     )
 
-    # Return the token to the caller.
+    # Return the token to the caller.  The headers are mandated by RFC 6749.
     response = {
         "access_token": token.encoded,
         "token_type": "Bearer",
         "expires_in": token.claims["exp"] - time.time(),
         "id_token": token.encoded,
     }
-    return web.json_response(response)
+    headers = {
+        "Cache-Control": "no-store",
+        "Pragma": "no-cache",
+    }
+    return web.json_response(response, headers=headers)

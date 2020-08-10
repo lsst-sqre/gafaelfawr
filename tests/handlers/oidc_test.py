@@ -95,6 +95,8 @@ async def test_login(
         },
     )
     assert r.status == 200
+    assert r.headers["Cache-Control"] == "no-store"
+    assert r.headers["Pragma"] == "no-cache"
     data = await r.json()
     assert data == {
         "access_token": ANY,
