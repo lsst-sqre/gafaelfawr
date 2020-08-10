@@ -1,18 +1,18 @@
 seqdiag {
     browser -> app;
-    browser <- app [label = "redirect to /auth/openid/login"];
+    browser <- app [label = "redirect"];
     browser -> gafaelfawr [label = "/auth/openid/login"];
-    browser <- gafaelfawr [label = "redirect to /login"]
+    browser <- gafaelfawr [label = "redirect"]
     browser -> gafaelfawr [label = "/login"];
-    browser <- gafaelfawr [label = "redirect to IdP"];
+    browser <- gafaelfawr [label = "redirect"];
     browser -> IdP [label = "authenticate"];
     browser <- IdP [label = "redirect to /login"];
     browser -> gafaelfawr [label = "/login"];
                gafaelfawr -> IdP [label = "get data"];
                gafaelfawr <- IdP [label = "user data"];
-    browser <- gafaelfawr [label = "redirect to /auth/openid/login"];
+    browser <- gafaelfawr [label = "redirect with session cookie"];
     browser -> gafaelfawr [label = "/auth/openid/login"];
-    browser <- gafaelfawr [label = "redirect to app"];
+    browser <- gafaelfawr [label = "redirect"];
     browser -> app;
                app -> gafaelfawr [label = "/auth/openid/token"];
                app <- gafaelfawr;

@@ -78,6 +78,7 @@ That flow looks like this:
 #. The user goes to an application that uses Gafaelfawr as an OpenID Connect authentication provider.
 #. The application redirects the user to ``/auth/openid/login`` with some additional parameters in the URL including the registered client ID and an opaque state parameter.
 #. If the user is not already authenticated, Gafaelfawr redirects the user to ``/login`` to follow the same initial authentication flow as in :ref:`browser-flow`, sending the user back to the same ``/auth/openid/login`` URL once that authentication has completed.
+   Completion of that authentication process sets a session cookie that is read by ``/auth/openid/login``.
 #. Gafaelfawr validates the login request and then redirects the user back to the protected application, including an authorization code in the URL.
 #. The protected application presents that authorization code to ``/auth/openid/token``.
 #. Gafaelfawr validates that code and returns a JWT representing the user to the protected application.
