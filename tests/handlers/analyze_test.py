@@ -6,11 +6,14 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
+from urllib.parse import urlparse
 
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.providers.github import GitHubUserInfo
 from gafaelfawr.session import Session, SessionHandle
+from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
     from tests.setup import SetupTestCallable
@@ -19,9 +22,58 @@ if TYPE_CHECKING:
 async def test_analyze_no_auth(create_test_setup: SetupTestCallable) -> None:
     setup = await create_test_setup()
 
+    r = await setup.client.get("/auth/analyze", allow_redirects=False)
+    assert r.status == 302
+    url = urlparse(r.headers["Location"])
+    assert not url.scheme
+    assert not url.netloc
+    assert url.path == "/login"
+    expected_url = setup.client.make_url("/auth/analyze")
+    assert query_from_url(r.headers["Location"]) == {"rd": [str(expected_url)]}
+
+
+async def test_analyze_session(create_test_setup: SetupTestCallable) -> None:
+    setup = await create_test_setup()
+    userinfo = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[],
+    )
+    await setup.github_login(userinfo)
+
     r = await setup.client.get("/auth/analyze")
-    assert r.status == 400
-    assert "Not logged in" in await r.text()
+    assert r.status == 200
+    analysis = await r.json()
+    assert analysis == {
+        "handle": {"key": ANY, "secret": ANY},
+        "session": {
+            "email": "githubuser@example.com",
+            "created_at": ANY,
+            "expires_on": ANY,
+        },
+        "token": {
+            "header": {
+                "alg": ALGORITHM,
+                "typ": "JWT",
+                "kid": setup.config.issuer.kid,
+            },
+            "data": {
+                "aud": setup.config.issuer.aud,
+                "email": "githubuser@example.com",
+                "exp": ANY,
+                "iat": ANY,
+                "iss": setup.config.issuer.iss,
+                "jti": ANY,
+                "name": "GitHub User",
+                "sub": "githubuser",
+                "uid": "githubuser",
+                "uidNumber": "123456",
+            },
+            "valid": True,
+        },
+    }
 
 
 async def test_analyze_handle(create_test_setup: SetupTestCallable) -> None:
