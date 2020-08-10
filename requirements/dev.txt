@@ -437,9 +437,13 @@ sphinx==1.7.9 \
     --hash=sha256:217a7705adcb573da5bbe1e0f5cab4fa0bd89fd9342c9159121746f593c2d5a4 \
     --hash=sha256:a602513f385f1d5785ff1ca420d9c7eb1a1b63381733b2f0ea8188a391314a86 \
     # via documenteer, sphinx-automodapi, sphinx-prompt
-sphinxcontrib-websupport==1.2.3 \
-    --hash=sha256:a2100b79096bbaea5a41e03261cee279d19c803218b9401a1d84ef6aeae17338 \
-    --hash=sha256:ee1d43e6e0332558a66fcb4005b9ba7313ad9764d0df0e6703ae869a028e451f \
+sphinxcontrib-serializinghtml==1.1.4 \
+    --hash=sha256:eaa0eccc86e982a9b939b2b82d12cc5d013385ba5eadcc7e4fed23f4405f77bc \
+    --hash=sha256:f242a81d423f59617a8e5cf16f5d4d74e28ee9a66f9e5b637a18082991db5a9a \
+    # via sphinxcontrib-websupport
+sphinxcontrib-websupport==1.2.4 \
+    --hash=sha256:4edf0223a0685a7c485ae5a156b6f529ba1ee481a1417817935b20bde1956232 \
+    --hash=sha256:6fc9287dfc823fe9aa432463edd6cea47fa9ebbf488d7f289b322ffcfca075c7 \
     # via sphinx
 termcolor==1.1.0 \
     --hash=sha256:1d6d69ce66211143803fbc56652b41d73b4a400a2891d7bf7a1cdf4c02de613b \
@@ -480,9 +484,9 @@ urllib3==1.25.10 \
     --hash=sha256:91056c15fa70756691db97756772bb1eb9678fa585d9184f24534b100dc60f4a \
     --hash=sha256:e7983572181f5e1522d9c98453462384ee92a0be7fac5f1413a1e35c56cc0461 \
     # via requests
-virtualenv==20.0.29 \
-    --hash=sha256:8aa9c37b082664dbce2236fa420759c02d64109d8e6013593ad13914718a30fd \
-    --hash=sha256:f14a0a98ea4397f0d926cff950361766b6a73cd5975ae7eb259d12919f819a25 \
+virtualenv==20.0.30 \
+    --hash=sha256:7b54fd606a1b85f83de49ad8d80dbec08e983a2d2f96685045b262ebc7481ee5 \
+    --hash=sha256:8cd7b2a4850b003a11be2fc213e206419efab41115cc14bca20e69654f2ac08e \
     # via pre-commit
 watchgod==0.6 \
     --hash=sha256:59700dab7445aa8e6067a5b94f37bae90fc367554549b1ed2e9d0f4f38a90d2a \
@@ -513,7 +517,7 @@ yarl==1.5.1 \
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==49.2.1 \
-    --hash=sha256:1a4299a49e3dfe2d79d774ec70746a97d54feacb283e8b689a2bef3eb62e0fe8 \
-    --hash=sha256:88094d17c8d273390659a72e9d93374cd7bfd188c12bf2747b306e2bed48df18 \
+setuptools==49.3.0 \
+    --hash=sha256:912c5cdd856fc0261147e81e71cb45c47636c0e3cfe6d64bf442412685277470 \
+    --hash=sha256:a7081c404f4437a0318785d5d18ac79e54f1d583c437f2f004a131d0f48f1ae4 \
     # via blockdiag, sphinx
