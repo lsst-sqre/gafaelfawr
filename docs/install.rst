@@ -72,10 +72,15 @@ If you are using it, create a Vault secret with the following keys:
     The GitHub secret, obtained when creating the OAuth App as described above.
     This is not required if you are using CILogin authentication.
 
+``influxdb-secret`` (optional)
+    The shared secret to use for issuing InfluxDB tokens.
+    See :ref:`influxdb` for more information.
+
 ``oidc-server-secrets`` (optional)
     Only used if the Helm chart parameter ``oidc_server.enabled`` is set to true.
     The JSON representation of the OpenID Connect clients.
     Must be a JSON list of objects, each of which must have ``id`` and ``secret`` keys corresponding to the ``client_id`` and ``client_secret`` parameters sent by OpenID Connect clients.
+    See :ref:`openid-connect` for more information.
 
 ``redis-password``
     The password to use for Redis authentication.
@@ -152,6 +157,10 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
     The lifetime (in minutes) of the issued JWTs and thus the user's authentication session.
     The default is 1440 (one day).
 
+``issuer.influxdb.enabled`` (optional)
+    Whether to enable InfluxDB token issuance.
+    If this is set to true, the Vault secret for Gafaelfawr must contain an ``influxdb-secret`` key.
+
 ``github.client_id``
     The client ID for the GitHub OAuth App if using GitHub as the identity provider.
     Only set either this or ``cilogon.client_id``.
@@ -171,7 +180,7 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
 
 ``oidc_server.enabled``
     Set this to true to enable the OpenID Connect server.
-    If this is set, the Vault secret for Gafaelfawr must contain a ``oidc-server-secrets`` key.
+    If this is set to true, the Vault secret for Gafaelfawr must contain a ``oidc-server-secrets`` key.
 
 ``known_scopes``
     Mapping of scope names to descriptions.

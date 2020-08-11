@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.exceptions import InvalidTokenClaimsException
+from gafaelfawr.exceptions import (
+    InvalidTokenClaimsException,
+    NotConfiguredException,
+)
 from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
@@ -68,6 +72,34 @@ class TokenIssuer:
                 payload["scope"] = scope
 
         return self._encode_token(payload)
+
+    def issue_influxdb_token(self, token: VerifiedToken) -> str:
+        """Issue an InfluxDB-compatible token.
+
+        InfluxDB requires an HS256 JWT with ``sub`` and ``exp`` claims using a
+        shared secret.  Issue such a token based on the user's Gafaelfawr
+        token.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.tokens.VerifiedToken`
+            The user's authentication token.
+
+        Returns
+        -------
+        influxdb_token : `str`
+            The encoded form of an InfluxDB-compatible token.
+        """
+        if not self._config.influxdb_secret:
+            raise NotConfiguredException("No InfluxDB issuer configuration")
+        payload = {
+            "exp": token.claims["exp"],
+            "iat": int(time.time()),
+            "sub": token.username,
+        }
+        return jwt.encode(
+            payload, self._config.influxdb_secret, algorithm="HS256"
+        ).decode()
 
     def issue_user_token(
         self, token: VerifiedToken, *, scope: str, jti: str,

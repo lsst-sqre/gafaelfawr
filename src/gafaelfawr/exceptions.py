@@ -20,6 +20,7 @@ __all__ = [
     "InvalidTokenClaimsException",
     "InvalidTokenError",
     "MissingClaimsException",
+    "NotConfiguredException",
     "OAuthError",
     "OAuthBearerError",
     "OIDCException",
@@ -128,6 +129,10 @@ class InvalidSessionHandleException(Exception):
 
 class InvalidTokenClaimsException(Exception):
     """A token cannot be issued with the provided claims."""
+
+
+class NotConfiguredException(Exception):
+    """The requested operation was not configured."""
 
 
 class ProviderException(Exception):

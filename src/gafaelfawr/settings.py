@@ -54,6 +54,9 @@ class IssuerSettings(BaseModel):
     exp_minutes: int = 1440  # 1 day
     """Number of minutes into the future that a token should expire."""
 
+    influxdb_secret_file: Optional[str] = None
+    """File containing shared secret for issuing InfluxDB tokens."""
+
 
 class GitHubSettings(BaseModel):
     """pydantic model of GitHub configuration."""

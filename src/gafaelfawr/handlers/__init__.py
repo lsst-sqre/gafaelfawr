@@ -17,9 +17,13 @@ def init_routes() -> aiohttp.web.RouteTableDef:
     """Initialize the route table for the routes."""
     # Import handlers so that they are registered with the routes table via
     # decorators. This isn't a global import to avoid circular dependencies.
+    #
+    # gafaelfawr.handlers.influxdb must be included before .tokens to ensure
+    # the proper route priority.
     import gafaelfawr.handlers.analyze  # noqa: F401
     import gafaelfawr.handlers.auth  # noqa: F401
     import gafaelfawr.handlers.index  # noqa: F401
+    import gafaelfawr.handlers.influxdb  # noqa: F401
     import gafaelfawr.handlers.login  # noqa: F401
     import gafaelfawr.handlers.logout  # noqa: F401
     import gafaelfawr.handlers.oidc  # noqa: F401

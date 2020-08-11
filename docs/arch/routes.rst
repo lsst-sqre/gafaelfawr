@@ -41,6 +41,10 @@ Gafaelfawr supports the following routes:
 ``/auth/tokens``
     Displays all user-issued tokens for the authenticated user.
 
+``/auth/tokens/influxdb/new``
+    Issue a new InfluxDB token for the authenticated user.
+    The result will be a JSON object with either a ``token`` key containing the token or ``error`` and ``error_description`` keys explaining the error.
+
 ``/auth/tokens/new``
     Displays or handles the form that allows users to issue new tokens.
 

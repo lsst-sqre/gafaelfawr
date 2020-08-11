@@ -27,6 +27,8 @@ API reference
 
 .. automodapi:: gafaelfawr.handlers.index
 
+.. automodapi:: gafaelfawr.handlers.influxdb
+
 .. automodapi:: gafaelfawr.handlers.login
 
 .. automodapi:: gafaelfawr.handlers.logout
