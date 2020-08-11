@@ -61,3 +61,29 @@ Here are the steps involved in a programmatic access to an application protected
    Alternately, it can be given as either the username or the password of an ``Authorization: Basic`` header, if the other parameter (either username or password) is set to ``x-oauth-basic``.
 #. The request results in an auth subrequest to the ``/auth`` route as in the browser case.
    The ``/auth`` route extracts the session handle from the ``Authorization`` header and then does scope-based authorization as described in the browser flow.
+
+OpenID Connect flow
+===================
+
+.. figure:: /_static/flow-oidc.png
+   :name: Gafaelfawr OpenID Connect flow
+
+   Gafaelfawr OpenID Connect flow
+
+   The ingress has been omitted from this diagram for the sake of simplicity, but plays the same role that it plays in the browser flow above.
+
+Finally, for protected applications that only understand OpenID Connect, Gafaelfawr can act as a simple OpenID Connect server.
+That flow looks like this:
+
+#. The user goes to an application that uses Gafaelfawr as an OpenID Connect authentication provider.
+#. The application redirects the user to ``/auth/openid/login`` with some additional parameters in the URL including the registered client ID and an opaque state parameter.
+#. If the user is not already authenticated, Gafaelfawr redirects the user to ``/login`` to follow the same initial authentication flow as in :ref:`browser-flow`, sending the user back to the same ``/auth/openid/login`` URL once that authentication has completed.
+   Completion of that authentication process sets a session cookie that is read by ``/auth/openid/login``.
+#. Gafaelfawr validates the login request and then redirects the user back to the protected application, including an authorization code in the URL.
+#. The protected application presents that authorization code to ``/auth/openid/token``.
+#. Gafaelfawr validates that code and returns a JWT representing the user to the protected application.
+   That JWT uses the internal issuer and has a hard-coded scope of ``openid`` to protect against the protected application using it to impersonate the user elsewhere.
+#. The protected application optionally authenticates as the user to ``/auth/userinfo``, using that JWT as a bearer token, and retrieves metadata about the authenticated user.
+
+This is the OpenID Connect authorization code flow.
+See the `OpenID Connect specification <https://openid.net/specs/openid-connect-core-1_0.html>`__ for more information.

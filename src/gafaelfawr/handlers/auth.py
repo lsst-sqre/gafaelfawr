@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TYPE_CHECKING
@@ -10,16 +9,15 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 from aiohttp_session import get_session
 
-from gafaelfawr.exceptions import (
-    InvalidRequestException,
-    InvalidTokenException,
-)
+from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenError
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import (
     AuthChallenge,
     AuthError,
     AuthType,
     RequestContext,
+    generate_challenge,
+    parse_authorization,
     verify_token,
 )
 from gafaelfawr.session import SessionHandle
@@ -147,7 +145,7 @@ async def get_auth(request: web.Request) -> web.Response:
     auth_uri = request.headers.get("X-Original-URI")
     if not auth_uri:
         auth_uri = request.headers.get("X-Original-URL", "NONE")
-    context.logger = context.logger.bind(
+    context.rebind_logger(
         auth_uri=auth_uri,
         required_scope=" ".join(sorted(auth_config.scopes)),
         satisfy=auth_config.satisfy.name.lower(),
@@ -157,34 +155,26 @@ async def get_auth(request: web.Request) -> web.Response:
     # status if authentication failed.
     try:
         token = await get_token_from_request(context)
-        if not token:
-            context.logger.info("No token found, returning unauthorized")
-            challenge = AuthChallenge(
-                auth_type=auth_config.auth_type, realm=context.config.realm
-            )
-            raise unauthorized(request, challenge, "Authentication required")
-    except InvalidRequestException as e:
-        context.logger.warning("Invalid Authorization header", error=str(e))
+    except InvalidRequestError as e:
+        raise generate_challenge(context, auth_config.auth_type, e)
+    except InvalidTokenError as e:
+        context.logger.warning("%s", e.message, error=str(e))
         challenge = AuthChallenge(
             auth_type=auth_config.auth_type,
             realm=context.config.realm,
-            error=AuthError.invalid_request,
-            error_description=str(e),
-        )
-        headers = {"WWW-Authenticate": challenge.as_header()}
-        raise web.HTTPBadRequest(headers=headers, reason=str(e), text=str(e))
-    except InvalidTokenException as e:
-        context.logger.warning("Invalid token", error=str(e))
-        challenge = AuthChallenge(
-            auth_type=auth_config.auth_type,
-            realm=context.config.realm,
-            error=AuthError.invalid_token,
+            error=AuthError[e.error],
             error_description=str(e),
         )
         raise unauthorized(request, challenge, str(e))
+    if not token:
+        context.logger.info("No token found, returning unauthorized")
+        challenge = AuthChallenge(
+            auth_type=auth_config.auth_type, realm=context.config.realm
+        )
+        raise unauthorized(request, challenge, "Authentication required")
 
     # Add user information to the logger.
-    context.logger = context.logger.bind(
+    context.rebind_logger(
         token=token.jti,
         user=token.username,
         scope=" ".join(sorted(token.scope)),
@@ -306,9 +296,9 @@ async def get_token_from_request(
 
     Raises
     ------
-    InvalidRequestException
+    gafaelfawr.exceptions.InvalidRequestError
         The Authorization header was malformed.
-    gafaelfawr.handlers.util.InvalidTokenException
+    gafaelfawr.handlers.util.InvalidTokenError
         A token was provided but it could not be verified.
     """
     # Use the session cookie if it is available.  This check has to be before
@@ -318,7 +308,7 @@ async def get_token_from_request(
     session = await get_session(context.request)
     handle_str = session.get("handle")
     if handle_str:
-        context.logger = context.logger.bind(token_source="cookie")
+        context.rebind_logger(token_source="cookie")
         handle = SessionHandle.from_str(handle_str)
         session_store = context.factory.create_session_store()
         auth_session = await session_store.get_session(handle)
@@ -329,7 +319,7 @@ async def get_token_from_request(
     # header.  This case is used by API calls from clients.  If we got a
     # session handle, convert it to a token.  Otherwise, if we got a token,
     # verify it.
-    handle_or_token = parse_authorization(context)
+    handle_or_token = parse_authorization(context, allow_basic=True)
     if not handle_or_token:
         return None
     elif handle_or_token.startswith("gsh-"):
@@ -339,72 +329,6 @@ async def get_token_from_request(
         return auth_session.token if auth_session else None
     else:
         return verify_token(context, handle_or_token)
-
-
-def parse_authorization(context: RequestContext) -> Optional[str]:
-    """Find a handle or token in the Authorization header.
-
-    Supports either ``Bearer`` or ``Basic`` authorization types.  Rebinds the
-    logging context to include the source of the token, if one is found.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
-        The context of the incoming request.
-
-    Returns
-    -------
-    handle_or_token : `str` or `None`
-        The handle or token if one was found, otherwise None.
-
-    Raises
-    ------
-    InvalidRequestException
-        If the Authorization header is malformed.
-
-    Notes
-    -----
-    A Basic Auth authentication string is normally a username and a password
-    separated by colon and then base64-encoded.  Support a username of the
-    token (or session handle) and a password of ``x-oauth-basic``, or a
-    username of ``x-oauth-basic`` and a password of the token (or session
-    handle).  If neither is the case, assume the token or session handle is
-    the username.
-    """
-    # Parse the header and handle Bearer.
-    header = context.request.headers.get("Authorization")
-    if not header:
-        return None
-    if " " not in header:
-        raise InvalidRequestException("malformed Authorization header")
-    auth_type, auth_blob = header.split(" ")
-    if auth_type.lower() == "bearer":
-        context.logger = context.logger.bind(token_source="bearer")
-        return auth_blob
-    elif auth_type.lower() != "basic":
-        msg = f"unkonwn Authorization type {auth_type}"
-        raise InvalidRequestException(msg)
-
-    # Basic, the complicated part.
-    try:
-        basic_auth = base64.b64decode(auth_blob).decode()
-        user, password = basic_auth.strip().split(":")
-    except Exception as e:
-        msg = f"invalid Basic auth string: {str(e)}"
-        raise InvalidRequestException(msg)
-    if password == "x-oauth-basic":
-        context.logger = context.logger.bind(token_source="basic-username")
-        return user
-    elif user == "x-oauth-basic":
-        context.logger = context.logger.bind(token_source="basic-password")
-        return password
-    else:
-        context.logger.info(
-            "Neither username nor password in HTTP Basic is x-oauth-basic,"
-            " assuming handle or token is username"
-        )
-        context.logger = context.logger.bind(token_source="basic-username")
-        return user
 
 
 def unauthorized(

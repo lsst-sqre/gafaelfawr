@@ -22,7 +22,9 @@ def init_routes() -> aiohttp.web.RouteTableDef:
     import gafaelfawr.handlers.index  # noqa: F401
     import gafaelfawr.handlers.login  # noqa: F401
     import gafaelfawr.handlers.logout  # noqa: F401
+    import gafaelfawr.handlers.oidc  # noqa: F401
     import gafaelfawr.handlers.tokens  # noqa: F401
+    import gafaelfawr.handlers.userinfo  # noqa: F401
     import gafaelfawr.handlers.well_known  # noqa: F401
 
     return routes

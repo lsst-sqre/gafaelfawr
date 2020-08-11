@@ -26,6 +26,11 @@ __ https://developer.github.com/v3/users/
 
 __ https://openid.net/specs/openid-connect-core-1_0.html
 
+`RFC 6749: The OAuth 2.0 Authorization Framework`__
+    The specification for the OAuth 2.0 authorization framework, on top of which OpenID Connect was built.
+
+__ https://tools.ietf.org/html/rfc6749
+
 `RFC 7517: JSON Web Key (JWK)`__
     The specification of the JSON Web Key format, including JSON Web Key Sets (JWKS).
 

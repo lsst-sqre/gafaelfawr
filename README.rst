@@ -10,6 +10,7 @@ Gafaelfawr is primarily an implementation of the `Token Proxy component <https:/
 
 It authorizes tokens in according to the Nginx's ``auth_request`` directive via it's ``/auth`` endpoint and handles integration with an external identity provider (either with GitHub or OpenID Connect).
 Authentication sessions are stored in Redis.
+It also provides a minimal OpenID Connect server to support protected applications that only understand OpenID Connect.
 
 For full documentation, see `gafaelfawr.lsst.io <https://gafaelfawr.lsst.io/>`__.
 

@@ -73,6 +73,7 @@ intersphinx_mapping = {
     "cachetools": ("https://cachetools.readthedocs.io/en/stable/", None),
     "cryptography": ("https://cryptography.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
+    "multidict": ("https://multidict.readthedocs.io/en/stable/", None),
     "python": ("https://docs.python.org/3/", None),
     "structlog": ("https://www.structlog.org/en/stable/", None),
     "wtforms": ("https://wtforms.readthedocs.io/en/stable/", None),

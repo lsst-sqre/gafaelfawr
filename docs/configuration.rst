@@ -133,6 +133,14 @@ Secrets beginning or ending in whitespace are not supported.
         If given, only JWTs signed by one of the ``kid`` values listed in this configuration key will be verified and all others will be rejected.
         If omitted, any ``kid`` value matching a key that can be retrieved from the OpenID Connect provider's JWKS URL will be accepted.
 
+``oidc_server_secrets_file`` (optional)
+    File defining the clients allowed to use Gafaelfawr as an OpenID Connect server.
+    The contents of this file must be a list of objects in JSON format.
+    Each object in the list must have two keys: ``id`` and ``secret``.
+    ``id`` is the value sent by an OpenID Connect client as the ``client_id``.
+    ``secret`` is the corresponding ``client_secret`` value for that client.
+    See :ref:`openid-connect` for more details.
+
 ``known_scopes`` (optional)
     A dict whose keys are known scope names and whose values are human-language descriptions of that scope.
     Used only to construct the web page where a user can create a new API token with a specific set of scopes.

@@ -33,6 +33,8 @@ API reference
 
 .. automodapi:: gafaelfawr.handlers.tokens
 
+.. automodapi:: gafaelfawr.handlers.userinfo
+
 .. automodapi:: gafaelfawr.handlers.util
 
 .. automodapi:: gafaelfawr.handlers.well_known

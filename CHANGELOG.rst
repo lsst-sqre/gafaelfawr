@@ -5,8 +5,17 @@ Change log
 1.4.0 (unreleased)
 ==================
 
+This release adds a minimalist OpenID Connect server to support protected applications that only understand OpenID Connect.
+The initial implementation is intended to support `Chronograf <https://www.influxdata.com/time-series-platform/chronograf/>`__.
+Other applications may or may not work.
+
 - Add support for a password-protected Redis backend.
   This uses a new configuration parameter, ``redis_password_file``, which points to a file containing the password for Redis.
+- Add a minimalist OpenID Connect server.
+  The secrets for client connections are read from a file designed by a new configuration parameter, ``oidc_server_secrets_file``.
+  The authentication endpoint is ``/auth/openid/login`` and the token endpoint is ``/auth/openid/token``.
+- Add a user information endpoint (``/auth/userinfo``) that accepts a JWT and returns its claims.
+  Intended primarily for use with OpenID Connect.
 
 1.3.2 (2020-06-08)
 ==================

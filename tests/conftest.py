@@ -12,11 +12,12 @@ from tests.support.app import create_test_app
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Awaitable, Callable, Iterable
+    from typing import Any, Awaitable, Callable, Iterable, List, Optional
 
     from aiohttp import web
     from aiohttp.pytest_plugin.test_utils import TestClient
 
+    from gafaelfawr.config import OIDCClient
     from tests.setup import SetupTestCallable
 
 
@@ -81,7 +82,11 @@ def create_test_setup(
     """
 
     async def _create_test_setup(
-        environment: str = "github", client: bool = True, **settings: Any,
+        environment: str = "github",
+        *,
+        client: bool = True,
+        oidc_clients: Optional[List[OIDCClient]] = None,
+        **settings: Any,
     ) -> SetupTest:
         """Create a test setup for a given environment.
 
@@ -92,6 +97,9 @@ def create_test_setup(
         client : `bool`, optional
             If set to `False`, do not start a test application or create a
             client.
+        oidc_clients : List[`gafaelfawr.config.OIDCClient`], optional
+            If present, serialize the provided OpenID Connect clients into
+            a secret and include its path in the configuration.
         **settings : `typing.Any`
             Settings that override settings from the configuration file.
 
@@ -101,7 +109,10 @@ def create_test_setup(
             An object encapsulating the test setup.
         """
         app = await create_test_app(
-            tmp_path, environment=environment, **settings
+            tmp_path,
+            environment=environment,
+            oidc_clients=oidc_clients,
+            **settings,
         )
         if client:
             client = await aiohttp_client(app)

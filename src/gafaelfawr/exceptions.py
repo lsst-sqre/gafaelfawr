@@ -2,17 +2,29 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+from aiohttp import web
+
+if TYPE_CHECKING:
+    from typing import ClassVar, Type
+
 __all__ = [
     "DeserializeException",
     "FetchKeysException",
     "GitHubException",
-    "InvalidRequestException",
+    "InvalidClientError",
+    "InvalidGrantError",
+    "InvalidRequestError",
     "InvalidSessionHandleException",
     "InvalidTokenClaimsException",
-    "InvalidTokenException",
+    "InvalidTokenError",
     "MissingClaimsException",
+    "OAuthError",
+    "OAuthBearerError",
     "OIDCException",
     "ProviderException",
+    "UnauthorizedClientException",
     "UnknownAlgorithmException",
     "UnknownKeyIdException",
     "VerifyTokenException",
@@ -28,14 +40,86 @@ class DeserializeException(Exception):
     """
 
 
-class InvalidRequestException(Exception):
+class OAuthError(Exception):
+    """An OAuth-related error occurred.
+
+    This class represents both OpenID Connect errors and OAuth 2.0 errors,
+    including errors when parsing Authorization headers and bearer tokens.
+    """
+
+    error: ClassVar[str] = "invalid_request"
+    """The RFC 6749 or RFC 6750 error code for this exception."""
+
+    message: ClassVar[str] = "Unknown error"
+    """The summary message to use when logging this error."""
+
+    hide_error: ClassVar[bool] = False
+    """Whether to hide the details of the error from the client."""
+
+
+class InvalidClientError(OAuthError):
+    """The provided client_id and client_secret could not be validated.
+
+    This corresponds to the ``invalid_client`` error in RFC 6749: "Client
+    authentication failed (e.g., unknown client, no client authentication
+    included, or unsupported authentication method)."
+    """
+
+    error = "invalid_client"
+    message = "Unauthorized client"
+
+
+class InvalidGrantError(OAuthError):
+    """The provided authorization code is not valid.
+
+    This corresponds to the ``invalid_grant`` error in RFC 6749: "The provided
+    authorization grant (e.g., authorization code, resource owner credentials)
+    or refresh token is invalid, expired, revoked, does not match the
+    redirection URI used in the authorization request, or was issued to
+    another client."
+    """
+
+    error = "invalid_grant"
+    message = "Invalid authorization code"
+    hide_error = True
+
+
+class OAuthBearerError(OAuthError):
+    """An error that can be returned as a ``WWW-Authenticate`` challenge.
+
+    Represents the subset of OAuth 2.0 errors defined in RFC 6750 as valid
+    errors to return in a ``WWW-Authenticate`` header.
+    """
+
+    exception: ClassVar[Type[web.HTTPException]] = web.HTTPBadRequest
+    """The exception class corresponding to the usual HTTP error."""
+
+
+class InvalidRequestError(OAuthBearerError):
     """The provided Authorization header could not be parsed.
 
-    This corresponds to the ``invalid_request`` error in RFC 6750: "The
-    request is missing a required parameter, includes an unsupported parameter
-    or parameter value, repeats the same parameter, uses more than one method
-    for including an access token, or is otherwise malformed."
+    This corresponds to the ``invalid_request`` error in RFC 6749 and 6750:
+    "The request is missing a required parameter, includes an unsupported
+    parameter or parameter value, repeats the same parameter, uses more than
+    one method for including an access token, or is otherwise malformed."
     """
+
+    error = "invalid_request"
+    message = "Invalid request"
+
+
+class InvalidTokenError(OAuthBearerError):
+    """The provided token was invalid.
+
+    This corresponds to the ``invalid_token`` error in RFC 6750: "The access
+    token provided is expired, revoked, malformed, or invalid for other
+    reasons."  The string form of this exception is suitable for use as the
+    ``error_description`` attribute of a ``WWW-Authenticate`` header.
+    """
+
+    error = "invalid_token"
+    message = "Invalid token"
+    exception = web.HTTPUnauthorized
 
 
 class InvalidSessionHandleException(Exception):
@@ -44,16 +128,6 @@ class InvalidSessionHandleException(Exception):
 
 class InvalidTokenClaimsException(Exception):
     """A token cannot be issued with the provided claims."""
-
-
-class InvalidTokenException(Exception):
-    """The provided token was invalid.
-
-    This corresponds to the ``invalid_token`` error in RFC 6750: "The access
-    token provided is expired, revoked, malformed, or invalid for other
-    reasons."  The string form of this exception is suitable for use as the
-    ``error_description`` attribute of a ``WWW-Authenticate`` header.
-    """
 
 
 class ProviderException(Exception):
@@ -66,6 +140,13 @@ class GitHubException(ProviderException):
 
 class OIDCException(ProviderException):
     """The OpenID Connect provider returned an error from an API call."""
+
+
+class UnauthorizedClientException(Exception):
+    """The client is not authorized to request an authorization code.
+
+    This corresponds to the ``unauthorized_client`` error in RFC 6749.
+    """
 
 
 class VerifyTokenException(Exception):
