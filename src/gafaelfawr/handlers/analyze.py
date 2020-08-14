@@ -7,9 +7,9 @@ import json
 from typing import TYPE_CHECKING, cast
 
 from aiohttp import web
-from aiohttp_session import get_session
 
 from gafaelfawr.handlers import routes
+from gafaelfawr.handlers.decorators import authenticated_session
 from gafaelfawr.handlers.util import RequestContext
 from gafaelfawr.session import InvalidSessionHandleException, SessionHandle
 from gafaelfawr.tokens import Token
@@ -17,17 +17,22 @@ from gafaelfawr.tokens import Token
 if TYPE_CHECKING:
     from typing import Any, Dict
 
+    from gafaelfawr.sesion import Session
+
 __all__ = ["get_analyze", "post_analyze"]
 
 
 @routes.get("/auth/analyze")
-async def get_analyze(request: web.Request) -> web.Response:
+@authenticated_session
+async def get_analyze(request: web.Request, session: Session) -> web.Response:
     """Analyze a session handle from a web session.
 
     Parameters
     ----------
     request : `aiohttp.web.Request`
         The incoming request.
+    session : `gafaelfawr.session.Session`
+        The authentication session.
 
     Returns
     -------
@@ -40,13 +45,7 @@ async def get_analyze(request: web.Request) -> web.Response:
         If the user is not logged in.
     """
     context = RequestContext.from_request(request)
-    session = await get_session(request)
-    if "handle" not in session:
-        msg = "Not logged in"
-        context.logger.warning(msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    handle = SessionHandle.from_str(session["handle"])
-    result = await analyze_handle(context, handle)
+    result = await analyze_handle(context, session.handle)
     context.logger.info("Analyzed user session")
     formatter = functools.partial(json.dumps, sort_keys=True, indent=4)
     return web.json_response(result, dumps=formatter)

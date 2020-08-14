@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
-
 from aiohttp import web
 from aiohttp_session import get_session
 
 from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.util import RequestContext
+from gafaelfawr.handlers.util import RequestContext, validate_return_url
 
 __all__ = ["get_logout"]
 
@@ -44,13 +42,9 @@ async def get_logout(request: web.Request) -> web.Response:
         context.logger.info("Logout of already-logged-out session")
     session.invalidate()
 
-    redirect_url = request.query.get("rd")
-    if redirect_url:
-        if urlparse(redirect_url).hostname != request.url.raw_host:
-            msg = f"Redirect URL not at {request.host}"
-            context.logger.warning(msg)
-            raise web.HTTPBadRequest(reason=msg, text=msg)
+    return_url = request.query.get("rd")
+    if return_url:
+        validate_return_url(context, return_url)
     else:
-        redirect_url = context.config.after_logout_url
-
-    raise web.HTTPSeeOther(redirect_url)
+        return_url = context.config.after_logout_url
+    raise web.HTTPSeeOther(return_url)

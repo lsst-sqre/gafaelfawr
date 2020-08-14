@@ -6,7 +6,7 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
-from gafaelfawr.handlers.util import AuthError, AuthType
+from gafaelfawr.handlers.util import AuthError, AuthErrorChallenge, AuthType
 from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
@@ -55,15 +55,14 @@ async def test_no_auth(
     r = await setup.client.get("/auth/userinfo")
     assert r.status == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
-    assert not authenticate.error
-    assert not authenticate.scope
 
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
-        "event": "No authentication token found",
-        "level": "warning",
+        "event": "No token found, returning unauthorized",
+        "level": "info",
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth/userinfo",
@@ -85,6 +84,7 @@ async def test_invalid(
     )
     assert r.status == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_request
@@ -108,6 +108,7 @@ async def test_invalid(
     )
     assert r.status == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_request
@@ -120,6 +121,7 @@ async def test_invalid(
     )
     assert r.status == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_token

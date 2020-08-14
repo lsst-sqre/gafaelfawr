@@ -24,7 +24,15 @@ Installation
    applications
    configuration
    logging
+   cli
    glossary
+
+Changes
+=======
+
+.. toctree::
+   :maxdepth: 1
+
    changelog
 
 Architecture

@@ -9,14 +9,19 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 from aiohttp_session import get_session
 
-from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenError
+from gafaelfawr.exceptions import (
+    InsufficientScopeError,
+    InvalidRequestError,
+    InvalidTokenError,
+)
 from gafaelfawr.handlers import routes
 from gafaelfawr.handlers.util import (
-    AuthChallenge,
     AuthError,
+    AuthErrorChallenge,
     AuthType,
     RequestContext,
     generate_challenge,
+    generate_unauthorized_challenge,
     parse_authorization,
     verify_token,
 )
@@ -135,7 +140,7 @@ async def get_auth(request: web.Request) -> web.Response:
 
     # Determine the required scopes, authorization strategy, and desired auth
     # type for challenges from the request.
-    auth_config = parse_auth_config(request)
+    auth_config = parse_auth_config(context)
 
     # Configure logging context.
     #
@@ -158,20 +163,13 @@ async def get_auth(request: web.Request) -> web.Response:
     except InvalidRequestError as e:
         raise generate_challenge(context, auth_config.auth_type, e)
     except InvalidTokenError as e:
-        context.logger.warning("%s", e.message, error=str(e))
-        challenge = AuthChallenge(
-            auth_type=auth_config.auth_type,
-            realm=context.config.realm,
-            error=AuthError[e.error],
-            error_description=str(e),
+        raise generate_unauthorized_challenge(
+            context, auth_config.auth_type, e, ajax_forbidden=True
         )
-        raise unauthorized(request, challenge, str(e))
     if not token:
-        context.logger.info("No token found, returning unauthorized")
-        challenge = AuthChallenge(
-            auth_type=auth_config.auth_type, realm=context.config.realm
+        raise generate_unauthorized_challenge(
+            context, auth_config.auth_type, ajax_forbidden=True
         )
-        raise unauthorized(request, challenge, "Authentication required")
 
     # Add user information to the logger.
     context.rebind_logger(
@@ -188,8 +186,10 @@ async def get_auth(request: web.Request) -> web.Response:
 
     # If not authorized, log and raise the appropriate error.
     if not authorized:
-        context.logger.warning("Token missing required scope")
-        raise forbidden(context, auth_config)
+        exc = InsufficientScopeError("Token missing required scope")
+        raise generate_challenge(
+            context, auth_config.auth_type, exc, auth_config.scopes
+        )
 
     # Log and return the results.
     context.logger.info("Token authorized")
@@ -210,7 +210,12 @@ async def get_auth_forbidden(request: web.Request) -> web.Response:
     Returns
     -------
     response : `aiohttp.web.Response`
-        The response.
+        The response (never returned because this method raises instead).
+
+    Raises
+    ------
+    aiohttp.web.HTTPException
+        An HTTPForbidden exception with the correct authentication challenge.
 
     Notes
     -----
@@ -228,21 +233,34 @@ async def get_auth_forbidden(request: web.Request) -> web.Response:
          error_page 403 = "/auth/forbidden?scope=<scope>";
 
     It takes the same parameters as the ``/auth`` route and uses them to
-    construct an appropriate challenge.
+    construct an appropriate challenge, assuming that the 403 is due to
+    insufficient token scope.
     """
     context = RequestContext.from_request(request)
-    auth_config = parse_auth_config(request)
+    auth_config = parse_auth_config(context)
+    error = "Token missing required scope"
+    challenge = AuthErrorChallenge(
+        auth_type=auth_config.auth_type,
+        realm=context.config.realm,
+        error=AuthError.insufficient_scope,
+        error_description=error,
+        scope=" ".join(sorted(auth_config.scopes)),
+    )
+    headers = {
+        "Cache-Control": "no-cache, must-revalidate",
+        "WWW-Authenticate": challenge.as_header(),
+    }
     context.logger.info("Serving uncached 403 page")
-    raise forbidden(context, auth_config)
+    raise web.HTTPForbidden(headers=headers, reason=error, text=error)
 
 
-def parse_auth_config(request: web.Request) -> AuthConfig:
+def parse_auth_config(context: RequestContext) -> AuthConfig:
     """Parse request parameters to determine authorization parameters.
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
+    context : `gafaelfawr.handlers.util.RequestContext`
+        The context of the incoming request.
 
     Returns
     -------
@@ -254,17 +272,20 @@ def parse_auth_config(request: web.Request) -> AuthConfig:
     aiohttp.web.HTTPException
         If the configuration parameters are invalid.
     """
-    required_scopes = request.query.getall("scope", [])
+    required_scopes = context.request.query.getall("scope", [])
     if not required_scopes:
         msg = "scope parameter not set in the request"
+        context.logger.warning("Invalid request", error=msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
-    satisfy = request.query.get("satisfy", "all")
+    satisfy = context.request.query.get("satisfy", "all")
     if satisfy not in ("any", "all"):
         msg = "satisfy parameter must be any or all"
+        context.logger.warning("Invalid request", error=msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
-    auth_type = request.query.get("auth_type", "bearer")
+    auth_type = context.request.query.get("auth_type", "bearer")
     if auth_type not in ("basic", "bearer"):
         msg = "auth_type parameter must be basic or bearer"
+        context.logger.warning("Invalid request", error=msg)
         raise web.HTTPBadRequest(reason=msg, text=msg)
 
     return AuthConfig(
@@ -329,91 +350,6 @@ async def get_token_from_request(
         return auth_session.token if auth_session else None
     else:
         return verify_token(context, handle_or_token)
-
-
-def unauthorized(
-    request: web.Request, challenge: AuthChallenge, error: str,
-) -> web.HTTPException:
-    """Construct exception for a 401 response (403 for AJAX).
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    challenge : `AuthChallenge`
-        The challenge used to construct the WWW-Authenticate header.
-    error : `str`
-        The error message to use as the body of the message.
-
-    Returns
-    -------
-    exception : `aiohttp.web.HTTPException`
-        The exception to raise, either HTTPForbidden (for AJAX) or
-        HTTPUnauthorized.
-
-    Notes
-    -----
-    If the request contains X-Requested-With: XMLHttpRequest, return 403
-    rather than 401.  The presence of this header indicates an AJAX request,
-    which in turn means that the request is not under full control of the
-    browser window.  The redirect ingress-nginx will send will therefore not
-    result in the user going to the authentication provider properly, but may
-    result in a spurious request from background AJAX that cannot be
-    completed.  That, in turn, can cause unnecessary load on the
-    authentication provider and may result in rate limiting.
-
-    Checking for this header does not catch all requests that are pointless to
-    redirect (image and CSS requests, for instance), and not all AJAX requests
-    will send the header, but every request with this header should be
-    pointless to redirect, so at least it cuts down on the noise.
-    This corresponds to the ``invalid_token`` error in RFC 6750: "The access
-    token provided is expired, revoked, malformed, or invalid for other
-    reasons.  The string form of this exception is suitable for use as the
-    ``error_description`` attribute of a ``WWW-Authenticate`` header.
-    """
-    headers = {
-        "Cache-Control": "no-cache, must-revalidate",
-        "WWW-Authenticate": challenge.as_header(),
-    }
-
-    requested_with = request.headers.get("X-Requested-With")
-    if requested_with and requested_with.lower() == "xmlhttprequest":
-        return web.HTTPForbidden(headers=headers, reason=error, text=error)
-    else:
-        return web.HTTPUnauthorized(headers=headers, reason=error, text=error)
-
-
-def forbidden(
-    context: RequestContext, auth_config: AuthConfig
-) -> web.HTTPException:
-    """Construct exception for a 403 response.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
-        The context of the incoming request.
-    auth_config : `AuthConfig`
-        Requested authorization parameters, used to construct the challenge.
-
-    Returns
-    -------
-    exception : `aiohttp.web.HTTPException`
-        The exception to raise, either HTTPForbidden (for AJAX) or
-        HTTPUnauthorized.
-    """
-    error = "Token missing required scope"
-    challenge = AuthChallenge(
-        auth_type=auth_config.auth_type,
-        realm=context.config.realm,
-        error=AuthError.insufficient_scope,
-        error_description=error,
-        scope=" ".join(sorted(auth_config.scopes)),
-    )
-    headers = {
-        "Cache-Control": "no-cache, must-revalidate",
-        "WWW-Authenticate": challenge.as_header(),
-    }
-    return web.HTTPForbidden(headers=headers, reason=error, text=error)
 
 
 def maybe_reissue_token(

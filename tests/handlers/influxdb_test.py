@@ -8,7 +8,7 @@ from unittest.mock import ANY
 
 import jwt
 
-from gafaelfawr.handlers.util import AuthType
+from gafaelfawr.handlers.util import AuthErrorChallenge, AuthType
 from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
@@ -68,10 +68,9 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
     r = await setup.client.get("/auth/tokens/influxdb/new")
     assert r.status == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
-    assert not authenticate.error
-    assert not authenticate.scope
 
 
 async def test_not_configured(

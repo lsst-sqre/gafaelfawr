@@ -2,7 +2,7 @@
 Change log
 ##########
 
-1.4.0 (unreleased)
+1.4.0 (2020-08-13)
 ==================
 
 This release adds a minimalist OpenID Connect server to support protected applications that only understand OpenID Connect.

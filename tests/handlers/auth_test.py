@@ -11,7 +11,7 @@ from unittest.mock import ANY
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.handlers.util import AuthError, AuthType
+from gafaelfawr.handlers.util import AuthError, AuthErrorChallenge, AuthType
 from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
@@ -25,10 +25,9 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 401
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
-    assert not authenticate.error
-    assert not authenticate.scope
 
     r = await setup.client.get(
         "/auth", params={"scope": "exec:admin", "auth_type": "bearer"}
@@ -36,10 +35,9 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 401
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
-    assert not authenticate.error
-    assert not authenticate.scope
 
     r = await setup.client.get(
         "/auth", params={"scope": "exec:admin", "auth_type": "bogus"}
@@ -52,10 +50,9 @@ async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 401
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Basic
     assert authenticate.realm == setup.config.realm
-    assert not authenticate.error
-    assert not authenticate.scope
 
 
 async def test_invalid(create_test_setup: SetupTestCallable) -> None:
@@ -88,6 +85,7 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_request
@@ -99,6 +97,7 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_request
@@ -111,6 +110,7 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 401
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_token
@@ -126,6 +126,7 @@ async def test_invalid_auth(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 401
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_token
@@ -143,6 +144,7 @@ async def test_access_denied(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.insufficient_scope
@@ -161,6 +163,7 @@ async def test_auth_forbidden(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.insufficient_scope
@@ -175,10 +178,9 @@ async def test_auth_forbidden(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Basic
     assert authenticate.realm == setup.config.realm
-    assert not authenticate.error
-    assert not authenticate.scope
     body = await r.text()
     assert "Token missing required scope" in body
 
@@ -195,6 +197,7 @@ async def test_satisfy_all(create_test_setup: SetupTestCallable) -> None:
     assert r.status == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.insufficient_scope
@@ -303,6 +306,7 @@ async def test_basic_failure(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_request
@@ -316,11 +320,9 @@ async def test_basic_failure(create_test_setup: SetupTestCallable) -> None:
         )
         assert r.status == 401
         authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+        assert not isinstance(authenticate, AuthErrorChallenge)
         assert authenticate.auth_type == AuthType.Basic
         assert authenticate.realm == setup.config.realm
-        assert not authenticate.error
-        assert not authenticate.error_description
-        assert not authenticate.scope
 
 
 async def test_handle(create_test_setup: SetupTestCallable) -> None:
@@ -432,7 +434,6 @@ async def test_ajax_unauthorized(create_test_setup: SetupTestCallable) -> None:
     )
     assert r.status == 403
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
-    assert not authenticate.error
-    assert not authenticate.scope
