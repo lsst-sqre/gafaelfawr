@@ -2,7 +2,7 @@
 Gafaelfawr
 ##########
 
-|Build| |Docker|
+|Build|
 
 Gafaelfawr is an aiohttp application for the authorization and management of tokens, including the issuance and revocation of tokens.
 
@@ -22,8 +22,3 @@ Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
    :alt: GitHub Actions
    :scale: 100%
    :target: https://github.com/lsst-sqre/gafaelfawr/actions
-
-.. |Docker| image:: https://img.shields.io/docker/v/lsstsqre/gafaelfawr?sort=semver
-   :alt: Docker Hub repository
-   :scale: 100%
-   :target: https://hub.docker.com/repository/docker/lsstsqre/gafaelfawr
