@@ -46,7 +46,7 @@ async def test_login(
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status == 303
     url = urlparse(r.headers["Location"])
@@ -305,7 +305,7 @@ async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
     setup.set_github_userinfo_response("some-github-token", userinfo)
 
     r = await setup.client.get(
-        "/login", params={"rd": "https://example.com/"}, allow_redirects=False,
+        "/login", params={"rd": "https://example.com/"}, allow_redirects=False
     )
     assert r.status == 400
 
@@ -339,7 +339,7 @@ async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
     assert r.headers["Location"] == "https://example.com/"
 
 
-async def test_github_uppercase(create_test_setup: SetupTestCallable,) -> None:
+async def test_github_uppercase(create_test_setup: SetupTestCallable) -> None:
     """Tests that usernames and organization names are forced to lowercase.
 
     We do not test that slugs are forced to lowercase (and do not change the

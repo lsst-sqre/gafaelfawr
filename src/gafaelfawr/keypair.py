@@ -123,7 +123,7 @@ class RSAKeyPair:
         if not self._public_key_as_pem:
             public_key = self.private_key.public_key()
             self._public_key_as_pem = public_key.public_bytes(
-                Encoding.PEM, PublicFormat.SubjectPublicKeyInfo,
+                Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
             )
         return self._public_key_as_pem
 

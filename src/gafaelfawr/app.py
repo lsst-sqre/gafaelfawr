@@ -37,7 +37,7 @@ __all__ = ["create_app"]
 
 
 async def create_app(
-    settings_path: str, redis_pool: Optional[Redis] = None, **settings: Any,
+    settings_path: str, redis_pool: Optional[Redis] = None, **settings: Any
 ) -> Application:
     """Create and configure the Gafaelfawr application.
 
@@ -114,9 +114,7 @@ async def setup_middleware(app: Application, config: Config) -> None:
 
     # Configure Jinja2 templating of responses.
     templates_path = os.path.join(os.path.dirname(__file__), "templates")
-    aiohttp_jinja2.setup(
-        app, loader=jinja2.FileSystemLoader(templates_path),
-    )
+    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(templates_path))
 
 
 @web.middleware

@@ -102,7 +102,7 @@ class TokenIssuer:
         ).decode()
 
     def issue_user_token(
-        self, token: VerifiedToken, *, scope: str, jti: str,
+        self, token: VerifiedToken, *, scope: str, jti: str
     ) -> VerifiedToken:
         """Issue a new user-issued token.
 
