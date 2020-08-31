@@ -201,7 +201,7 @@ class SessionStore:
         )
 
     async def store_session(
-        self, session: Session, pipeline: Optional[Pipeline] = None,
+        self, session: Session, pipeline: Optional[Pipeline] = None
     ) -> None:
         """Store a session.
 

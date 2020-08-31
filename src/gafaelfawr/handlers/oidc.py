@@ -199,7 +199,7 @@ async def post_token(request: web.Request) -> web.Response:
     try:
         authorization_code = OIDCAuthorizationCode.from_str(code)
         token = await oidc_server.redeem_code(
-            client_id, client_secret, redirect_uri, authorization_code,
+            client_id, client_secret, redirect_uri, authorization_code
         )
     except OAuthError as e:
         return generate_json_response(context, e)

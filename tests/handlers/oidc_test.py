@@ -162,7 +162,7 @@ async def test_unauthenticated(
     }
     caplog.clear()
     r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False,
+        "/auth/openid/login", params=login_params, allow_redirects=False
     )
 
     assert r.status == 302

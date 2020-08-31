@@ -23,7 +23,7 @@ async def test_userinfo(
 
     caplog.clear()
     r = await setup.client.get(
-        "/auth/userinfo", headers={"Authorization": f"Bearer {token.encoded}"},
+        "/auth/userinfo", headers={"Authorization": f"Bearer {token.encoded}"}
     )
     assert r.status == 200
     data = await r.json()

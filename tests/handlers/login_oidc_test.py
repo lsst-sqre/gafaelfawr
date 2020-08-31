@@ -27,7 +27,7 @@ async def test_login(
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status == 303
     assert r.headers["Location"].startswith(setup.config.oidc.login_url)
@@ -183,7 +183,7 @@ async def test_oauth2_callback(create_test_setup: SetupTestCallable) -> None:
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}/foo"
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status == 303
     url = urlparse(r.headers["Location"])
@@ -210,7 +210,7 @@ async def test_callback_error(
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}/foo"
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status == 303
     url = urlparse(r.headers["Location"])
@@ -256,7 +256,7 @@ async def test_callback_error(
         setup.config.oidc.token_url, payload={"foo": "bar"}, status=400
     )
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
@@ -272,7 +272,7 @@ async def test_callback_error(
         setup.config.oidc.token_url, payload={"foo": "bar"}, status=200
     )
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
@@ -286,7 +286,7 @@ async def test_callback_error(
     # Return invalid JSON, which should raise an error during JSON decoding.
     setup.responses.post(setup.config.oidc.token_url, body="foo", status=200)
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
@@ -300,7 +300,7 @@ async def test_callback_error(
     # Finally, return invalid JSON and an error reply.
     setup.responses.post(setup.config.oidc.token_url, body="foo", status=400)
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
@@ -319,7 +319,7 @@ async def test_connection_error(create_test_setup: SetupTestCallable) -> None:
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}/foo"
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status == 303
     url = urlparse(r.headers["Location"])
@@ -345,7 +345,7 @@ async def test_verify_error(create_test_setup: SetupTestCallable) -> None:
     # Simulate the initial authentication request.
     return_url = f"https://{setup.client.host}/foo"
     r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False,
+        "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status == 303
     url = urlparse(r.headers["Location"])

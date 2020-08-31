@@ -289,7 +289,7 @@ class GitHubProvider(Provider):
             organization = team["organization"]["login"]
             teams.append(
                 GitHubTeam(
-                    slug=slug, organization=organization, gid=team["id"],
+                    slug=slug, organization=organization, gid=team["id"]
                 )
             )
 

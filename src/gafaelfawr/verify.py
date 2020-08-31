@@ -293,7 +293,7 @@ class TokenVerifier:
         components = rsa.RSAPublicNumbers(exponent, modulus)
         public_key = components.public_key(backend=default_backend())
         return public_key.public_bytes(
-            encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo,
+            encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo
         )
 
     async def _get_keys(self, issuer_url: str) -> List[Dict[str, str]]:
