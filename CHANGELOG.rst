@@ -2,6 +2,12 @@
 Change log
 ##########
 
+1.6.0 (unreleased)
+==================
+
+- Add ``/.well-known/openid-configuration`` route to provide metadata about the internal OpenID Connect server.
+  This follows the OpenID Connect Discovery 1.0 specification.
+
 1.5.0 (2020-09-16)
 ==================
 
