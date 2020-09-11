@@ -2,6 +2,16 @@
 Change log
 ##########
 
+1.4.1 (2020-09-11)
+==================
+
+This release fixes some bugs in the internal OpenID Connect support uncovered by testing with Chronograf.
+
+- Fix data type of the ``expires_in`` data element returned by the ``/auth/openid/token`` endpoint.
+  Expiration time in seconds must be truncated to an integer per the relevant standard.
+- Fix encoding of the internal JWKS.
+  The relevant standard requires the padding be omitted from the end of the encoding.
+
 1.4.0 (2020-08-13)
 ==================
 
