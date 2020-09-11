@@ -31,3 +31,8 @@ async def test_well_known(create_test_setup: SetupTestCallable) -> None:
             }
         ],
     }
+
+    # Ensure that we didn't add padding to the key components.  Stripping the
+    # padding is required by RFC 7515 and 7518.
+    assert "=" not in result["keys"][0]["n"]
+    assert "=" not in result["keys"][0]["e"]
