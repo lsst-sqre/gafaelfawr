@@ -57,6 +57,10 @@ def base64_to_number(data: str) -> int:
 def number_to_base64(data: int) -> bytes:
     """Convert an integer to base64-encoded bytes in big endian order.
 
+    The base64 encoding used here is the Base64urlUInt encoding defined in RFC
+    7515 and 7518, which uses the URL-safe encoding characters and omits all
+    padding.
+
     Parameters
     ----------
     data : `int`
@@ -71,4 +75,4 @@ def number_to_base64(data: int) -> bytes:
     bit_length = data.bit_length()
     byte_length = bit_length // 8 + 1
     data_as_bytes = data.to_bytes(byte_length, byteorder="big", signed=False)
-    return base64.urlsafe_b64encode(data_as_bytes)
+    return base64.urlsafe_b64encode(data_as_bytes).rstrip(b"=")

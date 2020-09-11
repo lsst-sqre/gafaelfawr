@@ -34,5 +34,5 @@ def test_base64_to_number() -> None:
 
 
 def test_number_to_base64() -> None:
-    assert number_to_base64(0) == b"AA=="
+    assert number_to_base64(0) == b"AA"
     assert number_to_base64(65537) == b"AQAB"

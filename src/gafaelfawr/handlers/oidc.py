@@ -217,7 +217,7 @@ async def post_token(request: web.Request) -> web.Response:
     response = {
         "access_token": token.encoded,
         "token_type": "Bearer",
-        "expires_in": token.claims["exp"] - time.time(),
+        "expires_in": int(token.claims["exp"] - time.time()),
         "id_token": token.encoded,
     }
     headers = {
