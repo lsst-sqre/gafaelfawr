@@ -104,6 +104,10 @@ async def test_login(
         "expires_in": ANY,
         "id_token": ANY,
     }
+    assert isinstance(data["expires_in"], int)
+    exp_seconds = setup.config.issuer.exp_minutes * 60
+    assert exp_seconds - 5 <= data["expires_in"] <= exp_seconds
+
     assert data["access_token"] == data["id_token"]
     verifier = setup.factory.create_token_verifier()
     token = verifier.verify_internal_token(Token(encoded=data["id_token"]))
