@@ -14,20 +14,14 @@ repos:
         name: Check rST
         files: (README\.rst)|(CHANGELOG\.rst)
 
-  - repo: https://github.com/asottile/seed-isort-config
-    rev: v2.2.0
-    hooks:
-      - id: seed-isort-config
-        args: [--exclude=docs/.*\.py, --application-directories=src]
-
-  - repo: https://github.com/timothycrosley/isort
+  - repo: https://github.com/pycqa/isort
     rev: 5.5.3
     hooks:
       - id: isort
         additional_dependencies:
           - toml
 
-  - repo: https://github.com/ambv/black
+  - repo: https://github.com/psf/black
     rev: 20.8b1
     hooks:
       - id: black
