@@ -92,10 +92,14 @@ class TokenIssuer:
         """
         if not self._config.influxdb_secret:
             raise NotConfiguredException("No InfluxDB issuer configuration")
+        if self._config.influxdb_username:
+            username = self._config.influxdb_username
+        else:
+            username = token.username
         payload = {
             "exp": token.claims["exp"],
             "iat": int(time.time()),
-            "username": token.username,
+            "username": username,
         }
         return jwt.encode(
             payload, self._config.influxdb_secret, algorithm="HS256"

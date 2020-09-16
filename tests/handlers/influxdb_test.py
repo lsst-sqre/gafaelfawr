@@ -49,6 +49,7 @@ async def test_influxdb(
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
         "event": "Issued InfluxDB token",
+        "influxdb_username": token.username,
         "level": "info",
         "logger": "gafaelfawr",
         "method": "GET",
@@ -95,6 +96,47 @@ async def test_not_configured(
         "error": "No InfluxDB issuer configuration",
         "event": "Not configured",
         "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/tokens/influxdb/new",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "scope": "",
+        "token": token.jti,
+        "user": token.username,
+        "user_agent": ANY,
+    }
+
+
+async def test_influxdb_force_username(
+    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+) -> None:
+    setup = await create_test_setup(environment="influxdb-username")
+    token = setup.create_token()
+    assert setup.config.issuer.influxdb_secret
+
+    caplog.clear()
+    r = await setup.client.get(
+        "/auth/tokens/influxdb/new",
+        headers={"X-Auth-Request-Token": token.encoded},
+    )
+
+    assert r.status == 200
+    data = await r.json()
+    claims = jwt.decode(
+        data["token"], setup.config.issuer.influxdb_secret, algorithm="HS256"
+    )
+    assert claims == {
+        "username": "influxdb-user",
+        "exp": token.claims["exp"],
+        "iat": ANY,
+    }
+
+    log = json.loads(caplog.record_tuples[0][2])
+    assert log == {
+        "event": "Issued InfluxDB token",
+        "influxdb_username": "influxdb-user",
+        "level": "info",
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth/tokens/influxdb/new",
