@@ -2,6 +2,15 @@
 Change log
 ##########
 
+1.5.0 (2020-09-16)
+==================
+
+This release fixes some issues with the InfluxDB token issuance support.
+
+- Put the username in the ``username`` field of InfluxDB tokens, not ``sub``.
+- Add a new configuration option, ``issuer.influxdb_username``, and a new Helm chart parameter, ``issuer.influxdb.username``, to force the username field of all issued InfluxDB tokens to a single value.
+  This is useful if one does not want to do user management in InfluxDB and is content with granting all users access to a generic account.
+
 1.4.1 (2020-09-11)
 ==================
 
