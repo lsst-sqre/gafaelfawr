@@ -76,9 +76,9 @@ class TokenIssuer:
     def issue_influxdb_token(self, token: VerifiedToken) -> str:
         """Issue an InfluxDB-compatible token.
 
-        InfluxDB requires an HS256 JWT with ``sub`` and ``exp`` claims using a
-        shared secret.  Issue such a token based on the user's Gafaelfawr
-        token.
+        InfluxDB requires an HS256 JWT with ``username`` and ``exp`` claims
+        using a shared secret.  Issue such a token based on the user's
+        Gafaelfawr token.
 
         Parameters
         ----------
@@ -95,7 +95,7 @@ class TokenIssuer:
         payload = {
             "exp": token.claims["exp"],
             "iat": int(time.time()),
-            "sub": token.username,
+            "username": token.username,
         }
         return jwt.encode(
             payload, self._config.influxdb_secret, algorithm="HS256"

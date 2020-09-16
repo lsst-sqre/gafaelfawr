@@ -41,7 +41,7 @@ async def test_influxdb(
         influxdb_token, setup.config.issuer.influxdb_secret, algorithm="HS256"
     )
     assert claims == {
-        "sub": token.username,
+        "username": token.username,
         "exp": token.claims["exp"],
         "iat": ANY,
     }
