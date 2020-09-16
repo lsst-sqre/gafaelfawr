@@ -204,4 +204,6 @@ This will enable creation of new InfluxDB tokens via the ``/auth/tokens/influxdb
 Users can authenticate to this route with either a web session or a bearer token.
 The result is a JSON object containing a ``token`` key, the contents of which are the bearer token to present to InfluxDB.
 
-The token will contain a ``sub`` claim matching the user's Gafaelfawr username and will expire at the same time as the token or session used to authenticate to this route.
+The token will contain a ``username`` claim matching the user's Gafaelfawr username and will expire at the same time as the token or session used to authenticate to this route.
+
+If you want all InfluxDB tokens to contain the same ``username`` field so that you can use a single generic InfluxDB account, set ``issuer.influxdb.username`` to that value in :ref:`helm-settings`.

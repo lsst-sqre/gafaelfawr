@@ -44,5 +44,9 @@ async def get_influxdb(
         context.logger.warning("Not configured", error=str(e))
         response = {"error": "not_supported", "error_description": str(e)}
         return web.json_response(response, status=400)
-    context.logger.info("Issued InfluxDB token")
+    if context.config.issuer.influxdb_username:
+        username = context.config.issuer.influxdb_username
+    else:
+        username = token.username
+    context.logger.info("Issued InfluxDB token", influxdb_username=username)
     return web.json_response({"token": influxdb_token})

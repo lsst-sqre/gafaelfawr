@@ -87,6 +87,9 @@ Secrets beginning or ending in whitespace are not supported.
         File containing the shared secret for issuing InfluxDB tokens.
         If not set, issuance of InfluxDB tokens will be disabled.
 
+    ``influxdb_username`` (optional)
+        If set, force the username in all InfluxDB tokens to this value rather than the authenticated username of the user requesting a token.
+
 ``github`` (optional)
     Configure GitHub authentication.
     Users who go to the ``/login`` route will be sent to GitHub for authentication, and their token created based on their GitHub user metadata.

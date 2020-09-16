@@ -57,6 +57,9 @@ class IssuerSettings(BaseModel):
     influxdb_secret_file: Optional[str] = None
     """File containing shared secret for issuing InfluxDB tokens."""
 
+    influxdb_username: Optional[str] = None
+    """The username to set in all InfluxDB tokens."""
+
 
 class GitHubSettings(BaseModel):
     """pydantic model of GitHub configuration."""

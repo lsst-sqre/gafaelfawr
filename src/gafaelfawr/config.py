@@ -100,6 +100,9 @@ class IssuerConfig:
     influxdb_secret: Optional[str]
     """Shared secret for issuing InfluxDB authentication tokens."""
 
+    influxdb_username: Optional[str]
+    """The username to set in all InfluxDB tokens."""
+
 
 @dataclass(frozen=True)
 class VerifierConfig:
@@ -356,6 +359,7 @@ class Config:
             username_claim=settings.username_claim,
             uid_claim=settings.uid_claim,
             influxdb_secret=influxdb_secret,
+            influxdb_username=settings.issuer.influxdb_username,
         )
         verifier_config = VerifierConfig(
             iss=settings.issuer.iss,

@@ -161,6 +161,10 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
     Whether to enable InfluxDB token issuance.
     If this is set to true, the Vault secret for Gafaelfawr must contain an ``influxdb-secret`` key.
 
+``issuer.influxdb.username`` (optional)
+    If set, force the username in all InfluxDB tokens to this value rather than the authenticated username of the user requesting a token.
+    Only applicable if InfluxDB token issuance is enabled.
+
 ``github.client_id``
     The client ID for the GitHub OAuth App if using GitHub as the identity provider.
     Only set either this or ``cilogon.client_id``.
