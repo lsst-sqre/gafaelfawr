@@ -26,10 +26,14 @@ class BaseFinder:
 
 
 class BasePage(BaseFinder):
+    def __init__(self, root: webdriver.Chrome) -> None:
+        self.root = root
+
     @property
     def page_source(self) -> str:
         return self.root.page_source
 
 
 class BaseElement(BaseFinder):
-    pass
+    def __init__(self, root: WebElement) -> None:
+        self.root = root
