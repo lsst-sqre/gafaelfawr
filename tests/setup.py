@@ -46,14 +46,13 @@ class SetupTest:
         self.app = app
         self.responses = responses
         self._client = client
-        self._session = ClientSession()
         self.config: Config = self.app["gafaelfawr/config"]
         self.redis: Redis = self.app["gafaelfawr/redis"]
         self.factory = ComponentFactory(
             config=self.config,
             redis=self.redis,
             key_cache=TTLCache(maxsize=16, ttl=600),
-            http_session=self._session,
+            http_session=ClientSession(),
         )
 
     @property
@@ -67,11 +66,6 @@ class SetupTest:
         """
         assert self._client
         return self._client
-
-    @property
-    def http_session(self) -> ClientSession:
-        """Return a ClientSession usable for outbound calls."""
-        return self._session
 
     async def create_session(
         self, *, groups: Optional[List[str]] = None, **claims: str
