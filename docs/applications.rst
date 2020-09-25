@@ -168,8 +168,8 @@ The OpenID Connect client should be configured to request only the ``openid`` sc
 No other scope is supported.
 The client must be able to authenticate by sending a ``client_secret`` parameter in the request to the token endpoint.
 
-Example
--------
+Chronograf example
+------------------
 
 Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com`` and Chronograf is at the URL ``/chronograf``, here are the environment variables required to configure `Chronograf <https://docs.influxdata.com/chronograf/v1.8/administration/managing-security/#configure-chronograf-to-use-any-oauth-2-0-provider>`__:
 
@@ -183,6 +183,18 @@ Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com``
 * ``GENERIC_SCOPES``: ``openid``
 * ``PUBLIC_URL``: ``https://example.com/chronograf``
 * ``TOKEN_SECRET``: ``pCY29u3qMTdWCNetOUD3OShsqwPm+pYKDNt6dqy01qw=``
+
+Open Distro for Elasticsearch example
+-------------------------------------
+
+Assuming that Gafaelfawr and Open Distro for Elasticsearch are deployed on the host ``example.com``, here are the settings required to configure `Open Distro for Elasticsearch <https://opendistro.github.io/for-elasticsearch-docs/docs/security/configuration/openid-connect/>`__:
+
+* ``opendistro_security.auth.type``: ``openid``
+* ``opendistro_security.openid.connect_url``: ``https://example.com/.well-known/openid-configuration``
+* ``opendistro_security.openid.client_id``: ``kibana-client-id``
+* ``opendistro_security.openid.client_secret``: ``fb7518beb61d27aaf20675d62778dea9``
+* ``opendistro_security.openid.scope``: ``openid``
+* ``opendistro_security.openid.logout_url``: ``https://example.com/logout``
 
 .. _influxdb:
 

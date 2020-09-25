@@ -98,3 +98,6 @@ Gafaelfawr supports the following routes:
 ``/.well-known/jwks.json``
     Returns the key information used to issue JWTs in JWKS format.
     This can be used by protected applications to retrieve Gafaelfawr's public signing key and independently verify the JWTs issued by Gafaelfawr.
+
+``/.well-known/openid-configuration``
+    Returns the OpenID Connect configuration information for protected applications that want to use Gafaelfawr as an OpenID Connect server.
