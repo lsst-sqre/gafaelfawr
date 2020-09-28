@@ -12,7 +12,7 @@ jobs:
           - 3.8
 
     steps:
-      - uses: actions/checkout@v2.3.2
+      - uses: actions/checkout@v2.3.3
 
       - name: Set up Python
         uses: actions/setup-python@v2.1.2
@@ -39,7 +39,7 @@ jobs:
     needs: [test]
 
     steps:
-      - uses: actions/checkout@v2.3.2
+      - uses: actions/checkout@v2.3.3
 
       - name: Define the Docker tag
         id: vars
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2.3.2
+      - uses: actions/checkout@v2.3.3
 
       - name: Set up Python
         uses: actions/setup-python@v2.1.2
