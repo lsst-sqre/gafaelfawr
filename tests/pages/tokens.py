@@ -23,7 +23,7 @@ class NewTokenPage(BasePage):
     def scopes(self) -> List[ScopeRow]:
         return [
             ScopeRow(e)
-            for e in self.find_elements_by_class_name("token-scope")
+            for e in self.find_elements_by_class_name("qa-token-scope")
         ]
 
     async def submit(self) -> None:
@@ -46,7 +46,8 @@ class TokensPage(BasePage):
     @property
     def tokens(self) -> List[TokenRow]:
         return [
-            TokenRow(e) for e in self.find_elements_by_class_name("token-row")
+            TokenRow(e)
+            for e in self.find_elements_by_class_name("qa-token-row")
         ]
 
     async def click_create_token(self) -> None:
@@ -61,7 +62,7 @@ class ScopeRow(BaseElement):
 
     @property
     def description(self) -> str:
-        return self.find_element_by_class_name("scope-description").text
+        return self.find_element_by_class_name("qa-scope-description").text
 
     @property
     def label(self) -> str:
@@ -80,4 +81,4 @@ class TokenRow(BaseElement):
 
     @property
     def scope(self) -> str:
-        return self.find_element_by_class_name("token-scope").text
+        return self.find_element_by_class_name("qa-token-scope").text

@@ -22,14 +22,14 @@
             <h3>Token Scopes</h3>
 
             {% for scope in scopes %}
-            <div class="form-group row token-scope">
+            <div class="form-group row qa-token-scope">
               <div class="col-md-4">
                 <div class="form-check">
                   {{ form[scope](class="form-check-input") }}
                   {{ form[scope].label(class="form-check-label") }}
                 </div>
               </div>
-              <div class="col-md-8 text-dark scope-description">
+              <div class="col-md-8 text-dark qa-scope-description">
                 {{ form[scope].description }}
               </div>
             </div>

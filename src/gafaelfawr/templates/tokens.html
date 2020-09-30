@@ -35,13 +35,13 @@
         <div class="col-md-12">
           <div class="list-group">
             {% for token in tokens %} {% set form=forms[token.key] %}
-            <div class="list-group-item token-row">
+            <div class="list-group-item qa-token-row">
               <form action="/auth/tokens/{{ token.key }}" method="POST"
                     novalidate>
                 <input type="hidden" name="_csrf" value="{{ csrf_token }}" />
                 {{ form.method_(value="DELETE") }}
                 <div class="float-right">
-                  <button class="btn btn-sm btn-danger revoke-token"
+                  <button class="btn btn-sm btn-danger qa-revoke-token"
                           aria-haspopup="dialog" type="submit">Revoke</button>
                 </div>
                 <span class="token-description">
@@ -51,7 +51,7 @@
                   <span>
                     <br/>
                     Scope: <em>
-                      <span class="text-dark token-scope" aria-label="Token scope">
+                      <span class="text-dark qa-token-scope" aria-label="Token scope">
                         {{ token.scope }}
                       </span>
                     </em>
