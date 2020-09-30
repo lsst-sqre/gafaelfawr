@@ -9,16 +9,40 @@ from aioresponses import aioresponses
 
 from tests.setup import SetupTest
 from tests.support.app import create_test_app
+from tests.support.selenium import selenium_driver
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Awaitable, Callable, Iterable, List, Optional
+    from typing import (
+        Any,
+        Awaitable,
+        Callable,
+        Iterable,
+        Iterator,
+        List,
+        Optional,
+    )
 
     from aiohttp import web
     from aiohttp.pytest_plugin.test_utils import TestClient
+    from seleniumwire import webdriver
 
     from gafaelfawr.config import OIDCClient
     from tests.setup import SetupTestCallable
+
+
+@pytest.fixture(scope="session")
+def driver() -> Iterator[webdriver.Chrome]:
+    """Create a driver for Selenium testing.
+
+    Returns
+    -------
+    driver : `selenium.webdriver.Chrome`
+        The web driver to use in Selenium tests.
+    """
+    driver = selenium_driver()
+    yield driver
+    driver.quit()
 
 
 @pytest.fixture
@@ -114,10 +138,9 @@ def create_test_setup(
             oidc_clients=oidc_clients,
             **settings,
         )
+        test_client = None
         if client:
-            client = await aiohttp_client(app)
-            return SetupTest(app, responses, client)
-        else:
-            return SetupTest(app, responses)
+            test_client = await aiohttp_client(app)
+        return SetupTest(app, responses, test_client)
 
     return _create_test_setup

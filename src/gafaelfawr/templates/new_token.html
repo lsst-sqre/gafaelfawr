@@ -17,19 +17,19 @@
           {% block content %}
           <h2>Download Token</h2>
 
-          <form action="" method="post" novalidate>
+          <form action="" method="post" id="create-token" novalidate>
             <input type="hidden" name="_csrf" value="{{ csrf_token }}" />
             <h3>Token Scopes</h3>
 
             {% for scope in scopes %}
-            <div class="form-group row">
+            <div class="form-group row qa-token-scope">
               <div class="col-md-4">
                 <div class="form-check">
                   {{ form[scope](class="form-check-input") }}
                   {{ form[scope].label(class="form-check-label") }}
                 </div>
               </div>
-              <div class="col-md-8 text-dark">
+              <div class="col-md-8 text-dark qa-scope-description">
                 {{ form[scope].description }}
               </div>
             </div>
