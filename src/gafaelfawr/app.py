@@ -26,7 +26,7 @@ from gafaelfawr.handlers import init_routes
 from gafaelfawr.x_forwarded import XForwardedFiltered
 
 if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, Optional
+    from typing import Any, Awaitable, Callable, Optional, Tuple
 
     from aioredis import Redis
     from structlog import BoundLogger
@@ -67,7 +67,7 @@ async def create_app(
     logger = get_logger(config.safir.logger_name)
     config.log_settings(logger)
 
-    key_cache = TTLCache(maxsize=16, ttl=600)
+    key_cache: TTLCache[Tuple[str, str], bytes] = TTLCache(maxsize=16, ttl=600)
     if not redis_pool:
         redis_pool = await aioredis.create_redis_pool(
             config.redis_url, password=config.redis_password
