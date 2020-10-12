@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import base64
+import os
 
 __all__ = [
     "add_padding",
     "base64_to_number",
     "number_to_base64",
+    "random_128_bits",
 ]
 
 
@@ -76,3 +78,8 @@ def number_to_base64(data: int) -> bytes:
     byte_length = bit_length // 8 + 1
     data_as_bytes = data.to_bytes(byte_length, byteorder="big", signed=False)
     return base64.urlsafe_b64encode(data_as_bytes).rstrip(b"=")
+
+
+def random_128_bits() -> str:
+    """Generate random 128 bits encoded in base64 without padding."""
+    return base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")

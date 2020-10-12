@@ -12,6 +12,13 @@ aiohttp
 aiodns
 chardet
 
+# These dependencies are for fastapi including some optional features.
+fastapi
+jinja2
+python-multipart
+starlette
+uvicorn
+
 aiohttp_csrf
 aiohttp_jinja2
 aiohttp_remotes
@@ -20,7 +27,6 @@ aioredis
 cachetools
 click
 cryptography
-jinja2
 pydantic
 PyJWT
 pyyaml

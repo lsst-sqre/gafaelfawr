@@ -11,6 +11,7 @@ coverage[toml]
 diagrams
 documenteer>=0.5,<0.6
 flake8
+httpx
 holdup
 lsst-sphinx-bootstrap-theme<0.3
 mockaioredis
