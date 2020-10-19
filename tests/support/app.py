@@ -152,7 +152,7 @@ async def create_fastapi_test_app(
     """
     config_path = build_config(tmp_path, environment, oidc_clients, **settings)
     config.set_config_path(str(config_path))
-    redis.set_pool(await mockaioredis.create_redis_pool(""))
+    redis.use_mock(True)
     key_cache().clear()
     return app
 

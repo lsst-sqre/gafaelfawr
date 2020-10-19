@@ -8,8 +8,8 @@ import pytest
 from aioresponses import aioresponses
 
 from tests.setup import SetupTest
-from tests.support.app import create_test_app
-from tests.support.selenium import selenium_driver
+from tests.support.app import build_config, create_test_app
+from tests.support.selenium import run_app, selenium_driver
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -41,8 +41,10 @@ def driver() -> Iterator[webdriver.Chrome]:
         The web driver to use in Selenium tests.
     """
     driver = selenium_driver()
-    yield driver
-    driver.quit()
+    try:
+        yield driver
+    finally:
+        driver.quit()
 
 
 @pytest.fixture
@@ -58,6 +60,13 @@ def responses() -> Iterable[aioresponses]:
     """
     with aioresponses(passthrough=["http://127.0.0.1"]) as mock:
         yield mock
+
+
+@pytest.fixture
+def selenium_server_url(tmp_path: Path) -> Iterable[str]:
+    config_path = build_config(tmp_path, environment="selenium")
+    with run_app(tmp_path, config_path) as url:
+        yield url
 
 
 @pytest.fixture

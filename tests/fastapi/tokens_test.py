@@ -25,7 +25,7 @@ async def test_no_auth(tmp_path: Path, caplog: LogCaptureFixture) -> None:
     async with create_test_client(app) as client:
         for url in ("/auth/tokens", "/auth/tokens/blah", "/auth/tokens/new"):
             r = await client.get(url, allow_redirects=False)
-            assert r.status_code == 307
+            assert r.status_code == 401
 
 
 async def test_tokens_empty_list(
@@ -34,11 +34,12 @@ async def test_tokens_empty_list(
     app = await create_fastapi_test_app(tmp_path)
     setup = SetupFastAPITest(tmp_path, responses)
     await setup.initialize()
-    token = create_test_token(config())
+    token = create_test_token(setup.config)
 
     async with create_test_client(app) as client:
-        await setup.login(client, token)
-        r = await client.get("/auth/tokens")
+        r = await client.get(
+            "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
+        )
 
     assert r.status_code == 200
     body = r.text
@@ -49,11 +50,11 @@ async def test_tokens(tmp_path: Path, responses: aioresponses) -> None:
     app = await create_fastapi_test_app(tmp_path)
     setup = SetupFastAPITest(tmp_path, responses)
     await setup.initialize()
-    token = create_test_token(config())
+    token = create_test_token(setup.config)
 
     handle = SessionHandle()
     scoped_token = create_test_token(
-        config(), scope="exec:test", jti=handle.encode()
+        setup.config, scope="exec:test", jti=handle.encode()
     )
     session = Session.create(handle, scoped_token)
     user_token_store = setup.factory.create_user_token_store()
@@ -62,8 +63,9 @@ async def test_tokens(tmp_path: Path, responses: aioresponses) -> None:
     await pipeline.execute()
 
     async with create_test_client(app) as client:
-        await setup.login(client, token)
-        r = await client.get("/auth/tokens")
+        r = await client.get(
+            "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
+        )
 
     assert r.status_code == 200
     body = r.text
@@ -77,11 +79,11 @@ async def test_tokens_handle_get_delete(
     app = await create_fastapi_test_app(tmp_path)
     setup = SetupFastAPITest(tmp_path, responses)
     await setup.initialize()
-    token = create_test_token(config())
+    token = create_test_token(setup.config)
 
     handle = SessionHandle()
     scoped_token = create_test_token(
-        config(), scope="exec:test", jti=handle.encode()
+        setup.config, scope="exec:test", jti=handle.encode()
     )
     session = Session.create(handle, scoped_token)
     session_store = setup.factory.create_session_store()
@@ -92,12 +94,16 @@ async def test_tokens_handle_get_delete(
     await pipeline.execute()
 
     async with create_test_client(app) as client:
-        await setup.login(client, token)
-        r = await client.get(f"/auth/tokens/{handle.key}")
+        r = await client.get(
+            f"/auth/tokens/{handle.key}",
+            headers={"X-Auth-Request-Token": token.encoded},
+        )
         assert r.status_code == 200
         assert handle.key in r.text
 
-        r = await client.get("/auth/tokens")
+        r = await client.get(
+            "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
+        )
         assert r.status_code == 200
         body = r.text
         csrf_match = re.search('name="_csrf" value="([^"]+)"', body)
@@ -107,6 +113,7 @@ async def test_tokens_handle_get_delete(
         # Deleting without a CSRF token will fail.
         r = await client.post(
             f"/auth/tokens/{handle.key}",
+            headers={"X-Auth-Request-Token": token.encoded},
             data={"method_": "DELETE"},
         )
         assert r.status_code == 400
@@ -114,6 +121,7 @@ async def test_tokens_handle_get_delete(
         # Deleting with a bogus CSRF token will fail.
         r = await client.post(
             f"/auth/tokens/{handle.key}",
+            headers={"X-Auth-Request-Token": token.encoded},
             data={"method_": "DELETE", "_csrf": csrf_token + "xxxx"},
         )
         assert r.status_code == 400
@@ -122,6 +130,7 @@ async def test_tokens_handle_get_delete(
         caplog.clear()
         r = await client.post(
             f"/auth/tokens/{handle.key}",
+            headers={"X-Auth-Request-Token": token.encoded},
             data={"method_": "DELETE", "_csrf": csrf_token},
         )
         assert r.status_code == 200
@@ -138,7 +147,6 @@ async def test_tokens_handle_get_delete(
             "request_id": ANY,
             "scope": " ".join(sorted(token.scope)),
             "token": token.jti,
-            "token_source": "cookie",
             "user": token.username,
             "user_agent": ANY,
         }
@@ -153,11 +161,10 @@ async def test_tokens_new_form(
     setup = SetupFastAPITest(tmp_path, responses)
     await setup.initialize()
     token = create_test_token(
-        config(), groups=["admin"], scope="exec:admin read:all"
+        setup.config, groups=["admin"], scope="exec:admin read:all"
     )
 
     async with create_test_client(app) as client:
-        await setup.login(client, token)
         r = await client.get(
             "/auth/tokens/new",
             headers={"Authorization": f"bearer {token.encoded}"},
@@ -181,13 +188,13 @@ async def test_tokens_new_create(
     setup = SetupFastAPITest(tmp_path, responses)
     await setup.initialize()
     token = create_test_token(
-        config(), groups=["admin"], scope="exec:admin read:all"
+        setup.config, groups=["admin"], scope="exec:admin read:all"
     )
 
     async with create_test_client(app) as client:
-        await setup.login(client, token)
-
-        r = await client.get("/auth/tokens/new")
+        r = await client.get(
+            "/auth/tokens/new", headers={"X-Auth-Request-Token": token.encoded}
+        )
         assert r.status_code == 200
         body = r.text
         csrf_match = re.search('name="_csrf" value="([^"]+)"', body)
@@ -197,7 +204,7 @@ async def test_tokens_new_create(
         # Creating without a CSRF token will fail.
         r = await client.post(
             "/auth/tokens/new",
-            headers={"Authorization": f"bearer {token.encoded}"},
+            headers={"X-Auth-Request-Token": token.encoded},
             data={"read:all": "y"},
         )
         assert r.status_code == 400
@@ -205,6 +212,7 @@ async def test_tokens_new_create(
         # Creating with a bogus CSRF token will fail.
         r = await client.post(
             "/auth/tokens/new",
+            headers={"X-Auth-Request-Token": token.encoded},
             data={"read:all": "y", "_csrf": csrf_token + "xxxx"},
         )
         assert r.status_code == 400
@@ -216,6 +224,7 @@ async def test_tokens_new_create(
         caplog.clear()
         r = await client.post(
             "/auth/tokens/new",
+            headers={"X-Auth-Request-Token": token.encoded},
             data={"read:all": "y", "exec:test": "y", "_csrf": csrf_token},
         )
         assert r.status_code == 200
@@ -237,7 +246,6 @@ async def test_tokens_new_create(
             "request_id": ANY,
             "scope": " ".join(sorted(token.scope)),
             "token": token.jti,
-            "token_source": "cookie",
             "user": token.username,
             "user_agent": ANY,
         }

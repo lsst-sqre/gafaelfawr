@@ -58,6 +58,7 @@ class SetupFastAPITest:
         return self._redis
 
     async def initialize(self) -> None:
+        redis.use_mock(True)
         self._redis = await redis()
         self._factory = ComponentFactory(
             config=self.config,

@@ -1,0 +1,23 @@
+realm: "localhost"
+session_secret_file: "{session_secret_file}"
+redis_url: "dummy"
+after_logout_url: "https://example.com/landing"
+group_mapping:
+  "exec:admin": ["admin"]
+  "exec:test": ["test"]
+  "read:all": ["foo", "admin", "org-a-team"]
+known_scopes:
+  "exec:admin": "admin description"
+  "exec:test": "test description"
+  "read:all": "can read everything"
+issuer:
+  iss: "https://test.example.com/"
+  key_id: "some-kid"
+  key_file: "{issuer_key_file}"
+  influxdb_secret_file: "{influxdb_secret_file}"
+  aud:
+    default: "https://example.com/"
+    internal: "https://example.com/api"
+github:
+  client_id: "some-github-client-id"
+  client_secret_file: "{github_secret_file}"

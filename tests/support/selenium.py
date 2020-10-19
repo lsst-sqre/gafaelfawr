@@ -3,15 +3,30 @@
 from __future__ import annotations
 
 import asyncio
+import errno
+import logging
 import os
+import socket
+import subprocess
+import time
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from seleniumwire import webdriver
 
 if TYPE_CHECKING:
-    from typing import Callable, TypeVar
+    from pathlib import Path
+    from typing import Callable, Iterator, TypeVar
 
     T = TypeVar("T")
+
+APP_TEMPLATE = """
+from gafaelfawr.fastapi.dependencies import config, redis
+from gafaelfawr.fastapi.main import app
+
+config.set_config_path("{config_path}")
+redis.use_mock(True)
+"""
 
 
 async def run(f: Callable[[], T]) -> T:
@@ -79,3 +94,49 @@ def selenium_driver() -> webdriver.Chrome:
     options.add_argument("proxy-bypass-list=<-loopback>")
 
     return webdriver.Chrome(options=options)
+
+
+def _wait_for_server(port: int, timeout: float = 5.0) -> None:
+    """Wait until a server accepts connections on the specified port."""
+    deadline = time.time() + timeout
+    while True:
+        socket_timeout = deadline - time.time()
+        if socket_timeout < 0.0:
+            assert False, f"Server did not start on port {port} in {timeout}s"
+        try:
+            s = socket.socket()
+            s.settimeout(socket_timeout)
+            s.connect(("localhost", port))
+        except socket.timeout:
+            pass
+        except socket.error as e:
+            if e.errno not in [errno.ETIMEDOUT, errno.ECONNREFUSED]:
+                raise
+        else:
+            s.close()
+            return
+        time.sleep(0.1)
+
+
+@contextmanager
+def run_app(tmp_path: Path, config_path: Path) -> Iterator[str]:
+    app_path = tmp_path / "testing.py"
+    with app_path.open("w") as f:
+        f.write(APP_TEMPLATE.format(config_path=str(config_path)))
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+
+    cmd = ["uvicorn", "--fd", "0", "testing:app"]
+    logging.info("Starting server with command %s", " ".join(cmd))
+    p = subprocess.Popen(cmd, cwd=str(tmp_path), stdin=s.fileno())
+    s.close()
+
+    logging.info("Waiting for server to start")
+    _wait_for_server(port)
+
+    try:
+        yield f"http://localhost:{port}"
+    finally:
+        p.terminate()

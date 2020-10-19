@@ -136,6 +136,7 @@ class RedisDependency:
 
     def __init__(self) -> None:
         self.redis: Optional[Redis] = None
+        self.mock = False
 
     async def __call__(self, config: Config = Depends(config)) -> Redis:
         if not self.redis:
@@ -149,13 +150,19 @@ class RedisDependency:
             await self.redis.wait_closed()
             self.redis = None
 
-    def set_pool(self, redis: Redis) -> None:
-        self.redis = redis
+    def use_mock(self, enable: bool) -> None:
+        self.redis = None
+        self.mock = enable
 
     async def _create_pool(self, config: Config) -> None:
-        self.redis = await create_redis_pool(
-            config.redis_url, password=config.redis_password
-        )
+        if self.mock:
+            import mockaioredis
+
+            self.redis = await mockaioredis.create_redis_pool("")
+        else:
+            self.redis = await create_redis_pool(
+                config.redis_url, password=config.redis_password
+            )
 
 
 redis = RedisDependency()

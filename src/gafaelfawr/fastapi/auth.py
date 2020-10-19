@@ -10,7 +10,7 @@ from typing import Optional, Set
 from urllib.parse import urlencode, urlparse
 
 import jwt
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 
 from gafaelfawr.exceptions import (
     InvalidRequestError,
@@ -55,12 +55,15 @@ async def verified_session(
 
 
 def verified_token(
+    x_auth_request_token: Optional[str] = Header(None),
     context: RequestContext = Depends(context),
 ) -> VerifiedToken:
-    try:
-        unverified_token = parse_authorization(context)
-    except InvalidRequestError as e:
-        raise generate_challenge(context, AuthType.Bearer, e)
+    unverified_token = x_auth_request_token
+    if not unverified_token:
+        try:
+            unverified_token = parse_authorization(context)
+        except InvalidRequestError as e:
+            raise generate_challenge(context, AuthType.Bearer, e)
     if not unverified_token:
         raise generate_unauthorized_challenge(context, AuthType.Bearer)
     try:

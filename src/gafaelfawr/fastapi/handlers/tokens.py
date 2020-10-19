@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
-from gafaelfawr.fastapi.auth import verified_session
+from gafaelfawr.fastapi.auth import verified_token
 from gafaelfawr.fastapi.dependencies import (
     RequestContext,
     context,
@@ -19,6 +19,7 @@ from gafaelfawr.fastapi.dependencies import (
 )
 from gafaelfawr.fastapi.handlers import router
 from gafaelfawr.session import Session, SessionHandle
+from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
     from typing import Dict, Optional
@@ -78,7 +79,7 @@ def build_new_token_form(
 
 @router.get("/auth/tokens", dependencies=[Depends(set_csrf)])
 async def get_tokens(
-    session: Session = Depends(verified_session),
+    token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context),
 ) -> _TemplateResponse:
     """Displays all tokens for the current user.
@@ -94,8 +95,8 @@ async def get_tokens(
         The response.
     """
     user_token_store = context.factory.create_user_token_store()
-    await user_token_store.expire_tokens(session.token.uid)
-    user_tokens = await user_token_store.get_tokens(session.token.uid)
+    await user_token_store.expire_tokens(token.uid)
+    user_tokens = await user_token_store.get_tokens(token.uid)
     forms = {}
     for user_token in user_tokens:
         form = AlterTokenForm()
@@ -117,7 +118,7 @@ async def get_tokens(
 
 @router.get("/auth/tokens/new", dependencies=[Depends(set_csrf)])
 async def get_tokens_new(
-    session: Session = Depends(verified_session),
+    token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context),
 ) -> _TemplateResponse:
     """Return a form for creating a new token.
@@ -135,7 +136,7 @@ async def get_tokens_new(
     scopes = {
         s: d
         for s, d in context.config.known_scopes.items()
-        if s in session.token.scope
+        if s in token.scope
     }
     form = build_new_token_form(scopes)
 
@@ -153,7 +154,7 @@ async def get_tokens_new(
 
 @router.post("/auth/tokens/new", dependencies=[Depends(verify_csrf)])
 async def post_tokens_new(
-    session: Session = Depends(verified_session),
+    token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context),
 ) -> RedirectResponse:
     """Create a new token based on form parameters.
@@ -171,7 +172,7 @@ async def post_tokens_new(
     scopes = {
         s: d
         for s, d in context.config.known_scopes.items()
-        if s in session.token.scope
+        if s in token.scope
     }
     form = build_new_token_form(scopes, await context.request.form())
     if not form.validate():
@@ -185,16 +186,14 @@ async def post_tokens_new(
     scope = " ".join([s for s in scopes if form[s].data])
     issuer = context.factory.create_token_issuer()
     handle = SessionHandle()
-    user_token = issuer.issue_user_token(
-        session.token, scope=scope, jti=handle.key
-    )
+    user_token = issuer.issue_user_token(token, scope=scope, jti=handle.key)
 
     session_store = context.factory.create_session_store()
     user_token_store = context.factory.create_user_token_store()
     user_session = Session.create(handle, user_token)
     pipeline = context.redis.pipeline()
     await session_store.store_session(user_session, pipeline)
-    user_token_store.store_session(session.token.uid, user_session, pipeline)
+    user_token_store.store_session(token.uid, user_session, pipeline)
     await pipeline.execute()
 
     context.request.state.cookie.message = (
@@ -211,7 +210,7 @@ async def post_tokens_new(
 @router.get("/auth/tokens/{handle}")
 async def get_token_by_handle(
     handle: str,
-    session: Session = Depends(verified_session),
+    token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context),
 ) -> _TemplateResponse:
     """Displays information about a single token.
@@ -228,7 +227,7 @@ async def get_token_by_handle(
     """
     user_token_store = context.factory.create_user_token_store()
     user_token = None
-    for entry in await user_token_store.get_tokens(session.token.uid):
+    for entry in await user_token_store.get_tokens(token.uid):
         if entry.key == handle:
             user_token = entry
             break
@@ -254,7 +253,7 @@ async def get_token_by_handle(
 @router.post("/auth/tokens/{handle}", dependencies=[Depends(verify_csrf)])
 async def post_delete_token(
     handle: str,
-    session: Session = Depends(verified_session),
+    token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context),
 ) -> RedirectResponse:
     """Deletes a single token.
@@ -282,9 +281,7 @@ async def post_delete_token(
     user_token_store = context.factory.create_user_token_store()
     session_store = context.factory.create_session_store()
     pipeline = context.redis.pipeline()
-    success = await user_token_store.revoke_token(
-        session.token.uid, handle, pipeline
-    )
+    success = await user_token_store.revoke_token(token.uid, handle, pipeline)
     if success:
         await session_store.delete_session(handle, pipeline)
         await pipeline.execute()
