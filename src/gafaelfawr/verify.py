@@ -159,6 +159,7 @@ class TokenVerifier:
         key_id = unverified_header["kid"]
 
         if "jti" in unverified_token:
+            print(self._logger)
             self._logger.debug(
                 "Verifying token %s from issuer %s",
                 unverified_token["jti"],

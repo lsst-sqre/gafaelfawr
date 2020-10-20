@@ -3,39 +3,67 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
-from urllib.parse import parse_qsl, urlencode
+from typing import Dict, Optional, Union
+from urllib.parse import ParseResult, parse_qsl, urlencode, urlparse
 
-from aiohttp import web
+from fastapi import (
+    Depends,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Response,
+    status,
+)
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel
 
+from gafaelfawr.auth import verified_session
+from gafaelfawr.dependencies import RequestContext, context
 from gafaelfawr.exceptions import (
     InvalidRequestError,
     OAuthError,
     UnsupportedGrantTypeError,
 )
-from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.decorators import authenticated_session
-from gafaelfawr.handlers.util import (
-    RequestContext,
-    generate_json_response,
-    validate_return_url,
-)
+from gafaelfawr.handlers import router
+from gafaelfawr.session import Session
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
-
-if TYPE_CHECKING:
-    from typing import Optional
-    from urllib.parse import ParseResult
-
-    from multidict import MultiDictProxy
-
-    from gafaelfawr.session import Session
 
 __all__ = ["get_login", "post_token"]
 
 
-@routes.get("/auth/openid/login")
-@authenticated_session
-async def get_login(request: web.Request, session: Session) -> web.Response:
+def parsed_redirect_uri(
+    redirect_uri: str,
+    x_forwarded_host: Optional[str] = Header(None),
+    context: RequestContext = Depends(context),
+) -> ParseResult:
+    context.rebind_logger(return_url=redirect_uri)
+    base_host = x_forwarded_host if x_forwarded_host else context.config.realm
+    parsed_return_url = urlparse(redirect_uri)
+    if parsed_return_url.hostname != base_host:
+        msg = f"URL is not at {base_host}"
+        context.logger.warning("Bad redirect_uri", error=msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "loc": ["query", "redirect_uri"],
+                "msg": msg,
+                "type": "bad_redirect_uri",
+            },
+        )
+    return parsed_return_url
+
+
+@router.get("/auth/openid/login")
+async def get_login(
+    client_id: str,
+    parsed_redirect_uri: ParseResult = Depends(parsed_redirect_uri),
+    response_type: Optional[str] = Query(None),
+    scope: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    session: Session = Depends(verified_session),
+    context: RequestContext = Depends(context),
+) -> RedirectResponse:
     """Authenticate the user for an OpenID Connect server flow.
 
     Authenticates the user and then returns an authorization code to the
@@ -58,27 +86,19 @@ async def get_login(request: web.Request, session: Session) -> web.Response:
     aiohttp.web.HTTPException
         The redirect or exception.
     """
-    context = RequestContext.from_request(request)
     oidc_server = context.factory.create_oidc_server()
 
-    # Check the client_id and redirect_uri first, since if they are not valid,
-    # we cannot continue or send any errors back to the client via redirect.
-    client_id = request.query.get("client_id")
-    if not client_id:
-        msg = "Missing client_id in OpenID Connect request"
-        context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
+    # Check the client_id first, since if it's not valid, we cannot continue
+    # or send any errors back to the client via redirect.
     if not oidc_server.is_valid_client(client_id):
         msg = f"Unknown client_id {client_id} in OpenID Connect request"
         context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    redirect_uri = request.query.get("redirect_uri")
-    parsed_redirect_uri = validate_return_url(context, redirect_uri)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"type": "invalid_client", "msg": msg},
+        )
 
     # Parse the authentication request.
-    response_type = request.query.get("response_type")
-    scope = request.query.get("scope")
-    state = request.query.get("state")
     error = None
     if not response_type:
         error = "Missing response_type parameter"
@@ -97,17 +117,17 @@ async def get_login(request: web.Request, session: Session) -> web.Response:
             error=e.error,
             error_description=str(e),
         )
-        raise web.HTTPFound(return_url)
+        return RedirectResponse(return_url)
 
     # Get an authorization code and return it.
     code = await oidc_server.issue_code(
-        client_id, redirect_uri, session.handle
+        client_id, parsed_redirect_uri.geturl(), session.handle
     )
     return_url = build_return_url(
         parsed_redirect_uri, state=state, code=code.encode()
     )
     context.logger.info("Returned OpenID Connect authorization code")
-    raise web.HTTPFound(return_url)
+    return RedirectResponse(return_url)
 
 
 def build_return_url(
@@ -134,38 +154,32 @@ def build_return_url(
     return return_url.geturl()
 
 
-def get_form_value(data: MultiDictProxy, key: str) -> Optional[str]:
-    """Retrieve a string from form data.
-
-    This handles encoding issues and returns `None` if one of the fields is
-    unexpectedly a file upload.
-
-    Parameters
-    ----------
-    data : `multidict.MultiDictProxy`
-        The form data.
-    key : `str`
-        The field to extract.
-
-    Returns
-    -------
-    value : `str` or `None`
-        The value, or `None` if this field wasn't present or if it was a file
-        upload.
-    """
-    value = data.get(key)
-    if not value:
-        return None
-    elif isinstance(value, str):
-        return value
-    elif isinstance(value, bytes):
-        return value.decode()
-    else:
-        return None
+class TokenReply(BaseModel):
+    access_token: str
+    id_token: str
+    expires_in: int
+    token_type: str = "Bearer"
 
 
-@routes.post("/auth/openid/token")
-async def post_token(request: web.Request) -> web.Response:
+class ErrorReply(BaseModel):
+    error: str
+    error_description: str
+
+
+@router.post(
+    "/auth/openid/token",
+    response_model=TokenReply,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorReply}},
+)
+async def post_token(
+    response: Response,
+    grant_type: str = Form(None),
+    client_id: str = Form(None),
+    client_secret: str = Form(None),
+    code: str = Form(None),
+    redirect_uri: str = Form(None),
+    context: RequestContext = Depends(context),
+) -> Union[Dict[str, Union[str, int]], JSONResponse]:
     """Redeem an authorization code for a token.
 
     Parameters
@@ -178,31 +192,26 @@ async def post_token(request: web.Request) -> web.Response:
     response : `aiohttp.web.Response`
         The response.
     """
-    context = RequestContext.from_request(request)
-    data = await request.post()
-    grant_type = get_form_value(data, "grant_type")
-    client_id = get_form_value(data, "client_id")
-    client_secret = get_form_value(data, "client_secret")
-    code = get_form_value(data, "code")
-    redirect_uri = get_form_value(data, "redirect_uri")
-
-    # Check the request parameters.
-    if not grant_type or not client_id or not code or not redirect_uri:
-        exc: OAuthError = InvalidRequestError("Invalid token request")
-        return generate_json_response(context, exc)
-    if grant_type != "authorization_code":
-        exc = UnsupportedGrantTypeError(f"Invalid grant type {grant_type}")
-        return generate_json_response(context, exc)
-
     # Redeem the provided code for a token.
     oidc_server = context.factory.create_oidc_server()
     try:
+        if not grant_type or not client_id or not code or not redirect_uri:
+            raise InvalidRequestError("Invalid token request")
+        if grant_type != "authorization_code":
+            raise UnsupportedGrantTypeError(f"Invalid grant type {grant_type}")
         authorization_code = OIDCAuthorizationCode.from_str(code)
         token = await oidc_server.redeem_code(
             client_id, client_secret, redirect_uri, authorization_code
         )
     except OAuthError as e:
-        return generate_json_response(context, e)
+        context.logger.warning("%s", e.message, error=str(e))
+        content = {
+            "error": e.error,
+            "error_description": e.message if e.hide_error else str(e),
+        }
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST, content=content
+        )
 
     # Log the token redemption.
     context.logger.info(
@@ -214,14 +223,10 @@ async def post_token(request: web.Request) -> web.Response:
     )
 
     # Return the token to the caller.  The headers are mandated by RFC 6749.
-    response = {
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    return {
         "access_token": token.encoded,
-        "token_type": "Bearer",
-        "expires_in": int(token.claims["exp"] - time.time()),
         "id_token": token.encoded,
+        "expires_in": int(token.claims["exp"] - time.time()),
     }
-    headers = {
-        "Cache-Control": "no-store",
-        "Pragma": "no-cache",
-    }
-    return web.json_response(response, headers=headers)

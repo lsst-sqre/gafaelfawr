@@ -8,38 +8,38 @@ from unittest.mock import ANY
 
 import jwt
 
-from gafaelfawr.handlers.util import AuthErrorChallenge, AuthType
+from gafaelfawr.auth import AuthErrorChallenge, AuthType
+from gafaelfawr.dependencies import config
+from gafaelfawr.main import app
 from tests.support.headers import parse_www_authenticate
+from tests.support.tokens import create_test_token
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
 
-    from tests.setup import SetupTestCallable
+    from tests.setup import SetupTest
 
 
-async def test_influxdb(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    setup = await create_test_setup()
-    token = setup.create_token()
-    assert setup.config.issuer.influxdb_secret
+async def test_influxdb(setup: SetupTest, caplog: LogCaptureFixture) -> None:
+    token = create_test_token(config())
+    influxdb_secret = config().issuer.influxdb_secret
+    assert influxdb_secret
 
     caplog.clear()
-    r = await setup.client.get(
-        "/auth/tokens/influxdb/new",
-        headers={"X-Auth-Request-Token": token.encoded},
-    )
+    async with setup.async_client(app) as client:
+        r = await client.get(
+            "/auth/tokens/influxdb/new",
+            headers={"Authorization": f"bearer {token.encoded}"},
+        )
 
-    assert r.status == 200
-    data = await r.json()
+    assert r.status_code == 200
+    data = r.json()
     assert data == {"token": ANY}
     influxdb_token = data["token"]
 
     header = jwt.get_unverified_header(influxdb_token)
     assert header == {"alg": "HS256", "typ": "JWT"}
-    claims = jwt.decode(
-        influxdb_token, setup.config.issuer.influxdb_secret, algorithm="HS256"
-    )
+    claims = jwt.decode(influxdb_token, influxdb_secret, algorithm="HS256")
     assert claims == {
         "username": token.username,
         "exp": token.claims["exp"],
@@ -58,38 +58,38 @@ async def test_influxdb(
         "request_id": ANY,
         "scope": "",
         "token": token.jti,
+        "token_source": "bearer",
         "user": token.username,
         "user_agent": ANY,
     }
 
 
-async def test_no_auth(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
+async def test_no_auth(setup: SetupTest) -> None:
+    async with setup.async_client(app) as client:
+        r = await client.get("/auth/tokens/influxdb/new")
 
-    r = await setup.client.get("/auth/tokens/influxdb/new")
-    assert r.status == 401
+    assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config().realm
 
 
 async def test_not_configured(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    setup = await create_test_setup("oidc")
-    token = setup.create_token()
+    setup.switch_environment("oidc")
+    token = create_test_token(config())
 
     caplog.clear()
-    r = await setup.client.get(
-        "/auth/tokens/influxdb/new",
-        headers={"X-Auth-Request-Token": token.encoded},
-    )
-    assert r.status == 400
-    assert await r.json() == {
-        "error": "not_supported",
-        "error_description": "No InfluxDB issuer configuration",
-    }
+    async with setup.async_client(app) as client:
+        r = await client.get(
+            "/auth/tokens/influxdb/new",
+            headers={"Authorization": f"bearer {token.encoded}"},
+        )
+
+    assert r.status_code == 404
+    assert r.json()["detail"]["type"] == "not_supported"
 
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
@@ -103,29 +103,30 @@ async def test_not_configured(
         "request_id": ANY,
         "scope": "",
         "token": token.jti,
+        "token_source": "bearer",
         "user": token.username,
         "user_agent": ANY,
     }
 
 
 async def test_influxdb_force_username(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    setup = await create_test_setup(environment="influxdb-username")
-    token = setup.create_token()
-    assert setup.config.issuer.influxdb_secret
+    setup.switch_environment("influxdb-username")
+    token = create_test_token(config())
+    influxdb_secret = config().issuer.influxdb_secret
+    assert influxdb_secret
 
     caplog.clear()
-    r = await setup.client.get(
-        "/auth/tokens/influxdb/new",
-        headers={"X-Auth-Request-Token": token.encoded},
-    )
+    async with setup.async_client(app) as client:
+        r = await client.get(
+            "/auth/tokens/influxdb/new",
+            headers={"Authorization": f"bearer {token.encoded}"},
+        )
 
-    assert r.status == 200
-    data = await r.json()
-    claims = jwt.decode(
-        data["token"], setup.config.issuer.influxdb_secret, algorithm="HS256"
-    )
+    assert r.status_code == 200
+    data = r.json()
+    claims = jwt.decode(data["token"], influxdb_secret, algorithm="HS256")
     assert claims == {
         "username": "influxdb-user",
         "exp": token.claims["exp"],
@@ -144,6 +145,7 @@ async def test_influxdb_force_username(
         "request_id": ANY,
         "scope": "",
         "token": token.jti,
+        "token_source": "bearer",
         "user": token.username,
         "user_agent": ANY,
     }

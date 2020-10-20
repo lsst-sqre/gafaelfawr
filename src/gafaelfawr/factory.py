@@ -51,6 +51,7 @@ class ComponentFactory:
         logger: Optional[BoundLogger] = None,
     ) -> None:
         if not logger:
+            structlog.configure(wrapper_class=structlog.stdlib.BoundLogger)
             logger = structlog.get_logger("gafaelfawr")
 
         self._config = config

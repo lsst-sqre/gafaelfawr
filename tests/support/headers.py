@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
-from gafaelfawr.handlers.util import (
+from gafaelfawr.auth import (
     AuthChallenge,
     AuthError,
     AuthErrorChallenge,

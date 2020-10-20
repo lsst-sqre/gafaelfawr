@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from gafaelfawr.fastapi.dependencies import redis
-from gafaelfawr.fastapi.handlers import init_router, router
-from gafaelfawr.fastapi.middleware.state import StateMiddleware
-from gafaelfawr.fastapi.middleware.x_forwarded import XForwardedMiddleware
+from gafaelfawr.dependencies import redis
+from gafaelfawr.handlers import init_router, router
+from gafaelfawr.middleware.state import StateMiddleware
+from gafaelfawr.middleware.x_forwarded import XForwardedMiddleware
 
 app = FastAPI()
 init_router()

@@ -21,8 +21,8 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
 APP_TEMPLATE = """
-from gafaelfawr.fastapi.dependencies import config, redis
-from gafaelfawr.fastapi.main import app
+from gafaelfawr.dependencies import config, redis
+from gafaelfawr.main import app
 
 config.set_config_path("{config_path}")
 redis.use_mock(True)

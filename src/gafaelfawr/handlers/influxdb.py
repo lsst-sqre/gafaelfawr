@@ -2,26 +2,29 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Dict
 
-from aiohttp import web
+from fastapi import Depends, HTTPException, status
+from pydantic import BaseModel
 
+from gafaelfawr.auth import verified_token
+from gafaelfawr.dependencies import RequestContext, context
 from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.decorators import authenticated_token
-from gafaelfawr.handlers.util import RequestContext
-
-if TYPE_CHECKING:
-    from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.handlers import router
+from gafaelfawr.tokens import VerifiedToken
 
 __all__ = ["get_influxdb"]
 
 
-@routes.get("/auth/tokens/influxdb/new")
-@authenticated_token
+class TokenReply(BaseModel):
+    token: str
+
+
+@router.get("/auth/tokens/influxdb/new", response_model=TokenReply)
 async def get_influxdb(
-    request: web.Request, token: VerifiedToken
-) -> web.Response:
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context),
+) -> Dict[str, str]:
     """Return an InfluxDB-compatible JWT.
 
     Parameters
@@ -36,17 +39,18 @@ async def get_influxdb(
     response : `aiohttp.web.Response`
         The response.
     """
-    context = RequestContext.from_request(request)
     token_issuer = context.factory.create_token_issuer()
     try:
         influxdb_token = token_issuer.issue_influxdb_token(token)
     except NotConfiguredException as e:
         context.logger.warning("Not configured", error=str(e))
-        response = {"error": "not_supported", "error_description": str(e)}
-        return web.json_response(response, status=400)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"type": "not_supported", "msg": str(e)},
+        )
     if context.config.issuer.influxdb_username:
         username = context.config.issuer.influxdb_username
     else:
         username = token.username
     context.logger.info("Issued InfluxDB token", influxdb_username=username)
-    return web.json_response({"token": influxdb_token})
+    return {"token": influxdb_token}

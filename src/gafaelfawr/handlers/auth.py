@@ -3,34 +3,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum, auto
-from typing import TYPE_CHECKING
+from enum import Enum
+from typing import Dict, List, Optional, Set
 
-from aiohttp import web
-from aiohttp_session import get_session
+from fastapi import Depends, Header, HTTPException, Query, Response, status
 
-from gafaelfawr.exceptions import (
-    InsufficientScopeError,
-    InvalidRequestError,
-    InvalidTokenError,
-)
-from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.util import (
+from gafaelfawr.auth import (
     AuthError,
     AuthErrorChallenge,
     AuthType,
-    RequestContext,
     generate_challenge,
     generate_unauthorized_challenge,
     parse_authorization,
     verify_token,
 )
+from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.exceptions import (
+    InsufficientScopeError,
+    InvalidRequestError,
+    InvalidTokenError,
+)
+from gafaelfawr.handlers import router
 from gafaelfawr.session import SessionHandle
-
-if TYPE_CHECKING:
-    from typing import Dict, Optional, Set
-
-    from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.tokens import VerifiedToken
 
 __all__ = ["get_auth"]
 
@@ -44,8 +39,8 @@ class Satisfy(Enum):
     authentication token have all the required scopes.
     """
 
-    ANY = auto()
-    ALL = auto()
+    ANY = "any"
+    ALL = "all"
 
 
 @dataclass
@@ -62,8 +57,41 @@ class AuthConfig:
     """The authentication type to use in challenges."""
 
 
-@routes.get("/auth")
-async def get_auth(request: web.Request) -> web.Response:
+def auth_uri(
+    x_original_uri: Optional[str] = Header(None),
+    x_original_url: Optional[str] = Header(None),
+) -> str:
+    """Determine URL for which we're validating authentication.
+
+    ``X-Original-URI`` will only be set if the auth-method annotation is set.
+    That is recommended, but allow for the case where it isn't set and fall
+    back on ``X-Original-URL``, which is set unconditionally.
+    """
+    return x_original_uri or x_original_url or "NONE"
+
+
+def auth_config(
+    scope: List[str] = Query(...),
+    satisfy: Satisfy = Satisfy.ALL,
+    auth_type: AuthType = AuthType.Bearer,
+    context: RequestContext = Depends(context),
+    auth_uri: str = Depends(auth_uri),
+) -> AuthConfig:
+    context.rebind_logger(
+        auth_uri=auth_uri,
+        required_scope=" ".join(sorted(scope)),
+        satisfy=satisfy.name.lower(),
+    )
+    return AuthConfig(scopes=set(scope), satisfy=satisfy, auth_type=auth_type)
+
+
+@router.get("/auth")
+async def get_auth(
+    response: Response,
+    auth_config: AuthConfig = Depends(auth_config),
+    audience: Optional[str] = None,
+    context: RequestContext = Depends(context),
+) -> Dict[str, str]:
     """Authenticate and authorize a token.
 
     Parameters
@@ -136,28 +164,6 @@ async def get_auth(request: web.Request) -> web.Response:
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
-    context = RequestContext.from_request(request)
-
-    # Determine the required scopes, authorization strategy, and desired auth
-    # type for challenges from the request.
-    auth_config = parse_auth_config(context)
-
-    # Configure logging context.
-    #
-    # X-Original-URI will only be set if the auth-method annotation is set.
-    # That is recommended, but allow for the case where it isn't set and fall
-    # back on X-Original-URL, which is set unconditionally.
-    auth_uri = request.headers.get("X-Original-URI")
-    if not auth_uri:
-        auth_uri = request.headers.get("X-Original-URL", "NONE")
-    context.rebind_logger(
-        auth_uri=auth_uri,
-        required_scope=" ".join(sorted(auth_config.scopes)),
-        satisfy=auth_config.satisfy.name.lower(),
-    )
-
-    # Check authentication and return an appropriate challenge and error
-    # status if authentication failed.
     try:
         token = await get_token_from_request(context)
     except InvalidRequestError as e:
@@ -193,13 +199,18 @@ async def get_auth(request: web.Request) -> web.Response:
 
     # Log and return the results.
     context.logger.info("Token authorized")
-    token = maybe_reissue_token(context, token)
-    headers = build_success_headers(request, auth_config, token)
-    return web.Response(headers=headers, text="ok")
+    token = maybe_reissue_token(context, audience, token)
+    headers = build_success_headers(context, auth_config, token)
+    response.headers.update(headers)
+    return {"status": "ok"}
 
 
-@routes.get("/auth/forbidden")
-async def get_auth_forbidden(request: web.Request) -> web.Response:
+@router.get("/auth/forbidden")
+async def get_auth_forbidden(
+    response: Response,
+    auth_config: AuthConfig = Depends(auth_config),
+    context: RequestContext = Depends(context),
+) -> Response:
     """Error page for HTTP Forbidden (403) errors.
 
     Parameters
@@ -236,8 +247,6 @@ async def get_auth_forbidden(request: web.Request) -> web.Response:
     construct an appropriate challenge, assuming that the 403 is due to
     insufficient token scope.
     """
-    context = RequestContext.from_request(request)
-    auth_config = parse_auth_config(context)
     error = "Token missing required scope"
     challenge = AuthErrorChallenge(
         auth_type=auth_config.auth_type,
@@ -251,47 +260,10 @@ async def get_auth_forbidden(request: web.Request) -> web.Response:
         "WWW-Authenticate": challenge.as_header(),
     }
     context.logger.info("Serving uncached 403 page")
-    raise web.HTTPForbidden(headers=headers, reason=error, text=error)
-
-
-def parse_auth_config(context: RequestContext) -> AuthConfig:
-    """Parse request parameters to determine authorization parameters.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
-        The context of the incoming request.
-
-    Returns
-    -------
-    auth_config : `AuthConfig`
-        The configuration parameters of the requested authorization action.
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        If the configuration parameters are invalid.
-    """
-    required_scopes = context.request.query.getall("scope", [])
-    if not required_scopes:
-        msg = "scope parameter not set in the request"
-        context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    satisfy = context.request.query.get("satisfy", "all")
-    if satisfy not in ("any", "all"):
-        msg = "satisfy parameter must be any or all"
-        context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-    auth_type = context.request.query.get("auth_type", "bearer")
-    if auth_type not in ("basic", "bearer"):
-        msg = "auth_type parameter must be basic or bearer"
-        context.logger.warning("Invalid request", error=msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
-
-    return AuthConfig(
-        scopes=set(required_scopes),
-        satisfy=Satisfy[satisfy.upper()],
-        auth_type=AuthType[auth_type.capitalize()],
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        headers=headers,
+        detail={"msg": error, "type": "permission_denied"},
     )
 
 
@@ -326,15 +298,13 @@ async def get_token_from_request(
     # checking the Authorization header, since JupyterHub will set its own
     # Authorization header in its AJAX calls but we won't be able to extract a
     # token from that and will return 400 for them.
-    session = await get_session(context.request)
-    handle_str = session.get("handle")
-    if handle_str:
+    if context.request.state.cookie.handle:
+        handle = context.request.state.cookie.handle
         context.rebind_logger(token_source="cookie")
-        handle = SessionHandle.from_str(handle_str)
         session_store = context.factory.create_session_store()
-        auth_session = await session_store.get_session(handle)
-        if auth_session:
-            return auth_session.token
+        session = await session_store.get_session(handle)
+        if session:
+            return session.token
 
     # No session or existing authentication header.  Try the Authorization
     # header.  This case is used by API calls from clients.  If we got a
@@ -346,14 +316,14 @@ async def get_token_from_request(
     elif handle_or_token.startswith("gsh-"):
         handle = SessionHandle.from_str(handle_or_token)
         session_store = context.factory.create_session_store()
-        auth_session = await session_store.get_session(handle)
-        return auth_session.token if auth_session else None
+        session = await session_store.get_session(handle)
+        return session.token if session else None
     else:
         return verify_token(context, handle_or_token)
 
 
 def maybe_reissue_token(
-    context: RequestContext, token: VerifiedToken
+    context: RequestContext, audience: Optional[str], token: VerifiedToken
 ) -> VerifiedToken:
     """Possibly reissue the token.
 
@@ -379,7 +349,7 @@ def maybe_reissue_token(
     reuse that tokens for their own API calls.
     """
     aud_internal = context.config.issuer.aud_internal
-    if not context.request.query.get("audience") == aud_internal:
+    if not audience == aud_internal:
         return token
     if not token.claims["aud"] == context.config.issuer.aud:
         return token
@@ -394,7 +364,7 @@ def maybe_reissue_token(
 
 
 def build_success_headers(
-    request: web.Request, auth_config: AuthConfig, token: VerifiedToken
+    context: RequestContext, auth_config: AuthConfig, token: VerifiedToken
 ) -> Dict[str, str]:
     """Construct the headers for successful authorization.
 
@@ -413,7 +383,7 @@ def build_success_headers(
         Headers to include in the response.
     """
     headers = {
-        "X-Auth-Request-Client-Ip": request.remote,
+        "X-Auth-Request-Client-Ip": context.request.client.host,
         "X-Auth-Request-Scopes-Accepted": " ".join(sorted(auth_config.scopes)),
         "X-Auth-Request-Scopes-Satisfy": auth_config.satisfy.name.lower(),
         "X-Auth-Request-Token-Scopes": " ".join(sorted(token.scope)),

@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 if TYPE_CHECKING:
-    from tests.setup import SetupTestCallable
+    from tests.setup import SetupTest
 
 
-async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(environment="oidc", client=False)
+async def test_reissue_token(setup: SetupTest) -> None:
+    setup.switch_environment("oidc")
     issuer = setup.factory.create_token_issuer()
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
@@ -48,10 +48,8 @@ async def test_reissue_token(create_test_setup: SetupTestCallable) -> None:
     assert now - 5 <= reissued_token.claims["iat"] <= now + 5
 
 
-async def test_reissue_token_scope(
-    create_test_setup: SetupTestCallable,
-) -> None:
-    setup = await create_test_setup(environment="oidc", client=False)
+async def test_reissue_token_scope(setup: SetupTest) -> None:
+    setup.switch_environment("oidc")
     issuer = setup.factory.create_token_issuer()
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
@@ -64,8 +62,8 @@ async def test_reissue_token_scope(
     assert reissued_token.claims["scope"] == "exec:admin read:all"
 
 
-async def test_reissue_token_jti(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(environment="oidc", client=False)
+async def test_reissue_token_jti(setup: SetupTest) -> None:
+    setup.switch_environment("oidc")
     issuer = setup.factory.create_token_issuer()
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 

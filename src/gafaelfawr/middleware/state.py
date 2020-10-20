@@ -10,7 +10,7 @@ from cryptography.fernet import Fernet
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from gafaelfawr.fastapi.dependencies import config, logger
+from gafaelfawr.dependencies import config, logger
 from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 from collections import defaultdict
 from dataclasses import dataclass
@@ -410,50 +409,6 @@ class Config:
             known_scopes=settings.known_scopes or {},
             safir=SafirConfig(log_level=log_level),
         )
-
-    def log_settings(self, logger: logging.Logger) -> None:
-        """Log information about the application settings.
-
-        Parameters
-        ----------
-        logger : `logging.Logger`
-            The logger to use for those log messages.
-        """
-        logger.debug("Configured realm %s", self.realm)
-        logger.debug("Configured Redis pool at URL %s", self.redis_url)
-        logger.debug(
-            "Configured landing page after logout: %s", self.after_logout_url
-        )
-        if self.proxies:
-            proxies = ", ".join([str(p) for p in self.proxies])
-            logger.debug("Configured trusted proxy IPs: %s", proxies)
-        logger.debug(
-            "Configured token issuer %s, key ID %s, audience %s and %s"
-            " (internal), expiration %d minutes",
-            self.issuer.iss,
-            self.issuer.kid,
-            self.issuer.aud,
-            self.issuer.aud_internal,
-            self.issuer.exp_minutes,
-        )
-        logger.debug(
-            "Configured %s as username claim", self.issuer.username_claim
-        )
-        logger.debug("Configured %s as UID claim", self.issuer.uid_claim)
-        if self.github:
-            logger.debug(
-                "Configured GitHub authentication with client ID %s",
-                self.github.client_id,
-            )
-        elif self.oidc:
-            logger.debug(
-                "Configured OpenID Connect authentication: client ID %s,"
-                " login URL %s, token URL %s, redirect URL %s",
-                self.oidc.client_id,
-                self.oidc.login_url,
-                self.oidc.token_url,
-                self.oidc.redirect_url,
-            )
 
     @staticmethod
     def _load_secret(path: str) -> bytes:

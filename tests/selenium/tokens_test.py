@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
-from gafaelfawr.fastapi.dependencies import config
+from gafaelfawr.dependencies import config
 from gafaelfawr.session import SessionHandle
 from tests.pages.tokens import NewTokenPage, TokensPage
 from tests.support.selenium import run

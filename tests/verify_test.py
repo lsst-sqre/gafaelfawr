@@ -24,7 +24,7 @@ from gafaelfawr.tokens import Token
 if TYPE_CHECKING:
     from typing import Any, Dict, Optional
 
-    from tests.setup import SetupTestCallable
+    from tests.setup import SetupTest
 
 
 def encode_token(
@@ -43,8 +43,7 @@ def encode_token(
     return Token(encoded=encoded)
 
 
-async def test_analyze(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(client=False)
+async def test_analyze(setup: SetupTest) -> None:
     verifier = setup.factory.create_token_verifier()
 
     # Unknown issuer.
@@ -58,8 +57,8 @@ async def test_analyze(create_test_setup: SetupTestCallable) -> None:
     }
 
 
-async def test_verify_oidc(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(environment="oidc", client=False)
+async def test_verify_oidc(setup: SetupTest) -> None:
+    setup.switch_environment("oidc")
     verifier = setup.factory.create_token_verifier()
 
     now = datetime.now(timezone.utc)
@@ -116,10 +115,8 @@ async def test_verify_oidc(create_test_setup: SetupTestCallable) -> None:
     assert str(excinfo.value) == expected
 
 
-async def test_verify_oidc_no_kids(
-    create_test_setup: SetupTestCallable,
-) -> None:
-    setup = await create_test_setup(environment="oidc-no-kids", client=False)
+async def test_verify_oidc_no_kids(setup: SetupTest) -> None:
+    setup.switch_environment("oidc-no-kids")
     verifier = setup.factory.create_token_verifier()
     setup.set_oidc_configuration_response(setup.config.issuer.keypair, "kid")
 
@@ -139,8 +136,8 @@ async def test_verify_oidc_no_kids(
     assert str(excinfo.value) == expected
 
 
-async def test_key_retrieval(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(environment="oidc-no-kids", client=False)
+async def test_key_retrieval(setup: SetupTest) -> None:
+    setup.switch_environment("oidc-no-kids")
     assert setup.config.oidc
     verifier = setup.factory.create_token_verifier()
 

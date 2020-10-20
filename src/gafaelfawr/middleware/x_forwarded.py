@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from gafaelfawr.fastapi.dependencies import config
+from gafaelfawr.dependencies import config
 
 if TYPE_CHECKING:
     from ipaddress import _BaseAddress
