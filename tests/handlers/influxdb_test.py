@@ -75,7 +75,7 @@ async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
 async def test_not_configured(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     token = setup.create_token()
 
     caplog.clear()
@@ -108,7 +108,7 @@ async def test_not_configured(
 async def test_influxdb_force_username(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
-    setup.switch_environment("influxdb-username")
+    setup.configure("influxdb-username")
     token = setup.create_token()
     influxdb_secret = setup.config.issuer.influxdb_secret
     assert influxdb_secret

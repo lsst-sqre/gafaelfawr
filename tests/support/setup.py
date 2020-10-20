@@ -49,18 +49,11 @@ class SetupTest:
         redis.use_mock(True)
         redis_pool = await redis()
         key_cache().clear()
-        factory = ComponentFactory(
-            config=config_obj,
-            redis=redis_pool,
-            key_cache=key_cache(),
-            http_session=ClientSession(),
-        )
         return cls(
             tmp_path=tmp_path,
             responses=responses,
             config=config_obj,
             redis=redis_pool,
-            factory=factory,
         )
 
     def __init__(
@@ -70,14 +63,30 @@ class SetupTest:
         responses: aioresponses,
         config: Config,
         redis: Redis,
-        factory: ComponentFactory,
     ) -> None:
         self.tmp_path = tmp_path
         self.config = config
         self.responses = responses
         self.redis = redis
-        self.factory = factory
-        self.hostname = "example.com"
+
+    @property
+    def factory(self) -> ComponentFactory:
+        """Return a `~gafaelfawr.factory.ComponentFactory`.
+
+        Build a new one each time to ensure that it picks up the current
+        configuration information.
+
+        Returns
+        -------
+        factory : `gafaelfawr.factory.ComponentFactory`
+            Newly-created factory.
+        """
+        return ComponentFactory(
+            config=self.config,
+            redis=self.redis,
+            key_cache=key_cache(),
+            http_session=ClientSession(),
+        )
 
     async def close(self) -> None:
         await redis.close()
@@ -338,21 +347,26 @@ class SetupTest:
 
         self.responses.post(self.config.oidc.token_url, callback=handler)
 
-    def switch_environment(
+    def configure(
         self,
-        environment: str,
+        template: str = "github",
         *,
         oidc_clients: Optional[List[OIDCClient]] = None,
         **settings: str,
     ) -> None:
-        config_path = build_settings(
-            self.tmp_path, environment, oidc_clients, **settings
+        """Change the test application configuration.
+
+        Parameters
+        ----------
+        template : `str`
+            Settings template to use.
+        oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
+            Configuration information for clients of the OpenID Connect server.
+        **settings : str
+            Any additional settings to add to the settings file.
+        """
+        settings_path = build_settings(
+            self.tmp_path, template, oidc_clients, **settings
         )
-        config.set_config_path(str(config_path))
+        config.set_config_path(str(settings_path))
         self.config = config()
-        self.factory = ComponentFactory(
-            config=self.config,
-            redis=self.redis,
-            key_cache=key_cache(),
-            http_session=ClientSession(),
-        )

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 async def test_issue_code(setup: SetupTest) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup.switch_environment("github", oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
     handle = await setup.create_session()
     redirect_uri = "https://example.com/"
@@ -56,7 +56,7 @@ async def test_redeem_code(setup: SetupTest) -> None:
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    setup.switch_environment("github", oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
     handle = await setup.create_session()
     redirect_uri = "https://example.com/"
@@ -91,7 +91,7 @@ async def test_redeem_code_errors(setup: SetupTest) -> None:
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    setup.switch_environment("github", oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
     handle = await setup.create_session()
     redirect_uri = "https://example.com/"

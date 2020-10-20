@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 async def test_reissue_token(setup: SetupTest) -> None:
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     issuer = setup.factory.create_token_issuer()
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
@@ -49,7 +49,7 @@ async def test_reissue_token(setup: SetupTest) -> None:
 
 
 async def test_reissue_token_scope(setup: SetupTest) -> None:
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     issuer = setup.factory.create_token_issuer()
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
@@ -63,7 +63,7 @@ async def test_reissue_token_scope(setup: SetupTest) -> None:
 
 
 async def test_reissue_token_jti(setup: SetupTest) -> None:
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     issuer = setup.factory.create_token_issuer()
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 

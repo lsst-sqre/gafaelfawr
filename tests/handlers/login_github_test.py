@@ -242,9 +242,7 @@ async def test_cookie_auth_with_token(
 
 async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    setup.switch_environment(
-        "github", username_claim="username", uid_claim="numeric-uid"
-    )
+    setup.configure(username_claim="username", uid_claim="numeric-uid")
     assert setup.config.github
     setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(

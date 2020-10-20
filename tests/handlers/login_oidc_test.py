@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 async def test_login(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
@@ -145,7 +145,7 @@ async def test_login_redirect_header(
     setup: SetupTest, client: AsyncClient
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
@@ -172,7 +172,7 @@ async def test_login_redirect_header(
 
 async def test_oauth2_callback(setup: SetupTest, client: AsyncClient) -> None:
     """Test the compatibility /oauth2/callback route."""
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
@@ -201,7 +201,7 @@ async def test_callback_error(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
@@ -310,7 +310,7 @@ async def test_callback_error(
 
 
 async def test_connection_error(setup: SetupTest, client: AsyncClient) -> None:
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
@@ -333,7 +333,7 @@ async def test_connection_error(setup: SetupTest, client: AsyncClient) -> None:
 
 
 async def test_verify_error(setup: SetupTest, client: AsyncClient) -> None:
-    setup.switch_environment("oidc")
+    setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     assert setup.config.oidc

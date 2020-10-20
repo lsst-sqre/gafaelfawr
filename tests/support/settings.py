@@ -34,6 +34,8 @@ def build_settings(
         Settings template to use.
     oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
         Configuration information for clients of the OpenID Connect server.
+    **settings : str
+        Any additional settings to add to the settings file.
 
     Returns
     -------

@@ -28,7 +28,7 @@ async def test_login(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup.switch_environment("github", oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -156,7 +156,7 @@ async def test_unauthenticated(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup.switch_environment("github", oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     login_params = {
         "response_type": "code",
@@ -198,7 +198,7 @@ async def test_login_errors(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup.switch_environment("github", oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -337,7 +337,7 @@ async def test_token_errors(
         OIDCClient(client_id="some-id", client_secret="some-secret"),
         OIDCClient(client_id="other-id", client_secret="other-secret"),
     ]
-    setup.switch_environment("github", oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     handle = await setup.create_session()
     oidc_server = setup.factory.create_oidc_server()
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
