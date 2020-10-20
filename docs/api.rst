@@ -5,8 +5,6 @@ API reference
 .. automodapi:: gafaelfawr
    :include-all-objects:
 
-.. automodapi:: gafaelfawr.app
-
 .. automodapi:: gafaelfawr.cli
 
 .. automodapi:: gafaelfawr.config
@@ -36,8 +34,6 @@ API reference
 .. automodapi:: gafaelfawr.handlers.tokens
 
 .. automodapi:: gafaelfawr.handlers.userinfo
-
-.. automodapi:: gafaelfawr.handlers.util
 
 .. automodapi:: gafaelfawr.handlers.well_known
 
