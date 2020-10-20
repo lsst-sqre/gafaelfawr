@@ -10,7 +10,7 @@ from aiohttp import ClientSession
 from aioresponses import CallbackResult
 from httpx import AsyncClient
 
-from gafaelfawr.dependencies import config, key_cache, redis
+from gafaelfawr.dependencies import config, redis
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.middleware.state import State
@@ -48,7 +48,6 @@ class SetupTest:
         config_obj = config()
         redis.use_mock(True)
         redis_pool = await redis()
-        key_cache().clear()
         return cls(
             tmp_path=tmp_path,
             responses=responses,
@@ -82,10 +81,7 @@ class SetupTest:
             Newly-created factory.
         """
         return ComponentFactory(
-            config=self.config,
-            redis=self.redis,
-            key_cache=key_cache(),
-            http_session=ClientSession(),
+            config=self.config, redis=self.redis, http_session=ClientSession()
         )
 
     async def close(self) -> None:

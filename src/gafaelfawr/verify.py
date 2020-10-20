@@ -7,7 +7,6 @@ from urllib.parse import urljoin
 
 import jwt
 from aiohttp import ClientError
-from cachetools.keys import hashkey
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -27,7 +26,6 @@ if TYPE_CHECKING:
     from typing import Any, Dict, List, Mapping, Optional
 
     from aiohttp import ClientSession
-    from cachetools import TTLCache
     from structlog import BoundLogger
 
     from gafaelfawr.config import VerifierConfig
@@ -58,12 +56,10 @@ class TokenVerifier:
         self,
         config: VerifierConfig,
         session: ClientSession,
-        cache: TTLCache,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._session = session
-        self._cache = cache
         self._logger = logger
 
     def analyze_token(self, token: Token) -> Dict[str, Any]:
@@ -256,10 +252,6 @@ class TokenVerifier:
         This function will automatically cache the last 16 keys for up to 10
         minutes to cut down on network retrieval of the keys.
         """
-        cache_key = hashkey(issuer_url, key_id)
-        if cache_key in self._cache:
-            return self._cache[cache_key]
-
         self._logger.debug("Getting key %s from %s", key_id, issuer_url)
 
         # Retrieve the JWKS information.
@@ -280,11 +272,10 @@ class TokenVerifier:
             )
             raise UnknownAlgorithmException(msg)
 
-        # Convert, cache, and return the key.
+        # Convert and return the key.
         e = base64_to_number(key["e"])
         m = base64_to_number(key["n"])
         public_key = self._build_public_key(e, m)
-        self._cache[cache_key] = public_key
         return public_key
 
     @staticmethod

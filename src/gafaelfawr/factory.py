@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
     from aiohttp import ClientSession
     from aioredis import Redis
-    from cachetools import TTLCache
     from structlog import BoundLogger
 
     from gafaelfawr.config import Config
@@ -46,7 +45,6 @@ class ComponentFactory:
         *,
         config: Config,
         redis: Redis,
-        key_cache: TTLCache,
         http_session: ClientSession,
         logger: Optional[BoundLogger] = None,
     ) -> None:
@@ -56,7 +54,6 @@ class ComponentFactory:
 
         self._config = config
         self._redis = redis
-        self._key_cache = key_cache
         self._http_session = http_session
         self._logger = logger
 
@@ -155,10 +152,7 @@ class ComponentFactory:
             A new TokenVerifier.
         """
         return TokenVerifier(
-            self._config.verifier,
-            self._http_session,
-            self._key_cache,
-            self._logger,
+            self._config.verifier, self._http_session, self._logger
         )
 
     def create_user_token_store(self) -> UserTokenStore:

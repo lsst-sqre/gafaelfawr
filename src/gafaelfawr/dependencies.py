@@ -21,12 +21,11 @@ health check request as soon as the application comes up.
 
 import uuid
 from dataclasses import dataclass
-from typing import AsyncIterator, Optional, Tuple
+from typing import AsyncIterator, Optional
 from urllib.parse import urlparse
 
 from aiohttp import ClientSession
 from aioredis import Redis, create_redis_pool
-from cachetools import TTLCache
 from fastapi import Depends, Form, Header, HTTPException, Request, status
 from safir.logging import configure_logging
 from structlog import BoundLogger, get_logger
@@ -168,24 +167,6 @@ class RedisDependency:
 redis = RedisDependency()
 
 
-class KeyCacheDependency:
-    """Provides an JWT signing key cache as a dependency.
-
-    TODO: Needs to be replaced with something that is threadsafe.
-    """
-
-    def __init__(self) -> None:
-        self.key_cache: TTLCache[Tuple[str, str], bytes] = TTLCache(
-            maxsize=16, ttl=600
-        )
-
-    def __call__(self) -> TTLCache:
-        return self.key_cache
-
-
-key_cache = KeyCacheDependency()
-
-
 async def http_session() -> AsyncIterator[ClientSession]:
     """Provides an aiohttp client session as a dependency.
 
@@ -225,9 +206,6 @@ class RequestContext:
     redis: Redis
     """Connection pool to use to talk to Redis."""
 
-    key_cache: TTLCache
-    """Cache of JWT signing keys."""
-
     http_session: ClientSession
     """aiohttp client session for HTTP requests."""
 
@@ -241,7 +219,6 @@ class RequestContext:
         return ComponentFactory(
             config=self.config,
             redis=self.redis,
-            key_cache=self.key_cache,
             http_session=self.http_session,
             logger=self.logger,
         )
@@ -265,7 +242,6 @@ def context(
     config: Config = Depends(config),
     logger: BoundLogger = Depends(logger),
     redis: Redis = Depends(redis),
-    key_cache: TTLCache = Depends(key_cache),
     http_session: ClientSession = Depends(http_session),
 ) -> RequestContext:
     """Provides a RequestContext as a dependency."""
@@ -274,7 +250,6 @@ def context(
         config=config,
         logger=logger,
         redis=redis,
-        key_cache=key_cache,
         http_session=http_session,
     )
 
