@@ -5,21 +5,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.dependencies import config
-from gafaelfawr.main import app
 from gafaelfawr.util import number_to_base64
 
 if TYPE_CHECKING:
+    from httpx import AsyncClient
+
     from tests.setup import SetupTest
 
 
-async def test_well_known_jwks(setup: SetupTest) -> None:
-    async with setup.async_client(app) as client:
-        r = await client.get("/.well-known/jwks.json")
-        assert r.status_code == 200
-        result = r.json()
+async def test_well_known_jwks(setup: SetupTest, client: AsyncClient) -> None:
+    r = await client.get("/.well-known/jwks.json")
+    assert r.status_code == 200
+    result = r.json()
 
-    keypair = config().issuer.keypair
+    keypair = setup.config.issuer.keypair
     assert result == {
         "keys": [
             {
@@ -39,15 +38,13 @@ async def test_well_known_jwks(setup: SetupTest) -> None:
     assert "=" not in result["keys"][0]["e"]
 
 
-async def test_well_known_oidc(setup: SetupTest) -> None:
-    async with setup.async_client(app) as client:
-        r = await client.get("/.well-known/openid-configuration")
-        assert r.status_code == 200
-        result = r.json()
+async def test_well_known_oidc(setup: SetupTest, client: AsyncClient) -> None:
+    r = await client.get("/.well-known/openid-configuration")
+    assert r.status_code == 200
 
-    base_url = config().issuer.iss
-    assert result == {
-        "issuer": config().issuer.iss,
+    base_url = setup.config.issuer.iss
+    assert r.json() == {
+        "issuer": setup.config.issuer.iss,
         "authorization_endpoint": base_url + "/auth/openid/login",
         "token_endpoint": base_url + "/auth/openid/token",
         "userinfo_endpoint": base_url + "/auth/userinfo",

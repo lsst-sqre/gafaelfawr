@@ -9,25 +9,19 @@ from unittest.mock import ANY
 from urllib.parse import urlparse
 
 import jwt
-from aiohttp import ClientSession
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.dependencies import config, key_cache, redis
-from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.main import app
-from gafaelfawr.middleware.state import State
 from gafaelfawr.session import Session, SessionHandle
 from tests.support.headers import query_from_url
-from tests.support.tokens import create_test_token
 
 if TYPE_CHECKING:
+    from httpx import AsyncClient
+
     from tests.setup import SetupTest
 
 
-async def test_analyze_no_auth(setup: SetupTest) -> None:
-    async with setup.async_client(app) as client:
-        r = await client.get("/auth/analyze", allow_redirects=False)
-
+async def test_analyze_no_auth(setup: SetupTest, client: AsyncClient) -> None:
+    r = await client.get("/auth/analyze", allow_redirects=False)
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert not url.scheme
@@ -38,26 +32,11 @@ async def test_analyze_no_auth(setup: SetupTest) -> None:
     }
 
 
-async def test_analyze_session(setup: SetupTest) -> None:
-    token = create_test_token(config())
-    factory = ComponentFactory(
-        config=config(),
-        redis=await redis(),
-        key_cache=key_cache(),
-        http_session=ClientSession(),
-    )
-    handle = SessionHandle()
-    session = Session.create(handle, token)
-    session_store = factory.create_session_store()
-    await session_store.store_session(session)
-    state = State(handle=handle)
+async def test_analyze_session(setup: SetupTest, client: AsyncClient) -> None:
+    token = setup.create_token()
+    await setup.login(client, token)
 
-    async with setup.async_client(app) as client:
-        key = config().session_secret.encode()
-        r = await client.get(
-            "/auth/analyze", cookies={"gafaelfawr": state.as_cookie(key)}
-        )
-
+    r = await client.get("/auth/analyze")
     assert r.status_code == 200
 
     # Check that the result is formatted for humans.
@@ -75,7 +54,7 @@ async def test_analyze_session(setup: SetupTest) -> None:
             "header": {
                 "alg": ALGORITHM,
                 "typ": "JWT",
-                "kid": config().issuer.kid,
+                "kid": setup.config.issuer.kid,
             },
             "data": token.claims,
             "valid": True,
@@ -83,13 +62,11 @@ async def test_analyze_session(setup: SetupTest) -> None:
     }
 
 
-async def test_analyze_handle(setup: SetupTest) -> None:
+async def test_analyze_handle(setup: SetupTest, client: AsyncClient) -> None:
     handle = SessionHandle()
 
     # Handle with no session.
-    async with setup.async_client(app) as client:
-        r = await client.post("/auth/analyze", data={"token": handle.encode()})
-
+    r = await client.post("/auth/analyze", data={"token": handle.encode()})
     assert r.status_code == 200
     assert r.json() == {
         "handle": {"key": handle.key, "secret": handle.secret},
@@ -97,18 +74,11 @@ async def test_analyze_handle(setup: SetupTest) -> None:
     }
 
     # Valid session handle.
-    token = create_test_token(config(), groups=["admin"], jti=handle.key)
+    token = setup.create_token(groups=["admin"], jti=handle.key)
     session = Session.create(handle, token)
-    factory = ComponentFactory(
-        config=config(),
-        redis=await redis(),
-        key_cache=key_cache(),
-        http_session=ClientSession(),
-    )
-    session_store = factory.create_session_store()
+    session_store = setup.factory.create_session_store()
     await session_store.store_session(session)
-    async with setup.async_client(app) as client:
-        r = await client.post("/auth/analyze", data={"token": handle.encode()})
+    r = await client.post("/auth/analyze", data={"token": handle.encode()})
 
     # Check that the results from /analyze include the handle, the session,
     # and the token information.
@@ -125,7 +95,7 @@ async def test_analyze_handle(setup: SetupTest) -> None:
             "header": {
                 "alg": ALGORITHM,
                 "typ": "JWT",
-                "kid": config().issuer.kid,
+                "kid": setup.config.issuer.kid,
             },
             "data": token.claims,
             "valid": True,
@@ -143,12 +113,9 @@ async def test_analyze_handle(setup: SetupTest) -> None:
     assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
 
 
-async def test_analyze_token(setup: SetupTest) -> None:
-    token = create_test_token(config())
-
-    async with setup.async_client(app) as client:
-        r = await client.post("/auth/analyze", data={"token": token.encoded})
-
+async def test_analyze_token(setup: SetupTest, client: AsyncClient) -> None:
+    token = setup.create_token()
+    r = await client.post("/auth/analyze", data={"token": token.encoded})
     assert r.status_code == 200
     assert r.json() == {
         "token": {

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlparse
@@ -18,15 +17,15 @@ from gafaelfawr.middleware.state import State
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.session import Session, SessionHandle
 from tests.support.app import build_config
+from tests.support.constants import TEST_HOSTNAME
 from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, AsyncIterator, List, Optional, Union
+    from typing import Any, List, Optional, Union
 
     from aioredis import Redis
     from aioresponses import aioresponses
-    from fastapi import FastAPI
 
     from gafaelfawr.config import Config, OIDCClient
     from gafaelfawr.providers.github import GitHubUserInfo
@@ -82,27 +81,6 @@ class SetupTest:
 
     async def close(self) -> None:
         await redis.close()
-
-    @asynccontextmanager
-    async def async_client(self, app: FastAPI) -> AsyncIterator[AsyncClient]:
-        """Creates and returns a client for the given application.
-
-        Parameters
-        ----------
-        app : `fastapi.FastAPI`
-            The ASGI application to test.
-        hostname : `str`, optional
-            The hostname to which test queries will apparently be sent.
-            Defaults to ``example.com``.
-
-        Returns
-        -------
-        client : `httpx.AsyncClient`
-            A client to make queries to that application.
-        """
-        base_url = "https://" + self.hostname
-        async with AsyncClient(app=app, base_url=base_url) as client:
-            yield client
 
     async def create_session(
         self, *, groups: Optional[List[str]] = None, **claims: str
@@ -226,7 +204,7 @@ class SetupTest:
         await session_store.store_session(session)
         state = State(handle=handle)
         cookie = state.as_cookie(self.config.session_secret.encode())
-        client.cookies.set("gafaelfawr", cookie, domain="example.com")
+        client.cookies.set("gafaelfawr", cookie, domain=TEST_HOSTNAME)
 
     def set_github_userinfo_response(
         self, token: str, userinfo: GitHubUserInfo

@@ -7,26 +7,24 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
-from gafaelfawr.dependencies import config
-from gafaelfawr.main import app
 from tests.support.headers import parse_www_authenticate
-from tests.support.tokens import create_test_token
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
+    from httpx import AsyncClient
 
     from tests.setup import SetupTest
 
 
-async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token = create_test_token(config())
+async def test_userinfo(
+    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+) -> None:
+    token = setup.create_token()
 
     caplog.clear()
-    async with setup.async_client(app) as client:
-        r = await client.get(
-            "/auth/userinfo",
-            headers={"Authorization": f"Bearer {token.encoded}"},
-        )
+    r = await client.get(
+        "/auth/userinfo", headers={"Authorization": f"Bearer {token.encoded}"}
+    )
 
     assert r.status_code == 200
     assert r.json() == token.claims
@@ -48,16 +46,17 @@ async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     }
 
 
-async def test_no_auth(setup: SetupTest, caplog: LogCaptureFixture) -> None:
+async def test_no_auth(
+    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+) -> None:
     caplog.clear()
-    async with setup.async_client(app) as client:
-        r = await client.get("/auth/userinfo")
+    r = await client.get("/auth/userinfo")
 
     assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config().realm
+    assert authenticate.realm == setup.config.realm
 
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
@@ -72,21 +71,21 @@ async def test_no_auth(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     }
 
 
-async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token = create_test_token(config())
+async def test_invalid(
+    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+) -> None:
+    token = setup.create_token()
 
     caplog.clear()
-    async with setup.async_client(app) as client:
-        r = await client.get(
-            "/auth/userinfo",
-            headers={"Authorization": f"token {token.encoded}"},
-        )
+    r = await client.get(
+        "/auth/userinfo", headers={"Authorization": f"token {token.encoded}"}
+    )
 
     assert r.status_code == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config().realm
+    assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_request
     assert authenticate.error_description == "Unknown Authorization type token"
 
@@ -103,32 +102,29 @@ async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "user_agent": ANY,
     }
 
-    async with setup.async_client(app) as client:
-        r = await client.get(
-            "/auth/userinfo",
-            headers={"Authorization": f"bearer{token.encoded}"},
-        )
+    r = await client.get(
+        "/auth/userinfo", headers={"Authorization": f"bearer{token.encoded}"}
+    )
 
     assert r.status_code == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config().realm
+    assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_request
     assert authenticate.error_description == "Malformed Authorization header"
 
     caplog.clear()
-    async with setup.async_client(app) as client:
-        r = await client.get(
-            "/auth/userinfo",
-            headers={"Authorization": f"bearer XXX{token.encoded}"},
-        )
+    r = await client.get(
+        "/auth/userinfo",
+        headers={"Authorization": f"bearer XXX{token.encoded}"},
+    )
 
     assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config().realm
+    assert authenticate.realm == setup.config.realm
     assert authenticate.error == AuthError.invalid_token
     assert authenticate.error_description
 
