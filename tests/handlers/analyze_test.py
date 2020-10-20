@@ -17,7 +17,7 @@ from tests.support.headers import query_from_url
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
-    from tests.setup import SetupTest
+    from tests.support.setup import SetupTest
 
 
 async def test_analyze_no_auth(setup: SetupTest, client: AsyncClient) -> None:

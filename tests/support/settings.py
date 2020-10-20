@@ -1,4 +1,4 @@
-"""Create and configure the test aiohttp application."""
+"""Build test settings for Gafaelfawr."""
 
 from __future__ import annotations
 
@@ -15,17 +15,74 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import OIDCClient
 
-__all__ = ["build_config", "build_settings", "store_secret"]
+__all__ = ["build_settings", "build_settings_file", "store_secret"]
 
 
-def build_settings(tmp_path: Path, template_name: str, **kwargs: Path) -> Path:
-    """Construct a configuration file from a format template.
+def build_settings(
+    tmp_path: Path,
+    template: str,
+    oidc_clients: Optional[List[OIDCClient]] = None,
+    **settings: str,
+) -> Path:
+    """Generate a test Gafaelfawr settings file with secrets.
 
     Parameters
     ----------
     tmp_path : `pathlib.Path`
         The root of the temporary area.
-    template_name : `str`
+    template : `str`
+        Settings template to use.
+    oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
+        Configuration information for clients of the OpenID Connect server.
+
+    Returns
+    -------
+    settings_path : `pathlib.Path`
+        The path of the settings file.
+    """
+    session_secret = Fernet.generate_key()
+    session_secret_file = store_secret(tmp_path, "session", session_secret)
+    issuer_key = RSAKeyPair.generate().private_key_as_pem()
+    issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
+    influxdb_secret_file = store_secret(tmp_path, "influxdb", b"influx-secret")
+    github_secret_file = store_secret(tmp_path, "github", b"github-secret")
+    oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
+
+    settings_path = build_settings_file(
+        tmp_path,
+        template,
+        session_secret_file=session_secret_file,
+        issuer_key_file=issuer_key_file,
+        github_secret_file=github_secret_file,
+        oidc_secret_file=oidc_secret_file,
+        influxdb_secret_file=influxdb_secret_file,
+    )
+
+    if oidc_clients:
+        oidc_path = tmp_path / "oidc.json"
+        clients_data = [
+            {"id": c.client_id, "secret": c.client_secret}
+            for c in oidc_clients
+        ]
+        oidc_path.write_text(json.dumps(clients_data))
+        settings["oidc_server_secrets_file"] = str(oidc_path)
+
+    if settings:
+        with settings_path.open("a") as f:
+            for key, value in settings.items():
+                f.write(f"{key}: {value}\n")
+
+    return settings_path
+
+
+def build_settings_file(tmp_path: Path, template: str, **kwargs: Path) -> Path:
+    """Construct a settings file from a format template.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        The root of the temporary area.
+    template : `str`
         Name of the configuration template to use.
     **kwargs : `str`
         The values to substitute into the template.
@@ -35,7 +92,7 @@ def build_settings(tmp_path: Path, template_name: str, **kwargs: Path) -> Path:
     settings_path : `pathlib.Path`
         The path to the newly-constructed configuration file.
     """
-    template_file = template_name + ".yaml.in"
+    template_file = template + ".yaml.in"
     template_path = Path(__file__).parent.parent / "settings" / template_file
     template = template_path.read_text()
     settings = template.format(**kwargs)
@@ -59,58 +116,3 @@ def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
     secret_path = tmp_path / name
     secret_path.write_bytes(secret)
     return secret_path
-
-
-def build_config(
-    tmp_path: Path,
-    environment: str,
-    oidc_clients: Optional[List[OIDCClient]] = None,
-    **settings: str,
-) -> Path:
-    """Generate a test Gafaelfawr configuration.
-
-    Parameters
-    ----------
-    tmp_path : `pathlib.Path`
-        The root of the temporary area.
-    environment : `str`
-        Settings template to use.
-
-    Returns
-    -------
-    config_path : `pathlib.Path`
-        The path of the configuration file.
-    """
-    session_secret = Fernet.generate_key()
-    session_secret_file = store_secret(tmp_path, "session", session_secret)
-    issuer_key = RSAKeyPair.generate().private_key_as_pem()
-    issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
-    influxdb_secret_file = store_secret(tmp_path, "influxdb", b"influx-secret")
-    github_secret_file = store_secret(tmp_path, "github", b"github-secret")
-    oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
-
-    settings_path = build_settings(
-        tmp_path,
-        environment,
-        session_secret_file=session_secret_file,
-        issuer_key_file=issuer_key_file,
-        github_secret_file=github_secret_file,
-        oidc_secret_file=oidc_secret_file,
-        influxdb_secret_file=influxdb_secret_file,
-    )
-
-    if oidc_clients:
-        oidc_path = tmp_path / "oidc.json"
-        clients_data = [
-            {"id": c.client_id, "secret": c.client_secret}
-            for c in oidc_clients
-        ]
-        oidc_path.write_text(json.dumps(clients_data))
-        settings["oidc_server_secrets_file"] = str(oidc_path)
-
-    if settings:
-        with settings_path.open("a") as f:
-            for key, value in settings.items():
-                f.write(f"{key}: {value}\n")
-
-    return settings_path

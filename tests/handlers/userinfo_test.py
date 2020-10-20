@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
-    from tests.setup import SetupTest
+    from tests.support.setup import SetupTest
 
 
 async def test_userinfo(

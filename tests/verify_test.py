@@ -24,7 +24,7 @@ from gafaelfawr.tokens import Token
 if TYPE_CHECKING:
     from typing import Any, Dict, Optional
 
-    from tests.setup import SetupTest
+    from tests.support.setup import SetupTest
 
 
 def encode_token(

@@ -9,10 +9,10 @@ from aioresponses import aioresponses
 from httpx import AsyncClient
 
 from gafaelfawr.main import app
-from tests.setup import SetupTest
-from tests.support.app import build_config
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.selenium import run_app, selenium_driver
+from tests.support.settings import build_settings
+from tests.support.setup import SetupTest
 
 if TYPE_CHECKING:
     from asyncio import AbstractEventLoop
@@ -79,9 +79,9 @@ def selenium_server_url(tmp_path: Path) -> Iterable[str]:
     server_url : `str`
         The URL to use to contact that server.
     """
-    config_path = build_config(tmp_path, environment="selenium")
-    with run_app(tmp_path, config_path) as url:
-        yield url
+    settings_path = build_settings(tmp_path, "selenium")
+    with run_app(tmp_path, settings_path) as server_url:
+        yield server_url
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ async def setup(
 
     Returns
     -------
-    setup : `tests.setup.SetupTest`
+    setup : `tests.support.setup.SetupTest`
         The setup object.
     """
     test_setup = await SetupTest.create(tmp_path, responses)

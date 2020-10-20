@@ -17,7 +17,7 @@ from tests.support.headers import parse_www_authenticate
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
-    from tests.setup import SetupTest
+    from tests.support.setup import SetupTest
 
 
 async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:

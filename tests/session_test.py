@@ -13,7 +13,7 @@ from gafaelfawr.exceptions import InvalidSessionHandleException
 from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
-    from tests.setup import SetupTest
+    from tests.support.setup import SetupTest
 
 
 def test_handle() -> None:

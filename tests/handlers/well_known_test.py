@@ -10,7 +10,7 @@ from gafaelfawr.util import number_to_base64
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
-    from tests.setup import SetupTest
+    from tests.support.setup import SetupTest
 
 
 async def test_well_known_jwks(setup: SetupTest, client: AsyncClient) -> None:

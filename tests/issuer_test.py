@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 if TYPE_CHECKING:
-    from tests.setup import SetupTest
+    from tests.support.setup import SetupTest
 
 
 async def test_reissue_token(setup: SetupTest) -> None:

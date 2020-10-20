@@ -16,8 +16,8 @@ from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.middleware.state import State
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.session import Session, SessionHandle
-from tests.support.app import build_config
 from tests.support.constants import TEST_HOSTNAME
+from tests.support.settings import build_settings
 from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ class SetupTest:
     async def create(
         cls, tmp_path: Path, responses: aioresponses
     ) -> SetupTest:
-        config_path = build_config(tmp_path, environment="github")
+        config_path = build_settings(tmp_path, "github")
         config.set_config_path(str(config_path))
         config_obj = config()
         redis.use_mock(True)
@@ -345,7 +345,7 @@ class SetupTest:
         oidc_clients: Optional[List[OIDCClient]] = None,
         **settings: str,
     ) -> None:
-        config_path = build_config(
+        config_path = build_settings(
             self.tmp_path, environment, oidc_clients, **settings
         )
         config.set_config_path(str(config_path))

@@ -19,7 +19,7 @@ from gafaelfawr.exceptions import (
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
 
 if TYPE_CHECKING:
-    from tests.setup import SetupTest
+    from tests.support.setup import SetupTest
 
 
 async def test_issue_code(setup: SetupTest) -> None:
