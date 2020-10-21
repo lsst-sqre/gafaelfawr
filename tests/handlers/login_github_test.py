@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
+import pytest
+
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.providers.github import (
     GitHubProvider,
@@ -21,11 +23,11 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_login(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     assert setup.config.github
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -41,10 +43,10 @@ async def test_login(
             ),
         ],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
     return_url = "https://example.com:4444/foo?a=bar&b=baz"
 
     # Simulate the initial authentication request.
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
@@ -74,6 +76,7 @@ async def test_login(
 
     # Simulate the return from GitHub.
     caplog.clear()
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -147,11 +150,11 @@ async def test_login(
     }
 
 
+@pytest.mark.asyncio
 async def test_login_redirect_header(
     setup: SetupTest, client: AsyncClient
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -159,10 +162,10 @@ async def test_login_redirect_header(
         email="githubuser@example.com",
         teams=[],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
     return_url = "https://example.com/foo?a=bar&b=baz"
 
     # Simulate the initial authentication request.
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": return_url},
@@ -173,6 +176,7 @@ async def test_login_redirect_header(
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -182,6 +186,7 @@ async def test_login_redirect_header(
     assert r.headers["Location"] == return_url
 
 
+@pytest.mark.asyncio
 async def test_login_no_destination(
     setup: SetupTest, client: AsyncClient
 ) -> None:
@@ -189,6 +194,7 @@ async def test_login_no_destination(
     assert r.status_code == 400
 
 
+@pytest.mark.asyncio
 async def test_cookie_auth_with_token(
     setup: SetupTest, client: AsyncClient
 ) -> None:
@@ -200,7 +206,6 @@ async def test_cookie_auth_with_token(
     login to get a valid session and then make a request with a bogus
     Authorization header.
     """
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -208,8 +213,8 @@ async def test_cookie_auth_with_token(
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
 
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await client.get(
         "/login",
         params={"rd": "https://example.com/foo"},
@@ -221,6 +226,7 @@ async def test_cookie_auth_with_token(
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -240,11 +246,11 @@ async def test_cookie_auth_with_token(
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
 
 
+@pytest.mark.asyncio
 async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
     """Uses an alternate settings environment with non-default claims."""
     setup.configure(username_claim="username", uid_claim="numeric-uid")
     assert setup.config.github
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -252,8 +258,8 @@ async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
 
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://example.com"},
@@ -264,6 +270,7 @@ async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -289,8 +296,8 @@ async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
     assert "uidNumber" not in token_data
 
 
+@pytest.mark.asyncio
 async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -298,8 +305,8 @@ async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
         email="githubuser@example.com",
         teams=[],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
 
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await client.get(
         "/login",
         params={"rd": "https://foo.example.com/"},
@@ -328,6 +335,7 @@ async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -337,6 +345,7 @@ async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
     assert r.headers["Location"] == "https://foo.example.com/"
 
 
+@pytest.mark.asyncio
 async def test_github_uppercase(setup: SetupTest, client: AsyncClient) -> None:
     """Tests that usernames and organization names are forced to lowercase.
 
@@ -344,7 +353,6 @@ async def test_github_uppercase(setup: SetupTest, client: AsyncClient) -> None:
     case of slugs) because GitHub should already be coercing lowercase when
     creating the slug.
     """
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="A User",
         username="SomeUser",
@@ -352,8 +360,8 @@ async def test_github_uppercase(setup: SetupTest, client: AsyncClient) -> None:
         email="user@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
 
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://example.com"},
@@ -364,6 +372,7 @@ async def test_github_uppercase(setup: SetupTest, client: AsyncClient) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},

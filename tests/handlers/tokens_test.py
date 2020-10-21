@@ -7,6 +7,8 @@ import re
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
+import pytest
+
 from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
@@ -16,12 +18,14 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
     for url in ("/auth/tokens", "/auth/tokens/blah", "/auth/tokens/new"):
         r = await client.get(url, allow_redirects=False)
         assert r.status_code == 401
 
 
+@pytest.mark.asyncio
 async def test_tokens_empty_list(
     setup: SetupTest, client: AsyncClient
 ) -> None:
@@ -34,6 +38,7 @@ async def test_tokens_empty_list(
     assert "Generate new token" in body
 
 
+@pytest.mark.asyncio
 async def test_tokens(setup: SetupTest, client: AsyncClient) -> None:
     token = setup.create_token()
     handle = SessionHandle()
@@ -53,6 +58,7 @@ async def test_tokens(setup: SetupTest, client: AsyncClient) -> None:
     assert "exec:test" in body
 
 
+@pytest.mark.asyncio
 async def test_tokens_handle_get_delete(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -127,6 +133,7 @@ async def test_tokens_handle_get_delete(
     assert await user_token_store.get_tokens(token.uid) == []
 
 
+@pytest.mark.asyncio
 async def test_tokens_new_form(setup: SetupTest, client: AsyncClient) -> None:
     token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
@@ -146,6 +153,7 @@ async def test_tokens_new_form(setup: SetupTest, client: AsyncClient) -> None:
             assert description not in body
 
 
+@pytest.mark.asyncio
 async def test_tokens_new_create(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:

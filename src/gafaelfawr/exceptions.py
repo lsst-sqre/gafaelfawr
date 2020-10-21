@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from aiohttp import web
 from fastapi import status
 
 if TYPE_CHECKING:
-    from typing import ClassVar, Type
+    from typing import ClassVar
 
 __all__ = [
     "DeserializeException",
@@ -106,9 +105,6 @@ class OAuthBearerError(OAuthError):
     of a ``WWW-Authenticate`` header.
     """
 
-    exception: ClassVar[Type[web.HTTPException]] = web.HTTPBadRequest
-    """The exception class corresponding to the usual HTTP error."""
-
     status_code: int = status.HTTP_400_BAD_REQUEST
     """The status code to use for this HTTP error."""
 
@@ -136,7 +132,6 @@ class InvalidTokenError(OAuthBearerError):
 
     error = "invalid_token"
     message = "Invalid token"
-    exception = web.HTTPUnauthorized
     status_code = status.HTTP_401_UNAUTHORIZED
 
 
@@ -149,7 +144,6 @@ class InsufficientScopeError(OAuthBearerError):
 
     error = "insufficient_scope"
     message = "Token missing required scope"
-    exception = web.HTTPForbidden
     status_code = status.HTTP_403_FORBIDDEN
 
 

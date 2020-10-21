@@ -13,7 +13,7 @@ from gafaelfawr.session import Session, SessionHandle
 from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
-    from aiohttp import ClientSession
+    from httpx import AsyncClient
     from structlog import BoundLogger
 
     from gafaelfawr.config import OIDCConfig
@@ -37,7 +37,7 @@ class OIDCProvider(Provider):
         Issuer to use to generate new tokens.
     session_store : `gafaelfawr.storage.session.SessionStore`
         Store for authentication sessions.
-    http_session : `aiohttp.ClientSession`
+    http_client : `httpx.AsyncClient`
         Session to use to make HTTP requests.
     logger : `structlog.BoundLogger`
         Logger for any log messages.
@@ -50,12 +50,12 @@ class OIDCProvider(Provider):
         verifier: TokenVerifier,
         issuer: TokenIssuer,
         session_store: SessionStore,
-        http_session: ClientSession,
+        http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._verifier = verifier
-        self._http_session = http_session
+        self._http_client = http_client
         self._issuer = issuer
         self._session_store = session_store
         self._logger = logger
@@ -105,13 +105,13 @@ class OIDCProvider(Provider):
 
         Raises
         ------
-        aiohttp.ClientResponseError
+        gafaelfawr.exceptions.OIDCException
+            The OpenID Connect provider responded with an error to a request.
+        httpx.HTTPError
             An HTTP client error occurred trying to talk to the authentication
             provider.
         jwt.exceptions.InvalidTokenError
             The token returned by the OpenID Connect provider was invalid.
-        gafaelfawr.exceptions.OIDCException
-            The OpenID Connect provider responded with an error to a request.
         """
         data = {
             "grant_type": "authorization_code",
@@ -123,7 +123,7 @@ class OIDCProvider(Provider):
         self._logger.info(
             "Retrieving ID token from %s", self._config.token_url
         )
-        r = await self._http_session.post(
+        r = await self._http_client.post(
             self._config.token_url,
             data=data,
             headers={"Accept": "application/json"},
@@ -132,17 +132,17 @@ class OIDCProvider(Provider):
         # If the call failed, try to extract an error from the reply.  If that
         # fails, just raise an exception for the HTTP status.
         try:
-            result = await r.json()
+            result = r.json()
         except Exception:
-            if r.status != 200:
+            if r.status_code != 200:
                 r.raise_for_status()
             else:
                 msg = "Response from {self._config.token_url} not valid JSON"
                 raise OIDCException(msg)
-        if r.status != 200 and "error" in result:
+        if r.status_code != 200 and "error" in result:
             msg = result["error"] + ": " + result["error_description"]
             raise OIDCException(msg)
-        elif r.status != 200:
+        elif r.status_code != 200:
             r.raise_for_status()
         if "id_token" not in result:
             msg = f"No id_token in token reply from {self._config.token_url}"

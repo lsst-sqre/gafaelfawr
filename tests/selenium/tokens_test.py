@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
+import pytest
+
 from gafaelfawr.dependencies import config
 from gafaelfawr.session import SessionHandle
 from tests.pages.tokens import NewTokenPage, TokensPage
@@ -17,6 +19,7 @@ if TYPE_CHECKING:
     from seleniumwire import webdriver
 
 
+@pytest.mark.asyncio
 async def test_create_token(
     tmp_path: Path, driver: webdriver.Chrome, selenium_server_url: str
 ) -> None:

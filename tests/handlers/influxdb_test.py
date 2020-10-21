@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 import jwt
+import pytest
 
 from gafaelfawr.auth import AuthErrorChallenge, AuthType
 from tests.support.headers import parse_www_authenticate
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_influxdb(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -38,7 +40,7 @@ async def test_influxdb(
 
     header = jwt.get_unverified_header(influxdb_token)
     assert header == {"alg": "HS256", "typ": "JWT"}
-    claims = jwt.decode(influxdb_token, influxdb_secret, algorithm="HS256")
+    claims = jwt.decode(influxdb_token, influxdb_secret, algorithms=["HS256"])
     assert claims == {
         "username": token.username,
         "exp": token.claims["exp"],
@@ -63,6 +65,7 @@ async def test_influxdb(
     }
 
 
+@pytest.mark.asyncio
 async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
     r = await client.get("/auth/tokens/influxdb/new")
     assert r.status_code == 401
@@ -72,6 +75,7 @@ async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
     assert authenticate.realm == setup.config.realm
 
 
+@pytest.mark.asyncio
 async def test_not_configured(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -105,6 +109,7 @@ async def test_not_configured(
     }
 
 
+@pytest.mark.asyncio
 async def test_influxdb_force_username(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -121,7 +126,7 @@ async def test_influxdb_force_username(
 
     assert r.status_code == 200
     data = r.json()
-    claims = jwt.decode(data["token"], influxdb_secret, algorithm="HS256")
+    claims = jwt.decode(data["token"], influxdb_secret, algorithms=["HS256"])
     assert claims == {
         "username": "influxdb-user",
         "exp": token.claims["exp"],

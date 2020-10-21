@@ -6,6 +6,8 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
+import pytest
+
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from tests.support.headers import parse_www_authenticate
 
@@ -16,6 +18,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_userinfo(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -46,6 +49,7 @@ async def test_userinfo(
     }
 
 
+@pytest.mark.asyncio
 async def test_no_auth(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -71,6 +75,7 @@ async def test_no_auth(
     }
 
 
+@pytest.mark.asyncio
 async def test_invalid(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:

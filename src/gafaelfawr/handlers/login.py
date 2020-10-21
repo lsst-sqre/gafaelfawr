@@ -6,9 +6,9 @@ import base64
 import os
 from typing import Optional
 
-from aiohttp import ClientError
 from fastapi import Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
+from httpx import HTTPError
 
 from gafaelfawr.dependencies import (
     RequestContext,
@@ -184,7 +184,7 @@ async def handle_provider_return(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"type": "provider_failed", "msg": str(e)},
         )
-    except ClientError as e:
+    except HTTPError as e:
         msg = "Cannot contact authentication provider"
         context.logger.exception(msg, error=str(e))
         raise HTTPException(

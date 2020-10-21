@@ -7,6 +7,8 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
+import pytest
+
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
@@ -14,6 +16,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_success(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -85,6 +88,7 @@ async def test_success(
     assert data == expected
 
 
+@pytest.mark.asyncio
 async def test_authorization_failed(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -121,6 +125,7 @@ async def test_authorization_failed(
     }
 
 
+@pytest.mark.asyncio
 async def test_original_url(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -162,6 +167,7 @@ async def test_original_url(
     assert data == expected
 
 
+@pytest.mark.asyncio
 async def test_chained_x_forwarded(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -192,6 +198,7 @@ async def test_chained_x_forwarded(
     }
 
 
+@pytest.mark.asyncio
 async def test_invalid_token(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:

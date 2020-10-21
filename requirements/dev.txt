@@ -4,10 +4,6 @@
 #
 #    pip-compile --allow-unsafe --generate-hashes --output-file=requirements/dev.txt requirements/dev.in
 #
-aiohttp-devtools==0.13.1 \
-    --hash=sha256:70dbab32e2234296ddc995cacc06acf6b7ee2cf2ac1be62d4e12e0d333e63f00 \
-    --hash=sha256:da9490c56671ed3920ceb98fc558065dec573c771ca17d500467b245b63f0f9d \
-    # via -r requirements/dev.in
 aiohttp==3.7.2 \
     --hash=sha256:027be45c4b37e21be81d07ae5242361d73eebad1562c033f80032f955f34df82 \
     --hash=sha256:06efdb01ab71ec20786b592d510d1d354fbe0b2e4449ee47067b9ca65d45a006 \
@@ -42,15 +38,11 @@ aiohttp==3.7.2 \
     --hash=sha256:cdbb65c361ff790c424365a83a496fc8dd1983689a5fb7c6852a9a3ff1710c61 \
     --hash=sha256:f04dcbf6af1868048a9b4754b1684c669252aa2419aa67266efbcaaead42ced7 \
     --hash=sha256:f8c583c31c6e790dc003d9d574e3ed2c5b337947722965096c4d684e4f183570 \
-    # via aiohttp-devtools, aioresponses, pytest-aiohttp
+    # via pytest-aiohttp
 aioredis==1.3.1 \
     --hash=sha256:15f8af30b044c771aee6787e5ec24694c048184c7b9e54c3b60c750a4b93273a \
     --hash=sha256:b61808d7e97b7cd5a92ed574937a079c9387fdadd22bfbfa7ad2fd319ecc26e3 \
     # via mockaioredis
-aioresponses==0.7.1 \
-    --hash=sha256:88eeb32256ef0af57450647277d3118ce8005682f06f27b23c5e2f8fcc0384b9 \
-    --hash=sha256:f65bba2be1e9a4997ee166bc0161a50be0fef7350ad09e6afdb2adccf74dfefe \
-    # via -r requirements/dev.in
 alabaster==0.7.12 \
     --hash=sha256:446438bdcca0e05bd45ea2de1668c1d9b032e1a9154c2c259092d77031ddd359 \
     --hash=sha256:a661d72d58e6ea8a57f7a86e37d86716863ee5e92788398526d58b26a4e4dc02 \
@@ -90,7 +82,7 @@ chardet==3.0.4 \
 click==7.1.2 \
     --hash=sha256:d2b5255c7c6349bc1bd1e59e08cd12acbbd63ce649f2588755783aa94dfb6b1a \
     --hash=sha256:dacca89f4bfadd5de3d7489b7c8a566eee0d3676333fbb50030263894c38c0dc \
-    # via aiohttp-devtools, documenteer
+    # via documenteer
 coverage[toml]==5.3 \
     --hash=sha256:0203acd33d2298e19b57451ebb0bed0ab0c602e5cf5a818591b4918b1f97d516 \
     --hash=sha256:0f313707cdecd5cd3e217fc68c78a960b616604b559e9ea60cc16795c4304259 \
@@ -127,10 +119,6 @@ coverage[toml]==5.3 \
     --hash=sha256:cedb2f9e1f990918ea061f28a0f0077a07702e3819602d3507e2ff98c8d20636 \
     --hash=sha256:e8caf961e1b1a945db76f1b5fa9c91498d15f545ac0ababbe575cfab185d3bd8 \
     # via -r requirements/dev.in
-devtools==0.6.1 \
-    --hash=sha256:7334183972a8d04e81d08b7f62126abca9b6f4de51d825c5fdcb9c88f252601a \
-    --hash=sha256:a054307594d35d28fae8df7629967363e851ae0ac7b2152640a8a401c39d42d7 \
-    # via aiohttp-devtools
 diagrams==0.17.0 \
     --hash=sha256:7fe4b0f3baa2416c5ac9cbb69bba9d1ddf6d62524a035f4e2afb3118b310fba5 \
     --hash=sha256:86436166fd3a9b8dddb8ccce2716f458a55614527feedcb95ae4a8cdf5b7659f \
@@ -233,7 +221,7 @@ httpcore==0.12.0 \
 httpx==0.16.1 \
     --hash=sha256:126424c279c842738805974687e0518a94c7ae8d140cd65b9c4f77ac46ffa537 \
     --hash=sha256:9cffb8ba31fac6536f2c8cde30df859013f59e4bcc5b8d43901cb3654a8e0a5b \
-    # via -r requirements/dev.in
+    # via -r requirements/dev.in, pytest-httpx
 identify==1.5.6 \
     --hash=sha256:3139bf72d81dfd785b0a464e2776bd59bdc725b4cc10e6cf46b56a0db931c82e \
     --hash=sha256:969d844b7a85d32a5f9ac4e163df6e846d73c87c8b75847494ee8f4bd2186421 \
@@ -424,7 +412,7 @@ pyflakes==2.2.0 \
 pygments==2.7.2 \
     --hash=sha256:381985fcc551eb9d37c52088a32914e00517e57f4a21609f48141ba08e193fa0 \
     --hash=sha256:88a0bbcd659fcb9573703957c6b9cff9fab7295e6e76db54c9d00ae42df32773 \
-    # via aiohttp-devtools, sphinx, sphinx-prompt
+    # via sphinx, sphinx-prompt
 pyparsing==2.4.7 \
     --hash=sha256:c203ec8783bf771a155b207279b9bccb8dea02d8f0c9e5f8ead507bc3246ecc1 \
     --hash=sha256:ef9d7589ef3c200abe66653d3f1ab1033c3c419ae9b9bdb1240a85b024efc88b \
@@ -433,13 +421,21 @@ pytest-aiohttp==0.3.0 \
     --hash=sha256:0b9b660b146a65e1313e2083d0d2e1f63047797354af9a28d6b7c9f0726fa33d \
     --hash=sha256:c929854339637977375838703b62fef63528598bc0a9d451639eba95f4aaa44f \
     # via -r requirements/dev.in
+pytest-asyncio==0.14.0 \
+    --hash=sha256:2eae1e34f6c68fc0a9dc12d4bea190483843ff4708d24277c41568d6b6044f1d \
+    --hash=sha256:9882c0c6b24429449f5f969a5158b528f39bde47dc32e85b9f0403965017e700 \
+    # via -r requirements/dev.in
+pytest-httpx==0.10.0 \
+    --hash=sha256:1cee873fdad622ca21169105691607db1411c9927aae9c2f44c02a893977c8f3 \
+    --hash=sha256:b996c8a4be900dfd37746d438cc9fc9321d37ffcacc1f5b7a9fc391daa208456 \
+    # via -r requirements/dev.in
 pytest-sugar==0.9.4 \
     --hash=sha256:b1b2186b0a72aada6859bea2a5764145e3aaa2c1cfbb23c3a19b5f7b697563d3 \
     # via -r requirements/dev.in
 pytest==6.1.2 \
     --hash=sha256:4288fed0d9153d9646bfcdf0c0428197dba1ecb27a33bb6e031d002fa88653fe \
     --hash=sha256:c0a7e94a8cdbc5422a51ccdad8e6f1024795939cc89159a0ae7f0b316ad3823e \
-    # via -r requirements/dev.in, pytest-aiohttp, pytest-sugar
+    # via -r requirements/dev.in, pytest-aiohttp, pytest-asyncio, pytest-httpx, pytest-sugar
 pytz==2020.1 \
     --hash=sha256:a494d53b6d39c3c6e44c3bec237336e14305e4f29bbf800b599253057fbb79ed \
     --hash=sha256:c35965d010ce31b23eeb663ed3cc8c906275d6be1a34393a1d73a41febf4a048 \
@@ -569,10 +565,6 @@ virtualenv==20.1.0 \
     --hash=sha256:b0011228208944ce71052987437d3843e05690b2f23d1c7da4263fde104c97a2 \
     --hash=sha256:b8d6110f493af256a40d65e29846c69340a947669eec8ce784fcf3dd3af28380 \
     # via pre-commit
-watchgod==0.6 \
-    --hash=sha256:59700dab7445aa8e6067a5b94f37bae90fc367554549b1ed2e9d0f4f38a90d2a \
-    --hash=sha256:e9cca0ab9c63f17fc85df9fd8bd18156ff00aff04ebe5976cee473f4968c6858 \
-    # via aiohttp-devtools
 webcolors==1.11.1 \
     --hash=sha256:76f360636957d1c976db7466bc71dcb713bb95ac8911944dffc55c01cb516de6 \
     --hash=sha256:b8cd5d865a25c51ff1218f0c90d0c0781fc64312a49b746b320cf50de1648f6e \

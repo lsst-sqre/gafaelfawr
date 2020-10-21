@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.util import number_to_base64
 
@@ -13,6 +15,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_well_known_jwks(setup: SetupTest, client: AsyncClient) -> None:
     r = await client.get("/.well-known/jwks.json")
     assert r.status_code == 200
@@ -38,6 +41,7 @@ async def test_well_known_jwks(setup: SetupTest, client: AsyncClient) -> None:
     assert "=" not in result["keys"][0]["e"]
 
 
+@pytest.mark.asyncio
 async def test_well_known_oidc(setup: SetupTest, client: AsyncClient) -> None:
     r = await client.get("/.well-known/openid-configuration")
     assert r.status_code == 200

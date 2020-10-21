@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_issue_code(setup: SetupTest) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     setup.configure(oidc_clients=clients)
@@ -51,6 +52,7 @@ async def test_issue_code(setup: SetupTest) -> None:
     assert now - 2 < serialized_code["created_at"] < now
 
 
+@pytest.mark.asyncio
 async def test_redeem_code(setup: SetupTest) -> None:
     clients = [
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
@@ -86,6 +88,7 @@ async def test_redeem_code(setup: SetupTest) -> None:
     assert not await setup.redis.get(f"oidc:{code.key}")
 
 
+@pytest.mark.asyncio
 async def test_redeem_code_errors(setup: SetupTest) -> None:
     clients = [
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),

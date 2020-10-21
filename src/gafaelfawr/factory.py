@@ -19,8 +19,8 @@ from gafaelfawr.verify import TokenVerifier
 if TYPE_CHECKING:
     from typing import Optional
 
-    from aiohttp import ClientSession
     from aioredis import Redis
+    from httpx import AsyncClient
     from structlog import BoundLogger
 
     from gafaelfawr.config import Config
@@ -45,7 +45,7 @@ class ComponentFactory:
         *,
         config: Config,
         redis: Redis,
-        http_session: ClientSession,
+        http_client: AsyncClient,
         logger: Optional[BoundLogger] = None,
     ) -> None:
         if not logger:
@@ -54,7 +54,7 @@ class ComponentFactory:
 
         self._config = config
         self._redis = redis
-        self._http_session = http_session
+        self._http_client = http_client
         self._logger = logger
 
     def create_oidc_server(self) -> OIDCServer:
@@ -101,9 +101,9 @@ class ComponentFactory:
         if self._config.github:
             return GitHubProvider(
                 config=self._config.github,
-                http_session=self._http_session,
                 issuer=issuer,
                 session_store=session_store,
+                http_client=self._http_client,
                 logger=self._logger,
             )
         elif self._config.oidc:
@@ -113,7 +113,7 @@ class ComponentFactory:
                 verifier=token_verifier,
                 issuer=issuer,
                 session_store=session_store,
-                http_session=self._http_session,
+                http_client=self._http_client,
                 logger=self._logger,
             )
         else:
@@ -152,7 +152,7 @@ class ComponentFactory:
             A new TokenVerifier.
         """
         return TokenVerifier(
-            self._config.verifier, self._http_session, self._logger
+            self._config.verifier, self._http_client, self._logger
         )
 
     def create_user_token_store(self) -> UserTokenStore:

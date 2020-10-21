@@ -9,6 +9,7 @@ from unittest.mock import ANY
 from urllib.parse import urlparse
 
 import jwt
+import pytest
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.session import Session, SessionHandle
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_analyze_no_auth(setup: SetupTest, client: AsyncClient) -> None:
     r = await client.get("/auth/analyze", allow_redirects=False)
     assert r.status_code == 307
@@ -32,6 +34,7 @@ async def test_analyze_no_auth(setup: SetupTest, client: AsyncClient) -> None:
     }
 
 
+@pytest.mark.asyncio
 async def test_analyze_session(setup: SetupTest, client: AsyncClient) -> None:
     token = setup.create_token()
     await setup.login(client, token)
@@ -62,6 +65,7 @@ async def test_analyze_session(setup: SetupTest, client: AsyncClient) -> None:
     }
 
 
+@pytest.mark.asyncio
 async def test_analyze_handle(setup: SetupTest, client: AsyncClient) -> None:
     handle = SessionHandle()
 
@@ -113,6 +117,7 @@ async def test_analyze_handle(setup: SetupTest, client: AsyncClient) -> None:
     assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
 
 
+@pytest.mark.asyncio
 async def test_analyze_token(setup: SetupTest, client: AsyncClient) -> None:
     token = setup.create_token()
     r = await client.post("/auth/analyze", data={"token": token.encoded})

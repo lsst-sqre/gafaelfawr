@@ -8,6 +8,10 @@ aiodns==2.0.0 \
     --hash=sha256:815fdef4607474295d68da46978a54481dd1e7be153c7d60f9e72773cd38d77d \
     --hash=sha256:aaa5ac584f40fe778013df0aa6544bf157799bd3f608364b451840ed2c8688de \
     # via -r requirements/main.in
+aiohttp-remotes==0.1.2 \
+    --hash=sha256:43c3f7e1c5ba27f29fb4dbde5d43b900b5b5fc7e37bf7e35e6eaedabaec4a3fc \
+    --hash=sha256:f5c8b02c8b2279d89daea0d2799acb74cefccfee89fc1a8d5ab0a778141d8245 \
+    # via -r requirements/main.in
 aiohttp==3.7.2 \
     --hash=sha256:027be45c4b37e21be81d07ae5242361d73eebad1562c033f80032f955f34df82 \
     --hash=sha256:06efdb01ab71ec20786b592d510d1d354fbe0b2e4449ee47067b9ca65d45a006 \
@@ -42,7 +46,7 @@ aiohttp==3.7.2 \
     --hash=sha256:cdbb65c361ff790c424365a83a496fc8dd1983689a5fb7c6852a9a3ff1710c61 \
     --hash=sha256:f04dcbf6af1868048a9b4754b1684c669252aa2419aa67266efbcaaead42ced7 \
     --hash=sha256:f8c583c31c6e790dc003d9d574e3ed2c5b337947722965096c4d684e4f183570 \
-    # via -r requirements/main.in, safir
+    # via -r requirements/main.in, aiohttp-remotes, safir
 aioredis==1.3.1 \
     --hash=sha256:15f8af30b044c771aee6787e5ec24694c048184c7b9e54c3b60c750a4b93273a \
     --hash=sha256:b61808d7e97b7cd5a92ed574937a079c9387fdadd22bfbfa7ad2fd319ecc26e3 \

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
 
+import pytest
+
 from gafaelfawr.config import OIDCClient
 from gafaelfawr.providers.github import GitHubUserInfo
 from gafaelfawr.session import SessionHandle
@@ -24,6 +26,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_login(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -152,6 +155,7 @@ async def test_login(
     }
 
 
+@pytest.mark.asyncio
 async def test_unauthenticated(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -194,6 +198,7 @@ async def test_unauthenticated(
     }
 
 
+@pytest.mark.asyncio
 async def test_login_errors(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -330,6 +335,7 @@ async def test_login_errors(
     }
 
 
+@pytest.mark.asyncio
 async def test_token_errors(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:

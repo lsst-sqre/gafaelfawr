@@ -24,9 +24,9 @@ from dataclasses import dataclass
 from typing import AsyncIterator, Optional
 from urllib.parse import urlparse
 
-from aiohttp import ClientSession
 from aioredis import Redis, create_redis_pool
 from fastapi import Depends, Form, Header, HTTPException, Request, status
+from httpx import AsyncClient
 from safir.logging import configure_logging
 from structlog import BoundLogger, get_logger
 
@@ -167,21 +167,19 @@ class RedisDependency:
 redis = RedisDependency()
 
 
-async def http_session() -> AsyncIterator[ClientSession]:
-    """Provides an aiohttp client session as a dependency.
+async def http_client_dependency() -> AsyncIterator[AsyncClient]:
+    """Provides an `httpx.AsyncClient` as a dependency.
 
     Notes
     -----
-    This is provided as a function rather than using the
-    `aiohttp.ClientSession` class as a callable directly so that the session
-    can be explicitly closed and to avoid exposing the constructor parameters
-    to FastAPI and possibly confusing it.
+    This is provided as a function rather than using the class as a callable
+    directly so that the session can be explicitly closed and to avoid
+    exposing the constructor parameters to FastAPI and possibly confusing it.
 
     This dependency should eventually move into the Safir framework.
     """
-    session = ClientSession()
-    yield session
-    await session.close()
+    async with AsyncClient() as client:
+        yield client
 
 
 @dataclass
@@ -206,8 +204,8 @@ class RequestContext:
     redis: Redis
     """Connection pool to use to talk to Redis."""
 
-    http_session: ClientSession
-    """aiohttp client session for HTTP requests."""
+    http_client: AsyncClient
+    """Shared HTTP client."""
 
     @property
     def factory(self) -> ComponentFactory:
@@ -219,7 +217,7 @@ class RequestContext:
         return ComponentFactory(
             config=self.config,
             redis=self.redis,
-            http_session=self.http_session,
+            http_client=self.http_client,
             logger=self.logger,
         )
 
@@ -242,7 +240,7 @@ def context(
     config: Config = Depends(config),
     logger: BoundLogger = Depends(logger),
     redis: Redis = Depends(redis),
-    http_session: ClientSession = Depends(http_session),
+    http_client: AsyncClient = Depends(http_client_dependency),
 ) -> RequestContext:
     """Provides a RequestContext as a dependency."""
     return RequestContext(
@@ -250,7 +248,7 @@ def context(
         config=config,
         logger=logger,
         redis=redis,
-        http_session=http_session,
+        http_client=http_client,
     )
 
 
@@ -277,7 +275,7 @@ def return_url(
 
     Raises
     ------
-    aiohttp.web.HTTPException
+    fastapi.HTTPException
         An appropriate error if the return URL was invalid or missing.
     """
     if not rd:

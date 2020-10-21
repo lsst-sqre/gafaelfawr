@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
+import pytest
+
 from gafaelfawr.constants import ALGORITHM
 
 if TYPE_CHECKING:
@@ -16,6 +18,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_login(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -141,6 +144,7 @@ async def test_login(
     }
 
 
+@pytest.mark.asyncio
 async def test_login_redirect_header(
     setup: SetupTest, client: AsyncClient
 ) -> None:
@@ -170,6 +174,7 @@ async def test_login_redirect_header(
     assert r.headers["Location"] == return_url
 
 
+@pytest.mark.asyncio
 async def test_oauth2_callback(setup: SetupTest, client: AsyncClient) -> None:
     """Test the compatibility /oauth2/callback route."""
     setup.configure("oidc")
@@ -197,6 +202,7 @@ async def test_oauth2_callback(setup: SetupTest, client: AsyncClient) -> None:
     assert r.headers["Location"] == return_url
 
 
+@pytest.mark.asyncio
 async def test_callback_error(
     setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
@@ -212,14 +218,17 @@ async def test_callback_error(
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
-    # Build an error response to return from the OIDC token URL and
-    # register it as a result.
+    # Build an error response to return from the OIDC token URL and register
+    # it as a result.
     response = {
         "error": "error_code",
         "error_description": "description",
     }
-    setup.responses.post(
-        setup.config.oidc.token_url, payload=response, status=400
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        json=response,
+        status_code=400,
     )
 
     # Simulate the return from the OpenID Connect provider.
@@ -248,8 +257,11 @@ async def test_callback_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    setup.responses.post(
-        setup.config.oidc.token_url, payload={"foo": "bar"}, status=400
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        json={"foo": "bar"},
+        status_code=400,
     )
     r = await client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
@@ -265,8 +277,11 @@ async def test_callback_error(
 
     # Now try a reply that returns 200 but doesn't have the field we
     # need.
-    setup.responses.post(
-        setup.config.oidc.token_url, payload={"foo": "bar"}, status=200
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        json={"foo": "bar"},
+        status_code=200,
     )
     r = await client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
@@ -281,7 +296,12 @@ async def test_callback_error(
     assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
-    setup.responses.post(setup.config.oidc.token_url, body="foo", status=200)
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        data="foo",
+        status_code=200,
+    )
     r = await client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
@@ -295,7 +315,12 @@ async def test_callback_error(
     assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
-    setup.responses.post(setup.config.oidc.token_url, body="foo", status=400)
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        data="foo",
+        status_code=400,
+    )
     r = await client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
@@ -309,6 +334,7 @@ async def test_callback_error(
     assert "Cannot contact authentication provider" in r.text
 
 
+@pytest.mark.asyncio
 async def test_connection_error(setup: SetupTest, client: AsyncClient) -> None:
     setup.configure("oidc")
     assert setup.config.oidc
@@ -329,9 +355,10 @@ async def test_connection_error(setup: SetupTest, client: AsyncClient) -> None:
         allow_redirects=False,
     )
     assert r.status_code == 500
-    assert "Connection refused" in r.text
+    assert r.json()["detail"]["type"] == "provider_connect_failed"
 
 
+@pytest.mark.asyncio
 async def test_verify_error(setup: SetupTest, client: AsyncClient) -> None:
     setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])

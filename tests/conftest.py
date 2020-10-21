@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from aioresponses import aioresponses
 from httpx import AsyncClient
 
 from gafaelfawr.main import app
@@ -15,15 +14,15 @@ from tests.support.settings import build_settings
 from tests.support.setup import SetupTest
 
 if TYPE_CHECKING:
-    from asyncio import AbstractEventLoop
     from pathlib import Path
-    from typing import AsyncIterator, Iterable, Iterator
+    from typing import AsyncIterator, Iterable, Iterator, List
 
+    from pytest_httpx import HTTPXMock
     from seleniumwire import webdriver
 
 
 @pytest.fixture
-async def client(loop: AbstractEventLoop) -> AsyncIterator[AsyncClient]:
+async def client() -> AsyncIterator[AsyncClient]:
     """Provide an httpx client configured to talk to the test app.
 
     Returns
@@ -54,18 +53,9 @@ def driver() -> Iterator[webdriver.Chrome]:
 
 
 @pytest.fixture
-def responses() -> Iterable[aioresponses]:
-    """Create an aioresponses context manager.
-
-    This can be used to mock responses to calls in an `aiohttp.ClientSession`.
-
-    Returns
-    -------
-    mock : `aioresponses.aioresponses`
-        The mock object with which URLs and callbacks can be registered.
-    """
-    with aioresponses(passthrough=["http://127.0.0.1"]) as mock:
-        yield mock
+def non_mocked_hosts() -> List[str]:
+    """Disable pytest-httpx mocking for the test application."""
+    return [TEST_HOSTNAME, "localhost"]
 
 
 @pytest.fixture
@@ -86,7 +76,7 @@ def selenium_server_url(tmp_path: Path) -> Iterable[str]:
 
 @pytest.fixture
 async def setup(
-    tmp_path: Path, responses: aioresponses, loop: AbstractEventLoop
+    tmp_path: Path, httpx_mock: HTTPXMock
 ) -> AsyncIterator[SetupTest]:
     """Create a test setup object.
 
@@ -100,7 +90,7 @@ async def setup(
     setup : `tests.support.setup.SetupTest`
         The setup object.
     """
-    test_setup = await SetupTest.create(tmp_path, responses)
+    test_setup = await SetupTest.create(tmp_path, httpx_mock)
     try:
         yield test_setup
     finally:

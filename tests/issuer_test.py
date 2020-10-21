@@ -6,14 +6,16 @@ import time
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
+import pytest
+
 if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_reissue_token(setup: SetupTest) -> None:
     setup.configure("oidc")
     issuer = setup.factory.create_token_issuer()
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
     local_token = setup.create_token()
     claims = {
@@ -48,10 +50,10 @@ async def test_reissue_token(setup: SetupTest) -> None:
     assert now - 5 <= reissued_token.claims["iat"] <= now + 5
 
 
+@pytest.mark.asyncio
 async def test_reissue_token_scope(setup: SetupTest) -> None:
     setup.configure("oidc")
     issuer = setup.factory.create_token_issuer()
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
     oidc_token = setup.create_oidc_token(groups=["user"], scope="read:all")
     reissued_token = issuer.reissue_token(oidc_token, jti="new-jti")
@@ -62,10 +64,10 @@ async def test_reissue_token_scope(setup: SetupTest) -> None:
     assert reissued_token.claims["scope"] == "exec:admin read:all"
 
 
+@pytest.mark.asyncio
 async def test_reissue_token_jti(setup: SetupTest) -> None:
     setup.configure("oidc")
     issuer = setup.factory.create_token_issuer()
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
 
     oidc_token = setup.create_oidc_token()
     reissued_token = issuer.reissue_token(oidc_token, jti="new-jti")

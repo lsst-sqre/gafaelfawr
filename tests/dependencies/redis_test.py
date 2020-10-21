@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import call, patch
 
+import pytest
+
 from gafaelfawr.dependencies import config, redis
 from tests.support.settings import build_settings, store_secret
 
@@ -12,6 +14,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+@pytest.mark.asyncio
 async def test_redis_password(tmp_path: Path) -> None:
     redis_password_file = store_secret(tmp_path, "redis", b"some-password")
     config_path = build_settings(

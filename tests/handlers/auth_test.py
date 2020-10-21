@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 import jwt
+import pytest
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.constants import ALGORITHM
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from tests.support.setup import SetupTest
 
 
+@pytest.mark.asyncio
 async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 401
@@ -55,6 +57,7 @@ async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
     assert authenticate.realm == setup.config.realm
 
 
+@pytest.mark.asyncio
 async def test_invalid(setup: SetupTest, client: AsyncClient) -> None:
     r = await client.get("/auth")
     assert r.status_code == 422
@@ -73,6 +76,7 @@ async def test_invalid(setup: SetupTest, client: AsyncClient) -> None:
     assert r.json()["detail"][0]["type"] == "type_error.enum"
 
 
+@pytest.mark.asyncio
 async def test_invalid_auth(setup: SetupTest, client: AsyncClient) -> None:
     r = await client.get(
         "/auth",
@@ -128,6 +132,7 @@ async def test_invalid_auth(setup: SetupTest, client: AsyncClient) -> None:
     assert authenticate.error == AuthError.invalid_token
 
 
+@pytest.mark.asyncio
 async def test_access_denied(setup: SetupTest, client: AsyncClient) -> None:
     token = setup.create_token()
 
@@ -147,6 +152,7 @@ async def test_access_denied(setup: SetupTest, client: AsyncClient) -> None:
     assert "Token missing required scope" in r.text
 
 
+@pytest.mark.asyncio
 async def test_auth_forbidden(setup: SetupTest, client: AsyncClient) -> None:
     r = await client.get(
         "/auth/forbidden",
@@ -174,6 +180,7 @@ async def test_auth_forbidden(setup: SetupTest, client: AsyncClient) -> None:
     assert "Token missing required scope" in r.text
 
 
+@pytest.mark.asyncio
 async def test_satisfy_all(setup: SetupTest, client: AsyncClient) -> None:
     token = setup.create_token(scope="exec:test")
 
@@ -193,6 +200,7 @@ async def test_satisfy_all(setup: SetupTest, client: AsyncClient) -> None:
     assert "Token missing required scope" in r.text
 
 
+@pytest.mark.asyncio
 async def test_success(setup: SetupTest, client: AsyncClient) -> None:
     token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
@@ -216,6 +224,7 @@ async def test_success(setup: SetupTest, client: AsyncClient) -> None:
     assert r.headers["X-Auth-Request-Token"] == token.encoded
 
 
+@pytest.mark.asyncio
 async def test_success_any(setup: SetupTest, client: AsyncClient) -> None:
     """Test ``satisfy=any`` as an ``/auth`` parameter.
 
@@ -242,6 +251,7 @@ async def test_success_any(setup: SetupTest, client: AsyncClient) -> None:
     assert r.headers["X-Auth-Request-Groups"] == "test"
 
 
+@pytest.mark.asyncio
 async def test_basic(setup: SetupTest, client: AsyncClient) -> None:
     token = setup.create_token(groups=["test"], scope="exec:admin")
 
@@ -278,6 +288,7 @@ async def test_basic(setup: SetupTest, client: AsyncClient) -> None:
     assert r.headers["X-Auth-Request-Email"] == token.email
 
 
+@pytest.mark.asyncio
 async def test_basic_failure(setup: SetupTest, client: AsyncClient) -> None:
     basic_b64 = base64.b64encode(b"bogus-string").decode()
     r = await client.get(
@@ -306,6 +317,7 @@ async def test_basic_failure(setup: SetupTest, client: AsyncClient) -> None:
         assert authenticate.realm == setup.config.realm
 
 
+@pytest.mark.asyncio
 async def test_handle(setup: SetupTest, client: AsyncClient) -> None:
     """Test that a session handle can be used in Authorization."""
     handle = await setup.create_session(groups=["test"], scope="exec:admin")
@@ -347,6 +359,7 @@ async def test_handle(setup: SetupTest, client: AsyncClient) -> None:
     assert r.status_code == 200
 
 
+@pytest.mark.asyncio
 async def test_reissue_internal(setup: SetupTest, client: AsyncClient) -> None:
     """Test requesting token reissuance to an internal audience."""
     token = setup.create_token(groups=["admin"], scope="exec:admin")
@@ -402,6 +415,7 @@ async def test_reissue_internal(setup: SetupTest, client: AsyncClient) -> None:
     assert not await setup.redis.get(f"session:{decoded_token['jti']}")
 
 
+@pytest.mark.asyncio
 async def test_ajax_unauthorized(
     setup: SetupTest, client: AsyncClient
 ) -> None:

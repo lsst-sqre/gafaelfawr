@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import jwt
-from aiohttp import ClientError
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from httpx import RequestError
 from jwt.exceptions import InvalidIssuerError
 
 from gafaelfawr.constants import ALGORITHM
@@ -25,7 +25,7 @@ from gafaelfawr.util import base64_to_number
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Mapping, Optional
 
-    from aiohttp import ClientSession
+    from httpx import AsyncClient
     from structlog import BoundLogger
 
     from gafaelfawr.config import VerifierConfig
@@ -55,11 +55,11 @@ class TokenVerifier:
     def __init__(
         self,
         config: VerifierConfig,
-        session: ClientSession,
+        http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._session = session
+        self._http_client = http_client
         self._logger = logger
 
     def analyze_token(self, token: Token) -> Dict[str, Any]:
@@ -310,15 +310,16 @@ class TokenVerifier:
             url = urljoin(issuer_url, ".well-known/jwks.json")
 
         try:
-            r = await self._session.get(url)
-            if r.status != 200:
-                msg = f"Cannot retrieve keys from {url}"
+            r = await self._http_client.get(url)
+            if r.status_code != 200:
+                reason = f"{r.status_code} {r.reason_phrase}"
+                msg = f"Cannot retrieve keys from {url}: {reason}"
                 raise FetchKeysException(msg)
-        except ClientError:
+        except RequestError:
             raise FetchKeysException(f"Cannot retrieve keys from {url}")
 
-        body = await r.json()
         try:
+            body = r.json()
             return body["keys"]
         except Exception:
             msg = f"No keys property in JWKS metadata for {url}"
@@ -349,14 +350,14 @@ class TokenVerifier:
         """
         url = urljoin(issuer_url, ".well-known/openid-configuration")
         try:
-            r = await self._session.get(url)
-            if r.status != 200:
+            r = await self._http_client.get(url)
+            if r.status_code != 200:
                 return None
-        except ClientError:
+        except RequestError:
             return None
 
-        body = await r.json()
         try:
+            body = r.json()
             return body["jwks_uri"]
         except Exception:
             msg = f"No jwks_uri property in OIDC metadata for {issuer_url}"

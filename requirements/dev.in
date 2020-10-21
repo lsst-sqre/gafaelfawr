@@ -5,8 +5,6 @@
 # After editing, update requirements/dev.txt by running:
 #     make update-deps
 
-aiohttp-devtools
-aioresponses
 coverage[toml]
 diagrams
 documenteer>=0.5,<0.6
@@ -19,6 +17,8 @@ mypy
 pre-commit
 pytest
 pytest-aiohttp
+pytest-asyncio
+pytest-httpx
 pytest-sugar
 selenium
 selenium-wire
