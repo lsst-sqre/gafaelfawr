@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import click
 import uvicorn
 
-from gafaelfawr.dependencies import config
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
 )
 def run(port: int, settings: str) -> None:
     """Run the application (for production)."""
-    config.set_config_path(settings)
+    config_dependency.set_config_path(settings)
     uvicorn.run("gafaelfawr.main:app", host="0.0.0.0", port=port)
 
 

@@ -10,13 +10,16 @@ from cryptography.fernet import Fernet
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from gafaelfawr.dependencies import config, logger
+from gafaelfawr.dependencies import logger
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
     from typing import Awaitable, Callable, Optional
 
     from structlog import BoundLogger
+
+    from gafaelfawr.config import Config
 
 __all__ = ["State", "StateMiddleware"]
 
@@ -65,9 +68,10 @@ class StateMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
+        config = config_dependency()
         if "gafaelfawr" in request.cookies:
             state = self._parse_cookie(
-                request.cookies["gafaelfawr"], logger(request, config())
+                request.cookies["gafaelfawr"], config, logger(request, config)
             )
         else:
             state = State()
@@ -82,7 +86,7 @@ class StateMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         if request.state.cookie != state:
-            key = config().session_secret.encode()
+            key = config.session_secret.encode()
             cookie = request.state.cookie.as_cookie(key)
             if (
                 request.url.hostname == "localhost"
@@ -97,7 +101,9 @@ class StateMiddleware(BaseHTTPMiddleware):
 
         return response
 
-    def _parse_cookie(self, cookie: str, logger: BoundLogger) -> State:
+    def _parse_cookie(
+        self, cookie: str, config: Config, logger: BoundLogger
+    ) -> State:
         """Parse the state cookie.
 
         Parameters
@@ -112,7 +118,7 @@ class StateMiddleware(BaseHTTPMiddleware):
         session : `SessionCookie`
             The parsed state cookie information.
         """
-        fernet = Fernet(config().session_secret.encode())
+        fernet = Fernet(config.session_secret.encode())
         try:
             data = json.loads(fernet.decrypt(cookie.encode()).decode())
         except Exception as e:

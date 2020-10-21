@@ -9,9 +9,9 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from httpx import AsyncClient
 from pytest_httpx import to_response
 
-from gafaelfawr.dependencies import config, redis
+from gafaelfawr.dependencies import redis
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.middleware.state import State
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.session import Session, SessionHandle
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from pytest_httpx._httpx_internals import Response
 
     from gafaelfawr.config import Config, OIDCClient
+    from gafaelfawr.keypair import RSAKeyPair
     from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.tokens import Token, VerifiedToken
 
@@ -43,13 +44,12 @@ class SetupTest:
     @classmethod
     async def create(cls, tmp_path: Path, httpx_mock: HTTPXMock) -> SetupTest:
         config_path = build_settings(tmp_path, "github")
-        config.set_config_path(str(config_path))
-        config_obj = config()
+        config_dependency.set_config_path(str(config_path))
         redis.use_mock(True)
         redis_pool = await redis()
         return cls(
             tmp_path=tmp_path,
-            config=config_obj,
+            config=config_dependency(),
             redis=redis_pool,
             httpx_mock=httpx_mock,
         )
@@ -109,8 +109,8 @@ class SetupTest:
         settings_path = build_settings(
             self.tmp_path, template, oidc_clients, **settings
         )
-        config.set_config_path(str(settings_path))
-        self.config = config()
+        config_dependency.set_config_path(str(settings_path))
+        self.config = config_dependency()
 
     async def create_session(
         self, *, groups: Optional[List[str]] = None, **claims: str

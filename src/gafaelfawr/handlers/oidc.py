@@ -4,22 +4,15 @@ from __future__ import annotations
 
 import time
 from typing import Dict, Optional, Union
-from urllib.parse import ParseResult, parse_qsl, urlencode, urlparse
+from urllib.parse import ParseResult, parse_qsl, urlencode
 
-from fastapi import (
-    Depends,
-    Form,
-    Header,
-    HTTPException,
-    Query,
-    Response,
-    status,
-)
+from fastapi import Depends, Form, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from gafaelfawr.auth import verified_session
 from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.return_url import parsed_redirect_uri
 from gafaelfawr.exceptions import (
     InvalidRequestError,
     OAuthError,
@@ -30,28 +23,6 @@ from gafaelfawr.session import Session
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
 
 __all__ = ["get_login", "post_token"]
-
-
-def parsed_redirect_uri(
-    redirect_uri: str,
-    x_forwarded_host: Optional[str] = Header(None),
-    context: RequestContext = Depends(context),
-) -> ParseResult:
-    context.rebind_logger(return_url=redirect_uri)
-    base_host = x_forwarded_host if x_forwarded_host else context.config.realm
-    parsed_return_url = urlparse(redirect_uri)
-    if parsed_return_url.hostname != base_host:
-        msg = f"URL is not at {base_host}"
-        context.logger.warning("Bad redirect_uri", error=msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "loc": ["query", "redirect_uri"],
-                "msg": msg,
-                "type": "bad_redirect_uri",
-            },
-        )
-    return parsed_return_url
 
 
 @router.get("/auth/openid/login")

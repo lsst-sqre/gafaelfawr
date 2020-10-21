@@ -7,7 +7,8 @@ from typing import Optional
 from fastapi import Depends
 from fastapi.responses import RedirectResponse
 
-from gafaelfawr.dependencies import RequestContext, context, return_url
+from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.return_url import return_url
 from gafaelfawr.handlers import router
 from gafaelfawr.middleware.state import State
 
@@ -16,8 +17,8 @@ __all__ = ["get_logout"]
 
 @router.get("/logout")
 async def get_logout(
-    context: RequestContext = Depends(context),
     return_url: Optional[str] = Depends(return_url),
+    context: RequestContext = Depends(context),
 ) -> RedirectResponse:
     """Log out and redirect the user.
 

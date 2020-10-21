@@ -21,10 +21,11 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
 APP_TEMPLATE = """
-from gafaelfawr.dependencies import config, redis
+from gafaelfawr.dependencies import redis
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.main import app
 
-config.set_config_path("{config_path}")
+config_dependency.set_config_path("{config_path}")
 redis.use_mock(True)
 """
 

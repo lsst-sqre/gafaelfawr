@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 
 import pytest
 
-from gafaelfawr.dependencies import config
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.session import SessionHandle
 from tests.pages.tokens import NewTokenPage, TokensPage
 from tests.support.selenium import run
@@ -23,8 +23,8 @@ if TYPE_CHECKING:
 async def test_create_token(
     tmp_path: Path, driver: webdriver.Chrome, selenium_server_url: str
 ) -> None:
-    config.set_config_path(str(tmp_path / "gafaelfawr.yaml"))
-    token = create_test_token(config(), scope="read:all")
+    config_dependency.set_config_path(str(tmp_path / "gafaelfawr.yaml"))
+    token = create_test_token(config_dependency(), scope="read:all")
     driver.header_overrides = {"X-Auth-Request-Token": token.encoded}
 
     tokens_url = urljoin(selenium_server_url, "/auth/tokens")

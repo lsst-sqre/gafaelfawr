@@ -22,57 +22,17 @@ health check request as soon as the application comes up.
 import uuid
 from dataclasses import dataclass
 from typing import AsyncIterator, Optional
-from urllib.parse import urlparse
 
 from aioredis import Redis, create_redis_pool
-from fastapi import Depends, Form, Header, HTTPException, Request, status
+from fastapi import Depends, Form, HTTPException, Request, status
 from httpx import AsyncClient
 from safir.logging import configure_logging
 from structlog import BoundLogger, get_logger
 
 from gafaelfawr.config import Config
-from gafaelfawr.constants import CONFIG_PATH
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.util import random_128_bits
-
-
-class ConfigDependency:
-    """Provides the configuration as a dependency.
-
-    We want a production deployment to default to one configuration path, but
-    allow that path to be overridden by the test suite and, if the path
-    changes, to reload the configuration (which allows sharing the same set of
-    global singletons across multiple tests).  Do this by loading the config
-    dynamically when it's first requested and reloading it whenever the
-    configuration path is changed.
-    """
-
-    def __init__(self) -> None:
-        self.config_path = CONFIG_PATH
-        self.config: Optional[Config] = None
-
-    def __call__(self) -> Config:
-        if not self.config:
-            self._load_config()
-        assert self.config
-        return self.config
-
-    def set_config_path(self, path: str) -> None:
-        """Change the configuration path and reload the config.
-
-        Parameters
-        ----------
-        path : `str`
-            The new configuration path.
-        """
-        self.config_path = path
-        self._load_config()
-
-    def _load_config(self) -> None:
-        self.config = Config.from_file(self.config_path)
-
-
-config = ConfigDependency()
 
 
 class LoggerDependency:
@@ -96,7 +56,7 @@ class LoggerDependency:
         self.logger: Optional[BoundLogger] = None
 
     def __call__(
-        self, request: Request, config: Config = Depends(config)
+        self, request: Request, config: Config = Depends(config_dependency)
     ) -> BoundLogger:
         if not self.logger:
             self._configure_logging(config)
@@ -137,7 +97,9 @@ class RedisDependency:
         self.redis: Optional[Redis] = None
         self.mock = False
 
-    async def __call__(self, config: Config = Depends(config)) -> Redis:
+    async def __call__(
+        self, config: Config = Depends(config_dependency)
+    ) -> Redis:
         if not self.redis:
             await self._create_pool(config)
         assert self.redis
@@ -237,7 +199,7 @@ class RequestContext:
 
 def context(
     request: Request,
-    config: Config = Depends(config),
+    config: Config = Depends(config_dependency),
     logger: BoundLogger = Depends(logger),
     redis: Redis = Depends(redis),
     http_client: AsyncClient = Depends(http_client_dependency),
@@ -250,62 +212,6 @@ def context(
         redis=redis,
         http_client=http_client,
     )
-
-
-def return_url(
-    rd: Optional[str] = None,
-    x_forwarded_host: Optional[str] = Header(None),
-    context: RequestContext = Depends(context),
-) -> Optional[str]:
-    """Validate a return URL for use in a redirect.
-
-    Verify that the given URL is at the same host as the current route.
-
-    Parameters
-    ----------
-    context : `RequestContext`
-        The context of the incoming request.
-    return_url : `str`
-        The URL provided by the client.
-
-    Returns
-    -------
-    parsed_return_url : `urllib.parse.ParseResult`
-        The parsed return URL.
-
-    Raises
-    ------
-    fastapi.HTTPException
-        An appropriate error if the return URL was invalid or missing.
-    """
-    if not rd:
-        return None
-    context.rebind_logger(return_url=rd)
-    base_host = x_forwarded_host if x_forwarded_host else context.config.realm
-    parsed_return_url = urlparse(rd)
-    if parsed_return_url.hostname != base_host:
-        msg = f"URL is not at {base_host}"
-        context.logger.warning("Bad return URL", error=msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "loc": ["query", "rd"],
-                "msg": msg,
-                "type": "bad_return_url",
-            },
-        )
-    return parsed_return_url.geturl()
-
-
-def return_url_with_header(
-    rd: Optional[str] = None,
-    x_auth_request_redirect: Optional[str] = Header(None),
-    x_forwarded_host: Optional[str] = Header(None),
-    context: RequestContext = Depends(context),
-) -> Optional[str]:
-    if not rd and x_auth_request_redirect:
-        rd = x_auth_request_redirect
-    return return_url(rd, x_forwarded_host, context)
 
 
 def set_csrf(request: Request) -> None:

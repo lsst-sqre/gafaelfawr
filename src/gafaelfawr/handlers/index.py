@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from safir.metadata import get_project_url
 
 from gafaelfawr.config import Config
-from gafaelfawr.dependencies import config
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.handlers import router
 
 __all__ = ["get_index"]
@@ -24,7 +24,7 @@ class Metadata(BaseModel):
 
 @router.get("/", response_model=Metadata)
 async def get_index(
-    config: Config = Depends(config),
+    config: Config = Depends(config_dependency),
 ) -> Dict[str, Optional[str]]:
     """GET ``/`` (the app's internal root).
 

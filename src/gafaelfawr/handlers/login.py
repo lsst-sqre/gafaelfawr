@@ -10,11 +10,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from httpx import HTTPError
 
-from gafaelfawr.dependencies import (
-    RequestContext,
-    context,
-    return_url_with_header,
-)
+from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.return_url import return_url_with_header
 from gafaelfawr.exceptions import ProviderException
 from gafaelfawr.handlers import router
 
