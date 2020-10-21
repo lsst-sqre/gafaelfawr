@@ -66,11 +66,9 @@ class StateMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         if "gafaelfawr" in request.cookies:
-            print("SAW COOKIE")
             state = self._parse_cookie(
                 request.cookies["gafaelfawr"], logger(request, config())
             )
-            print("STATE", state)
         else:
             state = State()
 

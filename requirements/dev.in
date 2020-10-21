@@ -5,6 +5,7 @@
 # After editing, update requirements/dev.txt by running:
 #     make update-deps
 
+asgi-lifespan
 coverage[toml]
 diagrams
 documenteer>=0.5,<0.6
@@ -16,7 +17,6 @@ mockaioredis
 mypy
 pre-commit
 pytest
-pytest-aiohttp
 pytest-asyncio
 pytest-httpx
 pytest-sugar

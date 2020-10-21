@@ -16,9 +16,6 @@ API reference
 
 .. automodapi:: gafaelfawr.issuer
 
-.. automodapi:: gafaelfawr.handlers
-   :include-all-objects:
-
 .. automodapi:: gafaelfawr.handlers.analyze
 
 .. automodapi:: gafaelfawr.handlers.auth
@@ -60,5 +57,3 @@ API reference
 .. automodapi:: gafaelfawr.util
 
 .. automodapi:: gafaelfawr.verify
-
-.. automodapi:: gafaelfawr.x_forwarded

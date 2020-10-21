@@ -5,13 +5,6 @@
 # After editing, update requirements/main.txt by running:
 #     make update-deps
 
-# These three dependencies are for aiohttp.  We would prefer to depend on
-# aiohttp[speedups], but that pulls in brotlipy, and we were having
-# compilation difficulties with it.
-aiohttp
-aiodns
-chardet
-
 # These dependencies are for fastapi including some optional features.
 fastapi
 jinja2
@@ -20,7 +13,6 @@ starlette
 uvicorn
 
 aioredis
-aiohttp-remotes
 click
 cryptography
 pydantic

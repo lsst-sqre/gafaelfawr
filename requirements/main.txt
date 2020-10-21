@@ -4,14 +4,6 @@
 #
 #    pip-compile --generate-hashes --output-file=requirements/main.txt requirements/main.in
 #
-aiodns==2.0.0 \
-    --hash=sha256:815fdef4607474295d68da46978a54481dd1e7be153c7d60f9e72773cd38d77d \
-    --hash=sha256:aaa5ac584f40fe778013df0aa6544bf157799bd3f608364b451840ed2c8688de \
-    # via -r requirements/main.in
-aiohttp-remotes==0.1.2 \
-    --hash=sha256:43c3f7e1c5ba27f29fb4dbde5d43b900b5b5fc7e37bf7e35e6eaedabaec4a3fc \
-    --hash=sha256:f5c8b02c8b2279d89daea0d2799acb74cefccfee89fc1a8d5ab0a778141d8245 \
-    # via -r requirements/main.in
 aiohttp==3.7.2 \
     --hash=sha256:027be45c4b37e21be81d07ae5242361d73eebad1562c033f80032f955f34df82 \
     --hash=sha256:06efdb01ab71ec20786b592d510d1d354fbe0b2e4449ee47067b9ca65d45a006 \
@@ -46,7 +38,7 @@ aiohttp==3.7.2 \
     --hash=sha256:cdbb65c361ff790c424365a83a496fc8dd1983689a5fb7c6852a9a3ff1710c61 \
     --hash=sha256:f04dcbf6af1868048a9b4754b1684c669252aa2419aa67266efbcaaead42ced7 \
     --hash=sha256:f8c583c31c6e790dc003d9d574e3ed2c5b337947722965096c4d684e4f183570 \
-    # via -r requirements/main.in, aiohttp-remotes, safir
+    # via safir
 aioredis==1.3.1 \
     --hash=sha256:15f8af30b044c771aee6787e5ec24694c048184c7b9e54c3b60c750a4b93273a \
     --hash=sha256:b61808d7e97b7cd5a92ed574937a079c9387fdadd22bfbfa7ad2fd319ecc26e3 \
@@ -96,11 +88,11 @@ cffi==1.14.3 \
     --hash=sha256:f4eae045e6ab2bb54ca279733fe4eb85f1effda392666308250714e01907f394 \
     --hash=sha256:f92cdecb618e5fa4658aeb97d5eb3d2f47aa94ac6477c6daf0f306c5a3b9e6b1 \
     --hash=sha256:f92f789e4f9241cd262ad7a555ca2c648a98178a953af117ef7fad46aa1d5591 \
-    # via cryptography, pycares
+    # via cryptography
 chardet==3.0.4 \
     --hash=sha256:84ab92ed1c4d4f16916e05906b6b75a6c0fb5db821cc65e70cbd64a3e2a5eaae \
     --hash=sha256:fc323ffcaeaed0e0a02bf4d117757b98aed530d9ed4531e3e15460124c106691 \
-    # via -r requirements/main.in, aiohttp
+    # via aiohttp
 click==7.1.2 \
     --hash=sha256:d2b5255c7c6349bc1bd1e59e08cd12acbbd63ce649f2588755783aa94dfb6b1a \
     --hash=sha256:dacca89f4bfadd5de3d7489b7c8a566eee0d3676333fbb50030263894c38c0dc \
@@ -263,37 +255,6 @@ multidict==5.0.0 \
     --hash=sha256:cda06c99cd6f4a36571bb38e560a6fcfb1f136521e57f612e0bc31957b1cd4bd \
     --hash=sha256:ec8bc0ab00c76c4260a201eaa58812ea8b1b7fde0ecf5f9c9365a182bd4691ed \
     # via aiohttp, yarl
-pycares==3.1.1 \
-    --hash=sha256:050f00b39ed77ea8a4e555f09417d4b1a6b5baa24bb9531a3e15d003d2319b3f \
-    --hash=sha256:0a24d2e580a8eb567140d7b69f12cb7de90c836bd7b6488ec69394d308605ac3 \
-    --hash=sha256:0c5bd1f6f885a219d5e972788d6eef7b8043b55c3375a845e5399638436e0bba \
-    --hash=sha256:11c628402cc8fc8ef461076d4e47f88afc1f8609989ebbff0dbffcd54c97239f \
-    --hash=sha256:18dfd4fd300f570d6c4536c1d987b7b7673b2a9d14346592c5d6ed716df0d104 \
-    --hash=sha256:1917b82494907a4a342db420bc4dd5bac355a5fa3984c35ba9bf51422b020b48 \
-    --hash=sha256:1b90fa00a89564df059fb18e796458864cc4e00cb55e364dbf921997266b7c55 \
-    --hash=sha256:1d8d177c40567de78108a7835170f570ab04f09084bfd32df9919c0eaec47aa1 \
-    --hash=sha256:236286f81664658b32c141c8e79d20afc3d54f6e2e49dfc8b702026be7265855 \
-    --hash=sha256:2e4f74677542737fb5af4ea9a2e415ec5ab31aa67e7b8c3c969fdb15c069f679 \
-    --hash=sha256:48a7750f04e69e1f304f4332b755728067e7c4b1abe2760bba1cacd9ff7a847a \
-    --hash=sha256:7d86e62b700b21401ffe7fd1bbfe91e08489416fecae99c6570ab023c6896022 \
-    --hash=sha256:7e2d7effd08d2e5a3cb95d98a7286ebab71ab2fbce84fa93cc2dd56caf7240dd \
-    --hash=sha256:81edb016d9e43dde7473bc3999c29cdfee3a6b67308fed1ea21049f458e83ae0 \
-    --hash=sha256:96c90e11b4a4c7c0b8ff5aaaae969c5035493136586043ff301979aae0623941 \
-    --hash=sha256:9a0a1845f8cb2e62332bca0aaa9ad5494603ac43fb60d510a61d5b5b170d7216 \
-    --hash=sha256:a05bbfdfd41f8410a905a818f329afe7510cbd9ee65c60f8860a72b6c64ce5dc \
-    --hash=sha256:a5089fd660f0b0d228b14cdaa110d0d311edfa5a63f800618dbf1321dcaef66b \
-    --hash=sha256:c457a709e6f2befea7e2996c991eda6d79705dd075f6521593ba6ebc1485b811 \
-    --hash=sha256:c5cb72644b04e5e5abfb1e10a0e7eb75da6684ea0e60871652f348e412cf3b11 \
-    --hash=sha256:cce46dd4717debfd2aab79d6d7f0cbdf6b1e982dc4d9bebad81658d59ede07c2 \
-    --hash=sha256:cfdd1f90bcf373b00f4b2c55ea47868616fe2f779f792fc913fa82a3d64ffe43 \
-    --hash=sha256:d88a279cbc5af613f73e86e19b3f63850f7a2e2736e249c51995dedcc830b1bb \
-    --hash=sha256:eba9a9227438da5e78fc8eee32f32eb35d9a50cf0a0bd937eb6275c7cc3015fe \
-    --hash=sha256:eee7b6a5f5b5af050cb7d66ab28179287b416f06d15a8974ac831437fec51336 \
-    --hash=sha256:f41ac1c858687e53242828c9f59c2e7b0b95dbcd5bdd09c7e5d3c48b0f89a25a \
-    --hash=sha256:f8deaefefc3a589058df1b177275f79233e8b0eeee6734cf4336d80164ecd022 \
-    --hash=sha256:fa78e919f3bd7d6d075db262aa41079b4c02da315c6043c6f43881e2ebcdd623 \
-    --hash=sha256:fadb97d2e02dabdc15a0091591a972a938850d79ddde23d385d813c1731983f0 \
-    # via aiodns
 pycparser==2.20 \
     --hash=sha256:2d475327684562c3a96cc71adf7dc8c4f0565175cf86b6d7a404ff4c771f15f0 \
     --hash=sha256:7582ad22678f0fcd81102833f60ef8d0e57288b6b5fb00323d101be910e35705 \
