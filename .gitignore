@@ -134,3 +134,7 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+
+# Emacs temporary files
+.#*
+\#*#
