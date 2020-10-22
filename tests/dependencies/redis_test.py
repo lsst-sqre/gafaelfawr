@@ -7,8 +7,8 @@ from unittest.mock import call, patch
 
 import pytest
 
-from gafaelfawr.dependencies import redis
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.redis import redis_dependency
 from tests.support.settings import build_settings, store_secret
 
 if TYPE_CHECKING:
@@ -23,9 +23,11 @@ async def test_redis_password(tmp_path: Path) -> None:
     )
     config_dependency.set_config_path(str(config_path))
 
-    with patch("gafaelfawr.dependencies.create_redis_pool") as mock_create:
-        redis.use_mock(False)
-        await redis(config_dependency())
+    function = "gafaelfawr.dependencies.redis.create_redis_pool"
+    with patch(function) as mock_create:
+        redis_dependency.is_mocked = False
+        await redis_dependency(config_dependency())
         assert mock_create.call_args_list == [
             call("dummy", password="some-password")
         ]
+        redis_dependency.redis = None

@@ -13,7 +13,7 @@ from urllib.parse import ParseResult, urlparse
 
 from fastapi import Depends, Header, HTTPException, status
 
-from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 
 
 def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
@@ -66,7 +66,7 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
 
 def return_url(
     rd: Optional[str] = None,
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> Optional[str]:
     """Validate a return URL in an ``rd`` parameter.
 
@@ -90,7 +90,7 @@ def return_url(
 def return_url_with_header(
     rd: Optional[str] = None,
     x_auth_request_redirect: Optional[str] = Header(None),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> Optional[str]:
     """Validate a return URL in an ``rd`` parameter or header.
 
@@ -115,7 +115,7 @@ def return_url_with_header(
 
 def parsed_redirect_uri(
     redirect_uri: str,
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> ParseResult:
     """Validate a return URL in a ``redirect_uri`` parameter.
 

@@ -12,7 +12,7 @@ from urllib.parse import urlencode, urlparse
 import jwt
 from fastapi import Depends, Header, HTTPException, Request, status
 
-from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import (
     InvalidRequestError,
     InvalidTokenError,
@@ -26,7 +26,7 @@ __all__ = ["verified_session", "verified_token"]
 
 async def verified_session(
     request: Request,
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> Session:
     session = None
     if request.state.cookie.handle:
@@ -56,7 +56,7 @@ async def verified_session(
 
 def verified_token(
     x_auth_request_token: Optional[str] = Header(None),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> VerifiedToken:
     unverified_token = x_auth_request_token
     if not unverified_token:

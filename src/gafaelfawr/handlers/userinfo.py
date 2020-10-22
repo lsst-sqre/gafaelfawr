@@ -4,20 +4,21 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from fastapi import Depends
+from fastapi import APIRouter, Depends
 
 from gafaelfawr.auth import verified_token
-from gafaelfawr.dependencies import RequestContext, context
-from gafaelfawr.handlers import router
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.tokens import VerifiedToken
+
+router = APIRouter()
 
 __all__ = ["get_userinfo"]
 
 
 @router.get("/auth/userinfo")
 async def get_userinfo(
-    context: RequestContext = Depends(context),
     token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
 ) -> Mapping[str, Any]:
     """Return information about the holder of a JWT.
 

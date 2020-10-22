@@ -95,7 +95,7 @@ async def test_tokens_handle_get_delete(
         headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
 
     # Deleting with a bogus CSRF token will fail.
     r = await client.post(
@@ -174,7 +174,7 @@ async def test_tokens_new_create(
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
 
     # Creating with a bogus CSRF token will fail.
     r = await client.post(

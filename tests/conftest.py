@@ -105,4 +105,4 @@ async def setup(
     try:
         yield test_setup
     finally:
-        await test_setup.close()
+        await test_setup.aclose()

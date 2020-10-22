@@ -1,5 +1,7 @@
 """Config dependency for FastAPI."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from gafaelfawr.config import Config
@@ -7,6 +9,8 @@ from gafaelfawr.constants import CONFIG_PATH
 
 if TYPE_CHECKING:
     from typing import Optional
+
+__all__ = ["ConfigDependency", "config_dependency"]
 
 
 class ConfigDependency:
@@ -48,3 +52,4 @@ class ConfigDependency:
 
 
 config_dependency = ConfigDependency()
+"""The dependency that will return the current configuration."""

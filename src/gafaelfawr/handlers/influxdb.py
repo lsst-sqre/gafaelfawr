@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from typing import Dict
 
-from fastapi import Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from gafaelfawr.auth import verified_token
-from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.handlers import router
 from gafaelfawr.tokens import VerifiedToken
+
+router = APIRouter()
 
 __all__ = ["get_influxdb"]
 
@@ -23,7 +24,7 @@ class TokenReply(BaseModel):
 @router.get("/auth/tokens/influxdb/new", response_model=TokenReply)
 async def get_influxdb(
     token: VerifiedToken = Depends(verified_token),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, str]:
     """Return an InfluxDB-compatible JWT.
 

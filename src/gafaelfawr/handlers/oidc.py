@@ -6,21 +6,30 @@ import time
 from typing import Dict, Optional, Union
 from urllib.parse import ParseResult, parse_qsl, urlencode
 
-from fastapi import Depends, Form, HTTPException, Query, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    status,
+)
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from gafaelfawr.auth import verified_session
-from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import parsed_redirect_uri
 from gafaelfawr.exceptions import (
     InvalidRequestError,
     OAuthError,
     UnsupportedGrantTypeError,
 )
-from gafaelfawr.handlers import router
 from gafaelfawr.session import Session
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
+
+router = APIRouter()
 
 __all__ = ["get_login", "post_token"]
 
@@ -33,7 +42,7 @@ async def get_login(
     scope: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
     session: Session = Depends(verified_session),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
     """Authenticate the user for an OpenID Connect server flow.
 
@@ -149,7 +158,7 @@ async def post_token(
     client_secret: str = Form(None),
     code: str = Form(None),
     redirect_uri: str = Form(None),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> Union[Dict[str, Union[str, int]], JSONResponse]:
     """Redeem an authorization code for a token.
 

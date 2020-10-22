@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from fastapi import Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.dependencies import RequestContext, context
-from gafaelfawr.handlers import router
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
+
+router = APIRouter()
 
 __all__ = [
     "get_well_known_jwks",
@@ -59,7 +60,7 @@ class OpenIdConfig(BaseModel):
 
 @router.get("/.well-known/jwks.json", response_model=KeySet)
 async def get_well_known_jwks(
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> KeySet:
     """Handler for /.well-known/jwks.json.
 
@@ -83,7 +84,7 @@ async def get_well_known_jwks(
 
 @router.get("/.well-known/openid-configuration", response_model=OpenIdConfig)
 async def get_well_known_openid(
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> OpenIdConfig:
     """Handler for /.well-known/openid-configuration.
 

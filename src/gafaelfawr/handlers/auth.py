@@ -6,7 +6,15 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Set
 
-from fastapi import Depends, Header, HTTPException, Query, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Response,
+    status,
+)
 
 from gafaelfawr.auth import (
     AuthError,
@@ -17,15 +25,16 @@ from gafaelfawr.auth import (
     parse_authorization,
     verify_token,
 )
-from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import (
     InsufficientScopeError,
     InvalidRequestError,
     InvalidTokenError,
 )
-from gafaelfawr.handlers import router
 from gafaelfawr.session import SessionHandle
 from gafaelfawr.tokens import VerifiedToken
+
+router = APIRouter()
 
 __all__ = ["get_auth"]
 
@@ -74,8 +83,8 @@ def auth_config(
     scope: List[str] = Query(...),
     satisfy: Satisfy = Satisfy.ALL,
     auth_type: AuthType = AuthType.Bearer,
-    context: RequestContext = Depends(context),
     auth_uri: str = Depends(auth_uri),
+    context: RequestContext = Depends(context_dependency),
 ) -> AuthConfig:
     context.rebind_logger(
         auth_uri=auth_uri,
@@ -90,7 +99,7 @@ async def get_auth(
     response: Response,
     auth_config: AuthConfig = Depends(auth_config),
     audience: Optional[str] = None,
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, str]:
     """Authenticate and authorize a token.
 
@@ -209,7 +218,7 @@ async def get_auth(
 async def get_auth_forbidden(
     response: Response,
     auth_config: AuthConfig = Depends(auth_config),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> Response:
     """Error page for HTTP Forbidden (403) errors.
 

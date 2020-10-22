@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import Depends
+from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
 
-from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import return_url
-from gafaelfawr.handlers import router
-from gafaelfawr.middleware.state import State
+from gafaelfawr.models.state import State
+
+router = APIRouter()
 
 __all__ = ["get_logout"]
 
@@ -18,7 +19,7 @@ __all__ = ["get_logout"]
 @router.get("/logout")
 async def get_logout(
     return_url: Optional[str] = Depends(return_url),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
     """Log out and redirect the user.
 

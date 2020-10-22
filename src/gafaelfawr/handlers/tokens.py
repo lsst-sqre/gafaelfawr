@@ -5,19 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
 from gafaelfawr.auth import verified_token
-from gafaelfawr.dependencies import (
-    RequestContext,
-    context,
-    set_csrf,
-    verify_csrf,
-)
-from gafaelfawr.handlers import router
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
+from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
 from gafaelfawr.session import Session, SessionHandle
 from gafaelfawr.tokens import VerifiedToken
 
@@ -27,6 +22,7 @@ if TYPE_CHECKING:
     from starlette.datastructures import FormData
     from starlette.templating import _TemplateResponse
 
+router = APIRouter()
 templates = Jinja2Templates(str(Path(__file__).parent.parent / "templates"))
 
 __all__ = [
@@ -78,7 +74,7 @@ def build_new_token_form(
 @router.get("/auth/tokens", dependencies=[Depends(set_csrf)])
 async def get_tokens(
     token: VerifiedToken = Depends(verified_token),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> _TemplateResponse:
     """Displays all tokens for the current user.
 
@@ -117,7 +113,7 @@ async def get_tokens(
 @router.get("/auth/tokens/new", dependencies=[Depends(set_csrf)])
 async def get_tokens_new(
     token: VerifiedToken = Depends(verified_token),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> _TemplateResponse:
     """Return a form for creating a new token.
 
@@ -153,7 +149,7 @@ async def get_tokens_new(
 @router.post("/auth/tokens/new", dependencies=[Depends(verify_csrf)])
 async def post_tokens_new(
     token: VerifiedToken = Depends(verified_token),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
     """Create a new token based on form parameters.
 
@@ -209,7 +205,7 @@ async def post_tokens_new(
 async def get_token_by_handle(
     handle: str,
     token: VerifiedToken = Depends(verified_token),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> _TemplateResponse:
     """Displays information about a single token.
 
@@ -252,7 +248,7 @@ async def get_token_by_handle(
 async def post_delete_token(
     handle: str,
     token: VerifiedToken = Depends(verified_token),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
     """Deletes a single token.
 

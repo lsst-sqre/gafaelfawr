@@ -9,10 +9,10 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from httpx import AsyncClient
 from pytest_httpx import to_response
 
-from gafaelfawr.dependencies import redis
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.middleware.state import State
+from gafaelfawr.models.state import State
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.session import Session, SessionHandle
 from tests.support.constants import TEST_HOSTNAME
@@ -45,12 +45,13 @@ class SetupTest:
     async def create(cls, tmp_path: Path, httpx_mock: HTTPXMock) -> SetupTest:
         config_path = build_settings(tmp_path, "github")
         config_dependency.set_config_path(str(config_path))
-        redis.use_mock(True)
-        redis_pool = await redis()
+        config = config_dependency()
+        redis_dependency.is_mocked = True
+        redis = await redis_dependency(config)
         return cls(
             tmp_path=tmp_path,
-            config=config_dependency(),
-            redis=redis_pool,
+            config=config,
+            redis=redis,
             httpx_mock=httpx_mock,
         )
 
@@ -84,8 +85,9 @@ class SetupTest:
             config=self.config, redis=self.redis, http_client=self.http_client
         )
 
-    async def close(self) -> None:
-        await redis.close()
+    async def aclose(self) -> None:
+        """Close resources that were opened by the test setup."""
+        await redis_dependency.close()
         await self.http_client.aclose()
 
     def configure(
@@ -232,7 +234,7 @@ class SetupTest:
         session_store = self.factory.create_session_store()
         await session_store.store_session(session)
         state = State(handle=handle)
-        cookie = state.as_cookie(self.config.session_secret.encode())
+        cookie = state.as_cookie()
         client.cookies.set("gafaelfawr", cookie, domain=TEST_HOSTNAME)
 
     def set_github_userinfo_response(

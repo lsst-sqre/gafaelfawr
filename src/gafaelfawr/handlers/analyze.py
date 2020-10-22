@@ -5,18 +5,19 @@ from __future__ import annotations
 import json
 from typing import Any, Dict
 
-from fastapi import Depends, Form
+from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
 
 from gafaelfawr.auth import verified_session
-from gafaelfawr.dependencies import RequestContext, context
-from gafaelfawr.handlers import router
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.session import (
     InvalidSessionHandleException,
     Session,
     SessionHandle,
 )
 from gafaelfawr.tokens import Token
+
+router = APIRouter()
 
 __all__ = ["get_analyze", "post_analyze"]
 
@@ -37,7 +38,7 @@ class FormattedJSONResponse(JSONResponse):
 @router.get("/auth/analyze", response_class=FormattedJSONResponse)
 async def get_analyze(
     session: Session = Depends(verified_session),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, Any]:
     """Analyze a session handle from a web session.
 
@@ -65,7 +66,8 @@ async def get_analyze(
 
 @router.post("/auth/analyze", response_class=FormattedJSONResponse)
 async def post_analyze(
-    token: str = Form(...), context: RequestContext = Depends(context)
+    token: str = Form(...),
+    context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, Any]:
     """Analyze a token.
 

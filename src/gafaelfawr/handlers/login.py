@@ -6,14 +6,15 @@ import base64
 import os
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from httpx import HTTPError
 
-from gafaelfawr.dependencies import RequestContext, context
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import return_url_with_header
 from gafaelfawr.exceptions import ProviderException
-from gafaelfawr.handlers import router
+
+router = APIRouter()
 
 __all__ = ["get_login"]
 
@@ -24,7 +25,7 @@ async def get_login(
     code: Optional[str] = None,
     state: Optional[str] = None,
     return_url: Optional[str] = Depends(return_url_with_header),
-    context: RequestContext = Depends(context),
+    context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
     """Handle an initial login.
 

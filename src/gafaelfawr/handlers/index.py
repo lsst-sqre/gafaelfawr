@@ -3,13 +3,14 @@
 from importlib.metadata import metadata
 from typing import Dict, Optional
 
-from fastapi import Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from safir.metadata import get_project_url
 
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.handlers import router
+
+router = APIRouter()
 
 __all__ = ["get_index"]
 
