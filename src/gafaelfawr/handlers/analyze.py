@@ -8,7 +8,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
 
-from gafaelfawr.auth import verified_session
+from gafaelfawr.dependencies.auth import verified_session
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.session import (
     InvalidSessionHandleException,

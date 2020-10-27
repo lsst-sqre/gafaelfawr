@@ -7,78 +7,28 @@ import re
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Set
-from urllib.parse import urlencode, urlparse
 
 import jwt
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import HTTPException, status
 
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
+from gafaelfawr.dependencies.context import RequestContext
 from gafaelfawr.exceptions import (
     InvalidRequestError,
     InvalidTokenError,
     OAuthBearerError,
 )
-from gafaelfawr.session import Session
 from gafaelfawr.tokens import Token, VerifiedToken
 
-__all__ = ["verified_session", "verified_token"]
-
-
-async def verified_session(
-    request: Request,
-    context: RequestContext = Depends(context_dependency),
-) -> Session:
-    session = None
-    if request.state.cookie.handle:
-        session_store = context.factory.create_session_store()
-        session = await session_store.get_session(request.state.cookie.handle)
-
-    # If there is no active session, redirect to /login.
-    if not session:
-        query = urlencode({"rd": str(context.request.url)})
-        login_url = urlparse("/login")._replace(query=query).geturl()
-        context.logger.info("Redirecting user for authentication")
-        raise HTTPException(
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            headers={"Location": login_url},
-        )
-
-    # On success, add some context to the logger.
-    context.rebind_logger(
-        token=session.token.jti,
-        user=session.token.username,
-        scope=" ".join(sorted(session.token.scope)),
-        token_source="cookie",
-    )
-
-    return session
-
-
-def verified_token(
-    x_auth_request_token: Optional[str] = Header(None),
-    context: RequestContext = Depends(context_dependency),
-) -> VerifiedToken:
-    unverified_token = x_auth_request_token
-    if not unverified_token:
-        try:
-            unverified_token = parse_authorization(context)
-        except InvalidRequestError as e:
-            raise generate_challenge(context, AuthType.Bearer, e)
-    if not unverified_token:
-        raise generate_unauthorized_challenge(context, AuthType.Bearer)
-    try:
-        token = verify_token(context, unverified_token)
-    except InvalidTokenError as e:
-        raise generate_challenge(context, AuthType.Bearer, e)
-
-    # Add user information to the logger.
-    context.rebind_logger(
-        token=token.jti,
-        user=token.username,
-        scope=" ".join(sorted(token.scope)),
-    )
-
-    return token
+__all__ = [
+    "AuthType",
+    "AuthChallenge",
+    "AuthError",
+    "AuthErrorChallenge",
+    "generate_challenge",
+    "generate_unauthorized_challenge",
+    "parse_authorization",
+    "verify_token",
+]
 
 
 class AuthType(str, Enum):
@@ -165,7 +115,7 @@ def generate_challenge(
 
     Parameters
     ----------
-    context : `RequestContext`
+    request : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
     auth_type : `AuthType`
         The type of authentication to request.
@@ -177,9 +127,9 @@ def generate_challenge(
 
     Returns
     -------
-    aiohttp.web.HTTPException
-        A prepopulated `~aiohttp.web.HTTPException` object ready for raising.
-        The headers will contain a ``WWW-Authenticate`` challenge.
+    fastapi.HTTPException
+        A prepopulated `fastapi.HTTPException` object ready for raising.  The
+        headers will contain a ``WWW-Authenticate`` challenge.
     """
     context.logger.warning("%s", exc.message, error=str(exc))
     challenge = AuthErrorChallenge(
@@ -216,7 +166,7 @@ def generate_unauthorized_challenge(
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The incoming request.
     auth_type : `AuthType`
         The type of authentication to request.
@@ -229,13 +179,12 @@ def generate_unauthorized_challenge(
 
     Returns
     -------
-    exception : `aiohttp.web.HTTPException`
-        The exception to raise, either HTTPForbidden (for AJAX) or
-        HTTPUnauthorized.
+    exception : `fastapi.HTTPException`
+        The exception to raise, either a 403 (for AJAX) or a 401.
 
     Notes
     -----
-    If the request contains X-Requested-With: XMLHttpRequest, return 403
+    If the request contains ``X-Requested-With: XMLHttpRequest``, return 403
     rather than 401.  The presence of this header indicates an AJAX request,
     which in turn means that the request is not under full control of the
     browser window.  The redirect ingress-nginx will send will therefore not
@@ -298,7 +247,7 @@ def parse_authorization(
 
     Parameters
     ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
     allow_basic : `bool`, optional
         Whether to allow HTTP Basic authentication (default: `False`).
@@ -364,7 +313,7 @@ def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
 
     Parameters
     ----------
-    context : `RequestContext`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
     encoded_token : `str`
         The encoded token.

@@ -18,7 +18,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from gafaelfawr.auth import verified_session
+from gafaelfawr.dependencies.auth import verified_session
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import parsed_redirect_uri
 from gafaelfawr.exceptions import (

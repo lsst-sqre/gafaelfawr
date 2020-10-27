@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
-from gafaelfawr.auth import verified_token
+from gafaelfawr.dependencies.auth import verified_token
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
 from gafaelfawr.session import Session, SessionHandle

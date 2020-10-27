@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 from fastapi import APIRouter, Depends
 
-from gafaelfawr.auth import verified_token
+from gafaelfawr.dependencies.auth import verified_token
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.tokens import VerifiedToken
 

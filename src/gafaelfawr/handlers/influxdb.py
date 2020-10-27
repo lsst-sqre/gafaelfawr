@@ -7,7 +7,7 @@ from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from gafaelfawr.auth import verified_token
+from gafaelfawr.dependencies.auth import verified_token
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import NotConfiguredException
 from gafaelfawr.tokens import VerifiedToken
