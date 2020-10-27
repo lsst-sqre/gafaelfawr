@@ -13,11 +13,13 @@ starlette
 uvicorn
 
 aioredis
+alembic
 click
 cryptography
 pydantic
 PyJWT
 pyyaml
 safir
+sqlalchemy
 structlog
 wtforms
