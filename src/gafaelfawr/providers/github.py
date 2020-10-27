@@ -170,7 +170,7 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        aiohttp.ClientResponseError
+        httpx.HTTPError
             An HTTP client error occurred trying to talk to the authentication
             provider.
         gafaelfawr.exceptions.GitHubException
@@ -216,7 +216,7 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        aiohttp.ClientResponseError
+        httpx.HTTPError
             An error occurred trying to talk to GitHub.
         gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to the request for the access

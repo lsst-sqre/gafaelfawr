@@ -9,8 +9,7 @@ The session cookie is also used to store some other transient information.
 Session cookie
 ==============
 
-The Gafaelfawr session cookie is a :py:mod:`aiohttp_session` cookie using encrypted cookie storage.
-The cookie contents are encrypted with :py:class:`~cryptography.fernet.Fernet`.
+The Gafaelfawr session cookie is JSON, encrypted with :py:class:`~cryptography.fernet.Fernet`.
 The cookie may contain the following keys:
 
 ``csrf``

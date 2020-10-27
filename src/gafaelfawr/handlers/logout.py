@@ -25,22 +25,6 @@ async def get_logout(
 
     The user is redirected to the URL given in the rd parameter, if any, and
     otherwise to the after_logout_url configuration setting.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        Redirect the  user to the desired destination, or return an error if
-        the requested redirect URL is not valid.
     """
     if context.request.state.cookie.handle:
         context.logger.info("Successful logout")

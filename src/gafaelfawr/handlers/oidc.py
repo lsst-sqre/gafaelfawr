@@ -48,23 +48,6 @@ async def get_login(
 
     Authenticates the user and then returns an authorization code to the
     OpenID Connect client via redirect.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    session : `gafaelfawr.session.Session`
-        The authentication session.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response (not used).
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        The redirect or exception.
     """
     oidc_server = context.factory.create_oidc_server()
 
@@ -160,18 +143,7 @@ async def post_token(
     redirect_uri: str = Form(None),
     context: RequestContext = Depends(context_dependency),
 ) -> Union[Dict[str, Union[str, int]], JSONResponse]:
-    """Redeem an authorization code for a token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
+    """Redeem an authorization code for a token."""
     # Redeem the provided code for a token.
     oidc_server = context.factory.create_oidc_server()
     try:

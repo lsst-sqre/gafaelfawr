@@ -13,6 +13,7 @@ __all__ = [
     "DeserializeException",
     "FetchKeysException",
     "GitHubException",
+    "InsufficientScopeError",
     "InvalidClientError",
     "InvalidGrantError",
     "InvalidRequestError",

@@ -26,6 +26,7 @@ class FormattedJSONResponse(JSONResponse):
     """The same as `~fastapi.JSONResponse` except formatted for humans."""
 
     def render(self, content: Any) -> bytes:
+        """Render a data structure into JSON formatted for humans."""
         return json.dumps(
             content,
             ensure_ascii=False,
@@ -40,25 +41,7 @@ async def get_analyze(
     session: Session = Depends(verified_session),
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, Any]:
-    """Analyze a session handle from a web session.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    session : `gafaelfawr.session.Session`
-        The authentication session.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        If the user is not logged in.
-    """
+    """Analyze a session handle from a web session."""
     result = await analyze_handle(context, session.handle)
     context.logger.info("Analyzed user session")
     return result
@@ -74,16 +57,6 @@ async def post_analyze(
     Expects a POST with a single parameter, ``token``, which is either a
     session handle or a token.  Returns a JSON structure with details about
     that token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
     """
     try:
         handle = SessionHandle.from_str(token)
@@ -104,7 +77,7 @@ async def analyze_handle(
 
     Parameters
     ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The request context.
     handle : `gafaelfawr.session.SessionHandle`
         The session handle to analyze.

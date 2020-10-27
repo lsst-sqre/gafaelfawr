@@ -15,6 +15,8 @@ from fastapi import Depends, Header, HTTPException, status
 
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 
+__all__ = ["parsed_redirect_uri", "return_url", "return_url_with_header"]
+
 
 def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
     """Check that a return URL is at the same host.
@@ -125,7 +127,7 @@ def parsed_redirect_uri(
 
     Returns
     -------
-    redirect_uri : `ParseResult`
+    redirect_uri : `urllib.parse.ParseResult`
         The verified, parsed redirect URI.
 
     Raises

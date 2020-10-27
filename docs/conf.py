@@ -61,17 +61,7 @@ default_role = "py:obj"
 # Intersphinx ================================================================
 
 intersphinx_mapping = {
-    "aiohttp": ("https://docs.aiohttp.org/en/stable/", None),
-    "aiohttp_remotes": (
-        "https://aiohttp-remotes.readthedocs.io/en/latest/",
-        None,
-    ),
-    "aiohttp_session": (
-        "https://aiohttp-session.readthedocs.io/en/stable/",
-        None,
-    ),
     "aioredis": ("https://aioredis.readthedocs.io/en/latest/", None),
-    "cachetools": ("https://cachetools.readthedocs.io/en/stable/", None),
     "cryptography": ("https://cryptography.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "multidict": ("https://multidict.readthedocs.io/en/stable/", None),

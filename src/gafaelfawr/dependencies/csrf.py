@@ -12,6 +12,8 @@ from fastapi import Form, HTTPException, Request, status
 
 from gafaelfawr.util import random_128_bits
 
+__all__ = ["set_csrf", "verify_csrf"]
+
 
 def set_csrf(request: Request) -> None:
     """Dependency to set a CSRF cookie in the encrypted state cookie."""

@@ -44,10 +44,8 @@ class TokenVerifier:
     ----------
     config : `gafaelfawr.config.VerifierConfig`
         The JWT Authorizer configuration.
-    session : `aiohttp.ClientSession`
-        The session to use for making requests.
-    cache : `cachetools.TTLCache`
-        Cache in which to store issuer keys.
+    http_client : `httpx.AsyncClient`
+        The client to use for making requests.
     logger : `structlog.BoundLogger`
         Logger to use to report status information.
     """

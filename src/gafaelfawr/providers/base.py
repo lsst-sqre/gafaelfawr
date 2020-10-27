@@ -47,7 +47,7 @@ class Provider(metaclass=ABCMeta):
 
         Raises
         ------
-        aiohttp.ClientResponseError
+        httpx.HTTPError
             An HTTP client error occurred trying to talk to the authentication
             provider.
         gafaelfawr.exceptions.ProviderException

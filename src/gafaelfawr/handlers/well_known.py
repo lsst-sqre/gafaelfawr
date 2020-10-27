@@ -62,19 +62,9 @@ class OpenIdConfig(BaseModel):
 async def get_well_known_jwks(
     context: RequestContext = Depends(context_dependency),
 ) -> KeySet:
-    """Handler for /.well-known/jwks.json.
+    """Handler for ``/.well-known/jwks.json``.
 
     Serve metadata about our signing key.
-
-    Parameters
-    ----------
-    context : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The outgoing response.
     """
     keypair = context.config.issuer.keypair
     jwks = keypair.public_key_as_jwks(kid=context.config.issuer.kid)
@@ -86,19 +76,9 @@ async def get_well_known_jwks(
 async def get_well_known_openid(
     context: RequestContext = Depends(context_dependency),
 ) -> OpenIdConfig:
-    """Handler for /.well-known/openid-configuration.
+    """Handler for ``/.well-known/openid-configuration``.
 
     Serve metadata about our OpenID Connect implementation.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The outgoing response.
     """
     base_url = context.config.issuer.iss
     context.logger.info("Returned OpenID Connect configuration")

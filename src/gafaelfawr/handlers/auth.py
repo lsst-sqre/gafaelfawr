@@ -86,6 +86,11 @@ def auth_config(
     auth_uri: str = Depends(auth_uri),
     context: RequestContext = Depends(context_dependency),
 ) -> AuthConfig:
+    """Construct the configuration for an authorization request.
+
+    A shared dependency that reads various GET parameters and headers and
+    converts them into an `AuthConfig` class.
+    """
     context.rebind_logger(
         auth_uri=auth_uri,
         required_scope=" ".join(sorted(scope)),
@@ -102,22 +107,6 @@ async def get_auth(
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, str]:
     """Authenticate and authorize a token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request, normally from NGINX's ``auth_request``
-        directive.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        Raised on authorization failures or malformed requests.
 
     Notes
     -----
@@ -222,21 +211,6 @@ async def get_auth_forbidden(
 ) -> Response:
     """Error page for HTTP Forbidden (403) errors.
 
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request via NGINX's ``error_page`` directive.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response (never returned because this method raises instead).
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        An HTTPForbidden exception with the correct authentication challenge.
-
     Notes
     -----
     This route exists because we want to set a ``Cache-Control`` header on 403
@@ -288,7 +262,7 @@ async def get_token_from_request(
 
     Parameters
     ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
 
     Returns
@@ -300,7 +274,7 @@ async def get_token_from_request(
     ------
     gafaelfawr.exceptions.InvalidRequestError
         The Authorization header was malformed.
-    gafaelfawr.handlers.util.InvalidTokenError
+    gafaelfawr.exceptions.InvalidTokenError
         A token was provided but it could not be verified.
     """
     # Use the session cookie if it is available.  This check has to be before
@@ -338,7 +312,7 @@ def maybe_reissue_token(
 
     Parameters
     ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
     token : `gafaelfawr.tokens.VerifiedToken`
         The current token.
@@ -379,8 +353,8 @@ def build_success_headers(
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
+    context : `gafaelfawr.dependencies.context.RequestContext`
+        The context of the incoming request.
     auth_config : `AuthConfig`
         Configuration parameters for the authorization.
     token : `gafaelfawr.tokens.VerifiedToken`

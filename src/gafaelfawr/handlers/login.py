@@ -27,25 +27,7 @@ async def get_login(
     return_url: Optional[str] = Depends(return_url_with_header),
     context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
-    """Handle an initial login.
-
-    Constructs the authentication URL and redirects the user to the
-    authentication provider.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-
-    Raises
-    ------
-    NotImplementedError
-        If no authentication provider is configured.
+    """Handle an initial login or the return from a login provider.
 
     Notes
     -----
@@ -71,19 +53,20 @@ async def redirect_to_provider(
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
+    return_url : `str`, optional
+        The return URL to which to send the user after authentication.
+    context : `gafaelfawr.dependencies.config.RequestContext`
+        The context of the incoming request.
 
     Returns
     -------
-    response : `aiohttp.web.Response`
-        The response.
+    response : `fastapi.RedirectResponse`
+        A redirect to the authentication provider.
 
     Raises
     ------
-    aiohttp.web.HTTPError
-        Error or redirect depending on the validity of the response from the
-        external authentication provider.
+    fastapi.HTTPException
+        The authentication request is invalid.
     """
     if not return_url:
         raise HTTPException(
@@ -142,19 +125,25 @@ async def handle_provider_return(
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
+    code : `str`
+        The authentication code from the provider.
+    state : `str`, optional
+        The opaque state used to verify that this user initiated the
+        authentication.
+    context : `gafaelfawr.dependencies.config.RequestContext`
+        The context of the incoming request.
 
     Returns
     -------
-    response : `aiohttp.web.Response`
-        The response.
+    response : `fastapi.RedirectResponse`
+        A redirect to the resource the user was trying to reach before
+        authentication.
 
     Raises
     ------
-    aiohttp.web.HTTPError
-        Error or redirect depending on the validity of the response from the
-        external authentication provider.
+    fastapi.HTTPException
+        The authentication request is invalid or retrieving authentication
+        information from the provider failed.
     """
     cookie = context.request.state.cookie
 

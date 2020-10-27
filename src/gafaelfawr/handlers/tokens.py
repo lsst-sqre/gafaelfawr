@@ -76,18 +76,7 @@ async def get_tokens(
     token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context_dependency),
 ) -> _TemplateResponse:
-    """Displays all tokens for the current user.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
+    """Displays all tokens for the current user."""
     user_token_store = context.factory.create_user_token_store()
     await user_token_store.expire_tokens(token.uid)
     user_tokens = await user_token_store.get_tokens(token.uid)
@@ -115,18 +104,7 @@ async def get_tokens_new(
     token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context_dependency),
 ) -> _TemplateResponse:
-    """Return a form for creating a new token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
+    """Return a form for creating a new token."""
     scopes = {
         s: d
         for s, d in context.config.known_scopes.items()
@@ -151,18 +129,7 @@ async def post_tokens_new(
     token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
-    """Create a new token based on form parameters.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
+    """Create a new token based on form parameters."""
     scopes = {
         s: d
         for s, d in context.config.known_scopes.items()
@@ -207,18 +174,7 @@ async def get_token_by_handle(
     token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context_dependency),
 ) -> _TemplateResponse:
-    """Displays information about a single token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
+    """Displays information about a single token."""
     user_token_store = context.factory.create_user_token_store()
     user_token = None
     for entry in await user_token_store.get_tokens(token.uid):
@@ -250,19 +206,7 @@ async def post_delete_token(
     token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
-    """Deletes a single token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : Dict[`str`, `object`]
-        Form variables that are processed by the template decorator, which
-        turns them into an `aiohttp.web.Response`.
-    """
+    """Deletes a single token."""
     form = AlterTokenForm(await context.request.form())
     if not form.validate() or form.method_.data != "DELETE":
         msg = "Invalid deletion request"

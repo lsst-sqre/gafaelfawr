@@ -26,20 +26,7 @@ async def get_influxdb(
     token: VerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, str]:
-    """Return an InfluxDB-compatible JWT.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The user's authentication token.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
+    """Return an InfluxDB-compatible JWT."""
     token_issuer = context.factory.create_token_issuer()
     try:
         influxdb_token = token_issuer.issue_influxdb_token(token)

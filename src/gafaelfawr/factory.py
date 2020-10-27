@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from gafaelfawr.config import Config
     from gafaelfawr.providers.base import Provider
 
+__all__ = ["ComponentFactory"]
+
 
 class ComponentFactory:
     """Build Gafaelfawr components.
@@ -62,7 +64,7 @@ class ComponentFactory:
 
         Returns
         -------
-        oidc_server : `gafaelfawr.openid.OIDCServer`
+        oidc_server : `gafaelfawr.oidc.OIDCServer`
             A new OpenID Connect server.
         """
         assert self._config.oidc_server

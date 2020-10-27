@@ -1,6 +1,6 @@
 """Representation of Gafaelfawr state stored in a cookie.
 
-This is the Gafaelfawr version of `~gafaelfawr.dependencies.state.BaseState`,
+This is the Gafaelfawr version of `~gafaelfawr.middleware.state.BaseState`,
 used by the `~gafaelfawr.middleware.state.StateMiddleware` middleware.  It
 holds the data that Gafaelfawr stores in a session cookie.
 """
