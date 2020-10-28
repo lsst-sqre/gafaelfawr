@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from typing import TYPE_CHECKING
+
+from fastapi import FastAPI, status
+from fastapi.responses import JSONResponse
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
+from gafaelfawr.exceptions import PermissionDeniedError
 from gafaelfawr.handlers import (
     analyze,
     auth,
@@ -22,7 +26,15 @@ from gafaelfawr.middleware.state import StateMiddleware
 from gafaelfawr.middleware.x_forwarded import XForwardedMiddleware
 from gafaelfawr.models.state import State
 
+if TYPE_CHECKING:
+    from fastapi import Request
+
+__all__ = ["app"]
+
+
 app = FastAPI()
+"""The Gafaelfawr application."""
+
 app.include_router(analyze.router)
 app.include_router(auth.router)
 app.include_router(index.router)
@@ -47,3 +59,13 @@ async def startup_event() -> None:
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     await redis_dependency.close()
+
+
+@app.exception_handler(PermissionDeniedError)
+async def permission_exception_handler(
+    request: Request, exc: PermissionDeniedError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={"detail": {"msg": str(exc), "type": "permission_denied"}},
+    )

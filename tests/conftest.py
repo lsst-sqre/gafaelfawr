@@ -5,9 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import create_engine
 
-from gafaelfawr.schema import initialize_schema
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
@@ -44,7 +42,7 @@ def non_mocked_hosts() -> List[str]:
 
 
 @pytest.fixture
-def selenium_server_url(tmp_path: Path, sqlite_db_url: str) -> Iterable[str]:
+def selenium_server_url(tmp_path: Path) -> Iterable[str]:
     """Start a server for Selenium tests.
 
     The server will be automatically stopped at the end of the test.
@@ -54,8 +52,9 @@ def selenium_server_url(tmp_path: Path, sqlite_db_url: str) -> Iterable[str]:
     server_url : `str`
         The URL to use to contact that server.
     """
+    database_url = "sqlite:///" + str(tmp_path / "gafaelfawr.sqlite")
     settings_path = build_settings(
-        tmp_path, "selenium", database_url=sqlite_db_url
+        tmp_path, "selenium", database_url=database_url
     )
     with run_app(tmp_path, settings_path) as server_url:
         yield server_url
@@ -63,7 +62,7 @@ def selenium_server_url(tmp_path: Path, sqlite_db_url: str) -> Iterable[str]:
 
 @pytest.fixture
 async def setup(
-    tmp_path: Path, httpx_mock: HTTPXMock, sqlite_db_url: str
+    tmp_path: Path, httpx_mock: HTTPXMock
 ) -> AsyncIterator[SetupTest]:
     """Create a test setup object.
 
@@ -77,14 +76,5 @@ async def setup(
     setup : `tests.support.setup.SetupTest`
         The setup object.
     """
-    async with SetupTest.create(tmp_path, sqlite_db_url, httpx_mock) as setup:
+    async with SetupTest.create(tmp_path, httpx_mock) as setup:
         yield setup
-
-
-@pytest.fixture
-def sqlite_db_url(tmp_path: Path) -> str:
-    """Create a SQLite database and return its URL."""
-    database_url = "sqlite:///" + str(tmp_path / "gafaelfawr.sqlite")
-    engine = create_engine(database_url)
-    initialize_schema(engine)
-    return database_url

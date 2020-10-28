@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.schema import initialize_schema
 from gafaelfawr.storage.admin import AdminStore
+from gafaelfawr.storage.transaction import TransactionManager
 
 if TYPE_CHECKING:
     from gafaelfawr.config import Config
@@ -31,6 +32,7 @@ def initialize_database(config: Config) -> None:
     engine = create_engine(config.database_url)
     initialize_schema(engine)
     session = Session(bind=engine)
-    admin_store = AdminStore(session)
-    for admin in config.initial_admins:
-        admin_store.add(Admin(username=admin))
+    with TransactionManager(session).transaction():
+        admin_store = AdminStore(session)
+        for admin in config.initial_admins:
+            admin_store.add(Admin(username=admin))

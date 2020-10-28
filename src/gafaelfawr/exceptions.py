@@ -25,6 +25,7 @@ __all__ = [
     "OAuthError",
     "OAuthBearerError",
     "OIDCException",
+    "PermissionDeniedError",
     "ProviderException",
     "UnauthorizedClientException",
     "UnknownAlgorithmException",
@@ -158,6 +159,10 @@ class InvalidTokenClaimsException(Exception):
 
 class NotConfiguredException(Exception):
     """The requested operation was not configured."""
+
+
+class PermissionDeniedError(Exception):
+    """The user does not have permission to perform this operation."""
 
 
 class ProviderException(Exception):

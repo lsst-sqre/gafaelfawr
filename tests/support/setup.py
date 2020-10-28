@@ -11,6 +11,7 @@ from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 from pytest_httpx import to_response
 
+from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
@@ -52,7 +53,7 @@ class SetupTest:
     @classmethod
     @asynccontextmanager
     async def create(
-        cls, tmp_path: Path, database_url: str, httpx_mock: HTTPXMock
+        cls, tmp_path: Path, httpx_mock: HTTPXMock
     ) -> AsyncIterator[SetupTest]:
         """Create a new `SetupTest` instance.
 
@@ -68,11 +69,13 @@ class SetupTest:
         httpx_mock : `pytest_httpx.HTTPXMock`
             The mock for simulating `httpx.AsyncClient` calls.
         """
+        database_url = "sqlite:///" + str(tmp_path / "gafaelfawr.sqlite")
         settings_path = build_settings(
             tmp_path, "github", database_url=database_url
         )
         config_dependency.set_settings_path(str(settings_path))
         config = config_dependency()
+        initialize_database(config)
         redis_dependency.is_mocked = True
         redis = await redis_dependency(config)
         try:

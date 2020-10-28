@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from gafaelfawr.exceptions import PermissionDeniedError
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.history import AdminChange, AdminHistoryEntry
 
@@ -41,6 +42,8 @@ class AdminManager:
 
     def add_admin(self, username: str, *, actor: str, ip_address: str) -> None:
         """Add a new administrator."""
+        if not self.is_admin(actor):
+            raise PermissionDeniedError(f"{actor} is not an admin")
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(
             username=username,

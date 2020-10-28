@@ -14,6 +14,9 @@ from typing import TYPE_CHECKING
 
 from seleniumwire import webdriver
 
+from gafaelfawr.database import initialize_database
+from gafaelfawr.dependencies.config import config_dependency
+
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import Callable, Iterator, TypeVar
@@ -121,6 +124,9 @@ def _wait_for_server(port: int, timeout: float = 5.0) -> None:
 
 @contextmanager
 def run_app(tmp_path: Path, config_path: Path) -> Iterator[str]:
+    config_dependency.set_settings_path(str(config_path))
+    initialize_database(config_dependency())
+
     app_path = tmp_path / "testing.py"
     with app_path.open("w") as f:
         f.write(APP_TEMPLATE.format(config_path=str(config_path)))

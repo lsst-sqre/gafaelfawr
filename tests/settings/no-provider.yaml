@@ -3,7 +3,7 @@
 realm: "testing"
 session_secret_file: "/dummy"
 database_url: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
-initial_admins: ["example"]
+initial_admins: ["admin"]
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
 group_mapping:

@@ -4,7 +4,7 @@ realm: "testing"
 loglevel: "INVALID"
 session_secret_file: "{session_secret_file}"
 database_url: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
-initial_admins: ["example"]
+initial_admins: ["admin"]
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
 group_mapping:
