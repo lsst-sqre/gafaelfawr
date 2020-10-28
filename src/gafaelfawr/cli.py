@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import click
 import uvicorn
 
+from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.keypair import RSAKeyPair
 
@@ -68,3 +69,18 @@ def generate_key() -> None:
     print(keypair.private_key_as_pem().decode())
     print(keypair.public_key_as_pem().decode())
     print(json.dumps(keypair.public_key_as_jwks(), indent=4))
+
+
+@main.command()
+@click.option(
+    "--settings",
+    envvar="SETTINGS_PATH",
+    type=str,
+    default="/etc/gafaelfawr/gafaelfawr.yaml",
+    help="Application settings file.",
+)
+def init(settings: str) -> None:
+    """Initialize the database storage."""
+    config_dependency.set_settings_path(settings)
+    config = config_dependency()
+    initialize_database(config)

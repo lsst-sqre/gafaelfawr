@@ -179,6 +179,12 @@ class Settings(BaseModel):
     issuer: IssuerSettings
     """Settings for the internal token issuer."""
 
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    initial_admins: List[str]
+    """Initial token administrators to configure when initializing database."""
+
     github: Optional[GitHubSettings] = None
     """Settings for the GitHub authentication provider."""
 
@@ -193,6 +199,9 @@ class Settings(BaseModel):
 
     group_mapping: Dict[str, List[str]] = {}
     """Mappings of scopes to lists of groups that provide them."""
+
+    class Config:
+        env_prefix = "GAFAELFAWR_"
 
     @validator("loglevel")
     def valid_loglevel(cls, v: str) -> str:
@@ -210,6 +219,12 @@ class Settings(BaseModel):
             raise ValueError("both github and oidc settings present")
         if not v and ("github" not in values or not values["github"]):
             raise ValueError("neither github nor oidc settings present")
+        return v
+
+    @validator("initial_admins", pre=True)
+    def nonempty_list(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("initial_admins is empty")
         return v
 
 
@@ -460,6 +475,12 @@ class Config:
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    initial_admins: Tuple[str, ...]
+    """Initial token administrators to configure when initializing database."""
+
     safir: SafirConfig
     """Configuration for the Safir middleware."""
 
@@ -594,6 +615,8 @@ class Config:
             oidc=oidc_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
+            database_url=settings.database_url,
+            initial_admins=tuple(settings.initial_admins),
             safir=SafirConfig(log_level=log_level),
         )
 

@@ -1,5 +1,7 @@
 realm: "example.com"
 session_secret_file: "{session_secret_file}"
+database_url: "{database_url}"
+initial_admins: ["example"]
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
 group_mapping:

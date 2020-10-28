@@ -22,9 +22,9 @@ class AdminHistory(Base):
     username = Column(String(64), nullable=False)
     action = Column(Enum(AdminChange), nullable=False)
     actor = Column(String(64), nullable=False)
-    ip_address = Column(postgresql.INET, nullable=False)
+    ip_address = Column(
+        String(64).with_variant(postgresql.INET, "postgresql"), nullable=False
+    )
     event_time = Column(DateTime, nullable=False)
 
-    __table_args__ = [
-        Index("admin_history_by_time", "event_time", "id"),
-    ]
+    __table_args__ = (Index("admin_history_by_time", "event_time", "id"),)

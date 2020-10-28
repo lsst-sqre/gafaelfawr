@@ -16,6 +16,7 @@ aioredis
 alembic
 click
 cryptography
+psycopg2
 pydantic
 PyJWT
 pyyaml

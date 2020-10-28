@@ -13,7 +13,7 @@ __all__ = ["TokenChangeHistory"]
 
 
 class TokenChangeHistory(Base):
-    __tablename__ = "token_auth_history"
+    __tablename__ = "token_change_history"
 
     id = Column(Integer, primary_key=True)
     token = Column(String(64), nullable=False)
@@ -28,14 +28,14 @@ class TokenChangeHistory(Base):
     action = Column(Enum(TokenChange), nullable=False)
     old_token_name = Column(String(64))
     old_scopes = Column(String(256))
-    old_expires = (Column(DateTime),)
-    ip_address = Column(postgresql.INET)
+    old_expires = Column(DateTime)
+    ip_address = Column(String(64).with_variant(postgresql.INET, "postgresql"))
     event_time = Column(DateTime, nullable=False)
 
-    __table_args__ = [
+    __table_args__ = (
         Index("token_change_history_by_time", "event_time", "id"),
         Index("token_change_history_by_token", "token", "event_time", "id"),
         Index(
             "token_change_history_by_username", "username", "event_time", "id"
         ),
-    ]
+    )

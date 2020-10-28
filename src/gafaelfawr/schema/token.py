@@ -23,7 +23,7 @@ class Token(Base):
     last_used = Column(DateTime)
     expires = Column(DateTime)
 
-    __table_args__ = [
+    __table_args__ = (
         UniqueConstraint("username", "token_name"),
         Index("token_by_username", "username", "token_type", "service"),
-    ]
+    )

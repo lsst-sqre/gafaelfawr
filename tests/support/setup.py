@@ -52,7 +52,7 @@ class SetupTest:
     @classmethod
     @asynccontextmanager
     async def create(
-        cls, tmp_path: Path, httpx_mock: HTTPXMock
+        cls, tmp_path: Path, database_url: str, httpx_mock: HTTPXMock
     ) -> AsyncIterator[SetupTest]:
         """Create a new `SetupTest` instance.
 
@@ -68,7 +68,9 @@ class SetupTest:
         httpx_mock : `pytest_httpx.HTTPXMock`
             The mock for simulating `httpx.AsyncClient` calls.
         """
-        settings_path = build_settings(tmp_path, "github")
+        settings_path = build_settings(
+            tmp_path, "github", database_url=database_url
+        )
         config_dependency.set_settings_path(str(settings_path))
         config = config_dependency()
         redis_dependency.is_mocked = True
@@ -122,6 +124,7 @@ class SetupTest:
         self,
         template: str = "github",
         *,
+        database_url: Optional[str] = None,
         oidc_clients: Optional[List[OIDCClient]] = None,
         **settings: str,
     ) -> None:
@@ -131,13 +134,21 @@ class SetupTest:
         ----------
         template : `str`
             Settings template to use.
+        database_url : `str`
+            The URL to the database to use.
         oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
             Configuration information for clients of the OpenID Connect server.
         **settings : str
             Any additional settings to add to the settings file.
         """
+        if not database_url:
+            database_url = self.config.database_url
         settings_path = build_settings(
-            self.tmp_path, template, oidc_clients, **settings
+            self.tmp_path,
+            template,
+            oidc_clients,
+            database_url=database_url,
+            **settings,
         )
         config_dependency.set_settings_path(str(settings_path))
         self.config = config_dependency()

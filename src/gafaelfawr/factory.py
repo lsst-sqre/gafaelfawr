@@ -5,14 +5,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import structlog
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 from gafaelfawr.issuer import TokenIssuer
+from gafaelfawr.manager.admin import AdminManager
 from gafaelfawr.oidc import OIDCServer
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
+from gafaelfawr.storage.admin import AdminStore
 from gafaelfawr.storage.base import RedisStorage
+from gafaelfawr.storage.history import AdminHistoryStore
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.session import SerializedSession, SessionStore
+from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.storage.user_token import UserTokenStore
 from gafaelfawr.verify import TokenVerifier
 
@@ -49,15 +55,36 @@ class ComponentFactory:
         redis: Redis,
         http_client: AsyncClient,
         logger: Optional[BoundLogger] = None,
+        session: Optional[Session] = None,
     ) -> None:
         if not logger:
             structlog.configure(wrapper_class=structlog.stdlib.BoundLogger)
             logger = structlog.get_logger("gafaelfawr")
 
+        if not session:
+            engine = create_engine(config.database_url)
+            session = Session(bind=engine)
+
         self._config = config
         self._redis = redis
         self._http_client = http_client
         self._logger = logger
+        self._session = session
+
+    def create_admin_manager(self) -> AdminManager:
+        """Create a new manager object for token administrators.
+
+        Returns
+        -------
+        admin_manager : `gafelfawr.manager.AdminManager`
+            The new token administrator manager.
+        """
+        admin_store = AdminStore(self._session)
+        admin_history_store = AdminHistoryStore(self._session)
+        transaction_manager = TransactionManager(self._session)
+        return AdminManager(
+            admin_store, admin_history_store, transaction_manager
+        )
 
     def create_oidc_server(self) -> OIDCServer:
         """Create a minimalist OpenID Connect server.

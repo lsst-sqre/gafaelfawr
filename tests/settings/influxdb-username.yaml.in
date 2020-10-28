@@ -1,5 +1,7 @@
 realm: "testing"
 session_secret_file: "{session_secret_file}"
+database_url: "{database_url}"
+initial_admins: ["example"]
 redis_url: "dummy"
 proxies:
   - "10.0.0.0/8"

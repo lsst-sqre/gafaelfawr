@@ -1,5 +1,7 @@
 realm: "testing"
 session_secret_file: "{session_secret_file}"
+database_url: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
+initial_admins: ["example"]
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
 group_mapping:
