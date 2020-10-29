@@ -11,6 +11,7 @@ from typing import Optional
 
 from aioredis import Redis
 from fastapi import Depends, Request
+from fastapi_sqlalchemy import db
 from httpx import AsyncClient
 from structlog import BoundLogger
 
@@ -61,6 +62,7 @@ class RequestContext:
             redis=self.redis,
             http_client=self.http_client,
             logger=self.logger,
+            session=db.session,
         )
 
     def rebind_logger(self, **values: Optional[str]) -> None:

@@ -13,7 +13,11 @@ from gafaelfawr.auth import (
     verify_token,
 )
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenError
+from gafaelfawr.exceptions import (
+    InvalidRequestError,
+    InvalidTokenError,
+    PermissionDeniedError,
+)
 from gafaelfawr.session import Session
 from gafaelfawr.tokens import VerifiedToken
 
@@ -96,3 +100,25 @@ def verified_token(
     )
 
     return token
+
+
+async def require_admin(
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
+) -> str:
+    """Require the request be from a token administrator.
+
+    Returns
+    -------
+    username : `str`
+        The username of the authenticated user.
+
+    Raises
+    ------
+    gafaelfawr.exceptions.PermissionDeniedError
+        If the request is not from an administrator.
+    """
+    admin_manager = context.factory.create_admin_manager()
+    if not admin_manager.is_admin(token.username):
+        raise PermissionDeniedError(f"{token.username} is not an admin")
+    return token.username

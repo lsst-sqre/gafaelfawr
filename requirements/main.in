@@ -16,6 +16,7 @@ aioredis
 alembic
 click
 cryptography
+fastapi-sqlalchemy
 psycopg2
 pydantic
 PyJWT

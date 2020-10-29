@@ -6,12 +6,14 @@ from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
+from fastapi_sqlalchemy import DBSessionMiddleware
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.exceptions import PermissionDeniedError
 from gafaelfawr.handlers import (
     analyze,
+    api,
     auth,
     index,
     influxdb,
@@ -36,6 +38,7 @@ app = FastAPI()
 """The Gafaelfawr application."""
 
 app.include_router(analyze.router)
+app.include_router(api.router, prefix="/auth/api/v1")
 app.include_router(auth.router)
 app.include_router(index.router)
 app.include_router(influxdb.router)
@@ -50,6 +53,11 @@ app.include_router(well_known.router)
 @app.on_event("startup")
 async def startup_event() -> None:
     config = config_dependency()
+    app.add_middleware(
+        DBSessionMiddleware,
+        db_url=config.database_url,
+        engine_args={"connect_args": {"check_same_thread": False}},
+    )
     app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
     app.add_middleware(
         StateMiddleware, cookie_name="gafaelfawr", state_class=State
