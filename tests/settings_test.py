@@ -8,7 +8,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from gafaelfawr.settings import Settings
+from gafaelfawr.config import Settings
 
 
 def parse_settings(path: Path) -> None:

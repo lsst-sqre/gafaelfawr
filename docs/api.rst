@@ -76,8 +76,6 @@ API reference
 
 .. automodapi:: gafaelfawr.session
 
-.. automodapi:: gafaelfawr.settings
-
 .. automodapi:: gafaelfawr.storage.base
 
 .. automodapi:: gafaelfawr.storage.oidc
