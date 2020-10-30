@@ -11,19 +11,16 @@ import pytest
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
 
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_success(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
-) -> None:
+async def test_success(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     token = setup.create_token(scope="exec:admin")
 
     # Successful request with X-Forwarded-For and a bearer token.
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
@@ -56,7 +53,7 @@ async def test_success(
     # Successful request with HTTP Basic authentication in the username.
     basic = f"{token.encoded}:x-oauth-basic".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
@@ -73,7 +70,7 @@ async def test_success(
     # The same with HTTP Basic in the password.
     basic = f"x-oauth-basic:{token.encoded}".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
@@ -90,11 +87,11 @@ async def test_success(
 
 @pytest.mark.asyncio
 async def test_authorization_failed(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     token = setup.create_token(scope="exec:admin")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:test", "satisfy": "any"},
         headers={
@@ -127,9 +124,9 @@ async def test_authorization_failed(
 
 @pytest.mark.asyncio
 async def test_original_url(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"X-Original-Url": "https://example.com/test"},
@@ -153,7 +150,7 @@ async def test_original_url(
 
     # Check with both X-Original-URI and X-Original-URL.  The former should
     # override the latter.
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
@@ -169,9 +166,9 @@ async def test_original_url(
 
 @pytest.mark.asyncio
 async def test_chained_x_forwarded(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
@@ -200,9 +197,9 @@ async def test_chained_x_forwarded(
 
 @pytest.mark.asyncio
 async def test_invalid_token(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer blah"},

@@ -10,14 +10,12 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.util import number_to_base64
 
 if TYPE_CHECKING:
-    from httpx import AsyncClient
-
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_well_known_jwks(setup: SetupTest, client: AsyncClient) -> None:
-    r = await client.get("/.well-known/jwks.json")
+async def test_well_known_jwks(setup: SetupTest) -> None:
+    r = await setup.client.get("/.well-known/jwks.json")
     assert r.status_code == 200
     result = r.json()
 
@@ -42,8 +40,8 @@ async def test_well_known_jwks(setup: SetupTest, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_well_known_oidc(setup: SetupTest, client: AsyncClient) -> None:
-    r = await client.get("/.well-known/openid-configuration")
+async def test_well_known_oidc(setup: SetupTest) -> None:
+    r = await setup.client.get("/.well-known/openid-configuration")
     assert r.status_code == 200
 
     base_url = setup.config.issuer.iss

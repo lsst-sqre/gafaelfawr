@@ -13,19 +13,16 @@ from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
 
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_userinfo(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
-) -> None:
+async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     token = setup.create_token()
 
     caplog.clear()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/userinfo", headers={"Authorization": f"Bearer {token.encoded}"}
     )
 
@@ -50,11 +47,9 @@ async def test_userinfo(
 
 
 @pytest.mark.asyncio
-async def test_no_auth(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
-) -> None:
+async def test_no_auth(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     caplog.clear()
-    r = await client.get("/auth/userinfo")
+    r = await setup.client.get("/auth/userinfo")
 
     assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
@@ -76,13 +71,11 @@ async def test_no_auth(
 
 
 @pytest.mark.asyncio
-async def test_invalid(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
-) -> None:
+async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     token = setup.create_token()
 
     caplog.clear()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/userinfo", headers={"Authorization": f"token {token.encoded}"}
     )
 
@@ -107,7 +100,7 @@ async def test_invalid(
         "user_agent": ANY,
     }
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/userinfo", headers={"Authorization": f"bearer{token.encoded}"}
     )
 
@@ -120,7 +113,7 @@ async def test_invalid(
     assert authenticate.error_description == "Malformed Authorization header"
 
     caplog.clear()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/userinfo",
         headers={"Authorization": f"bearer XXX{token.encoded}"},
     )

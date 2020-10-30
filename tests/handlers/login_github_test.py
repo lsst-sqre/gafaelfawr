@@ -18,15 +18,12 @@ from gafaelfawr.providers.github import (
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
 
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_login(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
-) -> None:
+async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert setup.config.github
     userinfo = GitHubUserInfo(
         name="GitHub User",
@@ -47,7 +44,7 @@ async def test_login(
 
     # Simulate the initial authentication request.
     setup.set_github_token_response("some-code", "some-github-token")
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status_code == 307
@@ -77,7 +74,7 @@ async def test_login(
     # Simulate the return from GitHub.
     caplog.clear()
     setup.set_github_userinfo_response("some-github-token", userinfo)
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -101,7 +98,7 @@ async def test_login(
     }
 
     # Check that the /auth route works and finds our token.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
@@ -116,7 +113,7 @@ async def test_login(
     # Now ask for the session handle in the encrypted session to be
     # analyzed, and verify the internals of the session handle from GitHub
     # authentication.
-    r = await client.get("/auth/analyze")
+    r = await setup.client.get("/auth/analyze")
     assert r.status_code == 200
     assert r.json() == {
         "handle": {"key": ANY, "secret": ANY},
@@ -151,9 +148,7 @@ async def test_login(
 
 
 @pytest.mark.asyncio
-async def test_login_redirect_header(
-    setup: SetupTest, client: AsyncClient
-) -> None:
+async def test_login_redirect_header(setup: SetupTest) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     userinfo = GitHubUserInfo(
         name="GitHub User",
@@ -166,7 +161,7 @@ async def test_login_redirect_header(
 
     # Simulate the initial authentication request.
     setup.set_github_token_response("some-code", "some-github-token")
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": return_url},
         allow_redirects=False,
@@ -177,7 +172,7 @@ async def test_login_redirect_header(
 
     # Simulate the return from GitHub.
     setup.set_github_userinfo_response("some-github-token", userinfo)
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -187,17 +182,13 @@ async def test_login_redirect_header(
 
 
 @pytest.mark.asyncio
-async def test_login_no_destination(
-    setup: SetupTest, client: AsyncClient
-) -> None:
-    r = await client.get("/login", allow_redirects=False)
+async def test_login_no_destination(setup: SetupTest) -> None:
+    r = await setup.client.get("/login", allow_redirects=False)
     assert r.status_code == 400
 
 
 @pytest.mark.asyncio
-async def test_cookie_auth_with_token(
-    setup: SetupTest, client: AsyncClient
-) -> None:
+async def test_cookie_auth_with_token(setup: SetupTest) -> None:
     """Test that cookie auth takes precedence over an Authorization header.
 
     JupyterHub sends an Authorization header in its internal requests with
@@ -215,7 +206,7 @@ async def test_cookie_auth_with_token(
     )
 
     setup.set_github_token_response("some-code", "some-github-token")
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"rd": "https://example.com/foo"},
         headers={"Authorization": "token some-jupyterhub-token"},
@@ -227,7 +218,7 @@ async def test_cookie_auth_with_token(
 
     # Simulate the return from GitHub.
     setup.set_github_userinfo_response("some-github-token", userinfo)
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         headers={"Authorization": "token some-jupyterhub-token"},
@@ -237,7 +228,7 @@ async def test_cookie_auth_with_token(
     assert r.headers["Location"] == "https://example.com/foo"
 
     # Now make a request to the /auth endpoint with a bogus token.
-    r = await client.get(
+    r = await setup.client.get(
         "/auth",
         params={"scope": "read:all"},
         headers={"Authorization": "token some-jupyterhub-token"},
@@ -247,7 +238,7 @@ async def test_cookie_auth_with_token(
 
 
 @pytest.mark.asyncio
-async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
+async def test_claim_names(setup: SetupTest) -> None:
     """Uses an alternate settings environment with non-default claims."""
     setup.configure(username_claim="username", uid_claim="numeric-uid")
     assert setup.config.github
@@ -260,7 +251,7 @@ async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
     )
 
     setup.set_github_token_response("some-code", "some-github-token")
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://example.com"},
         allow_redirects=False,
@@ -271,7 +262,7 @@ async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
 
     # Simulate the return from GitHub.
     setup.set_github_userinfo_response("some-github-token", userinfo)
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -279,14 +270,14 @@ async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
     assert r.status_code == 307
 
     # Check that the /auth route works and sets the headers correctly.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
 
     # Now ask for the session handle in the encrypted session to be
     # analyzed, and verify that the claims were set using our keys.
-    r = await client.get("/auth/analyze")
+    r = await setup.client.get("/auth/analyze")
     assert r.status_code == 200
     data = r.json()
     token_data = data["token"]["data"]
@@ -297,7 +288,7 @@ async def test_claim_names(setup: SetupTest, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
+async def test_bad_redirect(setup: SetupTest) -> None:
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -307,14 +298,14 @@ async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
     )
 
     setup.set_github_token_response("some-code", "some-github-token")
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"rd": "https://foo.example.com/"},
         allow_redirects=False,
     )
     assert r.status_code == 400
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://foo.example.com/"},
         allow_redirects=False,
@@ -323,7 +314,7 @@ async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
 
     # But if we're deployed under foo.example.com as determined by the
     # X-Forwarded-Host header, this will be allowed.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"rd": "https://foo.example.com/"},
         headers={
@@ -336,7 +327,7 @@ async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
     setup.set_github_userinfo_response("some-github-token", userinfo)
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -346,7 +337,7 @@ async def test_bad_redirect(setup: SetupTest, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_github_uppercase(setup: SetupTest, client: AsyncClient) -> None:
+async def test_github_uppercase(setup: SetupTest) -> None:
     """Tests that usernames and organization names are forced to lowercase.
 
     We do not test that slugs are forced to lowercase (and do not change the
@@ -362,7 +353,7 @@ async def test_github_uppercase(setup: SetupTest, client: AsyncClient) -> None:
     )
 
     setup.set_github_token_response("some-code", "some-github-token")
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://example.com"},
         allow_redirects=False,
@@ -373,7 +364,7 @@ async def test_github_uppercase(setup: SetupTest, client: AsyncClient) -> None:
 
     # Simulate the return from GitHub.
     setup.set_github_userinfo_response("some-github-token", userinfo)
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -381,12 +372,12 @@ async def test_github_uppercase(setup: SetupTest, client: AsyncClient) -> None:
     assert r.status_code == 307
 
     # The user returned by the /auth route should be forced to lowercase.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "someuser"
 
     # Likewise for the user embedded in the token.
-    r = await client.get("/auth/analyze")
+    r = await setup.client.get("/auth/analyze")
     assert r.status_code == 200
     data = r.json()
     assert data["token"]["data"]["sub"] == "someuser"

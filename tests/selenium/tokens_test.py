@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 async def test_create_token(
     tmp_path: Path, driver: webdriver.Chrome, selenium_server_url: str
 ) -> None:
-    config_dependency.set_config_path(str(tmp_path / "gafaelfawr.yaml"))
+    config_dependency.set_settings_path(str(tmp_path / "gafaelfawr.yaml"))
     token = create_test_token(config_dependency(), scope="read:all")
     driver.header_overrides = {"X-Auth-Request-Token": token.encoded}
 

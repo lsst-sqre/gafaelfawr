@@ -10,25 +10,22 @@ import pytest
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
 
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_logout(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
-) -> None:
+async def test_logout(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     token = setup.create_token(scope="read:all")
-    await setup.login(client, token)
+    await setup.login(token)
 
     # Confirm that we're logged in.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
 
     # Go to /logout without specifying a redirect URL.
     caplog.clear()
-    r = await client.get("/logout", allow_redirects=False)
+    r = await setup.client.get("/logout", allow_redirects=False)
 
     # Check the redirect and logging.
     assert r.status_code == 307
@@ -46,37 +43,37 @@ async def test_logout(
     }
 
     # Confirm that we're no longer logged in.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_logout_with_url(setup: SetupTest, client: AsyncClient) -> None:
+async def test_logout_with_url(setup: SetupTest) -> None:
     token = setup.create_token(scope="read:all")
-    await setup.login(client, token)
+    await setup.login(token)
 
     # Confirm that we're logged in.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
 
     # Go to /logout with a redirect URL and check the redirect.
     redirect_url = "https://example.com:4444/logged-out"
-    r = await client.get(
+    r = await setup.client.get(
         "/logout", params={"rd": redirect_url}, allow_redirects=False
     )
     assert r.status_code == 307
     assert r.headers["Location"] == redirect_url
 
     # Confirm that we're no longer logged in.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_logout_not_logged_in(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    r = await client.get("/logout", allow_redirects=False)
+    r = await setup.client.get("/logout", allow_redirects=False)
     assert r.status_code == 307
     assert r.headers["Location"] == setup.config.after_logout_url
     data = json.loads(caplog.record_tuples[-1][2])
@@ -93,8 +90,8 @@ async def test_logout_not_logged_in(
 
 
 @pytest.mark.asyncio
-async def test_logout_bad_url(setup: SetupTest, client: AsyncClient) -> None:
-    r = await client.get(
+async def test_logout_bad_url(setup: SetupTest) -> None:
+    r = await setup.client.get(
         "/logout",
         params={"rd": "https://foo.example.com/"},
         allow_redirects=False,

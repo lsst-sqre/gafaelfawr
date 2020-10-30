@@ -18,10 +18,10 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_redis_password(tmp_path: Path) -> None:
     redis_password_file = store_secret(tmp_path, "redis", b"some-password")
-    config_path = build_settings(
+    settings_path = build_settings(
         tmp_path, "github", redis_password_file=str(redis_password_file)
     )
-    config_dependency.set_config_path(str(config_path))
+    config_dependency.set_settings_path(str(settings_path))
 
     function = "gafaelfawr.dependencies.redis.create_redis_pool"
     with patch(function) as mock_create:

@@ -14,21 +14,18 @@ from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
 
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_influxdb(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
-) -> None:
+async def test_influxdb(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     token = setup.create_token()
     influxdb_secret = setup.config.issuer.influxdb_secret
     assert influxdb_secret
 
     caplog.clear()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens/influxdb/new",
         headers={"Authorization": f"bearer {token.encoded}"},
     )
@@ -66,8 +63,8 @@ async def test_influxdb(
 
 
 @pytest.mark.asyncio
-async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
-    r = await client.get("/auth/tokens/influxdb/new")
+async def test_no_auth(setup: SetupTest) -> None:
+    r = await setup.client.get("/auth/tokens/influxdb/new")
     assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
@@ -77,13 +74,13 @@ async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_not_configured(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     setup.configure("oidc")
     token = setup.create_token()
 
     caplog.clear()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens/influxdb/new",
         headers={"Authorization": f"bearer {token.encoded}"},
     )
@@ -111,7 +108,7 @@ async def test_not_configured(
 
 @pytest.mark.asyncio
 async def test_influxdb_force_username(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     setup.configure("influxdb-username")
     token = setup.create_token()
@@ -119,7 +116,7 @@ async def test_influxdb_force_username(
     assert influxdb_secret
 
     caplog.clear()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens/influxdb/new",
         headers={"Authorization": f"bearer {token.encoded}"},
     )

@@ -16,14 +16,12 @@ from gafaelfawr.session import Session, SessionHandle
 from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
-    from httpx import AsyncClient
-
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_analyze_no_auth(setup: SetupTest, client: AsyncClient) -> None:
-    r = await client.get("/auth/analyze", allow_redirects=False)
+async def test_analyze_no_auth(setup: SetupTest) -> None:
+    r = await setup.client.get("/auth/analyze", allow_redirects=False)
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert not url.scheme
@@ -35,11 +33,11 @@ async def test_analyze_no_auth(setup: SetupTest, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_session(setup: SetupTest, client: AsyncClient) -> None:
+async def test_analyze_session(setup: SetupTest) -> None:
     token = setup.create_token()
-    await setup.login(client, token)
+    await setup.login(token)
 
-    r = await client.get("/auth/analyze")
+    r = await setup.client.get("/auth/analyze")
     assert r.status_code == 200
 
     # Check that the result is formatted for humans.
@@ -66,11 +64,13 @@ async def test_analyze_session(setup: SetupTest, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_handle(setup: SetupTest, client: AsyncClient) -> None:
+async def test_analyze_handle(setup: SetupTest) -> None:
     handle = SessionHandle()
 
     # Handle with no session.
-    r = await client.post("/auth/analyze", data={"token": handle.encode()})
+    r = await setup.client.post(
+        "/auth/analyze", data={"token": handle.encode()}
+    )
     assert r.status_code == 200
     assert r.json() == {
         "handle": {"key": handle.key, "secret": handle.secret},
@@ -82,7 +82,9 @@ async def test_analyze_handle(setup: SetupTest, client: AsyncClient) -> None:
     session = Session.create(handle, token)
     session_store = setup.factory.create_session_store()
     await session_store.store_session(session)
-    r = await client.post("/auth/analyze", data={"token": handle.encode()})
+    r = await setup.client.post(
+        "/auth/analyze", data={"token": handle.encode()}
+    )
 
     # Check that the results from /analyze include the handle, the session,
     # and the token information.
@@ -118,9 +120,9 @@ async def test_analyze_handle(setup: SetupTest, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_token(setup: SetupTest, client: AsyncClient) -> None:
+async def test_analyze_token(setup: SetupTest) -> None:
     token = setup.create_token()
-    r = await client.post("/auth/analyze", data={"token": token.encoded})
+    r = await setup.client.post("/auth/analyze", data={"token": token.encoded})
     assert r.status_code == 200
     assert r.json() == {
         "token": {

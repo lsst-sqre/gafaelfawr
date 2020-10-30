@@ -13,24 +13,21 @@ from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
 
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_no_auth(setup: SetupTest, client: AsyncClient) -> None:
+async def test_no_auth(setup: SetupTest) -> None:
     for url in ("/auth/tokens", "/auth/tokens/blah", "/auth/tokens/new"):
-        r = await client.get(url, allow_redirects=False)
+        r = await setup.client.get(url, allow_redirects=False)
         assert r.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_tokens_empty_list(
-    setup: SetupTest, client: AsyncClient
-) -> None:
+async def test_tokens_empty_list(setup: SetupTest) -> None:
     token = setup.create_token()
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status_code == 200
@@ -39,7 +36,7 @@ async def test_tokens_empty_list(
 
 
 @pytest.mark.asyncio
-async def test_tokens(setup: SetupTest, client: AsyncClient) -> None:
+async def test_tokens(setup: SetupTest) -> None:
     token = setup.create_token()
     handle = SessionHandle()
     scoped_token = setup.create_token(scope="exec:test", jti=handle.encode())
@@ -49,7 +46,7 @@ async def test_tokens(setup: SetupTest, client: AsyncClient) -> None:
     user_token_store.store_session(token.uid, session, pipeline)
     await pipeline.execute()
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status_code == 200
@@ -60,7 +57,7 @@ async def test_tokens(setup: SetupTest, client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_tokens_handle_get_delete(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     token = setup.create_token()
     handle = SessionHandle()
@@ -73,14 +70,14 @@ async def test_tokens_handle_get_delete(
     user_token_store.store_session(token.uid, session, pipeline)
     await pipeline.execute()
 
-    r = await client.get(
+    r = await setup.client.get(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
     )
     assert r.status_code == 200
     assert handle.key in r.text
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status_code == 200
@@ -90,7 +87,7 @@ async def test_tokens_handle_get_delete(
     csrf_token = csrf_match.group(1)
 
     # Deleting without a CSRF token will fail.
-    r = await client.post(
+    r = await setup.client.post(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE"},
@@ -98,7 +95,7 @@ async def test_tokens_handle_get_delete(
     assert r.status_code == 422
 
     # Deleting with a bogus CSRF token will fail.
-    r = await client.post(
+    r = await setup.client.post(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE", "_csrf": csrf_token + "xxxx"},
@@ -107,7 +104,7 @@ async def test_tokens_handle_get_delete(
 
     # Deleting with the correct CSRF will succeed.
     caplog.clear()
-    r = await client.post(
+    r = await setup.client.post(
         f"/auth/tokens/{handle.key}",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"method_": "DELETE", "_csrf": csrf_token},
@@ -134,10 +131,10 @@ async def test_tokens_handle_get_delete(
 
 
 @pytest.mark.asyncio
-async def test_tokens_new_form(setup: SetupTest, client: AsyncClient) -> None:
+async def test_tokens_new_form(setup: SetupTest) -> None:
     token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens/new",
         headers={"Authorization": f"bearer {token.encoded}"},
     )
@@ -155,11 +152,11 @@ async def test_tokens_new_form(setup: SetupTest, client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_tokens_new_create(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     token = setup.create_token(groups=["admin"], scope="exec:admin read:all")
 
-    r = await client.get(
+    r = await setup.client.get(
         "/auth/tokens/new", headers={"X-Auth-Request-Token": token.encoded}
     )
     assert r.status_code == 200
@@ -169,7 +166,7 @@ async def test_tokens_new_create(
     csrf_token = csrf_match.group(1)
 
     # Creating without a CSRF token will fail.
-    r = await client.post(
+    r = await setup.client.post(
         "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y"},
@@ -177,7 +174,7 @@ async def test_tokens_new_create(
     assert r.status_code == 422
 
     # Creating with a bogus CSRF token will fail.
-    r = await client.post(
+    r = await setup.client.post(
         "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y", "_csrf": csrf_token + "xxxx"},
@@ -189,7 +186,7 @@ async def test_tokens_new_create(
     # to get it to fail validation), but those requested scopes will be
     # ignored.
     caplog.clear()
-    r = await client.post(
+    r = await setup.client.post(
         "/auth/tokens/new",
         headers={"X-Auth-Request-Token": token.encoded},
         data={"read:all": "y", "exec:test": "y", "_csrf": csrf_token},

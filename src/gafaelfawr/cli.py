@@ -57,7 +57,7 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
 )
 def run(port: int, settings: str) -> None:
     """Run the application (for production)."""
-    config_dependency.set_config_path(settings)
+    config_dependency.set_settings_path(settings)
     uvicorn.run("gafaelfawr.main:app", host="0.0.0.0", port=port)
 
 

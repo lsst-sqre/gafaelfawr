@@ -25,30 +25,30 @@ class ConfigDependency:
     """
 
     def __init__(self) -> None:
-        self.config_path = CONFIG_PATH
-        self.config: Optional[Config] = None
+        self._settings_path = CONFIG_PATH
+        self._config: Optional[Config] = None
 
     def __call__(self) -> Config:
         """Load the configuration if necessary and return it."""
-        if not self.config:
+        if not self._config:
             self._load_config()
-        assert self.config
-        return self.config
+        assert self._config
+        return self._config
 
-    def set_config_path(self, path: str) -> None:
-        """Change the configuration path and reload the config.
+    def set_settings_path(self, path: str) -> None:
+        """Change the settings path and reload the config.
 
         Parameters
         ----------
         path : `str`
             The new configuration path.
         """
-        self.config_path = path
+        self._settings_path = path
         self._load_config()
 
     def _load_config(self) -> None:
         """Load the configuration from the currently-configured path."""
-        self.config = Config.from_file(self.config_path)
+        self._config = Config.from_file(self._settings_path)
 
 
 config_dependency = ConfigDependency()

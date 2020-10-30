@@ -5,10 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from asgi_lifespan import LifespanManager
-from httpx import AsyncClient
 
-from gafaelfawr.main import app
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
@@ -20,31 +17,6 @@ if TYPE_CHECKING:
 
     from pytest_httpx import HTTPXMock
     from seleniumwire import webdriver
-
-
-@pytest.fixture
-async def client(setup: SetupTest) -> AsyncIterator[AsyncClient]:
-    """Provide an httpx client configured to talk to the test app.
-
-    Returns
-    -------
-    client : `httpx.AsyncClient`
-        Client wrapping the Gafaelfawr app.  The base URL will use
-        :py:const:`tests.support.constants.TEST_HOSTNAME`.
-
-    Notes
-    -----
-    The fixture dependency on setup ensures that the
-    `~tests.support.setup.SetupTest` constructor runs before the
-    `asgi_lifespan.LifespanManager` context manager and thus before the app
-    receives a startup event.  Otherwise, the test configuration file won't be
-    configured before the startup event handler and the app will attempt to
-    load the default configuration file.
-    """
-    base_url = f"https://{TEST_HOSTNAME}"
-    async with LifespanManager(app):
-        async with AsyncClient(app=app, base_url=base_url) as client:
-            yield client
 
 
 @pytest.fixture(scope="session")
@@ -101,8 +73,5 @@ async def setup(
     setup : `tests.support.setup.SetupTest`
         The setup object.
     """
-    test_setup = await SetupTest.create(tmp_path, httpx_mock)
-    try:
-        yield test_setup
-    finally:
-        await test_setup.aclose()
+    async with SetupTest.create(tmp_path, httpx_mock) as setup:
+        yield setup

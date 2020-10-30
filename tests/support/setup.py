@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlparse
 
+from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 from pytest_httpx import to_response
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.main import app
 from gafaelfawr.models.state import State
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.session import Session, SessionHandle
@@ -21,7 +24,7 @@ from tests.support.tokens import create_oidc_test_token, create_test_token
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Dict, List, Optional, Union
+    from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
     from aioredis import Redis
     from httpx import Request
@@ -39,35 +42,65 @@ class SetupTest:
 
     This class wraps creating a test FastAPI application, creating a factory
     for building the components, and accessing configuration settings.
+
+    Notes
+    -----
+    This class is named SetupTest instead of TestSetup because pytest thinks
+    the latter is a test case and tries to execute it.
     """
 
     @classmethod
-    async def create(cls, tmp_path: Path, httpx_mock: HTTPXMock) -> SetupTest:
-        config_path = build_settings(tmp_path, "github")
-        config_dependency.set_config_path(str(config_path))
+    @asynccontextmanager
+    async def create(
+        cls, tmp_path: Path, httpx_mock: HTTPXMock
+    ) -> AsyncIterator[SetupTest]:
+        """Create a new `SetupTest` instance.
+
+        This is the only supported way to set up the test environment and
+        should be called instead of calling the constructor directly.  It
+        initializes and starts the application and configures an
+        `httpx.AsyncClient` to talk to it.
+
+        Parameters
+        ----------
+        tmp_path : `pathlib.Path`
+            The path for temporary files.
+        httpx_mock : `pytest_httpx.HTTPXMock`
+            The mock for simulating `httpx.AsyncClient` calls.
+        """
+        settings_path = build_settings(tmp_path, "github")
+        config_dependency.set_settings_path(str(settings_path))
         config = config_dependency()
         redis_dependency.is_mocked = True
         redis = await redis_dependency(config)
-        return cls(
-            tmp_path=tmp_path,
-            config=config,
-            redis=redis,
-            httpx_mock=httpx_mock,
-        )
+        try:
+            async with LifespanManager(app):
+                base_url = f"https://{TEST_HOSTNAME}"
+                async with AsyncClient(app=app, base_url=base_url) as client:
+                    yield cls(
+                        tmp_path=tmp_path,
+                        httpx_mock=httpx_mock,
+                        config=config,
+                        redis=redis,
+                        client=client,
+                    )
+        finally:
+            await redis_dependency.close()
 
     def __init__(
         self,
         *,
         tmp_path: Path,
+        httpx_mock: HTTPXMock,
         config: Config,
         redis: Redis,
-        httpx_mock: HTTPXMock,
+        client: AsyncClient,
     ) -> None:
         self.tmp_path = tmp_path
-        self.config = config
-        self.http_client = AsyncClient()
         self.httpx_mock = httpx_mock
+        self.config = config
         self.redis = redis
+        self.client = client
 
     @property
     def factory(self) -> ComponentFactory:
@@ -82,13 +115,8 @@ class SetupTest:
             Newly-created factory.
         """
         return ComponentFactory(
-            config=self.config, redis=self.redis, http_client=self.http_client
+            config=self.config, redis=self.redis, http_client=self.client
         )
-
-    async def aclose(self) -> None:
-        """Close resources that were opened by the test setup."""
-        await redis_dependency.close()
-        await self.http_client.aclose()
 
     def configure(
         self,
@@ -111,7 +139,7 @@ class SetupTest:
         settings_path = build_settings(
             self.tmp_path, template, oidc_clients, **settings
         )
-        config_dependency.set_config_path(str(settings_path))
+        config_dependency.set_settings_path(str(settings_path))
         self.config = config_dependency()
 
     async def create_session(
@@ -193,9 +221,7 @@ class SetupTest:
             self.config, kid, groups=groups, **claims
         )
 
-    async def github_login(
-        self, client: AsyncClient, userinfo: GitHubUserInfo
-    ) -> None:
+    async def github_login(self, userinfo: GitHubUserInfo) -> None:
         """Simulate a GitHub login and create a session.
 
         This method is used by tests to populate a valid session handle in the
@@ -209,7 +235,7 @@ class SetupTest:
         """
         # Simulate the initial authentication request.
         self.set_github_token_response("some-code", "some-github-token")
-        r = await client.get(
+        r = await self.client.get(
             "/login",
             params={"rd": "https://example.com"},
             allow_redirects=False,
@@ -221,21 +247,30 @@ class SetupTest:
         # Simulate the return from GitHub, which will set the authentication
         # cookie.
         self.set_github_userinfo_response("some-github-token", userinfo)
-        r = await client.get(
+        r = await self.client.get(
             "/login",
             params={"code": "some-code", "state": query["state"][0]},
             allow_redirects=False,
         )
         assert r.status_code == 307
 
-    async def login(self, client: AsyncClient, token: VerifiedToken) -> None:
+    async def login(self, token: VerifiedToken) -> None:
+        """Create a valid Gafaelfawr session cookie.
+
+        Add a valid Gafaelfawr session cookie to the `httpx.AsyncClient`.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.tokens.VerifiedToken`
+            The token for the client identity to use.
+        """
         handle = SessionHandle()
         session = Session.create(handle, token)
         session_store = self.factory.create_session_store()
         await session_store.store_session(session)
         state = State(handle=handle)
         cookie = state.as_cookie()
-        client.cookies.set("gafaelfawr", cookie, domain=TEST_HOSTNAME)
+        self.client.cookies.set("gafaelfawr", cookie, domain=TEST_HOSTNAME)
 
     def set_github_userinfo_response(
         self, token: str, userinfo: GitHubUserInfo

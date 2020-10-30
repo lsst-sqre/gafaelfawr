@@ -13,15 +13,12 @@ from gafaelfawr.constants import ALGORITHM
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
 
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_login(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
-) -> None:
+async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
@@ -29,7 +26,7 @@ async def test_login(
     assert setup.config.oidc
     return_url = "https://example.com:4444/foo?a=bar&b=baz"
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status_code == 307
@@ -63,7 +60,7 @@ async def test_login(
     }
 
     # Simulate the return from the provider.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -92,7 +89,7 @@ async def test_login(
     }
 
     # Check that the /auth route works and finds our token.
-    r = await client.get("/auth", params={"scope": "exec:admin"})
+    r = await setup.client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
@@ -106,7 +103,7 @@ async def test_login(
     # Now ask for the session handle in the encrypted session to be
     # analyzed, and verify the internals of the session handle from OpenID
     # Connect authentication.
-    r = await client.get("/auth/analyze")
+    r = await setup.client.get("/auth/analyze")
     assert r.status_code == 200
     assert r.json() == {
         "handle": {"key": ANY, "secret": ANY},
@@ -145,9 +142,7 @@ async def test_login(
 
 
 @pytest.mark.asyncio
-async def test_login_redirect_header(
-    setup: SetupTest, client: AsyncClient
-) -> None:
+async def test_login_redirect_header(setup: SetupTest) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
@@ -155,7 +150,7 @@ async def test_login_redirect_header(
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     return_url = "https://example.com/foo?a=bar&b=baz"
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": return_url},
         allow_redirects=False,
@@ -165,7 +160,7 @@ async def test_login_redirect_header(
     query = parse_qs(url.query)
 
     # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -175,7 +170,7 @@ async def test_login_redirect_header(
 
 
 @pytest.mark.asyncio
-async def test_oauth2_callback(setup: SetupTest, client: AsyncClient) -> None:
+async def test_oauth2_callback(setup: SetupTest) -> None:
     """Test the compatibility /oauth2/callback route."""
     setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
@@ -184,7 +179,7 @@ async def test_oauth2_callback(setup: SetupTest, client: AsyncClient) -> None:
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status_code == 307
@@ -193,7 +188,7 @@ async def test_oauth2_callback(setup: SetupTest, client: AsyncClient) -> None:
     assert query["redirect_uri"][0] == setup.config.oidc.redirect_url
 
     # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
+    r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -204,14 +199,14 @@ async def test_oauth2_callback(setup: SetupTest, client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_callback_error(
-    setup: SetupTest, client: AsyncClient, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
     setup.configure("oidc")
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status_code == 307
@@ -233,7 +228,7 @@ async def test_callback_error(
 
     # Simulate the return from the OpenID Connect provider.
     caplog.clear()
-    r = await client.get(
+    r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -263,11 +258,11 @@ async def test_callback_error(
         json={"foo": "bar"},
         status_code=400,
     )
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     query = parse_qs(urlparse(r.headers["Location"]).query)
-    r = await client.get(
+    r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -283,11 +278,11 @@ async def test_callback_error(
         json={"foo": "bar"},
         status_code=200,
     )
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     query = parse_qs(urlparse(r.headers["Location"]).query)
-    r = await client.get(
+    r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -302,11 +297,11 @@ async def test_callback_error(
         data="foo",
         status_code=200,
     )
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     query = parse_qs(urlparse(r.headers["Location"]).query)
-    r = await client.get(
+    r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -321,11 +316,11 @@ async def test_callback_error(
         data="foo",
         status_code=400,
     )
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     query = parse_qs(urlparse(r.headers["Location"]).query)
-    r = await client.get(
+    r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -335,12 +330,12 @@ async def test_callback_error(
 
 
 @pytest.mark.asyncio
-async def test_connection_error(setup: SetupTest, client: AsyncClient) -> None:
+async def test_connection_error(setup: SetupTest) -> None:
     setup.configure("oidc")
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status_code == 307
@@ -349,7 +344,7 @@ async def test_connection_error(setup: SetupTest, client: AsyncClient) -> None:
 
     # Do not register a response for the callback request to the OIDC provider
     # and check that an appropriate error is shown to the user.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
@@ -359,14 +354,14 @@ async def test_connection_error(setup: SetupTest, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_verify_error(setup: SetupTest, client: AsyncClient) -> None:
+async def test_verify_error(setup: SetupTest) -> None:
     setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await client.get(
+    r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
     assert r.status_code == 307
@@ -376,7 +371,7 @@ async def test_verify_error(setup: SetupTest, client: AsyncClient) -> None:
     # Returning from OpenID Connect login should fail because we haven't
     # registered the signing key, and therefore attempting to retrieve it will
     # fail, causing a token verification error.
-    r = await client.get(
+    r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
