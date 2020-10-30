@@ -2,39 +2,24 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, Mapping
 
-from aiohttp import web
+from fastapi import APIRouter, Depends
 
-from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.decorators import authenticated_jwt
-from gafaelfawr.handlers.util import RequestContext
+from gafaelfawr.dependencies.auth import verified_token
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
+from gafaelfawr.tokens import VerifiedToken
 
-if TYPE_CHECKING:
-    from gafaelfawr.tokens import VerifiedToken
+router = APIRouter()
 
 __all__ = ["get_userinfo"]
 
 
-@routes.get("/auth/userinfo")
-@authenticated_jwt
+@router.get("/auth/userinfo")
 async def get_userinfo(
-    request: web.Request, token: VerifiedToken
-) -> web.Response:
-    """Return information about the holder of a JWT.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The token of the authenticated user.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
-    context = RequestContext.from_request(request)
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
+) -> Mapping[str, Any]:
+    """Return information about the holder of a JWT."""
     context.logger.info("Returned user information")
-    return web.json_response(token.claims)
+    return token.claims

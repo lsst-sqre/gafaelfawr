@@ -2,25 +2,28 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from aiohttp import web
-from aiohttp_csrf import csrf_protect, generate_token
-from aiohttp_jinja2 import template
-from aiohttp_session import get_session
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
 from wtforms import BooleanField, Form, HiddenField, SubmitField
 
-from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.decorators import authenticated_token
-from gafaelfawr.handlers.util import RequestContext
+from gafaelfawr.dependencies.auth import verified_token
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
+from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
 from gafaelfawr.session import Session, SessionHandle
+from gafaelfawr.tokens import VerifiedToken
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional, Union
+    from typing import Dict, Optional
 
-    from multidict import MultiDictProxy
+    from starlette.datastructures import FormData
+    from starlette.templating import _TemplateResponse
 
-    from gafaelfawr.tokens import VerifiedToken
+router = APIRouter()
+templates = Jinja2Templates(str(Path(__file__).parent.parent / "templates"))
 
 __all__ = [
     "get_token_by_handle",
@@ -39,8 +42,7 @@ class AlterTokenForm(Form):
 
 
 def build_new_token_form(
-    scopes: Dict[str, str],
-    data: Optional[MultiDictProxy[Union[str, bytes, web.FileField]]] = None,
+    scopes: Dict[str, str], data: Optional[FormData] = None
 ) -> Form:
     """Dynamically generates a form with checkboxes for scopes.
 
@@ -69,68 +71,40 @@ def build_new_token_form(
     return NewTokenForm(data)
 
 
-@routes.get("/auth/tokens", name="tokens")
-@template("tokens.html")
-@authenticated_token
+@router.get("/auth/tokens", dependencies=[Depends(set_csrf)])
 async def get_tokens(
-    request: web.Request, token: VerifiedToken
-) -> Dict[str, object]:
-    """Displays all tokens for the current user.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
-    context = RequestContext.from_request(request)
-
-    session = await get_session(request)
-    message = session.pop("message", None)
-    session["csrf"] = await generate_token(request)
-
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
+) -> _TemplateResponse:
+    """Displays all tokens for the current user."""
     user_token_store = context.factory.create_user_token_store()
     await user_token_store.expire_tokens(token.uid)
     user_tokens = await user_token_store.get_tokens(token.uid)
     forms = {}
     for user_token in user_tokens:
         form = AlterTokenForm()
-        form.csrf.data = session["csrf"]
+        form.csrf.data = context.request.state.cookie.csrf
         forms[user_token.key] = form
 
     context.logger.info("Listed tokens")
-    return {
-        "message": message,
-        "tokens": user_tokens,
-        "forms": forms,
-        "csrf_token": session["csrf"],
-    }
+    return templates.TemplateResponse(
+        "tokens.html",
+        {
+            "request": context.request,
+            "message": context.request.state.cookie.message,
+            "tokens": user_tokens,
+            "forms": forms,
+            "csrf_token": context.request.state.cookie.csrf,
+        },
+    )
 
 
-@routes.get("/auth/tokens/new")
-@template("new_token.html")
-@authenticated_token
+@router.get("/auth/tokens/new", dependencies=[Depends(set_csrf)])
 async def get_tokens_new(
-    request: web.Request, token: VerifiedToken
-) -> Dict[str, object]:
-    """Return a form for creating a new token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
-    context = RequestContext.from_request(request)
-
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
+) -> _TemplateResponse:
+    """Return a form for creating a new token."""
     scopes = {
         s: d
         for s, d in context.config.known_scopes.items()
@@ -138,47 +112,37 @@ async def get_tokens_new(
     }
     form = build_new_token_form(scopes)
 
-    session = await get_session(request)
-    session["csrf"] = await generate_token(request)
-
     context.logger.info("Returned token creation form")
-    return {
-        "form": form,
-        "scopes": scopes,
-        "csrf_token": session["csrf"],
-    }
+    return templates.TemplateResponse(
+        "new_token.html",
+        {
+            "request": context.request,
+            "form": form,
+            "scopes": scopes,
+            "csrf_token": context.request.state.cookie.csrf,
+        },
+    )
 
 
-@routes.post("/auth/tokens/new")
-@csrf_protect
-@authenticated_token
+@router.post("/auth/tokens/new", dependencies=[Depends(verify_csrf)])
 async def post_tokens_new(
-    request: web.Request, token: VerifiedToken
-) -> Dict[str, object]:
-    """Create a new token based on form parameters.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
-    context = RequestContext.from_request(request)
-
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
+) -> RedirectResponse:
+    """Create a new token based on form parameters."""
     scopes = {
         s: d
         for s, d in context.config.known_scopes.items()
         if s in token.scope
     }
-    form = build_new_token_form(scopes, await request.post())
+    form = build_new_token_form(scopes, await context.request.form())
     if not form.validate():
         msg = "Form validation failed"
-        context.logger.warning(msg)
-        raise web.HTTPBadRequest(reason=msg, text=msg)
+        context.logger.warning("Token creation failed", error=msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"type": "form_validation", "msg": msg},
+        )
 
     scope = " ".join([s for s in scopes if form[s].data])
     issuer = context.factory.create_token_issuer()
@@ -193,39 +157,24 @@ async def post_tokens_new(
     user_token_store.store_session(token.uid, user_session, pipeline)
     await pipeline.execute()
 
-    message = (
+    context.request.state.cookie.message = (
         f"Your Newly Created Token. Keep these Secret!<br>\n"
         f"Token: {handle.encode()} <br>"
     )
-    session = await get_session(request)
-    session["message"] = message
 
     context.logger.info("Created token %s with scope %s", handle.key, scope)
-    location = request.app.router["tokens"].url_for()
-    raise web.HTTPFound(location)
+    return RedirectResponse(
+        "/auth/tokens", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
-@routes.get("/auth/tokens/{handle}")
-@template("token.html")
-@authenticated_token
+@router.get("/auth/tokens/{handle}")
 async def get_token_by_handle(
-    request: web.Request, token: VerifiedToken
-) -> Dict[str, object]:
-    """Displays information about a single token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
-    context = RequestContext.from_request(request)
-    handle = request.match_info["handle"]
-
+    handle: str,
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
+) -> _TemplateResponse:
+    """Displays information about a single token."""
     user_token_store = context.factory.create_user_token_store()
     user_token = None
     for entry in await user_token_store.get_tokens(token.uid):
@@ -235,39 +184,37 @@ async def get_token_by_handle(
 
     if not user_token:
         msg = f"No token with handle {handle} found"
-        context.logger.warning(msg)
-        raise web.HTTPNotFound(reason=msg, text=msg)
+        context.logger.warning("Token not found", error=msg)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "type": "not_found",
+                "loc": ["path", "handle"],
+                "msg": msg,
+            },
+        )
 
     context.logger.info("Viewed token %s", handle)
-    return {"token": user_token}
+    return templates.TemplateResponse(
+        "token.html", {"request": context.request, "token": user_token}
+    )
 
 
-@routes.post("/auth/tokens/{handle}")
-@csrf_protect
-@authenticated_token
+@router.post("/auth/tokens/{handle}", dependencies=[Depends(verify_csrf)])
 async def post_delete_token(
-    request: web.Request, token: VerifiedToken
-) -> web.Response:
-    """Deletes a single token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : Dict[`str`, `object`]
-        Form variables that are processed by the template decorator, which
-        turns them into an `aiohttp.web.Response`.
-    """
-    context = RequestContext.from_request(request)
-    handle = request.match_info["handle"]
-
-    form = AlterTokenForm(await request.post())
+    handle: str,
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
+) -> RedirectResponse:
+    """Deletes a single token."""
+    form = AlterTokenForm(await context.request.form())
     if not form.validate() or form.method_.data != "DELETE":
         msg = "Invalid deletion request"
-        raise web.HTTPForbidden(reason=msg, text=msg)
+        context.logger.warning("Token deletion failed", error=msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"type": "form_validation", "msg": msg},
+        )
 
     user_token_store = context.factory.create_user_token_store()
     session_store = context.factory.create_session_store()
@@ -281,9 +228,9 @@ async def post_delete_token(
         message = f"Your token with the handle {handle} was deleted"
     else:
         message = "An error was encountered when deleting your token"
-    session = await get_session(request)
-    session["message"] = message
+    context.request.state.cookie.message = message
 
     context.logger.info("Deleted token %s", handle)
-    location = request.app.router["tokens"].url_for()
-    raise web.HTTPFound(location)
+    return RedirectResponse(
+        "/auth/tokens", status_code=status.HTTP_303_SEE_OTHER
+    )

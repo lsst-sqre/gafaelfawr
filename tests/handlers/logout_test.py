@@ -6,35 +6,29 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
-from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
+import pytest
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
 
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_logout(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    setup = await create_test_setup("github")
-    userinfo = GitHubUserInfo(
-        name="GitHub User",
-        username="githubuser",
-        uid=123456,
-        email="githubuser@example.com",
-        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
-    )
-    await setup.github_login(userinfo)
+@pytest.mark.asyncio
+async def test_logout(setup: SetupTest, caplog: LogCaptureFixture) -> None:
+    token = setup.create_token(scope="read:all")
+    await setup.login(token)
 
     # Confirm that we're logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 200
+    assert r.status_code == 200
 
-    # Go to /logout without specifying a redirect URL and check the redirect.
+    # Go to /logout without specifying a redirect URL.
     caplog.clear()
     r = await setup.client.get("/logout", allow_redirects=False)
-    assert r.status == 303
+
+    # Check the redirect and logging.
+    assert r.status_code == 307
     assert r.headers["Location"] == setup.config.after_logout_url
     data = json.loads(caplog.record_tuples[0][2])
     assert data == {
@@ -50,44 +44,37 @@ async def test_logout(
 
     # Confirm that we're no longer logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 401
+    assert r.status_code == 401
 
 
-async def test_logout_with_url(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup("github")
-    userinfo = GitHubUserInfo(
-        name="GitHub User",
-        username="githubuser",
-        uid=123456,
-        email="githubuser@example.com",
-        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
-    )
-    await setup.github_login(userinfo)
+@pytest.mark.asyncio
+async def test_logout_with_url(setup: SetupTest) -> None:
+    token = setup.create_token(scope="read:all")
+    await setup.login(token)
 
     # Confirm that we're logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 200
+    assert r.status_code == 200
 
     # Go to /logout with a redirect URL and check the redirect.
-    redirect_url = f"https://{setup.client.host}:4444/logged-out"
+    redirect_url = "https://example.com:4444/logged-out"
     r = await setup.client.get(
         "/logout", params={"rd": redirect_url}, allow_redirects=False
     )
-    assert r.status == 303
+    assert r.status_code == 307
     assert r.headers["Location"] == redirect_url
 
     # Confirm that we're no longer logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 401
+    assert r.status_code == 401
 
 
+@pytest.mark.asyncio
 async def test_logout_not_logged_in(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    setup = await create_test_setup()
-
     r = await setup.client.get("/logout", allow_redirects=False)
-    assert r.status == 303
+    assert r.status_code == 307
     assert r.headers["Location"] == setup.config.after_logout_url
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
@@ -101,14 +88,19 @@ async def test_logout_not_logged_in(
         "user_agent": ANY,
     }
 
-    r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 401
 
-
-async def test_logout_bad_url(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
-
+@pytest.mark.asyncio
+async def test_logout_bad_url(setup: SetupTest) -> None:
     r = await setup.client.get(
-        "/logout", params={"rd": "https://example.com/"}, allow_redirects=False
+        "/logout",
+        params={"rd": "https://foo.example.com/"},
+        allow_redirects=False,
     )
-    assert r.status == 400
+    assert r.status_code == 400
+    assert r.json() == {
+        "detail": {
+            "loc": ["query", "rd"],
+            "msg": "URL is not at example.com",
+            "type": "bad_return_url",
+        }
+    }

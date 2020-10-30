@@ -1,4 +1,4 @@
-"""Tests for the /auth/analyze route."""
+"""Tests for the ``/auth/analyze`` route."""
 
 from __future__ import annotations
 
@@ -9,47 +9,45 @@ from unittest.mock import ANY
 from urllib.parse import urlparse
 
 import jwt
+import pytest
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.providers.github import GitHubUserInfo
 from gafaelfawr.session import Session, SessionHandle
 from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_analyze_no_auth(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
-
+@pytest.mark.asyncio
+async def test_analyze_no_auth(setup: SetupTest) -> None:
     r = await setup.client.get("/auth/analyze", allow_redirects=False)
-    assert r.status == 302
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert not url.scheme
     assert not url.netloc
     assert url.path == "/login"
-    expected_url = setup.client.make_url("/auth/analyze")
-    assert query_from_url(r.headers["Location"]) == {"rd": [str(expected_url)]}
+    assert query_from_url(r.headers["Location"]) == {
+        "rd": ["https://example.com/auth/analyze"]
+    }
 
 
-async def test_analyze_session(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
-    userinfo = GitHubUserInfo(
-        name="GitHub User",
-        username="githubuser",
-        uid=123456,
-        email="githubuser@example.com",
-        teams=[],
-    )
-    await setup.github_login(userinfo)
+@pytest.mark.asyncio
+async def test_analyze_session(setup: SetupTest) -> None:
+    token = setup.create_token()
+    await setup.login(token)
 
     r = await setup.client.get("/auth/analyze")
-    assert r.status == 200
-    analysis = await r.json()
-    assert analysis == {
+    assert r.status_code == 200
+
+    # Check that the result is formatted for humans.
+    assert "    " in r.text
+    assert '": "' in r.text
+
+    assert r.json() == {
         "handle": {"key": ANY, "secret": ANY},
         "session": {
-            "email": "githubuser@example.com",
+            "email": token.email,
             "created_at": ANY,
             "expires_on": ANY,
         },
@@ -59,39 +57,27 @@ async def test_analyze_session(create_test_setup: SetupTestCallable) -> None:
                 "typ": "JWT",
                 "kid": setup.config.issuer.kid,
             },
-            "data": {
-                "aud": setup.config.issuer.aud,
-                "email": "githubuser@example.com",
-                "exp": ANY,
-                "iat": ANY,
-                "iss": setup.config.issuer.iss,
-                "jti": ANY,
-                "name": "GitHub User",
-                "sub": "githubuser",
-                "uid": "githubuser",
-                "uidNumber": "123456",
-            },
+            "data": token.claims,
             "valid": True,
         },
     }
 
 
-async def test_analyze_handle(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
+@pytest.mark.asyncio
+async def test_analyze_handle(setup: SetupTest) -> None:
+    handle = SessionHandle()
 
     # Handle with no session.
-    bad_handle = SessionHandle()
     r = await setup.client.post(
-        "/auth/analyze", data={"token": bad_handle.encode()}
+        "/auth/analyze", data={"token": handle.encode()}
     )
-    analysis = await r.json()
-    assert analysis == {
-        "handle": {"key": bad_handle.key, "secret": bad_handle.secret},
-        "errors": [f"No session found for {bad_handle.encode()}"],
+    assert r.status_code == 200
+    assert r.json() == {
+        "handle": {"key": handle.key, "secret": handle.secret},
+        "errors": [f"No session found for {handle.encode()}"],
     }
 
     # Valid session handle.
-    handle = SessionHandle()
     token = setup.create_token(groups=["admin"], jti=handle.key)
     session = Session.create(handle, token)
     session_store = setup.factory.create_session_store()
@@ -102,8 +88,8 @@ async def test_analyze_handle(create_test_setup: SetupTestCallable) -> None:
 
     # Check that the results from /analyze include the handle, the session,
     # and the token information.
-    assert r.status == 200
-    analysis = await r.json()
+    assert r.status_code == 200
+    analysis = r.json()
     assert analysis == {
         "handle": {"key": handle.key, "secret": handle.secret},
         "session": {
@@ -133,13 +119,12 @@ async def test_analyze_handle(create_test_setup: SetupTestCallable) -> None:
     assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
 
 
-async def test_analyze_token(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
+@pytest.mark.asyncio
+async def test_analyze_token(setup: SetupTest) -> None:
     token = setup.create_token()
-
     r = await setup.client.post("/auth/analyze", data={"token": token.encoded})
-    assert r.status == 200
-    assert await r.json() == {
+    assert r.status_code == 200
+    assert r.json() == {
         "token": {
             "header": jwt.get_unverified_header(token.encoded),
             "data": token.claims,

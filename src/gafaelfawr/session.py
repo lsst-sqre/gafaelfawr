@@ -2,23 +2,17 @@
 
 from __future__ import annotations
 
-import base64
-import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from gafaelfawr.exceptions import InvalidSessionHandleException
+from gafaelfawr.util import random_128_bits
 
 if TYPE_CHECKING:
     from gafaelfawr.tokens import VerifiedToken
 
 __all__ = ["Session", "SessionHandle"]
-
-
-def _random_128_bits() -> str:
-    """Generate random 128 bits encoded in base64 without padding."""
-    return base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
 
 
 @dataclass
@@ -40,8 +34,8 @@ class SessionHandle:
     stripped off (because equal signs can be parsed oddly in cookies).
     """
 
-    key: str = field(default_factory=_random_128_bits)
-    secret: str = field(default_factory=_random_128_bits)
+    key: str = field(default_factory=random_128_bits)
+    secret: str = field(default_factory=random_128_bits)
 
     @classmethod
     def from_str(cls, handle: str) -> SessionHandle:

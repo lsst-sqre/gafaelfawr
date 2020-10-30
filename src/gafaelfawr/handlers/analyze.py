@@ -2,90 +2,72 @@
 
 from __future__ import annotations
 
-import functools
 import json
-from typing import TYPE_CHECKING, cast
+from typing import Any, Dict
 
-from aiohttp import web
+from fastapi import APIRouter, Depends, Form
+from fastapi.responses import JSONResponse
 
-from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.decorators import authenticated_session
-from gafaelfawr.handlers.util import RequestContext
-from gafaelfawr.session import InvalidSessionHandleException, SessionHandle
+from gafaelfawr.dependencies.auth import verified_session
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
+from gafaelfawr.session import (
+    InvalidSessionHandleException,
+    Session,
+    SessionHandle,
+)
 from gafaelfawr.tokens import Token
 
-if TYPE_CHECKING:
-    from typing import Any, Dict
-
-    from gafaelfawr.sesion import Session
+router = APIRouter()
 
 __all__ = ["get_analyze", "post_analyze"]
 
 
-@routes.get("/auth/analyze")
-@authenticated_session
-async def get_analyze(request: web.Request, session: Session) -> web.Response:
-    """Analyze a session handle from a web session.
+class FormattedJSONResponse(JSONResponse):
+    """The same as `~fastapi.JSONResponse` except formatted for humans."""
 
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    session : `gafaelfawr.session.Session`
-        The authentication session.
+    def render(self, content: Any) -> bytes:
+        """Render a data structure into JSON formatted for humans."""
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=4,
+            sort_keys=True,
+        ).encode()
 
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
 
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        If the user is not logged in.
-    """
-    context = RequestContext.from_request(request)
+@router.get("/auth/analyze", response_class=FormattedJSONResponse)
+async def get_analyze(
+    session: Session = Depends(verified_session),
+    context: RequestContext = Depends(context_dependency),
+) -> Dict[str, Any]:
+    """Analyze a session handle from a web session."""
     result = await analyze_handle(context, session.handle)
     context.logger.info("Analyzed user session")
-    formatter = functools.partial(json.dumps, sort_keys=True, indent=4)
-    return web.json_response(result, dumps=formatter)
+    return result
 
 
-@routes.post("/auth/analyze")
-async def post_analyze(request: web.Request) -> web.Response:
+@router.post("/auth/analyze", response_class=FormattedJSONResponse)
+async def post_analyze(
+    token: str = Form(...),
+    context: RequestContext = Depends(context_dependency),
+) -> Dict[str, Any]:
     """Analyze a token.
 
     Expects a POST with a single parameter, ``token``, which is either a
     session handle or a token.  Returns a JSON structure with details about
     that token.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
     """
-    context = RequestContext.from_request(request)
-    data = await request.post()
-    handle_or_token = cast(str, data["token"])
-
     try:
-        handle = SessionHandle.from_str(handle_or_token)
+        handle = SessionHandle.from_str(token)
         result = await analyze_handle(context, handle)
         context.logger.info("Analyzed user-provided session handle")
+        return result
     except InvalidSessionHandleException:
-        token = Token(encoded=handle_or_token)
         verifier = context.factory.create_token_verifier()
-        analysis = verifier.analyze_token(token)
+        analysis = verifier.analyze_token(Token(encoded=token))
         context.logger.info("Analyzed user-provided token")
-        result = {"token": analysis}
-
-    formatter = functools.partial(json.dumps, sort_keys=True, indent=4)
-    return web.json_response(result, dumps=formatter)
+        return {"token": analysis}
 
 
 async def analyze_handle(
@@ -95,7 +77,7 @@ async def analyze_handle(
 
     Parameters
     ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The request context.
     handle : `gafaelfawr.session.SessionHandle`
         The session handle to analyze.

@@ -1,4 +1,4 @@
-"""Utility functions for external routes."""
+"""Authentication dependencies for route handlers."""
 
 from __future__ import annotations
 
@@ -6,118 +6,36 @@ import base64
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import TYPE_CHECKING
-from urllib.parse import urlparse
+from typing import Optional, Set
 
 import jwt
-from aiohttp import web
+from fastapi import HTTPException, status
 
+from gafaelfawr.dependencies.context import RequestContext
 from gafaelfawr.exceptions import (
     InvalidRequestError,
     InvalidTokenError,
     OAuthBearerError,
-    OAuthError,
 )
-from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.tokens import Token
-
-if TYPE_CHECKING:
-    from typing import Optional, Set
-    from urllib.parse import ParseResult
-
-    from aioredis import Redis
-    from structlog import BoundLogger
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.tokens import Token, VerifiedToken
 
 __all__ = [
+    "AuthType",
     "AuthChallenge",
     "AuthError",
-    "AuthType",
-    "RequestContext",
-    "validate_return_url",
+    "AuthErrorChallenge",
+    "generate_challenge",
+    "generate_unauthorized_challenge",
+    "parse_authorization",
     "verify_token",
 ]
 
 
-@dataclass
-class RequestContext:
-    """Holds the incoming request and its surrounding context.
-
-    The primary reason for the existence of this class is to allow the
-    functions involved in request processing to repeated rebind the request
-    logger to include more information, without having to pass both the
-    request and the logger separately to every function.
-    """
-
-    request: web.Request
-    """The incoming request."""
-
-    config: Config
-    """Gafaelfawr's configuration."""
-
-    logger: BoundLogger
-    """The request logger, rebound with discovered context."""
-
-    redis: Redis
-    """Connection pool to use to talk to Redis."""
-
-    @classmethod
-    def from_request(cls, request: web.Request) -> RequestContext:
-        """Construct a RequestContext from an incoming request.
-
-        Parameters
-        ----------
-        request : aiohttp.web.Request
-            The incoming request.
-
-        Returns
-        -------
-        context : RequestContext
-            The newly-created context.
-        """
-        config: Config = request.config_dict["gafaelfawr/config"]
-        redis: Redis = request.config_dict["gafaelfawr/redis"]
-        logger: BoundLogger = request["safir/logger"]
-
-        return cls(request=request, config=config, logger=logger, redis=redis)
-
-    @property
-    def factory(self) -> ComponentFactory:
-        """A factory for constructing Gafaelfawr components.
-
-        This is constructed on the fly at each reference to ensure that we get
-        the latest logger, which may have additional bound context.
-        """
-        return ComponentFactory(
-            config=self.config,
-            redis=self.redis,
-            key_cache=self.request.config_dict["gafaelfawr/key_cache"],
-            http_session=self.request.config_dict["safir/http_session"],
-            logger=self.logger,
-        )
-
-    def rebind_logger(self, **values: Optional[str]) -> None:
-        """Add the given values to the logging context.
-
-        Also updates the logging context stored in the request object in case
-        the request context later needs to be recreated from the request.
-
-        Parameters
-        ----------
-        **values : `str` or `None`
-            Additional values that should be added to the logging context.
-        """
-        self.logger = self.logger.bind(**values)
-        self.request["safir/logger"] = self.logger
-
-
-class AuthType(Enum):
+class AuthType(str, Enum):
     """Authentication types for the WWW-Authenticate header."""
 
-    Basic = auto()
-    Bearer = auto()
+    Basic = "basic"
+    Bearer = "bearer"
 
 
 class AuthError(Enum):
@@ -192,12 +110,12 @@ def generate_challenge(
     auth_type: AuthType,
     exc: OAuthBearerError,
     scopes: Optional[Set[str]] = None,
-) -> web.HTTPException:
+) -> HTTPException:
     """Convert an exception into an HTTP error with ``WWW-Authenticate``.
 
     Parameters
     ----------
-    context : `RequestContext`
+    request : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
     auth_type : `AuthType`
         The type of authentication to request.
@@ -209,9 +127,9 @@ def generate_challenge(
 
     Returns
     -------
-    aiohttp.web.HTTPException
-        A prepopulated `~aiohttp.web.HTTPException` object ready for raising.
-        The headers will contain a ``WWW-Authenticate`` challenge.
+    fastapi.HTTPException
+        A prepopulated `fastapi.HTTPException` object ready for raising.  The
+        headers will contain a ``WWW-Authenticate`` challenge.
     """
     context.logger.warning("%s", exc.message, error=str(exc))
     challenge = AuthErrorChallenge(
@@ -225,7 +143,11 @@ def generate_challenge(
         "Cache-Control": "no-cache, must-revalidate",
         "WWW-Authenticate": challenge.as_header(),
     }
-    return exc.exception(headers=headers, reason=exc.message, text=str(exc))
+    return HTTPException(
+        headers=headers,
+        status_code=exc.status_code,
+        detail={"msg": str(exc), "type": exc.error},
+    )
 
 
 def generate_unauthorized_challenge(
@@ -234,7 +156,7 @@ def generate_unauthorized_challenge(
     exc: Optional[InvalidTokenError] = None,
     *,
     ajax_forbidden: bool = False,
-) -> web.HTTPException:
+) -> HTTPException:
     """Construct exception for a 401 response with AJAX handling.
 
     This is a special case of :py:func:`generate_challenge` for generating 401
@@ -244,7 +166,7 @@ def generate_unauthorized_challenge(
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The incoming request.
     auth_type : `AuthType`
         The type of authentication to request.
@@ -257,13 +179,12 @@ def generate_unauthorized_challenge(
 
     Returns
     -------
-    exception : `aiohttp.web.HTTPException`
-        The exception to raise, either HTTPForbidden (for AJAX) or
-        HTTPUnauthorized.
+    exception : `fastapi.HTTPException`
+        The exception to raise, either a 403 (for AJAX) or a 401.
 
     Notes
     -----
-    If the request contains X-Requested-With: XMLHttpRequest, return 403
+    If the request contains ``X-Requested-With: XMLHttpRequest``, return 403
     rather than 401.  The presence of this header indicates an AJAX request,
     which in turn means that the request is not under full control of the
     browser window.  The redirect ingress-nginx will send will therefore not
@@ -289,15 +210,15 @@ def generate_unauthorized_challenge(
             error=AuthError[exc.error],
             error_description=str(exc),
         )
-        reason = exc.message
-        text = str(exc)
+        error_type = exc.error
+        msg = str(exc)
     else:
         context.logger.info("No token found, returning unauthorized")
         challenge = AuthChallenge(
             auth_type=auth_type, realm=context.config.realm
         )
-        reason = "Authentication required"
-        text = "Authentication required"
+        error_type = "no_authorization"
+        msg = "Authentication required"
 
     headers = {
         "Cache-Control": "no-cache, must-revalidate",
@@ -305,34 +226,14 @@ def generate_unauthorized_challenge(
     }
     requested_with = context.request.headers.get("X-Requested-With")
     if requested_with and requested_with.lower() == "xmlhttprequest":
-        return web.HTTPForbidden(headers=headers, reason=reason, text=text)
+        status_code = status.HTTP_403_FORBIDDEN
     else:
-        return web.HTTPUnauthorized(headers=headers, reason=reason, text=text)
-
-
-def generate_json_response(
-    context: RequestContext, exc: OAuthError
-) -> web.Response:
-    """Convert an exception into an HTTP error with a JSON body.
-
-    Parameters
-    ----------
-    context : `RequestContext`
-        The context of the incoming request.
-    exc : `gafaelfawr.exceptions.OAuthError`
-        An exception representing an OAuth 2.0 or OpenID Connect error.
-
-    Returns
-    -------
-    web.Response
-        A JSON response with status 400.
-    """
-    context.logger.warning("%s", exc.message, error=str(exc))
-    response = {
-        "error": exc.error,
-        "error_description": exc.message if exc.hide_error else str(exc),
-    }
-    return web.json_response(response, status=400)
+        status_code = status.HTTP_401_UNAUTHORIZED
+    return HTTPException(
+        headers=headers,
+        status_code=status_code,
+        detail={"msg": msg, "type": error_type},
+    )
 
 
 def parse_authorization(
@@ -346,7 +247,7 @@ def parse_authorization(
 
     Parameters
     ----------
-    context : `gafaelfawr.handlers.util.RequestContext`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
     allow_basic : `bool`, optional
         Whether to allow HTTP Basic authentication (default: `False`).
@@ -407,50 +308,12 @@ def parse_authorization(
         return user
 
 
-def validate_return_url(
-    context: RequestContext, return_url: Optional[str]
-) -> ParseResult:
-    """Validate a return URL for use in a redirect.
-
-    Verify that the given URL is not `None` and is at the same host as the
-    current route.
-
-    Parameters
-    ----------
-    context : `RequestContext`
-        The context of the incoming request.
-    return_url : `str` or `None`
-        The URL provided by the client, or `None` if none was provided.
-
-    Returns
-    -------
-    parsed_return_url : `urllib.parse.ParseResult`
-        The parsed return URL.
-
-    Raises
-    ------
-    aiohttp.web.HTTPException
-        An appropriate error if the return URL was invalid or missing.
-    """
-    if not return_url:
-        msg = "No destination URL specified"
-        context.logger.warning("Bad return URL", error=msg)
-        raise web.HTTPBadRequest(reason="Bad return URL", text=msg)
-    context.rebind_logger(return_url=return_url)
-    parsed_return_url = urlparse(return_url)
-    if parsed_return_url.hostname != context.request.url.raw_host:
-        msg = f"URL is not at {context.request.host}"
-        context.logger.warning("Bad return URL", error=msg)
-        raise web.HTTPBadRequest(reason="Bad return URL", text=msg)
-    return parsed_return_url
-
-
 def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
     """Verify a token.
 
     Parameters
     ----------
-    context : `RequestContext`
+    context : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
     encoded_token : `str`
         The encoded token.

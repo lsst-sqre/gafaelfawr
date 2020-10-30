@@ -3,25 +3,31 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import urljoin
 
+import pytest
+
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.session import SessionHandle
 from tests.pages.tokens import NewTokenPage, TokensPage
 from tests.support.selenium import run
+from tests.support.tokens import create_test_token
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from seleniumwire import webdriver
 
-    from tests.setup import SetupTestCallable
 
-
+@pytest.mark.asyncio
 async def test_create_token(
-    create_test_setup: SetupTestCallable, driver: webdriver.Chrome
+    tmp_path: Path, driver: webdriver.Chrome, selenium_server_url: str
 ) -> None:
-    setup = await create_test_setup()
-    token = setup.create_token(scope="read:all")
+    config_dependency.set_settings_path(str(tmp_path / "gafaelfawr.yaml"))
+    token = create_test_token(config_dependency(), scope="read:all")
     driver.header_overrides = {"X-Auth-Request-Token": token.encoded}
 
-    tokens_url = str(setup.client.make_url("/auth/tokens"))
+    tokens_url = urljoin(selenium_server_url, "/auth/tokens")
     await run(lambda: driver.get(tokens_url))
 
     tokens_page = TokensPage(driver)

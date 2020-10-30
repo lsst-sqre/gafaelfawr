@@ -6,11 +6,10 @@ from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import jwt
-from aiohttp import ClientError
-from cachetools.keys import hashkey
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from httpx import RequestError
 from jwt.exceptions import InvalidIssuerError
 
 from gafaelfawr.constants import ALGORITHM
@@ -26,8 +25,7 @@ from gafaelfawr.util import base64_to_number
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Mapping, Optional
 
-    from aiohttp import ClientSession
-    from cachetools import TTLCache
+    from httpx import AsyncClient
     from structlog import BoundLogger
 
     from gafaelfawr.config import VerifierConfig
@@ -46,10 +44,8 @@ class TokenVerifier:
     ----------
     config : `gafaelfawr.config.VerifierConfig`
         The JWT Authorizer configuration.
-    session : `aiohttp.ClientSession`
-        The session to use for making requests.
-    cache : `cachetools.TTLCache`
-        Cache in which to store issuer keys.
+    http_client : `httpx.AsyncClient`
+        The client to use for making requests.
     logger : `structlog.BoundLogger`
         Logger to use to report status information.
     """
@@ -57,13 +53,11 @@ class TokenVerifier:
     def __init__(
         self,
         config: VerifierConfig,
-        session: ClientSession,
-        cache: TTLCache,
+        http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._session = session
-        self._cache = cache
+        self._http_client = http_client
         self._logger = logger
 
     def analyze_token(self, token: Token) -> Dict[str, Any]:
@@ -256,10 +250,6 @@ class TokenVerifier:
         This function will automatically cache the last 16 keys for up to 10
         minutes to cut down on network retrieval of the keys.
         """
-        cache_key = hashkey(issuer_url, key_id)
-        if cache_key in self._cache:
-            return self._cache[cache_key]
-
         self._logger.debug("Getting key %s from %s", key_id, issuer_url)
 
         # Retrieve the JWKS information.
@@ -280,11 +270,10 @@ class TokenVerifier:
             )
             raise UnknownAlgorithmException(msg)
 
-        # Convert, cache, and return the key.
+        # Convert and return the key.
         e = base64_to_number(key["e"])
         m = base64_to_number(key["n"])
         public_key = self._build_public_key(e, m)
-        self._cache[cache_key] = public_key
         return public_key
 
     @staticmethod
@@ -319,15 +308,16 @@ class TokenVerifier:
             url = urljoin(issuer_url, ".well-known/jwks.json")
 
         try:
-            r = await self._session.get(url)
-            if r.status != 200:
-                msg = f"Cannot retrieve keys from {url}"
+            r = await self._http_client.get(url)
+            if r.status_code != 200:
+                reason = f"{r.status_code} {r.reason_phrase}"
+                msg = f"Cannot retrieve keys from {url}: {reason}"
                 raise FetchKeysException(msg)
-        except ClientError:
+        except RequestError:
             raise FetchKeysException(f"Cannot retrieve keys from {url}")
 
-        body = await r.json()
         try:
+            body = r.json()
             return body["keys"]
         except Exception:
             msg = f"No keys property in JWKS metadata for {url}"
@@ -358,14 +348,14 @@ class TokenVerifier:
         """
         url = urljoin(issuer_url, ".well-known/openid-configuration")
         try:
-            r = await self._session.get(url)
-            if r.status != 200:
+            r = await self._http_client.get(url)
+            if r.status_code != 200:
                 return None
-        except ClientError:
+        except RequestError:
             return None
 
-        body = await r.json()
         try:
+            body = r.json()
             return body["jwks_uri"]
         except Exception:
             msg = f"No jwks_uri property in OIDC metadata for {issuer_url}"

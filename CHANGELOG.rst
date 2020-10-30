@@ -2,9 +2,13 @@
 Change log
 ##########
 
-1.6.0 (unreleased)
+2.0.0 (unreleased)
 ==================
 
+As of this release, Gafaelfawr now uses FastAPI instead of aiohttp.
+OpenAPI documentation is available via the ``/docs`` route but not yet fleshed out or reviewed for accuracy.
+
+- Use FastAPI instead of aiohttp, and use httpx to make internal requests
 - Add ``/.well-known/openid-configuration`` route to provide metadata about the internal OpenID Connect server.
   This follows the OpenID Connect Discovery 1.0 specification.
 

@@ -6,9 +6,9 @@ import json
 from typing import TYPE_CHECKING
 
 import click
-from aiohttp.web import run_app
+import uvicorn
 
-from gafaelfawr.app import create_app
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
@@ -57,8 +57,8 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
 )
 def run(port: int, settings: str) -> None:
     """Run the application (for production)."""
-    app = create_app(settings_path=settings)
-    run_app(app, port=port)
+    config_dependency.set_settings_path(settings)
+    uvicorn.run("gafaelfawr.main:app", host="0.0.0.0", port=port)
 
 
 @main.command()

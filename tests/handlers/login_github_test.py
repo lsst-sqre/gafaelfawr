@@ -1,4 +1,4 @@
-"""Tests for the /login route with GitHub."""
+"""Tests for the ``/login`` route with GitHub."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
+
+import pytest
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.providers.github import (
@@ -17,15 +19,12 @@ from gafaelfawr.providers.github import (
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
 
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_login(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    setup = await create_test_setup()
+@pytest.mark.asyncio
+async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert setup.config.github
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -41,14 +40,14 @@ async def test_login(
             ),
         ],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
+    return_url = "https://example.com:4444/foo?a=bar&b=baz"
 
     # Simulate the initial authentication request.
-    return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert url.scheme == "https"
     assert "github.com" in url.netloc
@@ -74,12 +73,13 @@ async def test_login(
 
     # Simulate the return from GitHub.
     caplog.clear()
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     assert r.headers["Location"] == return_url
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
@@ -99,7 +99,7 @@ async def test_login(
 
     # Check that the /auth route works and finds our token.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 200
+    assert r.status_code == 200
     assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
@@ -110,13 +110,12 @@ async def test_login(
     assert r.headers["X-Auth-Request-Groups"] == expected
     assert r.headers["X-Auth-Request-Token"]
 
-    # Now ask for the session handle in the encrypted session to be analyzed,
-    # and verify the internals of the session handle from GitHub
+    # Now ask for the session handle in the encrypted session to be
+    # analyzed, and verify the internals of the session handle from GitHub
     # authentication.
     r = await setup.client.get("/auth/analyze")
-    assert r.status == 200
-    data = await r.json()
-    assert data == {
+    assert r.status_code == 200
+    assert r.json() == {
         "handle": {"key": ANY, "secret": ANY},
         "session": {
             "email": "githubuser@example.com",
@@ -148,12 +147,9 @@ async def test_login(
     }
 
 
-async def test_login_redirect_header(
-    create_test_setup: SetupTestCallable,
-) -> None:
+@pytest.mark.asyncio
+async def test_login_redirect_header(setup: SetupTest) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    setup = await create_test_setup()
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -161,41 +157,38 @@ async def test_login_redirect_header(
         email="githubuser@example.com",
         teams=[],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
+    return_url = "https://example.com/foo?a=bar&b=baz"
 
     # Simulate the initial authentication request.
-    return_url = f"https://{setup.client.host}/foo?a=bar&b=baz"
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": return_url},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     assert r.headers["Location"] == return_url
 
 
-async def test_login_no_destination(
-    create_test_setup: SetupTestCallable,
-) -> None:
-    setup = await create_test_setup()
-
+@pytest.mark.asyncio
+async def test_login_no_destination(setup: SetupTest) -> None:
     r = await setup.client.get("/login", allow_redirects=False)
-    assert r.status == 400
+    assert r.status_code == 400
 
 
-async def test_cookie_auth_with_token(
-    create_test_setup: SetupTestCallable,
-) -> None:
+@pytest.mark.asyncio
+async def test_cookie_auth_with_token(setup: SetupTest) -> None:
     """Test that cookie auth takes precedence over an Authorization header.
 
     JupyterHub sends an Authorization header in its internal requests with
@@ -204,8 +197,6 @@ async def test_cookie_auth_with_token(
     login to get a valid session and then make a request with a bogus
     Authorization header.
     """
-    setup = await create_test_setup()
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -213,40 +204,44 @@ async def test_cookie_auth_with_token(
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
 
-    # Simulate the initial authentication request.
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
         "/login",
-        params={"rd": f"https://{setup.client.host}/foo"},
+        params={"rd": "https://example.com/foo"},
+        headers={"Authorization": "token some-jupyterhub-token"},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
+        headers={"Authorization": "token some-jupyterhub-token"},
         allow_redirects=False,
     )
-    assert r.status == 303
-    assert r.headers["Location"] == f"https://{setup.client.host}/foo"
+    assert r.status_code == 307
+    assert r.headers["Location"] == "https://example.com/foo"
 
     # Now make a request to the /auth endpoint with a bogus token.
-    r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 200
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers={"Authorization": "token some-jupyterhub-token"},
+    )
+    assert r.status_code == 200
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
 
 
-async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
+@pytest.mark.asyncio
+async def test_claim_names(setup: SetupTest) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    setup = await create_test_setup(
-        username_claim="username", uid_claim="numeric-uid"
-    )
+    setup.configure(username_claim="username", uid_claim="numeric-uid")
     assert setup.config.github
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -254,37 +249,37 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
 
-    # Simulate the initial authentication request.
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
         "/login",
-        headers={"X-Auth-Request-Redirect": f"https://{setup.client.host}"},
+        headers={"X-Auth-Request-Redirect": "https://example.com"},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
 
     # Check that the /auth route works and sets the headers correctly.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 200
+    assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
 
-    # Now ask for the session handle in the encrypted session to be analyzed,
-    # and verify that the claims were set using our keys.
+    # Now ask for the session handle in the encrypted session to be
+    # analyzed, and verify that the claims were set using our keys.
     r = await setup.client.get("/auth/analyze")
-    assert r.status == 200
-    data = await r.json()
+    assert r.status_code == 200
+    data = r.json()
     token_data = data["token"]["data"]
     assert token_data["username"] == "githubuser"
     assert token_data["numeric-uid"] == "123456"
@@ -292,9 +287,8 @@ async def test_claim_names(create_test_setup: SetupTestCallable) -> None:
     assert "uidNumber" not in token_data
 
 
-async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
-    setup.set_github_token_response("some-code", "some-github-token")
+@pytest.mark.asyncio
+async def test_bad_redirect(setup: SetupTest) -> None:
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -302,52 +296,54 @@ async def test_bad_redirect(create_test_setup: SetupTestCallable) -> None:
         email="githubuser@example.com",
         teams=[],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
 
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
-        "/login", params={"rd": "https://example.com/"}, allow_redirects=False
+        "/login",
+        params={"rd": "https://foo.example.com/"},
+        allow_redirects=False,
     )
-    assert r.status == 400
+    assert r.status_code == 400
 
     r = await setup.client.get(
         "/login",
-        headers={"X-Auth-Request-Redirect": "https://example.com/"},
+        headers={"X-Auth-Request-Redirect": "https://foo.example.com/"},
         allow_redirects=False,
     )
-    assert r.status == 400
+    assert r.status_code == 400
 
-    # But if we're deployed under example.com as determined by the
+    # But if we're deployed under foo.example.com as determined by the
     # X-Forwarded-Host header, this will be allowed.
     r = await setup.client.get(
         "/login",
-        params={"rd": "https://example.com/"},
+        params={"rd": "https://foo.example.com/"},
         headers={
             "X-Forwarded-For": "192.168.0.1",
-            "X-Forwarded-Host": "example.com",
+            "X-Forwarded-Host": "foo.example.com",
         },
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 303
-    assert r.headers["Location"] == "https://example.com/"
+    assert r.status_code == 307
+    assert r.headers["Location"] == "https://foo.example.com/"
 
 
-async def test_github_uppercase(create_test_setup: SetupTestCallable) -> None:
+@pytest.mark.asyncio
+async def test_github_uppercase(setup: SetupTest) -> None:
     """Tests that usernames and organization names are forced to lowercase.
 
     We do not test that slugs are forced to lowercase (and do not change the
     case of slugs) because GitHub should already be coercing lowercase when
     creating the slug.
     """
-    setup = await create_test_setup()
-    setup.set_github_token_response("some-code", "some-github-token")
     userinfo = GitHubUserInfo(
         name="A User",
         username="SomeUser",
@@ -355,34 +351,34 @@ async def test_github_uppercase(create_test_setup: SetupTestCallable) -> None:
         email="user@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
-    setup.set_github_userinfo_response("some-github-token", userinfo)
 
-    # Simulate the initial authentication request.
+    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
         "/login",
-        headers={"X-Auth-Request-Redirect": f"https://{setup.client.host}"},
+        headers={"X-Auth-Request-Redirect": "https://example.com"},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", userinfo)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
 
     # The user returned by the /auth route should be forced to lowercase.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
-    assert r.status == 200
+    assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "someuser"
 
     # Likewise for the user embedded in the token.
     r = await setup.client.get("/auth/analyze")
-    assert r.status == 200
-    data = await r.json()
+    assert r.status_code == 200
+    data = r.json()
     assert data["token"]["data"]["sub"] == "someuser"
     assert data["token"]["data"]["uid"] == "someuser"

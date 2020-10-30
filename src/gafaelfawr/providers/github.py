@@ -15,7 +15,7 @@ from gafaelfawr.session import Session, SessionHandle
 if TYPE_CHECKING:
     from typing import Dict, List
 
-    from aiohttp import ClientSession
+    from httpx import AsyncClient
     from structlog import BoundLogger
 
     from gafaelfawr.config import GitHubConfig
@@ -89,7 +89,7 @@ class GitHubProvider(Provider):
     ----------
     config : `gafaelfawr.config.GitHubConfig`
         Configuration for the GitHub authentication provider.
-    http_session : `aiohttp.ClientSession`
+    http_client : `httpx.AsyncClient`
         Session to use to make HTTP requests.
     issuer : `gafaelfawr.issuer.TokenIssuer`
         Issuer to use to generate new tokens.
@@ -121,13 +121,13 @@ class GitHubProvider(Provider):
         self,
         *,
         config: GitHubConfig,
-        http_session: ClientSession,
+        http_client: AsyncClient,
         issuer: TokenIssuer,
         session_store: SessionStore,
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._http_session = http_session
+        self._http_client = http_client
         self._issuer = issuer
         self._session_store = session_store
         self._logger = logger
@@ -170,7 +170,7 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        aiohttp.ClientResponseError
+        httpx.HTTPError
             An HTTP client error occurred trying to talk to the authentication
             provider.
         gafaelfawr.exceptions.GitHubException
@@ -216,7 +216,7 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        aiohttp.ClientResponseError
+        httpx.HTTPError
             An error occurred trying to talk to GitHub.
         gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to the request for the access
@@ -229,13 +229,13 @@ class GitHubProvider(Provider):
             "state": state,
         }
         self._logger.debug("Fetching access token from %s", self._TOKEN_URL)
-        r = await self._http_session.post(
+        r = await self._http_client.post(
             self._TOKEN_URL,
             data=data,
             headers={"Accept": "application/json"},
-            raise_for_status=True,
         )
-        result = await r.json()
+        r.raise_for_status()
+        result = r.json()
         if "error" in result:
             msg = result["error"] + ": " + result["error_description"]
             raise GitHubException(msg)
@@ -256,32 +256,32 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        aiohttp.ClientResponseError
-            An error occurred trying to talk to GitHub.
         gafaelfawr.exceptions.GitHubException
             User has no primary email address.
+        httpx.HTTPError
+            An error occurred trying to talk to GitHub.
         """
         self._logger.debug("Fetching user data from %s", self._USER_URL)
-        r = await self._http_session.get(
+        r = await self._http_client.get(
             self._USER_URL,
             headers={"Authorization": f"token {token}"},
-            raise_for_status=True,
         )
-        user_data = await r.json()
+        r.raise_for_status()
+        user_data = r.json()
         self._logger.debug("Fetching user data from %s", self._TEAMS_URL)
-        r = await self._http_session.get(
+        r = await self._http_client.get(
             self._TEAMS_URL,
             headers={"Authorization": f"token {token}"},
-            raise_for_status=True,
         )
-        teams_data = await r.json()
+        r.raise_for_status()
+        teams_data = r.json()
         self._logger.debug("Fetching user data from %s", self._EMAILS_URL)
-        r = await self._http_session.get(
+        r = await self._http_client.get(
             self._EMAILS_URL,
             headers={"Authorization": f"token {token}"},
-            raise_for_status=True,
         )
-        emails_data = await r.json()
+        r.raise_for_status()
+        emails_data = r.json()
 
         teams = []
         for team in teams_data:

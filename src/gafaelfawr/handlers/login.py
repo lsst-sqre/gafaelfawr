@@ -4,39 +4,30 @@ from __future__ import annotations
 
 import base64
 import os
+from typing import Optional
 
-from aiohttp import ClientError, web
-from aiohttp_session import get_session, new_session
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
+from httpx import HTTPError
 
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
+from gafaelfawr.dependencies.return_url import return_url_with_header
 from gafaelfawr.exceptions import ProviderException
-from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.util import RequestContext, validate_return_url
+
+router = APIRouter()
 
 __all__ = ["get_login"]
 
 
-@routes.get("/login", name="login")
-@routes.get("/oauth2/callback")
-async def get_login(request: web.Request) -> web.Response:
-    """Handle an initial login.
-
-    Constructs the authentication URL and redirects the user to the
-    authentication provider.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-
-    Raises
-    ------
-    NotImplementedError
-        If no authentication provider is configured.
+@router.get("/login")
+@router.get("/oauth2/callback")
+async def get_login(
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    return_url: Optional[str] = Depends(return_url_with_header),
+    context: RequestContext = Depends(context_dependency),
+) -> RedirectResponse:
+    """Handle an initial login or the return from a login provider.
 
     Notes
     -----
@@ -46,13 +37,15 @@ async def get_login(request: web.Request) -> web.Response:
     Connect provider.  It can be removed once all registrations have been
     updated with the ``/login`` route.
     """
-    if "code" in request.query:
-        return await handle_provider_return(request)
+    if code:
+        return await handle_provider_return(code, state, context)
     else:
-        return await redirect_to_provider(request)
+        return await redirect_to_provider(return_url, context)
 
 
-async def redirect_to_provider(request: web.Request) -> web.Response:
+async def redirect_to_provider(
+    return_url: Optional[str], context: RequestContext
+) -> RedirectResponse:
     """Redirect the user to an external authentication provider.
 
     Handles the initial processing and redirect to an external provider,
@@ -60,29 +53,31 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
+    return_url : `str`, optional
+        The return URL to which to send the user after authentication.
+    context : `gafaelfawr.dependencies.config.RequestContext`
+        The context of the incoming request.
 
     Returns
     -------
-    response : `aiohttp.web.Response`
-        The response.
+    response : `fastapi.RedirectResponse`
+        A redirect to the authentication provider.
 
     Raises
     ------
-    aiohttp.web.HTTPError
-        Error or redirect depending on the validity of the response from the
-        external authentication provider.
+    fastapi.HTTPException
+        The authentication request is invalid.
     """
-    context = RequestContext.from_request(request)
-
-    # Determine where the user is trying to go.
-    session = await get_session(request)
-    return_url = request.query.get("rd")
     if not return_url:
-        return_url = request.headers.get("X-Auth-Request-Redirect")
-    validate_return_url(context, return_url)
-    session["rd"] = return_url
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "loc": ["query", "rd"],
+                "type": "return_url_missing",
+                "msg": "No return URL given",
+            },
+        )
+    context.request.state.cookie.return_url = return_url
 
     # Reuse the existing state if one already exists in the session cookie.
     #
@@ -109,19 +104,20 @@ async def redirect_to_provider(request: web.Request) -> web.Response:
     # cookies, and only one of them will win.  However, that race condition
     # window is much smaller and is unlikely to persist across authentication
     # requests.
-    if "state" in session:
-        state = session["state"]
-    else:
+    state = context.request.state.cookie.state
+    if not state:
         state = base64.urlsafe_b64encode(os.urandom(16)).decode()
-        session["state"] = state
+        context.request.state.cookie.state = state
 
     # Get the authentication provider URL send the user there.
     auth_provider = context.factory.create_provider()
     redirect_url = auth_provider.get_redirect_url(state)
-    raise web.HTTPSeeOther(redirect_url)
+    return RedirectResponse(redirect_url)
 
 
-async def handle_provider_return(request: web.Request) -> web.Response:
+async def handle_provider_return(
+    code: str, state: Optional[str], context: RequestContext
+) -> RedirectResponse:
     """Handle the return from an external authentication provider.
 
     Handles the target of the redirect back from an external authentication
@@ -129,53 +125,74 @@ async def handle_provider_return(request: web.Request) -> web.Response:
 
     Parameters
     ----------
-    request : `aiohttp.web.Request`
-        Incoming request.
+    code : `str`
+        The authentication code from the provider.
+    state : `str`, optional
+        The opaque state used to verify that this user initiated the
+        authentication.
+    context : `gafaelfawr.dependencies.config.RequestContext`
+        The context of the incoming request.
 
     Returns
     -------
-    response : `aiohttp.web.Response`
-        The response.
+    response : `fastapi.RedirectResponse`
+        A redirect to the resource the user was trying to reach before
+        authentication.
 
     Raises
     ------
-    aiohttp.web.HTTPError
-        Error or redirect depending on the validity of the response from the
-        external authentication provider.
+    fastapi.HTTPException
+        The authentication request is invalid or retrieving authentication
+        information from the provider failed.
     """
-    context = RequestContext.from_request(request)
+    cookie = context.request.state.cookie
 
     # Extract details from the reply, check state, and get the return URL.
-    session = await get_session(request)
-    code = request.query["code"]
-    state = request.query["state"]
-    if request.query["state"] != session.pop("state", None):
+    if state != cookie.state:
         msg = "Authentication state mismatch"
-        raise web.HTTPForbidden(reason=msg, text=msg)
-    return_url = session.pop("rd")
+        context.logger.warning("Authentication failed", error=msg)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "msg": "Authentication state mismatch",
+                "type": "state_mismatch",
+            },
+        )
+    return_url = cookie.return_url
     context.rebind_logger(return_url=return_url)
 
     # Build a session based on the reply from the authentication provider.
     auth_provider = context.factory.create_provider()
     try:
-        auth_session = await auth_provider.create_session(code, state)
+        session = await auth_provider.create_session(code, state)
     except ProviderException as e:
         context.logger.warning("Provider authentication failed", error=str(e))
-        raise web.HTTPInternalServerError(reason=str(e), text=str(e))
-    except ClientError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"type": "provider_failed", "msg": str(e)},
+        )
+    except HTTPError as e:
         msg = "Cannot contact authentication provider"
         context.logger.exception(msg, error=str(e))
-        raise web.HTTPInternalServerError(reason=msg, text=f"{msg}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "type": "provider_connect_failed",
+                "msg": f"{msg}: {str(e)}",
+            },
+        )
 
-    # Store the session and send the user back to what they were doing.
-    session = await new_session(request)
-    session["handle"] = auth_session.handle.encode()
+    # Successful login, so clear the login state and send the user back to
+    # what they were doing.
+    cookie.state = None
+    cookie.return_url = None
+    cookie.handle = session.handle
     context.logger.info(
         "Successfully authenticated user %s (%s)",
-        auth_session.token.username,
-        auth_session.token.uid,
-        user=auth_session.token.username,
-        token=auth_session.token.jti,
-        scope=" ".join(sorted(auth_session.token.scope)),
+        session.token.username,
+        session.token.uid,
+        user=session.token.username,
+        token=session.token.jti,
+        scope=" ".join(sorted(session.token.scope)),
     )
-    raise web.HTTPSeeOther(return_url)
+    return RedirectResponse(return_url)

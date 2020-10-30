@@ -6,12 +6,15 @@ import json
 import time
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
+
+import pytest
 
 from gafaelfawr.config import OIDCClient
 from gafaelfawr.providers.github import GitHubUserInfo
 from gafaelfawr.session import SessionHandle
 from gafaelfawr.tokens import Token
+from tests.support.constants import TEST_HOSTNAME
 from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
@@ -19,14 +22,13 @@ if TYPE_CHECKING:
 
     from _pytest.logging import LogCaptureFixture
 
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_login(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
+@pytest.mark.asyncio
+async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup = await create_test_setup(oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -35,9 +37,9 @@ async def test_login(
         teams=[],
     )
     await setup.github_login(userinfo)
+    return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
 
     # Log in
-    return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
     caplog.clear()
     r = await setup.client.get(
         "/auth/openid/login",
@@ -50,10 +52,10 @@ async def test_login(
         },
         allow_redirects=False,
     )
-    assert r.status == 302
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert url.scheme == "https"
-    assert url.netloc == f"{setup.client.host}:4444"
+    assert url.netloc == f"{TEST_HOSTNAME}:4444"
     assert url.path == "/foo"
     assert url.query
     query = parse_qs(url.query)
@@ -94,10 +96,10 @@ async def test_login(
             "redirect_uri": return_url,
         },
     )
-    assert r.status == 200
+    assert r.status_code == 200
     assert r.headers["Cache-Control"] == "no-store"
     assert r.headers["Pragma"] == "no-cache"
-    data = await r.json()
+    data = r.json()
     assert data == {
         "access_token": ANY,
         "token_type": "Bearer",
@@ -150,13 +152,13 @@ async def test_login(
     }
 
 
+@pytest.mark.asyncio
 async def test_unauthenticated(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup = await create_test_setup(oidc_clients=clients)
-
-    return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
+    setup.configure(oidc_clients=clients)
+    return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     login_params = {
         "response_type": "code",
         "scope": "openid",
@@ -164,19 +166,19 @@ async def test_unauthenticated(
         "state": "random-state",
         "redirect_uri": return_url,
     }
+
     caplog.clear()
     r = await setup.client.get(
         "/auth/openid/login", params=login_params, allow_redirects=False
     )
 
-    assert r.status == 302
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert not url.scheme
     assert not url.netloc
     assert url.path == "/login"
-    expected_url = setup.client.make_url("/auth/openid/login").with_query(
-        **login_params
-    )
+    params = urlencode(login_params)
+    expected_url = f"https://{TEST_HOSTNAME}/auth/openid/login?{params}"
     assert query_from_url(r.headers["Location"]) == {"rd": [str(expected_url)]}
 
     log = json.loads(caplog.record_tuples[0][2])
@@ -188,15 +190,17 @@ async def test_unauthenticated(
         "path": "/auth/openid/login",
         "remote": "127.0.0.1",
         "request_id": ANY,
+        "return_url": return_url,
         "user_agent": ANY,
     }
 
 
+@pytest.mark.asyncio
 async def test_login_errors(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup = await create_test_setup(oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     userinfo = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -209,12 +213,31 @@ async def test_login_errors(
     # No parameters at all.
     caplog.clear()
     r = await setup.client.get("/auth/openid/login", allow_redirects=False)
-    assert r.status == 400
-    assert "Missing client_id" in await r.text()
+    assert r.status_code == 422
+
+    # Good client ID but missing redirect_uri.
+    login_params = {"client_id": "some-id"}
+    caplog.clear()
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status_code == 422
+
+    # Bad client ID.
+    caplog.clear()
+    login_params = {
+        "client_id": "bad-client",
+        "redirect_uri": f"https://{TEST_HOSTNAME}/",
+    }
+    r = await setup.client.get(
+        "/auth/openid/login", params=login_params, allow_redirects=False
+    )
+    assert r.status_code == 400
+    assert "Unknown client_id bad-client" in r.text
 
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
-        "error": "Missing client_id in OpenID Connect request",
+        "error": "Unknown client_id bad-client in OpenID Connect request",
         "event": "Invalid request",
         "level": "warning",
         "logger": "gafaelfawr",
@@ -222,40 +245,7 @@ async def test_login_errors(
         "path": "/auth/openid/login",
         "remote": "127.0.0.1",
         "request_id": ANY,
-        "scope": "",
-        "token": ANY,
-        "token_source": "cookie",
-        "user": "githubuser",
-        "user_agent": ANY,
-    }
-
-    # Bad client ID.
-    login_params = {"client_id": "bad-client"}
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
-    assert r.status == 400
-    assert "Unknown client_id bad-client" in await r.text()
-
-    # Good client ID but missing redirect_uri.
-    login_params["client_id"] = "some-id"
-    caplog.clear()
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
-    assert r.status == 400
-    assert "No destination URL" in await r.text()
-
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": "No destination URL specified",
-        "event": "Bad return URL",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/openid/login",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
+        "return_url": f"https://{TEST_HOSTNAME}/",
         "scope": "",
         "token": ANY,
         "token_source": "cookie",
@@ -264,23 +254,24 @@ async def test_login_errors(
     }
 
     # Bad redirect_uri.
-    login_params["redirect_uri"] = "https://example.com/"
+    login_params["client_id"] = "some-id"
+    login_params["redirect_uri"] = "https://foo.example.com/"
     r = await setup.client.get(
         "/auth/openid/login", params=login_params, allow_redirects=False
     )
-    assert r.status == 400
-    assert "URL is not at" in await r.text()
+    assert r.status_code == 400
+    assert "URL is not at" in r.text
 
     # Valid redirect_uri but missing response_type.
-    login_params["redirect_uri"] = f"https://{setup.client.host}/app"
+    login_params["redirect_uri"] = f"https://{TEST_HOSTNAME}/app"
     caplog.clear()
     r = await setup.client.get(
         "/auth/openid/login", params=login_params, allow_redirects=False
     )
-    assert r.status == 302
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert url.scheme == "https"
-    assert url.netloc == f"{setup.client.host}"
+    assert url.netloc == TEST_HOSTNAME
     assert url.path == "/app"
     assert url.query
     query = parse_qs(url.query)
@@ -312,7 +303,7 @@ async def test_login_errors(
     r = await setup.client.get(
         "/auth/openid/login", params=login_params, allow_redirects=False
     )
-    assert r.status == 302
+    assert r.status_code == 307
     assert query_from_url(r.headers["Location"]) == {
         "error": ["invalid_request"],
         "error_description": ["code is the only supported response_type"],
@@ -323,7 +314,7 @@ async def test_login_errors(
     r = await setup.client.get(
         "/auth/openid/login", params=login_params, allow_redirects=False
     )
-    assert r.status == 302
+    assert r.status_code == 307
     assert query_from_url(r.headers["Location"]) == {
         "error": ["invalid_request"],
         "error_description": ["Missing scope parameter"],
@@ -334,32 +325,33 @@ async def test_login_errors(
     r = await setup.client.get(
         "/auth/openid/login", params=login_params, allow_redirects=False
     )
-    assert r.status == 302
+    assert r.status_code == 307
     assert query_from_url(r.headers["Location"]) == {
         "error": ["invalid_request"],
         "error_description": ["openid is the only supported scope"],
     }
 
 
+@pytest.mark.asyncio
 async def test_token_errors(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     clients = [
         OIDCClient(client_id="some-id", client_secret="some-secret"),
         OIDCClient(client_id="other-id", client_secret="other-secret"),
     ]
-    setup = await create_test_setup(oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     handle = await setup.create_session()
     oidc_server = setup.factory.create_oidc_server()
-    redirect_uri = f"https://{setup.client.host}/app"
+    redirect_uri = f"https://{TEST_HOSTNAME}/app"
     code = await oidc_server.issue_code("some-id", redirect_uri, handle)
 
     # Missing parameters.
     request: Dict[str, str] = {}
     caplog.clear()
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_request",
         "error_description": "Invalid token request",
     }
@@ -382,12 +374,12 @@ async def test_token_errors(
         "grant_type": "bogus",
         "client_id": "other-client",
         "code": "nonsense",
-        "redirect_uri": "https://example.com/",
+        "redirect_uri": f"https://{TEST_HOSTNAME}/",
     }
     caplog.clear()
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "unsupported_grant_type",
         "error_description": "Invalid grant type bogus",
     }
@@ -408,8 +400,8 @@ async def test_token_errors(
     # Invalid code.
     request["grant_type"] = "authorization_code"
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_grant",
         "error_description": "Invalid authorization code",
     }
@@ -418,8 +410,8 @@ async def test_token_errors(
     request["code"] = SessionHandle().encode()
     caplog.clear()
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_client",
         "error_description": "No client_secret provided",
     }
@@ -440,8 +432,8 @@ async def test_token_errors(
     # Incorrect client_id.
     request["client_secret"] = "other-secret"
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_client",
         "error_description": "Unknown client ID other-client",
     }
@@ -449,8 +441,8 @@ async def test_token_errors(
     # Incorrect client_secret.
     request["client_id"] = "some-id"
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_client",
         "error_description": "Invalid secret for some-id",
     }
@@ -461,8 +453,8 @@ async def test_token_errors(
     request["code"] = bogus_code.encode()
     caplog.clear()
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_grant",
         "error_description": "Invalid authorization code",
     }
@@ -473,8 +465,8 @@ async def test_token_errors(
     # Corrupt stored data.
     await setup.redis.set(bogus_code.key, "XXXXXXX")
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_grant",
         "error_description": "Invalid authorization code",
     }
@@ -483,8 +475,8 @@ async def test_token_errors(
     bogus_code = await oidc_server.issue_code("other-id", redirect_uri, handle)
     request["code"] = bogus_code.encode()
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_grant",
         "error_description": "Invalid authorization code",
     }
@@ -492,8 +484,8 @@ async def test_token_errors(
     # Correct code and client_id but invalid redirect_uri.
     request["code"] = code.encode()
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_grant",
         "error_description": "Invalid authorization code",
     }
@@ -505,8 +497,8 @@ async def test_token_errors(
     await pipeline.execute()
     request["redirect_uri"] = redirect_uri
     r = await setup.client.post("/auth/openid/token", data=request)
-    assert r.status == 400
-    assert await r.json() == {
+    assert r.status_code == 400
+    assert r.json() == {
         "error": "invalid_grant",
         "error_description": "Invalid authorization code",
     }

@@ -6,28 +6,28 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
-from gafaelfawr.handlers.util import AuthError, AuthErrorChallenge, AuthType
+import pytest
+
+from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
 
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_userinfo(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    setup = await create_test_setup()
+@pytest.mark.asyncio
+async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     token = setup.create_token()
 
     caplog.clear()
     r = await setup.client.get(
         "/auth/userinfo", headers={"Authorization": f"Bearer {token.encoded}"}
     )
-    assert r.status == 200
-    data = await r.json()
-    assert data == token.claims
+
+    assert r.status_code == 200
+    assert r.json() == token.claims
 
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
@@ -46,14 +46,12 @@ async def test_userinfo(
     }
 
 
-async def test_no_auth(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    setup = await create_test_setup()
-
+@pytest.mark.asyncio
+async def test_no_auth(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     caplog.clear()
     r = await setup.client.get("/auth/userinfo")
-    assert r.status == 401
+
+    assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -72,17 +70,16 @@ async def test_no_auth(
     }
 
 
-async def test_invalid(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    setup = await create_test_setup()
+@pytest.mark.asyncio
+async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     token = setup.create_token()
 
     caplog.clear()
     r = await setup.client.get(
         "/auth/userinfo", headers={"Authorization": f"token {token.encoded}"}
     )
-    assert r.status == 400
+
+    assert r.status_code == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -106,7 +103,8 @@ async def test_invalid(
     r = await setup.client.get(
         "/auth/userinfo", headers={"Authorization": f"bearer{token.encoded}"}
     )
-    assert r.status == 400
+
+    assert r.status_code == 400
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -119,7 +117,8 @@ async def test_invalid(
         "/auth/userinfo",
         headers={"Authorization": f"bearer XXX{token.encoded}"},
     )
-    assert r.status == 401
+
+    assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer

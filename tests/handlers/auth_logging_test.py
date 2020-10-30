@@ -7,16 +7,16 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
+import pytest
+
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
 
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_success(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    setup = await create_test_setup()
+@pytest.mark.asyncio
+async def test_success(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     token = setup.create_token(scope="exec:admin")
 
     # Successful request with X-Forwarded-For and a bearer token.
@@ -29,7 +29,7 @@ async def test_success(
             "X-Forwarded-For": "192.0.2.1",
         },
     )
-    assert r.status == 200
+    assert r.status_code == 200
     expected = {
         "auth_uri": "/foo",
         "event": "Token authorized",
@@ -62,7 +62,7 @@ async def test_success(
             "X-Forwarded-For": "192.0.2.1",
         },
     )
-    assert r.status == 200
+    assert r.status_code == 200
     expected["token_source"] = "basic-username"
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == expected
@@ -79,16 +79,16 @@ async def test_success(
             "X-Forwarded-For": "192.0.2.1",
         },
     )
-    assert r.status == 200
+    assert r.status_code == 200
     expected["token_source"] = "basic-password"
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == expected
 
 
+@pytest.mark.asyncio
 async def test_authorization_failed(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    setup = await create_test_setup()
     token = setup.create_token(scope="exec:admin")
 
     r = await setup.client.get(
@@ -99,7 +99,8 @@ async def test_authorization_failed(
             "X-Original-Uri": "/foo",
         },
     )
-    assert r.status == 403
+
+    assert r.status_code == 403
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "auth_uri": "/foo",
@@ -109,7 +110,7 @@ async def test_authorization_failed(
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth",
-        "remote": setup.client.make_url("/").host,
+        "remote": "127.0.0.1",
         "request_id": ANY,
         "required_scope": "exec:test",
         "satisfy": "any",
@@ -121,17 +122,16 @@ async def test_authorization_failed(
     }
 
 
+@pytest.mark.asyncio
 async def test_original_url(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    setup = await create_test_setup()
-
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"X-Original-Url": "https://example.com/test"},
     )
-    assert r.status == 401
+    assert r.status_code == 401
     expected = {
         "auth_uri": "https://example.com/test",
         "event": "No token found, returning unauthorized",
@@ -139,7 +139,7 @@ async def test_original_url(
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth",
-        "remote": setup.client.make_url("/").host,
+        "remote": "127.0.0.1",
         "request_id": ANY,
         "required_scope": "exec:admin",
         "satisfy": "all",
@@ -158,17 +158,16 @@ async def test_original_url(
             "X-Original-URL": "https://example.com/test",
         },
     )
-    assert r.status == 401
+    assert r.status_code == 401
     expected["auth_uri"] = "/foo"
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == expected
 
 
+@pytest.mark.asyncio
 async def test_chained_x_forwarded(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    setup = await create_test_setup()
-
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
@@ -178,7 +177,8 @@ async def test_chained_x_forwarded(
             "X-Original-Uri": "/foo",
         },
     )
-    assert r.status == 401
+
+    assert r.status_code == 401
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "auth_uri": "/foo",
@@ -195,17 +195,16 @@ async def test_chained_x_forwarded(
     }
 
 
+@pytest.mark.asyncio
 async def test_invalid_token(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    setup = await create_test_setup()
-
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer blah"},
     )
-    assert r.status == 401
+    assert r.status_code == 401
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "auth_uri": "NONE",
@@ -215,7 +214,7 @@ async def test_invalid_token(
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth",
-        "remote": setup.client.make_url("/").host,
+        "remote": "127.0.0.1",
         "request_id": ANY,
         "required_scope": "exec:admin",
         "satisfy": "all",

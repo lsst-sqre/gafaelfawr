@@ -1,22 +1,23 @@
-"""Tests for the /.well-known/jwks.json route."""
+"""Tests for the ``/.well-known`` routes."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.util import number_to_base64
 
 if TYPE_CHECKING:
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_well_known_jwks(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
-
+@pytest.mark.asyncio
+async def test_well_known_jwks(setup: SetupTest) -> None:
     r = await setup.client.get("/.well-known/jwks.json")
-    assert r.status == 200
-    result = await r.json()
+    assert r.status_code == 200
+    result = r.json()
 
     keypair = setup.config.issuer.keypair
     assert result == {
@@ -38,15 +39,13 @@ async def test_well_known_jwks(create_test_setup: SetupTestCallable) -> None:
     assert "=" not in result["keys"][0]["e"]
 
 
-async def test_well_known_oidc(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup()
-
+@pytest.mark.asyncio
+async def test_well_known_oidc(setup: SetupTest) -> None:
     r = await setup.client.get("/.well-known/openid-configuration")
-    assert r.status == 200
-    result = await r.json()
+    assert r.status_code == 200
 
     base_url = setup.config.issuer.iss
-    assert result == {
+    assert r.json() == {
         "issuer": setup.config.issuer.iss,
         "authorization_endpoint": base_url + "/auth/openid/login",
         "token_endpoint": base_url + "/auth/openid/token",

@@ -19,16 +19,13 @@ from gafaelfawr.exceptions import (
 from gafaelfawr.storage.oidc import OIDCAuthorizationCode
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_issue_code(
-    tmp_path: Path, create_test_setup: SetupTestCallable
-) -> None:
+@pytest.mark.asyncio
+async def test_issue_code(setup: SetupTest) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup = await create_test_setup(client=False, oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
     handle = await setup.create_session()
     redirect_uri = "https://example.com/"
@@ -55,14 +52,13 @@ async def test_issue_code(
     assert now - 2 < serialized_code["created_at"] < now
 
 
-async def test_redeem_code(
-    tmp_path: Path, create_test_setup: SetupTestCallable
-) -> None:
+@pytest.mark.asyncio
+async def test_redeem_code(setup: SetupTest) -> None:
     clients = [
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    setup = await create_test_setup(client=False, oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
     handle = await setup.create_session()
     redirect_uri = "https://example.com/"
@@ -92,14 +88,13 @@ async def test_redeem_code(
     assert not await setup.redis.get(f"oidc:{code.key}")
 
 
-async def test_redeem_code_errors(
-    tmp_path: Path, create_test_setup: SetupTestCallable
-) -> None:
+@pytest.mark.asyncio
+async def test_redeem_code_errors(setup: SetupTest) -> None:
     clients = [
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    setup = await create_test_setup(client=False, oidc_clients=clients)
+    setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
     handle = await setup.create_session()
     redirect_uri = "https://example.com/"

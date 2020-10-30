@@ -1,4 +1,4 @@
-realm: "testing"
+realm: "example.com"
 session_secret_file: "{session_secret_file}"
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
@@ -20,11 +20,11 @@ issuer:
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"
-  login_url: "https://example.com/oidc/login"
+  login_url: "https://upstream.example.com/oidc/login"
   login_params:
     skin: "test"
-  redirect_url: "https://example.com/login"
-  token_url: "https://example.com/token"
+  redirect_url: "https://upstream.example.com/login"
+  token_url: "https://upstream.example.com/token"
   scopes:
     - "email"
     - "voPerson"

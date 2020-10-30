@@ -13,7 +13,7 @@ from gafaelfawr.exceptions import InvalidSessionHandleException
 from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
 def test_handle() -> None:
@@ -47,8 +47,8 @@ def test_handle_from_str() -> None:
     assert handle.encode() == handle_str
 
 
-async def test_get_session(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup(client=False)
+@pytest.mark.asyncio
+async def test_get_session(setup: SetupTest) -> None:
     session_store = setup.factory.create_session_store()
     expires = timedelta(days=1).total_seconds()
 

@@ -2,51 +2,43 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Dict
 
-from aiohttp import web
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 
+from gafaelfawr.dependencies.auth import verified_token
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.handlers import routes
-from gafaelfawr.handlers.decorators import authenticated_token
-from gafaelfawr.handlers.util import RequestContext
+from gafaelfawr.tokens import VerifiedToken
 
-if TYPE_CHECKING:
-    from gafaelfawr.tokens import VerifiedToken
+router = APIRouter()
 
 __all__ = ["get_influxdb"]
 
 
-@routes.get("/auth/tokens/influxdb/new")
-@authenticated_token
+class TokenReply(BaseModel):
+    token: str
+
+
+@router.get("/auth/tokens/influxdb/new", response_model=TokenReply)
 async def get_influxdb(
-    request: web.Request, token: VerifiedToken
-) -> web.Response:
-    """Return an InfluxDB-compatible JWT.
-
-    Parameters
-    ----------
-    request : `aiohttp.web.Request`
-        The incoming request.
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The user's authentication token.
-
-    Returns
-    -------
-    response : `aiohttp.web.Response`
-        The response.
-    """
-    context = RequestContext.from_request(request)
+    token: VerifiedToken = Depends(verified_token),
+    context: RequestContext = Depends(context_dependency),
+) -> Dict[str, str]:
+    """Return an InfluxDB-compatible JWT."""
     token_issuer = context.factory.create_token_issuer()
     try:
         influxdb_token = token_issuer.issue_influxdb_token(token)
     except NotConfiguredException as e:
         context.logger.warning("Not configured", error=str(e))
-        response = {"error": "not_supported", "error_description": str(e)}
-        return web.json_response(response, status=400)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"type": "not_supported", "msg": str(e)},
+        )
     if context.config.issuer.influxdb_username:
         username = context.config.issuer.influxdb_username
     else:
         username = token.username
     context.logger.info("Issued InfluxDB token", influxdb_username=username)
-    return web.json_response({"token": influxdb_token})
+    return {"token": influxdb_token}

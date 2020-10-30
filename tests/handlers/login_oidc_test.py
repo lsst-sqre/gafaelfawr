@@ -7,29 +7,29 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
+import pytest
+
 from gafaelfawr.constants import ALGORITHM
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
 
-    from tests.setup import SetupTestCallable
+    from tests.support.setup import SetupTest
 
 
-async def test_login(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
-) -> None:
-    setup = await create_test_setup("oidc")
+@pytest.mark.asyncio
+async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
+    setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     assert setup.config.oidc
+    return_url = "https://example.com:4444/foo?a=bar&b=baz"
 
-    # Simulate the initial authentication request.
-    return_url = f"https://{setup.client.host}:4444/foo?a=bar&b=baz"
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
-    assert r.status == 303
+    assert r.status_code == 307
     assert r.headers["Location"].startswith(setup.config.oidc.login_url)
     url = urlparse(r.headers["Location"])
     assert url.query
@@ -65,7 +65,7 @@ async def test_login(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     assert r.headers["Location"] == return_url
 
     # Verify the logging.
@@ -90,7 +90,7 @@ async def test_login(
 
     # Check that the /auth route works and finds our token.
     r = await setup.client.get("/auth", params={"scope": "exec:admin"})
-    assert r.status == 200
+    assert r.status_code == 200
     assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
@@ -100,13 +100,12 @@ async def test_login(
     assert r.headers["X-Auth-Request-Groups"] == "admin"
     assert r.headers["X-Auth-Request-Token"]
 
-    # Now ask for the session handle in the encrypted session to be analyzed,
-    # and verify the internals of the session handle from OpenID Connect
-    # authentication.
+    # Now ask for the session handle in the encrypted session to be
+    # analyzed, and verify the internals of the session handle from OpenID
+    # Connect authentication.
     r = await setup.client.get("/auth/analyze")
-    assert r.status == 200
-    data = await r.json()
-    assert data == {
+    assert r.status_code == 200
+    assert r.json() == {
         "handle": {"key": ANY, "secret": ANY},
         "session": {
             "email": token.email,
@@ -142,23 +141,21 @@ async def test_login(
     }
 
 
-async def test_login_redirect_header(
-    create_test_setup: SetupTestCallable,
-) -> None:
+@pytest.mark.asyncio
+async def test_login_redirect_header(setup: SetupTest) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    setup = await create_test_setup("oidc")
+    setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    return_url = "https://example.com/foo?a=bar&b=baz"
 
-    # Simulate the initial authentication request.
-    return_url = f"https://{setup.client.host}/foo?a=bar&b=baz"
     r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": return_url},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
@@ -168,24 +165,24 @@ async def test_login_redirect_header(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     assert r.headers["Location"] == return_url
 
 
-async def test_oauth2_callback(create_test_setup: SetupTestCallable) -> None:
+@pytest.mark.asyncio
+async def test_oauth2_callback(setup: SetupTest) -> None:
     """Test the compatibility /oauth2/callback route."""
-    setup = await create_test_setup("oidc")
+    setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     assert setup.config.oidc
+    return_url = "https://example.com/foo"
 
-    # Simulate the initial authentication request.
-    return_url = f"https://{setup.client.host}/foo"
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
     assert query["redirect_uri"][0] == setup.config.oidc.redirect_url
@@ -196,23 +193,23 @@ async def test_oauth2_callback(create_test_setup: SetupTestCallable) -> None:
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 303
+    assert r.status_code == 307
     assert r.headers["Location"] == return_url
 
 
+@pytest.mark.asyncio
 async def test_callback_error(
-    create_test_setup: SetupTestCallable, caplog: LogCaptureFixture
+    setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
-    setup = await create_test_setup("oidc")
+    setup.configure("oidc")
     assert setup.config.oidc
+    return_url = "https://example.com/foo"
 
-    # Simulate the initial authentication request.
-    return_url = f"https://{setup.client.host}/foo"
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
@@ -222,8 +219,11 @@ async def test_callback_error(
         "error": "error_code",
         "error_description": "description",
     }
-    setup.responses.post(
-        setup.config.oidc.token_url, payload=response, status=400
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        json=response,
+        status_code=400,
     )
 
     # Simulate the return from the OpenID Connect provider.
@@ -233,8 +233,8 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 500
-    assert "error_code: description" in await r.text()
+    assert r.status_code == 500
+    assert "error_code: description" in r.text
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "error": "error_code: description",
@@ -252,8 +252,11 @@ async def test_callback_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    setup.responses.post(
-        setup.config.oidc.token_url, payload={"foo": "bar"}, status=400
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        json={"foo": "bar"},
+        status_code=400,
     )
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
@@ -264,12 +267,16 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 500
-    assert "Cannot contact authentication provider" in await r.text()
+    assert r.status_code == 500
+    assert "Cannot contact authentication provider" in r.text
 
-    # Now try a reply that returns 200 but doesn't have the field we need.
-    setup.responses.post(
-        setup.config.oidc.token_url, payload={"foo": "bar"}, status=200
+    # Now try a reply that returns 200 but doesn't have the field we
+    # need.
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        json={"foo": "bar"},
+        status_code=200,
     )
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
@@ -280,11 +287,16 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 500
-    assert "No id_token in token reply" in await r.text()
+    assert r.status_code == 500
+    assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
-    setup.responses.post(setup.config.oidc.token_url, body="foo", status=200)
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        data="foo",
+        status_code=200,
+    )
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
@@ -294,11 +306,16 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 500
-    assert "not valid JSON" in await r.text()
+    assert r.status_code == 500
+    assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
-    setup.responses.post(setup.config.oidc.token_url, body="foo", status=400)
+    setup.httpx_mock.add_response(
+        url=setup.config.oidc.token_url,
+        method="POST",
+        data="foo",
+        status_code=400,
+    )
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
@@ -308,20 +325,20 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 500
-    assert "Cannot contact authentication provider" in await r.text()
+    assert r.status_code == 500
+    assert "Cannot contact authentication provider" in r.text
 
 
-async def test_connection_error(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup("oidc")
+@pytest.mark.asyncio
+async def test_connection_error(setup: SetupTest) -> None:
+    setup.configure("oidc")
     assert setup.config.oidc
+    return_url = "https://example.com/foo"
 
-    # Simulate the initial authentication request.
-    return_url = f"https://{setup.client.host}/foo"
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
@@ -332,22 +349,22 @@ async def test_connection_error(create_test_setup: SetupTestCallable) -> None:
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 500
-    assert "Connection refused" in await r.text()
+    assert r.status_code == 500
+    assert r.json()["detail"]["type"] == "provider_connect_failed"
 
 
-async def test_verify_error(create_test_setup: SetupTestCallable) -> None:
-    setup = await create_test_setup("oidc")
+@pytest.mark.asyncio
+async def test_verify_error(setup: SetupTest) -> None:
+    setup.configure("oidc")
     token = setup.create_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     assert setup.config.oidc
+    return_url = "https://example.com/foo"
 
-    # Simulate the initial authentication request.
-    return_url = f"https://{setup.client.host}/foo"
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
-    assert r.status == 303
+    assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
@@ -359,5 +376,5 @@ async def test_verify_error(create_test_setup: SetupTestCallable) -> None:
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status == 500
-    assert "token verification failed" in await r.text()
+    assert r.status_code == 500
+    assert "token verification failed" in r.text
