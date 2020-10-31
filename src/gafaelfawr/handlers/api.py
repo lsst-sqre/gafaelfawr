@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from gafaelfawr.dependencies.auth import require_admin
+from gafaelfawr.dependencies.auth import authenticate, require_admin
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.models.admin import Admin
+from gafaelfawr.models.token import TokenData, TokenInfo, TokenUserInfo
 
 __all__ = ["router"]
 
@@ -33,3 +34,33 @@ def get_admins(
 ) -> List[Admin]:
     admin_manager = context.factory.create_admin_manager()
     return admin_manager.get_admins()
+
+
+@router.get(
+    "/token-info",
+    response_model=TokenInfo,
+    response_model_exclude_none=True,
+    responses={404: {"description": "Token not found"}},
+)
+async def get_token_info(
+    token_data: TokenData = Depends(authenticate),
+    context: RequestContext = Depends(context_dependency),
+) -> TokenInfo:
+    token_manager = context.factory.create_token_manager()
+    info = token_manager.get_info(token_data.token)
+    if not info:
+        msg = "Token found in Redis but not database"
+        context.logger.warning(msg)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"type": "invalid_token", "msg": msg},
+        )
+    else:
+        return info
+
+
+@router.get("/user-info", response_model=TokenUserInfo)
+async def get_user_info(
+    token_data: TokenData = Depends(authenticate),
+) -> TokenUserInfo:
+    return token_data

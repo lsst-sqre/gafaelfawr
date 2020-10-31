@@ -26,7 +26,7 @@ async def test_token_manager(setup: SetupTest) -> None:
     token = Token()
     now = datetime.now(timezone.utc).replace(microsecond=0)
     data = TokenData(
-        secret=token.secret,
+        token=token,
         username="example",
         token_type=TokenType.session,
         service="internal-service",
@@ -42,8 +42,7 @@ async def test_token_manager(setup: SetupTest) -> None:
     )
     assert data.expires
 
-    await token_manager.add(token, data, "some-token")
-    data.scopes = sorted(data.scopes)
+    await token_manager.add(data, "some-token")
     assert await token_manager.get_data(token) == data
     assert token_manager.get_info(token) == TokenInfo(
         token=token.key,
@@ -69,9 +68,9 @@ async def test_token_manager(setup: SetupTest) -> None:
 
     # Test that scopes are sorted when storing them in the database.
     token = Token()
-    data.secret = token.secret
+    data.token = token
     data.scopes = ["read:all", "exec:admin"]
-    await token_manager.add(token, data)
+    await token_manager.add(data)
     assert token_manager.get_info(token) == TokenInfo(
         token=token.key,
         username=data.username,

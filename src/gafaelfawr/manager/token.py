@@ -39,13 +39,11 @@ class TokenManager:
         self._token_redis_store = token_redis_store
         self._transaction_manager = transaction_manager
 
-    async def add(
-        self, token: Token, data: TokenData, name: Optional[str] = None
-    ) -> None:
+    async def add(self, data: TokenData, name: Optional[str] = None) -> None:
         """Add a new token."""
-        await self._token_redis_store.store_data(token, data)
+        await self._token_redis_store.store_data(data)
         with self._transaction_manager.transaction():
-            self._token_db_store.add(token, data, name)
+            self._token_db_store.add(data, name)
 
     async def get_data(self, token: Token) -> Optional[TokenData]:
         """Retrieve the data for a token from Redis.

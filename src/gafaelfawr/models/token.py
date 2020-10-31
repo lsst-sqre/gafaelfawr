@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional, Union
@@ -17,8 +15,7 @@ from gafaelfawr.util import random_128_bits
 __all__ = ["TokenType"]
 
 
-@dataclass
-class Token:
+class Token(BaseModel):
     """An opaque token.
 
     Notes
@@ -34,8 +31,8 @@ class Token:
     stripped off (because equal signs can be parsed oddly in cookies).
     """
 
-    key: str = field(default_factory=random_128_bits)
-    secret: str = field(default_factory=random_128_bits)
+    key: str = Field(default_factory=random_128_bits)
+    secret: str = Field(default_factory=random_128_bits)
 
     @classmethod
     def from_str(cls, token: str) -> Token:
@@ -69,7 +66,7 @@ class Token:
 
         return cls(key=key, secret=secret)
 
-    def encode(self) -> str:
+    def __str__(self) -> str:
         """Return the encoded token."""
         return f"gt-{self.key}.{self.secret}"
 
@@ -106,135 +103,12 @@ class TokenGroup(BaseModel):
     id: int = Field(..., title="The numeric GID of the group")
 
 
-class TokenData(BaseModel, Serializable):
-    """Data about a token stored in Redis.
+class TokenBase(BaseModel):
+    """Base information about a token common to several representations.
 
-    This holds all the token information stored in Redis, and thus all the
-    token information required to support authentication decisions and
-    (currently) user information queries.  It should not be used directly as a
-    response model; for that, see `TokenInfo` and `TokenUserInfo`.
+    This is the information that's common to the Redis and database
+    representations of the token.
     """
-
-    secret: str
-    """The secret portion of the token."""
-
-    username: str
-    """The user to whom the token was issued."""
-
-    token_type: TokenType
-    """The type of the token."""
-
-    service: Optional[str]
-    """The service to which the token was issued, if any."""
-
-    scopes: List[str]
-    """The scopes of the token."""
-
-    created: datetime
-    """Creation time of the token."""
-
-    expires: Optional[datetime]
-    """Expiration time of the token."""
-
-    # The following data will eventually be handled by a separate user and
-    # group service, but is included in Redis for now until such a thing
-    # exists.
-
-    name: str
-    """The preferred name of the user to which the token was issued."""
-
-    uid: int
-    """The UID number of the user to which the token was issued."""
-
-    groups: List[TokenGroup]
-    """The groups of which the user is a member."""
-
-    @classmethod
-    def from_json(cls, data: str) -> TokenData:
-        """Deserialize from JSON.
-
-        Parameters
-        ----------
-        data : `str`
-            JSON-serialized representation.
-
-        Returns
-        -------
-        token_data : `TokenData`
-            The corresponding `TokenData` object.
-        """
-        token = json.loads(data)
-        expires = None
-        if "expires" in token:
-            expires = datetime.fromtimestamp(token["expires"], tz=timezone.utc)
-        groups = [
-            TokenGroup(name=g["name"], id=g["id"])
-            for g in token.get("groups", [])
-        ]
-        return cls(
-            secret=token["secret"],
-            username=token["username"],
-            token_type=TokenType(token["token_type"]),
-            service=token.get("service"),
-            scopes=token.get("scopes", []),
-            created=datetime.fromtimestamp(token["created"], tz=timezone.utc),
-            expires=expires,
-            name=token["name"],
-            uid=token["uid"],
-            groups=groups,
-        )
-
-    @property
-    def lifetime(self) -> Optional[int]:
-        """The object lifetime in seconds."""
-        if not self.expires:
-            return None
-        now = datetime.now(timezone.utc)
-        return int((self.expires - now).total_seconds())
-
-    def to_json(self) -> str:
-        """Serialize to JSON.
-
-        Returns
-        -------
-        data : `str`
-            The object in JSON-serialized form.
-        """
-        data = {
-            "secret": self.secret,
-            "username": self.username,
-            "token_type": self.token_type.value,
-            "created": int(self.created.timestamp()),
-            "name": self.name,
-            "uid": self.uid,
-        }
-        if self.service:
-            data["service"] = self.service
-        if self.scopes:
-            data["scopes"] = self.scopes
-        if self.expires:
-            data["expires"] = int(self.expires.timestamp())
-        if self.groups:
-            data["groups"] = [
-                {"name": g.name, "id": g.id} for g in self.groups
-            ]
-        return json.dumps(data)
-
-
-def normalize_timestamp(v: Union[int, datetime]) -> int:
-    """Used to allow initializing `TokenInfo` with datetime parameters."""
-    if isinstance(v, datetime):
-        return int(v.replace(tzinfo=timezone.utc).timestamp())
-    else:
-        return v
-
-
-class TokenInfo(BaseModel):
-    """The information about a token returned by a token-info query."""
-
-    token: str = Field(
-        ..., title="The key part of the token", min_length=22, max_length=22
-    )
 
     username: str = Field(
         ...,
@@ -243,6 +117,40 @@ class TokenInfo(BaseModel):
         max_length=64,
     )
 
+    token_type: TokenType = Field(..., title="The type of the token")
+
+    scopes: List[str] = Field(..., title="The scopes of the token")
+
+    created: datetime = Field(
+        ..., title="Creation timestamp of the token in seconds since epoch"
+    )
+
+    expires: Optional[datetime] = Field(
+        None, title="Expiration timestamp of the token in seconds since epoch"
+    )
+
+
+def normalize_datetime(
+    v: Optional[Union[int, datetime]]
+) -> Optional[datetime]:
+    """Ensure datetimes are timezone-aware."""
+    if v is None:
+        return v
+    elif isinstance(v, int):
+        return datetime.fromtimestamp(v, tz=timezone.utc)
+    elif v.tzinfo and v.tzinfo.utcoffset(v) is not None:
+        return v
+    else:
+        return v.replace(tzinfo=timezone.utc)
+
+
+class TokenInfo(TokenBase):
+    """Information about a token returned by the token-info endpoint.
+
+    This is all the information about the token that's stored in the
+    underlying database.  It includes some fields not present in Redis.
+    """
+
     token_name: Optional[str] = Field(
         None,
         title="The user-given name of the token",
@@ -250,26 +158,8 @@ class TokenInfo(BaseModel):
         max_length=64,
     )
 
-    token_type: TokenType = Field(..., title="The type of the token")
-
-    scopes: List[str] = Field(..., title="The scopes of the token")
-
-    created: int = Field(
-        ...,
-        title="Creation timestamp of the token in seconds since epoch",
-        ge=1,
-    )
-
-    last_used: int = Field(
-        None,
-        title="When the token was last used in seconds since epoch",
-        ge=1,
-    )
-
-    expires: int = Field(
-        None,
-        title="Expiration timestamp of the token in seconds since epoch",
-        ge=1,
+    last_used: Optional[datetime] = Field(
+        None, title="When the token was last used in seconds since epoch"
     )
 
     parent: Optional[str] = Field(
@@ -281,15 +171,16 @@ class TokenInfo(BaseModel):
 
     class Config:
         orm_mode = True
+        json_encoders = {datetime: lambda v: int(v.timestamp())}
 
     _normalize_created = validator("created", allow_reuse=True, pre=True)(
-        normalize_timestamp
+        normalize_datetime
     )
     _normalize_last_used = validator("last_used", allow_reuse=True, pre=True)(
-        normalize_timestamp
+        normalize_datetime
     )
     _normalize_expires = validator("expires", allow_reuse=True, pre=True)(
-        normalize_timestamp
+        normalize_datetime
     )
 
     @validator("scopes", pre=True)
@@ -329,3 +220,35 @@ class TokenUserInfo(BaseModel):
     groups: List[TokenGroup] = Field(
         [], title="The groups of which the user is a member"
     )
+
+
+class TokenData(TokenBase, TokenUserInfo, Serializable):
+    """Data about a token stored in Redis.
+
+    This holds all the token information stored in Redis, and thus all the
+    token information required to support authentication decisions and
+    (currently) user information queries.  It should not be used directly as a
+    response model; for that, see `TokenInfo` and `TokenUserInfo`.
+    """
+
+    token: Token = Field(..., title="The associated token")
+
+    class Config:
+        json_encoders = {datetime: lambda v: int(v.timestamp())}
+
+    @classmethod
+    def from_json(cls, data: str) -> TokenData:
+        """Deserialize from JSON."""
+        return cls.parse_raw(data)
+
+    @property
+    def lifetime(self) -> Optional[int]:
+        """The object lifetime in seconds."""
+        if not self.expires:
+            return None
+        now = datetime.now(timezone.utc)
+        return int((self.expires - now).total_seconds())
+
+    def to_json(self) -> str:
+        """Serialize to JSON."""
+        return self.json(exclude_none=True)

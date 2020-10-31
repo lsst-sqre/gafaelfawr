@@ -38,27 +38,22 @@ class TokenDatabaseStore:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def add(
-        self, token: Token, data: TokenData, name: Optional[str] = None
-    ) -> None:
+    def add(self, data: TokenData, name: Optional[str] = None) -> None:
         """Store a new token.
 
         Parameters
         ----------
-        token : `gafaelfawr.models.token.Token`
-            The token.
         data : `gafaelfawr.models.token.TokenData`
             The corresponding data.
         name : `str` or `None`
             The human-given name for the token.
         """
         new = SQLToken(
-            token=token.key,
+            token=data.token.key,
             username=data.username,
             token_type=data.token_type,
             token_name=name,
             scopes=",".join(sorted(data.scopes)) if data.scopes else None,
-            service=data.service,
             created=data.created,
             expires=data.expires,
         )
@@ -143,28 +138,29 @@ class TokenRedisStore:
             valid.
         """
         try:
+            print("getting", token.key)
             data = await self._storage.get(f"token:{token.key}")
         except DeserializeException as e:
             self._logger.error("Cannot retrieve token", error=str(e))
             return None
         if not data:
+            print("not found", token.key)
             return None
 
-        if data.secret != token.secret:
+        if data.token != token:
             error = f"Secret mismatch for {token.key}"
             self._logger.error("Cannot retrieve token data", error=error)
             return None
 
         return data
 
-    async def store_data(self, token: Token, data: TokenData) -> None:
+    async def store_data(self, data: TokenData) -> None:
         """Store the data for a token.
 
         Parameters
         ----------
-        token : `gafaelfawr.models.token.Token`
-            The token for which to store data.
         data : `gafaelfawr.models.token.TokenData`
             The data underlying that token.
         """
-        await self._storage.store(f"token:{token.key}", data)
+        print("storing", data.token.key)
+        await self._storage.store(f"token:{data.token.key}", data)

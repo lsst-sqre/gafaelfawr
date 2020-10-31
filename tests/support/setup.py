@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlparse
@@ -17,6 +18,7 @@ from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.state import State
+from gafaelfawr.models.token import Token, TokenData, TokenType
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.session import Session, SessionHandle
 from tests.support.constants import TEST_HOSTNAME
@@ -34,8 +36,10 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import Config, OIDCClient
     from gafaelfawr.keypair import RSAKeyPair
+    from gafaelfawr.models.token import TokenGroup
     from gafaelfawr.providers.github import GitHubUserInfo
-    from gafaelfawr.tokens import Token, VerifiedToken
+    from gafaelfawr.tokens import Token as OldToken
+    from gafaelfawr.tokens import VerifiedToken
 
 
 class SetupTest:
@@ -122,6 +126,36 @@ class SetupTest:
         return ComponentFactory(
             config=self.config, redis=self.redis, http_client=self.client
         )
+
+    async def add_session_token(
+        self,
+        *,
+        username: str,
+        created: datetime,
+        name: str,
+        uid: int,
+        service: Optional[str] = None,
+        scopes: Optional[List[str]] = None,
+        expires: Optional[datetime] = None,
+        groups: Optional[List[TokenGroup]] = None,
+    ) -> Token:
+        """Create a new token with associated data."""
+        token = Token()
+        data = TokenData(
+            token=token,
+            username=username,
+            token_type=TokenType.session,
+            service=service,
+            scopes=scopes if scopes else [],
+            created=created,
+            expires=expires,
+            name=name,
+            uid=uid,
+            groups=groups if groups else [],
+        )
+        token_manager = self.factory.create_token_manager()
+        await token_manager.add(data)
+        return token
 
     def configure(
         self,
@@ -394,7 +428,7 @@ class SetupTest:
             url=jwks_url, method="GET", json={"keys": [jwks]}
         )
 
-    def set_oidc_token_response(self, code: str, token: Token) -> None:
+    def set_oidc_token_response(self, code: str, token: OldToken) -> None:
         """Set the token that will be returned from the OIDC token endpoint.
 
         Parameters

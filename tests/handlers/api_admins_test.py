@@ -1,4 +1,4 @@
-"""Tests for the ``/auth/api/v1`` routes."""
+"""Tests for the ``/auth/api/v1/admins`` routes."""
 
 from __future__ import annotations
 

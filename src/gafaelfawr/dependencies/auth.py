@@ -18,6 +18,7 @@ from gafaelfawr.exceptions import (
     InvalidTokenError,
     PermissionDeniedError,
 )
+from gafaelfawr.models.token import Token, TokenData
 from gafaelfawr.session import Session
 from gafaelfawr.tokens import VerifiedToken
 
@@ -122,3 +123,41 @@ async def require_admin(
     if not admin_manager.is_admin(token.username):
         raise PermissionDeniedError(f"{token.username} is not an admin")
     return token.username
+
+
+async def authenticate(
+    context: RequestContext = Depends(context_dependency),
+) -> TokenData:
+    """Check that the request is authenticated.
+
+    Returns
+    -------
+    data : `gafaelfawr.models.token.TokenData`
+        The data associated with the verified token.
+    """
+    token = None
+    try:
+        token_str = parse_authorization(context)
+        if token_str:
+            token = Token.from_str(token_str)
+    except (InvalidRequestError, InvalidTokenError) as e:
+        print("invalid token", token_str)
+        raise generate_challenge(context, AuthType.Bearer, e)
+    if not token:
+        raise generate_unauthorized_challenge(context, AuthType.Bearer)
+
+    token_manager = context.factory.create_token_manager()
+    data = await token_manager.get_data(token)
+    if not data:
+        print("invalid token", token_str)
+        exc = InvalidTokenError("Token is not valid")
+        raise generate_challenge(context, AuthType.Bearer, exc)
+
+    # Add user information to the logger.
+    context.rebind_logger(
+        token=token.key,
+        user=data.username,
+        scope=" ".join(sorted(data.scopes)),
+    )
+
+    return data
