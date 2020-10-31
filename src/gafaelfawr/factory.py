@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.manager.admin import AdminManager
+from gafaelfawr.manager.token import TokenManager
+from gafaelfawr.models.token import TokenData
 from gafaelfawr.oidc import OIDCServer
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
@@ -18,6 +20,7 @@ from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.history import AdminHistoryStore
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.session import SerializedSession, SessionStore
+from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.storage.user_token import UserTokenStore
 from gafaelfawr.verify import TokenVerifier
@@ -76,7 +79,7 @@ class ComponentFactory:
 
         Returns
         -------
-        admin_manager : `gafelfawr.manager.AdminManager`
+        admin_manager : `gafelfawr.manager.admin.AdminManager`
             The new token administrator manager.
         """
         admin_store = AdminStore(self._session)
@@ -171,6 +174,23 @@ class ComponentFactory:
             A new TokenIssuer.
         """
         return TokenIssuer(self._config.issuer)
+
+    def create_token_manager(self) -> TokenManager:
+        """Create a TokenManager.
+
+        Returns
+        -------
+        token_manager : `gafaelfawr.manager.token.TokenManager`
+            The new token manager.
+        """
+        token_db_store = TokenDatabaseStore(self._session)
+        key = self._config.session_secret
+        storage = RedisStorage(TokenData, key, self._redis)
+        token_redis_store = TokenRedisStore(storage, self._logger)
+        transaction_manager = TransactionManager(self._session)
+        return TokenManager(
+            token_db_store, token_redis_store, transaction_manager
+        )
 
     def create_token_verifier(self) -> TokenVerifier:
         """Create a TokenVerifier from a web request.

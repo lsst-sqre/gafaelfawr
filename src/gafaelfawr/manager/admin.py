@@ -24,9 +24,9 @@ class AdminManager:
 
     Parameters
     ----------
-    admin_store : `gafaelfawr.storage.AdminStore`
+    admin_store : `gafaelfawr.storage.admin.AdminStore`
         The backing store for token administrators.
-    admin_history_store : `gafaelfawr.storage.AdminHistoryStore`
+    admin_history_store : `gafaelfawr.storage.history.AdminHistoryStore`
         The backing store for history of changes to token administrators.
     """
 
