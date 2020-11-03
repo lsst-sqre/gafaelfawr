@@ -126,30 +126,41 @@ async def require_admin(
 
 
 async def authenticate(
+    x_csrf_token: str = Header(None),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
     """Check that the request is authenticated.
+
+    For requests authenticated via session cookie, also checks that a CSRF
+    token was provided in the ``X-CSRF-Token`` header if the request is
+    anything other than GET or OPTIONS.
 
     Returns
     -------
     data : `gafaelfawr.models.token.TokenData`
         The data associated with the verified token.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If authentication is not provided or is not valid.
     """
-    token = None
-    try:
-        token_str = parse_authorization(context)
-        if token_str:
-            token = Token.from_str(token_str)
-    except (InvalidRequestError, InvalidTokenError) as e:
-        print("invalid token", token_str)
-        raise generate_challenge(context, AuthType.Bearer, e)
+    token = context.state.token
+    token_source: Optional[str] = "cookie"
+    if not token:
+        try:
+            token_str = parse_authorization(context)
+            if token_str:
+                token = Token.from_str(token_str)
+                token_source = None
+        except (InvalidRequestError, InvalidTokenError) as e:
+            raise generate_challenge(context, AuthType.Bearer, e)
     if not token:
         raise generate_unauthorized_challenge(context, AuthType.Bearer)
 
     token_manager = context.factory.create_token_manager()
     data = await token_manager.get_data(token)
     if not data:
-        print("invalid token", token_str)
         exc = InvalidTokenError("Token is not valid")
         raise generate_challenge(context, AuthType.Bearer, exc)
 
@@ -158,6 +169,63 @@ async def authenticate(
         token=token.key,
         user=data.username,
         scope=" ".join(sorted(data.scopes)),
+    )
+    if token_source:
+        context.rebind_logger(token_source=token_source)
+
+    # Check the CSRF token if authentication was via a cookie.
+    is_modification = context.request.method not in ("GET", "OPTIONS")
+    if context.state.token and is_modification:
+        error = None
+        if not x_csrf_token:
+            error = "CSRF token required in X-CSRF-Token header"
+        if x_csrf_token != context.state.csrf:
+            error = "Invalid CSRF token"
+        if error:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"type": "invalid_csrf", "msg": error},
+            )
+
+    return data
+
+
+async def authenticate_from_cookie_or_redirect(
+    context: RequestContext = Depends(context_dependency),
+) -> TokenData:
+    """Check cookie authentication and, if not found, redirect to ``/login``.
+
+    Returns
+    -------
+    data : `gafaelfawr.models.token.TokenData`
+        The data associated with the verified token.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If authentication is not provided or is not valid.
+    """
+    data = None
+    if context.state.token:
+        token_manager = context.factory.create_token_manager()
+        data = await token_manager.get_data(context.state.token)
+
+    # If there is no active session, redirect to /login.
+    if not data:
+        query = urlencode({"rd": str(context.request.url)})
+        login_url = urlparse("/login")._replace(query=query).geturl()
+        context.logger.info("Redirecting user for authentication")
+        raise HTTPException(
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            headers={"Location": login_url},
+        )
+
+    # On success, add some context to the logger.
+    context.rebind_logger(
+        token=data.token.key,
+        user=data.username,
+        scope=" ".join(sorted(data.scopes)),
+        token_source="cookie",
     )
 
     return data

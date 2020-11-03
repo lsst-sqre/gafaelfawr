@@ -21,6 +21,7 @@ from gafaelfawr.dependencies.http_client import http_client_dependency
 from gafaelfawr.dependencies.logger import logger_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.models.state import State
 
 __all__ = ["RequestContext", "context_dependency"]
 
@@ -40,6 +41,9 @@ class RequestContext:
 
     config: Config
     """Gafaelfawr's configuration."""
+
+    state: State
+    """The state from the request cookie, if any."""
 
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
@@ -90,6 +94,7 @@ def context_dependency(
     return RequestContext(
         request=request,
         config=config,
+        state=request.state.cookie,
         logger=logger,
         redis=redis,
         http_client=http_client,

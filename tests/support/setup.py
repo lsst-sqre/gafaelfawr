@@ -12,6 +12,7 @@ from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 from pytest_httpx import to_response
 
+from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
@@ -318,7 +319,7 @@ class SetupTest:
         await session_store.store_session(session)
         state = State(handle=handle)
         cookie = state.as_cookie()
-        self.client.cookies.set("gafaelfawr", cookie, domain=TEST_HOSTNAME)
+        self.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
 
     def set_github_userinfo_response(
         self, token: str, userinfo: GitHubUserInfo

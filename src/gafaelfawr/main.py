@@ -8,6 +8,7 @@ from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
 from fastapi_sqlalchemy import DBSessionMiddleware
 
+from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.exceptions import PermissionDeniedError
@@ -60,7 +61,7 @@ async def startup_event() -> None:
     )
     app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
     app.add_middleware(
-        StateMiddleware, cookie_name="gafaelfawr", state_class=State
+        StateMiddleware, cookie_name=COOKIE_NAME, state_class=State
     )
 
 

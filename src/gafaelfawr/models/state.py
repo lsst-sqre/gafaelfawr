@@ -16,6 +16,7 @@ from cryptography.fernet import Fernet
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.logger import get_logger
 from gafaelfawr.middleware.state import BaseState
+from gafaelfawr.models.token import Token
 from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
@@ -36,6 +37,9 @@ class State(BaseState):
     handle: Optional[SessionHandle] = None
     """Handle for the session if the user is authenticated."""
 
+    token: Optional[Token] = None
+    """Token if the user is authenticated."""
+
     message: Optional[str] = None
     """Status message to display on the next rendered HTML page."""
 
@@ -46,7 +50,7 @@ class State(BaseState):
     """State token for OAuth 2.0 and OpenID Connect logins."""
 
     @classmethod
-    def from_cookie(cls, cookie: str, request: Request) -> State:
+    def from_cookie(cls, cookie: str, request: Optional[Request]) -> State:
         """Reconstruct state from an encrypted cookie.
 
         Parameters
@@ -55,8 +59,9 @@ class State(BaseState):
             The encrypted cookie value.
         key : `bytes`
             The `~cryptography.fernet.Fernet` key used to decrypt it.
-        request : `fastapi.Request`
-            The request, used for logging.
+        request : `fastapi.Request` or `None`
+            The request, used for logging.  If not provided (primarily for the
+            test suite), invalid state cookies will not be logged.
 
         Returns
         -------
@@ -70,14 +75,19 @@ class State(BaseState):
             handle = None
             if "handle" in data:
                 handle = SessionHandle.from_str(data["handle"])
+            token = None
+            if "token" in data:
+                token = Token.from_str(data["token"])
         except Exception as e:
-            logger = get_logger(request)
-            logger.warning("Discarding invalid state cookie", error=str(e))
+            if request:
+                logger = get_logger(request)
+                logger.warning("Discarding invalid state cookie", error=str(e))
             return cls()
 
         return cls(
             csrf=data.get("csrf"),
             handle=handle,
+            token=token,
             message=data.get("message"),
             return_url=data.get("return_url"),
             state=data.get("state"),
@@ -96,6 +106,8 @@ class State(BaseState):
             data["csrf"] = self.csrf
         if self.handle:
             data["handle"] = self.handle.encode()
+        if self.token:
+            data["token"] = str(self.token)
         if self.message:
             data["message"] = self.message
         if self.return_url:

@@ -28,6 +28,8 @@ class AdminManager:
         The backing store for token administrators.
     admin_history_store : `gafaelfawr.storage.history.AdminHistoryStore`
         The backing store for history of changes to token administrators.
+    transaction_manager : `gafaelfawr.storage.transaction.TransactionManager`
+        Database transaction manager.
     """
 
     def __init__(

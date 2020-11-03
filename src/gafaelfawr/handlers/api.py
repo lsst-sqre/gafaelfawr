@@ -12,9 +12,15 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from gafaelfawr.dependencies.auth import authenticate, require_admin
+from gafaelfawr.dependencies.auth import (
+    authenticate,
+    authenticate_from_cookie_or_redirect,
+    require_admin,
+)
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
+from gafaelfawr.dependencies.csrf import set_csrf
 from gafaelfawr.models.admin import Admin
+from gafaelfawr.models.auth import APILoginResponse
 from gafaelfawr.models.token import TokenData, TokenInfo, TokenUserInfo
 
 __all__ = ["router"]
@@ -34,6 +40,21 @@ def get_admins(
 ) -> List[Admin]:
     admin_manager = context.factory.create_admin_manager()
     return admin_manager.get_admins()
+
+
+@router.get(
+    "/login",
+    response_model=APILoginResponse,
+    responses={307: {"description": "Not currently authenticated"}},
+    dependencies=[
+        Depends(authenticate_from_cookie_or_redirect),
+        Depends(set_csrf),
+    ],
+)
+def get_login(
+    context: RequestContext = Depends(context_dependency),
+) -> APILoginResponse:
+    return APILoginResponse(csrf=context.state.csrf)
 
 
 @router.get(
