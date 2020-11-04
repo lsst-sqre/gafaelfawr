@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import pytest
 
 from gafaelfawr.models.token import (
-    Token,
     TokenData,
     TokenGroup,
     TokenInfo,
@@ -21,18 +20,10 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.asyncio
-async def test_token_manager(setup: SetupTest) -> None:
+async def test_session_token(setup: SetupTest) -> None:
     token_manager = setup.factory.create_token_manager()
-    token = Token()
-    now = datetime.now(timezone.utc).replace(microsecond=0)
-    data = TokenData(
-        token=token,
+    userinfo = TokenUserInfo(
         username="example",
-        token_type=TokenType.session,
-        service="internal-service",
-        scopes=["exec:admin", "read:all"],
-        created=now,
-        expires=now + timedelta(days=1),
         name="Example Person",
         uid=4137,
         groups=[
@@ -40,45 +31,95 @@ async def test_token_manager(setup: SetupTest) -> None:
             TokenGroup(name="another", id=3134),
         ],
     )
-    assert data.expires
 
-    await token_manager.add(data, "some-token")
-    assert await token_manager.get_data(token) == data
+    token = await token_manager.create_session_token(userinfo)
+    data = await token_manager.get_data(token)
+    assert data
+    assert data == TokenData(
+        token=token,
+        username="example",
+        token_type=TokenType.session,
+        scopes=[],
+        created=data.created,
+        expires=data.expires,
+        name="Example Person",
+        uid=4137,
+        groups=[
+            TokenGroup(name="group", id=1000),
+            TokenGroup(name="another", id=3134),
+        ],
+    )
+    now = datetime.now(tz=timezone.utc)
+    assert now - timedelta(seconds=2) <= data.created <= now
+    expires = data.created + timedelta(minutes=setup.config.issuer.exp_minutes)
+    assert data.expires == expires
+
     assert token_manager.get_info(token) == TokenInfo(
         token=token.key,
-        username=data.username,
-        token_name="some-token",
-        token_type=data.token_type,
+        username=userinfo.username,
+        token_name=None,
+        token_type=TokenType.session,
         scopes=data.scopes,
         created=int(data.created.timestamp()),
         last_used=None,
         expires=int(data.expires.timestamp()),
         parent=None,
     )
-    assert await token_manager.get_user_info(token) == TokenUserInfo(
-        username=data.username,
-        name=data.name,
-        uid=data.uid,
-        groups=data.groups,
+    assert await token_manager.get_user_info(token) == userinfo
+
+    # Test a session token with scopes.
+    token = await token_manager.create_session_token(
+        userinfo, scopes=["read:all", "exec:admin"]
     )
+    data = await token_manager.get_data(token)
+    assert data
+    assert data.scopes == ["exec:admin", "read:all"]
+    info = token_manager.get_info(token)
+    assert info
+    assert info.scopes == ["exec:admin", "read:all"]
 
-    assert await token_manager.get_data(Token()) is None
-    assert token_manager.get_info(Token()) is None
-    assert await token_manager.get_user_info(Token()) is None
 
-    # Test that scopes are sorted when storing them in the database.
-    token = Token()
-    data.token = token
-    data.scopes = ["read:all", "exec:admin"]
-    await token_manager.add(data)
-    assert token_manager.get_info(token) == TokenInfo(
-        token=token.key,
-        username=data.username,
-        token_name=None,
-        token_type=data.token_type,
-        scopes=sorted(data.scopes),
-        created=int(data.created.timestamp()),
+@pytest.mark.asyncio
+async def test_user_token(setup: SetupTest) -> None:
+    userinfo = TokenUserInfo(
+        username="example", name="Example Person", uid=4137
+    )
+    token_manager = setup.factory.create_token_manager()
+    session_token = await token_manager.create_session_token(userinfo)
+    data = await token_manager.get_data(session_token)
+    assert data
+    now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+    expires = now + timedelta(days=2)
+
+    # Scopes are provided not in sorted order to ensure they're sorted when
+    # creating the token.
+    user_token = await token_manager.create_user_token(
+        data,
+        token_name="some-token",
+        scopes=["read:all", "exec:admin"],
+        expires=expires,
+    )
+    assert await token_manager.get_user_info(user_token) == userinfo
+    info = token_manager.get_info(user_token)
+    assert info
+    assert info == TokenInfo(
+        username=userinfo.username,
+        token_name="some-token",
+        token_type=TokenType.user,
+        scopes=["exec:admin", "read:all"],
+        created=info.created,
         last_used=None,
-        expires=int(data.expires.timestamp()),
+        expires=int(expires.timestamp()),
         parent=None,
+    )
+    assert now - timedelta(seconds=2) <= info.created <= now
+    assert await token_manager.get_data(user_token) == TokenData(
+        token=user_token,
+        username=userinfo.username,
+        token_type=TokenType.user,
+        scopes=["exec:admin", "read:all"],
+        created=info.created,
+        expires=info.expires,
+        name=userinfo.name,
+        uid=userinfo.uid,
     )

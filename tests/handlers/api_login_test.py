@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import urlparse
@@ -13,7 +12,7 @@ from cryptography.fernet import Fernet
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
-from gafaelfawr.models.token import Token
+from gafaelfawr.models.token import Token, TokenUserInfo
 from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
@@ -35,15 +34,11 @@ def assert_redirect_is_correct(r: Response) -> None:
 
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest) -> None:
-    created = datetime.now(tz=timezone.utc).replace(microsecond=0)
-    expires = created + timedelta(days=1)
-    token = await setup.add_session_token(
-        username="example",
-        created=created,
-        expires=expires,
-        name="Example Person",
-        uid=12345,
+    token_manager = setup.factory.create_token_manager()
+    userinfo = TokenUserInfo(
+        username="example", name="Example Person", uid=12345
     )
+    token = await token_manager.create_session_token(userinfo)
     state = State(token=token)
 
     r = await setup.client.get(
@@ -66,15 +61,11 @@ async def test_login_no_auth(setup: SetupTest) -> None:
     assert_redirect_is_correct(r)
 
     # An Authorization header with a valid token still redirects.
-    created = datetime.now(tz=timezone.utc).replace(microsecond=0)
-    expires = created + timedelta(days=1)
-    token = await setup.add_session_token(
-        username="example",
-        created=created,
-        expires=expires,
-        name="Example Person",
-        uid=12345,
+    token_manager = setup.factory.create_token_manager()
+    userinfo = TokenUserInfo(
+        username="example", name="Example Person", uid=12345
     )
+    token = await token_manager.create_session_token(userinfo)
     r = await setup.client.get(
         "/auth/api/v1/login",
         headers={"Authorization": f"bearer {token}"},

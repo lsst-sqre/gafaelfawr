@@ -184,13 +184,18 @@ class TokenInfo(TokenBase):
     )
 
     @validator("scopes", pre=True)
-    def _normalize_scopes(cls, v: Union[str, List[str]]) -> List[str]:
+    def _normalize_scopes(
+        cls, v: Optional[Union[str, List[str]]]
+    ) -> List[str]:
         """Convert comma-delimited scopes to a list.
 
         Scopes are stored in the database as a comma-delimited, sorted list.
-        Convert to the list representation we want to use in Python.
+        Convert to the list representation we want to use in Python.  Convert
+        an undefined value to the empty list.
         """
-        if isinstance(v, str):
+        if v is None:
+            return []
+        elif isinstance(v, str):
             return v.split(",")
         else:
             return v

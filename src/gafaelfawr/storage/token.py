@@ -38,7 +38,7 @@ class TokenDatabaseStore:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def add(self, data: TokenData, name: Optional[str] = None) -> None:
+    def add(self, data: TokenData, token_name: Optional[str] = None) -> None:
         """Store a new token.
 
         Parameters
@@ -52,7 +52,7 @@ class TokenDatabaseStore:
             token=data.token.key,
             username=data.username,
             token_type=data.token_type,
-            token_name=name,
+            token_name=token_name,
             scopes=",".join(sorted(data.scopes)) if data.scopes else None,
             created=data.created,
             expires=data.expires,
@@ -138,7 +138,6 @@ class TokenRedisStore:
             valid.
         """
         try:
-            print("getting", token.key)
             data = await self._storage.get(f"token:{token.key}")
         except DeserializeException as e:
             self._logger.error("Cannot retrieve token", error=str(e))
@@ -162,5 +161,4 @@ class TokenRedisStore:
         data : `gafaelfawr.models.token.TokenData`
             The data underlying that token.
         """
-        print("storing", data.token.key)
         await self._storage.store(f"token:{data.token.key}", data)
