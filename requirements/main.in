@@ -17,6 +17,7 @@ alembic
 click
 cryptography
 fastapi-sqlalchemy
+httpx
 psycopg2
 pydantic
 PyJWT
