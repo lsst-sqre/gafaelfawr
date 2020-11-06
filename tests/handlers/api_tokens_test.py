@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.asyncio
-async def test_token_create_delete_modify(setup: SetupTest) -> None:
+async def test_create_delete_modify(setup: SetupTest) -> None:
     userinfo = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -238,3 +238,107 @@ async def test_token_info(setup: SetupTest) -> None:
         "/auth/api/v1/users/example/tokens",
         cookies={COOKIE_NAME: state.as_cookie()},
     )
+
+
+@pytest.mark.asyncio
+async def test_auth_required(setup: SetupTest) -> None:
+    userinfo = TokenUserInfo(
+        username="example", name="Example Person", uid=45613
+    )
+    token_manager = setup.factory.create_token_manager()
+    token = await token_manager.create_session_token(userinfo)
+
+    r = await setup.client.get(
+        "/auth/api/v1/users/example/tokens", allow_redirects=False
+    )
+    assert r.status_code == 307
+
+    r = await setup.client.get(
+        "/auth/api/v1/users/example/tokens",
+        headers={"Authorization": f"bearer {token}"},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+
+    r = await setup.client.post(
+        "/auth/api/v1/users/example/tokens",
+        json={"token_name": "some token"},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/example/tokens/{token.key}", allow_redirects=False
+    )
+    assert r.status_code == 307
+
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/example/tokens/{token.key}", allow_redirects=False
+    )
+    assert r.status_code == 307
+
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        json={"token_name": "some token"},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+
+
+@pytest.mark.asyncio
+async def test_csrf_required(setup: SetupTest) -> None:
+    userinfo = TokenUserInfo(
+        username="example", name="Example Person", uid=45613
+    )
+    token_manager = setup.factory.create_token_manager()
+    token = await token_manager.create_session_token(userinfo)
+    state = State(token=token)
+
+    r = await setup.client.get(
+        "/auth/api/v1/login", cookies={COOKIE_NAME: state.as_cookie()}
+    )
+    assert r.status_code == 200
+    csrf = r.json()["csrf"]
+
+    r = await setup.client.post(
+        "/auth/api/v1/users/example/tokens",
+        cookies={COOKIE_NAME: state.as_cookie()},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.post(
+        "/auth/api/v1/users/example/tokens",
+        cookies={COOKIE_NAME: state.as_cookie()},
+        headers={"X-CSRF-Token": f"XXX{csrf}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        cookies={COOKIE_NAME: state.as_cookie()},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"X-CSRF-Token": f"XXX{csrf}"},
+        cookies={COOKIE_NAME: state.as_cookie()},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        cookies={COOKIE_NAME: state.as_cookie()},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"X-CSRF-Token": f"XXX{csrf}"},
+        cookies={COOKIE_NAME: state.as_cookie()},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 403
