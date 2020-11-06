@@ -151,6 +151,10 @@ class TokenInfo(TokenBase):
     underlying database.  It includes some fields not present in Redis.
     """
 
+    token: str = Field(
+        ..., title="The identifier of the token", min_length=22, max_length=22
+    )
+
     token_name: Optional[str] = Field(
         None,
         title="The user-given name of the token",
@@ -257,3 +261,47 @@ class TokenData(TokenBase, TokenUserInfo, Serializable):
     def to_json(self) -> str:
         """Serialize to JSON."""
         return self.json(exclude_none=True)
+
+
+class NewToken(BaseModel):
+    """Response to a token creation request."""
+
+    token: str = Field(..., title="The newly-created token")
+
+
+class UserTokenRequest(BaseModel):
+    """The parameters of a user token that are under the user's control."""
+
+    token_name: str = Field(
+        ...,
+        title="The user-given name of the token",
+        min_length=1,
+        max_length=64,
+    )
+
+    scopes: Optional[List[str]] = Field(None, title="The scopes of the token")
+
+    expires: Optional[datetime] = Field(
+        None, title="Expiration timestamp of the token in seconds since epoch"
+    )
+
+
+class UserTokenModifyRequest(BaseModel):
+    """The parameters of a user token that can be changed.
+
+    This is a separate model from `UserTokenRequest` because the
+    ``token_name`` field is optional on modify requests.
+    """
+
+    token_name: Optional[str] = Field(
+        None,
+        title="The user-given name of the token",
+        min_length=1,
+        max_length=64,
+    )
+
+    scopes: Optional[List[str]] = Field(None, title="The scopes of the token")
+
+    expires: Optional[datetime] = Field(
+        None, title="Expiration timestamp of the token in seconds since epoch"
+    )

@@ -22,7 +22,12 @@ from gafaelfawr.models.token import Token, TokenData
 from gafaelfawr.session import Session
 from gafaelfawr.tokens import VerifiedToken
 
-__all__ = ["verified_session", "verified_token"]
+__all__ = [
+    "authenticate",
+    "authenticate_session",
+    "verified_session",
+    "verified_token",
+]
 
 
 async def verified_session(
@@ -125,8 +130,32 @@ async def require_admin(
     return token.username
 
 
+def check_csrf(x_csrf_token: Optional[str], context: RequestContext) -> None:
+    """Check the provided CSRF token is correct.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If no CSRF token was provided or if it was incorrect, and the method
+        was something other than GET or OPTIONS.
+    """
+    is_modification = context.request.method not in ("GET", "OPTIONS")
+    if context.state.token and is_modification:
+        error = None
+        if not x_csrf_token:
+            error = "CSRF token required in X-CSRF-Token header"
+        if x_csrf_token != context.state.csrf:
+            error = "Invalid CSRF token"
+        if error:
+            context.logger.error("CSRF verification failed", error=error)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"type": "invalid_csrf", "msg": error},
+            )
+
+
 async def authenticate(
-    x_csrf_token: str = Header(None),
+    x_csrf_token: Optional[str] = Header(None),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
     """Check that the request is authenticated.
@@ -145,16 +174,16 @@ async def authenticate(
     fastapi.HTTPException
         If authentication is not provided or is not valid.
     """
-    token = context.state.token
-    token_source: Optional[str] = "cookie"
-    if not token:
-        try:
-            token_str = parse_authorization(context)
-            if token_str:
-                token = Token.from_str(token_str)
-                token_source = None
-        except (InvalidRequestError, InvalidTokenError) as e:
-            raise generate_challenge(context, AuthType.Bearer, e)
+    token = None
+    try:
+        token_str = parse_authorization(context)
+        if token_str:
+            token = Token.from_str(token_str)
+    except (InvalidRequestError, InvalidTokenError) as e:
+        raise generate_challenge(context, AuthType.Bearer, e)
+    if not token and context.state.token:
+        token = context.state.token
+        context.rebind_logger(token_source="cookie")
     if not token:
         raise generate_unauthorized_challenge(context, AuthType.Bearer)
 
@@ -164,33 +193,18 @@ async def authenticate(
         exc = InvalidTokenError("Token is not valid")
         raise generate_challenge(context, AuthType.Bearer, exc)
 
-    # Add user information to the logger.
     context.rebind_logger(
         token=token.key,
         user=data.username,
         scope=" ".join(sorted(data.scopes)),
     )
-    if token_source:
-        context.rebind_logger(token_source=token_source)
 
-    # Check the CSRF token if authentication was via a cookie.
-    is_modification = context.request.method not in ("GET", "OPTIONS")
-    if context.state.token and is_modification:
-        error = None
-        if not x_csrf_token:
-            error = "CSRF token required in X-CSRF-Token header"
-        if x_csrf_token != context.state.csrf:
-            error = "Invalid CSRF token"
-        if error:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={"type": "invalid_csrf", "msg": error},
-            )
-
+    check_csrf(x_csrf_token, context)
     return data
 
 
-async def authenticate_from_cookie_or_redirect(
+async def authenticate_session(
+    x_csrf_token: Optional[str] = Header(None),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
     """Check cookie authentication and, if not found, redirect to ``/login``.
@@ -220,7 +234,6 @@ async def authenticate_from_cookie_or_redirect(
             headers={"Location": login_url},
         )
 
-    # On success, add some context to the logger.
     context.rebind_logger(
         token=data.token.key,
         user=data.username,
@@ -228,4 +241,5 @@ async def authenticate_from_cookie_or_redirect(
         token_source="cookie",
     )
 
+    check_csrf(x_csrf_token, context)
     return data

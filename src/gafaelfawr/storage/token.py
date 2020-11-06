@@ -9,7 +9,8 @@ from gafaelfawr.models.token import TokenInfo
 from gafaelfawr.schema.token import Token as SQLToken
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from datetime import datetime
+    from typing import List, Optional
 
     from sqlalchemy.orm import Session
     from structlog import BoundLogger
@@ -59,13 +60,28 @@ class TokenDatabaseStore:
         )
         self._session.add(new)
 
-    def get_info(self, token: Token) -> Optional[TokenInfo]:
+    def delete(self, key: str) -> bool:
+        """Delete a token.
+
+        Parameters
+        ----------
+        token : `str`
+            The key of the token to delete.
+
+        Returns
+        -------
+        success : `bool`
+            Whether the token was found to be deleted.
+        """
+        return self._session.query(SQLToken).filter_by(token=key).delete() >= 1
+
+    def get_info(self, key: str) -> Optional[TokenInfo]:
         """Return information about a token.
 
         Parameters
         ----------
-        token : `gafaelfawr.models.token.Token`
-            The token.
+        key : `str`
+            The key of the token.
 
         Returns
         -------
@@ -73,10 +89,68 @@ class TokenDatabaseStore:
             Information about that token or `None` if it doesn't exist in the
             database.
         """
-        token = (
-            self._session.query(SQLToken).filter_by(token=token.key).scalar()
-        )
+        token = self._session.query(SQLToken).filter_by(token=key).scalar()
         return TokenInfo.from_orm(token) if token else None
+
+    def list(self, *, username: Optional[str] = None) -> List[TokenInfo]:
+        """List tokens.
+
+        Parameters
+        ----------
+        username : `str` or `None`
+            Limit the returned tokens to ones for the given username.
+
+        Returns
+        -------
+        tokens : List[`gafaelfawr.models.token.TokenInfo`]
+            Information about the tokens.
+        """
+        if username:
+            tokens = (
+                self._session.query(SQLToken)
+                .filter_by(username=username)
+                .order_by(SQLToken.token)
+            )
+        else:
+            tokens = self._session.query(SQLToken).order_by(SQLToken.token)
+        return [TokenInfo.from_orm(t) for t in tokens]
+
+    def modify(
+        self,
+        key: str,
+        *,
+        token_name: Optional[str] = None,
+        scopes: Optional[List[str]] = None,
+        expires: Optional[datetime] = None,
+    ) -> Optional[TokenInfo]:
+        """Modify a token.
+
+        Parameters
+        ----------
+        token : `str`
+            The token to modify.
+        token_name : `str`, optional
+            The new name for the token.
+        scopes : List[`str`], optional
+            The new scopes for the token.
+        expires : `datetime`, optional
+            The new expiration time for the token.
+
+        Returns
+        -------
+        info : `gafaelfawr.models.token.TokenInfo`
+            Information for the updated token.
+        """
+        token = self._session.query(SQLToken).filter_by(token=key).scalar()
+        if not token:
+            return None
+        if token_name:
+            token.token_name = token_name
+        if scopes:
+            token.scopes = ",".join(sorted(scopes))
+        if expires:
+            token.expires = expires
+        return TokenInfo.from_orm(token)
 
 
 class TokenRedisStore:

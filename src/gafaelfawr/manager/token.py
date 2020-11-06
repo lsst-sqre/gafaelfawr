@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
+from gafaelfawr.exceptions import PermissionDeniedError
 from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 
 if TYPE_CHECKING:
@@ -124,6 +125,32 @@ class TokenManager:
             self._token_db_store.add(data, token_name)
         return token
 
+    async def delete_token(self, key: str, auth_data: TokenData) -> bool:
+        """Delete a token.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token to delete.
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token data for the authentication token of the user deleting
+            the token.
+
+        Returns
+        -------
+        success : `bool`
+            Whether the token was found and deleted.
+        """
+        info = self.get_info(key)
+        if not info:
+            return False
+        if info.username != auth_data.username:
+            msg = f"Token owned by {info.username}, not {auth_data.username}"
+            raise PermissionDeniedError(msg)
+        await self._token_redis_store.delete(key)
+        with self._transaction_manager.transaction():
+            return self._token_db_store.delete(key)
+
     async def get_data(self, token: Token) -> Optional[TokenData]:
         """Retrieve the data for a token from Redis.
 
@@ -142,9 +169,9 @@ class TokenManager:
         """
         return await self._token_redis_store.get_data(token)
 
-    def get_info(self, token: Token) -> Optional[TokenInfo]:
+    def get_info(self, key: str) -> Optional[TokenInfo]:
         """Get information about a token."""
-        return self._token_db_store.get_info(token)
+        return self._token_db_store.get_info(key)
 
     async def get_user_info(self, token: Token) -> Optional[TokenUserInfo]:
         """Get user information associated with a token."""
@@ -157,3 +184,79 @@ class TokenManager:
             uid=data.uid,
             groups=data.groups,
         )
+
+    def list_tokens(
+        self, auth_data: TokenData, username: Optional[str] = None
+    ) -> List[TokenInfo]:
+        """List tokens.
+
+        Parameters
+        ----------
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token data for the authentication token of the user making
+            this modification.
+        username : `str`, optional
+            Limit results to the given username.
+
+        Returns
+        -------
+        info : List[`gafaelfawr.models.token.TokenInfo`]
+            Information for all matching tokens.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            The user whose tokens are being listed does not match the
+            authentication information.
+        """
+        if username and username != auth_data.username:
+            msg = f"{auth_data.username} cannot list tokens for {username}"
+            raise PermissionDeniedError(msg)
+        return self._token_db_store.list(username=username)
+
+    def modify_token(
+        self,
+        key: str,
+        auth_data: TokenData,
+        *,
+        token_name: Optional[str] = None,
+        scopes: Optional[List[str]] = None,
+        expires: Optional[datetime] = None,
+    ) -> Optional[TokenInfo]:
+        """Modify a token.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token to modify.
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token data for the authentication token of the user making
+            this modification.
+        token_name : `str`, optional
+            The new name for the token.
+        scopes : List[`str`], optional
+            The new scopes for the token.
+        expires : `datetime`, optional
+            The new expiration time for the token.
+
+        Returns
+        -------
+        info : `gafaelfawr.models.token.TokenInfo` or `None`
+            Information for the updated token or `None` if it was not found.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            The token being modified is not owned by the user identified with
+            ``auth_data``.
+        """
+        info = self.get_info(key)
+        if not info:
+            return None
+        if info.username != auth_data.username:
+            msg = f"Token owned by {info.username}, not {auth_data.username}"
+            raise PermissionDeniedError(msg)
+        with self._transaction_manager.transaction():
+            return self._token_db_store.modify(
+                key, token_name=token_name, scopes=scopes, expires=expires
+            )
