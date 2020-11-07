@@ -48,8 +48,6 @@ API reference
 
 .. automodapi:: gafaelfawr.handlers.oidc
 
-.. automodapi:: gafaelfawr.handlers.tokens
-
 .. automodapi:: gafaelfawr.handlers.userinfo
 
 .. automodapi:: gafaelfawr.handlers.well_known
@@ -81,8 +79,6 @@ API reference
 .. automodapi:: gafaelfawr.storage.oidc
 
 .. automodapi:: gafaelfawr.storage.session
-
-.. automodapi:: gafaelfawr.storage.user_token
 
 .. automodapi:: gafaelfawr.tokens
 

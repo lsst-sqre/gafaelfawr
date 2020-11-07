@@ -130,32 +130,7 @@ async def require_admin(
     return token.username
 
 
-def check_csrf(x_csrf_token: Optional[str], context: RequestContext) -> None:
-    """Check the provided CSRF token is correct.
-
-    Raises
-    ------
-    fastapi.HTTPException
-        If no CSRF token was provided or if it was incorrect, and the method
-        was something other than GET or OPTIONS.
-    """
-    is_modification = context.request.method not in ("GET", "OPTIONS")
-    if context.state.token and is_modification:
-        error = None
-        if not x_csrf_token:
-            error = "CSRF token required in X-CSRF-Token header"
-        if x_csrf_token != context.state.csrf:
-            error = "Invalid CSRF token"
-        if error:
-            context.logger.error("CSRF verification failed", error=error)
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={"type": "invalid_csrf", "msg": error},
-            )
-
-
 async def authenticate(
-    x_csrf_token: Optional[str] = Header(None),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
     """Check that the request is authenticated.
@@ -198,13 +173,10 @@ async def authenticate(
         user=data.username,
         scope=" ".join(sorted(data.scopes)),
     )
-
-    check_csrf(x_csrf_token, context)
     return data
 
 
 async def authenticate_session(
-    x_csrf_token: Optional[str] = Header(None),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
     """Check cookie authentication and, if not found, redirect to ``/login``.
@@ -240,6 +212,4 @@ async def authenticate_session(
         scope=" ".join(sorted(data.scopes)),
         token_source="cookie",
     )
-
-    check_csrf(x_csrf_token, context)
     return data

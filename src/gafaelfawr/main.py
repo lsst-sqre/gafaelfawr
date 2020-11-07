@@ -21,7 +21,6 @@ from gafaelfawr.handlers import (
     login,
     logout,
     oidc,
-    tokens,
     userinfo,
     well_known,
 )
@@ -46,7 +45,6 @@ app.include_router(influxdb.router)
 app.include_router(login.router)
 app.include_router(logout.router)
 app.include_router(oidc.router)
-app.include_router(tokens.router)
 app.include_router(userinfo.router)
 app.include_router(well_known.router)
 

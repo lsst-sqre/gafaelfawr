@@ -22,7 +22,6 @@ from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.session import SerializedSession, SessionStore
 from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 from gafaelfawr.storage.transaction import TransactionManager
-from gafaelfawr.storage.user_token import UserTokenStore
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
@@ -206,13 +205,3 @@ class ComponentFactory:
         return TokenVerifier(
             self._config.verifier, self._http_client, self._logger
         )
-
-    def create_user_token_store(self) -> UserTokenStore:
-        """Create a UserTokenStore.
-
-        Returns
-        -------
-        token_store : `gafaelfawr.storage.user_token.UserTokenStore`
-            A new TokenStore.
-        """
-        return UserTokenStore(self._redis, self._logger)

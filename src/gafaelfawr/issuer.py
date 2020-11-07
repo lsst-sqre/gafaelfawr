@@ -105,39 +105,6 @@ class TokenIssuer:
             payload, self._config.influxdb_secret, algorithm="HS256"
         ).decode()
 
-    def issue_user_token(
-        self, token: VerifiedToken, *, scope: str, jti: str
-    ) -> VerifiedToken:
-        """Issue a new user-issued token.
-
-        Issues a long-lived token intended for programmatic use.  The claims
-        of this token will be based on the user's authentication token, but
-        only selective claims will be copied over.
-
-        Parameters
-        ----------
-        token : `gafaelfawr.tokens.VerifiedToken`
-            The user's authentication token.
-        scope : str
-            The scope of the new token.
-        jti : str
-            The jti (JWT ID) claim for the new token.
-
-        Returns
-        -------
-        user_token : `gafaelfawr.tokens.VerifiedToken`
-            The new user-issued token.
-        """
-        claims = {
-            "scope": scope,
-            "jti": jti,
-            self._config.username_claim: token.username,
-            self._config.uid_claim: token.uid,
-        }
-        if token.email:
-            claims["email"] = token.email
-        return self.issue_token(claims)
-
     def reissue_token(
         self,
         token: VerifiedToken,

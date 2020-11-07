@@ -17,7 +17,6 @@ from gafaelfawr.tokens import Token
 if TYPE_CHECKING:
     from typing import Optional
 
-    from aioredis.commands import Pipeline
     from structlog import BoundLogger
 
     from gafaelfawr.session import SessionHandle
@@ -141,21 +140,15 @@ class SessionStore:
         self._verifier = verifier
         self._logger = logger
 
-    async def delete_session(self, key: str, pipeline: Pipeline) -> None:
+    async def delete_session(self, key: str) -> None:
         """Delete a session.
-
-        To allow the caller to batch this with other Redis modifications, the
-        deletion is done using the provided pipeline.  The caller is
-        responsible for executing the pipeline.
 
         Parameters
         ----------
         key : `str`
             The key of the session.
-        pipeline : `aioredis.commands.Pipeline`
-            The pipeline to use to delete the sesion.
         """
-        await self._storage.delete(f"session:{key}", pipeline)
+        await self._storage.delete(f"session:{key}")
 
     async def get_session(self, handle: SessionHandle) -> Optional[Session]:
         """Retrieve the session for a handle.
@@ -200,23 +193,14 @@ class SessionStore:
             expires_on=serialized.expires_on,
         )
 
-    async def store_session(
-        self, session: Session, pipeline: Optional[Pipeline] = None
-    ) -> None:
+    async def store_session(self, session: Session) -> None:
         """Store a session.
-
-        To allow the caller to batch this with other Redis modifications, if a
-        pipeline is provided, the session will be stored but the pipeline will
-        not be executed.  In this case, the caller is responsible for
-        executing the pipeline.
 
         Parameters
         ----------
         session : `gafaelfawr.session.Session`
             The session to store.
-        pipeline : `aioredis.commands.Pipeline`, optional
-            The pipeline in which to store the session.
         """
         serialized = SerializedSession.from_session(session)
         key = f"session:{session.handle.key}"
-        await self._storage.store(key, serialized, pipeline)
+        await self._storage.store(key, serialized)

@@ -492,9 +492,7 @@ async def test_token_errors(
 
     # Delete the underlying session.
     session_store = setup.factory.create_session_store()
-    pipeline = setup.redis.pipeline()
-    await session_store.delete_session(handle.key, pipeline)
-    await pipeline.execute()
+    await session_store.delete_session(handle.key)
     request["redirect_uri"] = redirect_uri
     r = await setup.client.post("/auth/openid/token", data=request)
     assert r.status_code == 400

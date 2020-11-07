@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from typing import Optional, Type
 
     from aioredis import Redis
-    from aioredis.commands import Pipeline
 
 S = TypeVar("S", bound="Serializable")
 
@@ -86,22 +85,15 @@ class RedisStorage(Generic[S]):
         self._fernet = Fernet(key.encode())
         self._redis = redis
 
-    async def delete(
-        self, key: str, pipeline: Optional[Pipeline] = None
-    ) -> None:
+    async def delete(self, key: str) -> None:
         """Delete a stored object.
 
         Parameters
         ----------
         key : `str`
             The key to delete.
-        pipeline : `aioredis.commands.Pipeline`, optional
-            If provided, do the delete as part of a pipeline.
         """
-        if pipeline:
-            pipeline.delete(key)
-        else:
-            await self._redis.delete(key)
+        await self._redis.delete(key)
 
     async def get(self, key: str) -> Optional[S]:
         """Retrieve a stored object.
@@ -140,9 +132,7 @@ class RedisStorage(Generic[S]):
             msg = f"Cannot deserialize data for {key}: {str(e)}"
             raise DeserializeException(msg)
 
-    async def store(
-        self, key: str, obj: S, pipeline: Optional[Pipeline] = None
-    ) -> None:
+    async def store(self, key: str, obj: S) -> None:
         """Store an object.
 
         Parameters
@@ -151,11 +141,6 @@ class RedisStorage(Generic[S]):
             The key for the object.
         obj : `Serializable`
             The object to store.
-        pipeline : `aioredis.commands.Pipeline`, optional
-            If provided, the pipeline to use to store the object.
         """
         encrypted_data = self._fernet.encrypt(obj.to_json().encode())
-        if pipeline:
-            pipeline.set(key, encrypted_data, expire=obj.lifetime)
-        else:
-            await self._redis.set(key, encrypted_data, expire=obj.lifetime)
+        await self._redis.set(key, encrypted_data, expire=obj.lifetime)

@@ -247,6 +247,19 @@ async def test_auth_required(setup: SetupTest) -> None:
     )
     token_manager = setup.factory.create_token_manager()
     token = await token_manager.create_session_token(userinfo)
+    state = State(token=token)
+
+    r = await setup.client.get(
+        "/auth/api/v1/login", cookies={COOKIE_NAME: state.as_cookie()}
+    )
+    assert r.status_code == 200
+    csrf = r.json()["csrf"]
+
+    # Replace the cookie with one containing the CSRF token but not the
+    # authentication token.
+    state = State(csrf=csrf)
+    del setup.client.cookies[COOKIE_NAME]
+    setup.client.cookies[COOKIE_NAME] = state.as_cookie()
 
     r = await setup.client.get(
         "/auth/api/v1/users/example/tokens", allow_redirects=False
@@ -262,6 +275,7 @@ async def test_auth_required(setup: SetupTest) -> None:
 
     r = await setup.client.post(
         "/auth/api/v1/users/example/tokens",
+        headers={"X-CSRF-Token": csrf},
         json={"token_name": "some token"},
         allow_redirects=False,
     )
@@ -273,12 +287,15 @@ async def test_auth_required(setup: SetupTest) -> None:
     assert r.status_code == 307
 
     r = await setup.client.delete(
-        f"/auth/api/v1/users/example/tokens/{token.key}", allow_redirects=False
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"X-CSRF-Token": csrf},
+        allow_redirects=False,
     )
     assert r.status_code == 307
 
     r = await setup.client.patch(
         f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"X-CSRF-Token": csrf},
         json={"token_name": "some token"},
         allow_redirects=False,
     )

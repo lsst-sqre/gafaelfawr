@@ -7,7 +7,6 @@
 
 # These dependencies are for fastapi including some optional features.
 fastapi
-jinja2
 python-multipart
 starlette
 uvicorn
@@ -25,4 +24,3 @@ pyyaml
 safir
 sqlalchemy
 structlog
-wtforms

@@ -203,10 +203,6 @@ idna==2.10 \
     --hash=sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6 \
     --hash=sha256:b97d804b1e9b523befed77c48dacec60e6dcb0b5391d57af6a65a312a90648c0 \
     # via rfc3986, yarl
-jinja2==2.11.2 \
-    --hash=sha256:89aab215427ef59c34ad58735269eb58b1a5808103067f7bb9d5836c651b3bb0 \
-    --hash=sha256:f0a4641d3cf955324a89c04f3d94663aa4d638abe8f733ecd3582848e1c37035 \
-    # via -r requirements/main.in
 mako==1.1.3 \
     --hash=sha256:8195c8c1400ceb53496064314c6736719c6f25e7479cd24c77be3d9361cddc27 \
     --hash=sha256:93729a258e4ff0747c876bd9e20df1b9758028946e976324ccd2d68245c7b6a9 \
@@ -245,7 +241,7 @@ markupsafe==1.1.1 \
     --hash=sha256:cdb132fc825c38e1aeec2c8aa9338310d29d337bebbd7baa06889d09a60a1fa2 \
     --hash=sha256:e249096428b3ae81b08327a63a485ad0878de3fb939049038579ac0ef61e17e7 \
     --hash=sha256:e8313f01ba26fbbe36c7be1966a7b7424942f670f38e666995b88d012765b9be \
-    # via jinja2, mako, wtforms
+    # via mako
 multidict==5.0.2 \
     --hash=sha256:060d68ae3e674c913ec41a464916f12c4d7ff17a3a9ebbf37ba7f2c681c2b33e \
     --hash=sha256:06f39f0ddc308dab4e5fa282d145f90cd38d7ed75390fc83335636909a9ec191 \
@@ -433,10 +429,6 @@ typing-extensions==3.7.4.3 \
 uvicorn==0.12.3 \
     --hash=sha256:562ef6aaa8fa723ab6b82cf9e67a774088179d0ec57cb17e447b15d58b603bcf \
     --hash=sha256:5836edaf4d278fe67ba0298c0537bdb6398cf359eb644f79e6500ca1aad232b3 \
-    # via -r requirements/main.in
-wtforms==2.3.3 \
-    --hash=sha256:7b504fc724d0d1d4d5d5c114e778ec88c37ea53144683e084215eed5155ada4c \
-    --hash=sha256:81195de0ac94fbc8368abbaf9197b88c4f3ffd6c2719b5bf5fc9da744f3d829c \
     # via -r requirements/main.in
 yarl==1.6.3 \
     --hash=sha256:00d7ad91b6583602eb9c1d085a2cf281ada267e9a197e8b7cae487dadbfa293e \

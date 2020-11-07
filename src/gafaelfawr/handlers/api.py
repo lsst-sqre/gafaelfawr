@@ -18,7 +18,7 @@ from gafaelfawr.dependencies.auth import (
     require_admin,
 )
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.dependencies.csrf import set_csrf
+from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
 from gafaelfawr.exceptions import PermissionDeniedError
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.auth import APILoginResponse
@@ -109,7 +109,11 @@ async def get_tokens(
     return token_manager.list_tokens(auth_data)
 
 
-@router.post("/users/{username}/tokens", status_code=201)
+@router.post(
+    "/users/{username}/tokens",
+    status_code=201,
+    dependencies=[Depends(verify_csrf)],
+)
 async def post_tokens(
     username: str,
     token_request: UserTokenRequest,
@@ -153,7 +157,11 @@ async def get_token(
     return info
 
 
-@router.delete("/users/{username}/tokens/{key}", status_code=204)
+@router.delete(
+    "/users/{username}/tokens/{key}",
+    status_code=204,
+    dependencies=[Depends(verify_csrf)],
+)
 async def delete_token(
     username: str,
     key: str,
@@ -182,6 +190,7 @@ async def delete_token(
     status_code=201,
     response_model=TokenInfo,
     response_model_exclude_none=True,
+    dependencies=[Depends(verify_csrf)],
 )
 async def patch_token(
     username: str,
