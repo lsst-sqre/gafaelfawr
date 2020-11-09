@@ -20,14 +20,15 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_influxdb(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token = setup.create_token()
+    token_data = await setup.create_token()
+    assert token_data.expires
     influxdb_secret = setup.config.issuer.influxdb_secret
     assert influxdb_secret
 
     caplog.clear()
     r = await setup.client.get(
         "/auth/tokens/influxdb/new",
-        headers={"Authorization": f"bearer {token.encoded}"},
+        headers={"Authorization": f"bearer {token_data.token}"},
     )
 
     assert r.status_code == 200
@@ -39,15 +40,15 @@ async def test_influxdb(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert header == {"alg": "HS256", "typ": "JWT"}
     claims = jwt.decode(influxdb_token, influxdb_secret, algorithms=["HS256"])
     assert claims == {
-        "username": token.username,
-        "exp": token.claims["exp"],
+        "username": token_data.username,
+        "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
     }
 
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
         "event": "Issued InfluxDB token",
-        "influxdb_username": token.username,
+        "influxdb_username": token_data.username,
         "level": "info",
         "logger": "gafaelfawr",
         "method": "GET",
@@ -55,9 +56,9 @@ async def test_influxdb(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "remote": "127.0.0.1",
         "request_id": ANY,
         "scope": "",
-        "token": token.jti,
+        "token": token_data.token.key,
         "token_source": "bearer",
-        "user": token.username,
+        "user": token_data.username,
         "user_agent": ANY,
     }
 
@@ -77,12 +78,12 @@ async def test_not_configured(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     setup.configure("oidc")
-    token = setup.create_token()
+    token_data = await setup.create_token()
 
     caplog.clear()
     r = await setup.client.get(
         "/auth/tokens/influxdb/new",
-        headers={"Authorization": f"bearer {token.encoded}"},
+        headers={"Authorization": f"bearer {token_data.token}"},
     )
 
     assert r.status_code == 404
@@ -99,9 +100,9 @@ async def test_not_configured(
         "remote": "127.0.0.1",
         "request_id": ANY,
         "scope": "",
-        "token": token.jti,
+        "token": token_data.token.key,
         "token_source": "bearer",
-        "user": token.username,
+        "user": token_data.username,
         "user_agent": ANY,
     }
 
@@ -111,14 +112,15 @@ async def test_influxdb_force_username(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     setup.configure("influxdb-username")
-    token = setup.create_token()
+    token_data = await setup.create_token()
+    assert token_data.expires
     influxdb_secret = setup.config.issuer.influxdb_secret
     assert influxdb_secret
 
     caplog.clear()
     r = await setup.client.get(
         "/auth/tokens/influxdb/new",
-        headers={"Authorization": f"bearer {token.encoded}"},
+        headers={"Authorization": f"bearer {token_data.token}"},
     )
 
     assert r.status_code == 200
@@ -126,7 +128,7 @@ async def test_influxdb_force_username(
     claims = jwt.decode(data["token"], influxdb_secret, algorithms=["HS256"])
     assert claims == {
         "username": "influxdb-user",
-        "exp": token.claims["exp"],
+        "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
     }
 
@@ -141,8 +143,8 @@ async def test_influxdb_force_username(
         "remote": "127.0.0.1",
         "request_id": ANY,
         "scope": "",
-        "token": token.jti,
+        "token": token_data.token.key,
         "token_source": "bearer",
-        "user": token.username,
+        "user": token_data.username,
         "user_agent": ANY,
     }

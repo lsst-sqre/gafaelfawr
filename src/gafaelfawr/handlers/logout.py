@@ -26,11 +26,11 @@ async def get_logout(
     The user is redirected to the URL given in the rd parameter, if any, and
     otherwise to the after_logout_url configuration setting.
     """
-    if context.request.state.cookie.handle:
+    if context.state.token:
         context.logger.info("Successful logout")
     else:
         context.logger.info("Logout of already-logged-out session")
-    context.request.state.cookie = State()
+    context.state = State()
 
     if not return_url:
         return_url = context.config.after_logout_url

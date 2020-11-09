@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.models.oidc import OIDCVerifiedToken
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional, Union
 
     from gafaelfawr.config import Config
 
-__all__ = ["create_oidc_test_token", "create_test_token"]
+__all__ = ["create_test_token", "create_upstream_oidc_token"]
 
 
 def create_test_token(
@@ -24,7 +24,7 @@ def create_test_token(
     *,
     kid: str = "some-kid",
     **claims: Union[str, int],
-) -> VerifiedToken:
+) -> OIDCVerifiedToken:
     """Create a signed token using the configured test issuer.
 
     This will match the issuer and audience of the default JWT Authorizer
@@ -60,7 +60,9 @@ def create_test_token(
         "uidNumber": "1000",
     }
     if groups:
-        payload["isMemberOf"] = [{"name": g} for g in groups]
+        payload["isMemberOf"] = [
+            {"name": g, "id": 1000 + n} for n, g in enumerate(groups)
+        ]
     payload.update(claims)
 
     encoded = jwt.encode(
@@ -70,7 +72,7 @@ def create_test_token(
         headers={"kid": kid},
     ).decode()
 
-    return VerifiedToken(
+    return OIDCVerifiedToken(
         encoded=encoded,
         claims=payload,
         jti=payload["jti"],
@@ -81,13 +83,13 @@ def create_test_token(
     )
 
 
-def create_oidc_test_token(
+def create_upstream_oidc_token(
     config: Config,
     kid: str,
     *,
     groups: Optional[List[str]] = None,
     **claims: str,
-) -> VerifiedToken:
+) -> OIDCVerifiedToken:
     """Create a signed token using the OpenID Connect issuer.
 
     This will match the issuer and audience of the issuer for an OpenID
@@ -109,9 +111,10 @@ def create_oidc_test_token(
     token : `gafaelfawr.tokens.VerifiedToken`
         The new token.
     """
+    assert config.oidc
     payload = {
-        "aud": "https://test.example.com/",
-        "iss": "https://upstream.example.com/",
+        "aud": config.oidc.audience,
+        "iss": config.oidc.issuer,
         "jti": "some-upstream-id",
     }
     payload.update(claims)

@@ -19,7 +19,6 @@ from gafaelfawr.storage.admin import AdminStore
 from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.history import AdminHistoryStore
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
-from gafaelfawr.storage.session import SerializedSession, SessionStore
 from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.verify import TokenVerifier
@@ -101,12 +100,12 @@ class ComponentFactory:
         storage = RedisStorage(OIDCAuthorization, key, self._redis)
         authorization_store = OIDCAuthorizationStore(storage)
         issuer = self.create_token_issuer()
-        session_store = self.create_session_store()
+        token_manager = self.create_token_manager()
         return OIDCServer(
             config=self._config.oidc_server,
             authorization_store=authorization_store,
             issuer=issuer,
-            session_store=session_store,
+            token_manager=token_manager,
             logger=self._logger,
         )
 
@@ -127,13 +126,9 @@ class ComponentFactory:
         NotImplementedError
             None of the authentication providers are configured.
         """
-        issuer = self.create_token_issuer()
-        session_store = self.create_session_store()
         if self._config.github:
             return GitHubProvider(
                 config=self._config.github,
-                issuer=issuer,
-                session_store=session_store,
                 http_client=self._http_client,
                 logger=self._logger,
             )
@@ -142,27 +137,12 @@ class ComponentFactory:
             return OIDCProvider(
                 config=self._config.oidc,
                 verifier=token_verifier,
-                issuer=issuer,
-                session_store=session_store,
                 http_client=self._http_client,
                 logger=self._logger,
             )
         else:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
-
-    def create_session_store(self) -> SessionStore:
-        """Create a SessionStore.
-
-        Returns
-        -------
-        session_store : `gafaelfawr.storage.session.SessionStore`
-            A new SessionStore.
-        """
-        key = self._config.session_secret
-        storage = RedisStorage(SerializedSession, key, self._redis)
-        verifier = self.create_token_verifier()
-        return SessionStore(storage, verifier, self._logger)
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.

@@ -45,15 +45,15 @@ class TokenManager:
         self._transaction_manager = transaction_manager
 
     async def create_session_token(
-        self, userinfo: TokenUserInfo, *, scopes: Optional[List[str]] = None
+        self, user_info: TokenUserInfo, scopes: Optional[List[str]] = None
     ) -> Token:
         """Add a new session token.
 
         Parameters
         ----------
-        userinfo : `gafaelfawr.models.token.TokenUserInfo`
+        user_info : `gafaelfawr.models.token.TokenUserInfo`
             The user information to associate with the token.
-        scopes : List[`str`] or `None`
+        scopes : List[`str`], optional
             The scopes of the token.
 
         Returns
@@ -70,7 +70,7 @@ class TokenManager:
             scopes=sorted(scopes) if scopes else [],
             created=created,
             expires=expires,
-            **userinfo.dict(),
+            **user_info.dict(),
         )
         await self._token_redis_store.store_data(data)
         with self._transaction_manager.transaction():

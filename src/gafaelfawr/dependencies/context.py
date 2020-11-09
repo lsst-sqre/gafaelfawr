@@ -42,9 +42,6 @@ class RequestContext:
     config: Config
     """Gafaelfawr's configuration."""
 
-    state: State
-    """The state from the request cookie, if any."""
-
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
 
@@ -68,6 +65,16 @@ class RequestContext:
             logger=self.logger,
             session=db.session,
         )
+
+    @property
+    def state(self) -> State:
+        """Convenience property to access the cookie state."""
+        return self.request.state.cookie
+
+    @state.setter
+    def state(self, state: State) -> None:
+        """Convenience property to set the cookie state."""
+        self.request.state.cookie = state
 
     def rebind_logger(self, **values: Optional[str]) -> None:
         """Add the given values to the logging context.
@@ -94,7 +101,6 @@ def context_dependency(
     return RequestContext(
         request=request,
         config=config,
-        state=request.state.cookie,
         logger=logger,
         redis=redis,
         http_client=http_client,

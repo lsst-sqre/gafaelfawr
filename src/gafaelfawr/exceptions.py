@@ -17,7 +17,6 @@ __all__ = [
     "InvalidClientError",
     "InvalidGrantError",
     "InvalidRequestError",
-    "InvalidSessionHandleException",
     "InvalidTokenClaimsException",
     "InvalidTokenError",
     "MissingClaimsException",
@@ -149,14 +148,6 @@ class InsufficientScopeError(OAuthBearerError):
     status_code = status.HTTP_403_FORBIDDEN
 
 
-class InvalidSessionHandleException(Exception):
-    """Session handle is not in expected format."""
-
-
-class InvalidTokenClaimsException(Exception):
-    """A token cannot be issued with the provided claims."""
-
-
 class NotConfiguredException(Exception):
     """The requested operation was not configured."""
 
@@ -190,6 +181,10 @@ class VerifyTokenException(Exception):
 
 class FetchKeysException(VerifyTokenException):
     """Cannot retrieve the keys from an issuer."""
+
+
+class InvalidTokenClaimsException(VerifyTokenException):
+    """One of the claims in the token is of an invalid format."""
 
 
 class MissingClaimsException(VerifyTokenException):

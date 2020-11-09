@@ -9,8 +9,6 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from gafaelfawr.constants import ALGORITHM
-
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
 
@@ -20,7 +18,7 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     setup.configure("oidc")
-    token = setup.create_oidc_token(groups=["admin"])
+    token = setup.create_upstream_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     assert setup.config.oidc
@@ -94,58 +92,17 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
-    assert r.headers["X-Auth-Request-Email"] == token.email
     assert r.headers["X-Auth-Request-User"] == token.username
-    assert r.headers["X-Auth-Request-Uid"] == token.uid
+    assert r.headers["X-Auth-Request-Uid"] == str(token.uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"
     assert r.headers["X-Auth-Request-Token"]
-
-    # Now ask for the session handle in the encrypted session to be
-    # analyzed, and verify the internals of the session handle from OpenID
-    # Connect authentication.
-    r = await setup.client.get("/auth/analyze")
-    assert r.status_code == 200
-    assert r.json() == {
-        "handle": {"key": ANY, "secret": ANY},
-        "session": {
-            "email": token.email,
-            "created_at": ANY,
-            "expires_on": ANY,
-        },
-        "token": {
-            "header": {
-                "alg": ALGORITHM,
-                "typ": "JWT",
-                "kid": setup.config.issuer.kid,
-            },
-            "data": {
-                "act": {
-                    "aud": setup.config.oidc.audience,
-                    "iss": setup.config.oidc.issuer,
-                    "jti": token.jti,
-                },
-                "aud": setup.config.issuer.aud,
-                "email": token.email,
-                "exp": ANY,
-                "iat": ANY,
-                "isMemberOf": [{"name": "admin"}],
-                "iss": setup.config.issuer.iss,
-                "jti": ANY,
-                "scope": expected_scopes,
-                "sub": token.username,
-                "uid": token.username,
-                "uidNumber": token.uid,
-            },
-            "valid": True,
-        },
-    }
 
 
 @pytest.mark.asyncio
 async def test_login_redirect_header(setup: SetupTest) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     setup.configure("oidc")
-    token = setup.create_oidc_token(groups=["admin"])
+    token = setup.create_upstream_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     return_url = "https://example.com/foo?a=bar&b=baz"
@@ -173,7 +130,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
 async def test_oauth2_callback(setup: SetupTest) -> None:
     """Test the compatibility /oauth2/callback route."""
     setup.configure("oidc")
-    token = setup.create_oidc_token(groups=["admin"])
+    token = setup.create_upstream_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     assert setup.config.oidc
@@ -356,7 +313,7 @@ async def test_connection_error(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_verify_error(setup: SetupTest) -> None:
     setup.configure("oidc")
-    token = setup.create_oidc_token(groups=["admin"])
+    token = setup.create_upstream_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     assert setup.config.oidc
     return_url = "https://example.com/foo"

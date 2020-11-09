@@ -1,4 +1,4 @@
-"""Representation of an authentication token."""
+"""Representation of an authentication token and associated data."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, validator
 
 from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.storage.base import Serializable
-from gafaelfawr.util import random_128_bits
+from gafaelfawr.util import normalize_datetime, random_128_bits
 
 __all__ = ["TokenType"]
 
@@ -130,20 +130,6 @@ class TokenBase(BaseModel):
     )
 
 
-def normalize_datetime(
-    v: Optional[Union[int, datetime]]
-) -> Optional[datetime]:
-    """Ensure datetimes are timezone-aware."""
-    if v is None:
-        return v
-    elif isinstance(v, int):
-        return datetime.fromtimestamp(v, tz=timezone.utc)
-    elif v.tzinfo and v.tzinfo.utcoffset(v) is not None:
-        return v
-    else:
-        return v.replace(tzinfo=timezone.utc)
-
-
 class TokenInfo(TokenBase):
     """Information about a token returned by the token-info endpoint.
 
@@ -220,8 +206,8 @@ class TokenUserInfo(BaseModel):
         max_length=64,
     )
 
-    name: str = Field(
-        ..., title="The user's preferred full name", min_length=1
+    name: Optional[str] = Field(
+        None, title="The user's preferred full name", min_length=1
     )
 
     uid: int = Field(..., title="The user's UID number", ge=1)

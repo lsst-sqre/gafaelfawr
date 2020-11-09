@@ -17,7 +17,6 @@ from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.logger import get_logger
 from gafaelfawr.middleware.state import BaseState
 from gafaelfawr.models.token import Token
-from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -33,9 +32,6 @@ class State(BaseState):
 
     csrf: Optional[str] = None
     """CSRF token for form submissions."""
-
-    handle: Optional[SessionHandle] = None
-    """Handle for the session if the user is authenticated."""
 
     token: Optional[Token] = None
     """Token if the user is authenticated."""
@@ -72,9 +68,6 @@ class State(BaseState):
         fernet = Fernet(key)
         try:
             data = json.loads(fernet.decrypt(cookie.encode()).decode())
-            handle = None
-            if "handle" in data:
-                handle = SessionHandle.from_str(data["handle"])
             token = None
             if "token" in data:
                 token = Token.from_str(data["token"])
@@ -86,7 +79,6 @@ class State(BaseState):
 
         return cls(
             csrf=data.get("csrf"),
-            handle=handle,
             token=token,
             message=data.get("message"),
             return_url=data.get("return_url"),
@@ -104,8 +96,6 @@ class State(BaseState):
         data = {}
         if self.csrf:
             data["csrf"] = self.csrf
-        if self.handle:
-            data["handle"] = self.handle.encode()
         if self.token:
             data["token"] = str(self.token)
         if self.message:

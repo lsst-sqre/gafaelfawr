@@ -19,15 +19,18 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token = setup.create_token()
+    token_data = await setup.create_token()
+    issuer = setup.factory.create_token_issuer()
+    oidc_token = issuer.issue_token(token_data, jti="some-jti")
 
     caplog.clear()
     r = await setup.client.get(
-        "/auth/userinfo", headers={"Authorization": f"Bearer {token.encoded}"}
+        "/auth/userinfo",
+        headers={"Authorization": f"Bearer {oidc_token.encoded}"},
     )
 
     assert r.status_code == 200
-    assert r.json() == token.claims
+    assert r.json() == oidc_token.claims
 
     log = json.loads(caplog.record_tuples[0][2])
     assert log == {
@@ -38,10 +41,9 @@ async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "path": "/auth/userinfo",
         "remote": "127.0.0.1",
         "request_id": ANY,
-        "scope": "",
-        "token": token.jti,
+        "token": oidc_token.jti,
         "token_source": "bearer",
-        "user": token.username,
+        "user": oidc_token.username,
         "user_agent": ANY,
     }
 
@@ -72,11 +74,14 @@ async def test_no_auth(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token = setup.create_token()
+    token_data = await setup.create_token()
+    issuer = setup.factory.create_token_issuer()
+    oidc_token = issuer.issue_token(token_data, jti="some-jti")
 
     caplog.clear()
     r = await setup.client.get(
-        "/auth/userinfo", headers={"Authorization": f"token {token.encoded}"}
+        "/auth/userinfo",
+        headers={"Authorization": f"token {oidc_token.encoded}"},
     )
 
     assert r.status_code == 400
@@ -101,7 +106,8 @@ async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     }
 
     r = await setup.client.get(
-        "/auth/userinfo", headers={"Authorization": f"bearer{token.encoded}"}
+        "/auth/userinfo",
+        headers={"Authorization": f"bearer{oidc_token.encoded}"},
     )
 
     assert r.status_code == 400
@@ -115,7 +121,7 @@ async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     caplog.clear()
     r = await setup.client.get(
         "/auth/userinfo",
-        headers={"Authorization": f"bearer XXX{token.encoded}"},
+        headers={"Authorization": f"bearer XXX{oidc_token.encoded}"},
     )
 
     assert r.status_code == 401

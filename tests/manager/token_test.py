@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import pytest
+from cryptography.fernet import Fernet
 
 from gafaelfawr.models.token import (
+    Token,
     TokenData,
     TokenGroup,
     TokenInfo,
@@ -202,3 +205,61 @@ async def test_delete(setup: SetupTest) -> None:
     assert await token_manager.get_user_info(token) is None
 
     assert not await token_manager.delete_token(token.key, data)
+
+
+@pytest.mark.asyncio
+async def test_invalid(setup: SetupTest) -> None:
+    token_manager = setup.factory.create_token_manager()
+    expires = timedelta(days=1).total_seconds()
+
+    # No such key.
+    token = Token()
+    assert await token_manager.get_data(token) is None
+
+    # Invalid encrypted blob.
+    await setup.redis.set(f"token:{token.key}", "foo", expire=expires)
+    assert await token_manager.get_data(token) is None
+
+    # Malformed session.
+    fernet = Fernet(setup.config.session_secret.encode())
+    raw_data = fernet.encrypt(b"malformed json")
+    await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
+    assert await token_manager.get_data(token) is None
+
+    # Mismatched token.
+    data = TokenData(
+        token=Token(),
+        username="example",
+        token_type=TokenType.session,
+        scopes=[],
+        created=int(datetime.now(tz=timezone.utc).timestamp()),
+        name="Some User",
+        uid=12345,
+    )
+    session = fernet.encrypt(data.json().encode())
+    await setup.redis.set(f"token:{token.key}", session, expire=expires)
+    assert await token_manager.get_data(token) is None
+
+    # Missing required fields.
+    json_data = {
+        "token": {
+            "key": token.key,
+            "secret": token.secret,
+        },
+        "username": "example",
+        "token_type": "session",
+        "scopes": [],
+        "created": int(datetime.now(tz=timezone.utc).timestamp()),
+        "name": "Some User",
+    }
+    raw_data = fernet.encrypt(json.dumps(json_data).encode())
+    await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
+    assert await token_manager.get_data(token) is None
+
+    # Fix the session store and confirm we can retrieve the manually-stored
+    # session.
+    json_data["uid"] = 12345
+    raw_data = fernet.encrypt(json.dumps(json_data).encode())
+    await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
+    new_data = await token_manager.get_data(token)
+    assert new_data == TokenData.parse_obj(json_data)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
@@ -13,6 +13,12 @@ from httpx import HTTPError
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import return_url_with_header
 from gafaelfawr.exceptions import ProviderException
+
+if TYPE_CHECKING:
+    from typing import List, Set
+
+    from gafaelfawr.config import Config
+    from gafaelfawr.models.token import TokenGroup
 
 router = APIRouter()
 
@@ -161,10 +167,11 @@ async def handle_provider_return(
     return_url = cookie.return_url
     context.rebind_logger(return_url=return_url)
 
-    # Build a session based on the reply from the authentication provider.
+    # Retrieve the user identity and authorization information based on the
+    # reply from the authentication provider.
     auth_provider = context.factory.create_provider()
     try:
-        session = await auth_provider.create_session(code, state)
+        user_info = await auth_provider.create_user_info(code, state)
     except ProviderException as e:
         context.logger.warning("Provider authentication failed", error=str(e))
         raise HTTPException(
@@ -182,17 +189,48 @@ async def handle_provider_return(
             },
         )
 
+    # Construct a token.
+    scopes = get_scopes_from_groups(context.config, user_info.groups)
+    token_manager = context.factory.create_token_manager()
+    context.state.token = await token_manager.create_session_token(
+        user_info, scopes=scopes
+    )
+
     # Successful login, so clear the login state and send the user back to
     # what they were doing.
-    cookie.state = None
-    cookie.return_url = None
-    cookie.handle = session.handle
+    context.state.state = None
+    context.state.return_url = None
     context.logger.info(
         "Successfully authenticated user %s (%s)",
-        session.token.username,
-        session.token.uid,
-        user=session.token.username,
-        token=session.token.jti,
-        scope=" ".join(sorted(session.token.scope)),
+        user_info.username,
+        user_info.uid,
+        user=user_info.username,
+        token=context.state.token.key,
+        scope=" ".join(scopes),
     )
     return RedirectResponse(return_url)
+
+
+def get_scopes_from_groups(
+    config: Config, groups: List[TokenGroup]
+) -> List[str]:
+    """Get scopes from a list of groups.
+
+    Used to determine the scope claim of a token issued based on an OpenID
+    Connect authentication.
+
+    Parameters
+    ----------
+    groups : List[`gafaelfawr.models.token.TokenGroup`]
+        The groups of a token.
+
+    Returns
+    -------
+    scopes : List[`str`]
+        The scopes generated from the group membership based on the
+        ``group_mapping`` configuration parameter.
+    """
+    scopes: Set[str] = set()
+    for group in [g.name for g in groups]:
+        scopes.update(config.issuer.group_mapping.get(group, set()))
+    return sorted(scopes)

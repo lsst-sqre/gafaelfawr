@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, urljoin
 
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
@@ -18,15 +18,15 @@ from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.state import State
+from gafaelfawr.models.token import Token, TokenData, TokenGroup, TokenUserInfo
 from gafaelfawr.providers.github import GitHubProvider
-from gafaelfawr.session import Session, SessionHandle
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.settings import build_settings
-from tests.support.tokens import create_oidc_test_token, create_test_token
+from tests.support.tokens import create_upstream_oidc_token
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, AsyncIterator, Dict, List, Optional, Union
+    from typing import Any, AsyncIterator, Dict, List, Optional
 
     from aioredis import Redis
     from httpx import Request
@@ -158,55 +158,45 @@ class SetupTest:
         config_dependency.set_settings_path(str(settings_path))
         self.config = config_dependency()
 
-    async def create_session(
-        self, *, groups: Optional[List[str]] = None, **claims: str
-    ) -> SessionHandle:
-        """Create a session from a new signed internal token.
-
-        Create a signed internal token as with create_token, but immediately
-        store it in a session and return the corresponding session handle.
-
-        Parameters
-        ----------
-        groups : List[`str`], optional
-            Group memberships the generated token should have.
-        **claims : `str`, optional
-            Other claims to set or override in the token.
-
-        Returns
-        -------
-        handle : `gafaelfawr.session.SessionHandle`
-            The new session handle.
-        """
-        handle = SessionHandle()
-        token = self.create_token(groups=groups, jti=handle.key, **claims)
-        session = Session.create(handle, token)
-        session_store = self.factory.create_session_store()
-        await session_store.store_session(session)
-        return handle
-
-    def create_token(
-        self, *, groups: Optional[List[str]] = None, **claims: Union[str, int]
-    ) -> VerifiedToken:
-        """Create a signed internal token.
+    async def create_token(
+        self,
+        *,
+        username: Optional[str] = None,
+        group_names: Optional[List[str]] = None,
+        scopes: Optional[List[str]] = None,
+    ) -> TokenData:
+        """Create a session token.
 
         Parameters
         ----------
-        groups : List[`str`], optional
+        username : `str`, optional
+            Override the username of the generated token.
+        group_namess : List[`str`], optional
             Group memberships the generated token should have.
-        **claims : Union[`str`, `int`], optional
-            Other claims to set or override in the token.
+        scopes : List[`str`], optional
+            Scope for the generated token.
 
         Returns
         -------
-        token : `gafaelfawr.tokens.VerifiedToken`
-            The generated token.
+        data : `gafaelfawr.models.token.TokenData`
+            The data for the generated token.
         """
-        return create_test_token(
-            self.config, groups=groups, kid="some-kid", **claims
+        if not username:
+            username = "some-user"
+        if group_names:
+            groups = [TokenGroup(name=g, id=1000) for g in group_names]
+        else:
+            groups = []
+        user_info = TokenUserInfo(
+            username=username, name="Some User", uid=1000, groups=groups
         )
+        token_manager = self.factory.create_token_manager()
+        token = await token_manager.create_session_token(user_info, scopes)
+        data = await token_manager.get_data(token)
+        assert data
+        return data
 
-    def create_oidc_token(
+    def create_upstream_oidc_token(
         self,
         *,
         kid: Optional[str] = None,
@@ -233,59 +223,21 @@ class SetupTest:
         if not kid:
             assert self.config.oidc
             kid = self.config.oidc.key_ids[0]
-        return create_oidc_test_token(
+        return create_upstream_oidc_token(
             self.config, kid, groups=groups, **claims
         )
 
-    async def github_login(self, userinfo: GitHubUserInfo) -> None:
-        """Simulate a GitHub login and create a session.
-
-        This method is used by tests to populate a valid session handle in the
-        test client's cookie-based session so that other tests that require an
-        existing authentication can be run.
-
-        Parameters
-        ----------
-        userinfo : `gafaelfawr.providers.github.GitHubUserInfo`
-            User information to use to synthesize GitHub API responses.
-        """
-        # Simulate the initial authentication request.
-        self.set_github_token_response("some-code", "some-github-token")
-        r = await self.client.get(
-            "/login",
-            params={"rd": "https://example.com"},
-            allow_redirects=False,
-        )
-        assert r.status_code == 307
-        url = urlparse(r.headers["Location"])
-        query = parse_qs(url.query)
-
-        # Simulate the return from GitHub, which will set the authentication
-        # cookie.
-        self.set_github_userinfo_response("some-github-token", userinfo)
-        r = await self.client.get(
-            "/login",
-            params={"code": "some-code", "state": query["state"][0]},
-            allow_redirects=False,
-        )
-        assert r.status_code == 307
-
-    async def login(self, token: VerifiedToken) -> None:
+    def login(self, token: Token) -> None:
         """Create a valid Gafaelfawr session cookie.
 
         Add a valid Gafaelfawr session cookie to the `httpx.AsyncClient`.
 
         Parameters
         ----------
-        token : `gafaelfawr.tokens.VerifiedToken`
+        token : `gafaelfawr.models.token.Token`
             The token for the client identity to use.
         """
-        handle = SessionHandle()
-        session = Session.create(handle, token)
-        session_store = self.factory.create_session_store()
-        await session_store.store_session(session)
-        state = State(handle=handle)
-        cookie = state.as_cookie()
+        cookie = State(token=token).as_cookie()
         self.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
 
     def set_github_userinfo_response(

@@ -7,10 +7,10 @@ from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from gafaelfawr.dependencies.auth import verified_token
+from gafaelfawr.dependencies.auth import authenticate
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.models.token import TokenData
 
 router = APIRouter()
 
@@ -23,13 +23,13 @@ class TokenReply(BaseModel):
 
 @router.get("/auth/tokens/influxdb/new", response_model=TokenReply)
 async def get_influxdb(
-    token: VerifiedToken = Depends(verified_token),
+    token_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, str]:
     """Return an InfluxDB-compatible JWT."""
     token_issuer = context.factory.create_token_issuer()
     try:
-        influxdb_token = token_issuer.issue_influxdb_token(token)
+        influxdb_token = token_issuer.issue_influxdb_token(token_data)
     except NotConfiguredException as e:
         context.logger.warning("Not configured", error=str(e))
         raise HTTPException(
@@ -39,6 +39,6 @@ async def get_influxdb(
     if context.config.issuer.influxdb_username:
         username = context.config.issuer.influxdb_username
     else:
-        username = token.username
+        username = token_data.username
     context.logger.info("Issued InfluxDB token", influxdb_username=username)
     return {"token": influxdb_token}

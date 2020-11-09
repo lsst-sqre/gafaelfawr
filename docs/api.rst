@@ -72,15 +72,9 @@ API reference
 
 .. automodapi:: gafaelfawr.providers.oidc
 
-.. automodapi:: gafaelfawr.session
-
 .. automodapi:: gafaelfawr.storage.base
 
 .. automodapi:: gafaelfawr.storage.oidc
-
-.. automodapi:: gafaelfawr.storage.session
-
-.. automodapi:: gafaelfawr.tokens
 
 .. automodapi:: gafaelfawr.util
 

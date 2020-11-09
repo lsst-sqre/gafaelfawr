@@ -11,6 +11,7 @@ import pytest
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
+from tests.support.constants import TEST_HOSTNAME
 
 if TYPE_CHECKING:
     from tests.support.setup import SetupTest
@@ -28,11 +29,9 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     session_token = await token_manager.create_session_token(
         userinfo, scopes=["read:all", "exec:admin"]
     )
-    state = State(token=session_token)
+    setup.login(session_token)
 
-    r = await setup.client.get(
-        "/auth/api/v1/login", cookies={COOKIE_NAME: state.as_cookie()}
-    )
+    r = await setup.client.get("/auth/api/v1/login")
     assert r.status_code == 200
     csrf = r.json()["csrf"]
 
@@ -41,7 +40,6 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     r = await setup.client.post(
         "/auth/api/v1/users/example/tokens",
         headers={"X-CSRF-Token": csrf},
-        cookies={COOKIE_NAME: state.as_cookie()},
         json={
             "token_name": "some token",
             "scopes": ["read:all"],
@@ -54,9 +52,7 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     token_url = r.headers["Location"]
     assert token_url == f"/auth/api/v1/users/example/tokens/{user_token.key}"
 
-    r = await setup.client.get(
-        token_url, cookies={COOKIE_NAME: state.as_cookie()}
-    )
+    r = await setup.client.get(token_url)
     assert r.status_code == 200
     info = r.json()
     assert info == {
@@ -70,20 +66,22 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     }
 
     # Check that this is the same information as is returned by the token-info
-    # route.
+    # route.  This is a bit tricky to do since the cookie will take precedence
+    # over the Authorization header, but we can't just delete the cookie since
+    # we'll lose the CSRF token.  Save the cookie and delete it, and then
+    # later restore it.
+    cookie = setup.client.cookies.pop(COOKIE_NAME)
     r = await setup.client.get(
         "/auth/api/v1/token-info",
         headers={"Authorization": f"bearer {user_token}"},
     )
     assert r.status_code == 200
     assert r.json() == info
+    setup.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
 
     # Listing all tokens for this user should return the user token and a
     # session token.
-    r = await setup.client.get(
-        "/auth/api/v1/users/example/tokens",
-        cookies={COOKIE_NAME: state.as_cookie()},
-    )
+    r = await setup.client.get("/auth/api/v1/users/example/tokens")
     assert r.status_code == 200
     assert r.json() == sorted(
         [
@@ -105,7 +103,6 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     r = await setup.client.patch(
         token_url,
         headers={"X-CSRF-Token": csrf},
-        cookies={COOKIE_NAME: state.as_cookie()},
         json={
             "token_name": "happy token",
             "scopes": ["exec:admin"],
@@ -124,30 +121,17 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     }
 
     # Delete the token.
-    r = await setup.client.delete(
-        token_url,
-        headers={"X-CSRF-Token": csrf},
-        cookies={COOKIE_NAME: state.as_cookie()},
-    )
+    r = await setup.client.delete(token_url, headers={"X-CSRF-Token": csrf})
     assert r.status_code == 204
-    r = await setup.client.get(
-        token_url, cookies={COOKIE_NAME: state.as_cookie()}
-    )
+    r = await setup.client.get(token_url)
     assert r.status_code == 404
 
     # Deleting again should return 404.
-    r = await setup.client.delete(
-        token_url,
-        headers={"X-CSRF-Token": csrf},
-        cookies={COOKIE_NAME: state.as_cookie()},
-    )
+    r = await setup.client.delete(token_url, headers={"X-CSRF-Token": csrf})
     assert r.status_code == 404
 
     # This user should now have only one token.
-    r = await setup.client.get(
-        "/auth/api/v1/users/example/tokens",
-        cookies={COOKIE_NAME: state.as_cookie()},
-    )
+    r = await setup.client.get("/auth/api/v1/users/example/tokens")
     assert r.status_code == 200
     assert len(r.json()) == 1
 

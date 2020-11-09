@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_logout(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token = setup.create_token(scope="read:all")
-    await setup.login(token)
+    token_data = await setup.create_token(scopes=["read:all"])
+    setup.login(token_data.token)
 
     # Confirm that we're logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
@@ -49,8 +49,8 @@ async def test_logout(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
 @pytest.mark.asyncio
 async def test_logout_with_url(setup: SetupTest) -> None:
-    token = setup.create_token(scope="read:all")
-    await setup.login(token)
+    token_data = await setup.create_token(scopes=["read:all"])
+    setup.login(token_data.token)
 
     # Confirm that we're logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})

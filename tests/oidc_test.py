@@ -16,7 +16,7 @@ from gafaelfawr.exceptions import (
     InvalidGrantError,
     UnauthorizedClientException,
 )
-from gafaelfawr.storage.oidc import OIDCAuthorizationCode
+from gafaelfawr.models.oidc import OIDCAuthorizationCode
 
 if TYPE_CHECKING:
     from tests.support.setup import SetupTest
@@ -27,25 +27,32 @@ async def test_issue_code(setup: SetupTest) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
-    handle = await setup.create_session()
+    token_data = await setup.create_token()
+    token = token_data.token
     redirect_uri = "https://example.com/"
 
     assert setup.config.oidc_server
     assert list(setup.config.oidc_server.clients) == clients
 
     with pytest.raises(UnauthorizedClientException):
-        await oidc_server.issue_code("unknown-client", redirect_uri, handle)
+        await oidc_server.issue_code("unknown-client", redirect_uri, token)
 
-    code = await oidc_server.issue_code("some-id", redirect_uri, handle)
+    code = await oidc_server.issue_code("some-id", redirect_uri, token)
     encrypted_code = await setup.redis.get(f"oidc:{code.key}")
     assert encrypted_code
     fernet = Fernet(setup.config.session_secret.encode())
     serialized_code = json.loads(fernet.decrypt(encrypted_code))
     assert serialized_code == {
-        "code": code.encode(),
+        "code": {
+            "key": code.key,
+            "secret": code.secret,
+        },
         "client_id": "some-id",
         "redirect_uri": redirect_uri,
-        "session_handle": handle.encode(),
+        "token": {
+            "key": token.key,
+            "secret": token.secret,
+        },
         "created_at": ANY,
     }
     now = time.time()
@@ -60,29 +67,26 @@ async def test_redeem_code(setup: SetupTest) -> None:
     ]
     setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
-    handle = await setup.create_session()
+    token_data = await setup.create_token()
+    token = token_data.token
     redirect_uri = "https://example.com/"
-    code = await oidc_server.issue_code("client-2", redirect_uri, handle)
+    code = await oidc_server.issue_code("client-2", redirect_uri, token)
 
-    token = await oidc_server.redeem_code(
+    oidc_token = await oidc_server.redeem_code(
         "client-2", "client-2-secret", redirect_uri, code
     )
-    assert token.claims == {
-        "act": {
-            "aud": setup.config.issuer.aud,
-            "iss": setup.config.issuer.iss,
-            "jti": ANY,
-        },
-        "aud": setup.config.issuer.aud_internal,
-        "email": "some-user@example.com",
+    assert oidc_token.claims == {
+        "aud": setup.config.issuer.aud,
         "iat": ANY,
         "exp": ANY,
         "iss": setup.config.issuer.iss,
         "jti": code.key,
+        "name": token_data.name,
+        "preferred_username": token_data.username,
         "scope": "openid",
-        "sub": "some-user",
-        "uid": "some-user",
-        "uidNumber": "1000",
+        "sub": token_data.username,
+        setup.config.issuer.username_claim: token_data.username,
+        setup.config.issuer.uid_claim: token_data.uid,
     }
 
     assert not await setup.redis.get(f"oidc:{code.key}")
@@ -96,9 +100,10 @@ async def test_redeem_code_errors(setup: SetupTest) -> None:
     ]
     setup.configure(oidc_clients=clients)
     oidc_server = setup.factory.create_oidc_server()
-    handle = await setup.create_session()
+    token_data = await setup.create_token()
+    token = token_data.token
     redirect_uri = "https://example.com/"
-    code = await oidc_server.issue_code("client-2", redirect_uri, handle)
+    code = await oidc_server.issue_code("client-2", redirect_uri, token)
 
     with pytest.raises(InvalidClientError):
         await oidc_server.redeem_code(

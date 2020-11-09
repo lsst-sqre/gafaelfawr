@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import base64
 import os
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Optional, Union
 
 __all__ = [
     "add_padding",
     "base64_to_number",
+    "normalize_datetime",
     "number_to_base64",
     "random_128_bits",
 ]
@@ -54,6 +60,36 @@ def base64_to_number(data: str) -> int:
     """
     decoded = base64.urlsafe_b64decode(add_padding(data))
     return int.from_bytes(decoded, byteorder="big")
+
+
+def normalize_datetime(
+    v: Optional[Union[int, datetime]]
+) -> Optional[datetime]:
+    """Pydantic validator for datetime fields.
+
+    This decodes fields encoded as seconds since epoch and ensures that
+    datetimes are always stored in the model as timezone-aware.  When read
+    from databases, often they come back timezone-naive, but we use UTC as the
+    timezone for every stored date.
+
+    Parameters
+    ----------
+    v : `int` or `datetime` or `None`
+        The field representing a `datetime`
+
+    Returns
+    -------
+    v : `datetime` or `None`
+        The timezone-aware `datetime` or `None` if the input was `None`.
+    """
+    if v is None:
+        return v
+    elif isinstance(v, int):
+        return datetime.fromtimestamp(v, tz=timezone.utc)
+    elif v.tzinfo and v.tzinfo.utcoffset(v) is not None:
+        return v
+    else:
+        return v.replace(tzinfo=timezone.utc)
 
 
 def number_to_base64(data: int) -> bytes:

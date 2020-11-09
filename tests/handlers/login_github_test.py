@@ -9,7 +9,6 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.providers.github import (
     GitHubProvider,
     GitHubTeam,
@@ -103,48 +102,11 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
-    assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
     expected = "org-a-team,org-other-team,other-org-team-with-very--F279yg"
     assert r.headers["X-Auth-Request-Groups"] == expected
     assert r.headers["X-Auth-Request-Token"]
-
-    # Now ask for the session handle in the encrypted session to be
-    # analyzed, and verify the internals of the session handle from GitHub
-    # authentication.
-    r = await setup.client.get("/auth/analyze")
-    assert r.status_code == 200
-    assert r.json() == {
-        "handle": {"key": ANY, "secret": ANY},
-        "session": {
-            "email": "githubuser@example.com",
-            "created_at": ANY,
-            "expires_on": ANY,
-        },
-        "token": {
-            "header": {"alg": ALGORITHM, "typ": "JWT", "kid": "some-kid"},
-            "data": {
-                "aud": setup.config.issuer.aud,
-                "email": "githubuser@example.com",
-                "exp": ANY,
-                "iat": ANY,
-                "isMemberOf": [
-                    {"name": "org-a-team", "id": 1000},
-                    {"name": "org-other-team", "id": 1001},
-                    {"name": "other-org-team-with-very--F279yg", "id": 1002},
-                ],
-                "iss": setup.config.issuer.iss,
-                "jti": ANY,
-                "name": "GitHub User",
-                "scope": "read:all",
-                "sub": "githubuser",
-                "uid": "githubuser",
-                "uidNumber": "123456",
-            },
-            "valid": True,
-        },
-    }
 
 
 @pytest.mark.asyncio
@@ -234,7 +196,7 @@ async def test_cookie_auth_with_token(setup: SetupTest) -> None:
         headers={"Authorization": "token some-jupyterhub-token"},
     )
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
+    assert r.headers["X-Auth-Request-User"] == "githubuser"
 
 
 @pytest.mark.asyncio
@@ -274,17 +236,6 @@ async def test_claim_names(setup: SetupTest) -> None:
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
-
-    # Now ask for the session handle in the encrypted session to be
-    # analyzed, and verify that the claims were set using our keys.
-    r = await setup.client.get("/auth/analyze")
-    assert r.status_code == 200
-    data = r.json()
-    token_data = data["token"]["data"]
-    assert token_data["username"] == "githubuser"
-    assert token_data["numeric-uid"] == "123456"
-    assert "uid" not in token_data
-    assert "uidNumber" not in token_data
 
 
 @pytest.mark.asyncio
@@ -375,10 +326,3 @@ async def test_github_uppercase(setup: SetupTest) -> None:
     r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "someuser"
-
-    # Likewise for the user embedded in the token.
-    r = await setup.client.get("/auth/analyze")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["token"]["data"]["sub"] == "someuser"
-    assert data["token"]["data"]["uid"] == "someuser"

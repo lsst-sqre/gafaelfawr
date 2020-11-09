@@ -11,9 +11,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import pytest
 
 from gafaelfawr.config import OIDCClient
-from gafaelfawr.providers.github import GitHubUserInfo
-from gafaelfawr.session import SessionHandle
-from gafaelfawr.tokens import Token
+from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.headers import query_from_url
 
@@ -29,14 +27,8 @@ if TYPE_CHECKING:
 async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     setup.configure(oidc_clients=clients)
-    userinfo = GitHubUserInfo(
-        name="GitHub User",
-        username="githubuser",
-        uid=123456,
-        email="githubuser@example.com",
-        teams=[],
-    )
-    await setup.github_login(userinfo)
+    token_data = await setup.create_token()
+    setup.login(token_data.token)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
 
     # Log in
@@ -78,9 +70,9 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "request_id": ANY,
         "return_url": return_url,
         "scope": "",
-        "token": ANY,
+        "token": token_data.token.key,
         "token_source": "cookie",
-        "user": "githubuser",
+        "user": token_data.username,
         "user_agent": ANY,
     }
 
@@ -112,24 +104,19 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
     assert data["access_token"] == data["id_token"]
     verifier = setup.factory.create_token_verifier()
-    token = verifier.verify_internal_token(Token(encoded=data["id_token"]))
+    token = verifier.verify_internal_token(OIDCToken(encoded=data["id_token"]))
     assert token.claims == {
-        "act": {
-            "aud": setup.config.issuer.aud,
-            "iss": setup.config.issuer.iss,
-            "jti": ANY,
-        },
-        "aud": setup.config.issuer.aud_internal,
-        "email": "githubuser@example.com",
+        "aud": setup.config.issuer.aud,
         "exp": ANY,
         "iat": ANY,
         "iss": setup.config.issuer.iss,
-        "jti": SessionHandle.from_str(code).key,
-        "name": "GitHub User",
+        "jti": OIDCAuthorizationCode.from_str(code).key,
+        "name": token_data.name,
+        "preferred_username": token_data.username,
         "scope": "openid",
-        "sub": "githubuser",
-        "uid": "githubuser",
-        "uidNumber": "123456",
+        "sub": token_data.username,
+        setup.config.issuer.username_claim: token_data.username,
+        setup.config.issuer.uid_claim: token_data.uid,
     }
     now = time.time()
     expected_exp = now + setup.config.issuer.exp_minutes * 60
@@ -137,17 +124,17 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert now - 5 <= token.claims["iat"] <= now
 
     log = json.loads(caplog.record_tuples[0][2])
+    username = token_data.username
     assert log == {
-        "event": "Retrieved token for user githubuser via OpenID Connect",
+        "event": f"Retrieved token for user {username} via OpenID Connect",
         "level": "info",
         "logger": "gafaelfawr",
         "method": "POST",
         "path": "/auth/openid/token",
         "remote": "127.0.0.1",
         "request_id": ANY,
-        "scope": "openid",
-        "token": SessionHandle.from_str(code).key,
-        "user": "githubuser",
+        "token": OIDCAuthorizationCode.from_str(code).key,
+        "user": username,
         "user_agent": ANY,
     }
 
@@ -201,14 +188,8 @@ async def test_login_errors(
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     setup.configure(oidc_clients=clients)
-    userinfo = GitHubUserInfo(
-        name="GitHub User",
-        username="githubuser",
-        uid=123456,
-        email="githubuser@example.com",
-        teams=[],
-    )
-    await setup.github_login(userinfo)
+    token_data = await setup.create_token()
+    setup.login(token_data.token)
 
     # No parameters at all.
     caplog.clear()
@@ -249,7 +230,7 @@ async def test_login_errors(
         "scope": "",
         "token": ANY,
         "token_source": "cookie",
-        "user": "githubuser",
+        "user": token_data.username,
         "user_agent": ANY,
     }
 
@@ -294,7 +275,7 @@ async def test_login_errors(
         "scope": "",
         "token": ANY,
         "token_source": "cookie",
-        "user": "githubuser",
+        "user": token_data.username,
         "user_agent": ANY,
     }
 
@@ -341,10 +322,11 @@ async def test_token_errors(
         OIDCClient(client_id="other-id", client_secret="other-secret"),
     ]
     setup.configure(oidc_clients=clients)
-    handle = await setup.create_session()
+    token_data = await setup.create_token()
+    token = token_data.token
     oidc_server = setup.factory.create_oidc_server()
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
-    code = await oidc_server.issue_code("some-id", redirect_uri, handle)
+    code = await oidc_server.issue_code("some-id", redirect_uri, token)
 
     # Missing parameters.
     request: Dict[str, str] = {}
@@ -407,7 +389,7 @@ async def test_token_errors(
     }
 
     # No client_secret.
-    request["code"] = SessionHandle().encode()
+    request["code"] = str(OIDCAuthorizationCode())
     caplog.clear()
     r = await setup.client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
@@ -449,8 +431,8 @@ async def test_token_errors(
 
     # No stored data.
     request["client_secret"] = "some-secret"
-    bogus_code = SessionHandle()
-    request["code"] = bogus_code.encode()
+    bogus_code = OIDCAuthorizationCode()
+    request["code"] = str(bogus_code)
     caplog.clear()
     r = await setup.client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
@@ -472,8 +454,8 @@ async def test_token_errors(
     }
 
     # Correct code, but invalid client_id for that code.
-    bogus_code = await oidc_server.issue_code("other-id", redirect_uri, handle)
-    request["code"] = bogus_code.encode()
+    bogus_code = await oidc_server.issue_code("other-id", redirect_uri, token)
+    request["code"] = str(bogus_code)
     r = await setup.client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
     assert r.json() == {
@@ -482,7 +464,7 @@ async def test_token_errors(
     }
 
     # Correct code and client_id but invalid redirect_uri.
-    request["code"] = code.encode()
+    request["code"] = str(code)
     r = await setup.client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
     assert r.json() == {
@@ -490,9 +472,9 @@ async def test_token_errors(
         "error_description": "Invalid authorization code",
     }
 
-    # Delete the underlying session.
-    session_store = setup.factory.create_session_store()
-    await session_store.delete_session(handle.key)
+    # Delete the underlying token.
+    token_manager = setup.factory.create_token_manager()
+    await token_manager.delete_token(token.key, token_data)
     request["redirect_uri"] = redirect_uri
     r = await setup.client.post("/auth/openid/token", data=request)
     assert r.status_code == 400

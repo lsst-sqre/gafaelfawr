@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Set
 
-import jwt
 from fastapi import HTTPException, status
 
 from gafaelfawr.dependencies.context import RequestContext
@@ -17,7 +16,6 @@ from gafaelfawr.exceptions import (
     InvalidTokenError,
     OAuthBearerError,
 )
-from gafaelfawr.tokens import Token, VerifiedToken
 
 __all__ = [
     "AuthType",
@@ -27,7 +25,6 @@ __all__ = [
     "generate_challenge",
     "generate_unauthorized_challenge",
     "parse_authorization",
-    "verify_token",
 ]
 
 
@@ -236,21 +233,16 @@ def generate_unauthorized_challenge(
     )
 
 
-def parse_authorization(
-    context: RequestContext, *, allow_basic: bool = False
-) -> Optional[str]:
+def parse_authorization(context: RequestContext) -> Optional[str]:
     """Find a handle or token in the Authorization header.
 
-    Supports either ``Bearer`` or (optionally) ``Basic`` authorization types.
-    Rebinds the logging context to include the source of the token, if one is
-    found.
+    Supports either ``Bearer`` or ``Basic`` authorization types.  Rebinds the
+    logging context to include the source of the token, if one is found.
 
     Parameters
     ----------
     context : `gafaelfawr.dependencies.context.RequestContext`
         The context of the incoming request.
-    allow_basic : `bool`, optional
-        Whether to allow HTTP Basic authentication (default: `False`).
 
     Returns
     -------
@@ -284,7 +276,7 @@ def parse_authorization(
         return auth_blob
 
     # The only remaining permitted authentication type is (possibly) basic.
-    if not allow_basic or auth_type.lower() != "basic":
+    if auth_type.lower() != "basic":
         raise InvalidRequestError(f"Unknown Authorization type {auth_type}")
 
     # Basic, the complicated part because we are very flexible.
@@ -306,33 +298,3 @@ def parse_authorization(
         )
         context.rebind_logger(token_source="basic-username")
         return user
-
-
-def verify_token(context: RequestContext, encoded_token: str) -> VerifiedToken:
-    """Verify a token.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.dependencies.context.RequestContext`
-        The context of the incoming request.
-    encoded_token : `str`
-        The encoded token.
-
-    Returns
-    -------
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The verified token.
-
-    Raises
-    ------
-    gafaelfawr.exceptions.InvalidTokenError
-        If the token could not be verified.
-    gafaelfawr.exceptions.MissingClaimsException
-        If the token is missing required claims.
-    """
-    token = Token(encoded=encoded_token)
-    token_verifier = context.factory.create_token_verifier()
-    try:
-        return token_verifier.verify_internal_token(token)
-    except jwt.InvalidTokenError as e:
-        raise InvalidTokenError(str(e))

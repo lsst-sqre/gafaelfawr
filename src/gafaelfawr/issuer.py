@@ -9,16 +9,14 @@ from typing import TYPE_CHECKING
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.exceptions import (
-    InvalidTokenClaimsException,
-    NotConfiguredException,
-)
-from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.exceptions import NotConfiguredException
+from gafaelfawr.models.oidc import OIDCVerifiedToken
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Mapping, Optional, Set, Union
+    from typing import Any, Dict, List, Optional, Set
 
     from gafaelfawr.config import IssuerConfig
+    from gafaelfawr.models.token import TokenData, TokenUserInfo
 
 __all__ = ["TokenIssuer"]
 
@@ -39,41 +37,44 @@ class TokenIssuer:
     def __init__(self, config: IssuerConfig) -> None:
         self._config = config
 
-    def issue_token(self, claims: Mapping[str, Any]) -> VerifiedToken:
-        """Issue a token containing the provided claims.
+    def issue_token(
+        self, user_info: TokenUserInfo, **claims: str
+    ) -> OIDCVerifiedToken:
+        """Issue an OpenID Connect token.
 
-        A scope claim will be added based on any groups in an isMemberOf
-        claim, if a scope claim was not already present.
+        This creates a new OpenID Connect token with data taken from the
+        internal Gafaelfawr token.  The scope claim of the new token will be
+        based on the group membership in the token unless it is overridden.
 
         Parameters
         ----------
-        claims : Mapping[`str`, Any]
-            Claims to include in the token.
+        user_info : `gafaelfawr.models.token.TokenData`
+            The token data on which to base the token.
+        **claims : `str`
+            Additional claims to add to the token.
 
         Returns
         -------
         token : `gafaelfawr.tokens.VerifiedToken`
-            The newly-issued token.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.InvalidTokenClaimsException
-            If the provided claims do not include a ``jti`` claim.
+            The new token.
         """
-        payload = dict(claims)
-        payload.update(self._default_claims())
-
-        if "jti" not in payload:
-            raise InvalidTokenClaimsException("No jti claim")
-
-        if "scope" not in payload:
-            scope = self._scope_from_groups(claims.get("isMemberOf", []))
-            if scope:
-                payload["scope"] = scope
-
+        now = datetime.now(timezone.utc)
+        expires = now + timedelta(minutes=self._config.exp_minutes)
+        payload = {
+            "aud": self._config.aud,
+            "iat": int(now.timestamp()),
+            "iss": self._config.iss,
+            "exp": int(expires.timestamp()),
+            "name": user_info.name,
+            "preferred_username": user_info.username,
+            "sub": user_info.username,
+            self._config.username_claim: user_info.username,
+            self._config.uid_claim: user_info.uid,
+            **claims,
+        }
         return self._encode_token(payload)
 
-    def issue_influxdb_token(self, token: VerifiedToken) -> str:
+    def issue_influxdb_token(self, token_data: TokenData) -> str:
         """Issue an InfluxDB-compatible token.
 
         InfluxDB requires an HS256 JWT with ``username`` and ``exp`` claims
@@ -82,115 +83,34 @@ class TokenIssuer:
 
         Parameters
         ----------
-        token : `gafaelfawr.tokens.VerifiedToken`
-            The user's authentication token.
+        token_data : `gafaelfawr.models.token.TokenData`
+            The data from the user's authentication token.
 
         Returns
         -------
         influxdb_token : `str`
             The encoded form of an InfluxDB-compatible token.
         """
-        if not self._config.influxdb_secret:
+        secret = self._config.influxdb_secret
+        if not secret:
             raise NotConfiguredException("No InfluxDB issuer configuration")
         if self._config.influxdb_username:
             username = self._config.influxdb_username
         else:
-            username = token.username
+            username = token_data.username
+        if token_data.expires:
+            expires = token_data.expires
+        else:
+            now = datetime.now(timezone.utc)
+            expires = now + timedelta(minutes=self._config.exp_minutes)
         payload = {
-            "exp": token.claims["exp"],
+            "exp": int(expires.timestamp()),
             "iat": int(time.time()),
             "username": username,
         }
-        return jwt.encode(
-            payload, self._config.influxdb_secret, algorithm="HS256"
-        ).decode()
+        return jwt.encode(payload, secret, algorithm="HS256").decode()
 
-    def reissue_token(
-        self,
-        token: VerifiedToken,
-        *,
-        jti: str,
-        scope: Optional[str] = None,
-        internal: bool = False,
-    ) -> VerifiedToken:
-        """Reissue a token.
-
-        This makes a copy of the token, sets the audience, expiration, issuer,
-        and issue time as appropriate, and then returns the token in encoded
-        form.  The scope claim of the new token will be based on the provided
-        scope, if there is one, and otherwise on the group membership in the
-        token.  The upstream scope claim will be discarded.
-
-        Parameters
-        ----------
-        token : `gafaelfawr.tokens.VerifiedToken`
-            The token to reissue.
-        jti : Optional[`str`], optional
-            The jti to use for the new token.
-        scope : Optional[`str`], optional
-            If provided, set the scope claim of the reissued token to this.
-        internal : `bool`, optional
-            If set to True, issue the token with the internal audience instead
-            of the external audience.
-
-        Returns
-        -------
-        new_token : `gafaelfawr.tokens.VerifiedToken`
-            The new token.
-        """
-        payload = dict(token.claims)
-        payload.pop("scope", None)
-        payload.update(self._default_claims(internal=internal))
-        payload["jti"] = jti
-        if not scope:
-            scope = self._scope_from_groups(token.claims.get("isMemberOf", []))
-        if scope:
-            payload["scope"] = scope
-
-        if "aud" in token.claims and "iss" in token.claims:
-            actor_claim = {
-                "aud": token.claims["aud"],
-                "iss": token.claims["iss"],
-            }
-            if "jti" in token.claims:
-                actor_claim["jti"] = token.claims["jti"]
-            if "act" in token.claims:
-                actor_claim["act"] = token.claims["act"]
-            payload["act"] = actor_claim
-
-        return self._encode_token(payload)
-
-    def _default_claims(
-        self, *, internal: bool = False
-    ) -> Dict[str, Union[str, int]]:
-        """Return the standard claims for any new token.
-
-        Parameters
-        ----------
-        internal : `bool`, optional
-            Whether to issue for an internal audience instead of the default
-            audience.
-
-        Returns
-        -------
-        claims : Dict[`str`, Union[`str`, `int`]]
-            Attributes to add to the token under construction.
-        """
-        if internal:
-            audience = self._config.aud_internal
-        else:
-            audience = self._config.aud
-        expires = datetime.now(timezone.utc) + timedelta(
-            minutes=self._config.exp_minutes
-        )
-        return {
-            "aud": audience,
-            "iat": int(datetime.now(timezone.utc).timestamp()),
-            "iss": self._config.iss,
-            "exp": int(expires.timestamp()),
-        }
-
-    def _encode_token(self, payload: Dict[str, Any]) -> VerifiedToken:
+    def _encode_token(self, payload: Dict[str, Any]) -> OIDCVerifiedToken:
         """Encode a token.
 
         Parameters
@@ -209,14 +129,12 @@ class TokenIssuer:
             algorithm=ALGORITHM,
             headers={"kid": self._config.kid},
         ).decode()
-        return VerifiedToken(
+        return OIDCVerifiedToken(
             encoded=encoded_token,
             claims=payload,
             username=payload[self._config.username_claim],
             uid=payload[self._config.uid_claim],
-            jti=payload["jti"],
-            email=payload.get("email"),
-            scope=set(payload.get("scope", "").split()),
+            jti=payload.get("jti"),
         )
 
     def _scope_from_groups(

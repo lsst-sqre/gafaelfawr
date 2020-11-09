@@ -17,14 +17,14 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_success(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token = setup.create_token(scope="exec:admin")
+    token_data = await setup.create_token(scopes=["exec:admin"])
 
     # Successful request with X-Forwarded-For and a bearer token.
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
-            "Authorization": f"Bearer {token.encoded}",
+            "Authorization": f"Bearer {token_data.token}",
             "X-Original-Uri": "/foo",
             "X-Forwarded-For": "192.0.2.1",
         },
@@ -42,16 +42,16 @@ async def test_success(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "required_scope": "exec:admin",
         "satisfy": "all",
         "scope": "exec:admin",
-        "token": token.jti,
+        "token": token_data.token.key,
         "token_source": "bearer",
-        "user": token.username,
+        "user": token_data.username,
         "user_agent": ANY,
     }
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == expected
 
     # Successful request with HTTP Basic authentication in the username.
-    basic = f"{token.encoded}:x-oauth-basic".encode()
+    basic = f"{token_data.token}:x-oauth-basic".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await setup.client.get(
         "/auth",
@@ -68,7 +68,7 @@ async def test_success(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert data == expected
 
     # The same with HTTP Basic in the password.
-    basic = f"x-oauth-basic:{token.encoded}".encode()
+    basic = f"x-oauth-basic:{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await setup.client.get(
         "/auth",
@@ -89,13 +89,13 @@ async def test_success(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 async def test_authorization_failed(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    token = setup.create_token(scope="exec:admin")
+    token_data = await setup.create_token(scopes=["exec:admin"])
 
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:test", "satisfy": "any"},
         headers={
-            "Authorization": f"Bearer {token.encoded}",
+            "Authorization": f"Bearer {token_data.token}",
             "X-Original-Uri": "/foo",
         },
     )
@@ -115,9 +115,9 @@ async def test_authorization_failed(
         "required_scope": "exec:test",
         "satisfy": "any",
         "scope": "exec:admin",
-        "token": token.jti,
+        "token": token_data.token.key,
         "token_source": "bearer",
-        "user": token.username,
+        "user": token_data.username,
         "user_agent": ANY,
     }
 
@@ -208,7 +208,7 @@ async def test_invalid_token(
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "auth_uri": "NONE",
-        "error": "Not enough segments",
+        "error": "Token does not start with gt-",
         "event": "Invalid token",
         "level": "warning",
         "logger": "gafaelfawr",

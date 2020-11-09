@@ -8,14 +8,10 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
 
-from gafaelfawr.dependencies.auth import verified_session
+from gafaelfawr.dependencies.auth import authenticate_session
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.session import (
-    InvalidSessionHandleException,
-    Session,
-    SessionHandle,
-)
-from gafaelfawr.tokens import Token
+from gafaelfawr.exceptions import InvalidTokenError
+from gafaelfawr.models.token import Token, TokenData
 
 router = APIRouter()
 
@@ -38,76 +34,43 @@ class FormattedJSONResponse(JSONResponse):
 
 @router.get("/auth/analyze", response_class=FormattedJSONResponse)
 async def get_analyze(
-    session: Session = Depends(verified_session),
+    token_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, Any]:
-    """Analyze a session handle from a web session."""
-    result = await analyze_handle(context, session.handle)
+    """Analyze a token from a web session."""
     context.logger.info("Analyzed user session")
-    return result
+    return {
+        "data": token_data.dict(),
+        "valid": True,
+    }
 
 
 @router.post("/auth/analyze", response_class=FormattedJSONResponse)
 async def post_analyze(
-    token: str = Form(...),
+    token_str: str = Form(..., alias="token"),
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, Any]:
     """Analyze a token.
 
-    Expects a POST with a single parameter, ``token``, which is either a
-    session handle or a token.  Returns a JSON structure with details about
-    that token.
+    Expects a POST with a single parameter, ``token``, containing the token.
+    Returns a JSON structure with details about that token.
     """
     try:
-        handle = SessionHandle.from_str(token)
-        result = await analyze_handle(context, handle)
-        context.logger.info("Analyzed user-provided session handle")
-        return result
-    except InvalidSessionHandleException:
-        verifier = context.factory.create_token_verifier()
-        analysis = verifier.analyze_token(Token(encoded=token))
-        context.logger.info("Analyzed user-provided token")
-        return {"token": analysis}
+        token = Token.from_str(token_str)
+    except InvalidTokenError as e:
+        return {"errors": [str(e)], "valid": False}
 
+    token_manager = context.factory.create_token_manager()
+    token_data = await token_manager.get_data(token)
+    if not token_data:
+        return {
+            "data": {"token": {"key": token.key, "secret": token.secret}},
+            "errors": ["Invalid token"],
+            "valid": False,
+        }
 
-async def analyze_handle(
-    context: RequestContext, handle: SessionHandle
-) -> Dict[str, Any]:
-    """Analyze a session handle and return its expanded information.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.dependencies.context.RequestContext`
-        The request context.
-    handle : `gafaelfawr.session.SessionHandle`
-        The session handle to analyze.
-
-    Returns
-    -------
-    output : Dict[`str`, Any]
-        The contents of the session handle and its underlying session.
-        This will include the session key and secret, the session it
-        references, and the token that session contains.
-    """
-    output: Dict[str, Any] = {
-        "handle": {"key": handle.key, "secret": handle.secret}
+    context.logger.info("Analyzed user-provided token")
+    return {
+        "data": token_data.dict(),
+        "valid": True,
     }
-
-    session_store = context.factory.create_session_store()
-    session = await session_store.get_session(handle)
-    if not session:
-        output["errors"] = [f"No session found for {handle.encode()}"]
-        return output
-
-    created_at = session.created_at.strftime("%Y-%m-%d %H:%M:%S -0000")
-    expires_on = session.expires_on.strftime("%Y-%m-%d %H:%M:%S -0000")
-    output["session"] = {
-        "email": session.email,
-        "created_at": created_at,
-        "expires_on": expires_on,
-    }
-
-    verifier = context.factory.create_token_verifier()
-    output["token"] = verifier.analyze_token(session.token)
-
-    return output

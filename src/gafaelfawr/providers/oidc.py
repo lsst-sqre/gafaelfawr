@@ -8,17 +8,15 @@ from urllib.parse import urlencode
 import jwt
 
 from gafaelfawr.exceptions import OIDCException, VerifyTokenException
+from gafaelfawr.models.oidc import OIDCToken
+from gafaelfawr.models.token import TokenGroup, TokenUserInfo
 from gafaelfawr.providers.base import Provider
-from gafaelfawr.session import Session, SessionHandle
-from gafaelfawr.tokens import Token
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
     from structlog import BoundLogger
 
     from gafaelfawr.config import OIDCConfig
-    from gafaelfawr.issuer import TokenIssuer
-    from gafaelfawr.storage.session import SessionStore
     from gafaelfawr.verify import TokenVerifier
 
 __all__ = ["OIDCProvider"]
@@ -33,10 +31,6 @@ class OIDCProvider(Provider):
         Configuration for the OpenID Connect authentication provider.
     verifier : `gafaelfawr.verify.TokenVerifier`
         Token verifier to use to verify the token returned by the provider.
-    issuer : `gafaelfawr.issuer.TokenIssuer`
-        Issuer to use to generate new tokens.
-    session_store : `gafaelfawr.storage.session.SessionStore`
-        Store for authentication sessions.
     http_client : `httpx.AsyncClient`
         Session to use to make HTTP requests.
     logger : `structlog.BoundLogger`
@@ -48,16 +42,12 @@ class OIDCProvider(Provider):
         *,
         config: OIDCConfig,
         verifier: TokenVerifier,
-        issuer: TokenIssuer,
-        session_store: SessionStore,
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._verifier = verifier
         self._http_client = http_client
-        self._issuer = issuer
-        self._session_store = session_store
         self._logger = logger
 
     def get_redirect_url(self, state: str) -> str:
@@ -88,7 +78,7 @@ class OIDCProvider(Provider):
         )
         return f"{self._config.login_url}?{urlencode(params)}"
 
-    async def create_session(self, code: str, state: str) -> Session:
+    async def create_user_info(self, code: str, state: str) -> TokenUserInfo:
         """Given the code from a successful authentication, get a token.
 
         Parameters
@@ -100,8 +90,8 @@ class OIDCProvider(Provider):
 
         Returns
         -------
-        session : `gafaelfawr.session.Session`
-            The new authentication session.
+        user_info : `gafaelfawr.models.token.TokenUserInfo`
+            The user information corresponding to that authentication.
 
         Raises
         ------
@@ -149,16 +139,21 @@ class OIDCProvider(Provider):
             raise OIDCException(msg)
 
         # Extract and verify the token.
-        unverified_token = Token(encoded=result["id_token"])
+        unverified_token = OIDCToken(encoded=result["id_token"])
         try:
             token = await self._verifier.verify_oidc_token(unverified_token)
         except (jwt.InvalidTokenError, VerifyTokenException) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCException(msg)
 
-        # Store it as a session and return the session.
-        handle = SessionHandle()
-        token = self._issuer.reissue_token(token, jti=handle.key)
-        session = Session.create(handle, token)
-        await self._session_store.store_session(session)
-        return session
+        # Extract information from it to create the user information.
+        groups = [
+            TokenGroup(name=g["name"], id=g["id"])
+            for g in token.claims.get("isMemberOf", [])
+        ]
+        return TokenUserInfo(
+            username=token.username,
+            name=token.claims.get("name"),
+            uid=token.uid,
+            groups=groups,
+        )
