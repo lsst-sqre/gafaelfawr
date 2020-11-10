@@ -234,7 +234,7 @@ class TokenData(TokenBase, TokenUserInfo):
 class NewToken(BaseModel):
     """Response to a token creation request."""
 
-    token: str = Field(..., title="The newly-created token")
+    token: str = Field(..., title="Newly-created token")
 
 
 class UserTokenRequest(BaseModel):
