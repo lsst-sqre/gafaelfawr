@@ -32,9 +32,7 @@ after_logout_url: "http://localhost:8000"
 issuer:
   iss: "http://localhost:8000"
   key_id: "localhost-key-id"
-  aud:
-    default: "http://localhost"
-    internal: "http://localhost/internal"
+  aud: "http://localhost"
   key_file: "examples/secrets/issuer-key"
   exp_minutes: 1440  # 1 day
 

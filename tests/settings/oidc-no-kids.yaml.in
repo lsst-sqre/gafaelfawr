@@ -16,9 +16,7 @@ issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"
   key_file: "{issuer_key_file}"
-  aud:
-    default: "https://example.com/"
-    internal: "https://example.com/api"
+  aud: "https://example.com/"
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"

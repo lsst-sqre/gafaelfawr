@@ -83,13 +83,12 @@ class TokenVerifier:
         gafaelfawr.exceptions.MissingClaimsException
             The token is missing required claims.
         """
-        audience = [self._config.aud, self._config.aud_internal]
         try:
             payload = jwt.decode(
                 token.encoded,
                 self._config.keypair.public_key_as_pem(),
                 algorithms=ALGORITHM,
-                audience=audience,
+                audience=self._config.aud,
             )
         except jwt.InvalidTokenError as e:
             raise InvalidTokenError(str(e))

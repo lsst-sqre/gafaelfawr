@@ -45,9 +45,7 @@ after_logout_url: "https://example.com/"
 issuer:
   iss: "https://example.com"
   key_id: "example-key-id"
-  aud:
-    default: "https://example.com"
-    internal: "https://example.com/internal"
+  aud: "https://example.com"
   key_file: "/path/to/issuer-key"
   exp_minutes: 1440  # 1 day
 

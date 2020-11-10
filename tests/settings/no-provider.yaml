@@ -18,6 +18,4 @@ issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"
   key_file: "/dummy"
-  aud:
-    default: "https://example.com/"
-    internal: "https://example.com/api"
+  aud: "https://example.com/"

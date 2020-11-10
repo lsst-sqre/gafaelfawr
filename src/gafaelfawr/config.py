@@ -26,7 +26,6 @@ __all__ = [
     "Config",
     "GitHubConfig",
     "GitHubSettings",
-    "IssuerAudienceSettings",
     "IssuerConfig",
     "IssuerSettings",
     "OIDCConfig",
@@ -39,16 +38,6 @@ __all__ = [
 ]
 
 
-class IssuerAudienceSettings(BaseModel):
-    """pydantic model of issuer audience configuration."""
-
-    default: str
-    """Default aud (audience) field in issued tokens."""
-
-    internal: str
-    """Internal aud (audience) field in issued tokens."""
-
-
 class IssuerSettings(BaseModel):
     """pydantic model of issuer configuration."""
 
@@ -58,8 +47,8 @@ class IssuerSettings(BaseModel):
     key_id: str
     """kid (key ID) header field in issued tokens."""
 
-    aud: IssuerAudienceSettings
-    """aud (audience) possibilities for issued tokens."""
+    aud: str
+    """aud (audience) field in issued tokens."""
 
     key_file: str
     """File containing RSA private key for signing issued tokens."""
@@ -275,10 +264,7 @@ class IssuerConfig:
     """kid (key ID) header field in issued tokens."""
 
     aud: str
-    """Default aud (audience) field in issued tokens."""
-
-    aud_internal: str
-    """Internal aud (audience) field in issued tokens."""
+    """aud (audience) field in issued tokens."""
 
     keypair: RSAKeyPair
     """RSA key pair for signing and verifying issued tokens."""
@@ -310,10 +296,7 @@ class VerifierConfig:
     """iss (issuer) field in issued tokens."""
 
     aud: str
-    """Default aud (audience) field in issued tokens."""
-
-    aud_internal: str
-    """Internal aud (audience) field in issued tokens."""
+    """aud (audience) field in issued tokens."""
 
     keypair: RSAKeyPair
     """RSA key pair for signing and verifying issued tokens."""
@@ -558,8 +541,7 @@ class Config:
         issuer_config = IssuerConfig(
             iss=settings.issuer.iss,
             kid=settings.issuer.key_id,
-            aud=settings.issuer.aud.default,
-            aud_internal=settings.issuer.aud.internal,
+            aud=settings.issuer.aud,
             keypair=keypair,
             exp_minutes=settings.issuer.exp_minutes,
             group_mapping=group_mapping_frozen,
@@ -570,8 +552,7 @@ class Config:
         )
         verifier_config = VerifierConfig(
             iss=settings.issuer.iss,
-            aud=settings.issuer.aud.default,
-            aud_internal=settings.issuer.aud.internal,
+            aud=settings.issuer.aud,
             keypair=keypair,
             username_claim=settings.username_claim,
             uid_claim=settings.uid_claim,
