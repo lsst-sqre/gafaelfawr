@@ -16,10 +16,10 @@ if TYPE_CHECKING:
     from gafaelfawr.storage.history import AdminHistoryStore
     from gafaelfawr.storage.transaction import TransactionManager
 
-__all__ = ["AdminManager"]
+__all__ = ["AdminService"]
 
 
-class AdminManager:
+class AdminService:
     """Manage the token administrators.
 
     Parameters

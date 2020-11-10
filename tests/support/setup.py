@@ -190,9 +190,9 @@ class SetupTest:
         user_info = TokenUserInfo(
             username=username, name="Some User", uid=1000, groups=groups
         )
-        token_manager = self.factory.create_token_manager()
-        token = await token_manager.create_session_token(user_info, scopes)
-        data = await token_manager.get_data(token)
+        token_service = self.factory.create_token_service()
+        token = await token_service.create_session_token(user_info, scopes)
+        data = await token_service.get_data(token)
         assert data
         return data
 

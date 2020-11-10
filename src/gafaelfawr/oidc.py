@@ -18,9 +18,9 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import OIDCServerConfig
     from gafaelfawr.issuer import TokenIssuer
-    from gafaelfawr.manager.token import TokenManager
     from gafaelfawr.models.oidc import OIDCVerifiedToken
     from gafaelfawr.models.token import Token
+    from gafaelfawr.services.token import TokenService
     from gafaelfawr.storage.oidc import (
         OIDCAuthorizationCode,
         OIDCAuthorizationStore,
@@ -69,13 +69,13 @@ class OIDCServer:
         config: OIDCServerConfig,
         authorization_store: OIDCAuthorizationStore,
         issuer: TokenIssuer,
-        token_manager: TokenManager,
+        token_service: TokenService,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._authorization_store = authorization_store
         self._issuer = issuer
-        self._token_manager = token_manager
+        self._token_service = token_service
         self._logger = logger
 
     def is_valid_client(self, client_id: str) -> bool:
@@ -171,7 +171,7 @@ class OIDCServer:
             )
             raise InvalidGrantError(msg)
 
-        user_info = await self._token_manager.get_user_info(
+        user_info = await self._token_service.get_user_info(
             authorization.token
         )
         if not user_info:

@@ -1,4 +1,4 @@
-"""Tests for the token manager class."""
+"""Tests for the token service class."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_session_token(setup: SetupTest) -> None:
-    token_manager = setup.factory.create_token_manager()
+    token_service = setup.factory.create_token_service()
     userinfo = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -35,8 +35,8 @@ async def test_session_token(setup: SetupTest) -> None:
         ],
     )
 
-    token = await token_manager.create_session_token(userinfo)
-    data = await token_manager.get_data(token)
+    token = await token_service.create_session_token(userinfo)
+    data = await token_service.get_data(token)
     assert data
     assert data == TokenData(
         token=token,
@@ -57,7 +57,7 @@ async def test_session_token(setup: SetupTest) -> None:
     expires = data.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert data.expires == expires
 
-    assert token_manager.get_info(token.key) == TokenInfo(
+    assert token_service.get_info(token.key) == TokenInfo(
         token=token.key,
         username=userinfo.username,
         token_name=None,
@@ -68,16 +68,16 @@ async def test_session_token(setup: SetupTest) -> None:
         expires=int(data.expires.timestamp()),
         parent=None,
     )
-    assert await token_manager.get_user_info(token) == userinfo
+    assert await token_service.get_user_info(token) == userinfo
 
     # Test a session token with scopes.
-    token = await token_manager.create_session_token(
+    token = await token_service.create_session_token(
         userinfo, scopes=["read:all", "exec:admin"]
     )
-    data = await token_manager.get_data(token)
+    data = await token_service.get_data(token)
     assert data
     assert data.scopes == ["exec:admin", "read:all"]
-    info = token_manager.get_info(token.key)
+    info = token_service.get_info(token.key)
     assert info
     assert info.scopes == ["exec:admin", "read:all"]
 
@@ -87,23 +87,23 @@ async def test_user_token(setup: SetupTest) -> None:
     userinfo = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
-    token_manager = setup.factory.create_token_manager()
-    session_token = await token_manager.create_session_token(userinfo)
-    data = await token_manager.get_data(session_token)
+    token_service = setup.factory.create_token_service()
+    session_token = await token_service.create_session_token(userinfo)
+    data = await token_service.get_data(session_token)
     assert data
     now = datetime.now(tz=timezone.utc).replace(microsecond=0)
     expires = now + timedelta(days=2)
 
     # Scopes are provided not in sorted order to ensure they're sorted when
     # creating the token.
-    user_token = await token_manager.create_user_token(
+    user_token = await token_service.create_user_token(
         data,
         token_name="some-token",
         scopes=["read:all", "exec:admin"],
         expires=expires,
     )
-    assert await token_manager.get_user_info(user_token) == userinfo
-    info = token_manager.get_info(user_token.key)
+    assert await token_service.get_user_info(user_token) == userinfo
+    info = token_service.get_info(user_token.key)
     assert info
     assert info == TokenInfo(
         token=user_token.key,
@@ -117,7 +117,7 @@ async def test_user_token(setup: SetupTest) -> None:
         parent=None,
     )
     assert now - timedelta(seconds=2) <= info.created <= now
-    assert await token_manager.get_data(user_token) == TokenData(
+    assert await token_service.get_data(user_token) == TokenData(
         token=user_token,
         username=userinfo.username,
         token_type=TokenType.user,
@@ -134,19 +134,19 @@ async def test_list(setup: SetupTest) -> None:
     userinfo = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
-    token_manager = setup.factory.create_token_manager()
-    session_token = await token_manager.create_session_token(userinfo)
-    data = await token_manager.get_data(session_token)
+    token_service = setup.factory.create_token_service()
+    session_token = await token_service.create_session_token(userinfo)
+    data = await token_service.get_data(session_token)
     assert data
-    user_token = await token_manager.create_user_token(
+    user_token = await token_service.create_user_token(
         data, token_name="some-token"
     )
 
-    session_info = token_manager.get_info(session_token.key)
+    session_info = token_service.get_info(session_token.key)
     assert session_info
-    user_info = token_manager.get_info(user_token.key)
+    user_info = token_service.get_info(user_token.key)
     assert user_info
-    assert token_manager.list_tokens(data, "example") == sorted(
+    assert token_service.list_tokens(data, "example") == sorted(
         (session_info, user_info), key=lambda t: t.token
     )
 
@@ -156,21 +156,21 @@ async def test_modify(setup: SetupTest) -> None:
     userinfo = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
-    token_manager = setup.factory.create_token_manager()
-    session_token = await token_manager.create_session_token(userinfo)
-    data = await token_manager.get_data(session_token)
+    token_service = setup.factory.create_token_service()
+    session_token = await token_service.create_session_token(userinfo)
+    data = await token_service.get_data(session_token)
     assert data
-    user_token = await token_manager.create_user_token(
+    user_token = await token_service.create_user_token(
         data, token_name="some-token"
     )
 
     now = datetime.now(tz=timezone.utc).replace(microsecond=0)
     expires = now + timedelta(days=50)
-    token_manager.modify_token(user_token.key, data, token_name="happy token")
-    token_manager.modify_token(
+    token_service.modify_token(user_token.key, data, token_name="happy token")
+    token_service.modify_token(
         user_token.key, data, scopes=["read:all"], expires=expires
     )
-    info = token_manager.get_info(user_token.key)
+    info = token_service.get_info(user_token.key)
     assert info
     assert info == TokenInfo(
         token=user_token.key,
@@ -190,41 +190,41 @@ async def test_delete(setup: SetupTest) -> None:
     userinfo = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
-    token_manager = setup.factory.create_token_manager()
-    session_token = await token_manager.create_session_token(userinfo)
-    data = await token_manager.get_data(session_token)
+    token_service = setup.factory.create_token_service()
+    session_token = await token_service.create_session_token(userinfo)
+    data = await token_service.get_data(session_token)
     assert data
-    token = await token_manager.create_user_token(
+    token = await token_service.create_user_token(
         data, token_name="some token"
     )
 
-    assert await token_manager.delete_token(token.key, data)
+    assert await token_service.delete_token(token.key, data)
 
-    assert await token_manager.get_data(token) is None
-    assert token_manager.get_info(token.key) is None
-    assert await token_manager.get_user_info(token) is None
+    assert await token_service.get_data(token) is None
+    assert token_service.get_info(token.key) is None
+    assert await token_service.get_user_info(token) is None
 
-    assert not await token_manager.delete_token(token.key, data)
+    assert not await token_service.delete_token(token.key, data)
 
 
 @pytest.mark.asyncio
 async def test_invalid(setup: SetupTest) -> None:
-    token_manager = setup.factory.create_token_manager()
+    token_service = setup.factory.create_token_service()
     expires = timedelta(days=1).total_seconds()
 
     # No such key.
     token = Token()
-    assert await token_manager.get_data(token) is None
+    assert await token_service.get_data(token) is None
 
     # Invalid encrypted blob.
     await setup.redis.set(f"token:{token.key}", "foo", expire=expires)
-    assert await token_manager.get_data(token) is None
+    assert await token_service.get_data(token) is None
 
     # Malformed session.
     fernet = Fernet(setup.config.session_secret.encode())
     raw_data = fernet.encrypt(b"malformed json")
     await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
-    assert await token_manager.get_data(token) is None
+    assert await token_service.get_data(token) is None
 
     # Mismatched token.
     data = TokenData(
@@ -238,7 +238,7 @@ async def test_invalid(setup: SetupTest) -> None:
     )
     session = fernet.encrypt(data.json().encode())
     await setup.redis.set(f"token:{token.key}", session, expire=expires)
-    assert await token_manager.get_data(token) is None
+    assert await token_service.get_data(token) is None
 
     # Missing required fields.
     json_data = {
@@ -254,12 +254,12 @@ async def test_invalid(setup: SetupTest) -> None:
     }
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
     await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
-    assert await token_manager.get_data(token) is None
+    assert await token_service.get_data(token) is None
 
     # Fix the session store and confirm we can retrieve the manually-stored
     # session.
     json_data["uid"] = 12345
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
     await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
-    new_data = await token_manager.get_data(token)
+    new_data = await token_service.get_data(token)
     assert new_data == TokenData.parse_obj(json_data)

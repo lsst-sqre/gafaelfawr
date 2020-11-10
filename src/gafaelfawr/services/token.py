@@ -16,10 +16,10 @@ if TYPE_CHECKING:
     from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
     from gafaelfawr.storage.transaction import TransactionManager
 
-__all__ = ["TokenManager"]
+__all__ = ["TokenService"]
 
 
-class TokenManager:
+class TokenService:
     """Manage tokens.
 
     Parameters

@@ -9,12 +9,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from gafaelfawr.issuer import TokenIssuer
-from gafaelfawr.manager.admin import AdminManager
-from gafaelfawr.manager.token import TokenManager
 from gafaelfawr.models.token import TokenData
 from gafaelfawr.oidc import OIDCServer
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
+from gafaelfawr.services.admin import AdminService
+from gafaelfawr.services.token import TokenService
 from gafaelfawr.storage.admin import AdminStore
 from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.history import AdminHistoryStore
@@ -72,18 +72,18 @@ class ComponentFactory:
         self._logger = logger
         self._session = session
 
-    def create_admin_manager(self) -> AdminManager:
+    def create_admin_service(self) -> AdminService:
         """Create a new manager object for token administrators.
 
         Returns
         -------
-        admin_manager : `gafelfawr.manager.admin.AdminManager`
+        admin_service : `gafelfawr.manager.admin.AdminService`
             The new token administrator manager.
         """
         admin_store = AdminStore(self._session)
         admin_history_store = AdminHistoryStore(self._session)
         transaction_manager = TransactionManager(self._session)
-        return AdminManager(
+        return AdminService(
             admin_store, admin_history_store, transaction_manager
         )
 
@@ -100,12 +100,12 @@ class ComponentFactory:
         storage = RedisStorage(OIDCAuthorization, key, self._redis)
         authorization_store = OIDCAuthorizationStore(storage)
         issuer = self.create_token_issuer()
-        token_manager = self.create_token_manager()
+        token_service = self.create_token_service()
         return OIDCServer(
             config=self._config.oidc_server,
             authorization_store=authorization_store,
             issuer=issuer,
-            token_manager=token_manager,
+            token_service=token_service,
             logger=self._logger,
         )
 
@@ -154,12 +154,12 @@ class ComponentFactory:
         """
         return TokenIssuer(self._config.issuer)
 
-    def create_token_manager(self) -> TokenManager:
-        """Create a TokenManager.
+    def create_token_service(self) -> TokenService:
+        """Create a TokenService.
 
         Returns
         -------
-        token_manager : `gafaelfawr.manager.token.TokenManager`
+        token_service : `gafaelfawr.services.token.TokenService`
             The new token manager.
         """
         token_db_store = TokenDatabaseStore(self._session)
@@ -167,7 +167,7 @@ class ComponentFactory:
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
         transaction_manager = TransactionManager(self._session)
-        return TokenManager(
+        return TokenService(
             self._config,
             token_db_store,
             token_redis_store,

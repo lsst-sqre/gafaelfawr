@@ -46,8 +46,8 @@ router = APIRouter()
 def get_admins(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Admin]:
-    admin_manager = context.factory.create_admin_manager()
-    return admin_manager.get_admins()
+    admin_service = context.factory.create_admin_service()
+    return admin_service.get_admins()
 
 
 @router.get(
@@ -75,8 +75,8 @@ async def get_token_info(
     auth_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
-    token_manager = context.factory.create_token_manager()
-    info = token_manager.get_info(auth_data.token.key)
+    token_service = context.factory.create_token_service()
+    info = token_service.get_info(auth_data.token.key)
     if not info:
         msg = "Token found in Redis but not database"
         context.logger.warning(msg)
@@ -105,8 +105,8 @@ async def get_tokens(
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> List[TokenInfo]:
-    token_manager = context.factory.create_token_manager()
-    return token_manager.list_tokens(auth_data)
+    token_service = context.factory.create_token_service()
+    return token_service.list_tokens(auth_data)
 
 
 @router.post(
@@ -121,9 +121,9 @@ async def post_tokens(
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
-    token_manager = context.factory.create_token_manager()
+    token_service = context.factory.create_token_service()
     token_params = token_request.dict(exclude_unset=True)
-    token = await token_manager.create_user_token(auth_data, **token_params)
+    token = await token_service.create_user_token(auth_data, **token_params)
     token_url = f"/auth/api/v1/users/{username}/tokens/{token.key}"
     response.headers["Location"] = token_url
     return NewToken(token=str(token))
@@ -143,8 +143,8 @@ async def get_token(
     if username != auth_data.username:
         msg = f"{auth_data.username} cannot list tokens for {username}"
         raise PermissionDeniedError(msg)
-    token_manager = context.factory.create_token_manager()
-    info = token_manager.get_info(key)
+    token_service = context.factory.create_token_service()
+    info = token_service.get_info(key)
     if not info or info.username != username:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -168,10 +168,10 @@ async def delete_token(
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
-    token_manager = context.factory.create_token_manager()
-    info = token_manager.get_info(key)
+    token_service = context.factory.create_token_service()
+    info = token_service.get_info(key)
     if info and info.username == username:
-        success = await token_manager.delete_token(key, auth_data)
+        success = await token_service.delete_token(key, auth_data)
     else:
         success = False
     if not success:
@@ -199,8 +199,8 @@ async def patch_token(
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
-    token_manager = context.factory.create_token_manager()
-    info = token_manager.get_info(key)
+    token_service = context.factory.create_token_service()
+    info = token_service.get_info(key)
     if not info or info.username != username:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -211,7 +211,7 @@ async def patch_token(
             },
         )
     update = token_request.dict(exclude_unset=True)
-    info = token_manager.modify_token(key, auth_data, **update)
+    info = token_service.modify_token(key, auth_data, **update)
     if not info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

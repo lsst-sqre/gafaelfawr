@@ -60,8 +60,8 @@ async def post_analyze(
     except InvalidTokenError as e:
         return {"errors": [str(e)], "valid": False}
 
-    token_manager = context.factory.create_token_manager()
-    token_data = await token_manager.get_data(token)
+    token_service = context.factory.create_token_service()
+    token_data = await token_service.get_data(token)
     if not token_data:
         return {
             "data": {"token": {"key": token.key, "secret": token.secret}},

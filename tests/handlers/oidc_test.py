@@ -473,8 +473,8 @@ async def test_token_errors(
     }
 
     # Delete the underlying token.
-    token_manager = setup.factory.create_token_manager()
-    await token_manager.delete_token(token.key, token_data)
+    token_service = setup.factory.create_token_service()
+    await token_service.delete_token(token.key, token_data)
     request["redirect_uri"] = redirect_uri
     r = await setup.client.post("/auth/openid/token", data=request)
     assert r.status_code == 400

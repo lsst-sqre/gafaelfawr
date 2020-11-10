@@ -34,8 +34,8 @@ async def test_admins(setup: SetupTest) -> None:
     assert r.status_code == 200
     assert r.json() == [{"username": "admin"}]
 
-    admin_manager = setup.factory.create_admin_manager()
-    admin_manager.add_admin("example", actor="admin", ip_address="127.0.0.1")
+    admin_service = setup.factory.create_admin_service()
+    admin_service.add_admin("example", actor="admin", ip_address="127.0.0.1")
 
     r = await setup.client.get(
         "/auth/api/v1/admins",

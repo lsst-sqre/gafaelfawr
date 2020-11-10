@@ -191,10 +191,9 @@ async def handle_provider_return(
 
     # Construct a token.
     scopes = get_scopes_from_groups(context.config, user_info.groups)
-    token_manager = context.factory.create_token_manager()
-    context.state.token = await token_manager.create_session_token(
-        user_info, scopes=scopes
-    )
+    token_service = context.factory.create_token_service()
+    token = await token_service.create_session_token(user_info, scopes=scopes)
+    context.state.token = token
 
     # Successful login, so clear the login state and send the user back to
     # what they were doing.
@@ -205,7 +204,7 @@ async def handle_provider_return(
         user_info.username,
         user_info.uid,
         user=user_info.username,
-        token=context.state.token.key,
+        token=token.key,
         scope=" ".join(scopes),
     )
     return RedirectResponse(return_url)

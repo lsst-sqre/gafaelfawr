@@ -58,8 +58,8 @@ async def _authenticate_helper(
     if not token:
         raise generate_unauthorized_challenge(context, auth_type)
 
-    token_manager = context.factory.create_token_manager()
-    data = await token_manager.get_data(token)
+    token_service = context.factory.create_token_service()
+    data = await token_service.get_data(token)
     if not data:
         exc = InvalidTokenError("Token is not valid")
         raise generate_challenge(context, auth_type, exc)
@@ -133,8 +133,8 @@ async def authenticate_session(
     """
     data = None
     if context.state.token:
-        token_manager = context.factory.create_token_manager()
-        data = await token_manager.get_data(context.state.token)
+        token_service = context.factory.create_token_service()
+        data = await token_service.get_data(context.state.token)
 
     # If there is no active session, redirect to /login.
     if not data:
@@ -171,7 +171,7 @@ async def require_admin(
     gafaelfawr.exceptions.PermissionDeniedError
         If the request is not from an administrator.
     """
-    admin_manager = context.factory.create_admin_manager()
-    if not admin_manager.is_admin(token_data.username):
+    admin_service = context.factory.create_admin_service()
+    if not admin_service.is_admin(token_data.username):
         raise PermissionDeniedError(f"{token_data.username} is not an admin")
     return token_data.username
