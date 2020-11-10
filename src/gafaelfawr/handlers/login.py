@@ -83,7 +83,7 @@ async def redirect_to_provider(
                 "msg": "No return URL given",
             },
         )
-    context.request.state.cookie.return_url = return_url
+    context.state.return_url = return_url
 
     # Reuse the existing state if one already exists in the session cookie.
     #
@@ -110,10 +110,10 @@ async def redirect_to_provider(
     # cookies, and only one of them will win.  However, that race condition
     # window is much smaller and is unlikely to persist across authentication
     # requests.
-    state = context.request.state.cookie.state
+    state = context.state.state
     if not state:
         state = base64.urlsafe_b64encode(os.urandom(16)).decode()
-        context.request.state.cookie.state = state
+        context.state.state = state
 
     # Get the authentication provider URL send the user there.
     auth_provider = context.factory.create_provider()
@@ -135,7 +135,8 @@ async def handle_provider_return(
         The authentication code from the provider.
     state : `str`, optional
         The opaque state used to verify that this user initiated the
-        authentication.
+        authentication.  This can be `None`, but that will always be an
+        error.
     context : `gafaelfawr.dependencies.config.RequestContext`
         The context of the incoming request.
 
@@ -151,20 +152,36 @@ async def handle_provider_return(
         The authentication request is invalid or retrieving authentication
         information from the provider failed.
     """
-    cookie = context.request.state.cookie
+    if not state:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "loc": ["query", "state"],
+                "type": "state_mismatch",
+                "msg": "No authentication state",
+            },
+        )
 
     # Extract details from the reply, check state, and get the return URL.
-    if state != cookie.state:
+    if state != context.state.state:
         msg = "Authentication state mismatch"
         context.logger.warning("Authentication failed", error=msg)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
+                "loc": ["query", "state"],
                 "msg": "Authentication state mismatch",
                 "type": "state_mismatch",
             },
         )
-    return_url = cookie.return_url
+    return_url = context.state.return_url
+    if not return_url:
+        msg = "Invalid authentication state: return_url not present in cookie"
+        context.logger.error("Authentication failed", error=msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"msg": msg, "type": "return_url_not_set"},
+        )
     context.rebind_logger(return_url=return_url)
 
     # Retrieve the user identity and authorization information based on the
