@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 
 from gafaelfawr.exceptions import InvalidTokenError
-from gafaelfawr.storage.base import Serializable
 from gafaelfawr.util import normalize_datetime, random_128_bits
 
 __all__ = ["TokenType"]
@@ -217,7 +216,7 @@ class TokenUserInfo(BaseModel):
     )
 
 
-class TokenData(TokenBase, TokenUserInfo, Serializable):
+class TokenData(TokenBase, TokenUserInfo):
     """Data about a token stored in Redis.
 
     This holds all the token information stored in Redis, and thus all the
@@ -230,23 +229,6 @@ class TokenData(TokenBase, TokenUserInfo, Serializable):
 
     class Config:
         json_encoders = {datetime: lambda v: int(v.timestamp())}
-
-    @classmethod
-    def from_json(cls, data: str) -> TokenData:
-        """Deserialize from JSON."""
-        return cls.parse_raw(data)
-
-    @property
-    def lifetime(self) -> Optional[int]:
-        """The object lifetime in seconds."""
-        if not self.expires:
-            return None
-        now = datetime.now(timezone.utc)
-        return int((self.expires - now).total_seconds())
-
-    def to_json(self) -> str:
-        """Serialize to JSON."""
-        return self.json(exclude_none=True)
 
 
 class NewToken(BaseModel):

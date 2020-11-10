@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from gafaelfawr.constants import OIDC_AUTHORIZATION_LIFETIME
 from gafaelfawr.exceptions import DeserializeException
 from gafaelfawr.models.oidc import OIDCAuthorization
 
@@ -51,8 +52,11 @@ class OIDCAuthorizationStore:
         authorization = OIDCAuthorization(
             client_id=client_id, redirect_uri=redirect_uri, token=token
         )
-        key = f"oidc:{authorization.code.key}"
-        await self._storage.store(key, authorization)
+        await self._storage.store(
+            f"oidc:{authorization.code.key}",
+            authorization,
+            OIDC_AUTHORIZATION_LIFETIME,
+        )
         return authorization.code
 
     async def delete(self, code: OIDCAuthorizationCode) -> None:

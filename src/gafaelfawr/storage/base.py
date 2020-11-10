@@ -1,13 +1,13 @@
 """Base persistant storage classes.
 
-This module provides the lowest-level storage layer of Gafaelfawr.  Should
-Gafaelfawr need to be ported to a storage system other than Redis, the goal is
-to keep the required changes largely or entirely confined to this file.
+This module provides the lowest-level storage layer of Gafaelfawr for the
+key/value store.  Should Gafaelfawr need to be ported to a storage system
+other than Redis, the goal is to keep the required changes largely or entirely
+confined to this file.
 """
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -18,53 +18,11 @@ if TYPE_CHECKING:
     from typing import Optional, Type
 
     from aioredis import Redis
+    from pydantic import BaseModel  # noqa: F401
 
-S = TypeVar("S", bound="Serializable")
+S = TypeVar("S", bound="BaseModel")
 
-__all__ = ["RedisStorage", "Serializable"]
-
-
-class Serializable(ABC):
-    """Represents a data element that can be stored in Redis."""
-
-    @classmethod
-    @abstractmethod
-    def from_json(cls: Type[S], data: str) -> S:
-        """Deserialize from JSON.
-
-        Parameters
-        ----------
-        data : `str`
-            JSON-serialized representation.
-
-        Returns
-        -------
-        obj : `gafaelfawr.storage.base.Serializable`
-            The deserialized object.
-        """
-
-    @property
-    @abstractmethod
-    def lifetime(self) -> Optional[int]:
-        """The object lifetime in seconds.
-
-        Returns
-        -------
-        lifetime : `int` or `None`
-            The object lifetime in seconds.  The object should expire from the
-            data store after that many seconds after the current time.
-            Returns `None` if the object should not expire.
-        """
-
-    @abstractmethod
-    def to_json(self) -> str:
-        """Serialize to JSON.
-
-        Returns
-        -------
-        data : `str`
-            The object in JSON-serialized form.
-        """
+__all__ = ["RedisStorage"]
 
 
 class RedisStorage(Generic[S]):
@@ -127,12 +85,12 @@ class RedisStorage(Generic[S]):
 
         # Deserialize the data.
         try:
-            return self._content.from_json(data.decode())
+            return self._content.parse_raw(data.decode())
         except Exception as e:
             msg = f"Cannot deserialize data for {key}: {str(e)}"
             raise DeserializeException(msg)
 
-    async def store(self, key: str, obj: S) -> None:
+    async def store(self, key: str, obj: S, lifetime: Optional[int]) -> None:
         """Store an object.
 
         Parameters
@@ -141,6 +99,10 @@ class RedisStorage(Generic[S]):
             The key for the object.
         obj : `Serializable`
             The object to store.
+        lifetime : `int` or `None`
+            The object lifetime in seconds.  The object should expire from the
+            data store after that many seconds after the current time.
+            Returns `None` if the object should not expire.
         """
-        encrypted_data = self._fernet.encrypt(obj.to_json().encode())
-        await self._redis.set(key, encrypted_data, expire=obj.lifetime)
+        encrypted_data = self._fernet.encrypt(obj.json().encode())
+        await self._redis.set(key, encrypted_data, expire=lifetime)

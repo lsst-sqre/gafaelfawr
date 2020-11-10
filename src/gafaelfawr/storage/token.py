@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from gafaelfawr.exceptions import DeserializeException
@@ -9,7 +10,6 @@ from gafaelfawr.models.token import TokenInfo
 from gafaelfawr.schema.token import Token as SQLToken
 
 if TYPE_CHECKING:
-    from datetime import datetime
     from typing import List, Optional
 
     from sqlalchemy.orm import Session
@@ -235,4 +235,8 @@ class TokenRedisStore:
         data : `gafaelfawr.models.token.TokenData`
             The data underlying that token.
         """
-        await self._storage.store(f"token:{data.token.key}", data)
+        lifetime = None
+        if data.expires:
+            now = datetime.now(tz=timezone.utc)
+            lifetime = int((data.expires - now).total_seconds())
+        await self._storage.store(f"token:{data.token.key}", data, lifetime)

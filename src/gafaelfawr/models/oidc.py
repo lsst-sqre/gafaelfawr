@@ -7,10 +7,8 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, validator
 
-from gafaelfawr.constants import OIDC_AUTHORIZATION_LIFETIME
 from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.models.token import Token
-from gafaelfawr.storage.base import Serializable
 from gafaelfawr.util import normalize_datetime, random_128_bits
 
 __all__ = [
@@ -68,7 +66,7 @@ class OIDCAuthorizationCode(BaseModel):
         return f"gc-{self.key}.{self.secret}"
 
 
-class OIDCAuthorization(BaseModel, Serializable):
+class OIDCAuthorization(BaseModel):
     """Represents an authorization for an OpenID Connect client.
 
     This is the object created during login and stored in Redis.  The returned
@@ -115,21 +113,9 @@ class OIDCAuthorization(BaseModel, Serializable):
         "created_at", allow_reuse=True, pre=True
     )(normalize_datetime)
 
-    @classmethod
-    def from_json(cls, data: str) -> OIDCAuthorization:
-        """Deserialize from JSON."""
-        return cls.parse_raw(data)
-
     @property
     def lifetime(self) -> int:
         """The object lifetime in seconds."""
-        now = datetime.now(timezone.utc)
-        age = int((now - self.created_at).total_seconds())
-        return OIDC_AUTHORIZATION_LIFETIME - age
-
-    def to_json(self) -> str:
-        """Serialize to JSON."""
-        return self.json()
 
 
 class OIDCToken(BaseModel):
