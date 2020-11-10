@@ -64,8 +64,6 @@ API reference
 
 .. automodapi:: gafaelfawr.models.state
 
-.. automodapi:: gafaelfawr.oidc
-
 .. automodapi:: gafaelfawr.providers.base
 
 .. automodapi:: gafaelfawr.providers.github

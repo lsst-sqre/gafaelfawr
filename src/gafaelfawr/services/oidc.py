@@ -26,10 +26,10 @@ if TYPE_CHECKING:
         OIDCAuthorizationStore,
     )
 
-__all__ = ["OIDCServer"]
+__all__ = ["OIDCService"]
 
 
-class OIDCServer:
+class OIDCService:
     """Minimalist OpenID Connect identity provider.
 
     This provides just enough of the OpenID Connect protocol to satisfy

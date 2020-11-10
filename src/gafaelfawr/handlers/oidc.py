@@ -49,11 +49,11 @@ async def get_login(
     Authenticates the user and then returns an authorization code to the
     OpenID Connect client via redirect.
     """
-    oidc_server = context.factory.create_oidc_server()
+    oidc_service = context.factory.create_oidc_service()
 
     # Check the client_id first, since if it's not valid, we cannot continue
     # or send any errors back to the client via redirect.
-    if not oidc_server.is_valid_client(client_id):
+    if not oidc_service.is_valid_client(client_id):
         msg = f"Unknown client_id {client_id} in OpenID Connect request"
         context.logger.warning("Invalid request", error=msg)
         raise HTTPException(
@@ -83,7 +83,7 @@ async def get_login(
         return RedirectResponse(return_url)
 
     # Get an authorization code and return it.
-    code = await oidc_server.issue_code(
+    code = await oidc_service.issue_code(
         client_id, parsed_redirect_uri.geturl(), token_data.token
     )
     return_url = build_return_url(
@@ -145,14 +145,14 @@ async def post_token(
 ) -> Union[TokenReply, JSONResponse]:
     """Redeem an authorization code for a token."""
     # Redeem the provided code for a token.
-    oidc_server = context.factory.create_oidc_server()
+    oidc_service = context.factory.create_oidc_service()
     try:
         if not grant_type or not client_id or not code or not redirect_uri:
             raise InvalidRequestError("Invalid token request")
         if grant_type != "authorization_code":
             raise UnsupportedGrantTypeError(f"Invalid grant type {grant_type}")
         authorization_code = OIDCAuthorizationCode.from_str(code)
-        token = await oidc_server.redeem_code(
+        token = await oidc_service.redeem_code(
             client_id, client_secret, redirect_uri, authorization_code
         )
     except OAuthError as e:

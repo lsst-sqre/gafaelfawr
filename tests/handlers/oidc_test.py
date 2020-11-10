@@ -324,9 +324,9 @@ async def test_token_errors(
     setup.configure(oidc_clients=clients)
     token_data = await setup.create_token()
     token = token_data.token
-    oidc_server = setup.factory.create_oidc_server()
+    oidc_service = setup.factory.create_oidc_service()
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
-    code = await oidc_server.issue_code("some-id", redirect_uri, token)
+    code = await oidc_service.issue_code("some-id", redirect_uri, token)
 
     # Missing parameters.
     request: Dict[str, str] = {}
@@ -454,7 +454,7 @@ async def test_token_errors(
     }
 
     # Correct code, but invalid client_id for that code.
-    bogus_code = await oidc_server.issue_code("other-id", redirect_uri, token)
+    bogus_code = await oidc_service.issue_code("other-id", redirect_uri, token)
     request["code"] = str(bogus_code)
     r = await setup.client.post("/auth/openid/token", data=request)
     assert r.status_code == 400

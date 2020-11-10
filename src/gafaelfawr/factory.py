@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.models.token import TokenData
-from gafaelfawr.oidc import OIDCServer
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
 from gafaelfawr.services.admin import AdminService
+from gafaelfawr.services.oidc import OIDCService
 from gafaelfawr.services.token import TokenService
 from gafaelfawr.storage.admin import AdminStore
 from gafaelfawr.storage.base import RedisStorage
@@ -87,12 +87,12 @@ class ComponentFactory:
             admin_store, admin_history_store, transaction_manager
         )
 
-    def create_oidc_server(self) -> OIDCServer:
+    def create_oidc_service(self) -> OIDCService:
         """Create a minimalist OpenID Connect server.
 
         Returns
         -------
-        oidc_server : `gafaelfawr.oidc.OIDCServer`
+        oidc_service : `gafaelfawr.services.oidc.OIDCService`
             A new OpenID Connect server.
         """
         assert self._config.oidc_server
@@ -101,7 +101,7 @@ class ComponentFactory:
         authorization_store = OIDCAuthorizationStore(storage)
         issuer = self.create_token_issuer()
         token_service = self.create_token_service()
-        return OIDCServer(
+        return OIDCService(
             config=self._config.oidc_server,
             authorization_store=authorization_store,
             issuer=issuer,

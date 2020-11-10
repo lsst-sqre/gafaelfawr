@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 async def test_issue_code(setup: SetupTest) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     setup.configure(oidc_clients=clients)
-    oidc_server = setup.factory.create_oidc_server()
+    oidc_service = setup.factory.create_oidc_service()
     token_data = await setup.create_token()
     token = token_data.token
     redirect_uri = "https://example.com/"
@@ -35,9 +35,9 @@ async def test_issue_code(setup: SetupTest) -> None:
     assert list(setup.config.oidc_server.clients) == clients
 
     with pytest.raises(UnauthorizedClientException):
-        await oidc_server.issue_code("unknown-client", redirect_uri, token)
+        await oidc_service.issue_code("unknown-client", redirect_uri, token)
 
-    code = await oidc_server.issue_code("some-id", redirect_uri, token)
+    code = await oidc_service.issue_code("some-id", redirect_uri, token)
     encrypted_code = await setup.redis.get(f"oidc:{code.key}")
     assert encrypted_code
     fernet = Fernet(setup.config.session_secret.encode())
@@ -66,13 +66,13 @@ async def test_redeem_code(setup: SetupTest) -> None:
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
     setup.configure(oidc_clients=clients)
-    oidc_server = setup.factory.create_oidc_server()
+    oidc_service = setup.factory.create_oidc_service()
     token_data = await setup.create_token()
     token = token_data.token
     redirect_uri = "https://example.com/"
-    code = await oidc_server.issue_code("client-2", redirect_uri, token)
+    code = await oidc_service.issue_code("client-2", redirect_uri, token)
 
-    oidc_token = await oidc_server.redeem_code(
+    oidc_token = await oidc_service.redeem_code(
         "client-2", "client-2-secret", redirect_uri, code
     )
     assert oidc_token.claims == {
@@ -99,32 +99,32 @@ async def test_redeem_code_errors(setup: SetupTest) -> None:
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
     setup.configure(oidc_clients=clients)
-    oidc_server = setup.factory.create_oidc_server()
+    oidc_service = setup.factory.create_oidc_service()
     token_data = await setup.create_token()
     token = token_data.token
     redirect_uri = "https://example.com/"
-    code = await oidc_server.issue_code("client-2", redirect_uri, token)
+    code = await oidc_service.issue_code("client-2", redirect_uri, token)
 
     with pytest.raises(InvalidClientError):
-        await oidc_server.redeem_code(
+        await oidc_service.redeem_code(
             "some-client", "some-secret", redirect_uri, code
         )
     with pytest.raises(InvalidClientError):
-        await oidc_server.redeem_code(
+        await oidc_service.redeem_code(
             "client-2", "some-secret", redirect_uri, code
         )
     with pytest.raises(InvalidGrantError):
-        await oidc_server.redeem_code(
+        await oidc_service.redeem_code(
             "client-2",
             "client-2-secret",
             redirect_uri,
             OIDCAuthorizationCode(),
         )
     with pytest.raises(InvalidGrantError):
-        await oidc_server.redeem_code(
+        await oidc_service.redeem_code(
             "client-1", "client-1-secret", redirect_uri, code
         )
     with pytest.raises(InvalidGrantError):
-        await oidc_server.redeem_code(
+        await oidc_service.redeem_code(
             "client-2", "client-2-secret", "https://foo.example.com/", code
         )
