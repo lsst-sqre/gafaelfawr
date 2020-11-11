@@ -17,6 +17,10 @@ Gafaelfawr supports the following routes:
     The response from this route includes various headers that provide information about the JWT claims.
     For a complete list, see :ref:`auth-headers`.
 
+``/auth/api``
+    The token API.
+    See `SQR-049 <https://sqr-049.lsst.io/>`__ for detailed documentation.
+
 ``/auth/forbidden``
     Helper error page route for ``/auth``.
     Serves a 403 (HTTP Forbidden) error with an appropriate challenge given the same request parameters as an ``/auth`` request.
@@ -38,19 +42,9 @@ Gafaelfawr supports the following routes:
     Retrieves a JWT given an OpenID Connect authorization code obtained via an authentication request.
     The parameters to this route are those for the Token Request in the Authorization Code Flow in `OpenID Connect`_.
 
-``/auth/tokens``
-    Displays all user-issued tokens for the authenticated user.
-
 ``/auth/tokens/influxdb/new``
     Issue a new InfluxDB token for the authenticated user.
     The result will be a JSON object with either a ``token`` key containing the token or ``error`` and ``error_description`` keys explaining the error.
-
-``/auth/tokens/new``
-    Displays or handles the form that allows users to issue new tokens.
-
-``/auth/tokens/<key>``
-    Displays details about a user-issued token or processes a revocation request for that token.
-    The ``<key>`` portion of the route must be the session key (from a session handle, for example).
 
 ``/auth/userinfo``
     Returns the claims of a JWT, issued by Gafaelfawr, in JSON format.

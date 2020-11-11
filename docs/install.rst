@@ -111,6 +111,7 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
 ``host`` (required)
     The FQDN of the host under which Gafaelfawr is running.
     The ``/auth``, ``/login``, ``/logout``, ``/oauth2/callback``, and ``/.well-known/jwks.json`` routes will be claimed under this host by the Gafaelfawr ingress configuration.
+    If ``oidc_server.enabled`` is set to true, the ``/.well-known/openid-configuration`` will also be claimed.
     This setting will be used to derive multiple other URLs, such as the issuer.
 
 ``ingress.host`` (optional)
@@ -145,9 +146,6 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
     A list of network blocks that should be treated as internal to the cluster and therefore ignored when analyzing ``X-Forwarded-For`` to find the true client IP.
     If not set, defaults to the `RFC 1918 private address spaces <https://tools.ietf.org/html/rfc1918>`__.
     See :ref:`client-ips` and the ``proxies`` documentation in :ref:`settings` for more information.
-
-``user_scope`` (required)
-    The token scope to require before allowing access to the ``/auth/tokens`` route, which allows the user to issue and revoke their own tokens.
 
 ``loglevel`` (optional)
     The Python logging level.

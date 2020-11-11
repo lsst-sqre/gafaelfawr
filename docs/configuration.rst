@@ -43,6 +43,9 @@ Secrets beginning or ending in whitespace are not supported.
     File containing the password to use to connect to Redis.
     If not set, Gafaelfawr will assume that Redis does not require authentication.
 
+``database_url`` (required)
+    The URL to the SQL database used as a backing store for token information.
+
 ``proxies`` (optional)
     List of IPs or network ranges (in CIDR notation) that should be assumed to be upstream proxies.
     Gafaelfawr by default uses the last address in an ``X-Forwarded-For`` header, if present, as the IP address of the client for logging purposes.
@@ -66,15 +69,8 @@ Secrets beginning or ending in whitespace are not supported.
         JWT ``kid`` to use when signing tokens.
 
     ``aud`` (required)
-        Values for the ``aud`` claim in issued JWTs.
-        By convention these should be URLs.
-        Must have the following keys.
-
-        ``default`` (required)
-            The default ``aud`` claim.
-
-        ``internal`` (required)
-            The internal ``aud`` claim, used instead of ``default`` if the ``audience`` GET parameter to the ``/auth`` route is set and its value matches the value of this key.
+        Value for the ``aud`` claim in issued JWTs.
+        By convention this should be a URL.
 
     ``key_file`` (required)
         File containing the RSA private key (in PEM encoding) to use for signing JWTs.

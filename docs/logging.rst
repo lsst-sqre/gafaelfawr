@@ -2,10 +2,9 @@
 Logging
 #######
 
-Gafaelfawr uses structlog to log all messages in JSON.
-Most routes will log a single message at the ``INFO`` log level (the default) on success.
-The ``/login`` route does a bit more work and will log more messages.
-More detailed logging is available at the ``DEBUG`` level, including a snapshot of Gafaelfawr's configuration on initial startup.
+Gafaelfawr uses structlog to log all its internal messages in JSON.
+It is run via `uvicorn <https://www.uvicorn.org/>`__, which also logs all requests in the standard Apache log format.
+Interesting events that are not obvious from the access logging done by uvicorn are logged at the ``INFO`` level.
 User errors are logged at the ``WARNING`` level.
 
 Log attributes
@@ -41,10 +40,10 @@ The following attributes will be added to each log message, in addition to the d
 All authenticated routes add the following attributes once the user's token has been located and verified:
 
 ``scope``
-    The ``scope`` claim of the user's token.
+    The comma-separated scopes of the authentication token.
 
 ``token``
-    The ``jti`` claim of the token.
+    The key of the authentication token.
 
 ``token_source``
     Where the token was found.
@@ -70,6 +69,8 @@ The ``/login`` route adds the following attributes:
 
 ``return_url``
     The URL to which the user will be sent after successful authentication.
+
+Some actions will add additional structured data appropriate to that action.
 
 .. _client-ips:
 

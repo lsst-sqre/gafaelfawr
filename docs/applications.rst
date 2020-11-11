@@ -16,7 +16,6 @@ The typical annotations for a web application used via a web browser are:
    annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/auth-method: GET
-    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
 
@@ -34,14 +33,47 @@ The typical annotations for a API that expects direct requests from programs are
    annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/auth-method: GET
-    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
 
 The difference in this case is that the 401 error when authentication is not provided will be returned to the client, rather than returning a redirect to the login page.
 
 If the user authenticates and authorizes successfully, the request will be sent to the application.
-Included in the request will be an ``X-Auth-Request-Token`` header containing the user's JWT.
-This will be a reissued token signed by Gafaelfawr.
+
+Requesting internal tokens
+==========================
+
+Some applications may need to make additional web requests on behalf of the user to other applications protected by Gafaelfawr.
+These applications must request an internal token from Gafaelfawr using Kubernetes annotations such as this:
+
+.. code-block:: yaml
+
+   annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/auth-method: GET
+    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
+    nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>&delegate_to=<service>&delegate_scope=<scope>,<scope>"
+
+``<service>`` should be replaced with an internal identifier for the service and will be added to the internal tokens issued this way.
+``<scope>`` is a comma-separated list of scopes the internal token should have.
+``delegate_scope`` can be omitted, in which case the internal token will have no scope.
+(Such a token can still be used to retrieve user information such as a UID or group membership.)
+
+The token will be included in the request in an ``X-Auth-Request-Token`` header, hence the additional annotation saying to pass that header to the application.
+
+As a special case, JupyterLab notebooks can request a special type of internal token called a notebook token, which will always have the same scope as the user's session token (and thus can do anything the user can do).
+To request such a token, use annotations like:
+
+.. code-block:: yaml
+
+   annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/auth-method: GET
+    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
+    nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>&notebook=true"
+
+In both cases, applications designed for API instead of browser access can omit the ``nginx.ingress.kubernetes.io/auth-signin`` to return authentication challenges to the user instead of redirecting them to the login page.
 
 .. _error-caching:
 
@@ -93,10 +125,18 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     By default, this is ``bearer``.
     Applications that want to prompt for HTTP Basic Authentication should set this to ``basic`` instead.
 
-``audience`` (optional)
-    May be set to the value of the ``issuer.aud.internal`` configuration parameter, in which case a new token will be issued from the user's token with all the same claims but with that audience.
-    This newly-issued token will be returned in the ``X-Auth-Request-Token`` header instead of the user's regular token.
-    The intent of this feature is to send an audience-restricted version of a token to an internal service, which may use it to make subrequests to other internal services but should not be able to make requests to public-facing services.
+``notebook`` (optional)
+    If set to a true value, requests a notebook token for the user be generated and passed to the application in the ``X-Auth-Request-Token`` header.
+
+``delegate_to`` (optional)
+    If set, requests an internal token.
+    The value of this parameter is an identifier for the service that will use this token to make additional requests on behalf of the user.
+    That internal token will be generated if necessary and passed in the ``X-Auth-Request-Token`` header.
+
+``delegate_scope`` (optional)
+    A comma-separated list of scopes that the internal token should have.
+    This must be a subset of the scopes the authenticating token has, or the ``auth_request`` handler will deny access.
+    Only meaningful when ``delegate_to`` is also set.
 
 These parameters must be URL-encoded as GET parameters to the ``/auth`` route.
 
@@ -112,20 +152,17 @@ The value of that annotation is a comma-separated list of desired headers.
     The IP address of the client, as determined after parsing ``X-Forwarded-For`` headers.
     See :ref:`client-ips` for more information.
 
-``X-Auth-Request-Email``
-    If enabled and the claim is available, this will be set based on the ``email`` claim in the token.
-
 ``X-Auth-Request-User``
-    If enabled and the claim is available, this will be set from token based on the ``username_claim`` setting (by default, the ``uid`` claim).
+    The username of the authenticated user.
 
 ``X-Auth-Request-Uid``
-    If enabled and the claim is available, this will be set from token based on the ``uid_claim`` setting (by default, the ``uidNumber`` claim).
+    The numeric UID of the authenticated user.
 
 ``X-Auth-Request-Groups``
     If the token lists groups in an ``isMemberOf`` claim, the names of the groups will be returned, comma-separated, in this header.
 
 ``X-Auth-Request-Token``
-    If enabled, the encoded token will be sent.
+    If a notebook or internal token was requested, it will be provided as the value of this header.
 
 ``X-Auth-Request-Token-Scopes``
     If the token has scopes in the ``scope`` claim or derived from groups listed in ``isMemberOf``, they will be returned in this header.
@@ -142,8 +179,7 @@ The value of that annotation is a comma-separated list of desired headers.
 Verifying tokens
 ================
 
-A JWKS for the Gafaelfawr token issuer is available via the ``/.well-known/jwks.json`` route.
-An application may use that URL to retrieve the public key of Gafaelfawr and use it to verify the token signature.
+Tokens may be verified and used to obtain information about a user by presenting them in an ``Authorization`` header with type ``bearer`` to either of the ``/auth/v1/api/token-info`` or ``/auth/v1/api/user-info`` routes.
 
 .. _openid-connect:
 

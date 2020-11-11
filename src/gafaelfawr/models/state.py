@@ -36,9 +36,6 @@ class State(BaseState):
     token: Optional[Token] = None
     """Token if the user is authenticated."""
 
-    message: Optional[str] = None
-    """Status message to display on the next rendered HTML page."""
-
     return_url: Optional[str] = None
     """Destination URL after completion of login."""
 
@@ -80,7 +77,6 @@ class State(BaseState):
         return cls(
             csrf=data.get("csrf"),
             token=token,
-            message=data.get("message"),
             return_url=data.get("return_url"),
             state=data.get("state"),
         )
@@ -98,8 +94,6 @@ class State(BaseState):
             data["csrf"] = self.csrf
         if self.token:
             data["token"] = str(self.token)
-        if self.message:
-            data["message"] = self.message
         if self.return_url:
             data["return_url"] = self.return_url
         if self.state:

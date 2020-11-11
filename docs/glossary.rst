@@ -47,23 +47,15 @@ protected application
 scope
     A permission that a user holding a token has in some system.
     When requesting authentication from an OpenID Connect provider, the requested scopes control what information is returned about the user in the ID token.
-    Within a JWT issued by Gafaelfawr, a scope represents a general class of permissions on systems protected by Gafaelfawr.
+    For a token issued by Gafaelfawr, a scope represents a general class of permissions on systems protected by Gafaelfawr.
     Applications can be protected by authorization rules that require specific scopes.
 
 session
     A stored authentication token for a user that expires after some set length of time.
-    Users normally authenticate to Gafaelfawr using session handles, which are tied to a session stored in Redis and expire when that session expires.
-    The session is tied to the lifetime of the underlying JWT.
-    This is done to reduce the length of the authentication data the user has to carry and provide, which in turn avoids problems with over-long HTTP headers in some contexts.
-    Session may also refer to the stored user session (which, in Gafaelfawr, is done with `aiohttp_session <https://github.com/aio-libs/aiohttp-session>`__).
-    In contexts where those two meanings may be confused, the first sense of session is referred to as an "auth session."
-
-session handle
-    A string provided by a client instead of a JWT to authenticate using a stored session.
-    All Gafaelfawr session handles start with the string ``gsh-``.
-    The handle consists of two parts: a key and a secret.
-    The key is the Redis key for the stored session.
-    The secret proves that the client has the right to use that stored session.
+    Sessions are stored in an encrypted cookie named ``gafaelfawr``.
+    The cookie will include a token if the user is authenticated.
+    It may contain other state information for the login process, a CSRF token, or other state used internally by Gafaelfawr.
+    Session cookies are encrypted in a key known only to the Gafaelfawr service, but act as bearer credentials (so must be kept secure from theft by attackers).
 
 subject
     The identity of an entity that authenticates with a JWT.
@@ -71,9 +63,12 @@ subject
     This term is widely used in authentication systems but is not used internally by Gafaelfawr.
 
 token
-    A JWT.
-    Used instead of ``jwt`` in Python code because ``jwt`` is the name of a frequently-imported library for manipulating JWTs.
-    Gafaelfawr distinguishes between two types of tokens: encoded tokens in JWT form that have not been verified, and verified tokens whose signatures have been checked and whose claims have been deserialized.
+    There are two types of authentication tokens used by Gafaelfawr.
+    When authenticating the user to an external OpenID Connect service, or when acting as an OpenID Connect service to a protected application, tokens are JWTs.
+    For all other operations, tokens are opaque strings starting with ``gt-``.
+    These opaque tokens consist of two parts: a key and a secret.
+    The key is the Redis key for the stored session.
+    The secret proves that the client has the right to use that stored session.
 
 UID
     A numeric ID for a user, suitable for use as a POSIX UID.
@@ -99,6 +94,3 @@ attribute
 
 capability
     Use "scope" instead.
-
-ticket
-    The old term for a session handle.  Use "session handle" instead.
