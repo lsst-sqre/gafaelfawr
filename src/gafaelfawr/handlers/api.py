@@ -19,7 +19,10 @@ from gafaelfawr.dependencies.auth import (
 )
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
-from gafaelfawr.exceptions import PermissionDeniedError
+from gafaelfawr.exceptions import (
+    DuplicateTokenNameError,
+    PermissionDeniedError,
+)
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.auth import APILoginResponse
 from gafaelfawr.models.token import (
@@ -123,9 +126,21 @@ async def post_tokens(
 ) -> NewToken:
     token_service = context.factory.create_token_service()
     token_params = token_request.dict(exclude_unset=True)
-    token = await token_service.create_user_token(
-        auth_data, username, **token_params
-    )
+    if "expires" not in token_params or token_params["expires"] is None:
+        token_params["no_expire"] = True
+    try:
+        token = await token_service.create_user_token(
+            auth_data, username, **token_params
+        )
+    except DuplicateTokenNameError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "token_name"],
+                "type": "duplicate_token_name",
+                "msg": str(e),
+            },
+        )
     token_url = f"/auth/api/v1/users/{username}/tokens/{token.key}"
     response.headers["Location"] = token_url
     return NewToken(token=str(token))
@@ -199,7 +214,21 @@ async def patch_token(
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
     update = token_request.dict(exclude_unset=True)
-    info = token_service.modify_token(key, auth_data, username, **update)
+    if "expires" in update and update["expires"] is None:
+        update["no_expire"] = True
+    try:
+        info = await token_service.modify_token(
+            key, auth_data, username, **update
+        )
+    except DuplicateTokenNameError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "token_name"],
+                "type": "duplicate_token_name",
+                "msg": str(e),
+            },
+        )
     if not info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from gafaelfawr.exceptions import DeserializeException
+from gafaelfawr.exceptions import DeserializeException, DuplicateTokenNameError
 from gafaelfawr.models.token import TokenInfo, TokenType
 from gafaelfawr.schema.subtoken import Subtoken
 from gafaelfawr.schema.token import Token as SQLToken
@@ -60,7 +60,21 @@ class TokenDatabaseStore:
             The service for an internal token.
         parent : `str`, optional
             The key of the parent of this token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.DuplicateTokenNameError
+            The user already has a token by that name.
         """
+        if token_name:
+            name_conflict = (
+                self._session.query(SQLToken.token)
+                .filter_by(username=data.username, token_name=token_name)
+                .scalar()
+            )
+            if name_conflict:
+                msg = f"Token name {token_name} already used"
+                raise DuplicateTokenNameError(msg)
         new = SQLToken(
             token=data.token.key,
             username=data.username,
@@ -210,6 +224,7 @@ class TokenDatabaseStore:
         token_name: Optional[str] = None,
         scopes: Optional[List[str]] = None,
         expires: Optional[datetime] = None,
+        no_expire: bool = False,
     ) -> Optional[TokenInfo]:
         """Modify a token.
 
@@ -223,20 +238,38 @@ class TokenDatabaseStore:
             The new scopes for the token.
         expires : `datetime`, optional
             The new expiration time for the token.
+        no_expire : `bool`
+            If set, the token should not expire.  This is a separate parameter
+            because passing `None` to ``expires`` is ambiguous.
 
         Returns
         -------
         info : `gafaelfawr.models.token.TokenInfo`
             Information for the updated token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.DuplicateTokenNameError
+            The user already has a token by that name.
         """
         token = self._session.query(SQLToken).filter_by(token=key).scalar()
         if not token:
             return None
         if token_name:
+            name_conflict = (
+                self._session.query(SQLToken.token)
+                .filter_by(username=token.username, token_name=token_name)
+                .scalar()
+            )
+            if name_conflict:
+                msg = f"Token name {token_name} already used"
+                raise DuplicateTokenNameError(msg)
             token.token_name = token_name
         if scopes:
             token.scopes = ",".join(sorted(scopes))
-        if expires:
+        if no_expire:
+            token.expires = None
+        elif expires:
             token.expires = expires
         return TokenInfo.from_orm(token)
 

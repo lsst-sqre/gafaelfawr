@@ -310,8 +310,10 @@ async def test_modify(setup: SetupTest) -> None:
 
     now = datetime.now(tz=timezone.utc).replace(microsecond=0)
     expires = now + timedelta(days=50)
-    token_service.modify_token(user_token.key, data, token_name="happy token")
-    token_service.modify_token(
+    await token_service.modify_token(
+        user_token.key, data, token_name="happy token"
+    )
+    await token_service.modify_token(
         user_token.key, data, scopes=["read:all"], expires=expires
     )
     info = token_service.get_info(user_token.key)

@@ -94,6 +94,7 @@ class TokenService:
         token_name: str,
         scopes: Optional[List[str]] = None,
         expires: Optional[datetime] = None,
+        no_expire: bool = False,
     ) -> Token:
         """Add a new user token.
 
@@ -111,6 +112,9 @@ class TokenService:
         expires : `datetime` or `None`
             When the token should expire.  If not given, defaults to the
             expiration of the authentication token taken from ``data``.
+        no_expire : `bool`
+            If set, the token should not expire.  This is a separate parameter
+            because passing `None` to ``expires`` is ambiguous.
 
         Returns
         -------
@@ -129,7 +133,9 @@ class TokenService:
 
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
-        if not expires:
+        if no_expire:
+            expires = None
+        elif not expires:
             expires = auth_data.expires
         data = TokenData(
             token=token,
@@ -380,7 +386,7 @@ class TokenService:
             raise PermissionDeniedError(msg)
         return self._token_db_store.list(username=username)
 
-    def modify_token(
+    async def modify_token(
         self,
         key: str,
         auth_data: TokenData,
@@ -389,6 +395,7 @@ class TokenService:
         token_name: Optional[str] = None,
         scopes: Optional[List[str]] = None,
         expires: Optional[datetime] = None,
+        no_expire: bool = False,
     ) -> Optional[TokenInfo]:
         """Modify a token.
 
@@ -408,6 +415,9 @@ class TokenService:
             The new scopes for the token.
         expires : `datetime`, optional
             The new expiration time for the token.
+        no_expire : `bool`
+            If set, the token should not expire.  This is a separate parameter
+            because passing `None` to ``expires`` is ambiguous.
 
         Returns
         -------
@@ -416,6 +426,8 @@ class TokenService:
 
         Raises
         ------
+        gafaelfawr.exceptions.DuplicateTokenNameError
+            A token with this name for this user already exists.
         gafaelfawr.exceptions.PermissionDeniedError
             The token being modified is not owned by the user identified with
             ``auth_data`` or the user attempted to modify a token type other
@@ -432,10 +444,25 @@ class TokenService:
             msg = "Only user tokens can be modified"
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
+
         with self._transaction_manager.transaction():
             info = self._token_db_store.modify(
-                key, token_name=token_name, scopes=scopes, expires=expires
+                key,
+                token_name=token_name,
+                scopes=scopes,
+                expires=expires,
+                no_expire=no_expire,
             )
+
+            # Update the expiration in Redis if needed.
+            if info and (no_expire or expires):
+                data = await self._token_redis_store.get_data_by_key(key)
+                if data:
+                    data.expires = None if no_expire else expires
+                    await self._token_redis_store.store_data(data)
+                else:
+                    info = None
+
         if info:
             self._logger.info(
                 "Modified token",

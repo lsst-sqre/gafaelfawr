@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DeserializeException",
+    "DuplicateTokenNameError",
     "FetchKeysException",
     "GitHubException",
     "InsufficientScopeError",
@@ -146,6 +147,10 @@ class InsufficientScopeError(OAuthBearerError):
     error = "insufficient_scope"
     message = "Token missing required scope"
     status_code = status.HTTP_403_FORBIDDEN
+
+
+class DuplicateTokenNameError(Exception):
+    """The user tried to reuse the name of a token."""
 
 
 class NotConfiguredException(Exception):

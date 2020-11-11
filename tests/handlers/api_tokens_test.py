@@ -431,3 +431,103 @@ async def test_wrong_user(setup: SetupTest) -> None:
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_no_expires(setup: SetupTest) -> None:
+    """Test creating a user token that doesn't expire."""
+    token_data = await setup.create_session_token()
+    setup.login(token_data.token)
+
+    r = await setup.client.get("/auth/api/v1/login")
+    assert r.status_code == 200
+    csrf = r.json()["csrf"]
+
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 201
+    token_url = r.headers["Location"]
+
+    r = await setup.client.get(token_url)
+    assert "expires" not in r.json()
+
+    # Create a user token with an expiration and then adjust it to not expire.
+    now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+    expires = now + timedelta(days=2)
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "token_name": "another token",
+            "expires": int(expires.timestamp()),
+        },
+    )
+    assert r.status_code == 201
+    user_token = Token.from_str(r.json()["token"])
+    token_service = setup.factory.create_token_service()
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+    assert user_token_data.expires == expires
+    token_url = r.headers["Location"]
+
+    r = await setup.client.get(token_url)
+    assert r.json()["expires"] == int(expires.timestamp())
+
+    r = await setup.client.patch(
+        token_url,
+        headers={"X-CSRF-Token": csrf},
+        json={"expires": None},
+    )
+    assert r.status_code == 201
+    assert "expires" not in r.json()
+
+    # Check that the expiration was also changed in Redis.
+    token_service = setup.factory.create_token_service()
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+    assert user_token_data.expires is None
+
+
+@pytest.mark.asyncio
+async def test_duplicate_token_name(setup: SetupTest) -> None:
+    """Test duplicate token names."""
+    token_data = await setup.create_session_token()
+    setup.login(token_data.token)
+
+    r = await setup.client.get("/auth/api/v1/login")
+    assert r.status_code == 200
+    csrf = r.json()["csrf"]
+
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 201
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["type"] == "duplicate_token_name"
+
+    # Create a token with a different name and then try to modify the name to
+    # conflict.
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "another token"},
+    )
+    assert r.status_code == 201
+    token_url = r.headers["Location"]
+    r = await setup.client.patch(
+        token_url,
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["type"] == "duplicate_token_name"
