@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     issuer = setup.factory.create_token_issuer()
     oidc_token = issuer.issue_token(token_data, jti="some-jti")
 
@@ -74,7 +74,7 @@ async def test_no_auth(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     issuer = setup.factory.create_token_issuer()
     oidc_token = issuer.issue_token(token_data, jti="some-jti")
 

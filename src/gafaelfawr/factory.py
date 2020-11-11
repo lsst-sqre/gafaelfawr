@@ -168,10 +168,11 @@ class ComponentFactory:
         token_redis_store = TokenRedisStore(storage, self._logger)
         transaction_manager = TransactionManager(self._session)
         return TokenService(
-            self._config,
-            token_db_store,
-            token_redis_store,
-            transaction_manager,
+            config=self._config,
+            token_db_store=token_db_store,
+            token_redis_store=token_redis_store,
+            transaction_manager=transaction_manager,
+            logger=self._logger,
         )
 
     def create_token_verifier(self) -> TokenVerifier:

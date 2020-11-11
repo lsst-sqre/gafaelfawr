@@ -99,6 +99,7 @@ async def test_user_token(setup: SetupTest) -> None:
     # creating the token.
     user_token = await token_service.create_user_token(
         data,
+        "example",
         token_name="some-token",
         scopes=["read:all", "exec:admin"],
         expires=expires,
@@ -181,7 +182,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
     # Check that the expiration time is capped by creating a user token that
     # doesn't expire and then creating a notebook token from it.
     user_token = await token_service.create_user_token(
-        data, token_name="some token", expires=None
+        data, data.username, token_name="some token", expires=None
     )
     data = await token_service.get_data(user_token)
     assert data
@@ -253,7 +254,11 @@ async def test_internal_token(setup: SetupTest) -> None:
     # doesn't expire and then creating a notebook token from it.  Use this to
     # test a token with empty scopes.
     user_token = await token_service.create_user_token(
-        data, token_name="some token", scopes=["read:foo"], expires=None
+        data,
+        data.username,
+        token_name="some token",
+        scopes=["read:foo"],
+        expires=None,
     )
     data = await token_service.get_data(user_token)
     assert data
@@ -278,7 +283,7 @@ async def test_list(setup: SetupTest) -> None:
     data = await token_service.get_data(session_token)
     assert data
     user_token = await token_service.create_user_token(
-        data, token_name="some-token"
+        data, data.username, token_name="some-token"
     )
 
     session_info = token_service.get_info(session_token.key)
@@ -300,7 +305,7 @@ async def test_modify(setup: SetupTest) -> None:
     data = await token_service.get_data(session_token)
     assert data
     user_token = await token_service.create_user_token(
-        data, token_name="some-token"
+        data, data.username, token_name="some-token"
     )
 
     now = datetime.now(tz=timezone.utc).replace(microsecond=0)
@@ -334,7 +339,7 @@ async def test_delete(setup: SetupTest) -> None:
     data = await token_service.get_data(session_token)
     assert data
     token = await token_service.create_user_token(
-        data, token_name="some token"
+        data, data.username, token_name="some token"
     )
 
     assert await token_service.delete_token(token.key, data)

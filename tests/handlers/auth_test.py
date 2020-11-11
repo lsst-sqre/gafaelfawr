@@ -54,7 +54,7 @@ async def test_no_auth(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid(setup: SetupTest) -> None:
-    token = await setup.create_token()
+    token = await setup.create_session_token()
     print(token.token)
     r = await setup.client.get(
         "/auth", headers={"Authorization": f"bearer {token.token}"}
@@ -136,7 +136,7 @@ async def test_invalid_auth(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_access_denied(setup: SetupTest) -> None:
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
 
     r = await setup.client.get(
         "/auth",
@@ -184,7 +184,7 @@ async def test_auth_forbidden(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_satisfy_all(setup: SetupTest) -> None:
-    token_data = await setup.create_token(scopes=["exec:test"])
+    token_data = await setup.create_session_token(scopes=["exec:test"])
 
     r = await setup.client.get(
         "/auth",
@@ -204,7 +204,7 @@ async def test_satisfy_all(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_success(setup: SetupTest) -> None:
-    token_data = await setup.create_token(
+    token_data = await setup.create_session_token(
         group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
 
@@ -228,7 +228,7 @@ async def test_success(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_notebook(setup: SetupTest) -> None:
-    token_data = await setup.create_token(
+    token_data = await setup.create_session_token(
         group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
     assert token_data.expires
@@ -269,7 +269,7 @@ async def test_notebook(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_internal(setup: SetupTest) -> None:
-    token_data = await setup.create_token(
+    token_data = await setup.create_session_token(
         group_names=["admin"], scopes=["exec:admin", "read:all", "read:some"]
     )
     assert token_data.expires
@@ -319,7 +319,7 @@ async def test_internal(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_internal_errors(setup: SetupTest) -> None:
-    token_data = await setup.create_token(scopes=["read:some"])
+    token_data = await setup.create_session_token(scopes=["read:some"])
 
     # Delegating a token with a scope the original doesn't have will fail.
     r = await setup.client.get(
@@ -360,7 +360,7 @@ async def test_success_any(setup: SetupTest) -> None:
     with only ``exec:test``.  Ensure they are accepted but also the headers
     don't claim the client has ``exec:admin``.
     """
-    token_data = await setup.create_token(
+    token_data = await setup.create_session_token(
         group_names=["test"], scopes=["exec:test"]
     )
 
@@ -383,7 +383,7 @@ async def test_success_any(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_basic(setup: SetupTest) -> None:
-    token_data = await setup.create_token(
+    token_data = await setup.create_session_token(
         group_names=["test"], scopes=["exec:admin"]
     )
 

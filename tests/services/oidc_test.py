@@ -27,7 +27,7 @@ async def test_issue_code(setup: SetupTest) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     setup.configure(oidc_clients=clients)
     oidc_service = setup.factory.create_oidc_service()
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     token = token_data.token
     redirect_uri = "https://example.com/"
 
@@ -67,7 +67,7 @@ async def test_redeem_code(setup: SetupTest) -> None:
     ]
     setup.configure(oidc_clients=clients)
     oidc_service = setup.factory.create_oidc_service()
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     token = token_data.token
     redirect_uri = "https://example.com/"
     code = await oidc_service.issue_code("client-2", redirect_uri, token)
@@ -100,7 +100,7 @@ async def test_redeem_code_errors(setup: SetupTest) -> None:
     ]
     setup.configure(oidc_clients=clients)
     oidc_service = setup.factory.create_oidc_service()
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     token = token_data.token
     redirect_uri = "https://example.com/"
     code = await oidc_service.issue_code("client-2", redirect_uri, token)

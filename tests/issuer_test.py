@@ -17,7 +17,7 @@ async def test_issue_token(setup: SetupTest) -> None:
     setup.configure("oidc")
     issuer = setup.factory.create_token_issuer()
 
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     oidc_token = issuer.issue_token(token_data, jti="new-jti", scope="openid")
 
     assert oidc_token.claims == {

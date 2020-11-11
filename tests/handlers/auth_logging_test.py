@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_success(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    token_data = await setup.create_token(scopes=["exec:admin"])
+    token_data = await setup.create_session_token(scopes=["exec:admin"])
 
     # Successful request with X-Forwarded-For and a bearer token.
     r = await setup.client.get(
@@ -89,7 +89,7 @@ async def test_success(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 async def test_authorization_failed(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
-    token_data = await setup.create_token(scopes=["exec:admin"])
+    token_data = await setup.create_session_token(scopes=["exec:admin"])
 
     r = await setup.client.get(
         "/auth",

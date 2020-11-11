@@ -61,14 +61,10 @@ async def test_login_no_auth(setup: SetupTest) -> None:
     assert_redirect_is_correct(r)
 
     # An Authorization header with a valid token still redirects.
-    token_service = setup.factory.create_token_service()
-    user_info = TokenUserInfo(
-        username="example", name="Example Person", uid=12345
-    )
-    token = await token_service.create_session_token(user_info)
+    token_data = await setup.create_session_token()
     r = await setup.client.get(
         "/auth/api/v1/login",
-        headers={"Authorization": f"bearer {token}"},
+        headers={"Authorization": f"bearer {token_data.token}"},
         allow_redirects=False,
     )
     assert_redirect_is_correct(r)

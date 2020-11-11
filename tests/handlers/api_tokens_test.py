@@ -190,7 +190,11 @@ async def test_token_info(setup: SetupTest) -> None:
     expires = now + timedelta(days=100)
     data = await token_service.get_data(session_token)
     user_token = await token_service.create_user_token(
-        data, token_name="some-token", scopes=["exec:admin"], expires=expires
+        data,
+        data.username,
+        token_name="some-token",
+        scopes=["exec:admin"],
+        expires=expires,
     )
 
     r = await setup.client.get(
@@ -231,11 +235,10 @@ async def test_auth_required(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     token = await token_service.create_session_token(user_info)
+    setup.login(token)
     state = State(token=token)
 
-    r = await setup.client.get(
-        "/auth/api/v1/login", cookies={COOKIE_NAME: state.as_cookie()}
-    )
+    r = await setup.client.get("/auth/api/v1/login")
     assert r.status_code == 200
     csrf = r.json()["csrf"]
 
@@ -288,58 +291,143 @@ async def test_auth_required(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_csrf_required(setup: SetupTest) -> None:
-    user_info = TokenUserInfo(
-        username="example", name="Example Person", uid=45613
-    )
+    token_data = await setup.create_session_token()
+    setup.login(token_data.token)
     token_service = setup.factory.create_token_service()
-    token = await token_service.create_session_token(user_info)
-    state = State(token=token)
-
-    r = await setup.client.get(
-        "/auth/api/v1/login", cookies={COOKIE_NAME: state.as_cookie()}
+    user_token = await token_service.create_user_token(
+        token_data, token_data.username, token_name="foo"
     )
+
+    r = await setup.client.get("/auth/api/v1/login")
     assert r.status_code == 200
     csrf = r.json()["csrf"]
 
     r = await setup.client.post(
-        "/auth/api/v1/users/example/tokens",
-        cookies={COOKIE_NAME: state.as_cookie()},
-        json={"token_name": "some token"},
+        "/auth/api/v1/users/example/tokens", json={"token_name": "some token"}
     )
     assert r.status_code == 403
 
     r = await setup.client.post(
         "/auth/api/v1/users/example/tokens",
-        cookies={COOKIE_NAME: state.as_cookie()},
         headers={"X-CSRF-Token": f"XXX{csrf}"},
         json={"token_name": "some token"},
     )
     assert r.status_code == 403
 
     r = await setup.client.delete(
-        f"/auth/api/v1/users/example/tokens/{token.key}",
-        cookies={COOKIE_NAME: state.as_cookie()},
+        f"/auth/api/v1/users/example/tokens/{user_token.key}"
     )
     assert r.status_code == 403
 
     r = await setup.client.delete(
-        f"/auth/api/v1/users/example/tokens/{token.key}",
+        f"/auth/api/v1/users/example/tokens/{user_token.key}",
         headers={"X-CSRF-Token": f"XXX{csrf}"},
-        cookies={COOKIE_NAME: state.as_cookie()},
     )
     assert r.status_code == 403
 
     r = await setup.client.patch(
-        f"/auth/api/v1/users/example/tokens/{token.key}",
-        cookies={COOKIE_NAME: state.as_cookie()},
+        f"/auth/api/v1/users/example/tokens/{user_token.key}",
         json={"token_name": "some token"},
     )
     assert r.status_code == 403
 
     r = await setup.client.patch(
-        f"/auth/api/v1/users/example/tokens/{token.key}",
+        f"/auth/api/v1/users/example/tokens/{user_token.key}",
         headers={"X-CSRF-Token": f"XXX{csrf}"},
-        cookies={COOKIE_NAME: state.as_cookie()},
         json={"token_name": "some token"},
     )
     assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_modify_nonuser(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    token = token_data.token
+    setup.login(token)
+
+    r = await setup.client.get("/auth/api/v1/login")
+    assert r.status_code == 200
+    csrf = r.json()["csrf"]
+
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "happy token"},
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"]["type"] == "permission_denied"
+
+
+@pytest.mark.asyncio
+async def test_wrong_user(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    setup.login(token_data.token)
+    token_service = setup.factory.create_token_service()
+    user_info = TokenUserInfo(
+        username="other-person", name="Some Other Person", uid=137123
+    )
+    other_session_token = await token_service.create_session_token(user_info)
+    other_session_data = await token_service.get_data(other_session_token)
+    assert other_session_data
+    other_token = await token_service.create_user_token(
+        other_session_data, "other-person", token_name="foo"
+    )
+
+    r = await setup.client.get("/auth/api/v1/login")
+    assert r.status_code == 200
+    csrf = r.json()["csrf"]
+
+    # Get a token list.
+    r = await setup.client.get("/auth/api/v1/users/other-person/tokens")
+    assert r.status_code == 403
+    assert r.json()["detail"]["type"] == "permission_denied"
+
+    # Create a new user token.
+    r = await setup.client.post(
+        "/auth/api/v1/users/other-person/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "happy token"},
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"]["type"] == "permission_denied"
+
+    # Get an individual token.
+    r = await setup.client.get(
+        f"/auth/api/v1/users/other-person/tokens/{other_token.key}"
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"]["type"] == "permission_denied"
+
+    # Ensure you can't see someone else's token under your username either.
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{other_token.key}"
+    )
+    assert r.status_code == 404
+
+    # Delete a token.
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/other-person/tokens/{other_token.key}",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"]["type"] == "permission_denied"
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{other_token.key}",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert r.status_code == 404
+
+    # Modify a token.
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/other-person/tokens/{other_token.key}",
+        json={"token_name": "happy token"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"]["type"] == "permission_denied"
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{other_token.key}",
+        json={"token_name": "happy token"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert r.status_code == 404

@@ -158,7 +158,7 @@ class SetupTest:
         config_dependency.set_settings_path(str(settings_path))
         self.config = config_dependency()
 
-    async def create_token(
+    async def create_session_token(
         self,
         *,
         username: Optional[str] = None,

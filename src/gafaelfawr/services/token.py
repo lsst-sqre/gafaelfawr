@@ -11,6 +11,8 @@ from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 if TYPE_CHECKING:
     from typing import List, Optional
 
+    from structlog import BoundLogger
+
     from gafaelfawr.config import Config
     from gafaelfawr.models.token import TokenInfo
     from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
@@ -24,25 +26,32 @@ class TokenService:
 
     Parameters
     ----------
+    config : `gafaelfawr.config.Config`
+        Gafaelfawr configuration.
     token_db_store : `gafaelfawr.storage.token.TokenDatabaseStore`
         The database backing store for tokens.
     token_redis_store : `gafaelfawr.storage.token.TokenRedisStore`
         The Redis backing store for tokens.
     transaction_manager : `gafaelfawr.storage.transaction.TransactionManager`
         Database transaction manager.
+    logger : `structlog.BoundLogger`
+        Logger to use.
     """
 
     def __init__(
         self,
+        *,
         config: Config,
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
         transaction_manager: TransactionManager,
+        logger: BoundLogger,
     ) -> None:
         self._config = config
         self._token_db_store = token_db_store
         self._token_redis_store = token_redis_store
         self._transaction_manager = transaction_manager
+        self._logger = logger
 
     async def create_session_token(
         self, user_info: TokenUserInfo, scopes: Optional[List[str]] = None
@@ -80,6 +89,7 @@ class TokenService:
     async def create_user_token(
         self,
         auth_data: TokenData,
+        username: str,
         *,
         token_name: str,
         scopes: Optional[List[str]] = None,
@@ -92,6 +102,8 @@ class TokenService:
         auth_data : `gafaelfawr.models.token.TokenData`
             The token data for the authentication token of the user creating
             a user token.
+        username : `str`
+            The username for which to create a token.
         token_name : `str`
             The name of the token.
         scopes : List[`str`] or `None`
@@ -104,7 +116,17 @@ class TokenService:
         -------
         token : `gafaelfawr.models.token.Token`
             The newly-created token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the given username didn't match the user information in the
+            authentication token.
         """
+        if username != auth_data.username:
+            msg = "Cannot create tokens for another user"
+            raise PermissionDeniedError(msg)
+
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
         if not expires:
@@ -123,9 +145,17 @@ class TokenService:
         await self._token_redis_store.store_data(data)
         with self._transaction_manager.transaction():
             self._token_db_store.add(data, token_name=token_name)
+        self._logger.info(
+            "Created new user token",
+            key=token.key,
+            token_name=token_name,
+            token_scope=",".join(data.scopes),
+        )
         return token
 
-    async def delete_token(self, key: str, auth_data: TokenData) -> bool:
+    async def delete_token(
+        self, key: str, auth_data: TokenData, username: Optional[str] = None
+    ) -> bool:
         """Delete a token.
 
         Parameters
@@ -135,21 +165,26 @@ class TokenService:
         auth_data : `gafaelfawr.models.token.TokenData`
             The token data for the authentication token of the user deleting
             the token.
+        username : `str`, optional
+            If given, constrain deletions to tokens owned by the given user.
 
         Returns
         -------
         success : `bool`
             Whether the token was found and deleted.
         """
-        info = self.get_info(key)
+        info = self.get_info(key, username)
         if not info:
             return False
         if info.username != auth_data.username:
             msg = f"Token owned by {info.username}, not {auth_data.username}"
+            self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
         await self._token_redis_store.delete(key)
         with self._transaction_manager.transaction():
-            return self._token_db_store.delete(key)
+            success = self._token_db_store.delete(key)
+        self._logger.info("Deleted token", key=key)
+        return success
 
     async def get_data(self, token: Token) -> Optional[TokenData]:
         """Retrieve the data for a token from Redis.
@@ -169,9 +204,25 @@ class TokenService:
         """
         return await self._token_redis_store.get_data(token)
 
-    def get_info(self, key: str) -> Optional[TokenInfo]:
-        """Get information about a token."""
-        return self._token_db_store.get_info(key)
+    def get_info(
+        self, key: str, username: Optional[str] = None
+    ) -> Optional[TokenInfo]:
+        """Get information about a token.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token.
+        username : `str`, optional
+            If set, constrain the result to tokens from that user and return
+            `None` if the token exists but is for a different user.
+        """
+        info = self._token_db_store.get_info(key)
+        if not info:
+            return None
+        if username and info.username != username:
+            return None
+        return info
 
     async def get_internal_token(
         self, token_data: TokenData, service: str, scopes: List[str]
@@ -231,6 +282,12 @@ class TokenService:
             self._token_db_store.add(
                 data, service=service, parent=token_data.token.key
             )
+        self._logger.info(
+            "Created new internal token",
+            key=token.key,
+            service=service,
+            token_scope=",".join(data.scopes),
+        )
         return token
 
     async def get_notebook_token(self, token_data: TokenData) -> Token:
@@ -278,6 +335,7 @@ class TokenService:
         await self._token_redis_store.store_data(data)
         with self._transaction_manager.transaction():
             self._token_db_store.add(data, parent=token_data.token.key)
+        self._logger.info("Created new notebook token", key=token.key)
         return token
 
     async def get_user_info(self, token: Token) -> Optional[TokenUserInfo]:
@@ -318,6 +376,7 @@ class TokenService:
         """
         if username and username != auth_data.username:
             msg = f"{auth_data.username} cannot list tokens for {username}"
+            self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
         return self._token_db_store.list(username=username)
 
@@ -325,6 +384,7 @@ class TokenService:
         self,
         key: str,
         auth_data: TokenData,
+        username: Optional[str] = None,
         *,
         token_name: Optional[str] = None,
         scopes: Optional[List[str]] = None,
@@ -339,6 +399,9 @@ class TokenService:
         auth_data : `gafaelfawr.models.token.TokenData`
             The token data for the authentication token of the user making
             this modification.
+        username : `str`, optional
+            If given, constrain modifications to tokens owned by the given
+            user.
         token_name : `str`, optional
             The new name for the token.
         scopes : List[`str`], optional
@@ -355,15 +418,29 @@ class TokenService:
         ------
         gafaelfawr.exceptions.PermissionDeniedError
             The token being modified is not owned by the user identified with
-            ``auth_data``.
+            ``auth_data`` or the user attempted to modify a token type other
+            than user.
         """
-        info = self.get_info(key)
+        info = self.get_info(key, username)
         if not info:
             return None
         if info.username != auth_data.username:
             msg = f"Token owned by {info.username}, not {auth_data.username}"
+            self._logger.warning("Permission denied", error=msg)
+            raise PermissionDeniedError(msg)
+        if info.token_type != TokenType.user:
+            msg = "Only user tokens can be modified"
+            self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
         with self._transaction_manager.transaction():
-            return self._token_db_store.modify(
+            info = self._token_db_store.modify(
                 key, token_name=token_name, scopes=scopes, expires=expires
             )
+        if info:
+            self._logger.info(
+                "Modified token",
+                key=key,
+                token_name=info.token_name,
+                token_scope=",".join(info.scopes),
+            )
+        return info

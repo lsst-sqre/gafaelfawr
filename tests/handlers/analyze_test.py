@@ -30,7 +30,7 @@ async def test_analyze_no_auth(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_analyze_session(setup: SetupTest) -> None:
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     setup.login(token_data.token)
 
     r = await setup.client.get("/auth/analyze")
@@ -60,7 +60,7 @@ async def test_analyze_token(setup: SetupTest) -> None:
     }
 
     # Valid token.
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     token = token_data.token
     r = await setup.client.post("/auth/analyze", data={"token": str(token)})
 

@@ -15,7 +15,7 @@ async def test_admins(setup: SetupTest) -> None:
     r = await setup.client.get("/auth/api/v1/admins")
     assert r.status_code == 401
 
-    token_data = await setup.create_token()
+    token_data = await setup.create_session_token()
     r = await setup.client.get(
         "/auth/api/v1/admins",
         headers={"Authorization": f"bearer {token_data.token}"},
@@ -26,7 +26,7 @@ async def test_admins(setup: SetupTest) -> None:
         "type": "permission_denied",
     }
 
-    token_data = await setup.create_token(username="admin")
+    token_data = await setup.create_session_token(username="admin")
     r = await setup.client.get(
         "/auth/api/v1/admins",
         headers={"Authorization": f"bearer {token_data.token}"},
