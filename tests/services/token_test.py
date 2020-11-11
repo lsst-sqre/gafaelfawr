@@ -146,7 +146,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
     assert data
     now = datetime.now(tz=timezone.utc).replace(microsecond=0)
 
-    notebook_token = await token_service.create_notebook_token(data)
+    notebook_token = await token_service.get_notebook_token(data)
     assert await token_service.get_user_info(notebook_token) == user_info
     info = token_service.get_info(notebook_token.key)
     assert info
@@ -173,6 +173,11 @@ async def test_notebook_token(setup: SetupTest) -> None:
         groups=user_info.groups,
     )
 
+    # Creating another notebook token from the same parent token just returns
+    # the same notebook token as before.
+    new_notebook_token = await token_service.get_notebook_token(data)
+    assert notebook_token == new_notebook_token
+
     # Check that the expiration time is capped by creating a user token that
     # doesn't expire and then creating a notebook token from it.
     user_token = await token_service.create_user_token(
@@ -180,8 +185,9 @@ async def test_notebook_token(setup: SetupTest) -> None:
     )
     data = await token_service.get_data(user_token)
     assert data
-    notebook_token = await token_service.create_notebook_token(data)
-    info = token_service.get_info(notebook_token.key)
+    new_notebook_token = await token_service.get_notebook_token(data)
+    assert new_notebook_token != notebook_token
+    info = token_service.get_info(new_notebook_token.key)
     assert info
     expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert info.expires == expires
@@ -202,7 +208,7 @@ async def test_internal_token(setup: SetupTest) -> None:
     data = await token_service.get_data(session_token)
     assert data
 
-    internal_token = await token_service.create_internal_token(
+    internal_token = await token_service.get_internal_token(
         data, service="some-service", scopes=["read:all"]
     )
     assert await token_service.get_user_info(internal_token) == user_info
@@ -222,9 +228,26 @@ async def test_internal_token(setup: SetupTest) -> None:
 
     # Cannot request a scope that the parent token doesn't have.
     with pytest.raises(PermissionDeniedError):
-        await token_service.create_internal_token(
+        await token_service.get_internal_token(
             data, service="some-service", scopes=["other:scope"]
         )
+
+    # Creating another internal token from the same parent token with the same
+    # parameters just returns the same internal token as before.
+    new_internal_token = await token_service.get_internal_token(
+        data, service="some-service", scopes=["read:all"]
+    )
+    assert internal_token == new_internal_token
+
+    # A different scope or a different service results in a new token.
+    new_internal_token = await token_service.get_internal_token(
+        data, service="some-service", scopes=[]
+    )
+    assert internal_token != new_internal_token
+    new_internal_token = await token_service.get_internal_token(
+        data, service="another-service", scopes=["read:all"]
+    )
+    assert internal_token != new_internal_token
 
     # Check that the expiration time is capped by creating a user token that
     # doesn't expire and then creating a notebook token from it.  Use this to
@@ -234,10 +257,11 @@ async def test_internal_token(setup: SetupTest) -> None:
     )
     data = await token_service.get_data(user_token)
     assert data
-    internal_token = await token_service.create_internal_token(
+    new_internal_token = await token_service.get_internal_token(
         data, service="some-service", scopes=[]
     )
-    info = token_service.get_info(internal_token.key)
+    assert new_internal_token != internal_token
+    info = token_service.get_info(new_internal_token.key)
     assert info
     assert info.scopes == []
     expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)

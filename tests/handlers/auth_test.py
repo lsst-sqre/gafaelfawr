@@ -257,6 +257,15 @@ async def test_notebook(setup: SetupTest) -> None:
         "parent": token_data.token.key,
     }
 
+    # Requesting a token with the same parameters returns the same token.
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin", "notebook": "true"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert notebook_token == Token.from_str(r.headers["X-Auth-Request-Token"])
+
 
 @pytest.mark.asyncio
 async def test_internal(setup: SetupTest) -> None:
@@ -293,6 +302,19 @@ async def test_internal(setup: SetupTest) -> None:
         "expires": int(token_data.expires.timestamp()),
         "parent": token_data.token.key,
     }
+
+    # Requesting a token with the same parameters returns the same token.
+    r = await setup.client.get(
+        "/auth",
+        params={
+            "scope": "exec:admin",
+            "delegate_to": "a-service",
+            "delegate_scope": "read:all,read:some",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert internal_token == Token.from_str(r.headers["X-Auth-Request-Token"])
 
 
 @pytest.mark.asyncio

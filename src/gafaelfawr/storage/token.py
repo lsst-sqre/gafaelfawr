@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from gafaelfawr.exceptions import DeserializeException
-from gafaelfawr.models.token import TokenInfo
+from gafaelfawr.models.token import TokenInfo, TokenType
 from gafaelfawr.schema.subtoken import Subtoken
 from gafaelfawr.schema.token import Token as SQLToken
 
@@ -125,6 +125,60 @@ class TokenDatabaseStore:
             return info
         else:
             return None
+
+    def get_internal_token_key(
+        self, token_data: TokenData, service: str, scopes: List[str]
+    ) -> Optional[str]:
+        """Retrieve an existing internal child token.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The data for the parent token.
+        service : `str`
+            The service to which the internal token is delegated.
+        scopes : List[`str`]
+            The scopes of the delegated token.
+
+        Returns
+        -------
+        key : `str` or `None`
+            The key of an existing internal child token with the desired
+            properties, or `None` if none exist.
+        """
+        return (
+            self._session.query(Subtoken.child)
+            .filter_by(parent=token_data.token.key)
+            .join(SQLToken, Subtoken.child == SQLToken.token)
+            .filter(
+                SQLToken.token_type == TokenType.internal,
+                SQLToken.service == service,
+                SQLToken.scopes == ",".join(sorted(scopes)),
+            )
+            .scalar()
+        )
+
+    def get_notebook_token_key(self, token_data: TokenData) -> Optional[str]:
+        """Retrieve an existing notebook child token.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The data for the parent token.
+
+        Returns
+        -------
+        key : `str` or `None`
+            The key of an existing notebook child token, or `None` if none
+            exist.
+        """
+        return (
+            self._session.query(Subtoken.child)
+            .filter_by(parent=token_data.token.key)
+            .join(SQLToken, Subtoken.child == SQLToken.token)
+            .filter(SQLToken.token_type == TokenType.notebook)
+            .scalar()
+        )
 
     def list(self, *, username: Optional[str] = None) -> List[TokenInfo]:
         """List tokens.
@@ -245,13 +299,8 @@ class TokenRedisStore:
             The data underlying the token, or `None` if the token is not
             valid.
         """
-        try:
-            data = await self._storage.get(f"token:{token.key}")
-        except DeserializeException as e:
-            self._logger.error("Cannot retrieve token", error=str(e))
-            return None
+        data = await self.get_data_by_key(token.key)
         if not data:
-            print("not found", token.key)
             return None
 
         if data.token != token:
@@ -259,6 +308,31 @@ class TokenRedisStore:
             self._logger.error("Cannot retrieve token data", error=error)
             return None
 
+        return data
+
+    async def get_data_by_key(self, key: str) -> Optional[TokenData]:
+        """Retrieve the data for a token from Redis by its key.
+
+        This method allows retrieving a working token while bypassing the
+        check that the caller is in possession of the secret, and therefore
+        must never be used with user-supplied keys.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token.
+
+        Returns
+        -------
+        data : `gafaelfawr.models.token.TokenData` or `None`
+            The data underlying the token, or `None` if the token is not
+            valid.
+        """
+        try:
+            data = await self._storage.get(f"token:{key}")
+        except DeserializeException as e:
+            self._logger.error("Cannot retrieve token", error=str(e))
+            return None
         return data
 
     async def store_data(self, data: TokenData) -> None:

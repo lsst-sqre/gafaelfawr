@@ -44,94 +44,6 @@ class TokenService:
         self._token_redis_store = token_redis_store
         self._transaction_manager = transaction_manager
 
-    async def create_internal_token(
-        self, token_data: TokenData, service: str, scopes: List[str]
-    ) -> Token:
-        """Add a new internal token.
-
-        The new token will have the same expiration time as the existing token
-        on which it's based unless that expiration time is longer than the
-        expiration time of normal interactive tokens, in which case it will be
-        capped at the interactive token expiration time.
-
-        Parameters
-        ----------
-        token_data : `gafaelfawr.models.token.TokenData`
-            The authentication data on which to base the new token.
-        service : `str`
-            The internal service to which the token is delegated.
-        scopes : List[`str`]
-            The scopes the new token should have.
-
-        Returns
-        -------
-        token : `gafaelfawr.models.token.Token`
-            The newly-created token.
-        """
-        if not set(scopes) <= set(token_data.scopes):
-            raise PermissionDeniedError("Token does not have required scopes")
-        token = Token()
-        created = datetime.now(tz=timezone.utc).replace(microsecond=0)
-        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
-        if token_data.expires and token_data.expires < expires:
-            expires = token_data.expires
-        data = TokenData(
-            token=token,
-            username=token_data.username,
-            token_type=TokenType.internal,
-            scopes=scopes,
-            created=created,
-            expires=expires,
-            name=token_data.name,
-            uid=token_data.uid,
-            groups=token_data.groups,
-        )
-        await self._token_redis_store.store_data(data)
-        with self._transaction_manager.transaction():
-            self._token_db_store.add(
-                data, service=service, parent=token_data.token.key
-            )
-        return token
-
-    async def create_notebook_token(self, token_data: TokenData) -> Token:
-        """Add a new notebook token.
-
-        The new token will have the same expiration time as the existing token
-        on which it's based unless that expiration time is longer than the
-        expiration time of normal interactive tokens, in which case it will be
-        capped at the interactive token expiration time.
-
-        Parameters
-        ----------
-        token_data : `gafaelfawr.models.token.TokenData`
-            The authentication data on which to base the new token.
-
-        Returns
-        -------
-        token : `gafaelfawr.models.token.Token`
-            The newly-created token.
-        """
-        token = Token()
-        created = datetime.now(tz=timezone.utc).replace(microsecond=0)
-        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
-        if token_data.expires and token_data.expires < expires:
-            expires = token_data.expires
-        data = TokenData(
-            token=token,
-            username=token_data.username,
-            token_type=TokenType.notebook,
-            scopes=token_data.scopes,
-            created=created,
-            expires=expires,
-            name=token_data.name,
-            uid=token_data.uid,
-            groups=token_data.groups,
-        )
-        await self._token_redis_store.store_data(data)
-        with self._transaction_manager.transaction():
-            self._token_db_store.add(data, parent=token_data.token.key)
-        return token
-
     async def create_session_token(
         self, user_info: TokenUserInfo, scopes: Optional[List[str]] = None
     ) -> Token:
@@ -260,6 +172,113 @@ class TokenService:
     def get_info(self, key: str) -> Optional[TokenInfo]:
         """Get information about a token."""
         return self._token_db_store.get_info(key)
+
+    async def get_internal_token(
+        self, token_data: TokenData, service: str, scopes: List[str]
+    ) -> Token:
+        """Get or create a new internal token.
+
+        The new token will have the same expiration time as the existing token
+        on which it's based unless that expiration time is longer than the
+        expiration time of normal interactive tokens, in which case it will be
+        capped at the interactive token expiration time.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The authentication data on which to base the new token.
+        service : `str`
+            The internal service to which the token is delegated.
+        scopes : List[`str`]
+            The scopes the new token should have.
+
+        Returns
+        -------
+        token : `gafaelfawr.models.token.Token`
+            The newly-created token.
+        """
+        if not set(scopes) <= set(token_data.scopes):
+            raise PermissionDeniedError("Token does not have required scopes")
+
+        # See if there's already a matching internal token.
+        key = self._token_db_store.get_internal_token_key(
+            token_data, service, scopes
+        )
+        if key:
+            data = await self._token_redis_store.get_data_by_key(key)
+            if data:
+                return data.token
+
+        # There is not, so we need to create a new one.
+        token = Token()
+        created = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
+        if token_data.expires and token_data.expires < expires:
+            expires = token_data.expires
+        data = TokenData(
+            token=token,
+            username=token_data.username,
+            token_type=TokenType.internal,
+            scopes=scopes,
+            created=created,
+            expires=expires,
+            name=token_data.name,
+            uid=token_data.uid,
+            groups=token_data.groups,
+        )
+        await self._token_redis_store.store_data(data)
+        with self._transaction_manager.transaction():
+            self._token_db_store.add(
+                data, service=service, parent=token_data.token.key
+            )
+        return token
+
+    async def get_notebook_token(self, token_data: TokenData) -> Token:
+        """Get or create a new notebook token.
+
+        The new token will have the same expiration time as the existing token
+        on which it's based unless that expiration time is longer than the
+        expiration time of normal interactive tokens, in which case it will be
+        capped at the interactive token expiration time.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The authentication data on which to base the new token.
+
+        Returns
+        -------
+        token : `gafaelfawr.models.token.Token`
+            The newly-created token.
+        """
+        # See if there's already a matching notebook token.
+        key = self._token_db_store.get_notebook_token_key(token_data)
+        if key:
+            data = await self._token_redis_store.get_data_by_key(key)
+            if data:
+                return data.token
+
+        # There is not, so we need to create a new one.
+        token = Token()
+        created = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
+        if token_data.expires and token_data.expires < expires:
+            expires = token_data.expires
+        data = TokenData(
+            token=token,
+            username=token_data.username,
+            token_type=TokenType.notebook,
+            scopes=token_data.scopes,
+            created=created,
+            expires=expires,
+            name=token_data.name,
+            uid=token_data.uid,
+            groups=token_data.groups,
+        )
+        await self._token_redis_store.store_data(data)
+        with self._transaction_manager.transaction():
+            self._token_db_store.add(data, parent=token_data.token.key)
+        return token
 
     async def get_user_info(self, token: Token) -> Optional[TokenUserInfo]:
         """Get user information associated with a token."""
