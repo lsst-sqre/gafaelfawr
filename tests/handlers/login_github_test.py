@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert setup.config.github
-    userinfo = GitHubUserInfo(
+    user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
         uid=123456,
@@ -72,7 +72,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
     # Simulate the return from GitHub.
     caplog.clear()
-    setup.set_github_userinfo_response("some-github-token", userinfo)
+    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -106,13 +106,12 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-Uid"] == "123456"
     expected = "org-a-team,org-other-team,other-org-team-with-very--F279yg"
     assert r.headers["X-Auth-Request-Groups"] == expected
-    assert r.headers["X-Auth-Request-Token"]
 
 
 @pytest.mark.asyncio
 async def test_login_redirect_header(setup: SetupTest) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    userinfo = GitHubUserInfo(
+    user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
         uid=123456,
@@ -133,7 +132,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response("some-github-token", userinfo)
+    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -159,7 +158,7 @@ async def test_cookie_auth_with_token(setup: SetupTest) -> None:
     login to get a valid session and then make a request with a bogus
     Authorization header.
     """
-    userinfo = GitHubUserInfo(
+    user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
         uid=123456,
@@ -179,7 +178,7 @@ async def test_cookie_auth_with_token(setup: SetupTest) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response("some-github-token", userinfo)
+    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -204,7 +203,7 @@ async def test_claim_names(setup: SetupTest) -> None:
     """Uses an alternate settings environment with non-default claims."""
     setup.configure(username_claim="username", uid_claim="numeric-uid")
     assert setup.config.github
-    userinfo = GitHubUserInfo(
+    user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
         uid=123456,
@@ -223,7 +222,7 @@ async def test_claim_names(setup: SetupTest) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response("some-github-token", userinfo)
+    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -240,7 +239,7 @@ async def test_claim_names(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_bad_redirect(setup: SetupTest) -> None:
-    userinfo = GitHubUserInfo(
+    user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
         uid=123456,
@@ -277,7 +276,7 @@ async def test_bad_redirect(setup: SetupTest) -> None:
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
-    setup.set_github_userinfo_response("some-github-token", userinfo)
+    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -295,7 +294,7 @@ async def test_github_uppercase(setup: SetupTest) -> None:
     case of slugs) because GitHub should already be coercing lowercase when
     creating the slug.
     """
-    userinfo = GitHubUserInfo(
+    user_info = GitHubUserInfo(
         name="A User",
         username="SomeUser",
         uid=1000,
@@ -314,7 +313,7 @@ async def test_github_uppercase(setup: SetupTest) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response("some-github-token", userinfo)
+    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},

@@ -147,6 +147,14 @@ class TokenInfo(TokenBase):
         max_length=64,
     )
 
+    service: Optional[str] = Field(
+        None,
+        title="Service to which the token was delegated",
+        description="Only present for internal tokens.",
+        min_length=1,
+        max_length=64,
+    )
+
     last_used: Optional[datetime] = Field(
         None, title="When the token was last used in seconds since epoch"
     )

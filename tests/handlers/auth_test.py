@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 from typing import TYPE_CHECKING
+from unittest.mock import ANY
 
 import pytest
 
@@ -223,7 +224,110 @@ async def test_success(setup: SetupTest) -> None:
     assert r.headers["X-Auth-Request-User"] == token_data.username
     assert r.headers["X-Auth-Request-Uid"] == str(token_data.uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"
-    assert r.headers["X-Auth-Request-Token"] == str(token_data.token)
+
+
+@pytest.mark.asyncio
+async def test_notebook(setup: SetupTest) -> None:
+    token_data = await setup.create_token(
+        group_names=["admin"], scopes=["exec:admin", "read:all"]
+    )
+    assert token_data.expires
+
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "exec:admin", "notebook": "true"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
+    assert notebook_token != token_data.token
+
+    r = await setup.client.get(
+        "/auth/api/v1/token-info",
+        headers={"Authorization": f"Bearer {notebook_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "token": notebook_token.key,
+        "username": token_data.username,
+        "token_type": "notebook",
+        "scopes": ["exec:admin", "read:all"],
+        "created": ANY,
+        "expires": int(token_data.expires.timestamp()),
+        "parent": token_data.token.key,
+    }
+
+
+@pytest.mark.asyncio
+async def test_internal(setup: SetupTest) -> None:
+    token_data = await setup.create_token(
+        group_names=["admin"], scopes=["exec:admin", "read:all", "read:some"]
+    )
+    assert token_data.expires
+
+    r = await setup.client.get(
+        "/auth",
+        params={
+            "scope": "exec:admin",
+            "delegate_to": "a-service",
+            "delegate_scope": " read:some  ,read:all  ",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    internal_token = Token.from_str(r.headers["X-Auth-Request-Token"])
+    assert internal_token != token_data.token
+
+    r = await setup.client.get(
+        "/auth/api/v1/token-info",
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "token": internal_token.key,
+        "username": token_data.username,
+        "token_type": "internal",
+        "scopes": ["read:all", "read:some"],
+        "service": "a-service",
+        "created": ANY,
+        "expires": int(token_data.expires.timestamp()),
+        "parent": token_data.token.key,
+    }
+
+
+@pytest.mark.asyncio
+async def test_internal_errors(setup: SetupTest) -> None:
+    token_data = await setup.create_token(scopes=["read:some"])
+
+    # Delegating a token with a scope the original doesn't have will fail.
+    r = await setup.client.get(
+        "/auth",
+        params={
+            "scope": "read:some",
+            "delegate_to": "a-service",
+            "delegate_scope": "read:all",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 403
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.error == AuthError.insufficient_scope
+    assert authenticate.scope == "read:all read:some"
+
+    # Cannot request a notebook token and an internal token at the same time.
+    r = await setup.client.get(
+        "/auth",
+        params={
+            "scope": "read:some",
+            "notebook": "true",
+            "delegate_to": "a-service",
+            "delegate_scope": "read:some",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 422
 
 
 @pytest.mark.asyncio

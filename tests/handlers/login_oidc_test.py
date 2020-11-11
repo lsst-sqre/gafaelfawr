@@ -95,7 +95,6 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-User"] == token.username
     assert r.headers["X-Auth-Request-Uid"] == str(token.uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"
-    assert r.headers["X-Auth-Request-Token"]
 
 
 @pytest.mark.asyncio

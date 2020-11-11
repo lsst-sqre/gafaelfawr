@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_create_delete_modify(setup: SetupTest) -> None:
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example",
         name="Example Person",
         uid=45613,
@@ -27,7 +27,7 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        userinfo, scopes=["read:all", "exec:admin"]
+        user_info, scopes=["read:all", "exec:admin"]
     )
     setup.login(session_token)
 
@@ -138,14 +138,14 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_token_info(setup: SetupTest) -> None:
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example",
         name="Example Person",
         uid=45613,
         groups=[TokenGroup(name="foo", id=12313)],
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(userinfo)
+    session_token = await token_service.create_session_token(user_info)
 
     r = await setup.client.get(
         "/auth/api/v1/token-info",
@@ -226,11 +226,11 @@ async def test_token_info(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_auth_required(setup: SetupTest) -> None:
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example", name="Example Person", uid=45613
     )
     token_service = setup.factory.create_token_service()
-    token = await token_service.create_session_token(userinfo)
+    token = await token_service.create_session_token(user_info)
     state = State(token=token)
 
     r = await setup.client.get(
@@ -288,11 +288,11 @@ async def test_auth_required(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_csrf_required(setup: SetupTest) -> None:
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example", name="Example Person", uid=45613
     )
     token_service = setup.factory.create_token_service()
-    token = await token_service.create_session_token(userinfo)
+    token = await token_service.create_session_token(user_info)
     state = State(token=token)
 
     r = await setup.client.get(

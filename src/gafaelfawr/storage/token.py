@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from gafaelfawr.exceptions import DeserializeException
 from gafaelfawr.models.token import TokenInfo
+from gafaelfawr.schema.subtoken import Subtoken
 from gafaelfawr.schema.token import Token as SQLToken
 
 if TYPE_CHECKING:
@@ -39,15 +40,26 @@ class TokenDatabaseStore:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def add(self, data: TokenData, token_name: Optional[str] = None) -> None:
+    def add(
+        self,
+        data: TokenData,
+        *,
+        token_name: Optional[str] = None,
+        service: Optional[str] = None,
+        parent: Optional[str] = None,
+    ) -> None:
         """Store a new token.
 
         Parameters
         ----------
         data : `gafaelfawr.models.token.TokenData`
             The corresponding data.
-        name : `str` or `None`
+        token_name : `str`, optional
             The human-given name for the token.
+        service : `str`, optional
+            The service for an internal token.
+        parent : `str`, optional
+            The key of the parent of this token.
         """
         new = SQLToken(
             token=data.token.key,
@@ -55,10 +67,14 @@ class TokenDatabaseStore:
             token_type=data.token_type,
             token_name=token_name,
             scopes=",".join(sorted(data.scopes)) if data.scopes else None,
+            service=service,
             created=data.created,
             expires=data.expires,
         )
         self._session.add(new)
+        if parent:
+            subtoken = Subtoken(parent=parent, child=data.token.key)
+            self._session.add(subtoken)
 
     def delete(self, key: str) -> bool:
         """Delete a token.
@@ -88,9 +104,27 @@ class TokenDatabaseStore:
         info : `gafaelfawr.models.token.TokenInfo` or `None`
             Information about that token or `None` if it doesn't exist in the
             database.
+
+        Notes
+        -----
+        There is probably some way to materialize parent as a relationship
+        field on `~gafaelfawr.schema.token.Token` objects, but that gets into
+        gnarly and hard-to-understand SQLAlchemy ORM internals.  This approach
+        still does only one database query without fancy ORM mappings at the
+        cost of some irritating mangling of the return value.
         """
-        token = self._session.query(SQLToken).filter_by(token=key).scalar()
-        return TokenInfo.from_orm(token) if token else None
+        result = (
+            self._session.query(SQLToken, Subtoken.parent)
+            .filter_by(token=key)
+            .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
+            .one_or_none()
+        )
+        if result:
+            info = TokenInfo.from_orm(result[0])
+            info.parent = result[1]
+            return info
+        else:
+            return None
 
     def list(self, *, username: Optional[str] = None) -> List[TokenInfo]:
         """List tokens.

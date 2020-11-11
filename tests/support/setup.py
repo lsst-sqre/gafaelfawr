@@ -241,7 +241,7 @@ class SetupTest:
         self.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
 
     def set_github_userinfo_response(
-        self, token: str, userinfo: GitHubUserInfo
+        self, token: str, user_info: GitHubUserInfo
     ) -> None:
         """Set the GitHub user information to return from the GitHub API.
 
@@ -249,7 +249,7 @@ class SetupTest:
         ----------
         token : `str`
             The token that the client must send.
-        userinfo : `gafaelfawr.providers.github.GitHubUserInfo`
+        user_info : `gafaelfawr.providers.github.GitHubUserInfo`
             User information to use to synthesize GitHub API responses.
         """
         assert self.config.github
@@ -260,14 +260,14 @@ class SetupTest:
             if str(request.url) == GitHubProvider._USER_URL:
                 return to_response(
                     json={
-                        "login": userinfo.username,
-                        "id": userinfo.uid,
-                        "name": userinfo.name,
+                        "login": user_info.username,
+                        "id": user_info.uid,
+                        "name": user_info.name,
                     }
                 )
             elif str(request.url) == GitHubProvider._TEAMS_URL:
                 teams = []
-                for team in userinfo.teams:
+                for team in user_info.teams:
                     data = {
                         "slug": team.slug,
                         "id": team.gid,
@@ -279,7 +279,7 @@ class SetupTest:
                 return to_response(
                     json=[
                         {"email": "otheremail@example.com", "primary": False},
-                        {"email": userinfo.email, "primary": True},
+                        {"email": user_info.email, "primary": True},
                     ]
                 )
             else:

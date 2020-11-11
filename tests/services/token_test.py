@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 from cryptography.fernet import Fernet
 
+from gafaelfawr.exceptions import PermissionDeniedError
 from gafaelfawr.models.token import (
     Token,
     TokenData,
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_session_token(setup: SetupTest) -> None:
     token_service = setup.factory.create_token_service()
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example",
         name="Example Person",
         uid=4137,
@@ -35,7 +36,7 @@ async def test_session_token(setup: SetupTest) -> None:
         ],
     )
 
-    token = await token_service.create_session_token(userinfo)
+    token = await token_service.create_session_token(user_info)
     data = await token_service.get_data(token)
     assert data
     assert data == TokenData(
@@ -59,7 +60,7 @@ async def test_session_token(setup: SetupTest) -> None:
 
     assert token_service.get_info(token.key) == TokenInfo(
         token=token.key,
-        username=userinfo.username,
+        username=user_info.username,
         token_name=None,
         token_type=TokenType.session,
         scopes=data.scopes,
@@ -68,11 +69,11 @@ async def test_session_token(setup: SetupTest) -> None:
         expires=int(data.expires.timestamp()),
         parent=None,
     )
-    assert await token_service.get_user_info(token) == userinfo
+    assert await token_service.get_user_info(token) == user_info
 
     # Test a session token with scopes.
     token = await token_service.create_session_token(
-        userinfo, scopes=["read:all", "exec:admin"]
+        user_info, scopes=["read:all", "exec:admin"]
     )
     data = await token_service.get_data(token)
     assert data
@@ -84,11 +85,11 @@ async def test_session_token(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_user_token(setup: SetupTest) -> None:
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(userinfo)
+    session_token = await token_service.create_session_token(user_info)
     data = await token_service.get_data(session_token)
     assert data
     now = datetime.now(tz=timezone.utc).replace(microsecond=0)
@@ -102,12 +103,12 @@ async def test_user_token(setup: SetupTest) -> None:
         scopes=["read:all", "exec:admin"],
         expires=expires,
     )
-    assert await token_service.get_user_info(user_token) == userinfo
+    assert await token_service.get_user_info(user_token) == user_info
     info = token_service.get_info(user_token.key)
     assert info
     assert info == TokenInfo(
         token=user_token.key,
-        username=userinfo.username,
+        username=user_info.username,
         token_name="some-token",
         token_type=TokenType.user,
         scopes=["exec:admin", "read:all"],
@@ -119,23 +120,137 @@ async def test_user_token(setup: SetupTest) -> None:
     assert now - timedelta(seconds=2) <= info.created <= now
     assert await token_service.get_data(user_token) == TokenData(
         token=user_token,
-        username=userinfo.username,
+        username=user_info.username,
         token_type=TokenType.user,
         scopes=["exec:admin", "read:all"],
         created=info.created,
         expires=info.expires,
-        name=userinfo.name,
-        uid=userinfo.uid,
+        name=user_info.name,
+        uid=user_info.uid,
     )
 
 
 @pytest.mark.asyncio
+async def test_notebook_token(setup: SetupTest) -> None:
+    user_info = TokenUserInfo(
+        username="example",
+        name="Example Person",
+        uid=4137,
+        groups=[TokenGroup(name="foo", id=1000)],
+    )
+    token_service = setup.factory.create_token_service()
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["read:all", "exec:admin"]
+    )
+    data = await token_service.get_data(session_token)
+    assert data
+    now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+
+    notebook_token = await token_service.create_notebook_token(data)
+    assert await token_service.get_user_info(notebook_token) == user_info
+    info = token_service.get_info(notebook_token.key)
+    assert info
+    assert info == TokenInfo(
+        token=notebook_token.key,
+        username=user_info.username,
+        token_type=TokenType.notebook,
+        scopes=["exec:admin", "read:all"],
+        created=info.created,
+        last_used=None,
+        expires=data.expires,
+        parent=session_token.key,
+    )
+    assert now - timedelta(seconds=2) <= info.created <= now
+    assert await token_service.get_data(notebook_token) == TokenData(
+        token=notebook_token,
+        username=user_info.username,
+        token_type=TokenType.notebook,
+        scopes=["exec:admin", "read:all"],
+        created=info.created,
+        expires=data.expires,
+        name=user_info.name,
+        uid=user_info.uid,
+        groups=user_info.groups,
+    )
+
+    # Check that the expiration time is capped by creating a user token that
+    # doesn't expire and then creating a notebook token from it.
+    user_token = await token_service.create_user_token(
+        data, token_name="some token", expires=None
+    )
+    data = await token_service.get_data(user_token)
+    assert data
+    notebook_token = await token_service.create_notebook_token(data)
+    info = token_service.get_info(notebook_token.key)
+    assert info
+    expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
+    assert info.expires == expires
+
+
+@pytest.mark.asyncio
+async def test_internal_token(setup: SetupTest) -> None:
+    user_info = TokenUserInfo(
+        username="example",
+        name="Example Person",
+        uid=4137,
+        groups=[TokenGroup(name="foo", id=1000)],
+    )
+    token_service = setup.factory.create_token_service()
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["read:all", "exec:admin"]
+    )
+    data = await token_service.get_data(session_token)
+    assert data
+
+    internal_token = await token_service.create_internal_token(
+        data, service="some-service", scopes=["read:all"]
+    )
+    assert await token_service.get_user_info(internal_token) == user_info
+    info = token_service.get_info(internal_token.key)
+    assert info
+    assert info == TokenInfo(
+        token=internal_token.key,
+        username=user_info.username,
+        token_type=TokenType.internal,
+        service="some-service",
+        scopes=["read:all"],
+        created=info.created,
+        last_used=None,
+        expires=data.expires,
+        parent=session_token.key,
+    )
+
+    # Cannot request a scope that the parent token doesn't have.
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_internal_token(
+            data, service="some-service", scopes=["other:scope"]
+        )
+
+    # Check that the expiration time is capped by creating a user token that
+    # doesn't expire and then creating a notebook token from it.  Use this to
+    # test a token with empty scopes.
+    user_token = await token_service.create_user_token(
+        data, token_name="some token", scopes=["read:foo"], expires=None
+    )
+    data = await token_service.get_data(user_token)
+    assert data
+    internal_token = await token_service.create_internal_token(
+        data, service="some-service", scopes=[]
+    )
+    info = token_service.get_info(internal_token.key)
+    assert info
+    assert info.scopes == []
+    expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
+    assert info.expires == expires
+
+
+@pytest.mark.asyncio
 async def test_list(setup: SetupTest) -> None:
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(userinfo)
+    session_token = await token_service.create_session_token(user_info)
     data = await token_service.get_data(session_token)
     assert data
     user_token = await token_service.create_user_token(
@@ -144,20 +259,20 @@ async def test_list(setup: SetupTest) -> None:
 
     session_info = token_service.get_info(session_token.key)
     assert session_info
-    user_info = token_service.get_info(user_token.key)
-    assert user_info
+    user_token_info = token_service.get_info(user_token.key)
+    assert user_token_info
     assert token_service.list_tokens(data, "example") == sorted(
-        (session_info, user_info), key=lambda t: t.token
+        (session_info, user_token_info), key=lambda t: t.token
     )
 
 
 @pytest.mark.asyncio
 async def test_modify(setup: SetupTest) -> None:
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(userinfo)
+    session_token = await token_service.create_session_token(user_info)
     data = await token_service.get_data(session_token)
     assert data
     user_token = await token_service.create_user_token(
@@ -187,11 +302,11 @@ async def test_modify(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_delete(setup: SetupTest) -> None:
-    userinfo = TokenUserInfo(
+    user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(userinfo)
+    session_token = await token_service.create_session_token(user_info)
     data = await token_service.get_data(session_token)
     assert data
     token = await token_service.create_user_token(
