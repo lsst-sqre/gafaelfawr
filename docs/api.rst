@@ -7,8 +7,6 @@ API reference
 
 .. automodapi:: gafaelfawr.auth
 
-.. automodapi:: gafaelfawr.cli
-
 .. automodapi:: gafaelfawr.config
 
 .. automodapi:: gafaelfawr.constants
@@ -34,35 +32,25 @@ API reference
 
 .. automodapi:: gafaelfawr.factory
 
-.. automodapi:: gafaelfawr.handlers.analyze
-
-.. automodapi:: gafaelfawr.handlers.auth
-
-.. automodapi:: gafaelfawr.handlers.index
-
-.. automodapi:: gafaelfawr.handlers.influxdb
-
-.. automodapi:: gafaelfawr.handlers.login
-
-.. automodapi:: gafaelfawr.handlers.logout
-
-.. automodapi:: gafaelfawr.handlers.oidc
-
-.. automodapi:: gafaelfawr.handlers.userinfo
-
-.. automodapi:: gafaelfawr.handlers.well_known
-
 .. automodapi:: gafaelfawr.issuer
 
 .. automodapi:: gafaelfawr.keypair
-
-.. automodapi:: gafaelfawr.main
 
 .. automodapi:: gafaelfawr.middleware.state
 
 .. automodapi:: gafaelfawr.middleware.x_forwarded
 
+.. automodapi:: gafaelfawr.models.admin
+
+.. automodapi:: gafaelfawr.models.auth
+
+.. automodapi:: gafaelfawr.models.history
+
+.. automodapi:: gafaelfawr.models.oidc
+
 .. automodapi:: gafaelfawr.models.state
+
+.. automodapi:: gafaelfawr.models.token
 
 .. automodapi:: gafaelfawr.providers.base
 
@@ -70,9 +58,23 @@ API reference
 
 .. automodapi:: gafaelfawr.providers.oidc
 
+.. automodapi:: gafaelfawr.services.admin
+
+.. automodapi:: gafaelfawr.services.oidc
+
+.. automodapi:: gafaelfawr.services.token
+
+.. automodapi:: gafaelfawr.storage.admin
+
 .. automodapi:: gafaelfawr.storage.base
 
+.. automodapi:: gafaelfawr.storage.history
+
 .. automodapi:: gafaelfawr.storage.oidc
+
+.. automodapi:: gafaelfawr.storage.token
+
+.. automodapi:: gafaelfawr.storage.transaction
 
 .. automodapi:: gafaelfawr.util
 

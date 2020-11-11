@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
     from gafaelfawr.models.history import AdminHistoryEntry
 
+__all__ = ["AdminHistoryStore"]
+
 
 class AdminHistoryStore:
     """Stores and retrieves the history of changes to token administrators.

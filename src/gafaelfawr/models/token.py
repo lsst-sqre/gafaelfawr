@@ -11,7 +11,18 @@ from pydantic import BaseModel, Field, validator
 from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.util import normalize_datetime, random_128_bits
 
-__all__ = ["TokenType"]
+__all__ = [
+    "NewToken",
+    "Token",
+    "TokenBase",
+    "TokenData",
+    "TokenGroup",
+    "TokenInfo",
+    "TokenType",
+    "TokenUserInfo",
+    "UserTokenRequest",
+    "UserTokenModifyRequest",
+]
 
 
 class Token(BaseModel):

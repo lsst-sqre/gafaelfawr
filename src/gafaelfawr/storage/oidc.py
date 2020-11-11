@@ -24,7 +24,7 @@ class OIDCAuthorizationStore:
     Parameters
     ----------
     storage : `gafaelfawr.storage.base.RedisStorage`
-        The underlying storage for `OIDCAuthorization`.
+        The underlying storage for `~gafaelfawr.models.oidc.OIDCAuthorization`.
     """
 
     def __init__(self, storage: RedisStorage[OIDCAuthorization]) -> None:
@@ -64,7 +64,7 @@ class OIDCAuthorizationStore:
 
         Parameters
         ----------
-        code : `gafaelfawr.session.SessionHandle`
+        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
             The authorization code.
         """
         await self._storage.delete(f"oidc:{code.key}")
@@ -76,12 +76,12 @@ class OIDCAuthorizationStore:
 
         Parameters
         ----------
-        code : `gafaelfawr.session.SessionHandle`
+        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
             The authorization code.
 
         Returns
         -------
-        authorization : `OIDCAuthorization` or `None`
+        authorization : `gafaelfawr.models.oidc.OIDCAuthorization` or `None`
             The corresponding authorization, or `None` if no such
             authorization exists.
 

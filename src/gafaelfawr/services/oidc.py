@@ -38,12 +38,14 @@ class OIDCService:
 
     Parameters
     ----------
+    config : `gafaelfawr.config.OIDCServerConfig`
+        Configuration for the OpenID Connect server.
     authorization_store : `gafaelfawr.storage.oidc.OIDCAuthorizationStore`
         The underlying storage for OpenID Connect authorizations.
     issuer : `gafaelfawr.issuer.TokenIssuer`
         JWT issuer.
-    session_store : `gafaelfawr.storage.session.SessionStore`
-        Storage for authentication sessions.
+    token_service : `gafaelfawr.services.token.TokenService`
+        Token manipulation service.
     logger : `structlog.BoundLogger`
         Logger for diagnostics.
 
@@ -57,10 +59,9 @@ class OIDCService:
     #. Application receives an access token and an ID token (the same).
     #. Application gets user information from ``/auth/openid/userinfo``.
 
-    The handler code in :py:mod:`gafaelfawr.handlers.oidc` is responsible
-    for parsing the requests from the user.  This object creates the
-    authorization code (with its associated Redis entry) for step 2, and then
-    returns the token for that code in step 4.
+    The handler code is responsible for parsing the requests from the user.
+    This object creates the authorization code (with its associated Redis
+    entry) for step 2, and then returns the token for that code in step 4.
     """
 
     def __init__(
@@ -131,12 +132,12 @@ class OIDCService:
             valid, but is accepted so that error handling can be unified.
         redirect_uri : `str`
             The return URI of the OpenID Connect client.
-        code : `gafaelfawr.session.SessionHandle`
+        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
             The OpenID Connect authorization code.
 
         Returns
         -------
-        token : `gafaelfawr.tokens.VerifiedToken`
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             A newly-issued JWT for this client.
 
         Raises

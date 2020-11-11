@@ -77,7 +77,7 @@ class ComponentFactory:
 
         Returns
         -------
-        admin_service : `gafelfawr.manager.admin.AdminService`
+        admin_service : `gafaelfawr.services.admin.AdminService`
             The new token administrator manager.
         """
         admin_store = AdminStore(self._session)

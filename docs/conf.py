@@ -64,10 +64,9 @@ intersphinx_mapping = {
     "aioredis": ("https://aioredis.readthedocs.io/en/latest/", None),
     "cryptography": ("https://cryptography.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
-    "multidict": ("https://multidict.readthedocs.io/en/stable/", None),
     "python": ("https://docs.python.org/3/", None),
+    "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
     "structlog": ("https://www.structlog.org/en/stable/", None),
-    "wtforms": ("https://wtforms.readthedocs.io/en/stable/", None),
 }
 
 intersphinx_timeout = 10.0  # seconds

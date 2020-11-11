@@ -67,12 +67,12 @@ class TokenVerifier:
 
         Parameters
         ----------
-        token : `gafaelfawr.tokens.Token`
+        token : `gafaelfawr.models.oidc.OIDCToken`
             An encoded token.
 
         Returns
         -------
-        verified_token : `gafaelfawr.tokens.VerifiedToken`
+        verified_token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The verified token.
 
         Raises
@@ -99,12 +99,12 @@ class TokenVerifier:
 
         Parameters
         ----------
-        token : `gafaelfawr.tokens.Token`
+        token : `gafaelfawr.models.oidc.OIDCToken`
             JWT to verify.
 
         Returns
         -------
-        verified_token : `gafaelfawr.tokens.VerifiedToken`
+        verified_token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The verified token contents.
 
         Raises
@@ -165,7 +165,7 @@ class TokenVerifier:
 
         Returns
         -------
-        token : `VerifiedToken`
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The resulting token.
 
         Raises
@@ -212,19 +212,14 @@ class TokenVerifier:
 
         Raises
         ------
-        FetchKeysException
+        gafaelfawr.exceptions.FetchKeysException
             Unable to retrieve the key set for the specified issuer.
-        UnknownAlgorithException
+        gafaelfawr.exceptions.UnknownAlgorithException
             The requested key ID was found, but is for an unsupported
             algorithm.
-        UnknownKeyIdException
+        gafaelfawr.exceptions.UnknownKeyIdException
             The requested key ID was not present in the issuer configuration
             or was not found in that issuer's JWKS.
-
-        Notes
-        -----
-        This function will automatically cache the last 16 keys for up to 10
-        minutes to cut down on network retrieval of the keys.
         """
         self._logger.debug("Getting key %s from %s", key_id, issuer_url)
 
@@ -276,7 +271,7 @@ class TokenVerifier:
 
         Raises
         ------
-        FetchKeysException
+        gafaelfawr.exceptions.FetchKeysException
             On failure to retrieve a set of keys from the issuer.
         """
         url = await self._get_jwks_uri(issuer_url)
@@ -318,7 +313,7 @@ class TokenVerifier:
 
         Raises
         ------
-        FetchKeysException
+        gafaelfawr.exceptions.FetchKeysException
             If the OpenID Connect metadata doesn't contain the expected
             parameter.
         """

@@ -108,10 +108,10 @@ class TokenDatabaseStore:
         Notes
         -----
         There is probably some way to materialize parent as a relationship
-        field on `~gafaelfawr.schema.token.Token` objects, but that gets into
-        gnarly and hard-to-understand SQLAlchemy ORM internals.  This approach
-        still does only one database query without fancy ORM mappings at the
-        cost of some irritating mangling of the return value.
+        field on the ORM Token objects, but that gets into gnarly and
+        hard-to-understand SQLAlchemy ORM internals.  This approach still does
+        only one database query without fancy ORM mappings at the cost of some
+        irritating mangling of the return value.
         """
         result = (
             self._session.query(SQLToken, Subtoken.parent)

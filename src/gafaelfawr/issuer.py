@@ -13,7 +13,7 @@ from gafaelfawr.exceptions import NotConfiguredException
 from gafaelfawr.models.oidc import OIDCVerifiedToken
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional, Set
+    from typing import Any, Dict
 
     from gafaelfawr.config import IssuerConfig
     from gafaelfawr.models.token import TokenData, TokenUserInfo
@@ -55,7 +55,7 @@ class TokenIssuer:
 
         Returns
         -------
-        token : `gafaelfawr.tokens.VerifiedToken`
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The new token.
         """
         now = datetime.now(timezone.utc)
@@ -120,7 +120,7 @@ class TokenIssuer:
 
         Returns
         -------
-        token : `gafaelfawr.tokens.VerifiedToken`
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The encoded token.
         """
         encoded_token = jwt.encode(
@@ -136,29 +136,3 @@ class TokenIssuer:
             uid=payload[self._config.uid_claim],
             jti=payload.get("jti"),
         )
-
-    def _scope_from_groups(
-        self, groups: List[Dict[str, str]]
-    ) -> Optional[str]:
-        """Get scopes from a token's groups.
-
-        Used to determine the scope claim of a reissued token.
-
-        Parameters
-        ----------
-        groups : List[Dict[`str`, `str`]]
-            The groups of a token.  (Technically the value may be `int` but
-            the value of the ``name`` key is always `str` and that's all we
-            look at.)
-
-        Returns
-        -------
-        scope : str or `None`
-            The scope claim generated from the group membership based on the
-            group_mapping configuration parameter.
-        """
-        group_names = [g["name"] for g in groups]
-        scopes: Set[str] = set()
-        for group in group_names:
-            scopes.update(self._config.group_mapping.get(group, set()))
-        return " ".join(sorted(scopes))

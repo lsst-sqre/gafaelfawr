@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-__all__ = ["Transaction"]
+__all__ = ["Transaction", "TransactionManager"]
 
 
 class Transaction:

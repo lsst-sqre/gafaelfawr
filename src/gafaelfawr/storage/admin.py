@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
+__all__ = ["AdminStore"]
+
 
 class AdminStore:
     """Stores and retrieves token administrators.
