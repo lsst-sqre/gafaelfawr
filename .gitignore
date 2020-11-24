@@ -138,3 +138,6 @@ dmypy.json
 # Emacs temporary files
 .#*
 \#*#
+
+# Modified to set up the local development server.
+/examples/secrets/github-client-secret

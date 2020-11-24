@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from gafaelfawr.config import Config
-from gafaelfawr.constants import CONFIG_PATH
+from gafaelfawr.constants import SETTINGS_PATH
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -25,7 +26,9 @@ class ConfigDependency:
     """
 
     def __init__(self) -> None:
-        self._settings_path = CONFIG_PATH
+        self._settings_path = os.getenv(
+            "GAFAELFAWR_SETTINGS_PATH", SETTINGS_PATH
+        )
         self._config: Optional[Config] = None
 
     def __call__(self) -> Config:

@@ -1,4 +1,4 @@
-# Settings intended for a development server running on port 8000 on
+# Settings intended for a development server running on port 8080 on
 # localhost.  Fill in the GitHub client ID and put the corresponding
 # secret key in examples/secrets/github-client-secret, and then run tox -e
 # run to bring up a test server.
@@ -26,11 +26,11 @@ redis_url: "redis://localhost:6379/0"
 redis_password_file: "examples/secrets/redis-password"
 
 # Where to send the user after logging out.
-after_logout_url: "http://localhost:8000"
+after_logout_url: "http://localhost:8080"
 
 # Configuration for the JWTs issued by Gafaelfawr.
 issuer:
-  iss: "http://localhost:8000"
+  iss: "http://localhost:8080"
   key_id: "localhost-key-id"
   aud: "http://localhost"
   key_file: "examples/secrets/issuer-key"
@@ -38,8 +38,8 @@ issuer:
 
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
-# application.  Set the homepage URL to http://localhost:8000/ and the
-# authorization callback URL to http://localhost:8000/login.
+# application.  Set the homepage URL to http://localhost:8080/ and the
+# authorization callback URL to http://localhost:8080/login.
 github:
   client_id: "<github-client-id>"
   client_secret_file: "examples/secrets/github-client-secret"

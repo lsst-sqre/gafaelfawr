@@ -49,17 +49,9 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
 @click.option(
     "--port", default=8080, type=int, help="Port to run the application on."
 )
-@click.option(
-    "--settings",
-    envvar="SETTINGS_PATH",
-    type=str,
-    default="/etc/gafaelfawr/gafaelfawr.yaml",
-    help="Application settings file.",
-)
-def run(port: int, settings: str) -> None:
-    """Run the application (for production)."""
-    config_dependency.set_settings_path(settings)
-    uvicorn.run("gafaelfawr.main:app", host="0.0.0.0", port=port)
+def run(port: int) -> None:
+    """Run the application (for testing, use Gunicorn for production)."""
+    uvicorn.run("gafaelfawr.main:app", port=port, reload=True)
 
 
 @main.command()
@@ -74,7 +66,7 @@ def generate_key() -> None:
 @main.command()
 @click.option(
     "--settings",
-    envvar="SETTINGS_PATH",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
     type=str,
     default="/etc/gafaelfawr/gafaelfawr.yaml",
     help="Application settings file.",
