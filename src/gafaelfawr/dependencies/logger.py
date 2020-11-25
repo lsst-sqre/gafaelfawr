@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import Depends, Request
-from safir.logging import configure_logging
 from structlog import BoundLogger
 
 from gafaelfawr.config import Config
@@ -54,7 +53,7 @@ class LoggerDependency:
             The bound logger.
         """
         if not self.logger:
-            self._configure_logging(config)
+            self.logger = structlog.get_logger(config.safir.logger_name)
         assert self.logger
         logger = self.logger.new(
             request_id=str(uuid.uuid4()),
@@ -69,12 +68,6 @@ class LoggerDependency:
 
     def _configure_logging(self, config: Config) -> None:
         """Called once to configure the base logger."""
-        configure_logging(
-            profile=config.safir.profile,
-            log_level=config.safir.log_level,
-            name=config.safir.logger_name,
-        )
-        self.logger = structlog.get_logger(config.safir.logger_name)
 
 
 logger_dependency = LoggerDependency()

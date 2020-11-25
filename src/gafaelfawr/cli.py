@@ -76,3 +76,7 @@ def init(settings: str) -> None:
     config_dependency.set_settings_path(settings)
     config = config_dependency()
     initialize_database(config)
+
+
+if __name__ == "__main__":
+    main()

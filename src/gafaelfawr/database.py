@@ -7,9 +7,12 @@ every schema to ensure that SQLAlchemy has a complete view.
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
+import structlog
 from sqlalchemy import create_engine
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from gafaelfawr.models.admin import Admin
@@ -29,10 +32,26 @@ def initialize_database(config: Config) -> None:
     config : `gafaelfawr.config.Config`
         The Gafaelfawr configuration.
     """
-    engine = create_engine(config.database_url)
+    logger = structlog.get_logger(config.safir.logger_name)
+
+    # Check connectivity to the database and retry if needed.  This uses a
+    # pre-ping to ensure the database is available and attempts to connect
+    # five times with a two second delay between each attempt.
+    for _ in range(5):
+        try:
+            engine = create_engine(config.database_url, pool_pre_ping=True)
+        except DBAPIError as e:
+            if e.connection_invalidated:
+                logger.info("database not ready, waiting two seconds")
+                time.sleep(2)
+            else:
+                raise
+
+    logger.info("initializing database schema")
     initialize_schema(engine)
     session = Session(bind=engine)
     with TransactionManager(session).transaction():
         admin_store = AdminStore(session)
         for admin in config.initial_admins:
+            logger.info("adding initial admin %s", admin)
             admin_store.add(Admin(username=admin))

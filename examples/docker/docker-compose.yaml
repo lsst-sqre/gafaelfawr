@@ -1,0 +1,52 @@
+# A Docker Compose configuration that builds Gafaelfawr with its default
+# Dockerfile and then starts it inside Docker with associated Redis and
+# PostgreSQL containers.
+
+version: "3.3"
+
+secrets:
+  gafaelfawr:
+    file: "examples/docker/gafaelfawr.yaml"
+  github-client-secret:
+    file: "examples/secrets/github-client-secret"
+  issuer-key:
+    file: "examples/secrets/issuer-key"
+  redis-password:
+    file: "examples/secrets/redis-password"
+  session-secret:
+    file: "examples/secrets/session-secret"
+
+services:
+  redis:
+    image: "redis:latest"
+    container_name: "redis"
+    command:
+      - "redis-server"
+      - "--requirepass"
+      - "TOTALLY-INSECURE-test-password"
+
+  postgresql:
+    image: "postgres:latest"
+    container_name: "postgresql"
+    environment:
+      POSTGRES_PASSWORD: "INSECURE"
+      POSTGRES_USER: "gafaelfawr"
+      POSTGRES_DB: "gafaelfawr"
+
+  gafaelfawr:
+    build:
+      context: "."
+    image: "gafaelfawr:dev"
+    container_name: "gafaelfawr"
+    depends_on:
+      - "redis"
+      - "postgresql"
+    secrets:
+      - "github-client-secret"
+      - "issuer-key"
+      - "redis-password"
+      - "session-secret"
+      - source: "gafaelfawr"
+        target: "/etc/gafaelfawr/gafaelfawr.yaml"
+    ports:
+      - "80:80"
