@@ -44,6 +44,8 @@ deps =
     -r{toxinidir}/requirements/dev.txt
 commands =
     coverage run -m pytest {posargs}
+setenv =
+    GAFAELFAWR_UI_PATH=ui/public
 
 [testenv:coverage-report]
 description = Compile coverage from each test run.

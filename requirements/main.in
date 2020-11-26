@@ -7,6 +7,7 @@
 
 # These dependencies are for fastapi including some optional features.
 fastapi
+aiofiles
 fastapi-sqlalchemy
 gunicorn
 python-multipart

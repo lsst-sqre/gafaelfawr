@@ -39,20 +39,35 @@ RUN pip install --upgrade --no-cache-dir pip setuptools wheel
 COPY requirements/main.txt ./requirements.txt
 RUN pip install --quiet --no-cache-dir -r requirements.txt
 
-FROM base-image AS install-image
+# Install Gatsby.
+RUN npm install -g npm
+RUN npm install -g gatsby-cli
+
+FROM dependencies-image AS install-image
 
 # Use the virtualenv
-COPY --from=dependencies-image /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Install the Gafaelfawr Python application.
 COPY . /app
 WORKDIR /app
 RUN pip install --no-cache-dir .
+
+# Build the UI.  The npm install could be moved into dependencies-image with
+# a bit more work in copying specific directories between the image.
+COPY ui /opt/ui
+WORKDIR /opt/ui
+RUN npm install
+RUN gatsby build --prefix-paths
 
 FROM base-image AS runtime-image
 
 # Copy the virtualenv.
 COPY --from=install-image /opt/venv /opt/venv
+
+# Copy the UI and tell Gafaelfawr where it is.
+COPY --from=install-image /opt/ui/public /app/ui/public
+ENV GAFAELFAWR_UI_PATH=/app/ui/public
 
 # Make sure we use the virtualenv
 ENV PATH="/opt/venv/bin:$PATH"
