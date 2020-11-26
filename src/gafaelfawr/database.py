@@ -52,6 +52,7 @@ def initialize_database(config: Config) -> None:
     session = Session(bind=engine)
     with TransactionManager(session).transaction():
         admin_store = AdminStore(session)
-        for admin in config.initial_admins:
-            logger.info("adding initial admin %s", admin)
-            admin_store.add(Admin(username=admin))
+        if not admin_store.list():
+            for admin in config.initial_admins:
+                logger.info("adding initial admin %s", admin)
+                admin_store.add(Admin(username=admin))
