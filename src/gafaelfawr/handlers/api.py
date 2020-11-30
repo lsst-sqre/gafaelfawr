@@ -54,15 +54,15 @@ def get_admins(
     "/login",
     response_model=APILoginResponse,
     responses={307: {"description": "Not currently authenticated"}},
-    dependencies=[
-        Depends(authenticate_session),
-        Depends(set_csrf),
-    ],
+    dependencies=[Depends(set_csrf)],
 )
 def get_login(
+    auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> APILoginResponse:
-    return APILoginResponse(csrf=context.state.csrf)
+    return APILoginResponse(
+        csrf=context.state.csrf, username=auth_data.username
+    )
 
 
 @router.get(

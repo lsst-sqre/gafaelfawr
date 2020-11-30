@@ -12,7 +12,7 @@ from cryptography.fernet import Fernet
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
-from gafaelfawr.models.token import Token, TokenUserInfo
+from gafaelfawr.models.token import Token
 from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
@@ -34,25 +34,17 @@ def assert_redirect_is_correct(r: Response) -> None:
 
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest) -> None:
-    token_service = setup.factory.create_token_service()
-    user_info = TokenUserInfo(
-        username="example", name="Example Person", uid=12345
-    )
-    token = await token_service.create_session_token(user_info)
-    state = State(token=token)
+    token_data = await setup.create_session_token(username="example")
+    setup.login(token_data.token)
 
-    r = await setup.client.get(
-        "/auth/api/v1/login",
-        allow_redirects=False,
-        cookies={COOKIE_NAME: state.as_cookie()},
-    )
+    r = await setup.client.get("/auth/api/v1/login", allow_redirects=False)
 
     assert r.status_code == 200
     data = r.json()
-    assert data == {"csrf": ANY}
+    assert data == {"csrf": ANY, "username": "example"}
     state = State.from_cookie(r.cookies[COOKIE_NAME], None)
     assert state.csrf == data["csrf"]
-    assert state.token == token
+    assert state.token == token_data.token
 
 
 @pytest.mark.asyncio
