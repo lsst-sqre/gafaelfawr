@@ -285,9 +285,9 @@ nodeenv==1.5.0 \
     --hash=sha256:5304d424c529c997bc888453aeaa6362d242b6b4631e90f3d4bf1b290f1c84a9 \
     --hash=sha256:ab45090ae383b716c4ef89e690c41ff8c2b257b85b309f01f3654df3d084bd7c \
     # via pre-commit
-packaging==20.4 \
-    --hash=sha256:4357f74f47b9c12db93624a82154e9b120fa8293699949152b22065d556079f8 \
-    --hash=sha256:998416ba6962ae7fbd6596850b80e17859a5753ba17c32284f67bfff33784181 \
+packaging==20.7 \
+    --hash=sha256:05af3bb85d320377db281cf254ab050e1a7ebcbf5410685a9a407e18a1f81236 \
+    --hash=sha256:eb41423378682dadb7166144a4926e443093863024de508ca5c9737d6bc08376 \
     # via pytest, pytest-sugar, sphinx
 pbr==5.5.1 \
     --hash=sha256:5fad80b613c402d5b7df7bd84812548b2a61e9977387a80a5fc5c396492b13c9 \
@@ -327,9 +327,9 @@ pluggy==0.13.1 \
     --hash=sha256:15b2acde666561e1298d71b523007ed7364de07029219b604cf808bfa1c765b0 \
     --hash=sha256:966c145cd83c96502c3c3868f50408687b38434af77734af1e9ca461a4081d2d \
     # via pytest
-pre-commit==2.9.0 \
-    --hash=sha256:4aee0db4808fa48d2458cedd5b9a084ef24dda1a0fa504432a11977a4d1cfd0a \
-    --hash=sha256:b2d106d51c6ba6217e859d81774aae33fd825fe7de0dcf0c46e2586333d7a92e \
+pre-commit==2.9.2 \
+    --hash=sha256:949b13efb7467ae27e2c8f9e83434dacf2682595124d8902554a4e18351e5781 \
+    --hash=sha256:e31c04bc23741194a7c0b983fe512801e151a0638c6001c49f2bd034f8a664a1 \
     # via -r requirements/dev.in
 py==1.9.0 \
     --hash=sha256:366389d1db726cd2fcfc79732e75410e5fe4d31db13692115529d34069a043c2 \
@@ -355,9 +355,9 @@ pytest-asyncio==0.14.0 \
     --hash=sha256:2eae1e34f6c68fc0a9dc12d4bea190483843ff4708d24277c41568d6b6044f1d \
     --hash=sha256:9882c0c6b24429449f5f969a5158b528f39bde47dc32e85b9f0403965017e700 \
     # via -r requirements/dev.in
-pytest-httpx==0.10.0 \
-    --hash=sha256:1cee873fdad622ca21169105691607db1411c9927aae9c2f44c02a893977c8f3 \
-    --hash=sha256:b996c8a4be900dfd37746d438cc9fc9321d37ffcacc1f5b7a9fc391daa208456 \
+pytest-httpx==0.10.1 \
+    --hash=sha256:0a7c56e559b23efbf857054cd74de60a7c540694a162423f89c70da6ad358d8e \
+    --hash=sha256:d32e8f6fb7e028f0313f5f5a2d463c8673eb43fd11a9bfe8527299717a7764c4 \
     # via -r requirements/dev.in
 pytest-sugar==0.9.4 \
     --hash=sha256:b1b2186b0a72aada6859bea2a5764145e3aaa2c1cfbb23c3a19b5f7b697563d3 \
@@ -408,7 +408,7 @@ seqdiag==2.0.0 \
 six==1.15.0 \
     --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \
     --hash=sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced \
-    # via packaging, sphinx, virtualenv
+    # via sphinx, virtualenv
 smmap==3.0.4 \
     --hash=sha256:54c44c197c819d5ef1991799a7e30b662d1e520f2ac75c9efbeb54a742214cf4 \
     --hash=sha256:9c98bbd1f9786d22f14b3d4126894d56befb835ec90cef151af566c7e19b5d24 \
@@ -493,9 +493,9 @@ urllib3==1.26.2 \
     --hash=sha256:19188f96923873c92ccb987120ec4acaa12f0461fa9ce5d3d0772bc965a39e08 \
     --hash=sha256:d8ff90d979214d7b4f8ce956e80f4028fc6860e4431f731ea4a8c08f23f99473 \
     # via requests, selenium
-virtualenv==20.2.0 \
-    --hash=sha256:6af42359fbb33a6c7eab4d3246524b96fd9d8e07e7141b7a65998f96e28b2c57 \
-    --hash=sha256:fd4147c5ba3f694e2e4fc3c767407dc2226899623bb9b49c2f15637c2ee335b3 \
+virtualenv==20.2.1 \
+    --hash=sha256:07cff122e9d343140366055f31be4dcd61fd598c69d11cd33a9d9c8df4546dd7 \
+    --hash=sha256:e0aac7525e880a429764cefd3aaaff54afb5d9f25c82627563603f5d7de5a6e5 \
     # via pre-commit
 webcolors==1.11.1 \
     --hash=sha256:76f360636957d1c976db7466bc71dcb713bb95ac8911944dffc55c01cb516de6 \
