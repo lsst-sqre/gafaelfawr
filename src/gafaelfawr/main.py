@@ -55,7 +55,10 @@ app.include_router(well_known.router)
 static_path = os.getenv(
     "GAFAELFAWR_UI_PATH", Path(__file__).parent.parent / "ui" / "public"
 )
-app.mount("/auth/tokens", StaticFiles(directory=str(static_path), html=True))
+app.mount(
+    "/auth/tokens",
+    StaticFiles(directory=str(static_path), html=True, check_dir=False),
+)
 
 
 @app.on_event("startup")
