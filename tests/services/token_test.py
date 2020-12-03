@@ -58,7 +58,7 @@ async def test_session_token(setup: SetupTest) -> None:
     expires = data.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert data.expires == expires
 
-    assert token_service.get_info(token.key) == TokenInfo(
+    assert token_service.get_token_info_unchecked(token.key) == TokenInfo(
         token=token.key,
         username=user_info.username,
         token_name=None,
@@ -78,7 +78,7 @@ async def test_session_token(setup: SetupTest) -> None:
     data = await token_service.get_data(token)
     assert data
     assert data.scopes == ["exec:admin", "read:all"]
-    info = token_service.get_info(token.key)
+    info = token_service.get_token_info_unchecked(token.key)
     assert info
     assert info.scopes == ["exec:admin", "read:all"]
 
@@ -105,7 +105,7 @@ async def test_user_token(setup: SetupTest) -> None:
         expires=expires,
     )
     assert await token_service.get_user_info(user_token) == user_info
-    info = token_service.get_info(user_token.key)
+    info = token_service.get_token_info_unchecked(user_token.key)
     assert info
     assert info == TokenInfo(
         token=user_token.key,
@@ -149,7 +149,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
 
     notebook_token = await token_service.get_notebook_token(data)
     assert await token_service.get_user_info(notebook_token) == user_info
-    info = token_service.get_info(notebook_token.key)
+    info = token_service.get_token_info_unchecked(notebook_token.key)
     assert info
     assert info == TokenInfo(
         token=notebook_token.key,
@@ -188,7 +188,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
     assert data
     new_notebook_token = await token_service.get_notebook_token(data)
     assert new_notebook_token != notebook_token
-    info = token_service.get_info(new_notebook_token.key)
+    info = token_service.get_token_info_unchecked(new_notebook_token.key)
     assert info
     expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert info.expires == expires
@@ -213,7 +213,7 @@ async def test_internal_token(setup: SetupTest) -> None:
         data, service="some-service", scopes=["read:all"]
     )
     assert await token_service.get_user_info(internal_token) == user_info
-    info = token_service.get_info(internal_token.key)
+    info = token_service.get_token_info_unchecked(internal_token.key)
     assert info
     assert info == TokenInfo(
         token=internal_token.key,
@@ -266,7 +266,7 @@ async def test_internal_token(setup: SetupTest) -> None:
         data, service="some-service", scopes=[]
     )
     assert new_internal_token != internal_token
-    info = token_service.get_info(new_internal_token.key)
+    info = token_service.get_token_info_unchecked(new_internal_token.key)
     assert info
     assert info.scopes == []
     expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
@@ -286,9 +286,9 @@ async def test_list(setup: SetupTest) -> None:
         data, data.username, token_name="some-token"
     )
 
-    session_info = token_service.get_info(session_token.key)
+    session_info = token_service.get_token_info_unchecked(session_token.key)
     assert session_info
-    user_token_info = token_service.get_info(user_token.key)
+    user_token_info = token_service.get_token_info_unchecked(user_token.key)
     assert user_token_info
     assert token_service.list_tokens(data, "example") == sorted(
         (session_info, user_token_info), key=lambda t: t.token
@@ -316,7 +316,7 @@ async def test_modify(setup: SetupTest) -> None:
     await token_service.modify_token(
         user_token.key, data, scopes=["read:all"], expires=expires
     )
-    info = token_service.get_info(user_token.key)
+    info = token_service.get_token_info_unchecked(user_token.key)
     assert info
     assert info == TokenInfo(
         token=user_token.key,
@@ -347,7 +347,7 @@ async def test_delete(setup: SetupTest) -> None:
     assert await token_service.delete_token(token.key, data)
 
     assert await token_service.get_data(token) is None
-    assert token_service.get_info(token.key) is None
+    assert token_service.get_token_info_unchecked(token.key) is None
     assert await token_service.get_user_info(token) is None
 
     assert not await token_service.delete_token(token.key, data)

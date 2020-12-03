@@ -179,7 +179,7 @@ class TokenService:
         success : `bool`
             Whether the token was found and deleted.
         """
-        info = self.get_info(key, username)
+        info = self.get_token_info_unchecked(key, username)
         if not info:
             return False
         if info.username != auth_data.username:
@@ -209,26 +209,6 @@ class TokenService:
             valid.
         """
         return await self._token_redis_store.get_data(token)
-
-    def get_info(
-        self, key: str, username: Optional[str] = None
-    ) -> Optional[TokenInfo]:
-        """Get information about a token.
-
-        Parameters
-        ----------
-        key : `str`
-            The key of the token.
-        username : `str`, optional
-            If set, constrain the result to tokens from that user and return
-            `None` if the token exists but is for a different user.
-        """
-        info = self._token_db_store.get_info(key)
-        if not info:
-            return None
-        if username and info.username != username:
-            return None
-        return info
 
     async def get_internal_token(
         self, token_data: TokenData, service: str, scopes: List[str]
@@ -344,6 +324,54 @@ class TokenService:
         self._logger.info("Created new notebook token", key=token.key)
         return token
 
+    def get_token_info(
+        self, key: str, auth_data: TokenData, username: Optional[str]
+    ) -> Optional[TokenInfo]:
+        """Get information about a token.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token.
+        auth_data : `TokenData`
+            The authentication data of the person requesting the token
+            information, used for authorization checks.
+        username : `str`, optional
+            If set, constrain the result to tokens from that user and return
+            `None` if the token exists but is for a different user.
+        """
+        info = self.get_token_info_unchecked(key, username)
+        if not info:
+            return None
+        if info.username != auth_data.username:
+            if username:
+                msg = f"{auth_data.username} cannot list tokens for {username}"
+                raise PermissionDeniedError(msg)
+            else:
+                return None
+        else:
+            return info
+
+    def get_token_info_unchecked(
+        self, key: str, username: Optional[str] = None
+    ) -> Optional[TokenInfo]:
+        """Get information about a token without checking authorization.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token.
+        username : `str`, optional
+            If set, constrain the result to tokens from that user and return
+            `None` if the token exists but is for a different user.
+        """
+        info = self._token_db_store.get_info(key)
+        if not info:
+            return None
+        if username and info.username != username:
+            return None
+        return info
+
     async def get_user_info(self, token: Token) -> Optional[TokenUserInfo]:
         """Get user information associated with a token."""
         data = await self.get_data(token)
@@ -433,7 +461,7 @@ class TokenService:
             ``auth_data`` or the user attempted to modify a token type other
             than user.
         """
-        info = self.get_info(key, username)
+        info = self.get_token_info_unchecked(key, username)
         if not info:
             return None
         if info.username != auth_data.username:

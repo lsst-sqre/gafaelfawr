@@ -19,10 +19,7 @@ from gafaelfawr.dependencies.auth import (
 )
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
-from gafaelfawr.exceptions import (
-    DuplicateTokenNameError,
-    PermissionDeniedError,
-)
+from gafaelfawr.exceptions import DuplicateTokenNameError
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.auth import APILoginResponse
 from gafaelfawr.models.token import (
@@ -79,7 +76,7 @@ async def get_token_info(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
-    info = token_service.get_info(auth_data.token.key)
+    info = token_service.get_token_info_unchecked(auth_data.token.key)
     if not info:
         msg = "Token found in Redis but not database"
         context.logger.warning(msg)
@@ -157,11 +154,8 @@ async def get_token(
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
-    if username != auth_data.username:
-        msg = f"{auth_data.username} cannot list tokens for {username}"
-        raise PermissionDeniedError(msg)
     token_service = context.factory.create_token_service()
-    info = token_service.get_info(key, username)
+    info = token_service.get_token_info(key, auth_data, username)
     if not info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
