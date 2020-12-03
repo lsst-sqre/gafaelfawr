@@ -14,6 +14,19 @@ realm: "example.com"
 # Generate this with cryptography.fernet.Fernet.generate_key().
 session_secret_file: "/path/to/session-secret"
 
+# Replace <password> with the database password and example.com with the
+# hostname of the PostgreSQL database.  In environments where the
+# configuration file is not private (such as when it's taken from a
+# Kubernetes ConfigMap), use the GAFAELFAWR_DATABASE_URL environment
+# variable to set this parameter and don't include it in the settings
+# file.
+database_url: "postgresql://gafaelfawr:<password>@example.com/gafaelfawr"
+
+# Replace this with a list of users who should have admin rights when
+# bootstrapping a fresh database.
+initial_admins:
+  - example
+
 # The URL of and password for a Redis instance used for storing sessions.
 redis_url: "redis://redis.example.com:6379/0"
 redis_password_file: "/path/to/redis-password"
@@ -32,9 +45,7 @@ after_logout_url: "https://example.com/"
 issuer:
   iss: "https://example.com"
   key_id: "example-key-id"
-  aud:
-    default: "https://example.com"
-    internal: "https://example.com/internal"
+  aud: "https://example.com"
   key_file: "/path/to/issuer-key"
   exp_minutes: 1440  # 1 day
 

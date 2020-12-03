@@ -11,7 +11,7 @@ from cryptography.fernet import Fernet
 from gafaelfawr.keypair import RSAKeyPair
 
 if TYPE_CHECKING:
-    from typing import List, Optional
+    from typing import List, Optional, Union
 
     from gafaelfawr.config import OIDCClient
 
@@ -22,6 +22,8 @@ def build_settings(
     tmp_path: Path,
     template: str,
     oidc_clients: Optional[List[OIDCClient]] = None,
+    *,
+    database_url: str,
     **settings: str,
 ) -> Path:
     """Generate a test Gafaelfawr settings file with secrets.
@@ -34,7 +36,9 @@ def build_settings(
         Settings template to use.
     oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
         Configuration information for clients of the OpenID Connect server.
-    **settings : str
+    database_url : `str`
+        The URL to the database to use.
+    **settings : `str`
         Any additional settings to add to the settings file.
 
     Returns
@@ -53,6 +57,7 @@ def build_settings(
     settings_path = build_settings_file(
         tmp_path,
         template,
+        database_url=database_url,
         session_secret_file=session_secret_file,
         issuer_key_file=issuer_key_file,
         github_secret_file=github_secret_file,
@@ -77,7 +82,9 @@ def build_settings(
     return settings_path
 
 
-def build_settings_file(tmp_path: Path, template: str, **kwargs: Path) -> Path:
+def build_settings_file(
+    tmp_path: Path, template: str, **kwargs: Union[str, Path]
+) -> Path:
     """Construct a settings file from a format template.
 
     Parameters

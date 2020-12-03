@@ -1,46 +1,143 @@
 """Authentication dependencies for FastAPI."""
 
-from typing import Optional
 from urllib.parse import urlencode, urlparse
 
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 
 from gafaelfawr.auth import (
     AuthType,
     generate_challenge,
     generate_unauthorized_challenge,
     parse_authorization,
-    verify_token,
 )
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import InvalidRequestError, InvalidTokenError
-from gafaelfawr.session import Session
-from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.exceptions import (
+    InvalidRequestError,
+    InvalidTokenError,
+    PermissionDeniedError,
+)
+from gafaelfawr.models.token import Token, TokenData
 
-__all__ = ["verified_session", "verified_token"]
+__all__ = ["authenticate", "authenticate_session", "authenticate_with_type"]
 
 
-async def verified_session(
-    request: Request,
-    context: RequestContext = Depends(context_dependency),
-) -> Session:
-    """Require that a request be authenticated with a session cookie.
+async def _authenticate_helper(
+    context: RequestContext, auth_type: AuthType
+) -> TokenData:
+    """Helper function for authenticate and authenticate_with_type.
 
-    Extract the token from the session cookie, verify it, and pass the
-    underlying session into the handler that declares this dependency.
+    Check that the request is authenticated.  For requests authenticated via
+    session cookie, also checks that a CSRF token was provided in the
+    ``X-CSRF-Token`` header if the request is anything other than GET or
+    OPTIONS.
+
+    Always check the user's cookie-based session first before checking the
+    ``Authorization`` header because some applications (JupyterHub, for
+    instance) may use the ``Authorization`` header for their own purposes.
+
+    Returns
+    -------
+    data : `gafaelfawr.models.token.TokenData`
+        The data associated with the verified token.
 
     Raises
     ------
     fastapi.HTTPException
-        Redirect to ``/login`` if the user is not currently authenticated.
+        If authentication is not provided or is not valid.
     """
-    session = None
-    if request.state.cookie.handle:
-        session_store = context.factory.create_session_store()
-        session = await session_store.get_session(request.state.cookie.handle)
+    token = context.state.token
+    if token:
+        context.rebind_logger(token_source="cookie")
+    else:
+        try:
+            token_str = parse_authorization(context)
+            if token_str:
+                token = Token.from_str(token_str)
+        except (InvalidRequestError, InvalidTokenError) as e:
+            raise generate_challenge(context, auth_type, e)
+    if not token:
+        raise generate_unauthorized_challenge(context, auth_type)
+
+    token_service = context.factory.create_token_service()
+    data = await token_service.get_data(token)
+    if not data:
+        exc = InvalidTokenError("Token is not valid")
+        raise generate_challenge(context, auth_type, exc)
+
+    context.rebind_logger(
+        token=token.key,
+        user=data.username,
+        scope=" ".join(sorted(data.scopes)),
+    )
+    return data
+
+
+async def authenticate(
+    context: RequestContext = Depends(context_dependency),
+) -> TokenData:
+    """Check that the request is authenticated.
+
+    For requests authenticated via session cookie, also checks that a CSRF
+    token was provided in the ``X-CSRF-Token`` header if the request is
+    anything other than GET or OPTIONS.
+
+    Returns
+    -------
+    data : `gafaelfawr.models.token.TokenData`
+        The data associated with the verified token.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If authentication is not provided or is not valid.
+    """
+    return await _authenticate_helper(context, AuthType.Bearer)
+
+
+async def authenticate_with_type(
+    auth_type: AuthType = AuthType.Bearer,
+    context: RequestContext = Depends(context_dependency),
+) -> TokenData:
+    """Check that the request is authenticated with configurable challenge.
+
+    Same as :py:func:`authenticate` except that the type of the challenge can
+    be specified with the ``auth_type`` request parameter.
+
+    Returns
+    -------
+    data : `gafaelfawr.models.token.TokenData`
+        The data associated with the verified token.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If authentication is not provided or is not valid.
+    """
+    return await _authenticate_helper(context, auth_type)
+
+
+async def authenticate_session(
+    context: RequestContext = Depends(context_dependency),
+) -> TokenData:
+    """Check cookie authentication and, if not found, redirect to ``/login``.
+
+    Returns
+    -------
+    data : `gafaelfawr.models.token.TokenData`
+        The data associated with the verified token.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If authentication is not provided or is not valid.
+    """
+    data = None
+    if context.state.token:
+        token_service = context.factory.create_token_service()
+        data = await token_service.get_data(context.state.token)
 
     # If there is no active session, redirect to /login.
-    if not session:
+    if not data:
         query = urlencode({"rd": str(context.request.url)})
         login_url = urlparse("/login")._replace(query=query).geturl()
         context.logger.info("Redirecting user for authentication")
@@ -49,50 +146,32 @@ async def verified_session(
             headers={"Location": login_url},
         )
 
-    # On success, add some context to the logger.
     context.rebind_logger(
-        token=session.token.jti,
-        user=session.token.username,
-        scope=" ".join(sorted(session.token.scope)),
+        token=data.token.key,
+        user=data.username,
+        scope=" ".join(sorted(data.scopes)),
         token_source="cookie",
     )
+    return data
 
-    return session
 
-
-def verified_token(
-    x_auth_request_token: Optional[str] = Header(None),
+async def require_admin(
+    token_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
-) -> VerifiedToken:
-    """Require that a request be authenticated with a token.
+) -> str:
+    """Require the request be from a token administrator.
 
-    The token must be present in either an ``Authorization`` header or in the
-    ``X-Auth-Request-Token`` header added by NGINX when configured to use
-    Gafaelfawr as an ``auth_request`` handler.
+    Returns
+    -------
+    username : `str`
+        The username of the authenticated user.
 
     Raises
     ------
-    fastapi.HTTPException
-        An authorization challenge if no token is provided.
+    gafaelfawr.exceptions.PermissionDeniedError
+        If the request is not from an administrator.
     """
-    unverified_token = x_auth_request_token
-    if not unverified_token:
-        try:
-            unverified_token = parse_authorization(context)
-        except InvalidRequestError as e:
-            raise generate_challenge(context, AuthType.Bearer, e)
-    if not unverified_token:
-        raise generate_unauthorized_challenge(context, AuthType.Bearer)
-    try:
-        token = verify_token(context, unverified_token)
-    except InvalidTokenError as e:
-        raise generate_challenge(context, AuthType.Bearer, e)
-
-    # Add user information to the logger.
-    context.rebind_logger(
-        token=token.jti,
-        user=token.username,
-        scope=" ".join(sorted(token.scope)),
-    )
-
-    return token
+    admin_service = context.factory.create_admin_service()
+    if not admin_service.is_admin(token_data.username):
+        raise PermissionDeniedError(f"{token_data.username} is not an admin")
+    return token_data.username

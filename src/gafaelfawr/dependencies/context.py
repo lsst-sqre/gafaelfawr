@@ -11,6 +11,7 @@ from typing import Optional
 
 from aioredis import Redis
 from fastapi import Depends, Request
+from fastapi_sqlalchemy import db
 from httpx import AsyncClient
 from structlog import BoundLogger
 
@@ -20,6 +21,7 @@ from gafaelfawr.dependencies.http_client import http_client_dependency
 from gafaelfawr.dependencies.logger import logger_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.models.state import State
 
 __all__ = ["RequestContext", "context_dependency"]
 
@@ -61,7 +63,18 @@ class RequestContext:
             redis=self.redis,
             http_client=self.http_client,
             logger=self.logger,
+            session=db.session,
         )
+
+    @property
+    def state(self) -> State:
+        """Convenience property to access the cookie state."""
+        return self.request.state.cookie
+
+    @state.setter
+    def state(self, state: State) -> None:
+        """Convenience property to set the cookie state."""
+        self.request.state.cookie = state
 
     def rebind_logger(self, **values: Optional[str]) -> None:
         """Add the given values to the logging context.

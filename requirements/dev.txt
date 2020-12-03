@@ -190,7 +190,7 @@ httpcore==0.12.2 \
 httpx==0.16.1 \
     --hash=sha256:126424c279c842738805974687e0518a94c7ae8d140cd65b9c4f77ac46ffa537 \
     --hash=sha256:9cffb8ba31fac6536f2c8cde30df859013f59e4bcc5b8d43901cb3654a8e0a5b \
-    # via -r requirements/dev.in, pytest-httpx
+    # via pytest-httpx
 identify==1.5.10 \
     --hash=sha256:943cd299ac7f5715fcb3f684e2fc1594c1e0f22a90d15398e5888143bd4144b5 \
     --hash=sha256:cc86e6a9a390879dcc2976cef169dd9cc48843ed70b7380f321d1b118163c60e \

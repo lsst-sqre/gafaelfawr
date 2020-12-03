@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
-from unittest.mock import ANY
 from urllib.parse import urljoin
 
 import jwt
@@ -19,7 +18,7 @@ from gafaelfawr.exceptions import (
     UnknownKeyIdException,
 )
 from gafaelfawr.keypair import RSAKeyPair
-from gafaelfawr.tokens import Token
+from gafaelfawr.models.oidc import OIDCToken
 
 if TYPE_CHECKING:
     from typing import Any, Dict, Optional
@@ -29,7 +28,7 @@ if TYPE_CHECKING:
 
 def encode_token(
     payload: Dict[str, Any], keypair: RSAKeyPair, kid: Optional[str] = None
-) -> Token:
+) -> OIDCToken:
     """Encode a token payload into a token manually."""
     headers = {}
     if kid:
@@ -40,22 +39,7 @@ def encode_token(
         algorithm=ALGORITHM,
         headers=headers,
     ).decode()
-    return Token(encoded=encoded)
-
-
-@pytest.mark.asyncio
-async def test_analyze(setup: SetupTest) -> None:
-    verifier = setup.factory.create_token_verifier()
-
-    # Unknown issuer.
-    token = setup.create_oidc_token(kid="kid")
-    data = verifier.analyze_token(token)
-    assert data == {
-        "header": {"alg": ALGORITHM, "kid": ANY, "typ": "JWT"},
-        "data": token.claims,
-        "errors": [ANY],
-        "valid": False,
-    }
+    return OIDCToken(encoded=encoded)
 
 
 @pytest.mark.asyncio
@@ -157,7 +141,7 @@ async def test_key_retrieval(setup: SetupTest) -> None:
     )
 
     # Check token verification with this configuration.
-    token = setup.create_oidc_token(kid="some-kid")
+    token = setup.create_upstream_oidc_token(kid="some-kid")
     assert await verifier.verify_oidc_token(token)
 
     # Wrong algorithm for the key.
@@ -184,7 +168,7 @@ async def test_key_retrieval(setup: SetupTest) -> None:
 
     # Try with a new key ID and return a malformed reponse.
     setup.httpx_mock.add_response(url=jwks_url, method="GET", json=["foo"])
-    token = setup.create_oidc_token(kid="malformed")
+    token = setup.create_upstream_oidc_token(kid="malformed")
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 
@@ -200,7 +184,7 @@ async def test_key_retrieval(setup: SetupTest) -> None:
         url=jwks_url, method="GET", json={"keys": keys}
     )
     setup.httpx_mock.add_response(url=oidc_url, method="GET", json=["foo"])
-    token = setup.create_oidc_token(kid="another-kid")
+    token = setup.create_upstream_oidc_token(kid="another-kid")
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 

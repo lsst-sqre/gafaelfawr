@@ -14,6 +14,11 @@
 realm: "localhost"
 loglevel: "DEBUG"
 session_secret_file: "examples/secrets/session-secret"
+database_url: "postgresql://gafaelfawr:INSECURE@localhost/gafaelfawr"
+
+# Replace this user with your GitHub username.
+initial_admins:
+  - example
 
 # This Redis will be started by the docker-compose.yaml file at the top
 # level of the repository.
@@ -27,9 +32,7 @@ after_logout_url: "http://localhost:8000"
 issuer:
   iss: "http://localhost:8000"
   key_id: "localhost-key-id"
-  aud:
-    default: "http://localhost"
-    internal: "http://localhost/internal"
+  aud: "http://localhost"
   key_file: "examples/secrets/issuer-key"
   exp_minutes: 1440  # 1 day
 

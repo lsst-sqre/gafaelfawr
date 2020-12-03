@@ -26,7 +26,6 @@ __all__ = [
     "Config",
     "GitHubConfig",
     "GitHubSettings",
-    "IssuerAudienceSettings",
     "IssuerConfig",
     "IssuerSettings",
     "OIDCConfig",
@@ -39,16 +38,6 @@ __all__ = [
 ]
 
 
-class IssuerAudienceSettings(BaseModel):
-    """pydantic model of issuer audience configuration."""
-
-    default: str
-    """Default aud (audience) field in issued tokens."""
-
-    internal: str
-    """Internal aud (audience) field in issued tokens."""
-
-
 class IssuerSettings(BaseModel):
     """pydantic model of issuer configuration."""
 
@@ -58,8 +47,8 @@ class IssuerSettings(BaseModel):
     key_id: str
     """kid (key ID) header field in issued tokens."""
 
-    aud: IssuerAudienceSettings
-    """aud (audience) possibilities for issued tokens."""
+    aud: str
+    """aud (audience) field in issued tokens."""
 
     key_file: str
     """File containing RSA private key for signing issued tokens."""
@@ -179,6 +168,12 @@ class Settings(BaseModel):
     issuer: IssuerSettings
     """Settings for the internal token issuer."""
 
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    initial_admins: List[str]
+    """Initial token administrators to configure when initializing database."""
+
     github: Optional[GitHubSettings] = None
     """Settings for the GitHub authentication provider."""
 
@@ -193,6 +188,9 @@ class Settings(BaseModel):
 
     group_mapping: Dict[str, List[str]] = {}
     """Mappings of scopes to lists of groups that provide them."""
+
+    class Config:
+        env_prefix = "GAFAELFAWR_"
 
     @validator("loglevel")
     def valid_loglevel(cls, v: str) -> str:
@@ -210,6 +208,12 @@ class Settings(BaseModel):
             raise ValueError("both github and oidc settings present")
         if not v and ("github" not in values or not values["github"]):
             raise ValueError("neither github nor oidc settings present")
+        return v
+
+    @validator("initial_admins", pre=True)
+    def nonempty_list(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("initial_admins is empty")
         return v
 
 
@@ -260,10 +264,7 @@ class IssuerConfig:
     """kid (key ID) header field in issued tokens."""
 
     aud: str
-    """Default aud (audience) field in issued tokens."""
-
-    aud_internal: str
-    """Internal aud (audience) field in issued tokens."""
+    """aud (audience) field in issued tokens."""
 
     keypair: RSAKeyPair
     """RSA key pair for signing and verifying issued tokens."""
@@ -295,10 +296,7 @@ class VerifierConfig:
     """iss (issuer) field in issued tokens."""
 
     aud: str
-    """Default aud (audience) field in issued tokens."""
-
-    aud_internal: str
-    """Internal aud (audience) field in issued tokens."""
+    """aud (audience) field in issued tokens."""
 
     keypair: RSAKeyPair
     """RSA key pair for signing and verifying issued tokens."""
@@ -460,6 +458,12 @@ class Config:
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    initial_admins: Tuple[str, ...]
+    """Initial token administrators to configure when initializing database."""
+
     safir: SafirConfig
     """Configuration for the Safir middleware."""
 
@@ -537,8 +541,7 @@ class Config:
         issuer_config = IssuerConfig(
             iss=settings.issuer.iss,
             kid=settings.issuer.key_id,
-            aud=settings.issuer.aud.default,
-            aud_internal=settings.issuer.aud.internal,
+            aud=settings.issuer.aud,
             keypair=keypair,
             exp_minutes=settings.issuer.exp_minutes,
             group_mapping=group_mapping_frozen,
@@ -549,8 +552,7 @@ class Config:
         )
         verifier_config = VerifierConfig(
             iss=settings.issuer.iss,
-            aud=settings.issuer.aud.default,
-            aud_internal=settings.issuer.aud.internal,
+            aud=settings.issuer.aud,
             keypair=keypair,
             username_claim=settings.username_claim,
             uid_claim=settings.uid_claim,
@@ -594,6 +596,8 @@ class Config:
             oidc=oidc_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
+            database_url=settings.database_url,
+            initial_admins=tuple(settings.initial_admins),
             safir=SafirConfig(log_level=log_level),
         )
 

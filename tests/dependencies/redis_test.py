@@ -19,7 +19,10 @@ if TYPE_CHECKING:
 async def test_redis_password(tmp_path: Path) -> None:
     redis_password_file = store_secret(tmp_path, "redis", b"some-password")
     settings_path = build_settings(
-        tmp_path, "github", redis_password_file=str(redis_password_file)
+        tmp_path,
+        "github",
+        database_url="dummy",
+        redis_password_file=str(redis_password_file),
     )
     config_dependency.set_settings_path(str(settings_path))
 

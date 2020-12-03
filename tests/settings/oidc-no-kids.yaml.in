@@ -1,5 +1,7 @@
 realm: "example.com"
 session_secret_file: "{session_secret_file}"
+database_url: "{database_url}"
+initial_admins: ["admin"]
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
 group_mapping:
@@ -14,9 +16,7 @@ issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"
   key_file: "{issuer_key_file}"
-  aud:
-    default: "https://example.com/"
-    internal: "https://example.com/api"
+  aud: "https://example.com/"
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"

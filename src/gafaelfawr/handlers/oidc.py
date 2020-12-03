@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 from urllib.parse import ParseResult, parse_qsl, urlencode
 
 from fastapi import (
@@ -18,7 +18,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from gafaelfawr.dependencies.auth import verified_session
+from gafaelfawr.dependencies.auth import authenticate_session
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import parsed_redirect_uri
 from gafaelfawr.exceptions import (
@@ -26,8 +26,8 @@ from gafaelfawr.exceptions import (
     OAuthError,
     UnsupportedGrantTypeError,
 )
-from gafaelfawr.session import Session
-from gafaelfawr.storage.oidc import OIDCAuthorizationCode
+from gafaelfawr.models.oidc import OIDCAuthorizationCode
+from gafaelfawr.models.token import TokenData
 
 router = APIRouter()
 
@@ -41,7 +41,7 @@ async def get_login(
     response_type: Optional[str] = Query(None),
     scope: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
-    session: Session = Depends(verified_session),
+    token_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
     """Authenticate the user for an OpenID Connect server flow.
@@ -49,11 +49,11 @@ async def get_login(
     Authenticates the user and then returns an authorization code to the
     OpenID Connect client via redirect.
     """
-    oidc_server = context.factory.create_oidc_server()
+    oidc_service = context.factory.create_oidc_service()
 
     # Check the client_id first, since if it's not valid, we cannot continue
     # or send any errors back to the client via redirect.
-    if not oidc_server.is_valid_client(client_id):
+    if not oidc_service.is_valid_client(client_id):
         msg = f"Unknown client_id {client_id} in OpenID Connect request"
         context.logger.warning("Invalid request", error=msg)
         raise HTTPException(
@@ -83,11 +83,11 @@ async def get_login(
         return RedirectResponse(return_url)
 
     # Get an authorization code and return it.
-    code = await oidc_server.issue_code(
-        client_id, parsed_redirect_uri.geturl(), session.handle
+    code = await oidc_service.issue_code(
+        client_id, parsed_redirect_uri.geturl(), token_data.token
     )
     return_url = build_return_url(
-        parsed_redirect_uri, state=state, code=code.encode()
+        parsed_redirect_uri, state=state, code=str(code)
     )
     context.logger.info("Returned OpenID Connect authorization code")
     return RedirectResponse(return_url)
@@ -142,17 +142,17 @@ async def post_token(
     code: str = Form(None),
     redirect_uri: str = Form(None),
     context: RequestContext = Depends(context_dependency),
-) -> Union[Dict[str, Union[str, int]], JSONResponse]:
+) -> Union[TokenReply, JSONResponse]:
     """Redeem an authorization code for a token."""
     # Redeem the provided code for a token.
-    oidc_server = context.factory.create_oidc_server()
+    oidc_service = context.factory.create_oidc_service()
     try:
         if not grant_type or not client_id or not code or not redirect_uri:
             raise InvalidRequestError("Invalid token request")
         if grant_type != "authorization_code":
             raise UnsupportedGrantTypeError(f"Invalid grant type {grant_type}")
         authorization_code = OIDCAuthorizationCode.from_str(code)
-        token = await oidc_server.redeem_code(
+        token = await oidc_service.redeem_code(
             client_id, client_secret, redirect_uri, authorization_code
         )
     except OAuthError as e:
@@ -171,14 +171,13 @@ async def post_token(
         token.username,
         user=token.username,
         token=token.jti,
-        scope=" ".join(sorted(token.scope)),
     )
 
     # Return the token to the caller.  The headers are mandated by RFC 6749.
     response.headers["Cache-Control"] = "no-store"
     response.headers["Pragma"] = "no-cache"
-    return {
-        "access_token": token.encoded,
-        "id_token": token.encoded,
-        "expires_in": int(token.claims["exp"] - time.time()),
-    }
+    return TokenReply(
+        access_token=token.encoded,
+        id_token=token.encoded,
+        expires_in=int(token.claims["exp"] - time.time()),
+    )

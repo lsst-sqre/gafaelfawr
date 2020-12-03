@@ -52,7 +52,10 @@ def selenium_server_url(tmp_path: Path) -> Iterable[str]:
     server_url : `str`
         The URL to use to contact that server.
     """
-    settings_path = build_settings(tmp_path, "selenium")
+    database_url = "sqlite:///" + str(tmp_path / "gafaelfawr.sqlite")
+    settings_path = build_settings(
+        tmp_path, "selenium", database_url=database_url
+    )
     with run_app(tmp_path, settings_path) as server_url:
         yield server_url
 

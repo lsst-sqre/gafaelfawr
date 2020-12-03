@@ -6,18 +6,20 @@ Gafaelfawr supports two choices of authentication provider: GitHub and OpenID Co
 The authentication provider is chosen based on whether the ``github`` or ``oidc`` settings are present.
 See :ref:`settings` for more information.
 
+Gafaelfawr uses the authentication provider to determine the numeric UID of the user.
+Be aware that changing from one authentication provider to another will likely result in UID changes for all users.
+Gafaelfawr itself does not care and will pass along the new values, but protected applications that use those values may be surprised by a change.
+
 OpenID Connect
 ==============
 
-When configured to use an OpenID Connect provider, Gafaelfawr obtains the ID token from the provider after authentication and then uses that token as the basis of a newly-issued token.
-All claims will be copied from the ID token with the exception of:
+When configured to use an OpenID Connect provider, Gafaelfawr obtains the ID token from the provider after authentication and then stores key pieces of data from it as the underlying data of a token.
 
-- ``aud``, ``iss``, ``jti``, and ``act`` claims will be copied into a newly-created ``act`` claim and replaced with new values for the local issuer.
-- ``iss`` and ``exp`` claims will be replaced.
-  ``exp`` (expiration) will be set based on the issuer configuration settings.
-  The expiration of the token from the OpenID Connect provider will be ignored.
-- The ``scope`` claim will be dropped.
-  If ``isMemberOf`` is set, a new scope claim will be created based on the ``group_mapping`` configuration setting.
+- Username is taken from the claim identified by the ``username_claim`` setting.
+- UID is taken from the claim identified by the ``uid_claim`` setting and is converted to a number.
+- Name is taken from the ``name`` claim.
+- Groups are taken from the ``isMemberOf`` claim if it exists.
+- The scope of the token will be based on the group membership from ``isMemberOf`` and the ``group_mapping`` configuration setting.
   See :ref:`settings` for more details.
 
 Registration with the OpenID Connect provider must be done in advance, outside of Gafaelfawr.
@@ -26,22 +28,13 @@ Refresh tokens are not used.
 GitHub
 ======
 
-GitHub does not issue JWTs, so the JWT created after GitHub authentication is based on information retrieved from the GitHub API.
-In addition to the standard JWT claims, the following information is included:
-
-``email``
-    The ``email`` attribute returned by the ``/user`` API route.
-``isMemberOf``
-    A list of objects with ``name`` and ``id`` attributes corresponding to the user's team memberships.
-    ``name`` is a string and ``id`` is a number.
-    See :ref:`github-groups` for more details.
-``sub``
-    The ``login`` attribute returned by the ``/user`` API route, forced to lowercase.
-``uid``
-    The ``login`` attribute returned by the ``/user`` API route, forced to lowercase.
-``uidNumber``
-    The ``id`` attribute returned by the ``/user`` API route, converted to a string.
-    The hope is that this is suitable for a unique UID.
+GitHub does not issue JWTs, so the token created after GitHub authentication is based on information retrieved from the GitHub API.
+The username will be taken from the ``login`` value returned by the ``/user`` API route, forced to lowercase.
+The UID will be taken from the ``id`` value returned by the ``/user`` API route.
+The name will be taken from the ``name`` value returned by the ``/user`` API route.
+The group membership will be taken from the user's team membership.
+See :ref:`github-groups` for more details.
+The scope of the token will be based on the group membership and the ``group_mapping`` configuration setting.
 
 .. _github-groups:
 
@@ -58,6 +51,6 @@ It's a canonicalization of the name that removes case differences and replaces s
 Since group names are limited to 32 characters, if that name is longer than 32 characters, it will be truncated and made unique.
 The full, long group name will be hashed (with SHA-256), and truncated at 25 characters, and then a dash and the first six characters of the URL-safe-base64-encoded hash will be appended.
 
-The ``id`` attribute for each group in the ``isMemberOf`` claim will be the ``id`` of the team.
+The ``id`` attribute for each group will be the ``id`` of the team.
 It's not clear from the GitHub API whether this value is globally unique.
 Hopefully it will be.

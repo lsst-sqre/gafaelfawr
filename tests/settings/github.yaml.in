@@ -1,5 +1,7 @@
 realm: "example.com"
 session_secret_file: "{session_secret_file}"
+database_url: "{database_url}"
+initial_admins: ["admin"]
 redis_url: "dummy"
 proxies:
   - "10.0.0.0/8"
@@ -17,9 +19,7 @@ issuer:
   key_id: "some-kid"
   key_file: "{issuer_key_file}"
   influxdb_secret_file: "{influxdb_secret_file}"
-  aud:
-    default: "https://example.com/"
-    internal: "https://example.com/api"
+  aud: "https://example.com/"
 github:
   client_id: "some-github-client-id"
   client_secret_file: "{github_secret_file}"

@@ -5,10 +5,22 @@ Change log
 2.0.0 (unreleased)
 ==================
 
+As of this release, Gafaelfawr now uses opaque tokens for all internal authentication and only issues JWTs as part of its OpenID Connect server support.
+All existing sessions and tokens will be invalidated by this upgrade and all users will have to reauthenticate.
+
+Gafaelfawr now requires a SQL database.
+Its URL must be set as the ``database_url`` configuration parameter.
+
 As of this release, Gafaelfawr now uses FastAPI instead of aiohttp.
 OpenAPI documentation is available via the ``/docs`` route but not yet fleshed out or reviewed for accuracy.
 
-- Use FastAPI instead of aiohttp, and use httpx to make internal requests
+- Eliminate internal JWTs, including the old session and session handle system, in favor of opaque tokens.
+- Add a new token API under ``/auth/api/v1`` for creating, modifying, viewing, and deleting tokens.
+  This will be the basis of a new token management UI.
+  The old ``/auth/tokens`` UI has been deleted.
+- Protected applications no longer receive a copy of the user's authentication token.
+- The ``/auth`` route now supports requesting a notebook or internal delegated token for the application.
+- Use FastAPI instead of aiohttp, and use httpx to make internal requests.
 - Add ``/.well-known/openid-configuration`` route to provide metadata about the internal OpenID Connect server.
   This follows the OpenID Connect Discovery 1.0 specification.
 

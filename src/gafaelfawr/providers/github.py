@@ -9,18 +9,16 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from gafaelfawr.exceptions import GitHubException
+from gafaelfawr.models.token import TokenGroup, TokenUserInfo
 from gafaelfawr.providers.base import Provider
-from gafaelfawr.session import Session, SessionHandle
 
 if TYPE_CHECKING:
-    from typing import Dict, List
+    from typing import List
 
     from httpx import AsyncClient
     from structlog import BoundLogger
 
     from gafaelfawr.config import GitHubConfig
-    from gafaelfawr.issuer import TokenIssuer
-    from gafaelfawr.storage.session import SessionStore
 
 __all__ = ["GitHubProvider"]
 
@@ -91,10 +89,6 @@ class GitHubProvider(Provider):
         Configuration for the GitHub authentication provider.
     http_client : `httpx.AsyncClient`
         Session to use to make HTTP requests.
-    issuer : `gafaelfawr.issuer.TokenIssuer`
-        Issuer to use to generate new tokens.
-    session_store : `gafaelfawr.storage.session.SessionStore`
-        Store for authentication sessions.
     logger : `structlog.BoundLogger`
         Logger for any log messages.
     """
@@ -122,14 +116,10 @@ class GitHubProvider(Provider):
         *,
         config: GitHubConfig,
         http_client: AsyncClient,
-        issuer: TokenIssuer,
-        session_store: SessionStore,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._http_client = http_client
-        self._issuer = issuer
-        self._session_store = session_store
         self._logger = logger
 
     def get_redirect_url(self, state: str) -> str:
@@ -153,8 +143,8 @@ class GitHubProvider(Provider):
         self._logger.info("Redirecting user to GitHub for authentication")
         return f"{self._LOGIN_URL}?{urlencode(params)}"
 
-    async def create_session(self, code: str, state: str) -> Session:
-        """Given the code from a successful authentication, create a session.
+    async def create_user_info(self, code: str, state: str) -> TokenUserInfo:
+        """Given the code from an authentication, create the user information.
 
         Parameters
         ----------
@@ -165,8 +155,8 @@ class GitHubProvider(Provider):
 
         Returns
         -------
-        session : `gafaelfawr.session.Session`
-            The new authentication session.
+        user_info : `gafaelfawr.models.token.TokenUserInfo`
+            The user information corresponding to that authentication.
 
         Raises
         ------
@@ -180,24 +170,15 @@ class GitHubProvider(Provider):
         github_token = await self._get_access_token(code, state)
         user_info = await self._get_user_info(github_token)
 
-        handle = SessionHandle()
-
-        groups = [{"name": t.group_name, "id": t.gid} for t in user_info.teams]
-        claims: Dict[str, object] = {
-            "email": user_info.email,
-            "jti": handle.key,
-            "name": user_info.name,
-            "sub": user_info.username.lower(),
-            self._config.username_claim: user_info.username.lower(),
-            self._config.uid_claim: str(user_info.uid),
-        }
-        if groups:
-            claims["isMemberOf"] = groups
-
-        token = self._issuer.issue_token(claims)
-        session = Session.create(handle, token)
-        await self._session_store.store_session(session)
-        return session
+        groups = [
+            TokenGroup(name=t.group_name, id=t.gid) for t in user_info.teams
+        ]
+        return TokenUserInfo(
+            username=user_info.username.lower(),
+            name=user_info.name,
+            uid=user_info.uid,
+            groups=groups,
+        )
 
     async def _get_access_token(self, code: str, state: str) -> str:
         """Given the code from a successful authentication, get a token.

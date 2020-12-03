@@ -15,11 +15,13 @@ from jwt.exceptions import InvalidIssuerError
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.exceptions import (
     FetchKeysException,
+    InvalidTokenClaimsException,
+    InvalidTokenError,
     MissingClaimsException,
     UnknownAlgorithmException,
     UnknownKeyIdException,
 )
-from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.models.oidc import OIDCVerifiedToken
 from gafaelfawr.util import base64_to_number
 
 if TYPE_CHECKING:
@@ -29,7 +31,7 @@ if TYPE_CHECKING:
     from structlog import BoundLogger
 
     from gafaelfawr.config import VerifierConfig
-    from gafaelfawr.tokens import Token
+    from gafaelfawr.tokens import OIDCToken
 
 __all__ = ["TokenVerifier"]
 
@@ -60,78 +62,49 @@ class TokenVerifier:
         self._http_client = http_client
         self._logger = logger
 
-    def analyze_token(self, token: Token) -> Dict[str, Any]:
-        """Analyze a token and return its expanded information.
-
-        Parameters
-        ----------
-        token : `gafaelfawr.tokens.Token`
-            The encoded token to analyze.
-
-        Returns
-        -------
-        output : Dict[`str`, Any]
-            The contents of the token.  This will include the claims and
-            the header, a flag saying whether it is valid, and any errors.
-        """
-        unverified_token = jwt.decode(
-            token.encoded, algorithms=ALGORITHM, verify=False
-        )
-        output = {
-            "header": jwt.get_unverified_header(token.encoded),
-            "data": unverified_token,
-        }
-
-        try:
-            self.verify_internal_token(token)
-            output["valid"] = True
-        except Exception as e:
-            output["valid"] = False
-            output["errors"] = [str(e)]
-
-        return output
-
-    def verify_internal_token(self, token: Token) -> VerifiedToken:
+    def verify_internal_token(self, token: OIDCToken) -> OIDCVerifiedToken:
         """Verify a token issued by the internal issuer.
 
         Parameters
         ----------
-        token : `gafaelfawr.tokens.Token`
+        token : `gafaelfawr.models.oidc.OIDCToken`
             An encoded token.
 
         Returns
         -------
-        verified_token : `gafaelfawr.tokens.VerifiedToken`
+        verified_token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The verified token.
 
         Raises
         ------
-        jwt.exceptions.InvalidTokenError
+        gafaelfawr.exceptions.InvalidTokenError
             The issuer of this token is unknown and therefore the token cannot
             be verified.
         gafaelfawr.exceptions.MissingClaimsException
             The token is missing required claims.
         """
-        audience = [self._config.aud, self._config.aud_internal]
-        payload = jwt.decode(
-            token.encoded,
-            self._config.keypair.public_key_as_pem(),
-            algorithms=ALGORITHM,
-            audience=audience,
-        )
+        try:
+            payload = jwt.decode(
+                token.encoded,
+                self._config.keypair.public_key_as_pem(),
+                algorithms=ALGORITHM,
+                audience=self._config.aud,
+            )
+        except jwt.InvalidTokenError as e:
+            raise InvalidTokenError(str(e))
         return self._build_token(token.encoded, payload)
 
-    async def verify_oidc_token(self, token: Token) -> VerifiedToken:
+    async def verify_oidc_token(self, token: OIDCToken) -> OIDCVerifiedToken:
         """Verifies the provided JWT from an OpenID Connect provider.
 
         Parameters
         ----------
-        token : `gafaelfawr.tokens.Token`
+        token : `gafaelfawr.models.oidc.OIDCToken`
             JWT to verify.
 
         Returns
         -------
-        verified_token : `gafaelfawr.tokens.VerifiedToken`
+        verified_token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The verified token contents.
 
         Raises
@@ -180,7 +153,7 @@ class TokenVerifier:
 
     def _build_token(
         self, encoded: str, claims: Mapping[str, Any]
-    ) -> VerifiedToken:
+    ) -> OIDCVerifiedToken:
         """Build a VerifiedToken from an encoded token and its verified claims.
 
         Parameters
@@ -192,7 +165,7 @@ class TokenVerifier:
 
         Returns
         -------
-        token : `VerifiedToken`
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The resulting token.
 
         Raises
@@ -206,15 +179,18 @@ class TokenVerifier:
         if self._config.uid_claim not in claims:
             msg = f"No {self._config.uid_claim} claim in token"
             raise MissingClaimsException(msg)
+        try:
+            uid = int(claims[self._config.uid_claim])
+        except Exception:
+            msg = f"Invalid {self._config.uid_claim} claim in token"
+            raise InvalidTokenClaimsException(msg)
 
-        return VerifiedToken(
+        return OIDCVerifiedToken(
             encoded=encoded,
             claims=claims,
             jti=claims.get("jti", "UNKNOWN"),
             username=claims[self._config.username_claim],
-            uid=claims[self._config.uid_claim],
-            email=claims.get("email"),
-            scope=set(claims.get("scope", "").split()),
+            uid=uid,
         )
 
     async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> bytes:
@@ -236,19 +212,14 @@ class TokenVerifier:
 
         Raises
         ------
-        FetchKeysException
+        gafaelfawr.exceptions.FetchKeysException
             Unable to retrieve the key set for the specified issuer.
-        UnknownAlgorithException
+        gafaelfawr.exceptions.UnknownAlgorithException
             The requested key ID was found, but is for an unsupported
             algorithm.
-        UnknownKeyIdException
+        gafaelfawr.exceptions.UnknownKeyIdException
             The requested key ID was not present in the issuer configuration
             or was not found in that issuer's JWKS.
-
-        Notes
-        -----
-        This function will automatically cache the last 16 keys for up to 10
-        minutes to cut down on network retrieval of the keys.
         """
         self._logger.debug("Getting key %s from %s", key_id, issuer_url)
 
@@ -300,7 +271,7 @@ class TokenVerifier:
 
         Raises
         ------
-        FetchKeysException
+        gafaelfawr.exceptions.FetchKeysException
             On failure to retrieve a set of keys from the issuer.
         """
         url = await self._get_jwks_uri(issuer_url)
@@ -342,7 +313,7 @@ class TokenVerifier:
 
         Raises
         ------
-        FetchKeysException
+        gafaelfawr.exceptions.FetchKeysException
             If the OpenID Connect metadata doesn't contain the expected
             parameter.
         """

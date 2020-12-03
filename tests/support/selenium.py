@@ -14,6 +14,9 @@ from typing import TYPE_CHECKING
 
 from seleniumwire import webdriver
 
+from gafaelfawr.database import initialize_database
+from gafaelfawr.dependencies.config import config_dependency
+
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import Callable, Iterator, TypeVar
@@ -25,7 +28,7 @@ from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.main import app
 
-config_dependency.set_settings_path("{config_path}")
+config_dependency.set_settings_path("{settings_path}")
 redis_dependency.is_mocked = True
 """
 
@@ -120,10 +123,23 @@ def _wait_for_server(port: int, timeout: float = 5.0) -> None:
 
 
 @contextmanager
-def run_app(tmp_path: Path, config_path: Path) -> Iterator[str]:
+def run_app(tmp_path: Path, settings_path: Path) -> Iterator[str]:
+    """Run the application as a separate process for Selenium access.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        The temporary directory for testing.
+    settings_path : `pathlib.Path`
+        The path to the settings file.
+    """
+    config_dependency.set_settings_path(str(settings_path))
+    config = config_dependency()
+    initialize_database(config)
+
     app_path = tmp_path / "testing.py"
     with app_path.open("w") as f:
-        f.write(APP_TEMPLATE.format(config_path=str(config_path)))
+        f.write(APP_TEMPLATE.format(settings_path=str(settings_path)))
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("127.0.0.1", 0))

@@ -5,15 +5,22 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import structlog
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 from gafaelfawr.issuer import TokenIssuer
-from gafaelfawr.oidc import OIDCServer
+from gafaelfawr.models.token import TokenData
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
+from gafaelfawr.services.admin import AdminService
+from gafaelfawr.services.oidc import OIDCService
+from gafaelfawr.services.token import TokenService
+from gafaelfawr.storage.admin import AdminStore
 from gafaelfawr.storage.base import RedisStorage
+from gafaelfawr.storage.history import AdminHistoryStore
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
-from gafaelfawr.storage.session import SerializedSession, SessionStore
-from gafaelfawr.storage.user_token import UserTokenStore
+from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
+from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
@@ -49,22 +56,43 @@ class ComponentFactory:
         redis: Redis,
         http_client: AsyncClient,
         logger: Optional[BoundLogger] = None,
+        session: Optional[Session] = None,
     ) -> None:
         if not logger:
             structlog.configure(wrapper_class=structlog.stdlib.BoundLogger)
             logger = structlog.get_logger("gafaelfawr")
 
+        if not session:
+            engine = create_engine(config.database_url)
+            session = Session(bind=engine)
+
         self._config = config
         self._redis = redis
         self._http_client = http_client
         self._logger = logger
+        self._session = session
 
-    def create_oidc_server(self) -> OIDCServer:
+    def create_admin_service(self) -> AdminService:
+        """Create a new manager object for token administrators.
+
+        Returns
+        -------
+        admin_service : `gafaelfawr.services.admin.AdminService`
+            The new token administrator manager.
+        """
+        admin_store = AdminStore(self._session)
+        admin_history_store = AdminHistoryStore(self._session)
+        transaction_manager = TransactionManager(self._session)
+        return AdminService(
+            admin_store, admin_history_store, transaction_manager
+        )
+
+    def create_oidc_service(self) -> OIDCService:
         """Create a minimalist OpenID Connect server.
 
         Returns
         -------
-        oidc_server : `gafaelfawr.oidc.OIDCServer`
+        oidc_service : `gafaelfawr.services.oidc.OIDCService`
             A new OpenID Connect server.
         """
         assert self._config.oidc_server
@@ -72,12 +100,12 @@ class ComponentFactory:
         storage = RedisStorage(OIDCAuthorization, key, self._redis)
         authorization_store = OIDCAuthorizationStore(storage)
         issuer = self.create_token_issuer()
-        session_store = self.create_session_store()
-        return OIDCServer(
+        token_service = self.create_token_service()
+        return OIDCService(
             config=self._config.oidc_server,
             authorization_store=authorization_store,
             issuer=issuer,
-            session_store=session_store,
+            token_service=token_service,
             logger=self._logger,
         )
 
@@ -98,13 +126,9 @@ class ComponentFactory:
         NotImplementedError
             None of the authentication providers are configured.
         """
-        issuer = self.create_token_issuer()
-        session_store = self.create_session_store()
         if self._config.github:
             return GitHubProvider(
                 config=self._config.github,
-                issuer=issuer,
-                session_store=session_store,
                 http_client=self._http_client,
                 logger=self._logger,
             )
@@ -113,27 +137,12 @@ class ComponentFactory:
             return OIDCProvider(
                 config=self._config.oidc,
                 verifier=token_verifier,
-                issuer=issuer,
-                session_store=session_store,
                 http_client=self._http_client,
                 logger=self._logger,
             )
         else:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
-
-    def create_session_store(self) -> SessionStore:
-        """Create a SessionStore.
-
-        Returns
-        -------
-        session_store : `gafaelfawr.storage.session.SessionStore`
-            A new SessionStore.
-        """
-        key = self._config.session_secret
-        storage = RedisStorage(SerializedSession, key, self._redis)
-        verifier = self.create_token_verifier()
-        return SessionStore(storage, verifier, self._logger)
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.
@@ -144,6 +153,27 @@ class ComponentFactory:
             A new TokenIssuer.
         """
         return TokenIssuer(self._config.issuer)
+
+    def create_token_service(self) -> TokenService:
+        """Create a TokenService.
+
+        Returns
+        -------
+        token_service : `gafaelfawr.services.token.TokenService`
+            The new token manager.
+        """
+        token_db_store = TokenDatabaseStore(self._session)
+        key = self._config.session_secret
+        storage = RedisStorage(TokenData, key, self._redis)
+        token_redis_store = TokenRedisStore(storage, self._logger)
+        transaction_manager = TransactionManager(self._session)
+        return TokenService(
+            config=self._config,
+            token_db_store=token_db_store,
+            token_redis_store=token_redis_store,
+            transaction_manager=transaction_manager,
+            logger=self._logger,
+        )
 
     def create_token_verifier(self) -> TokenVerifier:
         """Create a TokenVerifier from a web request.
@@ -156,13 +186,3 @@ class ComponentFactory:
         return TokenVerifier(
             self._config.verifier, self._http_client, self._logger
         )
-
-    def create_user_token_store(self) -> UserTokenStore:
-        """Create a UserTokenStore.
-
-        Returns
-        -------
-        token_store : `gafaelfawr.storage.user_token.UserTokenStore`
-            A new TokenStore.
-        """
-        return UserTokenStore(self._redis, self._logger)

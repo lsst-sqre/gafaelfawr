@@ -14,6 +14,29 @@ legacy_tox_ini = """
 envlist = py,coverage-report,typing,lint,docs
 isolated_build = True
 
+[docker:test-postgres]
+image = postgres:11
+ports =
+    3308:3308/tcp
+# Environment variables are passed to the container. They are only
+# available to that container, and not to the testenv, other
+# containers, or as replacements in other parts of the tox configuration
+environment =
+    POSTGRES_PASSWORD=INSECURE-PASSWORD
+    POSTGRES_USER=gafaelfawr
+    POSTGRES_DB=gafaelfawr
+    PGPORT=3308
+# The healthcheck ensures that tox-docker won't run tests until the
+# container is up and the command finishes with exit code 0 (success)
+healthcheck_cmd = PGPASSWORD=$POSTGRES_PASSWORD psql \
+    --user=$POSTGRES_USER --dbname=$POSTGRES_DB \
+    --host=127.0.0.1 --quiet --no-align --tuples-only \
+    -1 --command="SELECT 1"
+healthcheck_timeout = 1
+healthcheck_retries = 30
+healthcheck_interval = 1
+healthcheck_start_period = 1
+
 [testenv]
 description = Run pytest against {envname}.
 deps =

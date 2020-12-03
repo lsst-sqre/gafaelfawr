@@ -11,13 +11,13 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DeserializeException",
+    "DuplicateTokenNameError",
     "FetchKeysException",
     "GitHubException",
     "InsufficientScopeError",
     "InvalidClientError",
     "InvalidGrantError",
     "InvalidRequestError",
-    "InvalidSessionHandleException",
     "InvalidTokenClaimsException",
     "InvalidTokenError",
     "MissingClaimsException",
@@ -25,6 +25,7 @@ __all__ = [
     "OAuthError",
     "OAuthBearerError",
     "OIDCException",
+    "PermissionDeniedError",
     "ProviderException",
     "UnauthorizedClientException",
     "UnknownAlgorithmException",
@@ -148,16 +149,16 @@ class InsufficientScopeError(OAuthBearerError):
     status_code = status.HTTP_403_FORBIDDEN
 
 
-class InvalidSessionHandleException(Exception):
-    """Session handle is not in expected format."""
-
-
-class InvalidTokenClaimsException(Exception):
-    """A token cannot be issued with the provided claims."""
+class DuplicateTokenNameError(Exception):
+    """The user tried to reuse the name of a token."""
 
 
 class NotConfiguredException(Exception):
     """The requested operation was not configured."""
+
+
+class PermissionDeniedError(Exception):
+    """The user does not have permission to perform this operation."""
 
 
 class ProviderException(Exception):
@@ -185,6 +186,10 @@ class VerifyTokenException(Exception):
 
 class FetchKeysException(VerifyTokenException):
     """Cannot retrieve the keys from an issuer."""
+
+
+class InvalidTokenClaimsException(VerifyTokenException):
+    """One of the claims in the token is of an invalid format."""
 
 
 class MissingClaimsException(VerifyTokenException):

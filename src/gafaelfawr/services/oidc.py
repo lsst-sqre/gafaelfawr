@@ -10,7 +10,6 @@ from gafaelfawr.exceptions import (
     InvalidGrantError,
     UnauthorizedClientException,
 )
-from gafaelfawr.session import SessionHandle
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -19,17 +18,18 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import OIDCServerConfig
     from gafaelfawr.issuer import TokenIssuer
+    from gafaelfawr.models.oidc import OIDCVerifiedToken
+    from gafaelfawr.models.token import Token
+    from gafaelfawr.services.token import TokenService
     from gafaelfawr.storage.oidc import (
         OIDCAuthorizationCode,
         OIDCAuthorizationStore,
     )
-    from gafaelfawr.storage.session import SessionStore
-    from gafaelfawr.tokens import VerifiedToken
 
-__all__ = ["OIDCServer"]
+__all__ = ["OIDCService"]
 
 
-class OIDCServer:
+class OIDCService:
     """Minimalist OpenID Connect identity provider.
 
     This provides just enough of the OpenID Connect protocol to satisfy
@@ -38,12 +38,14 @@ class OIDCServer:
 
     Parameters
     ----------
+    config : `gafaelfawr.config.OIDCServerConfig`
+        Configuration for the OpenID Connect server.
     authorization_store : `gafaelfawr.storage.oidc.OIDCAuthorizationStore`
         The underlying storage for OpenID Connect authorizations.
     issuer : `gafaelfawr.issuer.TokenIssuer`
         JWT issuer.
-    session_store : `gafaelfawr.storage.session.SessionStore`
-        Storage for authentication sessions.
+    token_service : `gafaelfawr.services.token.TokenService`
+        Token manipulation service.
     logger : `structlog.BoundLogger`
         Logger for diagnostics.
 
@@ -57,10 +59,9 @@ class OIDCServer:
     #. Application receives an access token and an ID token (the same).
     #. Application gets user information from ``/auth/openid/userinfo``.
 
-    The handler code in :py:mod:`gafaelfawr.handlers.oidc` is responsible
-    for parsing the requests from the user.  This object creates the
-    authorization code (with its associated Redis entry) for step 2, and then
-    returns the token for that code in step 4.
+    The handler code is responsible for parsing the requests from the user.
+    This object creates the authorization code (with its associated Redis
+    entry) for step 2, and then returns the token for that code in step 4.
     """
 
     def __init__(
@@ -69,13 +70,13 @@ class OIDCServer:
         config: OIDCServerConfig,
         authorization_store: OIDCAuthorizationStore,
         issuer: TokenIssuer,
-        session_store: SessionStore,
+        token_service: TokenService,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._authorization_store = authorization_store
         self._issuer = issuer
-        self._session_store = session_store
+        self._token_service = token_service
         self._logger = logger
 
     def is_valid_client(self, client_id: str) -> bool:
@@ -83,7 +84,7 @@ class OIDCServer:
         return any((c.client_id == client_id for c in self._config.clients))
 
     async def issue_code(
-        self, client_id: str, redirect_uri: str, session_handle: SessionHandle
+        self, client_id: str, redirect_uri: str, token: Token
     ) -> OIDCAuthorizationCode:
         """Issue a new authorization code.
 
@@ -93,13 +94,13 @@ class OIDCServer:
             The client ID with access to this authorization.
         redirect_uri : `str`
             The intended return URI for this authorization.
-        session_handle : `gafaelfawr.session.SessionHandle`
-            The handle for the underlying authentication session.
+        token : `gafaelfawr.models.token.Token`
+            The underlying authentication token.
 
         Returns
         -------
-        code : `gafaelfawr.session.SessionHandle`
-            The OpenID Connect authorization code.
+        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
+            The code for a newly-created and stored authorization.
 
         Raises
         ------
@@ -110,7 +111,7 @@ class OIDCServer:
         if not self.is_valid_client(client_id):
             raise UnauthorizedClientException(f"Unknown client ID {client_id}")
         return await self._authorization_store.create(
-            client_id, redirect_uri, session_handle
+            client_id, redirect_uri, token
         )
 
     async def redeem_code(
@@ -119,7 +120,7 @@ class OIDCServer:
         client_secret: Optional[str],
         redirect_uri: str,
         code: OIDCAuthorizationCode,
-    ) -> VerifiedToken:
+    ) -> OIDCVerifiedToken:
         """Redeem an authorization code.
 
         Parameters
@@ -131,12 +132,12 @@ class OIDCServer:
             valid, but is accepted so that error handling can be unified.
         redirect_uri : `str`
             The return URI of the OpenID Connect client.
-        code : `gafaelfawr.session.SessionHandle`
+        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
             The OpenID Connect authorization code.
 
         Returns
         -------
-        token : `gafaelfawr.tokens.VerifiedToken`
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             A newly-issued JWT for this client.
 
         Raises
@@ -171,14 +172,14 @@ class OIDCServer:
             )
             raise InvalidGrantError(msg)
 
-        session = await self._session_store.get_session(
-            authorization.session_handle
+        user_info = await self._token_service.get_user_info(
+            authorization.token
         )
-        if not session:
-            msg = f"Invalid underlying session for authorization {code.key}"
+        if not user_info:
+            msg = f"Invalid underlying token for authorization {code.key}"
             raise InvalidGrantError(msg)
-        token = self._issuer.reissue_token(
-            session.token, jti=code.key, scope="openid", internal=True
+        token = self._issuer.issue_token(
+            user_info, jti=code.key, scope="openid"
         )
 
         # The code is valid and we're going to return success, so delete it

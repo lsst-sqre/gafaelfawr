@@ -7,17 +7,20 @@
 
 # These dependencies are for fastapi including some optional features.
 fastapi
-jinja2
 python-multipart
 starlette
 uvicorn
 
 aioredis
+alembic
 click
 cryptography
+fastapi-sqlalchemy
+httpx
+psycopg2
 pydantic
 PyJWT
 pyyaml
 safir
+sqlalchemy
 structlog
-wtforms

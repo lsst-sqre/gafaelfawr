@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import time
-from datetime import datetime
 from typing import TYPE_CHECKING
-from unittest.mock import ANY
 from urllib.parse import urlparse
 
-import jwt
 import pytest
+from fastapi.encoders import jsonable_encoder
 
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.session import Session, SessionHandle
+from gafaelfawr.models.token import Token
 from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
@@ -34,8 +30,8 @@ async def test_analyze_no_auth(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_analyze_session(setup: SetupTest) -> None:
-    token = setup.create_token()
-    await setup.login(token)
+    token_data = await setup.create_session_token()
+    setup.login(token_data.token)
 
     r = await setup.client.get("/auth/analyze")
     assert r.status_code == 200
@@ -45,89 +41,34 @@ async def test_analyze_session(setup: SetupTest) -> None:
     assert '": "' in r.text
 
     assert r.json() == {
-        "handle": {"key": ANY, "secret": ANY},
-        "session": {
-            "email": token.email,
-            "created_at": ANY,
-            "expires_on": ANY,
-        },
-        "token": {
-            "header": {
-                "alg": ALGORITHM,
-                "typ": "JWT",
-                "kid": setup.config.issuer.kid,
-            },
-            "data": token.claims,
-            "valid": True,
-        },
+        "data": jsonable_encoder(token_data.dict()),
+        "valid": True,
     }
 
 
 @pytest.mark.asyncio
-async def test_analyze_handle(setup: SetupTest) -> None:
-    handle = SessionHandle()
+async def test_analyze_token(setup: SetupTest) -> None:
+    token = Token()
 
     # Handle with no session.
-    r = await setup.client.post(
-        "/auth/analyze", data={"token": handle.encode()}
-    )
+    r = await setup.client.post("/auth/analyze", data={"token": str(token)})
     assert r.status_code == 200
     assert r.json() == {
-        "handle": {"key": handle.key, "secret": handle.secret},
-        "errors": [f"No session found for {handle.encode()}"],
+        "data": {"token": token.dict()},
+        "errors": ["Invalid token"],
+        "valid": False,
     }
 
-    # Valid session handle.
-    token = setup.create_token(groups=["admin"], jti=handle.key)
-    session = Session.create(handle, token)
-    session_store = setup.factory.create_session_store()
-    await session_store.store_session(session)
-    r = await setup.client.post(
-        "/auth/analyze", data={"token": handle.encode()}
-    )
+    # Valid token.
+    token_data = await setup.create_session_token()
+    token = token_data.token
+    r = await setup.client.post("/auth/analyze", data={"token": str(token)})
 
     # Check that the results from /analyze include the handle, the session,
     # and the token information.
     assert r.status_code == 200
     analysis = r.json()
     assert analysis == {
-        "handle": {"key": handle.key, "secret": handle.secret},
-        "session": {
-            "email": token.email,
-            "created_at": ANY,
-            "expires_on": ANY,
-        },
-        "token": {
-            "header": {
-                "alg": ALGORITHM,
-                "typ": "JWT",
-                "kid": setup.config.issuer.kid,
-            },
-            "data": token.claims,
-            "valid": True,
-        },
-    }
-    created_at = datetime.strptime(
-        analysis["session"]["created_at"], "%Y-%m-%d %H:%M:%S %z"
-    )
-    expires_on = datetime.strptime(
-        analysis["session"]["expires_on"], "%Y-%m-%d %H:%M:%S %z"
-    )
-
-    now = time.time()
-    assert now - 5 <= created_at.timestamp() <= now + 5
-    assert int(expires_on.timestamp()) == analysis["token"]["data"]["exp"]
-
-
-@pytest.mark.asyncio
-async def test_analyze_token(setup: SetupTest) -> None:
-    token = setup.create_token()
-    r = await setup.client.post("/auth/analyze", data={"token": token.encoded})
-    assert r.status_code == 200
-    assert r.json() == {
-        "token": {
-            "header": jwt.get_unverified_header(token.encoded),
-            "data": token.claims,
-            "valid": True,
-        },
+        "data": jsonable_encoder(token_data.dict()),
+        "valid": True,
     }

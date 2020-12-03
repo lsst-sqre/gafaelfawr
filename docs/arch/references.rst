@@ -2,7 +2,35 @@
 References
 ##########
 
-The following references are helpful when making changes to Gafaelfawr:
+Design documents
+================
+
+`SQR-039: Discussion of authentication and authorization for Science Platform`__
+    This technote reassesses the authentication and authorization needs for the Science Platform in light of early operational experience and Data Facility developments, discusses trade-offs between possible implementation strategies, and proposes a modified design based on opaque bearer tokens and a separate authorization and user metadata service.
+
+__ https://sqr-039.lsst.io/
+
+`SQR-044: Science Platform identity management requirements`__
+    The identity management component of the Science Platform holds the list of authorized users, their group information, bindings from those users to external authentication providers, and associated metadata for both users and groups, such as quotas and other limits.
+    This document sets out the requirements for that component.
+    It also flags the minimal requirements and the requirements already met by the current identity.lsst.org system.
+
+__ https://sqr-044.lsst.io/
+
+`SQR-049: Science Platform token management design`__
+    Authentication tokens will be used by the science platform as web authentication credentials, for API and service calls from outside the Science Platform, and for internal service-to-service and notebook-to-service calls.
+    This document lays out the technical design of the token management component, satisfying the requirements given in SQR-044.
+
+__ https://sqr-049.lsst.io/
+
+`DMTN-094: LSP Authentication Design`__
+    This document covers core technologies and interactions between services, APIs, and applications interacting with the LSST Science Platform.
+    This is the original design document, which has been partly replaced by the above documents.
+
+__ https://dmtn-094.lsst.io/
+
+Protocol references
+===================
 
 `CILogon OpenID Connect`__
     Documentation for how to use CILogon as an OpenID Connect provider.

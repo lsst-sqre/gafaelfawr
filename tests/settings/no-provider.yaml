@@ -2,6 +2,8 @@
 
 realm: "testing"
 session_secret_file: "/dummy"
+database_url: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
+initial_admins: ["admin"]
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
 group_mapping:
@@ -16,6 +18,4 @@ issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"
   key_file: "/dummy"
-  aud:
-    default: "https://example.com/"
-    internal: "https://example.com/api"
+  aud: "https://example.com/"

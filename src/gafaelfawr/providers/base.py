@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from gafaelfawr.session import Session
+    from gafaelfawr.models.token import TokenUserInfo
 
 __all__ = ["Provider"]
 
@@ -30,8 +30,8 @@ class Provider(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def create_session(self, code: str, state: str) -> Session:
-        """Given the code from a successful authentication, create a session.
+    async def create_user_info(self, code: str, state: str) -> TokenUserInfo:
+        """Given the code from an authentication, create the user information.
 
         Parameters
         ----------
@@ -42,8 +42,8 @@ class Provider(metaclass=ABCMeta):
 
         Returns
         -------
-        session : `gafaelfawr.session.Session`
-            The new authentication session.
+        user_info : `gafaelfawr.models.token.TokenUserInfo`
+            The user information corresponding to that authentication.
 
         Raises
         ------

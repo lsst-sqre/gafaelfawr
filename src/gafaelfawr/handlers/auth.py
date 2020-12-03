@@ -21,18 +21,11 @@ from gafaelfawr.auth import (
     AuthErrorChallenge,
     AuthType,
     generate_challenge,
-    generate_unauthorized_challenge,
-    parse_authorization,
-    verify_token,
 )
+from gafaelfawr.dependencies.auth import authenticate_with_type
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import (
-    InsufficientScopeError,
-    InvalidRequestError,
-    InvalidTokenError,
-)
-from gafaelfawr.session import SessionHandle
-from gafaelfawr.tokens import VerifiedToken
+from gafaelfawr.exceptions import InsufficientScopeError
+from gafaelfawr.models.token import TokenData
 
 router = APIRouter()
 
@@ -65,6 +58,15 @@ class AuthConfig:
     auth_type: AuthType
     """The authentication type to use in challenges."""
 
+    notebook: bool
+    """Whether to generate a notebook token."""
+
+    delegate_to: Optional[str]
+    """Internal service for which to create an internal token."""
+
+    delegate_scopes: List[str]
+    """List of scopes the delegated token should have."""
+
 
 def auth_uri(
     x_original_uri: Optional[str] = Header(None),
@@ -83,6 +85,9 @@ def auth_config(
     scope: List[str] = Query(...),
     satisfy: Satisfy = Satisfy.ALL,
     auth_type: AuthType = AuthType.Bearer,
+    notebook: bool = False,
+    delegate_to: Optional[str] = None,
+    delegate_scope: Optional[str] = None,
     auth_uri: str = Depends(auth_uri),
     context: RequestContext = Depends(context_dependency),
 ) -> AuthConfig:
@@ -90,20 +95,45 @@ def auth_config(
 
     A shared dependency that reads various GET parameters and headers and
     converts them into an `AuthConfig` class.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If ``notebook`` and ``delegate_to`` are both set.
     """
     context.rebind_logger(
         auth_uri=auth_uri,
         required_scope=" ".join(sorted(scope)),
         satisfy=satisfy.name.lower(),
     )
-    return AuthConfig(scopes=set(scope), satisfy=satisfy, auth_type=auth_type)
+    if notebook and delegate_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["query", "delegate_to"],
+                "type": "invalid_delegate",
+                "msg": "delegate_to cannot be set for notebook tokens",
+            },
+        )
+    if delegate_scope:
+        delegate_scopes = [s.strip() for s in delegate_scope.split(",")]
+    else:
+        delegate_scopes = []
+    return AuthConfig(
+        scopes=set(scope) | set(delegate_scopes),
+        satisfy=satisfy,
+        auth_type=auth_type,
+        notebook=notebook,
+        delegate_to=delegate_to,
+        delegate_scopes=delegate_scopes,
+    )
 
 
 @router.get("/auth")
 async def get_auth(
     response: Response,
     auth_config: AuthConfig = Depends(auth_config),
-    audience: Optional[str] = None,
+    token_data: TokenData = Depends(authenticate_with_type),
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, str]:
     """Authenticate and authorize a token.
@@ -120,8 +150,6 @@ async def get_auth(
     auth_type (optional)
         The authentication type to use in challenges.  If given, must be
         either ``bearer`` or ``basic``.  Defaults to ``bearer``.
-    audience (optional)
-        May be set to the internal audience to request token reissuance.
 
     Expects the following headers to be set in the request:
 
@@ -150,7 +178,8 @@ async def get_auth(
         names of the groups will be returned, comma-separated, in this
         header.
     X-Auth-Request-Token
-        If enabled, the encoded token will be set.
+        If requested by ``notebook`` or ``delegate_to``, will be set to the
+        delegated token.
     X-Auth-Request-Token-Scopes
         If the token has scopes in the ``scope`` claim or derived from groups
         in the ``isMemberOf`` claim, they will be returned in this header.
@@ -162,31 +191,11 @@ async def get_auth(
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
-    try:
-        token = await get_token_from_request(context)
-    except InvalidRequestError as e:
-        raise generate_challenge(context, auth_config.auth_type, e)
-    except InvalidTokenError as e:
-        raise generate_unauthorized_challenge(
-            context, auth_config.auth_type, e, ajax_forbidden=True
-        )
-    if not token:
-        raise generate_unauthorized_challenge(
-            context, auth_config.auth_type, ajax_forbidden=True
-        )
-
-    # Add user information to the logger.
-    context.rebind_logger(
-        token=token.jti,
-        user=token.username,
-        scope=" ".join(sorted(token.scope)),
-    )
-
     # Determine whether the request is authorized.
     if auth_config.satisfy == Satisfy.ANY:
-        authorized = any([s in token.scope for s in auth_config.scopes])
+        authorized = any([s in token_data.scopes for s in auth_config.scopes])
     else:
-        authorized = all([s in token.scope for s in auth_config.scopes])
+        authorized = all([s in token_data.scopes for s in auth_config.scopes])
 
     # If not authorized, log and raise the appropriate error.
     if not authorized:
@@ -197,8 +206,7 @@ async def get_auth(
 
     # Log and return the results.
     context.logger.info("Token authorized")
-    token = maybe_reissue_token(context, audience, token)
-    headers = build_success_headers(context, auth_config, token)
+    headers = await build_success_headers(context, auth_config, token_data)
     response.headers.update(headers)
     return {"status": "ok"}
 
@@ -250,104 +258,8 @@ async def get_auth_forbidden(
     )
 
 
-async def get_token_from_request(
-    context: RequestContext,
-) -> Optional[VerifiedToken]:
-    """From the request, find the token we need.
-
-    It may be in the session cookie or in an ``Authorization`` header, and the
-    ``Authorization`` header may use type ``Basic`` (of various types) or
-    ``Bearer``.  Rebinds the logging context to include the source of the
-    token, if one is found.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.dependencies.context.RequestContext`
-        The context of the incoming request.
-
-    Returns
-    -------
-    token : `gafaelfawr.tokens.VerifiedToken`, optional
-        The token if found, otherwise None.
-
-    Raises
-    ------
-    gafaelfawr.exceptions.InvalidRequestError
-        The Authorization header was malformed.
-    gafaelfawr.exceptions.InvalidTokenError
-        A token was provided but it could not be verified.
-    """
-    # Use the session cookie if it is available.  This check has to be before
-    # checking the Authorization header, since JupyterHub will set its own
-    # Authorization header in its AJAX calls but we won't be able to extract a
-    # token from that and will return 400 for them.
-    if context.request.state.cookie.handle:
-        handle = context.request.state.cookie.handle
-        context.rebind_logger(token_source="cookie")
-        session_store = context.factory.create_session_store()
-        session = await session_store.get_session(handle)
-        if session:
-            return session.token
-
-    # No session or existing authentication header.  Try the Authorization
-    # header.  This case is used by API calls from clients.  If we got a
-    # session handle, convert it to a token.  Otherwise, if we got a token,
-    # verify it.
-    handle_or_token = parse_authorization(context, allow_basic=True)
-    if not handle_or_token:
-        return None
-    elif handle_or_token.startswith("gsh-"):
-        handle = SessionHandle.from_str(handle_or_token)
-        session_store = context.factory.create_session_store()
-        session = await session_store.get_session(handle)
-        return session.token if session else None
-    else:
-        return verify_token(context, handle_or_token)
-
-
-def maybe_reissue_token(
-    context: RequestContext, audience: Optional[str], token: VerifiedToken
-) -> VerifiedToken:
-    """Possibly reissue the token.
-
-    Parameters
-    ----------
-    context : `gafaelfawr.dependencies.context.RequestContext`
-        The context of the incoming request.
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The current token.
-
-    Returns
-    -------
-    token : `gafaelfawr.tokens.VerifiedToken`
-        An encoded token, which may have been reissued.
-
-    Notes
-    -----
-    The token will be reissued if this is a request to an internal resource,
-    as indicated by the ``audience`` parameter being equal to the configured
-    internal audience, where the current token's audience is from the default
-    audience.  The token will be reissued to the internal audience.  This
-    allows passing a more restrictive token to downstream systems that may
-    reuse that tokens for their own API calls.
-    """
-    aud_internal = context.config.issuer.aud_internal
-    if not audience == aud_internal:
-        return token
-    if not token.claims["aud"] == context.config.issuer.aud:
-        return token
-
-    # Create a new handle just to get a new key for the jti.  The reissued
-    # internal token is never stored in a session and cannot be accessed via a
-    # session handle, so we don't use the handle to store it.
-    issuer = context.factory.create_token_issuer()
-    handle = SessionHandle()
-    context.logger.info("Reissuing token to audience %s", aud_internal)
-    return issuer.reissue_token(token, jti=handle.key, internal=True)
-
-
-def build_success_headers(
-    context: RequestContext, auth_config: AuthConfig, token: VerifiedToken
+async def build_success_headers(
+    context: RequestContext, auth_config: AuthConfig, token_data: TokenData
 ) -> Dict[str, str]:
     """Construct the headers for successful authorization.
 
@@ -357,8 +269,8 @@ def build_success_headers(
         The context of the incoming request.
     auth_config : `AuthConfig`
         Configuration parameters for the authorization.
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The token.
+    token_data : `gafaelfawr.models.token.TokenData`
+        The data from the authentication token.
 
     Returns
     -------
@@ -369,18 +281,25 @@ def build_success_headers(
         "X-Auth-Request-Client-Ip": context.request.client.host,
         "X-Auth-Request-Scopes-Accepted": " ".join(sorted(auth_config.scopes)),
         "X-Auth-Request-Scopes-Satisfy": auth_config.satisfy.name.lower(),
-        "X-Auth-Request-Token-Scopes": " ".join(sorted(token.scope)),
-        "X-Auth-Request-User": token.username,
-        "X-Auth-Request-Uid": token.uid,
+        "X-Auth-Request-Token-Scopes": " ".join(sorted(token_data.scopes)),
+        "X-Auth-Request-User": token_data.username,
+        "X-Auth-Request-Uid": str(token_data.uid),
     }
-    if token.email:
-        headers["X-Auth-Request-Email"] = token.email
-
-    groups_list = token.claims.get("isMemberOf", [])
-    if groups_list:
-        groups = ",".join([g["name"] for g in groups_list])
+    if token_data.groups:
+        groups = ",".join([g.name for g in token_data.groups])
         headers["X-Auth-Request-Groups"] = groups
 
-    headers["X-Auth-Request-Token"] = token.encoded
+    if auth_config.notebook:
+        token_service = context.factory.create_token_service()
+        token = await token_service.get_notebook_token(token_data)
+        headers["X-Auth-Request-Token"] = str(token)
+    elif auth_config.delegate_to:
+        token_service = context.factory.create_token_service()
+        token = await token_service.get_internal_token(
+            token_data,
+            service=auth_config.delegate_to,
+            scopes=auth_config.delegate_scopes,
+        )
+        headers["X-Auth-Request-Token"] = str(token)
 
     return headers

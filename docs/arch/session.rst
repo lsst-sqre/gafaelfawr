@@ -1,13 +1,14 @@
-################
-Session handling
-################
+#######
+Storage
+#######
 
-Sessions in Gafaelfawr are stored in two places: a session cookie, and a persistent session store.
-These are connected by a session handle that can be stored in the session cookie and is used to retrieve the authentication session.
-The session cookie is also used to store some other transient information.
+For details on how tokens are stored in Gafaelfawr, see the more substantial discussion in `SQR-049 <https://sqr-049.lsst.io/>`__.
 
 Session cookie
 ==============
+
+Sessions in Gafaelfawr are stored in a session cookie.
+The session cookie is also used to store some other transient information.
 
 The Gafaelfawr session cookie is JSON, encrypted with :py:class:`~cryptography.fernet.Fernet`.
 The cookie may contain the following keys:
@@ -17,14 +18,7 @@ The cookie may contain the following keys:
     Used to protect against cross-site request forgery.
     Set when returning a web page that contains forms.
 
-``handle``
-    A session handle, referencing a stored session.
-
-``message``
-    Used to pass messages from one page to another.
-    Currently only used to present the user with a newly-created session handle after they issue themselves a new token.
-
-``rd``
+``return_url``
     The URL to which the user should be returned after authentication is complete.
     This will be set only while there is an outstanding external authentication request.
 
@@ -32,59 +26,21 @@ The cookie may contain the following keys:
     The random state value used to protect external authentication against session fixation.
     This will be set only while there is an outstanding external authentication request.
 
-Session handle
-==============
-
-A session handle stands in for a JWT.
-The corresponding JWT is stored encrypted in the session storage.
-Session handles are used instead of JWTs directly because they are much shorter, and therefore avoid various problems with long HTTP headers.
-
-All session handles are of the form ``gsh-<key>.<secret>``.
-The ``gsh-`` part is a fixed prefix to make it easy to identify session handles.
-The ``<key>`` is the Redis key under which the encrypted session is stored.
-The ``<secret>`` is an opaque value used to prove that the holder of the session handle is allowed to use it.
-Checking the secret prevents someone who can list the keys in the Redis session store from using those keys as session handles.
-
-The same representation is used for authorization codes issued by the OpenID Connect server.
-
-Session storage
-===============
-
-Currently, the only supported backend for session storage is Redis.
-Sessions are stored under a Redis key of ``session:<key>`` where ``<key>`` is the session key from the session handle.
-The value is JSON-encrypted with :py:class:`~cryptography.fernet.Fernet`.
-The decrypted session has the following keys:
-
-``secret``
-    The session secret, matching the ``<secret>`` portion of the session handle.
-
 ``token``
-    The full JWT for this authentication session.
+    The user's authentication token.
 
-``email``
-    The email of the user represented by this session.
-    Taken from the ``email`` claim of the JWT.
+Authorization codes
+===================
 
-``created_at``
-    The time at which the session was created in integer seconds since epoch.
-
-``expires_on``
-    The time at which the session will expire in integer seconds since epoch.
-    Taken from the ``exp`` claim of the JWT.
-
-The Redis key will be set to expire at the same time represented by ``expires_on``.
-
-Authorization code storage
-==========================
-
-Authorization codes returned by the OpenID Connect server are stored in Redis in a way very similar to sessions.
-The authorization code uses the same data structure and representation as a session handle.
-Authorizations are stored under a Redis key of ``oidc:<key>`` where ``<key>`` is the key from a handle.
-The value os JSON-encrypted with :py:class:`~cryptography.fernet.Fernet`.
+Authorization codes returned by the OpenID Connect server are stored in Redis in a way very similar to tokens.
+The authorization code uses the same data structure and representation as a token, except with a ``gc-`` prefix instead of ``gt-``.
+Authorizations are stored under a Redis key of ``oidc:<key>`` where ``<key>`` is the key from the code.
+The value is JSON-encrypted with :py:class:`~cryptography.fernet.Fernet`.
 The decrypted authorization has the following keys:
 
-``secret``
-    The authorization secret, matching the ``<secret>`` portion of the authorization code.
+``code``
+    The full authorization code, including the secret, which must match the presented code.
+    The code is stored as a JSON object with two keys, ``key`` and ``secret``, corresponding to the two parts of the code.
 
 ``client_id``
     The client ID for whom the authorization was issued.
@@ -92,9 +48,9 @@ The decrypted authorization has the following keys:
 ``redirect_uri``
     The redirect URI presented at the time of code issuance.
 
-``session_handle``
-    The handle for the underlying authorization session.
-    This is used to retrieve the user's token for token issuance.
+``token``
+    The token for the underlying authorization session.
+    This is used to retrieve the user's token for JWT issuance.
 
 ``created_at``
     The time at which the authorization code was created in integer seconds since epoch.
@@ -102,24 +58,3 @@ The decrypted authorization has the following keys:
 Authorization codes are valid for one hour.
 They are single-use.
 Once the authorization code has been redeemed, the authorization is deleted from Redis.
-
-User token storage
-==================
-
-A user-issued token is also represented by a session, plus some additional information.
-An index of all the user-issued tokens for a user is stored in Redis.
-Each index entry references a session, which is stored the same way as any other authentication session.
-This index is stored as a set under the Redis key ``tokens:<uid>`` where ``<uid>`` is the UID of the user, taken from the claim configured with the ``uid_claim`` configuration parameter (``uidNumber`` by default).
-Each index entry is serialized JSON with the following keys:
-
-``key``
-    The key of the corresponding session.
-
-``scope``
-    The scope of the token stored in that session, taken from the ``scope`` claim.
-
-``expires``
-    The expiration of that session in seconds since epoch, taken from the ``exp`` claim.
-
-This index is used primarily to serve the ``/auth/tokens`` page, which allows a user to view and revoke their user-issued tokens.
-Expired index entries are only removed when the user visits the ``/auth/tokens`` page.
