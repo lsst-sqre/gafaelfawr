@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import create_engine
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from gafaelfawr.models.admin import Admin
@@ -40,15 +40,14 @@ def initialize_database(config: Config) -> None:
     for _ in range(5):
         try:
             engine = create_engine(config.database_url, pool_pre_ping=True)
-        except DBAPIError as e:
-            if e.connection_invalidated:
-                logger.info("database not ready, waiting two seconds")
-                time.sleep(2)
-            else:
-                raise
+            initialize_schema(engine)
+        except OperationalError:
+            logger.info("database not ready, waiting two seconds")
+            time.sleep(2)
+            continue
+        logger.info("initialized database schema")
+        break
 
-    logger.info("initializing database schema")
-    initialize_schema(engine)
     session = Session(bind=engine)
     with TransactionManager(session).transaction():
         admin_store = AdminStore(session)
