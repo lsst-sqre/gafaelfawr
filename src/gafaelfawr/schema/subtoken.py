@@ -1,8 +1,8 @@
-"""The subtoken databaes table."""
+"""The subtoken database table."""
 
 from __future__ import annotations
 
-from sqlalchemy import Column, ForeignKey, Index, Integer, String
+from sqlalchemy import Column, ForeignKey, Index, String
 
 from gafaelfawr.schema.base import Base
 
@@ -12,12 +12,11 @@ __all__ = ["Subtoken"]
 class Subtoken(Base):
     __tablename__ = "subtoken"
 
-    id = Column(Integer, primary_key=True)
-    parent = Column(String(64), ForeignKey("token.token", ondelete="SET NULL"))
     child = Column(
         String(64),
         ForeignKey("token.token", ondelete="CASCADE"),
-        nullable=False,
+        primary_key=True,
     )
+    parent = Column(String(64), ForeignKey("token.token", ondelete="SET NULL"))
 
     __table_args__ = (Index("subtoken_by_parent", "parent"),)
