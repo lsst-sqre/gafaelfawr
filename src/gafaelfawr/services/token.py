@@ -148,9 +148,9 @@ class TokenService:
             uid=auth_data.uid,
             groups=auth_data.groups,
         )
-        await self._token_redis_store.store_data(data)
         with self._transaction_manager.transaction():
             self._token_db_store.add(data, token_name=token_name)
+        await self._token_redis_store.store_data(data)
         self._logger.info(
             "Created new user token",
             key=token.key,
@@ -263,11 +263,11 @@ class TokenService:
             uid=token_data.uid,
             groups=token_data.groups,
         )
-        await self._token_redis_store.store_data(data)
         with self._transaction_manager.transaction():
             self._token_db_store.add(
                 data, service=service, parent=token_data.token.key
             )
+        await self._token_redis_store.store_data(data)
         self._logger.info(
             "Created new internal token",
             key=token.key,
@@ -318,9 +318,9 @@ class TokenService:
             uid=token_data.uid,
             groups=token_data.groups,
         )
-        await self._token_redis_store.store_data(data)
         with self._transaction_manager.transaction():
             self._token_db_store.add(data, parent=token_data.token.key)
+        await self._token_redis_store.store_data(data)
         self._logger.info("Created new notebook token", key=token.key)
         return token
 
