@@ -49,4 +49,4 @@ services:
       - source: "gafaelfawr"
         target: "/etc/gafaelfawr/gafaelfawr.yaml"
     ports:
-      - "80:80"
+      - "8080:80"
