@@ -6,6 +6,10 @@ Gafaelfawr supports two choices of authentication provider: GitHub and OpenID Co
 The authentication provider is chosen based on whether the ``github`` or ``oidc`` settings are present.
 See :ref:`settings` for more information.
 
+Gafaelfawr uses the authentication provider to determine the numeric UID of the user.
+Be aware that changing from one authentication provider to another will likely result in UID changes for all users.
+Gafaelfawr itself does not care and will pass along the new values, but protected applications that use those values may be surprised by a change.
+
 OpenID Connect
 ==============
 

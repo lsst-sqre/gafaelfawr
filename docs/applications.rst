@@ -127,11 +127,13 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
 
 ``notebook`` (optional)
     If set to a true value, requests a notebook token for the user be generated and passed to the application in the ``X-Auth-Request-Token`` header.
+    This may not be set at the same time as ``delegate_to``.
 
 ``delegate_to`` (optional)
     If set, requests an internal token.
     The value of this parameter is an identifier for the service that will use this token to make additional requests on behalf of the user.
     That internal token will be generated if necessary and passed in the ``X-Auth-Request-Token`` header.
+    This may not be set at the same time as ``notebook``.
 
 ``delegate_scope`` (optional)
     A comma-separated list of scopes that the internal token should have.

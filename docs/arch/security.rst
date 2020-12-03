@@ -63,13 +63,13 @@ Gafaelfawr uses four secure storage artifacts:
   A token has two components: the key and a secret.
   The key is visible to anyone who can list the keys in the Gafaelfawr Redis store or authenticate to the token API as the user.
   Security of the system does not rely on keeping the key confidential.
-  Proof of possession comes from the secret portion of the session handle, which must match the secret value stored inside the encrypted session for the session handle to be valid.
+  Proof of possession comes from the secret portion of the token, which must match the secret value stored inside the token's associated data for the token to be valid.
   The secret is a 128-bit random value generated using :py:func:`os.urandom`.
 - A session cookie.
   Gafaelfawr uses an encrypted cookie to store the token for a browser authentication session, as well as other security-sensitive secrets (the CSRF token, the random state for OAuth 2.0 or OpenID Connect authentication).
   This cookie is encrypted using `~cryptography.fernet.Fernet`.
-- Redis session store.
-  Sessions stored in Redis, which include the secret value used to verify the token for the user, are encrypted using `~cryptography.fernet.Fernet`.
+- Redis store.
+  Token data is stored in Redis, including the secret value used to verify the token for the user, are encrypted using `~cryptography.fernet.Fernet`.
   The key used is the same key used for encrypting the session cookie.
 - SQL data store.
   Metadata about tokens, users with administrative access to the token API, and event history are stored in a SQL database.
@@ -87,7 +87,7 @@ The state value is a 128-bit random value generated using :py:func:`os.urandom`.
 
 CSRF tokens are generated on request via the ``/auth/api/v1/login`` route and stored in the session cookie.
 On POST, PATCH, PUT, and DELETE API requests authenticated with a session cookie, the CSRF token must be provided in the ``X-CSRF-Token`` headere and must match the CSRF token in the session cookie.
-API requests authenticated via an ``Authorization`` header need not provide a CSRF token, since browsers cannot be tried into generating such requests with existing credentials.
+API requests authenticated via an ``Authorization`` header need not provide a CSRF token, since browsers cannot be tricked into generating such requests with existing credentials.
 
 The ``/login`` and ``/logout`` routes redirect the user after processing.
 The URL to which to redirect the user may be specified as a GET parameter or, in the case of ``/login``, an HTTP header that is normally set by the NGINX ingress.

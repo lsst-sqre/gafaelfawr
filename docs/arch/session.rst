@@ -35,11 +35,11 @@ Authorization codes
 Authorization codes returned by the OpenID Connect server are stored in Redis in a way very similar to tokens.
 The authorization code uses the same data structure and representation as a token, except with a ``gc-`` prefix instead of ``gt-``.
 Authorizations are stored under a Redis key of ``oidc:<key>`` where ``<key>`` is the key from the code.
-The value os JSON-encrypted with :py:class:`~cryptography.fernet.Fernet`.
+The value is JSON-encrypted with :py:class:`~cryptography.fernet.Fernet`.
 The decrypted authorization has the following keys:
 
 ``code``
-    The full authoriztaion code, including the secret, which must match the presented code.
+    The full authorization code, including the secret, which must match the presented code.
     The code is stored as a JSON object with two keys, ``key`` and ``secret``, corresponding to the two parts of the code.
 
 ``client_id``
