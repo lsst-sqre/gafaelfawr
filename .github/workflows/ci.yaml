@@ -58,9 +58,9 @@ jobs:
           docker pull lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} || true
           docker pull lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}} || true
 
-      - name: Build the base Docker image
+      - name: Build the dependencies Docker image
         run: |
-          docker build --target base-image \
+          docker build --target dependencies-image \
             --cache-from=lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} \
             --tag lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} .
 

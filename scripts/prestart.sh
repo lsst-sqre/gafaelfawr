@@ -5,5 +5,4 @@
 
 set -eux
 
-PYTHONPATH=/app; export PYTHONPATH
-python /app/gafaelfawr/cli.py init
+gafaelfawr init

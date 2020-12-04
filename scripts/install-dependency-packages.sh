@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# This script updates packages in the base Docker image that's used by both the
-# build and runtime images, and gives us a place to install additional
-# system-level packages with apt-get.
+# Install additional packages required only to build Gafaelfawr and construct
+# its virtualenv, but not required at runtime.
 #
-# Based on the blog post:
-# https://pythonspeed.com/articles/system-packages-docker/
+# Since this script runs in the dependency image, which is not used as a basis
+# for the runtime image, it doesn't have to clean up after itself to minimize
+# the final image size, but it does anyway to reduce the size of the
+# intermediate image stored in Docker Hub.
 
 # Bash "strict mode", to help catch problems and bugs in the shell
 # script. Every bash script you write should include this. See
@@ -23,11 +24,8 @@ export DEBIAN_FRONTEND=noninteractive
 # Update the package listing, so we know what packages exist:
 apt-get update
 
-# Install security updates:
-apt-get -y upgrade
-
-# git is required by setuptools-scm.  libpq-dev is required by psycopg2.
-apt-get -y install --no-install-recommends git libpq-dev
+# Required to build binary Python modules and psycopg2.
+apt-get -y install --no-install-recommends build-essential libpq-dev
 
 # Delete cached files we don't need anymore:
 apt-get clean
