@@ -11,10 +11,10 @@
 #   Installs the app into the virtual environment.
 # runtime-image
 #   - Copies the virtual environment into place.
-#   - Runs a non-root user.
-#   - Sets up the entrypoint and port.
+#   - Sets up additional supporting scripts.
+#   - Configures gunicorn.
 
-FROM tiangolo/uvicorn-gunicorn:python3.8 as base-image
+FROM tiangolo/uvicorn-gunicorn:python3.8-slim as base-image
 
 # Update system packages
 COPY scripts/install-base-packages.sh .
