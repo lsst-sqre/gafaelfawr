@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { useTable } from "react-table"
 import useLogin from "../hooks/login"
+import apiUrl from "../functions/apiUrl"
 
 function formatTimestamp(timestamp) {
   const date = new Date(0)
@@ -14,7 +15,7 @@ function TokenInfo() {
 
   useEffect(() => {
     if (!username) return
-    fetch(`http://localhost:8080/auth/api/v1/users/${username}/tokens`, {
+    fetch(apiUrl(`/users/${username}/tokens`), {
       credentials: "same-origin",
     })
       .then(response => response.json())
