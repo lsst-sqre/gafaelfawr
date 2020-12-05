@@ -53,7 +53,7 @@ app.include_router(userinfo.router)
 app.include_router(well_known.router)
 
 static_path = os.getenv(
-    "GAFAELFAWR_UI_PATH", Path(__file__).parent.parent / "ui" / "public"
+    "GAFAELFAWR_UI_PATH", Path(__file__).parent.parent.parent / "ui" / "public"
 )
 app.mount(
     "/auth/tokens",
