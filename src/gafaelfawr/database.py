@@ -37,16 +37,21 @@ def initialize_database(config: Config) -> None:
     # Check connectivity to the database and retry if needed.  This uses a
     # pre-ping to ensure the database is available and attempts to connect
     # five times with a two second delay between each attempt.
+    success = False
     for _ in range(5):
         try:
             engine = create_engine(config.database_url, pool_pre_ping=True)
             initialize_schema(engine)
+            success = True
         except OperationalError:
             logger.info("database not ready, waiting two seconds")
             time.sleep(2)
             continue
         logger.info("initialized database schema")
         break
+    if not success:
+        msg = "database schema initialization failed (database not reachable?)"
+        logger.error(msg)
 
     session = Session(bind=engine)
     with TransactionManager(session).transaction():
