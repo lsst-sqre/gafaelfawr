@@ -17,3 +17,7 @@ init:
 
 .PHONY: update
 update: update-deps init
+
+.PHONY: ui
+ui:
+	cd ui && gatsby build --prefix-paths
