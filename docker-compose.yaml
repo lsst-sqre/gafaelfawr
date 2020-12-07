@@ -1,5 +1,5 @@
-# Run Redis for testing with a local development server.  This is used by
-# tox -e run, which starts gafaelfawr in the foreground.
+# Run Redis and PostgreSQL for testing with a local development server.
+# This is used by tox -e run, which starts gafaelfawr in the foreground.
 
 version: "3"
 services:
@@ -13,3 +13,13 @@ services:
       - "TOTALLY-INSECURE-test-password"
     ports:
       - "6379:6379"
+  postgresql:
+    image: "postgres:latest"
+    hostname: "postgresql"
+    container_name: "postgresql"
+    environment:
+      POSTGRES_PASSWORD: "INSECURE"
+      POSTGRES_USER: "gafaelfawr"
+      POSTGRES_DB: "gafaelfawr"
+    ports:
+      - "5432:5432"

@@ -11,16 +11,21 @@
 #   Installs the app into the virtual environment.
 # runtime-image
 #   - Copies the virtual environment into place.
-#   - Runs a non-root user.
-#   - Sets up the entrypoint and port.
+#   - Sets up additional supporting scripts.
+#   - Configures gunicorn.
 
-FROM python:3.8-slim-buster as base-image
+FROM tiangolo/uvicorn-gunicorn:python3.8-slim as base-image
 
 # Update system packages
 COPY scripts/install-base-packages.sh .
 RUN ./install-base-packages.sh
+RUN rm ./install-base-packages.sh
 
 FROM base-image AS dependencies-image
+
+# Install some additional packages required for building dependencies.
+COPY scripts/install-dependency-packages.sh .
+RUN ./install-dependency-packages.sh
 
 # Create a Python virtual environment
 ENV VIRTUAL_ENV=/opt/venv
@@ -46,18 +51,17 @@ RUN pip install --no-cache-dir .
 
 FROM base-image AS runtime-image
 
-# Create a non-root user
-RUN useradd --create-home appuser
-WORKDIR /home/appuser
+# Copy the virtualenv.
+COPY --from=install-image /opt/venv /opt/venv
 
 # Make sure we use the virtualenv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY --from=install-image /opt/venv /opt/venv
+# Copy over the prestart script that handles database setup.
+COPY scripts/prestart.sh /app/prestart.sh
 
-# Switch to non-root user
-USER appuser
-
-EXPOSE 8080
-
-ENTRYPOINT ["gafaelfawr", "run", "--port", "8080"]
+# We use a module name other than app, so tell the base image that.  This
+# does not copy the app into /app as is recommended by the base Docker
+# image documentation and instead relies on the module search path as
+# modified by the virtualenv.
+ENV MODULE_NAME=gafaelfawr.main

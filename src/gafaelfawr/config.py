@@ -19,6 +19,7 @@ from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
 
 import yaml
 from pydantic import AnyHttpUrl, BaseModel, IPvAnyNetwork, validator
+from safir.logging import configure_logging
 
 from gafaelfawr.keypair import RSAKeyPair
 
@@ -583,7 +584,7 @@ class Config:
                 key_ids=tuple(settings.oidc.key_ids),
             )
         log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
-        return cls(
+        config = cls(
             realm=settings.realm,
             session_secret=session_secret.decode(),
             redis_url=settings.redis_url,
@@ -600,6 +601,16 @@ class Config:
             initial_admins=tuple(settings.initial_admins),
             safir=SafirConfig(log_level=log_level),
         )
+
+        # Configure logging.
+        configure_logging(
+            profile=config.safir.profile,
+            log_level=config.safir.log_level,
+            name=config.safir.logger_name,
+        )
+
+        # Return the completed configuration.
+        return config
 
     @staticmethod
     def _load_secret(path: str) -> bytes:

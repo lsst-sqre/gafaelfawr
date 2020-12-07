@@ -7,15 +7,17 @@
 
 # These dependencies are for fastapi including some optional features.
 fastapi
+fastapi-sqlalchemy
+gunicorn
 python-multipart
 starlette
-uvicorn
+uvicorn[standard]
 
+# Other dependencies.
 aioredis
 alembic
 click
 cryptography
-fastapi-sqlalchemy
 httpx
 psycopg2
 pydantic

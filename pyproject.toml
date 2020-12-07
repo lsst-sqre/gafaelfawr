@@ -90,10 +90,13 @@ whitelist_externals =
 commands_pre =
     docker-compose up -d
     holdup -t 60 -T 5 -i 1 -n tcp://localhost:6379/
+    holdup -t 60 -T 5 -i 1 -n tcp://localhost:5432/
 commands =
-    adev runserver --app-factory create_dev_app src/gafaelfawr/app.py
+    gafaelfawr init
+    gafaelfawr run
 commands_post =
     docker-compose down
+setenv = GAFAELFAWR_SETTINGS_PATH = examples/gafaelfawr-dev.yaml
 """
 
 [tool.coverage.run]

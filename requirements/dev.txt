@@ -88,9 +88,9 @@ coverage[toml]==5.3 \
     --hash=sha256:cedb2f9e1f990918ea061f28a0f0077a07702e3819602d3507e2ff98c8d20636 \
     --hash=sha256:e8caf961e1b1a945db76f1b5fa9c91498d15f545ac0ababbe575cfab185d3bd8 \
     # via -r requirements/dev.in
-diagrams==0.17.0 \
-    --hash=sha256:7fe4b0f3baa2416c5ac9cbb69bba9d1ddf6d62524a035f4e2afb3118b310fba5 \
-    --hash=sha256:86436166fd3a9b8dddb8ccce2716f458a55614527feedcb95ae4a8cdf5b7659f \
+diagrams==0.18.0 \
+    --hash=sha256:6f583c31cdbfec46ea12a0835ef1cc25a6d35d196a651a682f479dc53a04b12e \
+    --hash=sha256:c4f0e070f4f68666b6de3c892339991089168fb2956c4900465123e522847b6a \
     # via -r requirements/dev.in
 distlib==0.3.1 \
     --hash=sha256:8c09de2c67b3e7deef7184574fc060ab8a793e7adbb183d942c389c8b13c52fb \

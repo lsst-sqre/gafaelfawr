@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
@@ -52,10 +53,13 @@ app.include_router(well_known.router)
 @app.on_event("startup")
 async def startup_event() -> None:
     config = config_dependency()
+    engine_args = {}
+    if urlparse(config.database_url).scheme == "sqlite":
+        engine_args["connect_args"] = {"check_same_thread": False}
     app.add_middleware(
         DBSessionMiddleware,
         db_url=config.database_url,
-        engine_args={"connect_args": {"check_same_thread": False}},
+        engine_args=engine_args,
     )
     app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
     app.add_middleware(
