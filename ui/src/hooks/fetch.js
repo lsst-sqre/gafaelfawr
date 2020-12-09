@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react"
 import { apiGet } from "../functions/api"
 
-export default function useFetch(uri) {
+export default function useFetch(uri, setError = f => f) {
   const [data, setData] = useState()
-  const [error, setError] = useState()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -14,9 +13,5 @@ export default function useFetch(uri) {
       .catch(setError)
   }, [uri])
 
-  return {
-    loading,
-    data,
-    error,
-  }
+  return { loading, data }
 }

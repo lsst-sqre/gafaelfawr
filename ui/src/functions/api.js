@@ -22,7 +22,10 @@ export function apiPost(route, csrf, body) {
   return fetch(apiUrl(route), {
     credentials: "same-origin",
     method: "POST",
-    headers: { "X-CSRF-Token": csrf },
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-Token": csrf,
+    },
     body: JSON.stringify(body),
   })
     .then(response => response.json())

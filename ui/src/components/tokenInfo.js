@@ -4,7 +4,7 @@ import TokenTable from "./tokenTable"
 import { apiDelete, apiGet, apiPost } from "../functions/api"
 import { LoginContext } from "../pages/"
 
-export default function TokenInfo() {
+export default function TokenInfo({ onError = f => f }) {
   const { csrf, username } = useContext(LoginContext)
   const [data, setData] = useState(null)
   const tokens = useMemo(() => data, [data])
@@ -19,7 +19,7 @@ export default function TokenInfo() {
         internal: data.filter(t => t.token_type === "internal"),
       }))
       .then(setData)
-      .catch(console.error)
+      .catch(onError)
   }
 
   const createToken = async (values) => {
@@ -28,15 +28,21 @@ export default function TokenInfo() {
       scopes: values.scopes ? values.scopes.split(",") : [],
       expires: values.expires ? parseInt(values.expires) : null,
     })
-      .then(response => alert(JSON.stringify(response)))
+      .then(response => {
+        if (response.detail) {
+          onError(response.detail.msg)
+        } else {
+          alert(JSON.stringify(response))
+        }
+      })
       .then(loadTokenData)
-      .catch(console.error)
+      .catch(onError)
   }
 
   const deleteToken = async token => {
     await apiDelete(`/users/${username}/tokens/${token}`, csrf)
       .then(loadTokenData)
-      .catch(console.error)
+      .catch(onError)
   }
 
   useEffect(loadTokenData, [username])
