@@ -5,6 +5,7 @@ import { useTable } from "react-table"
 import DeleteToken from "./deleteToken"
 
 function formatTimestamp(timestamp) {
+  if (!timestamp) return <em>never</em>
   const date = new Date(0)
   date.setUTCSeconds(timestamp)
   return date.toLocaleDateString() + " " + date.toLocaleTimeString()
