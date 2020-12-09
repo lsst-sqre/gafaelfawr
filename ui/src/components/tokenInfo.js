@@ -48,7 +48,7 @@ export default function TokenInfo() {
     <>
       <h1>User Tokens</h1>
       <CreateTokenModal onCreateToken={createToken} />
-      <TokenTable data={tokens.user} />
+      <TokenTable data={tokens.user} includeName={true} />
       <h1>Web Sessions</h1>
       <TokenTable data={tokens.session} />
       <h1>Notebook Tokens</h1>

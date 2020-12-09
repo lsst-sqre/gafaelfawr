@@ -11,35 +11,43 @@ function formatTimestamp(timestamp) {
   return date.toLocaleDateString() + " " + date.toLocaleTimeString()
 }
 
-const columns = [
-  {
-    Header: "Token",
-    Cell: ({ value }) => <code>{value}</code>,
-    accessor: "token",
-  },
-  {
-    Header: "Scopes",
-    accessor: "scopes",
-  },
-  {
-    Header: "Created",
-    Cell: ({ value }) => formatTimestamp(value),
-    accessor: "created",
-  },
-  {
-    Header: "Expires",
-    Cell: ({ value }) => formatTimestamp(value),
-    accessor: "expires",
-  },
-  {
-    id: "delete",
-    Header: "",
-    Cell: ({ value }) => <DeleteToken token={value} />,
-    accessor: "token",
-  },
-]
+export default function TokenInfo({ data, includeName = false }) {
+  const columns = useMemo(() => {
+    const spec = [
+      {
+        Header: "Token",
+        Cell: ({ value }) => <code>{value}</code>,
+        accessor: "token",
+      },
+      {
+        Header: "Scopes",
+        accessor: "scopes",
+      },
+      {
+        Header: "Created",
+        Cell: ({ value }) => formatTimestamp(value),
+        accessor: "created",
+      },
+      {
+        Header: "Expires",
+        Cell: ({ value }) => formatTimestamp(value),
+        accessor: "expires",
+      },
+      {
+        id: "delete",
+        Header: "",
+        Cell: ({ value }) => <DeleteToken token={value} />,
+        accessor: "token",
+      },
+    ]
+    return includeName ? [
+      {
+        Header: "Name",
+        accessor: "token_name",
+      }
+    ].concat(spec) : spec
+  }, [includeName])
 
-export default function TokenInfo({ data }) {
   const table = useTable({ columns, data })
 
   const {
