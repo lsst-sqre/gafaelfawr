@@ -1,19 +1,17 @@
 import React, { useContext, useState, useEffect, useMemo } from "react"
 import CreateTokenButton from "./createTokenButton"
 import TokenTable from "./tokenTable"
-import apiUrl from "../functions/apiUrl"
+import { apiDelete, apiGet, apiPost } from "../functions/api"
 import { LoginContext } from "../pages/"
 
 export default function TokenInfo() {
   const { csrf, username } = useContext(LoginContext)
   const [data, setData] = useState(null)
+  const tokens = useMemo(() => data, [data])
 
   const loadTokenData = () => {
     if (!username) return
-    fetch(apiUrl(`/users/${username}/tokens`), {
-      credentials: "same-origin",
-    })
-      .then(response => response.json())
+    apiGet(`/users/${username}/tokens`)
       .then(data => ({
         user: data.filter(t => t.token_type === "user"),
         session: data.filter(t => t.token_type === "session"),
@@ -24,36 +22,24 @@ export default function TokenInfo() {
       .catch(console.error)
   }
 
-  useEffect(loadTokenData, [username])
-
-  const tokens = useMemo(() => data, [data])
-
   const createToken = async (values) => {
-    await fetch(apiUrl(`/users/${username}/tokens`), {
-      credentials: "same-origin",
-      method: "POST",
-      headers: { "X-CSRF-Token": csrf },
-      body: JSON.stringify({
-        token_name: values.name,
-        scopes: values.scopes ? values.scopes.split(",") : [],
-        expires: values.expires ? parseInt(values.expires) : null,
-      })
+    await apiPost(`/users/${username}/tokens`, csrf, {
+      token_name: values.name,
+      scopes: values.scopes ? values.scopes.split(",") : [],
+      expires: values.expires ? parseInt(values.expires) : null,
     })
-      .then(response => response.json())
       .then(response => alert(JSON.stringify(response)))
       .then(loadTokenData)
       .catch(console.error)
   }
 
   const deleteToken = async token => {
-    await fetch(apiUrl(`/users/${username}/tokens/${token}`), {
-      method: "DELETE",
-      credentials: "same-origin",
-      headers: {"X-CSRF-Token": csrf},
-    })
+    await apiDelete(`/users/${username}/tokens/${token}`, csrf)
       .then(loadTokenData)
       .catch(console.error)
   }
+
+  useEffect(loadTokenData, [username])
 
   if (!data) return <p>Loading...</p>
 

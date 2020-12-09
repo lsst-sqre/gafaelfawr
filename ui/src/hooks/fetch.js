@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react"
+import { apiGet } from "../functions/api"
 
 export default function useFetch(uri) {
   const [data, setData] = useState()
@@ -7,8 +8,7 @@ export default function useFetch(uri) {
 
   useEffect(() => {
     if (!uri) return
-    fetch(uri, { credentials: "same-origin" })
-      .then(response => response.json())
+    apiGet(uri)
       .then(setData)
       .then(() => setLoading(false))
       .catch(setError)
