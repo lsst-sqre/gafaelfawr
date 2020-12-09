@@ -2,7 +2,7 @@ import React, { useState } from "react"
 import AriaModal from "react-aria-modal"
 import CreateTokenForm from "./createTokenForm"
 
-export default function CreateTokenModal({ onCreateToken = async f => f }) {
+export default function CreateTokenButton({ onCreateToken = async f => f }) {
   const [active, setActive] = useState(false)
 
   const activateModal = () => { setActive(true) }

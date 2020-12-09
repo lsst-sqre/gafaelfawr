@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useMemo } from "react"
-import CreateTokenModal from "./createTokenModal"
+import CreateTokenButton from "./createTokenButton"
 import TokenTable from "./tokenTable"
 import apiUrl from "../functions/apiUrl"
 import { LoginContext } from "../pages/"
@@ -8,7 +8,7 @@ export default function TokenInfo() {
   const { csrf, username } = useContext(LoginContext)
   const [data, setData] = useState(null)
 
-  useEffect(() => {
+  const loadTokenData = () => {
     if (!username) return
     fetch(apiUrl(`/users/${username}/tokens`), {
       credentials: "same-origin",
@@ -22,7 +22,9 @@ export default function TokenInfo() {
       }))
       .then(setData)
       .catch(console.error)
-  }, [username])
+  }
+
+  useEffect(loadTokenData, [username])
 
   const tokens = useMemo(() => data, [data])
 
@@ -39,6 +41,17 @@ export default function TokenInfo() {
     })
       .then(response => response.json())
       .then(response => alert(JSON.stringify(response)))
+      .then(loadTokenData)
+      .catch(console.error)
+  }
+
+  const deleteToken = async token => {
+    await fetch(apiUrl(`/users/${username}/tokens/${token}`), {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers: {"X-CSRF-Token": csrf},
+    })
+      .then(loadTokenData)
       .catch(console.error)
   }
 
@@ -47,14 +60,30 @@ export default function TokenInfo() {
   return (
     <>
       <h1>User Tokens</h1>
-      <CreateTokenModal onCreateToken={createToken} />
-      <TokenTable data={tokens.user} includeName={true} />
+      <CreateTokenButton onCreateToken={createToken} />
+      {
+        tokens.user.length ? (
+          <TokenTable
+            data={tokens.user}
+            includeName={true}
+            onDeleteToken={deleteToken}
+          />
+        ) : false
+      }
       <h1>Web Sessions</h1>
-      <TokenTable data={tokens.session} />
-      <h1>Notebook Tokens</h1>
-      <TokenTable data={tokens.notebook} />
-      <h1>Internal Tokens</h1>
-      <TokenTable data={tokens.internal} />
+      <TokenTable data={tokens.session} onDeleteToken={deleteToken} />
+      {
+        tokens.notebook.length ? <>
+          <h1>Notebook Tokens</h1>
+          <TokenTable data={tokens.notebook} onDeleteToken={deleteToken} />
+        </> : false
+      }
+      {
+        tokens.internal.length ? <>
+          <h1>Internal Tokens</h1>
+          <TokenTable data={tokens.internal} onDeleteToken={deleteToken} />
+        </> : false
+      }
     </>
   )
 }

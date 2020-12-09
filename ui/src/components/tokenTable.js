@@ -2,7 +2,7 @@
 
 import React, { useContext, useState, useEffect, useMemo } from "react"
 import { useTable } from "react-table"
-import DeleteToken from "./deleteToken"
+import { FaTrash } from "react-icons/fa"
 
 function formatTimestamp(timestamp) {
   if (!timestamp) return <em>never</em>
@@ -11,14 +11,26 @@ function formatTimestamp(timestamp) {
   return date.toLocaleDateString() + " " + date.toLocaleTimeString()
 }
 
-export default function TokenInfo({ data, includeName = false }) {
+export default function TokenInfo({
+  data,
+  includeName = false,
+  onDeleteToken = async f => f,
+}) {
   const columns = useMemo(() => {
-    const spec = [
+    const token_name = [
+      {
+        Header: "Name",
+        accessor: "token_name",
+      }
+    ]
+    const token_code = [
       {
         Header: "Token",
         Cell: ({ value }) => <code>{value}</code>,
         accessor: "token",
-      },
+      }
+    ]
+    return (includeName ? token_name : token_code).concat([
       {
         Header: "Scopes",
         accessor: "scopes",
@@ -36,16 +48,14 @@ export default function TokenInfo({ data, includeName = false }) {
       {
         id: "delete",
         Header: "",
-        Cell: ({ value }) => <DeleteToken token={value} />,
+        Cell: ({ value }) => (
+          <button onClick={() => { onDeleteToken(value) }}>
+            <FaTrash />
+          </button>
+        ),
         accessor: "token",
       },
-    ]
-    return includeName ? [
-      {
-        Header: "Name",
-        accessor: "token_name",
-      }
-    ].concat(spec) : spec
+    ])
   }, [includeName])
 
   const table = useTable({ columns, data })
