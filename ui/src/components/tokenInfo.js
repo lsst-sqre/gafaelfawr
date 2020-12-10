@@ -28,13 +28,7 @@ export default function TokenInfo({ onError = f => f }) {
       scopes: values.scopes ? values.scopes.split(",") : [],
       expires: values.expires ? parseInt(values.expires) : null,
     })
-      .then(response => {
-        if (response.detail) {
-          onError(response.detail.msg)
-        } else {
-          alert(JSON.stringify(response))
-        }
-      })
+      .then(response => alert(JSON.stringify(response)))
       .then(loadTokenData)
       .catch(onError)
   }

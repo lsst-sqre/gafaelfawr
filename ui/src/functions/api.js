@@ -28,5 +28,13 @@ export function apiPost(route, csrf, body) {
     },
     body: JSON.stringify(body),
   })
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        return response.json()
+          .catch(() => { throw Error(response.statusText) })
+          .then(data => { throw Error(data.detail.msg) })
+      } else {
+        return response.json()
+      }
+    })
 }
