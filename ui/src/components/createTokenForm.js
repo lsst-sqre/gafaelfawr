@@ -1,7 +1,10 @@
 import React, { useState } from "react"
 import { Formik, Form, Field, ErrorMessage } from "formik"
 
-export default function CreateTokenForm({ onCreateToken = async f => f }) {
+export default function CreateTokenForm({
+  onCreateToken = async f => f,
+  onCancel = f => f,
+}) {
   return (
     <Formik
       initialValues={{ name: "", scopes: "", expires: "" }}
@@ -21,33 +24,45 @@ export default function CreateTokenForm({ onCreateToken = async f => f }) {
     >
       {({ isSubmitting }) => (
         <Form>
-          <label htmlFor="name">Name</label>
-          <Field
-            id="create-token-name"
-            name="name"
-            type="text"
-            maxlength="64"
-            placeholder="token name"
-          />
-          <ErrorMessage name="name" component="div" />
-          <label htmlFor="scopes">Scopes</label>
-          <Field
-            id="create-token-scopes"
-            name="scopes"
-            type="text"
-            placeholder="read:tap,read:workspace"
-          />
-          <ErrorMessage name="scopes" component="div" />
-          <label htmlFor="expires">Expires</label>
-          <Field
-            id="create-token-expires"
-            name="expires"
-            type="text"
-            placeholder="1607471088"
-          />
-          <ErrorMessage name="expires" component="div" />
+          <label>
+            Name:{" "}
+            <Field
+              id="create-token-name"
+              name="name"
+              type="text"
+              maxlength="64"
+              placeholder="token name"
+            />
+            <ErrorMessage name="name" component="div" />
+          </label>
+          <br />
+          <label>
+            Scopes:{" "}
+            <Field
+              id="create-token-scopes"
+              name="scopes"
+              type="text"
+              placeholder="read:tap,read:workspace"
+            />
+            <ErrorMessage name="scopes" component="div" />
+          </label>
+          <br />
+          <label>
+            Expires:{" "}
+            <Field
+              id="create-token-expires"
+              name="expires"
+              type="text"
+              placeholder="1607471088"
+            />
+            <ErrorMessage name="expires" component="div" />
+          </label>
+          <br />
           <button type="submit" disabled={isSubmitting}>
             Create
+          </button>
+          <button type="button" disabled={isSubmitting} onClick={onCancel}>
+            Cancel
           </button>
         </Form>
       )}

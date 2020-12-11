@@ -22,13 +22,13 @@ export default function TokenInfo({ onError = f => f }) {
       .catch(onError)
   }
 
-  const createToken = async (values) => {
+  const createToken = async (values, setNewToken) => {
     await apiPost(`/users/${username}/tokens`, csrf, {
       token_name: values.name,
       scopes: values.scopes ? values.scopes.split(",") : [],
       expires: values.expires ? parseInt(values.expires) : null,
     })
-      .then(response => alert(JSON.stringify(response)))
+      .then(response => setNewToken(response.token))
       .then(loadTokenData)
       .catch(onError)
   }

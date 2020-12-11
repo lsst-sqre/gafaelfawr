@@ -21,7 +21,7 @@ export default function Home() {
 
   return (
     <LoginContext.Provider value={{ csrf, username }}>
-      {error ? <div><p>{error}</p></div> : false}
+      {error ? <div><p role="alert">{error}</p></div> : false}
       <TokenInfo onError={onError} />
     </LoginContext.Provider>
   )
