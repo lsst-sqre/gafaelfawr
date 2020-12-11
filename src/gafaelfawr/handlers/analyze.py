@@ -8,7 +8,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
 
-from gafaelfawr.dependencies.auth import authenticate_session
+from gafaelfawr.dependencies.auth import authenticate_session_or_redirect
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.models.token import Token, TokenData
@@ -34,7 +34,7 @@ class FormattedJSONResponse(JSONResponse):
 
 @router.get("/auth/analyze", response_class=FormattedJSONResponse)
 async def get_analyze(
-    token_data: TokenData = Depends(authenticate_session),
+    token_data: TokenData = Depends(authenticate_session_or_redirect),
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, Any]:
     """Analyze a token from a web session."""

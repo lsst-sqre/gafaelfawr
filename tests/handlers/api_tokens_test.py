@@ -248,45 +248,39 @@ async def test_auth_required(setup: SetupTest) -> None:
     del setup.client.cookies[COOKIE_NAME]
     setup.client.cookies[COOKIE_NAME] = state.as_cookie()
 
-    r = await setup.client.get(
-        "/auth/api/v1/users/example/tokens", allow_redirects=False
-    )
-    assert r.status_code == 307
+    r = await setup.client.get("/auth/api/v1/users/example/tokens")
+    assert r.status_code == 401
 
     r = await setup.client.get(
         "/auth/api/v1/users/example/tokens",
         headers={"Authorization": f"bearer {token}"},
-        allow_redirects=False,
     )
-    assert r.status_code == 307
+    assert r.status_code == 401
 
     r = await setup.client.post(
         "/auth/api/v1/users/example/tokens",
         headers={"X-CSRF-Token": csrf},
         json={"token_name": "some token"},
-        allow_redirects=False,
     )
-    assert r.status_code == 307
+    assert r.status_code == 401
 
     r = await setup.client.get(
-        f"/auth/api/v1/users/example/tokens/{token.key}", allow_redirects=False
+        f"/auth/api/v1/users/example/tokens/{token.key}"
     )
-    assert r.status_code == 307
+    assert r.status_code == 401
 
     r = await setup.client.delete(
         f"/auth/api/v1/users/example/tokens/{token.key}",
         headers={"X-CSRF-Token": csrf},
-        allow_redirects=False,
     )
-    assert r.status_code == 307
+    assert r.status_code == 401
 
     r = await setup.client.patch(
         f"/auth/api/v1/users/example/tokens/{token.key}",
         headers={"X-CSRF-Token": csrf},
         json={"token_name": "some token"},
-        allow_redirects=False,
     )
-    assert r.status_code == 307
+    assert r.status_code == 401
 
 
 @pytest.mark.asyncio

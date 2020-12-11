@@ -18,7 +18,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from gafaelfawr.dependencies.auth import authenticate_session
+from gafaelfawr.dependencies.auth import authenticate_session_or_redirect
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import parsed_redirect_uri
 from gafaelfawr.exceptions import (
@@ -41,7 +41,7 @@ async def get_login(
     response_type: Optional[str] = Query(None),
     scope: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
-    token_data: TokenData = Depends(authenticate_session),
+    token_data: TokenData = Depends(authenticate_session_or_redirect),
     context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
     """Authenticate the user for an OpenID Connect server flow.

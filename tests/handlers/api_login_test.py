@@ -5,31 +5,29 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
-from urllib.parse import urlparse
 
 import pytest
 from cryptography.fernet import Fernet
 
+from gafaelfawr.auth import AuthErrorChallenge, AuthType
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token
-from tests.support.headers import query_from_url
+from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
     from httpx import Response
 
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
-def assert_redirect_is_correct(r: Response) -> None:
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    assert not url.scheme
-    assert not url.netloc
-    assert url.path == "/login"
-    assert query_from_url(r.headers["Location"]) == {
-        "rd": ["https://example.com/auth/api/v1/login"]
-    }
+def assert_unauthorized_is_correct(r: Response, config: Config) -> None:
+    assert r.status_code == 401
+    challenge = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(challenge, AuthErrorChallenge)
+    assert challenge.auth_type == AuthType.Bearer
+    assert challenge.realm == config.realm
 
 
 @pytest.mark.asyncio
@@ -49,26 +47,24 @@ async def test_login(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_login_no_auth(setup: SetupTest) -> None:
-    r = await setup.client.get("/auth/api/v1/login", allow_redirects=False)
-    assert_redirect_is_correct(r)
+    r = await setup.client.get("/auth/api/v1/login")
+    assert_unauthorized_is_correct(r, setup.config)
 
     # An Authorization header with a valid token still redirects.
     token_data = await setup.create_session_token()
     r = await setup.client.get(
         "/auth/api/v1/login",
         headers={"Authorization": f"bearer {token_data.token}"},
-        allow_redirects=False,
     )
-    assert_redirect_is_correct(r)
+    assert_unauthorized_is_correct(r, setup.config)
 
     # A token with no underlying Redis representation is ignored.
     state = State(token=Token())
     r = await setup.client.get(
         "/auth/api/v1/login",
         cookies={COOKIE_NAME: state.as_cookie()},
-        allow_redirects=False,
     )
-    assert_redirect_is_correct(r)
+    assert_unauthorized_is_correct(r, setup.config)
 
     # Likewise with a cookie containing a malformed token.  This requires a
     # bit more work to assemble.
@@ -79,15 +75,13 @@ async def test_login_no_auth(setup: SetupTest) -> None:
     r = await setup.client.get(
         "/auth/api/v1/login",
         cookies={COOKIE_NAME: bad_cookie},
-        allow_redirects=False,
     )
-    assert_redirect_is_correct(r)
+    assert_unauthorized_is_correct(r, setup.config)
 
     # And finally check with a mangled state that won't decrypt.
     bad_cookie = "XXX" + state.as_cookie()
     r = await setup.client.get(
         "/auth/api/v1/login",
         cookies={COOKIE_NAME: bad_cookie},
-        allow_redirects=False,
     )
-    assert_redirect_is_correct(r)
+    assert_unauthorized_is_correct(r, setup.config)

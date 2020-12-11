@@ -22,7 +22,9 @@ __all__ = ["authenticate", "authenticate_session", "authenticate_with_type"]
 
 
 async def _authenticate_helper(
-    context: RequestContext, auth_type: AuthType
+    context: RequestContext,
+    auth_type: AuthType,
+    ajax_forbidden: bool = False,
 ) -> TokenData:
     """Helper function for authenticate and authenticate_with_type.
 
@@ -34,6 +36,16 @@ async def _authenticate_helper(
     Always check the user's cookie-based session first before checking the
     ``Authorization`` header because some applications (JupyterHub, for
     instance) may use the ``Authorization`` header for their own purposes.
+
+    Parameters
+    ----------
+    context : `gafaelfawr.dependencies.context.RequestContext`
+        The request context.
+    auth_type : `gafaelfawr.auth.AuthType`
+        The authentication type for any challenges.
+    ajax_forbidden : `bool`, optional
+        If set to `True`, check to see if the request was sent via AJAX (see
+        Notes) and, if so, convert it to a 403 error.  The default is `False`.
 
     Returns
     -------
@@ -56,7 +68,9 @@ async def _authenticate_helper(
         except (InvalidRequestError, InvalidTokenError) as e:
             raise generate_challenge(context, auth_type, e)
     if not token:
-        raise generate_unauthorized_challenge(context, auth_type)
+        raise generate_unauthorized_challenge(
+            context, auth_type, ajax_forbidden=ajax_forbidden
+        )
 
     token_service = context.factory.create_token_service()
     data = await token_service.get_data(token)
@@ -76,10 +90,6 @@ async def authenticate(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
     """Check that the request is authenticated.
-
-    For requests authenticated via session cookie, also checks that a CSRF
-    token was provided in the ``X-CSRF-Token`` header if the request is
-    anything other than GET or OPTIONS.
 
     Returns
     -------
@@ -101,7 +111,8 @@ async def authenticate_with_type(
     """Check that the request is authenticated with configurable challenge.
 
     Same as :py:func:`authenticate` except that the type of the challenge can
-    be specified with the ``auth_type`` request parameter.
+    be specified with the ``auth_type`` request parameter and any 401
+    responses are converted to 403 if the request is an AJAX request.
 
     Returns
     -------
@@ -113,10 +124,39 @@ async def authenticate_with_type(
     fastapi.HTTPException
         If authentication is not provided or is not valid.
     """
-    return await _authenticate_helper(context, auth_type)
+    return await _authenticate_helper(context, auth_type, ajax_forbidden=True)
 
 
 async def authenticate_session(
+    context: RequestContext = Depends(context_dependency),
+) -> TokenData:
+    """Check cookie authentication.
+
+    Require that the credentials come from a cookie, not an ``Authorization``
+    header, but return an HTTP error rather than a redirect if the user is not
+    authenticated.  This is used for the API methods that are called from the
+    token management UI.
+
+    Returns
+    -------
+    data : `gafaelfawr.models.token.TokenData`
+        The data associated with the verified token.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If authentication is not provided or is not valid.
+    """
+    data = None
+    if context.state.token:
+        token_service = context.factory.create_token_service()
+        data = await token_service.get_data(context.state.token)
+    if not data:
+        raise generate_unauthorized_challenge(context, AuthType.Bearer)
+    return data
+
+
+async def authenticate_session_or_redirect(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
     """Check cookie authentication and, if not found, redirect to ``/login``.
