@@ -31,9 +31,24 @@ repos:
     hooks:
       - id: blacken-docs
         additional_dependencies: [black==20.8b1]
-        args: [-l, '79', -t, py38]
+        args: [-l, "79", -t, py38]
 
   - repo: https://gitlab.com/pycqa/flake8
     rev: 3.8.4
     hooks:
       - id: flake8
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v2.2.1
+    hooks:
+      - id: prettier
+        files: "\\.(\
+          css|less|scss\
+          |graphql|gql\
+          |html\
+          |json\
+          |mdx\
+          |ts|tsx\
+          |vue\
+          |yaml|yml\
+          )$"
