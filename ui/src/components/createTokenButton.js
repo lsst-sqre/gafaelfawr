@@ -52,6 +52,7 @@ export default function CreateTokenButton({ onCreateToken = async f => f }) {
     ? <AriaModal
            titleText="New token"
            alert={true}
+           initialFocus="#token-accept"
            onExit={deactivateTokenModal}
            getApplicationNode={getApplicationNode}
          >
@@ -62,7 +63,6 @@ export default function CreateTokenButton({ onCreateToken = async f => f }) {
     : (formActive
       ? <AriaModal
           titleText="Create token"
-          initialFocus="#token-accept"
           onExit={deactivateFormModal}
           getApplicationNode={getApplicationNode}
         >

@@ -2,11 +2,27 @@
 // and assuming the API URL is /auth/api/v1 at the same host.
 function apiUrl(route) {
   if (typeof window === "undefined") return;
-  return location.protocol + "//" + location.host + "/auth/api/v1" + route;
+  return new URL("/auth/api/v1" + route, window.location.href).href
+}
+
+// Redirect to the /login route and request a return to the current page.
+function apiLoginRedirect() {
+  if (typeof window == "undefined") return;
+  const currentUrl = window.location.href
+  const url = new URL("/login", currentUrl)
+  url.searchParams.append("rd", currentUrl)
+  return url.href
 }
 
 export function apiGet(route) {
   return fetch(apiUrl(route), { credentials: "same-origin" })
+    .then(response => {
+      if (typeof window !== "undefined" && response.status == 401) {
+        window.location.href = apiLoginRedirect()
+      } else {
+        return response;
+      }
+    })
     .then(response => response.json())
 }
 
