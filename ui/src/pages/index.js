@@ -6,15 +6,18 @@ import useLogin from '../hooks/login';
 export default function Home() {
   const [error, setError] = useState(null);
 
-  const onError = useCallback((error) => {
-    if (error instanceof TypeError) {
-      setError('Unable to contact backend API');
-    } else if (error && error.stack && error.message) {
-      setError(error.message);
-    } else {
-      setError(error);
-    }
-  }, [setError]);
+  const onError = useCallback(
+    (error) => {
+      if (error instanceof TypeError) {
+        setError('Unable to contact backend API');
+      } else if (error && error.stack && error.message) {
+        setError(error.message);
+      } else {
+        setError(error);
+      }
+    },
+    [setError]
+  );
 
   const { csrf, username } = useLogin(onError);
 

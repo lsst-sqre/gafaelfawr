@@ -6,6 +6,6 @@ exports.onCreateWebpackConfig = ({ actions }) => {
       watchOptions: {
         ignored: /\.#|node_modules|~$/,
       },
-    }
-  })
+    },
+  });
 };

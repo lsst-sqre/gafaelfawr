@@ -1,6 +1,7 @@
 // Render a list of tokens in tabular form.
 
 import React, { useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { useTable } from 'react-table';
 import { FaTrash } from 'react-icons/fa';
 
@@ -28,8 +29,8 @@ function formatToken(token) {
 
 export default function TokenInfo({
   data,
+  onDeleteToken,
   includeName = false,
-  onDeleteToken = async (f) => f,
 }) {
   const columns = useMemo(() => {
     const tokenName = [
@@ -107,3 +108,8 @@ export default function TokenInfo({
   );
   /* eslint-enable react/jsx-props-no-spreading */
 }
+TokenInfo.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.object).isRequired,
+  onDeleteToken: PropTypes.func.isRequired,
+  includeName: PropTypes.bool,
+};

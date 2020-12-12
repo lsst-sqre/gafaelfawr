@@ -7,4 +7,4 @@
 module.exports = {
   pathPrefix: `/auth/tokens`,
   plugins: [],
-}
+};

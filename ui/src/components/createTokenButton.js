@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import AriaModal from 'react-aria-modal';
 import styled from 'styled-components';
 import CreateTokenForm from './createTokenForm';
@@ -14,7 +15,7 @@ const StyledModal = styled.div`
   max-width: 100%;
 `;
 
-function NewToken({ token, onAccept = (f) => f }) {
+function NewToken({ token, onAccept }) {
   return (
     <>
       <p>Your new token is:</p>
@@ -32,6 +33,10 @@ function NewToken({ token, onAccept = (f) => f }) {
     </>
   );
 }
+NewToken.propTypes = {
+  token: PropTypes.string.isRequired,
+  onAccept: PropTypes.func.isRequired,
+};
 
 export default function CreateTokenButton({ onCreateToken = async (f) => f }) {
   const [formActive, setFormActive] = useState(false);
