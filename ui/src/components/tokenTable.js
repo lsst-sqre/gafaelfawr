@@ -1,15 +1,23 @@
 // Render a list of tokens in tabular form.
 
+import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useTable } from 'react-table';
 import { FaTrash } from 'react-icons/fa';
 
-function formatTimestamp(timestamp) {
-  if (!timestamp) return <em>never</em>;
+function timestampToDate(timestamp) {
   const date = new Date(0);
   date.setUTCSeconds(timestamp);
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  return date;
+}
+
+function formatTimestamp(timestamp, { past }) {
+  if (!timestamp) return <em>never</em>;
+  const date = timestampToDate(timestamp);
+  const relative = formatDistanceToNow(date, { addSuffix: past });
+  const absolute = date.toISOString().replace(/\.0+Z$/, 'Z');
+  return <span title={absolute}>{relative}</span>;
 }
 
 function formatDeleteTokenButton(token, onDeleteToken = (f) => f) {
@@ -53,12 +61,12 @@ export default function TokenInfo({
       },
       {
         Header: 'Created',
-        Cell: ({ value }) => formatTimestamp(value),
+        Cell: ({ value }) => formatTimestamp(value, { past: true }),
         accessor: 'created',
       },
       {
         Header: 'Expires',
-        Cell: ({ value }) => formatTimestamp(value),
+        Cell: ({ value }) => formatTimestamp(value, { past: false }),
         accessor: 'expires',
       },
       {
