@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
 import PropTypes from 'prop-types';
+import React, { useState } from 'react';
 import AriaModal from 'react-aria-modal';
 import styled from 'styled-components';
 import CreateTokenForm from './createTokenForm';
+import ErrorBanner from './errorBanner';
 
 const StyledModal = styled.div`
   position: fixed;
@@ -38,7 +39,7 @@ NewToken.propTypes = {
   onAccept: PropTypes.func.isRequired,
 };
 
-export default function CreateTokenButton({ onCreateToken = async (f) => f }) {
+export default function CreateTokenButton({ createError, onCreateToken }) {
   const [formActive, setFormActive] = useState(false);
   const [newToken, setNewToken] = useState('');
 
@@ -56,8 +57,11 @@ export default function CreateTokenButton({ onCreateToken = async (f) => f }) {
   };
 
   const createToken = async (values) => {
-    await onCreateToken(values, setNewToken);
-    deactivateFormModal();
+    const onSuccess = (token) => {
+      setNewToken(token);
+      deactivateFormModal();
+    };
+    await onCreateToken(values, onSuccess);
   };
 
   const NewTokenModal = () => (
@@ -81,6 +85,7 @@ export default function CreateTokenButton({ onCreateToken = async (f) => f }) {
       getApplicationNode={getApplicationNode}
     >
       <StyledModal>
+        <ErrorBanner error={createError} />
         <CreateTokenForm
           onCreateToken={createToken}
           onCancel={deactivateFormModal}
@@ -98,3 +103,7 @@ export default function CreateTokenButton({ onCreateToken = async (f) => f }) {
     </>
   );
 }
+CreateTokenButton.propTypes = {
+  createError: PropTypes.string,
+  onCreateToken: PropTypes.func.isRequired,
+};

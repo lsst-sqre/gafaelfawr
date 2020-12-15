@@ -1,35 +1,17 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
+import ErrorBanner from '../components/errorBanner';
 import { LoginContext } from '../components/loginContext';
 import TokenInfo from '../components/tokenInfo';
+import useError from '../hooks/error';
 import useLogin from '../hooks/login';
 
 export default function Home() {
-  const [error, setError] = useState(null);
-
-  const onError = useCallback(
-    (error) => {
-      if (error instanceof TypeError) {
-        setError('Unable to contact backend API');
-      } else if (error && error.stack && error.message) {
-        setError(error.message);
-      } else {
-        setError(error);
-      }
-    },
-    [setError]
-  );
-
+  const { error, onError } = useError();
   const { csrf, username } = useLogin(onError);
 
   return (
     <LoginContext.Provider value={{ csrf, username }}>
-      {error ? (
-        <div>
-          <p role="alert">{error}</p>
-        </div>
-      ) : (
-        false
-      )}
+      <ErrorBanner error={error} id="error" />
       <TokenInfo onError={onError} />
     </LoginContext.Provider>
   );

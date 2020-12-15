@@ -8,12 +8,14 @@ import React, {
 import CreateTokenButton from './createTokenButton';
 import { LoginContext } from './loginContext.js';
 import TokenTable from './tokenTable';
+import useError from '../hooks/error';
 import { apiDelete, apiGet, apiPost } from '../functions/api';
 
 export default function TokenInfo({ onError = (f) => f }) {
   const { csrf, username } = useContext(LoginContext);
   const [data, setData] = useState(null);
   const tokens = useMemo(() => data, [data]);
+  const { error: createError, onError: onCreateError } = useError();
 
   const loadTokenData = useCallback(() => {
     if (!username) return;
@@ -37,9 +39,9 @@ export default function TokenInfo({ onError = (f) => f }) {
       })
         .then((response) => setNewToken(response.token))
         .then(loadTokenData)
-        .catch(onError);
+        .catch(onCreateError);
     },
-    [csrf, loadTokenData, onError, username]
+    [csrf, loadTokenData, onCreateError, username]
   );
 
   const deleteToken = useCallback(
@@ -58,7 +60,10 @@ export default function TokenInfo({ onError = (f) => f }) {
   return (
     <>
       <h1>User Tokens</h1>
-      <CreateTokenButton onCreateToken={createToken} />
+      <CreateTokenButton
+        onCreateToken={createToken}
+        createError={createError}
+      />
       {tokens.user.length ? (
         <TokenTable
           data={tokens.user}
