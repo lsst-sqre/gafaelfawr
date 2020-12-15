@@ -20,4 +20,5 @@ update: update-deps init
 
 .PHONY: ui
 ui:
+	cd ui && npm run lint:fix
 	cd ui && gatsby build --prefix-paths
