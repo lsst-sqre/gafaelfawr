@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
@@ -525,3 +526,48 @@ async def test_duplicate_token_name(setup: SetupTest) -> None:
     )
     assert r.status_code == 422
     assert r.json()["detail"]["type"] == "duplicate_token_name"
+
+
+@pytest.mark.asyncio
+async def test_bad_expires(setup: SetupTest) -> None:
+    """Test creating or modifying a token with bogus expirations."""
+    token_data = await setup.create_session_token()
+    setup.login(token_data.token)
+
+    r = await setup.client.get("/auth/api/v1/login")
+    assert r.status_code == 200
+    csrf = r.json()["csrf"]
+
+    now = int(time.time())
+    bad_expires = [-now, -1, 0, now, now + (5 * 60) - 1]
+    for bad_expire in bad_expires:
+        r = await setup.client.post(
+            f"/auth/api/v1/users/{token_data.username}/tokens",
+            headers={"X-CSRF-Token": csrf},
+            json={"token_name": "some token", "expires": bad_expire},
+        )
+        assert r.status_code == 422
+        data = r.json()
+        assert data["detail"]["loc"] == ["body", "expires"]
+        assert data["detail"]["type"] == "bad_expires"
+
+    # Create a valid token.
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 201
+    token_url = r.headers["Location"]
+
+    # Now try modifying the expiration time to the same bogus values.
+    for bad_expire in bad_expires:
+        r = await setup.client.patch(
+            token_url,
+            headers={"X-CSRF-Token": csrf},
+            json={"expires": bad_expire},
+        )
+        assert r.status_code == 422
+        data = r.json()
+        assert data["detail"]["loc"] == ["body", "expires"]
+        assert data["detail"]["type"] == "bad_expires"

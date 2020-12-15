@@ -149,6 +149,10 @@ class InsufficientScopeError(OAuthBearerError):
     status_code = status.HTTP_403_FORBIDDEN
 
 
+class BadExpiresError(Exception):
+    """The provided token expiration time was invalid."""
+
+
 class DuplicateTokenNameError(Exception):
     """The user tried to reuse the name of a token."""
 

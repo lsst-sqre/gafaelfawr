@@ -6,6 +6,9 @@ ALGORITHM = "RS256"
 COOKIE_NAME = "gafaelfawr"
 """Name of the state cookie."""
 
+MINIMUM_LIFETIME = 5 * 60
+"""Minimum expiration lifetime for a token in seconds."""
+
 OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 """How long (in seconds) an authorization code is good for."""
 
