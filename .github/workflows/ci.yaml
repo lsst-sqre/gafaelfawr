@@ -20,6 +20,22 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Set up Node
+        uses: actions/setup-node@v1
+
+      - name: Cache Node.js modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-node-
+            ${{ runner.OS }}-
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: ./ui
+
       - name: Install tox
         run: pip install tox
 
