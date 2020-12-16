@@ -45,7 +45,7 @@ deps =
 commands =
     coverage run -m pytest {posargs}
 setenv =
-    GAFAELFAWR_UI_PATH=ui/public
+    GAFAELFAWR_UI_PATH = {toxinidir}/ui/public
 
 [testenv:coverage-report]
 description = Compile coverage from each test run.
@@ -98,7 +98,7 @@ commands =
     gafaelfawr run
 commands_post =
     docker-compose down
-setenv = GAFAELFAWR_SETTINGS_PATH = examples/gafaelfawr-dev.yaml
+setenv = GAFAELFAWR_SETTINGS_PATH = {toxinidir}/examples/gafaelfawr-dev.yaml
 """
 
 [tool.coverage.run]
