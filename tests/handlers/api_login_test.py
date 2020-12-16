@@ -13,6 +13,7 @@ from gafaelfawr.auth import AuthErrorChallenge, AuthType
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token
+from tests.support.constants import TEST_HOSTNAME
 from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
@@ -33,7 +34,8 @@ def assert_unauthorized_is_correct(r: Response, config: Config) -> None:
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest) -> None:
     token_data = await setup.create_session_token(username="example")
-    setup.login(token_data.token)
+    cookie = State(token=token_data.token).as_cookie()
+    setup.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
 
     r = await setup.client.get("/auth/api/v1/login", allow_redirects=False)
 

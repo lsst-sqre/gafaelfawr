@@ -30,11 +30,7 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     session_token = await token_service.create_session_token(
         user_info, scopes=["read:all", "exec:admin"]
     )
-    setup.login(session_token)
-
-    r = await setup.client.get("/auth/api/v1/login")
-    assert r.status_code == 200
-    csrf = r.json()["csrf"]
+    csrf = await setup.login(session_token)
 
     now = datetime.now(tz=timezone.utc)
     expires = now + timedelta(days=100)
@@ -236,12 +232,8 @@ async def test_auth_required(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     token = await token_service.create_session_token(user_info)
-    setup.login(token)
+    csrf = await setup.login(token)
     state = State(token=token)
-
-    r = await setup.client.get("/auth/api/v1/login")
-    assert r.status_code == 200
-    csrf = r.json()["csrf"]
 
     # Replace the cookie with one containing the CSRF token but not the
     # authentication token.
@@ -287,15 +279,11 @@ async def test_auth_required(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_csrf_required(setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
-    setup.login(token_data.token)
+    csrf = await setup.login(token_data.token)
     token_service = setup.factory.create_token_service()
     user_token = await token_service.create_user_token(
         token_data, token_data.username, token_name="foo"
     )
-
-    r = await setup.client.get("/auth/api/v1/login")
-    assert r.status_code == 200
-    csrf = r.json()["csrf"]
 
     r = await setup.client.post(
         "/auth/api/v1/users/example/tokens", json={"token_name": "some token"}
@@ -338,11 +326,7 @@ async def test_csrf_required(setup: SetupTest) -> None:
 async def test_modify_nonuser(setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
     token = token_data.token
-    setup.login(token)
-
-    r = await setup.client.get("/auth/api/v1/login")
-    assert r.status_code == 200
-    csrf = r.json()["csrf"]
+    csrf = await setup.login(token)
 
     r = await setup.client.patch(
         f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
@@ -356,7 +340,7 @@ async def test_modify_nonuser(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_wrong_user(setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
-    setup.login(token_data.token)
+    csrf = await setup.login(token_data.token)
     token_service = setup.factory.create_token_service()
     user_info = TokenUserInfo(
         username="other-person", name="Some Other Person", uid=137123
@@ -367,10 +351,6 @@ async def test_wrong_user(setup: SetupTest) -> None:
     other_token = await token_service.create_user_token(
         other_session_data, "other-person", token_name="foo"
     )
-
-    r = await setup.client.get("/auth/api/v1/login")
-    assert r.status_code == 200
-    csrf = r.json()["csrf"]
 
     # Get a token list.
     r = await setup.client.get("/auth/api/v1/users/other-person/tokens")
@@ -432,11 +412,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
 async def test_no_expires(setup: SetupTest) -> None:
     """Test creating a user token that doesn't expire."""
     token_data = await setup.create_session_token()
-    setup.login(token_data.token)
-
-    r = await setup.client.get("/auth/api/v1/login")
-    assert r.status_code == 200
-    csrf = r.json()["csrf"]
+    csrf = await setup.login(token_data.token)
 
     r = await setup.client.post(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -490,11 +466,7 @@ async def test_no_expires(setup: SetupTest) -> None:
 async def test_duplicate_token_name(setup: SetupTest) -> None:
     """Test duplicate token names."""
     token_data = await setup.create_session_token()
-    setup.login(token_data.token)
-
-    r = await setup.client.get("/auth/api/v1/login")
-    assert r.status_code == 200
-    csrf = r.json()["csrf"]
+    csrf = await setup.login(token_data.token)
 
     r = await setup.client.post(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -532,11 +504,7 @@ async def test_duplicate_token_name(setup: SetupTest) -> None:
 async def test_bad_expires(setup: SetupTest) -> None:
     """Test creating or modifying a token with bogus expirations."""
     token_data = await setup.create_session_token()
-    setup.login(token_data.token)
-
-    r = await setup.client.get("/auth/api/v1/login")
-    assert r.status_code == 200
-    csrf = r.json()["csrf"]
+    csrf = await setup.login(token_data.token)
 
     now = int(time.time())
     bad_expires = [-now, -1, 0, now, now + (5 * 60) - 1]

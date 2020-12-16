@@ -227,18 +227,27 @@ class SetupTest:
             self.config, kid, groups=groups, **claims
         )
 
-    def login(self, token: Token) -> None:
-        """Create a valid Gafaelfawr session cookie.
+    async def login(self, token: Token) -> str:
+        """Create a valid Gafaelfawr session.
 
-        Add a valid Gafaelfawr session cookie to the `httpx.AsyncClient`.
+        Add a valid Gafaelfawr session cookie to the `httpx.AsyncClient`, use
+        the login URL, and return the resulting CSRF token.
 
         Parameters
         ----------
         token : `gafaelfawr.models.token.Token`
             The token for the client identity to use.
+
+        Returns
+        -------
+        csrf : `str`
+            The CSRF token to use in subsequent API requests.
         """
         cookie = State(token=token).as_cookie()
         self.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
+        r = await self.client.get("/auth/api/v1/login")
+        assert r.status_code == 200
+        return r.json()["csrf"]
 
     def set_github_userinfo_response(
         self, token: str, user_info: GitHubUserInfo
