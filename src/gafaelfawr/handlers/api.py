@@ -19,7 +19,11 @@ from gafaelfawr.dependencies.auth import (
 )
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
-from gafaelfawr.exceptions import BadExpiresError, DuplicateTokenNameError
+from gafaelfawr.exceptions import (
+    BadExpiresError,
+    BadScopesError,
+    DuplicateTokenNameError,
+)
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.auth import APILoginResponse
 from gafaelfawr.models.token import (
@@ -138,6 +142,15 @@ async def post_tokens(
                 "msg": str(e),
             },
         )
+    except BadScopesError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "scopes"],
+                "type": "bad_scopes",
+                "msg": str(e),
+            },
+        )
     except DuplicateTokenNameError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -229,6 +242,15 @@ async def patch_token(
             detail={
                 "loc": ["body", "expires"],
                 "type": "bad_expires",
+                "msg": str(e),
+            },
+        )
+    except BadScopesError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "scopes"],
+                "type": "bad_scopes",
                 "msg": str(e),
             },
         )

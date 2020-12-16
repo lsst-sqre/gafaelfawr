@@ -7,11 +7,15 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from gafaelfawr.constants import MINIMUM_LIFETIME
-from gafaelfawr.exceptions import BadExpiresError, PermissionDeniedError
+from gafaelfawr.exceptions import (
+    BadExpiresError,
+    BadScopesError,
+    PermissionDeniedError,
+)
 from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 
 if TYPE_CHECKING:
-    from typing import List, Optional
+    from typing import List, Optional, Set
 
     from structlog import BoundLogger
 
@@ -56,7 +60,7 @@ class TokenService:
         self._logger = logger
 
     async def create_session_token(
-        self, user_info: TokenUserInfo, scopes: Optional[List[str]] = None
+        self, user_info: TokenUserInfo, scopes: List[str]
     ) -> Token:
         """Add a new session token.
 
@@ -64,7 +68,7 @@ class TokenService:
         ----------
         user_info : `gafaelfawr.models.token.TokenUserInfo`
             The user information to associate with the token.
-        scopes : List[`str`], optional
+        scopes : List[`str`]
             The scopes of the token.
 
         Returns
@@ -145,6 +149,8 @@ class TokenService:
             expires = auth_data.expires
         else:
             self._validate_expires(expires)
+        if scopes:
+            self._validate_scopes(auth_data, set(scopes))
         data = TokenData(
             token=token,
             username=auth_data.username,
@@ -482,6 +488,8 @@ class TokenService:
             msg = "Only user tokens can be modified"
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
+        if scopes:
+            self._validate_scopes(auth_data, set(scopes))
         if expires:
             self._validate_expires(expires)
 
@@ -535,3 +543,25 @@ class TokenService:
         if expires.timestamp() < time.time() + MINIMUM_LIFETIME:
             msg = "token must be valid for at least five minutes"
             raise BadExpiresError(msg)
+
+    def _validate_scopes(self, auth_data: TokenData, scopes: Set[str]) -> None:
+        """Check that the requested scopes are valid.
+
+        Arguments
+        ---------
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token used to authenticate the operation.
+        scopes : Set[`str`]
+            The requested scopes.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.BadScopesError
+            The requested scopes are not permitted.
+        """
+        if not (scopes <= set(auth_data.scopes)):
+            msg = "Requested scopes are broader than your current scopes"
+            raise BadScopesError(msg)
+        if not (scopes <= self._config.known_scopes.keys()):
+            msg = "Unknown scopes requested"
+            raise BadScopesError(msg)

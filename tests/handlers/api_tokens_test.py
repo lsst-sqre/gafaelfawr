@@ -142,7 +142,9 @@ async def test_token_info(setup: SetupTest) -> None:
         groups=[TokenGroup(name="foo", id=12313)],
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(user_info)
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["exec:admin"]
+    )
 
     r = await setup.client.get(
         "/auth/api/v1/token-info",
@@ -154,7 +156,7 @@ async def test_token_info(setup: SetupTest) -> None:
         "token": session_token.key,
         "username": "example",
         "token_type": "session",
-        "scopes": [],
+        "scopes": ["exec:admin"],
         "created": ANY,
         "expires": ANY,
     }
@@ -227,11 +229,8 @@ async def test_token_info(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_auth_required(setup: SetupTest) -> None:
-    user_info = TokenUserInfo(
-        username="example", name="Example Person", uid=45613
-    )
-    token_service = setup.factory.create_token_service()
-    token = await token_service.create_session_token(user_info)
+    token_data = await setup.create_session_token()
+    token = token_data.token
     csrf = await setup.login(token)
     state = State(token=token)
 
@@ -345,7 +344,9 @@ async def test_wrong_user(setup: SetupTest) -> None:
     user_info = TokenUserInfo(
         username="other-person", name="Some Other Person", uid=137123
     )
-    other_session_token = await token_service.create_session_token(user_info)
+    other_session_token = await token_service.create_session_token(
+        user_info, scopes=[]
+    )
     other_session_data = await token_service.get_data(other_session_token)
     assert other_session_data
     other_token = await token_service.create_user_token(
@@ -539,3 +540,48 @@ async def test_bad_expires(setup: SetupTest) -> None:
         data = r.json()
         assert data["detail"]["loc"] == ["body", "expires"]
         assert data["detail"]["type"] == "bad_expires"
+
+
+@pytest.mark.asyncio
+async def test_bad_scopes(setup: SetupTest) -> None:
+    """Test creating or modifying a token with bogus scopes."""
+    known_scopes = list(setup.config.known_scopes.keys())
+    assert len(known_scopes) > 2
+    token_data = await setup.create_session_token(
+        scopes=known_scopes[0:1] + ["other:scope"]
+    )
+    csrf = await setup.login(token_data.token)
+
+    # Check that we reject both an unknown scope and a scope that's present on
+    # the session but isn't valid in the configuration.
+    for bad_scope in (known_scopes[2], "other:scope"):
+        r = await setup.client.post(
+            f"/auth/api/v1/users/{token_data.username}/tokens",
+            headers={"X-CSRF-Token": csrf},
+            json={"token_name": "some token", "scopes": [known_scopes[2]]},
+        )
+        assert r.status_code == 422
+        data = r.json()
+        assert data["detail"]["loc"] == ["body", "scopes"]
+        assert data["detail"]["type"] == "bad_scopes"
+
+    # Create a valid token with all of the scopes as the session.
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"token_name": "some token", "scopes": known_scopes[0:1]},
+    )
+    assert r.status_code == 201
+    token_url = r.headers["Location"]
+
+    # Now try modifying it with the invalid scope.
+    for bad_scope in (known_scopes[2], "other:scope"):
+        r = await setup.client.patch(
+            token_url,
+            headers={"X-CSRF-Token": csrf},
+            json={"scopes": [known_scopes[0], bad_scope]},
+        )
+        assert r.status_code == 422
+        data = r.json()
+        assert data["detail"]["loc"] == ["body", "scopes"]
+        assert data["detail"]["type"] == "bad_scopes"

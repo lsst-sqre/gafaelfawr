@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from typing import ClassVar
 
 __all__ = [
+    "BadExpiresError",
+    "BadScopesError",
     "DeserializeException",
     "DuplicateTokenNameError",
     "FetchKeysException",
@@ -151,6 +153,10 @@ class InsufficientScopeError(OAuthBearerError):
 
 class BadExpiresError(Exception):
     """The provided token expiration time was invalid."""
+
+
+class BadScopesError(Exception):
+    """The provided token scopes are invalid or not available."""
 
 
 class DuplicateTokenNameError(Exception):

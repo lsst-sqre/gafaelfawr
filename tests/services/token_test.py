@@ -36,7 +36,7 @@ async def test_session_token(setup: SetupTest) -> None:
         ],
     )
 
-    token = await token_service.create_session_token(user_info)
+    token = await token_service.create_session_token(user_info, scopes=[])
     data = await token_service.get_data(token)
     assert data
     assert data == TokenData(
@@ -89,7 +89,9 @@ async def test_user_token(setup: SetupTest) -> None:
         username="example", name="Example Person", uid=4137
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(user_info)
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["read:all", "exec:admin"]
+    )
     data = await token_service.get_data(session_token)
     assert data
     now = datetime.now(tz=timezone.utc).replace(microsecond=0)
@@ -257,7 +259,7 @@ async def test_internal_token(setup: SetupTest) -> None:
         data,
         data.username,
         token_name="some token",
-        scopes=["read:foo"],
+        scopes=["exec:admin"],
         expires=None,
     )
     data = await token_service.get_data(user_token)
@@ -279,7 +281,9 @@ async def test_list(setup: SetupTest) -> None:
         username="example", name="Example Person", uid=4137
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(user_info)
+    session_token = await token_service.create_session_token(
+        user_info, scopes=[]
+    )
     data = await token_service.get_data(session_token)
     assert data
     user_token = await token_service.create_user_token(
@@ -301,7 +305,9 @@ async def test_modify(setup: SetupTest) -> None:
         username="example", name="Example Person", uid=4137
     )
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(user_info)
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["read:all"]
+    )
     data = await token_service.get_data(session_token)
     assert data
     user_token = await token_service.create_user_token(
@@ -333,13 +339,8 @@ async def test_modify(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_delete(setup: SetupTest) -> None:
-    user_info = TokenUserInfo(
-        username="example", name="Example Person", uid=4137
-    )
+    data = await setup.create_session_token()
     token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(user_info)
-    data = await token_service.get_data(session_token)
-    assert data
     token = await token_service.create_user_token(
         data, data.username, token_name="some token"
     )

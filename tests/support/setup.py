@@ -190,6 +190,8 @@ class SetupTest:
         user_info = TokenUserInfo(
             username=username, name="Some User", uid=1000, groups=groups
         )
+        if not scopes:
+            scopes = []
         token_service = self.factory.create_token_service()
         token = await token_service.create_session_token(user_info, scopes)
         data = await token_service.get_data(token)
