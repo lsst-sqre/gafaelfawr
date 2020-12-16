@@ -24,6 +24,9 @@ class BaseFinder:
     def find_element_by_id(self, id_: str) -> WebElement:
         return self.root.find_element_by_id(id_)
 
+    def find_element_by_tag_name(self, tag: str) -> WebElement:
+        return self.root.find_element_by_tag_name(tag)
+
 
 class BasePage(BaseFinder):
     def __init__(self, root: webdriver.Chrome) -> None:
@@ -32,6 +35,11 @@ class BasePage(BaseFinder):
     @property
     def page_source(self) -> str:
         return self.root.page_source
+
+
+class BaseModal(BaseFinder):
+    def __init__(self, root: WebElement) -> None:
+        self.root = root
 
 
 class BaseElement(BaseFinder):

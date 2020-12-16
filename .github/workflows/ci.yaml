@@ -36,6 +36,9 @@ jobs:
         run: npm ci
         working-directory: ./ui
 
+      - name: Build the UI
+        run: make ui
+
       - name: Install tox
         run: pip install tox
 

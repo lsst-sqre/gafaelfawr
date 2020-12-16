@@ -55,7 +55,6 @@ async def test_no_auth(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_invalid(setup: SetupTest) -> None:
     token = await setup.create_session_token()
-    print(token.token)
     r = await setup.client.get(
         "/auth", headers={"Authorization": f"bearer {token.token}"}
     )

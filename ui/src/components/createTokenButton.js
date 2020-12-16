@@ -21,7 +21,7 @@ function NewToken({ token, onAccept }) {
     <>
       <p>Your new token is:</p>
       <p>
-        <code>{token}</code>
+        <code id="qa-new-token">{token}</code>
       </p>
       <p>
         Save this token now. After closing this notification, you{' '}
@@ -72,7 +72,7 @@ export default function CreateTokenButton({ createError, onCreateToken }) {
       onExit={deactivateTokenModal}
       getApplicationNode={getApplicationNode}
     >
-      <StyledModal>
+      <StyledModal id="qa-new-token-modal">
         <NewToken token={newToken} onAccept={deactivateTokenModal} />
       </StyledModal>
     </AriaModal>
@@ -84,7 +84,7 @@ export default function CreateTokenButton({ createError, onCreateToken }) {
       onExit={deactivateFormModal}
       getApplicationNode={getApplicationNode}
     >
-      <StyledModal>
+      <StyledModal id="qa-create-modal">
         <ErrorBanner error={createError} />
         <CreateTokenForm
           onCreateToken={createToken}
@@ -96,7 +96,7 @@ export default function CreateTokenButton({ createError, onCreateToken }) {
 
   return (
     <>
-      <button type="button" onClick={activateFormModal}>
+      <button id="qa-create-token" type="button" onClick={activateFormModal}>
         Create Token
       </button>
       {newToken ? <NewTokenModal /> : formActive && <CreateTokenModal />}

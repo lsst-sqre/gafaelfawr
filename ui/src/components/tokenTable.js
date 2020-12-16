@@ -25,17 +25,22 @@ function formatDeleteTokenButton(token, onDeleteToken = (f) => f) {
     onDeleteToken(token);
   };
   return (
-    <button type="button" onClick={onClick}>
+    <button type="button" className="qa-token-delete" onClick={onClick}>
       <FaTrash />
     </button>
   );
 }
 
 function formatToken(token) {
-  return <code>{token}</code>;
+  return <code className="qa-token">{token}</code>;
 }
 
-export default function TokenInfo({
+function formatTokenName(name) {
+  return <span className="qa-token-name">{name}</span>;
+}
+
+export default function TokenTable({
+  id,
   data,
   onDeleteToken,
   includeName = false,
@@ -44,6 +49,7 @@ export default function TokenInfo({
     const tokenName = [
       {
         Header: 'Name',
+        Cell: ({ value }) => formatTokenName(value),
         accessor: 'token_name',
       },
     ];
@@ -90,7 +96,7 @@ export default function TokenInfo({
 
   /* eslint-disable react/jsx-props-no-spreading */
   return (
-    <table {...getTableProps()}>
+    <table {...getTableProps()} id={id}>
       <thead>
         {headerGroups.map((headerGroup) => (
           <tr {...headerGroup.getHeaderGroupProps()}>
@@ -104,7 +110,7 @@ export default function TokenInfo({
         {rows.map((row) => {
           prepareRow(row);
           return (
-            <tr {...row.getRowProps()}>
+            <tr {...row.getRowProps()} className="qa-token-row">
               {row.cells.map((cell) => (
                 <td {...cell.getCellProps()}>{cell.render('Cell')}</td>
               ))}
@@ -116,7 +122,8 @@ export default function TokenInfo({
   );
   /* eslint-enable react/jsx-props-no-spreading */
 }
-TokenInfo.propTypes = {
+TokenTable.propTypes = {
+  id: PropTypes.string.isRequired,
   data: PropTypes.arrayOf(PropTypes.object).isRequired,
   onDeleteToken: PropTypes.func.isRequired,
   includeName: PropTypes.bool,

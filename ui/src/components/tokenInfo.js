@@ -66,31 +66,38 @@ export default function TokenInfo({ onError = (f) => f }) {
       />
       {tokens.user.length ? (
         <TokenTable
+          id="tokens-user"
           data={tokens.user}
           includeName
           onDeleteToken={deleteToken}
         />
-      ) : (
-        false
-      )}
+      ) : null}
       <h1>Web Sessions</h1>
-      <TokenTable data={tokens.session} onDeleteToken={deleteToken} />
+      <TokenTable
+        id="tokens-session"
+        data={tokens.session}
+        onDeleteToken={deleteToken}
+      />
       {tokens.notebook.length ? (
         <>
           <h1>Notebook Tokens</h1>
-          <TokenTable data={tokens.notebook} onDeleteToken={deleteToken} />
+          <TokenTable
+            id="tokens-notebook"
+            data={tokens.notebook}
+            onDeleteToken={deleteToken}
+          />
         </>
-      ) : (
-        false
-      )}
+      ) : null}
       {tokens.internal.length ? (
         <>
           <h1>Internal Tokens</h1>
-          <TokenTable data={tokens.internal} onDeleteToken={deleteToken} />
+          <TokenTable
+            id="tokens-internal"
+            data={tokens.internal}
+            onDeleteToken={deleteToken}
+          />
         </>
-      ) : (
-        false
-      )}
+      ) : null}
     </>
   );
 }
