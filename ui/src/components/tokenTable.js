@@ -63,6 +63,7 @@ export default function TokenTable({
     return (includeName ? tokenName : tokenCode).concat([
       {
         Header: 'Scopes',
+        Cell: ({ value }) => value.join(', '),
         accessor: 'scopes',
       },
       {

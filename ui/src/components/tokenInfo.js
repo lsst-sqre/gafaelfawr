@@ -12,7 +12,7 @@ import useError from '../hooks/error';
 import { apiDelete, apiGet, apiPost } from '../functions/api';
 
 export default function TokenInfo({ onError = (f) => f }) {
-  const { csrf, username } = useContext(LoginContext);
+  const { csrf, username, scopes } = useContext(LoginContext);
   const [data, setData] = useState(null);
   const tokens = useMemo(() => data, [data]);
   const { error: createError, onError: onCreateError } = useError();
@@ -34,7 +34,7 @@ export default function TokenInfo({ onError = (f) => f }) {
     async (values, setNewToken) => {
       await apiPost(`/users/${username}/tokens`, csrf, {
         token_name: values.name,
-        scopes: values.scopes ? values.scopes.split(',') : [],
+        scopes: values.scopes,
         expires: values.expires ? parseInt(values.expires) : null,
       })
         .then((response) => setNewToken(response.token))
@@ -61,6 +61,7 @@ export default function TokenInfo({ onError = (f) => f }) {
     <>
       <h1>User Tokens</h1>
       <CreateTokenButton
+        scopes={scopes}
         onCreateToken={createToken}
         createError={createError}
       />

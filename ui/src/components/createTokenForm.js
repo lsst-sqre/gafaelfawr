@@ -1,13 +1,11 @@
+import PropTypes from 'prop-types';
 import React from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 
-export default function CreateTokenForm({
-  onCreateToken = async (f) => f,
-  onCancel = (f) => f,
-}) {
+export default function CreateTokenForm({ scopes, onCreateToken, onCancel }) {
   return (
     <Formik
-      initialValues={{ name: '', scopes: '', expires: '' }}
+      initialValues={{ name: '', scopes: [], expires: '' }}
       validate={(values) => {
         const errors = {};
         if (!values.name) {
@@ -34,13 +32,22 @@ export default function CreateTokenForm({
           />
           <ErrorMessage name="name" component="div" />
           <br />
-          <label htmlFor="create-token-scopes">Scopes:</label>{' '}
-          <Field
+          <div id="create-token-scopes-label">Scopes:</div>{' '}
+          <div
+            role="group"
             id="create-token-scopes"
-            name="scopes"
-            type="text"
-            placeholder="read:tap,read:workspace"
-          />
+            aria-labelledby="create-token-scopes-label"
+          >
+            {scopes.map(({ name, description }) => (
+              <>
+                <label>
+                  <Field type="checkbox" name="scopes" value={name} />
+                  <bold className="qa-scope-name">{name}</bold>: {description}
+                </label>
+                <br />
+              </>
+            ))}
+          </div>
           <ErrorMessage name="scopes" component="div" />
           <br />
           <label htmlFor="create-token-expires">Expires:</label>{' '}
@@ -63,3 +70,13 @@ export default function CreateTokenForm({
     </Formik>
   );
 }
+CreateTokenForm.propTypes = {
+  scopes: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string,
+      description: PropTypes.string,
+    })
+  ),
+  onCreateToken: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+};

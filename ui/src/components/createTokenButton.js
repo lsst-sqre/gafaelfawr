@@ -39,7 +39,11 @@ NewToken.propTypes = {
   onAccept: PropTypes.func.isRequired,
 };
 
-export default function CreateTokenButton({ createError, onCreateToken }) {
+export default function CreateTokenButton({
+  scopes,
+  createError,
+  onCreateToken,
+}) {
   const [formActive, setFormActive] = useState(false);
   const [newToken, setNewToken] = useState('');
 
@@ -87,6 +91,7 @@ export default function CreateTokenButton({ createError, onCreateToken }) {
       <StyledModal id="qa-create-modal">
         <ErrorBanner error={createError} />
         <CreateTokenForm
+          scopes={scopes}
           onCreateToken={createToken}
           onCancel={deactivateFormModal}
         />
@@ -104,6 +109,12 @@ export default function CreateTokenButton({ createError, onCreateToken }) {
   );
 }
 CreateTokenButton.propTypes = {
+  scopes: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string,
+      description: PropTypes.string,
+    })
+  ),
   createError: PropTypes.string,
   onCreateToken: PropTypes.func.isRequired,
 };
