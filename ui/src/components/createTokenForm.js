@@ -5,7 +5,13 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 export default function CreateTokenForm({ scopes, onCreateToken, onCancel }) {
   return (
     <Formik
-      initialValues={{ name: '', scopes: [], expires: '' }}
+      initialValues={{
+        name: '',
+        scopes: [],
+        expires: 'never',
+        expiresDuration: 1,
+        expiresUnit: 'months',
+      }}
       validate={(values) => {
         const errors = {};
         if (!values.name) {
@@ -20,7 +26,7 @@ export default function CreateTokenForm({ scopes, onCreateToken, onCancel }) {
         setSubmitting(false);
       }}
     >
-      {({ isSubmitting }) => (
+      {({ values, isSubmitting }) => (
         <Form>
           <label htmlFor="create-token-name">Name:</label>{' '}
           <Field
@@ -50,13 +56,39 @@ export default function CreateTokenForm({ scopes, onCreateToken, onCancel }) {
           </div>
           <ErrorMessage name="scopes" component="div" />
           <br />
-          <label htmlFor="create-token-expires">Expires:</label>{' '}
-          <Field
+          <div id="create-token-expires-label">Expires:</div>{' '}
+          <div
+            role="group"
             id="create-token-expires"
-            name="expires"
-            type="text"
-            placeholder="1607471088"
-          />
+            aria-labelledby="create-token-expires-label"
+          >
+            <label>
+              <Field type="radio" name="expires" value="never" />
+              Never
+            </label>
+            <label>
+              <Field type="radio" name="expires" value="interval" />
+              Choose a lifetime
+            </label>
+            {values.expires === 'interval' && (
+              <>
+                <br />
+                <Field
+                  type="number"
+                  name="expiresDuration"
+                  min="1"
+                  max="99999"
+                />
+                <Field as="select" name="expiresUnit">
+                  <option value="hours">hour(s)</option>
+                  <option value="days">day(s)</option>
+                  <option value="weeks">week(s)</option>
+                  <option value="months">month(s)</option>
+                  <option value="years">years(s)</option>
+                </Field>
+              </>
+            )}
+          </div>
           <ErrorMessage name="expires" component="div" />
           <br />
           <button type="submit" disabled={isSubmitting}>
