@@ -1,6 +1,15 @@
+import addDate from 'date-fns/add';
 import PropTypes from 'prop-types';
 import React from 'react';
-import { Formik, Form, Field, ErrorMessage } from 'formik';
+import { ErrorMessage, Field, Form, Formik } from 'formik';
+
+function calculateExpires({ expiresType, expiresDuration, expiresUnit }) {
+  if (expiresType === 'never') {
+    return null;
+  }
+  const date = addDate(new Date(), { [expiresUnit]: expiresDuration });
+  return Math.round(date.getTime() / 1000);
+}
 
 export default function CreateTokenForm({
   scopes,
@@ -13,7 +22,8 @@ export default function CreateTokenForm({
       initialValues={{
         name: '',
         scopes: [],
-        expires: 'never',
+        expires: null,
+        expiresType: 'never',
         expiresDuration: 1,
         expiresUnit: 'months',
       }}
@@ -24,6 +34,7 @@ export default function CreateTokenForm({
         } else if (values.name.length > 64) {
           errors.name = 'Must be 64 characters or less';
         }
+        values.expires = calculateExpires(values);
         return errors;
       }}
       onSubmit={async (values, { setSubmitting }) => {
@@ -71,14 +82,14 @@ export default function CreateTokenForm({
             aria-labelledby="create-token-expires-label"
           >
             <label>
-              <Field type="radio" name="expires" value="never" />
+              <Field type="radio" name="expiresType" value="never" />
               Never
             </label>
             <label>
-              <Field type="radio" name="expires" value="interval" />
+              <Field type="radio" name="expiresType" value="interval" />
               Choose a lifetime
             </label>
-            {values.expires === 'interval' && (
+            {values.expiresType === 'interval' && (
               <>
                 <br />
                 <Field

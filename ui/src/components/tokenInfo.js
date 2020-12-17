@@ -1,4 +1,3 @@
-import addDate from 'date-fns/add';
 import React, {
   useCallback,
   useContext,
@@ -11,14 +10,6 @@ import { LoginContext } from './loginContext.js';
 import TokenTable from './tokenTable';
 import useError from '../hooks/error';
 import { apiDelete, apiGet, apiPost } from '../functions/api';
-
-function calculateExpires({ expires, expiresDuration, expiresUnit }) {
-  if (expires === 'never') {
-    return null;
-  }
-  const date = addDate(new Date(), { [expiresUnit]: expiresDuration });
-  return Math.round(date.getTime() / 1000);
-}
 
 export default function TokenInfo({ onError = (f) => f }) {
   const { csrf, username, scopes, config } = useContext(LoginContext);
@@ -40,11 +31,11 @@ export default function TokenInfo({ onError = (f) => f }) {
   }, [onError, username]);
 
   const createToken = useCallback(
-    async (values, setNewToken) => {
+    async ({ name, scopes: newScopes, expires }, setNewToken) => {
       await apiPost(`/users/${username}/tokens`, csrf, {
-        token_name: values.name,
-        scopes: values.scopes,
-        expires: calculateExpires(values),
+        token_name: name,
+        scopes: newScopes,
+        expires,
       })
         .then((response) => setNewToken(response.token))
         .then(loadTokenData)
