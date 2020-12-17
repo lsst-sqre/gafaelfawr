@@ -33,7 +33,9 @@ def assert_unauthorized_is_correct(r: Response, config: Config) -> None:
 
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(username="example")
+    token_data = await setup.create_session_token(
+        username="example", scopes=["read:all", "exec:admin"]
+    )
     cookie = State(token=token_data.token).as_cookie()
     setup.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
 
@@ -48,6 +50,7 @@ async def test_login(setup: SetupTest) -> None:
     assert data == {
         "csrf": ANY,
         "username": "example",
+        "scopes": ["exec:admin", "read:all"],
         "config": {"scopes": expected_scopes},
     }
     state = State.from_cookie(r.cookies[COOKIE_NAME], None)

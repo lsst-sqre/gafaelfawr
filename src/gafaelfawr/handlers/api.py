@@ -70,7 +70,10 @@ def get_login(
     ]
     api_config = APIConfig(scopes=known_scopes)
     return APILoginResponse(
-        csrf=context.state.csrf, username=auth_data.username, config=api_config
+        csrf=context.state.csrf,
+        username=auth_data.username,
+        scopes=auth_data.scopes,
+        config=api_config,
     )
 
 

@@ -6,13 +6,15 @@ export default function useLogin(setError) {
   const [csrf, setCsrf] = useState();
   const [username, setUsername] = useState();
   const [scopes, setScopes] = useState([]);
+  const [config, setConfig] = useState({ scopes: [] });
 
   useEffect(() => {
     if (!data) return;
     setCsrf(data.csrf);
     setUsername(data.username);
-    setScopes(data.config.scopes);
+    setScopes(data.scopes);
+    setConfig(data.config);
   }, [data]);
 
-  return { csrf, username, scopes };
+  return { csrf, username, scopes, config };
 }

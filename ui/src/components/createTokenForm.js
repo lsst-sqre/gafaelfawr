@@ -2,7 +2,12 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 
-export default function CreateTokenForm({ scopes, onCreateToken, onCancel }) {
+export default function CreateTokenForm({
+  scopes,
+  knownScopes,
+  onCreateToken,
+  onCancel,
+}) {
   return (
     <Formik
       initialValues={{
@@ -44,15 +49,18 @@ export default function CreateTokenForm({ scopes, onCreateToken, onCancel }) {
             id="create-token-scopes"
             aria-labelledby="create-token-scopes-label"
           >
-            {scopes.map(({ name, description }) => (
-              <>
-                <label>
-                  <Field type="checkbox" name="scopes" value={name} />
-                  <bold className="qa-scope-name">{name}</bold>: {description}
-                </label>
-                <br />
-              </>
-            ))}
+            {knownScopes.map(({ name, description }) => {
+              if (!scopes.includes(name)) return;
+              return (
+                <>
+                  <label>
+                    <Field type="checkbox" name="scopes" value={name} />
+                    <bold className="qa-scope-name">{name}</bold>: {description}
+                  </label>
+                  <br />
+                </>
+              );
+            })}
           </div>
           <ErrorMessage name="scopes" component="div" />
           <br />
@@ -103,7 +111,8 @@ export default function CreateTokenForm({ scopes, onCreateToken, onCancel }) {
   );
 }
 CreateTokenForm.propTypes = {
-  scopes: PropTypes.arrayOf(
+  scopes: PropTypes.arrayOf(PropTypes.string),
+  knownScopes: PropTypes.arrayOf(
     PropTypes.shape({
       name: PropTypes.string,
       description: PropTypes.string,

@@ -21,7 +21,7 @@ function calculateExpires({ expires, expiresDuration, expiresUnit }) {
 }
 
 export default function TokenInfo({ onError = (f) => f }) {
-  const { csrf, username, scopes } = useContext(LoginContext);
+  const { csrf, username, scopes, config } = useContext(LoginContext);
   const [data, setData] = useState(null);
   const tokens = useMemo(() => data, [data]);
   const { error: createError, onError: onCreateError } = useError();
@@ -71,6 +71,7 @@ export default function TokenInfo({ onError = (f) => f }) {
       <h1>User Tokens</h1>
       <CreateTokenButton
         scopes={scopes}
+        knownScopes={config.scopes}
         onCreateToken={createToken}
         createError={createError}
       />

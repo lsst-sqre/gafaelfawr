@@ -54,6 +54,10 @@ class APILoginResponse(BaseModel):
 
     username: str = Field(..., title="Authenticated identity from the cookie")
 
+    scopes: List[str] = Field(
+        ..., title="Access scopes for this authenticated user"
+    )
+
     config: APIConfig = Field(
         ..., title="Additional configuration information"
     )

@@ -7,10 +7,10 @@ import useLogin from '../hooks/login';
 
 export default function Home() {
   const { error, onError } = useError();
-  const { csrf, username, scopes } = useLogin(onError);
+  const { csrf, username, scopes, config } = useLogin(onError);
 
   return (
-    <LoginContext.Provider value={{ csrf, username, scopes }}>
+    <LoginContext.Provider value={{ csrf, username, scopes, config }}>
       <ErrorBanner error={error} id="error" />
       <TokenInfo onError={onError} />
     </LoginContext.Provider>

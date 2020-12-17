@@ -41,6 +41,7 @@ NewToken.propTypes = {
 
 export default function CreateTokenButton({
   scopes,
+  knownScopes,
   createError,
   onCreateToken,
 }) {
@@ -92,6 +93,7 @@ export default function CreateTokenButton({
         <ErrorBanner error={createError} />
         <CreateTokenForm
           scopes={scopes}
+          knownScopes={knownScopes}
           onCreateToken={createToken}
           onCancel={deactivateFormModal}
         />
@@ -109,7 +111,8 @@ export default function CreateTokenButton({
   );
 }
 CreateTokenButton.propTypes = {
-  scopes: PropTypes.arrayOf(
+  scopes: PropTypes.arrayOf(PropTypes.string),
+  knownScopes: PropTypes.arrayOf(
     PropTypes.shape({
       name: PropTypes.string,
       description: PropTypes.string,
