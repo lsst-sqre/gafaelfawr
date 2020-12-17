@@ -25,7 +25,7 @@ from gafaelfawr.exceptions import (
     DuplicateTokenNameError,
 )
 from gafaelfawr.models.admin import Admin
-from gafaelfawr.models.auth import APILoginResponse
+from gafaelfawr.models.auth import APIConfig, APILoginResponse, Scope
 from gafaelfawr.models.token import (
     NewToken,
     TokenData,
@@ -64,8 +64,13 @@ def get_login(
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> APILoginResponse:
+    known_scopes = [
+        Scope(name=n, description=d)
+        for n, d in sorted(context.config.known_scopes.items())
+    ]
+    api_config = APIConfig(scopes=known_scopes)
     return APILoginResponse(
-        csrf=context.state.csrf, username=auth_data.username
+        csrf=context.state.csrf, username=auth_data.username, config=api_config
     )
 
 

@@ -2,9 +2,37 @@
 
 from __future__ import annotations
 
+from typing import List
+
 from pydantic import BaseModel, Field
 
 __all__ = ["APILoginResponse"]
+
+
+class Scope(BaseModel):
+    """A known token scope."""
+
+    name: str = Field(..., title="Name of the scope")
+
+    description: str = Field(..., title="Description of the scope")
+
+
+class APIConfig(BaseModel):
+    """Configuration information for the API.
+
+    Supplemental information about the Gafaelfawr configuration that is useful
+    to a UI and therefore is returned as part of a login response.
+    """
+
+    scopes: List[Scope] = Field(
+        ...,
+        title="All known scopes",
+        description=(
+            "All scopes currently recognized by the server.  Tokens may have"
+            " other scopes, but new tokens may only be issued with one of"
+            " these scopes."
+        ),
+    )
 
 
 class APILoginResponse(BaseModel):
@@ -25,3 +53,7 @@ class APILoginResponse(BaseModel):
     )
 
     username: str = Field(..., title="Authenticated identity from the cookie")
+
+    config: APIConfig = Field(
+        ..., title="Additional configuration information"
+    )

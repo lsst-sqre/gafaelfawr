@@ -41,7 +41,15 @@ async def test_login(setup: SetupTest) -> None:
 
     assert r.status_code == 200
     data = r.json()
-    assert data == {"csrf": ANY, "username": "example"}
+    expected_scopes = [
+        {"name": n, "description": d}
+        for n, d in sorted(setup.config.known_scopes.items())
+    ]
+    assert data == {
+        "csrf": ANY,
+        "username": "example",
+        "config": {"scopes": expected_scopes},
+    }
     state = State.from_cookie(r.cookies[COOKIE_NAME], None)
     assert state.csrf == data["csrf"]
     assert state.token == token_data.token
