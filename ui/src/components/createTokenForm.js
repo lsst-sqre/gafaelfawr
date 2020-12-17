@@ -1,11 +1,22 @@
 import addDate from 'date-fns/add';
 import PropTypes from 'prop-types';
 import React from 'react';
+import DatePicker from 'react-datepicker';
 import { ErrorMessage, Field, Form, Formik } from 'formik';
 
-function calculateExpires({ expiresType, expiresDuration, expiresUnit }) {
+import 'react-datepicker/dist/react-datepicker.css';
+
+function calculateExpires({
+  expiresType,
+  expiresDate,
+  expiresDuration,
+  expiresUnit,
+}) {
   if (expiresType === 'never') {
     return null;
+  }
+  if (expiresType === 'date') {
+    return expiresDate;
   }
   const date = addDate(new Date(), { [expiresUnit]: expiresDuration });
   return Math.round(date.getTime() / 1000);
@@ -17,12 +28,15 @@ export default function CreateTokenForm({
   onCreateToken,
   onCancel,
 }) {
+  const now = new Date();
+
   return (
     <Formik
       initialValues={{
         name: '',
         scopes: [],
         expires: null,
+        expiresDate: addDate(new Date(), { months: 1 }),
         expiresType: 'never',
         expiresDuration: 1,
         expiresUnit: 'months',
@@ -42,7 +56,7 @@ export default function CreateTokenForm({
         setSubmitting(false);
       }}
     >
-      {({ values, isSubmitting }) => (
+      {({ values, handleChange, isSubmitting }) => (
         <Form>
           <label htmlFor="create-token-name">Name:</label>{' '}
           <Field
@@ -87,7 +101,11 @@ export default function CreateTokenForm({
             </label>
             <label>
               <Field type="radio" name="expiresType" value="interval" />
-              Choose a lifetime
+              Choose lifetime
+            </label>
+            <label>
+              <Field type="radio" name="expiresType" value="date" />
+              Choose expiration date
             </label>
             {values.expiresType === 'interval' && (
               <>
@@ -105,6 +123,21 @@ export default function CreateTokenForm({
                   <option value="months">month(s)</option>
                   <option value="years">years(s)</option>
                 </Field>
+              </>
+            )}
+            {values.expiresType === 'date' && (
+              <>
+                <br />
+                <DatePicker
+                  name="expiresDate"
+                  dateFormat="yyyy-MM-dd HH:mm"
+                  minDate={now}
+                  showTimeInput
+                  timeInputLabel="Time:"
+                  timeFormat="HH:mm"
+                  selected={values.expiresDate}
+                  onChange={handleChange}
+                />
               </>
             )}
           </div>
