@@ -1,4 +1,5 @@
 import addDate from 'date-fns/add';
+import getUnixTime from 'date-fns/getUnixTime';
 import PropTypes from 'prop-types';
 import React from 'react';
 import DatePicker from 'react-datepicker';
@@ -16,28 +17,34 @@ function calculateExpires({
     return null;
   }
   if (expiresType === 'date') {
-    return expiresDate;
+    return getUnixTime(expiresDate);
   }
   const date = addDate(new Date(), { [expiresUnit]: expiresDuration });
-  return Math.round(date.getTime() / 1000);
+  return getUnixTime(date);
 }
 
-export default function CreateTokenForm({
-  scopes,
+export default function TokenForm({
+  idPrefix,
+  buttonLabel,
+  name = '',
+  scopes = [],
+  expiresDate = null,
+  userScopes,
   knownScopes,
-  onCreateToken,
+  onSubmit,
   onCancel,
 }) {
   const now = new Date();
+  const expiresDateInitial = expiresDate || addDate(now, { months: 1 });
 
   return (
     <Formik
       initialValues={{
-        name: '',
-        scopes: [],
+        name,
+        scopes,
         expires: null,
-        expiresDate: addDate(new Date(), { months: 1 }),
-        expiresType: 'never',
+        expiresDate: expiresDateInitial,
+        expiresType: expiresDate ? 'date' : 'never',
         expiresDuration: 1,
         expiresUnit: 'months',
       }}
@@ -52,15 +59,15 @@ export default function CreateTokenForm({
         return errors;
       }}
       onSubmit={async (values, { setSubmitting }) => {
-        await onCreateToken(values);
+        await onSubmit(values);
         setSubmitting(false);
       }}
     >
-      {({ values, handleChange, isSubmitting }) => (
+      {({ values, setFieldValue, isSubmitting }) => (
         <Form>
-          <label htmlFor="create-token-name">Name:</label>{' '}
+          <label htmlFor={`${idPrefix}-name`}>Name:</label>{' '}
           <Field
-            id="create-token-name"
+            id={`${idPrefix}-name`}
             name="name"
             type="text"
             maxlength="64"
@@ -68,19 +75,20 @@ export default function CreateTokenForm({
           />
           <ErrorMessage name="name" component="div" />
           <br />
-          <div id="create-token-scopes-label">Scopes:</div>{' '}
+          <div id={`${idPrefix}-scopes-label`}>Scopes:</div>{' '}
           <div
             role="group"
-            id="create-token-scopes"
-            aria-labelledby="create-token-scopes-label"
+            id={`${idPrefix}-scopes`}
+            aria-labelledby={`${idPrefix}-scopes-label`}
           >
-            {knownScopes.map(({ name, description }) => {
-              if (!scopes.includes(name)) return;
+            {knownScopes.map(({ name: scopeName, description }) => {
+              if (!userScopes.includes(scopeName)) return;
               return (
                 <>
                   <label>
-                    <Field type="checkbox" name="scopes" value={name} />
-                    <bold className="qa-scope-name">{name}</bold>: {description}
+                    <Field type="checkbox" name="scopes" value={scopeName} />
+                    <bold className="qa-scope-name">{scopeName}</bold>:{' '}
+                    {description}
                   </label>
                   <br />
                 </>
@@ -89,11 +97,11 @@ export default function CreateTokenForm({
           </div>
           <ErrorMessage name="scopes" component="div" />
           <br />
-          <div id="create-token-expires-label">Expires:</div>{' '}
+          <div id={`${idPrefix}-expires-label`}>Expires:</div>{' '}
           <div
             role="group"
-            id="create-token-expires"
-            aria-labelledby="create-token-expires-label"
+            id={`${idPrefix}-expires`}
+            aria-labelledby={`${idPrefix}-expires-label`}
           >
             <label>
               <Field type="radio" name="expiresType" value="never" />
@@ -136,7 +144,7 @@ export default function CreateTokenForm({
                   timeInputLabel="Time:"
                   timeFormat="HH:mm"
                   selected={values.expiresDate}
-                  onChange={handleChange}
+                  onChange={(date) => setFieldValue('expiresDate', date)}
                 />
               </>
             )}
@@ -144,7 +152,7 @@ export default function CreateTokenForm({
           <ErrorMessage name="expires" component="div" />
           <br />
           <button type="submit" disabled={isSubmitting}>
-            Create
+            {buttonLabel}
           </button>
           <button type="button" disabled={isSubmitting} onClick={onCancel}>
             Cancel
@@ -154,14 +162,19 @@ export default function CreateTokenForm({
     </Formik>
   );
 }
-CreateTokenForm.propTypes = {
+TokenForm.propTypes = {
+  idPrefix: PropTypes.string.isRequired,
+  buttonLabel: PropTypes.string.isRequired,
+  name: PropTypes.string,
   scopes: PropTypes.arrayOf(PropTypes.string),
+  expiresDate: PropTypes.objectOf(Date),
+  userScopes: PropTypes.arrayOf(PropTypes.string).isRequired,
   knownScopes: PropTypes.arrayOf(
     PropTypes.shape({
       name: PropTypes.string,
       description: PropTypes.string,
     })
   ),
-  onCreateToken: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
 };

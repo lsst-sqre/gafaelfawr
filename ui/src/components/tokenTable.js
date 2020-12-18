@@ -1,32 +1,38 @@
 // Render a list of tokens in tabular form.
 
 import formatDistanceToNow from 'date-fns/formatDistanceToNow';
+import fromUnixTime from 'date-fns/fromUnixTime';
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useTable } from 'react-table';
-import { FaTrash } from 'react-icons/fa';
-
-function timestampToDate(timestamp) {
-  const date = new Date(0);
-  date.setUTCSeconds(timestamp);
-  return date;
-}
+import { FaEdit, FaTrash } from 'react-icons/fa';
 
 function formatTimestamp(timestamp, { past }) {
   if (!timestamp) return <em>never</em>;
-  const date = timestampToDate(timestamp);
+  const date = fromUnixTime(timestamp);
   const relative = formatDistanceToNow(date, { addSuffix: past });
   const absolute = date.toISOString().replace(/\.0+Z$/, 'Z');
   return <span title={absolute}>{relative}</span>;
 }
 
-function formatDeleteTokenButton(token, onDeleteToken = (f) => f) {
+function formatDeleteTokenButton(token, onDeleteToken) {
   const onClick = () => {
     onDeleteToken(token);
   };
   return (
     <button type="button" className="qa-token-delete" onClick={onClick}>
       <FaTrash />
+    </button>
+  );
+}
+
+function formatEditTokenButton(token, onEditToken) {
+  const onClick = () => {
+    onEditToken(token);
+  };
+  return (
+    <button type="button" className="qa-token-edit" onClick={onClick}>
+      <FaEdit />
     </button>
   );
 }
@@ -42,25 +48,12 @@ function formatTokenName(name) {
 export default function TokenTable({
   id,
   data,
+  onEditToken,
   onDeleteToken,
   includeName = false,
 }) {
   const columns = useMemo(() => {
-    const tokenName = [
-      {
-        Header: 'Name',
-        Cell: ({ value }) => formatTokenName(value),
-        accessor: 'token_name',
-      },
-    ];
-    const tokenCode = [
-      {
-        Header: 'Token',
-        Cell: ({ value }) => formatToken(value),
-        accessor: 'token',
-      },
-    ];
-    return (includeName ? tokenName : tokenCode).concat([
+    const tokenBase = [
       {
         Header: 'Scopes',
         Cell: ({ value }) => value.join(', '),
@@ -76,14 +69,43 @@ export default function TokenTable({
         Cell: ({ value }) => formatTimestamp(value, { past: false }),
         accessor: 'expires',
       },
+    ];
+    const tokenName = [
+      {
+        Header: 'Name',
+        Cell: ({ value }) => formatTokenName(value),
+        accessor: 'token_name',
+      },
+    ];
+    const tokenCode = [
+      {
+        Header: 'Token',
+        Cell: ({ value }) => formatToken(value),
+        accessor: 'token',
+      },
+    ];
+    const tokenEdit = [
+      {
+        id: 'edit',
+        Header: '',
+        Cell: ({ value }) => formatEditTokenButton(value, onEditToken),
+        accessor: 'token',
+      },
+    ];
+    const tokenDelete = [
       {
         id: 'delete',
         Header: '',
         Cell: ({ value }) => formatDeleteTokenButton(value, onDeleteToken),
         accessor: 'token',
       },
-    ]);
-  }, [includeName, onDeleteToken]);
+    ];
+    const partial = (includeName ? tokenName : tokenCode).concat(tokenBase);
+    if (onEditToken) {
+      return partial.concat(tokenEdit).concat(tokenDelete);
+    }
+    return partial.concat(tokenDelete);
+  }, [includeName, onEditToken, onDeleteToken]);
 
   const table = useTable({ columns, data });
 
@@ -126,6 +148,7 @@ export default function TokenTable({
 TokenTable.propTypes = {
   id: PropTypes.string.isRequired,
   data: PropTypes.arrayOf(PropTypes.object).isRequired,
+  onEditToken: PropTypes.func.isRequired,
   onDeleteToken: PropTypes.func.isRequired,
   includeName: PropTypes.bool,
 };

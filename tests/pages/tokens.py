@@ -20,7 +20,7 @@ class TokensPage(BasePage):
     async def click_create_token(self) -> CreateTokenModal:
         button = self.find_element_by_id("qa-create-token")
         await run(button.click)
-        element = self.find_element_by_id("qa-create-modal")
+        element = self.find_element_by_id("create-token-modal")
         return CreateTokenModal(element)
 
     def get_new_token_modal(self) -> NewTokenModal:

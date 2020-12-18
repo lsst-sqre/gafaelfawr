@@ -34,10 +34,10 @@ export function apiDelete(route, csrf) {
   });
 }
 
-export function apiPost(route, csrf, body) {
+function apiModify(route, csrf, body, method) {
   return fetch(apiUrl(route), {
     credentials: 'same-origin',
-    method: 'POST',
+    method,
     headers: {
       'Content-Type': 'application/json',
       'X-CSRF-Token': csrf,
@@ -56,4 +56,12 @@ export function apiPost(route, csrf, body) {
     }
     return response.json();
   });
+}
+
+export function apiPatch(route, csrf, body) {
+  return apiModify(route, csrf, body, 'PATCH');
+}
+
+export function apiPost(route, csrf, body) {
+  return apiModify(route, csrf, body, 'POST');
 }

@@ -2,8 +2,7 @@ import PropTypes from 'prop-types';
 import React, { useState } from 'react';
 import AriaModal from 'react-aria-modal';
 import styled from 'styled-components';
-import CreateTokenForm from './createTokenForm';
-import ErrorBanner from './errorBanner';
+import TokenModal from './tokenModal.js';
 
 const StyledModal = styled.div`
   position: fixed;
@@ -40,9 +39,9 @@ NewToken.propTypes = {
 };
 
 export default function CreateTokenButton({
-  scopes,
+  error,
+  userScopes,
   knownScopes,
-  createError,
   onCreateToken,
 }) {
   const [formActive, setFormActive] = useState(false);
@@ -62,62 +61,53 @@ export default function CreateTokenButton({
   };
 
   const createToken = async (values) => {
-    const onSuccess = (token) => {
-      setNewToken(token);
+    const onCreateSuccess = (token) => {
       deactivateFormModal();
+      setNewToken(token);
     };
-    await onCreateToken(values, onSuccess);
+    await onCreateToken(values, onCreateSuccess);
   };
-
-  const NewTokenModal = () => (
-    <AriaModal
-      titleText="New token"
-      alert
-      initialFocus="#token-accept"
-      onExit={deactivateTokenModal}
-      getApplicationNode={getApplicationNode}
-    >
-      <StyledModal id="qa-new-token-modal">
-        <NewToken token={newToken} onAccept={deactivateTokenModal} />
-      </StyledModal>
-    </AriaModal>
-  );
-
-  const CreateTokenModal = () => (
-    <AriaModal
-      titleText="Create token"
-      onExit={deactivateFormModal}
-      getApplicationNode={getApplicationNode}
-    >
-      <StyledModal id="qa-create-modal">
-        <ErrorBanner error={createError} />
-        <CreateTokenForm
-          scopes={scopes}
-          knownScopes={knownScopes}
-          onCreateToken={createToken}
-          onCancel={deactivateFormModal}
-        />
-      </StyledModal>
-    </AriaModal>
-  );
 
   return (
     <>
       <button id="qa-create-token" type="button" onClick={activateFormModal}>
         Create Token
       </button>
-      {newToken ? <NewTokenModal /> : formActive && <CreateTokenModal />}
+      {formActive && (
+        <TokenModal
+          idPrefix="create-token"
+          buttonLabel="Create"
+          error={error}
+          userScopes={userScopes}
+          knownScopes={knownScopes}
+          onSubmit={createToken}
+          onExit={deactivateFormModal}
+        />
+      )}
+      {newToken && (
+        <AriaModal
+          titleText="New token"
+          alert
+          initialFocus="#token-accept"
+          onExit={deactivateTokenModal}
+          getApplicationNode={getApplicationNode}
+        >
+          <StyledModal id="qa-new-token-modal">
+            <NewToken token={newToken} onAccept={deactivateTokenModal} />
+          </StyledModal>
+        </AriaModal>
+      )}
     </>
   );
 }
 CreateTokenButton.propTypes = {
-  scopes: PropTypes.arrayOf(PropTypes.string),
+  error: PropTypes.string,
+  userScopes: PropTypes.arrayOf(PropTypes.string),
   knownScopes: PropTypes.arrayOf(
     PropTypes.shape({
       name: PropTypes.string,
       description: PropTypes.string,
     })
   ),
-  createError: PropTypes.string,
   onCreateToken: PropTypes.func.isRequired,
 };

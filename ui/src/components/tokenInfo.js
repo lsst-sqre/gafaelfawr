@@ -5,17 +5,27 @@ import React, {
   useEffect,
   useMemo,
 } from 'react';
+
 import CreateTokenButton from './createTokenButton';
+import EditTokenModal from './editTokenModal';
 import { LoginContext } from './loginContext.js';
 import TokenTable from './tokenTable';
 import useError from '../hooks/error';
 import { apiDelete, apiGet, apiPost } from '../functions/api';
 
 export default function TokenInfo({ onError = (f) => f }) {
-  const { csrf, username, scopes, config } = useContext(LoginContext);
+  const { csrf, username, userScopes, config } = useContext(LoginContext);
   const [data, setData] = useState(null);
+  const [editingToken, _setEditingToken] = useState(null);
   const tokens = useMemo(() => data, [data]);
   const { error: createError, onError: onCreateError } = useError();
+
+  const setEditingToken = useCallback((token) => _setEditingToken(token), [
+    _setEditingToken,
+  ]);
+  const clearEditingToken = useCallback(() => _setEditingToken(null), [
+    _setEditingToken,
+  ]);
 
   const loadTokenData = useCallback(() => {
     if (!username) return;
@@ -31,10 +41,10 @@ export default function TokenInfo({ onError = (f) => f }) {
   }, [onError, username]);
 
   const createToken = useCallback(
-    async ({ name, scopes: newScopes, expires }, setNewToken) => {
+    async ({ name, scopes, expires }, setNewToken) => {
       await apiPost(`/users/${username}/tokens`, csrf, {
         token_name: name,
-        scopes: newScopes,
+        scopes,
         expires,
       })
         .then((response) => setNewToken(response.token))
@@ -43,6 +53,11 @@ export default function TokenInfo({ onError = (f) => f }) {
     },
     [csrf, loadTokenData, onCreateError, username]
   );
+
+  const editToken = useCallback(() => {
+    clearEditingToken();
+    loadTokenData();
+  }, [clearEditingToken, loadTokenData]);
 
   const deleteToken = useCallback(
     async (token) => {
@@ -61,10 +76,10 @@ export default function TokenInfo({ onError = (f) => f }) {
     <>
       <h1>User Tokens</h1>
       <CreateTokenButton
-        scopes={scopes}
+        error={createError}
+        userScopes={userScopes}
         knownScopes={config.scopes}
         onCreateToken={createToken}
-        createError={createError}
       />
       {tokens.user.length ? (
         <TokenTable
@@ -72,6 +87,7 @@ export default function TokenInfo({ onError = (f) => f }) {
           data={tokens.user}
           includeName
           onDeleteToken={deleteToken}
+          onEditToken={setEditingToken}
         />
       ) : null}
       <h1>Web Sessions</h1>
@@ -99,6 +115,14 @@ export default function TokenInfo({ onError = (f) => f }) {
             onDeleteToken={deleteToken}
           />
         </>
+      ) : null}
+      {editingToken !== null ? (
+        <EditTokenModal
+          token={editingToken}
+          onLoadError={onError}
+          onSuccess={editToken}
+          onExit={clearEditingToken}
+        />
       ) : null}
     </>
   );
