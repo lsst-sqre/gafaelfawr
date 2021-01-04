@@ -14,6 +14,22 @@ function apiLoginRedirect() {
   return url.href;
 }
 
+function jsonIfOkay(response) {
+  if (response.ok) {
+    return response.json().catch((error) => {
+      throw Error(`Error in API call: ${error.message}`);
+    });
+  }
+  return response
+    .json()
+    .catch(() => {
+      throw Error(`Error in API call: ${response.statusText}`);
+    })
+    .then((data) => {
+      throw Error(data.detail.msg);
+    });
+}
+
 export function apiGet(route) {
   return fetch(apiUrl(route), { credentials: 'same-origin' })
     .then((response) => {
@@ -23,7 +39,7 @@ export function apiGet(route) {
         return response;
       }
     })
-    .then((response) => response.json());
+    .then(jsonIfOkay);
 }
 
 export function apiDelete(route, csrf) {
@@ -43,19 +59,7 @@ function apiModify(route, csrf, body, method) {
       'X-CSRF-Token': csrf,
     },
     body: JSON.stringify(body),
-  }).then((response) => {
-    if (!response.ok) {
-      return response
-        .json()
-        .catch(() => {
-          throw Error(response.statusText);
-        })
-        .then((data) => {
-          throw Error(data.detail.msg);
-        });
-    }
-    return response.json();
-  });
+  }).then(jsonIfOkay);
 }
 
 export function apiPatch(route, csrf, body) {
