@@ -11,8 +11,11 @@ export default function Home() {
 
   return (
     <LoginContext.Provider value={{ csrf, username, userScopes, config }}>
-      <ErrorBanner error={error} id="error" />
-      <TokenInfo onError={onError} />
+      <div id="application">
+        <ErrorBanner error={error} />
+        <h1>Tokens</h1>
+        <TokenInfo onError={onError} />
+      </div>
     </LoginContext.Provider>
   );
 }

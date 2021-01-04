@@ -74,7 +74,7 @@ export default function TokenInfo({ onError = (f) => f }) {
 
   return (
     <>
-      <h1>User Tokens</h1>
+      <h2>User Tokens</h2>
       <CreateTokenButton
         error={createError}
         userScopes={userScopes}
@@ -90,7 +90,7 @@ export default function TokenInfo({ onError = (f) => f }) {
           onEditToken={setEditingToken}
         />
       ) : null}
-      <h1>Web Sessions</h1>
+      <h2>Web Sessions</h2>
       <TokenTable
         id="tokens-session"
         data={tokens.session}
@@ -98,7 +98,7 @@ export default function TokenInfo({ onError = (f) => f }) {
       />
       {tokens.notebook.length ? (
         <>
-          <h1>Notebook Tokens</h1>
+          <h2>Notebook Tokens</h2>
           <TokenTable
             id="tokens-notebook"
             data={tokens.notebook}
@@ -108,7 +108,7 @@ export default function TokenInfo({ onError = (f) => f }) {
       ) : null}
       {tokens.internal.length ? (
         <>
-          <h1>Internal Tokens</h1>
+          <h2>Internal Tokens</h2>
           <TokenTable
             id="tokens-internal"
             data={tokens.internal}
