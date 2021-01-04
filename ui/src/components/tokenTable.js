@@ -7,15 +7,23 @@ import PropTypes from 'prop-types';
 import { useTable } from 'react-table';
 import { FaEdit, FaTrash } from 'react-icons/fa';
 
-function formatTimestamp(timestamp, { past }) {
+function Timestamp({ timestamp, past }) {
   if (!timestamp) return <em>never</em>;
   const date = fromUnixTime(timestamp);
   const relative = formatDistanceToNow(date, { addSuffix: past });
   const absolute = date.toISOString().replace(/\.0+Z$/, 'Z');
-  return <span title={absolute}>{relative}</span>;
+  return (
+    <time title={absolute} dateTime={absolute}>
+      {relative}
+    </time>
+  );
 }
+Timestamp.propTypes = {
+  timestamp: PropTypes.number.isRequired,
+  past: PropTypes.bool.isRequired,
+};
 
-function formatDeleteTokenButton(token, onDeleteToken) {
+function DeleteTokenButton({ token, onDeleteToken }) {
   const onClick = () => {
     onDeleteToken(token);
   };
@@ -25,8 +33,12 @@ function formatDeleteTokenButton(token, onDeleteToken) {
     </button>
   );
 }
+DeleteTokenButton.propTypes = {
+  token: PropTypes.string.isRequired,
+  onDeleteToken: PropTypes.func.isRequired,
+};
 
-function formatEditTokenButton(token, onEditToken) {
+function EditTokenButton({ token, onEditToken }) {
   const onClick = () => {
     onEditToken(token);
   };
@@ -36,14 +48,24 @@ function formatEditTokenButton(token, onEditToken) {
     </button>
   );
 }
+EditTokenButton.propTypes = {
+  token: PropTypes.string.isRequired,
+  onEditToken: PropTypes.func.isRequired,
+};
 
-function formatToken(token) {
+function Token({ token }) {
   return <code className="qa-token">{token}</code>;
 }
+Token.propTypes = {
+  token: PropTypes.string.isRequired,
+};
 
-function formatTokenName(name) {
+function TokenName({ name }) {
   return <span className="qa-token-name">{name}</span>;
 }
+TokenName.propTypes = {
+  name: PropTypes.string.isRequired,
+};
 
 export default function TokenTable({
   id,
@@ -61,26 +83,30 @@ export default function TokenTable({
       },
       {
         Header: 'Created',
-        Cell: ({ value }) => formatTimestamp(value, { past: true }),
+        // eslint-disable-next-line react/display-name, react/prop-types
+        Cell: ({ value }) => <Timestamp timestamp={value} past />,
         accessor: 'created',
       },
       {
         Header: 'Expires',
-        Cell: ({ value }) => formatTimestamp(value, { past: false }),
+        // eslint-disable-next-line react/display-name, react/prop-types
+        Cell: ({ value }) => <Timestamp timestamp={value} past={false} />,
         accessor: 'expires',
       },
     ];
     const tokenName = [
       {
         Header: 'Name',
-        Cell: ({ value }) => formatTokenName(value),
+        // eslint-disable-next-line react/display-name, react/prop-types
+        Cell: ({ value }) => <TokenName name={value} />,
         accessor: 'token_name',
       },
     ];
     const tokenCode = [
       {
         Header: 'Token',
-        Cell: ({ value }) => formatToken(value),
+        // eslint-disable-next-line react/display-name, react/prop-types
+        Cell: ({ value }) => <Token token={value} />,
         accessor: 'token',
       },
     ];
@@ -88,7 +114,10 @@ export default function TokenTable({
       {
         id: 'edit',
         Header: '',
-        Cell: ({ value }) => formatEditTokenButton(value, onEditToken),
+        // eslint-disable-next-line react/display-name, react/prop-types
+        Cell: ({ value }) => (
+          <EditTokenButton token={value} onEditToken={onEditToken} />
+        ),
         accessor: 'token',
       },
     ];
@@ -96,7 +125,10 @@ export default function TokenTable({
       {
         id: 'delete',
         Header: '',
-        Cell: ({ value }) => formatDeleteTokenButton(value, onDeleteToken),
+        // eslint-disable-next-line react/display-name, react/prop-types
+        Cell: ({ value }) => (
+          <DeleteTokenButton token={value} onDeleteToken={onDeleteToken} />
+        ),
         accessor: 'token',
       },
     ];
