@@ -27,7 +27,7 @@ function NewToken({ token, onAccept }) {
         <strong>will not be able to see this token again.</strong> If lost, you
         will need to delete the token and create a new one.
       </p>
-      <button type="submit" id="token-accept" onClick={onAccept}>
+      <button type="button" id="token-accept" onClick={onAccept}>
         Okay
       </button>
     </>
