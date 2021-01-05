@@ -22,7 +22,7 @@ jobs:
 
       - name: Read .nvmrc
         id: node_version
-        run: echo ::set-output name=NODE_VERSION::$(cat ui/.nvmrc)
+        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
 
       - name: Set up Node
         uses: actions/setup-node@v2
