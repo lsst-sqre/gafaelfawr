@@ -98,7 +98,7 @@ Starting a development server
 There are two methods to run Gafaelfawr interactively on your local machine for development and testing the UI: outside Docker or inside Docker.
 In both cases, you will need Docker to be installed on your local machine.
 
-For either approach, you will first need to create a GitHub OAuth app for Gafaelfawr to use.
+For either approach, you will first need to create a `GitHub OAuth app <https://github.com/settings/developers>`__ for Gafaelfawr to use.
 On GitHub, go to your personal settings page, select developer settings, and then select OAuth Apps.
 Create a new OAuth App with the following settings:
 
