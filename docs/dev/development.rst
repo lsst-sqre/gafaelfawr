@@ -132,7 +132,7 @@ You can now go to ``http://localhost:8080/auth/tokens`` and will be redirected t
 To stop the running server, use Ctrl-C.
 You will then need to run:
 
-.. code-build:: sh
+.. code-block:: sh
 
    docker-compose down
 
