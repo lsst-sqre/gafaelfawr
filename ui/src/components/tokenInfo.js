@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import React, {
   useCallback,
   useContext,
@@ -13,7 +14,7 @@ import TokenTable from './tokenTable';
 import useError from '../hooks/error';
 import { apiDelete, apiGet, apiPost } from '../functions/api';
 
-export default function TokenInfo({ onError = (f) => f }) {
+export default function TokenInfo({ onError }) {
   const { csrf, username, userScopes, config } = useContext(LoginContext);
   const [data, setData] = useState(null);
   const [editingToken, _setEditingToken] = useState(null);
@@ -127,3 +128,6 @@ export default function TokenInfo({ onError = (f) => f }) {
     </>
   );
 }
+TokenInfo.propTypes = {
+  onError: PropTypes.func.isRequired,
+};
