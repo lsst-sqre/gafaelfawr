@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from gafaelfawr.exceptions import PermissionDeniedError
+from gafaelfawr.constants import MINIMUM_LIFETIME
+from gafaelfawr.exceptions import (
+    BadExpiresError,
+    BadScopesError,
+    PermissionDeniedError,
+)
 from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 
 if TYPE_CHECKING:
-    from typing import List, Optional
+    from typing import List, Optional, Set
 
     from structlog import BoundLogger
 
@@ -54,7 +60,7 @@ class TokenService:
         self._logger = logger
 
     async def create_session_token(
-        self, user_info: TokenUserInfo, scopes: Optional[List[str]] = None
+        self, user_info: TokenUserInfo, scopes: List[str]
     ) -> Token:
         """Add a new session token.
 
@@ -62,7 +68,7 @@ class TokenService:
         ----------
         user_info : `gafaelfawr.models.token.TokenUserInfo`
             The user information to associate with the token.
-        scopes : List[`str`], optional
+        scopes : List[`str`]
             The scopes of the token.
 
         Returns
@@ -123,6 +129,10 @@ class TokenService:
 
         Raises
         ------
+        gafaelfawr.exceptions.BadExpiresError
+            The provided expiration time was invalid.
+        gafaelfawr.exceptions.DuplicateTokenNameError
+            A token with this name for this user already exists.
         gafaelfawr.exceptions.PermissionDeniedError
             If the given username didn't match the user information in the
             authentication token.
@@ -137,6 +147,10 @@ class TokenService:
             expires = None
         elif not expires:
             expires = auth_data.expires
+        else:
+            self._validate_expires(expires)
+        if scopes:
+            self._validate_scopes(auth_data, set(scopes))
         data = TokenData(
             token=token,
             username=auth_data.username,
@@ -454,6 +468,8 @@ class TokenService:
 
         Raises
         ------
+        gafaelfawr.exceptions.BadExpiresError
+            The provided expiration time was invalid.
         gafaelfawr.exceptions.DuplicateTokenNameError
             A token with this name for this user already exists.
         gafaelfawr.exceptions.PermissionDeniedError
@@ -472,6 +488,10 @@ class TokenService:
             msg = "Only user tokens can be modified"
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
+        if scopes:
+            self._validate_scopes(auth_data, set(scopes))
+        if expires:
+            self._validate_expires(expires)
 
         with self._transaction_manager.transaction():
             info = self._token_db_store.modify(
@@ -499,3 +519,49 @@ class TokenService:
                 token_scope=",".join(info.scopes),
             )
         return info
+
+    def _validate_expires(self, expires: datetime) -> None:
+        """Check that a provided token expiration is valid.
+
+        Arguments
+        ---------
+        expires : `datetime`
+            The token expiration time.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.BadExpiresError
+            The provided expiration time is not valid.
+
+        Notes
+        -----
+        This is not done in the model because we want to be able to return
+        whatever expiration time is set in the backing store in replies, even
+        if it isn't valid.  (It could be done using multiple models, but
+        isn't currently.)
+        """
+        if expires.timestamp() < time.time() + MINIMUM_LIFETIME:
+            msg = "token must be valid for at least five minutes"
+            raise BadExpiresError(msg)
+
+    def _validate_scopes(self, auth_data: TokenData, scopes: Set[str]) -> None:
+        """Check that the requested scopes are valid.
+
+        Arguments
+        ---------
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token used to authenticate the operation.
+        scopes : Set[`str`]
+            The requested scopes.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.BadScopesError
+            The requested scopes are not permitted.
+        """
+        if not (scopes <= set(auth_data.scopes)):
+            msg = "Requested scopes are broader than your current scopes"
+            raise BadScopesError(msg)
+        if not (scopes <= self._config.known_scopes.keys()):
+            msg = "Unknown scopes requested"
+            raise BadScopesError(msg)

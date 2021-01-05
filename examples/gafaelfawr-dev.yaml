@@ -34,7 +34,7 @@ issuer:
   key_id: "localhost-key-id"
   aud: "http://localhost"
   key_file: "examples/secrets/issuer-key"
-  exp_minutes: 1440  # 1 day
+  exp_minutes: 1440 # 1 day
 
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new

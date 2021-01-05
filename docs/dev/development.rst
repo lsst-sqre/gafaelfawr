@@ -35,6 +35,15 @@ This init step does three things:
 2. Installs pre-commit and tox.
 3. Installs the pre-commit hooks.
 
+On macOS hosts, you may also need to run:
+
+.. code-block:: sh
+
+   export LDFLAGS="-L/usr/local/opt/openssl/lib"
+
+in the terminal window where you run ``make init`` and where you intend to run ``tox`` commands.
+Otherwise, OpenSSL isn't on the default linker path and the psycopg2 Python extension may not build.
+
 .. _pre-commit-hooks:
 
 Pre-commit hooks
@@ -42,9 +51,6 @@ Pre-commit hooks
 
 The pre-commit hooks, which are automatically installed by running the :command:`make init` command on :ref:`set up <dev-environment>`, ensure that files are valid and properly formatted.
 Some pre-commit hooks automatically reformat code:
-
-``seed-isort-config``
-    Adds configuration for isort to the :file:`pyproject.toml` file.
 
 ``isort``
     Automatically sorts imports in Python modules.
@@ -54,6 +60,9 @@ Some pre-commit hooks automatically reformat code:
 
 ``blacken-docs``
     Automatically formats Python code in reStructuredText documentation and docstrings.
+
+``prettier``
+    Automatically reformats YAML code.
 
 When these hooks fail, your Git commit will be aborted.
 To proceed, stage the new modifications and proceed with your Git commit.
@@ -82,6 +91,76 @@ To see a listing of test environments, run:
    tox -av
 
 .. _dev-build-docs:
+
+Starting a development server
+=============================
+
+There are two methods to run Gafaelfawr interactively on your local machine for development and testing the UI: outside Docker or inside Docker.
+In both cases, you will need Docker to be installed on your local machine.
+
+For either approach, you will first need to create a `GitHub OAuth app <https://github.com/settings/developers>`__ for Gafaelfawr to use.
+On GitHub, go to your personal settings page, select developer settings, and then select OAuth Apps.
+Create a new OAuth App with the following settings:
+
+* Homepage: ``http://localhost:8080/``
+* Authorization callback URL: ``http://localhost:8080/login``
+
+The rest can be set to whatever you want.
+Replace ``<github-client-id>`` in ``examples/docker/gafaelfawr.yaml`` and ``examples/gafaelfawr-dev.yaml`` with the resulting client ID.
+Put the resulting secret in ``examples/secrets/github-client-secret``.
+
+Now, use one of the two methods below for running Gafaelfawr.
+
+Outside Docker
+--------------
+
+First, build the JavaScript UI:
+
+.. code-block:: sh
+
+   make ui
+
+Then, run:
+
+.. code-block:: sh
+
+   tox -e run
+
+This will use ``docker-compose`` to start Redis and PostgreSQL servers, and then will start Gafaelfawr in the foreground outside of Docker.
+You can now go to ``http://localhost:8080/auth/tokens`` and will be redirected to GitHub for authentication.
+
+To stop the running server, use Ctrl-C.
+You will then need to run:
+
+.. code-block:: sh
+
+   docker-compose down
+
+to stop the Redis and PostgreSQL containers.
+
+The advantage of this method is that the running code and UI will be taken from your current working directory, so you can update it on the fly and immediately see the effects.
+
+Inside Docker
+-------------
+
+Build a Docker image and start the development instance of Gafaelfawr with:
+
+.. code-block:: sh
+
+   docker-compose -f examples/docker/docker-compose.yaml --project-directory . build
+   docker-compose -f examples/docker/docker-compose.yaml --project-directory . up
+
+You can then go to ``http://localhost:8080/auth/tokens`` and will be redirected to GitHub for authentication.
+
+To stop the running server, use Ctrl -C.
+To fully clean up the services, then run:
+
+.. code-block:: sh
+
+   docker-compose -f examples/docker/docker-compose.yaml --project-directory . down
+
+This way of running Gafaelfawr doesn't require you to have its dependencies installed locally and more closely simulates a production deployment.
+However, you will need to stop Gafaelfawr, rebuild the Docker container, and then start it again after each change to see your changes reflected.
 
 Building documentation
 ======================

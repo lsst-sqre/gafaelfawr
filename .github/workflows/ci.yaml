@@ -13,12 +13,36 @@ jobs:
           - 3.9
 
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v2.1.4
+        uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
+
+      - name: Read .nvmrc
+        id: node_version
+        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
+
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ steps.node_version.outputs.NODE_VERSION }}
+
+      - name: Cache Node.js modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-node-
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: ./ui
+
+      - name: Build the UI
+        run: make ui
 
       - name: Install tox
         run: pip install tox
@@ -33,7 +57,7 @@ jobs:
           key: tox-${{ hashFiles('requirements/*.txt') }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Run tox
-        run: tox -e lint,py,coverage-report,typing  # run tox using Python in path
+        run: tox -e lint,py,coverage-report,typing # run tox using Python in path
 
   build:
     runs-on: ubuntu-latest

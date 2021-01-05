@@ -221,11 +221,16 @@ def generate_unauthorized_challenge(
         "Cache-Control": "no-cache, must-revalidate",
         "WWW-Authenticate": challenge.as_header(),
     }
-    requested_with = context.request.headers.get("X-Requested-With")
-    if requested_with and requested_with.lower() == "xmlhttprequest":
-        status_code = status.HTTP_403_FORBIDDEN
-    else:
-        status_code = status.HTTP_401_UNAUTHORIZED
+
+    # If the request was sent via AJAX and ajax_forbidden was set (which will
+    # be true for /auth but not for the Gafaelfawr API), return 403 instead of
+    # 401 to avoid lots of NGINX ingress redirects.
+    status_code = status.HTTP_401_UNAUTHORIZED
+    if ajax_forbidden:
+        requested_with = context.request.headers.get("X-Requested-With")
+        if requested_with and requested_with.lower() == "xmlhttprequest":
+            status_code = status.HTTP_403_FORBIDDEN
+
     return HTTPException(
         headers=headers,
         status_code=status_code,

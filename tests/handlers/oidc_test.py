@@ -28,7 +28,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     setup.configure(oidc_clients=clients)
     token_data = await setup.create_session_token()
-    setup.login(token_data.token)
+    await setup.login(token_data.token)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
 
     # Log in
@@ -189,7 +189,7 @@ async def test_login_errors(
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     setup.configure(oidc_clients=clients)
     token_data = await setup.create_session_token()
-    setup.login(token_data.token)
+    await setup.login(token_data.token)
 
     # No parameters at all.
     caplog.clear()

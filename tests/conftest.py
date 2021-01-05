@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from gafaelfawr.dependencies.config import config_dependency
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
 
     from pytest_httpx import HTTPXMock
     from seleniumwire import webdriver
+
+    from tests.support.selenium import SeleniumConfig
 
 
 @pytest.fixture(scope="session")
@@ -42,22 +45,23 @@ def non_mocked_hosts() -> List[str]:
 
 
 @pytest.fixture
-def selenium_server_url(tmp_path: Path) -> Iterable[str]:
+def selenium_config(tmp_path: Path) -> Iterable[SeleniumConfig]:
     """Start a server for Selenium tests.
 
     The server will be automatically stopped at the end of the test.
 
     Returns
     -------
-    server_url : `str`
-        The URL to use to contact that server.
+    config : `tests.support.selenium.SeleniumConfig`
+        Configuration information for the server.
     """
     database_url = "sqlite:///" + str(tmp_path / "gafaelfawr.sqlite")
     settings_path = build_settings(
         tmp_path, "selenium", database_url=database_url
     )
-    with run_app(tmp_path, settings_path) as server_url:
-        yield server_url
+    config_dependency.set_settings_path(str(settings_path))
+    with run_app(tmp_path, settings_path) as config:
+        yield config
 
 
 @pytest.fixture

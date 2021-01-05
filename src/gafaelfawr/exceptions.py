@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from typing import ClassVar
 
 __all__ = [
+    "BadExpiresError",
+    "BadScopesError",
     "DeserializeException",
     "DuplicateTokenNameError",
     "FetchKeysException",
@@ -147,6 +149,14 @@ class InsufficientScopeError(OAuthBearerError):
     error = "insufficient_scope"
     message = "Token missing required scope"
     status_code = status.HTTP_403_FORBIDDEN
+
+
+class BadExpiresError(Exception):
+    """The provided token expiration time was invalid."""
+
+
+class BadScopesError(Exception):
+    """The provided token scopes are invalid or not available."""
 
 
 class DuplicateTokenNameError(Exception):

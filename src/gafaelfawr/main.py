@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi_sqlalchemy import DBSessionMiddleware
 
 from gafaelfawr.constants import COOKIE_NAME
@@ -48,6 +51,14 @@ app.include_router(logout.router)
 app.include_router(oidc.router)
 app.include_router(userinfo.router)
 app.include_router(well_known.router)
+
+static_path = os.getenv(
+    "GAFAELFAWR_UI_PATH", Path(__file__).parent.parent.parent / "ui" / "public"
+)
+app.mount(
+    "/auth/tokens",
+    StaticFiles(directory=str(static_path), html=True, check_dir=False),
+)
 
 
 @app.on_event("startup")

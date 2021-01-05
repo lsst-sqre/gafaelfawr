@@ -47,7 +47,7 @@ issuer:
   key_id: "example-key-id"
   aud: "https://example.com"
   key_file: "/path/to/issuer-key"
-  exp_minutes: 1440  # 1 day
+  exp_minutes: 1440 # 1 day
 
 # To get these values, register with an OpenID Connect provider and use
 # the values that they provide.  This example is for CILogon; many of the

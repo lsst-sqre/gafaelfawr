@@ -24,8 +24,8 @@ export DEBIAN_FRONTEND=noninteractive
 # Update the package listing, so we know what packages exist:
 apt-get update
 
-# Required to build binary Python modules and psycopg2.
-apt-get -y install --no-install-recommends build-essential libpq-dev
+# Required to build binary Python modules and the UI.
+apt-get -y install --no-install-recommends build-essential npm
 
 # Delete cached files we don't need anymore:
 apt-get clean

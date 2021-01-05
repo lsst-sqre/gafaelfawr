@@ -51,7 +51,9 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
 )
 def run(port: int) -> None:
     """Run the application (for testing, use Gunicorn for production)."""
-    uvicorn.run("gafaelfawr.main:app", port=port, reload=True)
+    uvicorn.run(
+        "gafaelfawr.main:app", port=port, reload=True, reload_dirs=["src"]
+    )
 
 
 @main.command()

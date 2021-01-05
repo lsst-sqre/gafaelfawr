@@ -2,83 +2,74 @@
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
-from tests.pages.base import BaseElement, BasePage
+from selenium.common.exceptions import NoSuchElementException
+
+from gafaelfawr.models.token import TokenType
+from tests.pages.base import BaseElement, BaseModal, BasePage
 from tests.support.selenium import run
 
 if TYPE_CHECKING:
-    from typing import List, Optional
+    from typing import List
 
     from selenium.webdriver.remote.webelement import WebElement
 
 
-class NewTokenPage(BasePage):
-    @property
-    def form(self) -> WebElement:
-        return self.find_element_by_id("create-token")
-
-    @property
-    def scopes(self) -> List[ScopeRow]:
-        return [
-            ScopeRow(e)
-            for e in self.find_elements_by_class_name("qa-token-scope")
-        ]
-
-    async def submit(self) -> None:
-        button = self.form.find_element_by_id("submit")
-        await run(button.click)
-
-
 class TokensPage(BasePage):
-    @property
-    def new_token(self) -> Optional[str]:
-        alert = self.find_elements_by_class_name("alert")
-        if not alert:
-            return None
-        match = re.search("Token: ([^ ]+)", alert[0].text)
-        if match:
-            return match.group(1)
-        else:
-            return None
+    async def click_create_token(self) -> CreateTokenModal:
+        button = self.find_element_by_id("qa-create-token")
+        await run(button.click)
+        element = self.find_element_by_id("create-token-modal")
+        return CreateTokenModal(element)
 
-    @property
-    def tokens(self) -> List[TokenRow]:
+    def get_new_token_modal(self) -> NewTokenModal:
+        element = self.find_element_by_id("qa-new-token-modal")
+        return NewTokenModal(element)
+
+    def get_tokens(self, token_type: TokenType) -> List[TokenRow]:
+        try:
+            table = self.find_element_by_id(f"tokens-{token_type.value}")
+        except NoSuchElementException:
+            return []
         return [
             TokenRow(e)
-            for e in self.find_elements_by_class_name("qa-token-row")
+            for e in table.find_elements_by_class_name("qa-token-row")
         ]
 
-    async def click_create_token(self) -> None:
-        button = self.find_element_by_id("new-token")
-        await run(button.click)
 
-
-class ScopeRow(BaseElement):
+class CreateTokenModal(BaseModal):
     @property
-    def checkbox(self) -> WebElement:
-        return self.find_element_by_class_name("form-check-input")
+    def form(self) -> WebElement:
+        return self.find_element_by_tag_name("form")
 
-    @property
-    def description(self) -> str:
-        return self.find_element_by_class_name("qa-scope-description").text
+    def set_token_name(self, token_name: str) -> None:
+        field = self.form.find_element_by_id("create-token-name")
+        field.send_keys(token_name)
 
+    async def submit(self) -> None:
+        await run(self.form.submit)
+
+
+class NewTokenModal(BaseModal):
     @property
-    def label(self) -> str:
-        return self.find_element_by_class_name("form-check-label").text
+    def token(self) -> str:
+        return self.find_element_by_id("qa-new-token").text
+
+    def dismiss(self) -> None:
+        button = self.find_element_by_id("token-accept")
+        button.click()
 
 
 class TokenRow(BaseElement):
     @property
-    def key(self) -> str:
-        return self.find_element_by_class_name("token-link").text
+    def name(self) -> str:
+        return self.find_element_by_class_name("qa-token-name").text
 
     @property
-    def link(self) -> str:
-        token_link = self.find_element_by_class_name("token-link")
-        return token_link.find_element_by_tag_name("a").get_attribute("href")
+    def token(self) -> str:
+        return self.find_element_by_class_name("qa-token").text
 
-    @property
-    def scope(self) -> str:
-        return self.find_element_by_class_name("qa-token-scope").text
+    async def click_delete_token(self) -> None:
+        button = self.find_element_by_class_name("qa-token-delete")
+        await run(button.click)

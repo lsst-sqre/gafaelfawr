@@ -19,9 +19,13 @@ from gafaelfawr.dependencies.auth import (
 )
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
-from gafaelfawr.exceptions import DuplicateTokenNameError
+from gafaelfawr.exceptions import (
+    BadExpiresError,
+    BadScopesError,
+    DuplicateTokenNameError,
+)
 from gafaelfawr.models.admin import Admin
-from gafaelfawr.models.auth import APILoginResponse
+from gafaelfawr.models.auth import APIConfig, APILoginResponse, Scope
 from gafaelfawr.models.token import (
     NewToken,
     TokenData,
@@ -54,15 +58,23 @@ def get_admins(
     "/login",
     response_model=APILoginResponse,
     responses={307: {"description": "Not currently authenticated"}},
-    dependencies=[
-        Depends(authenticate_session),
-        Depends(set_csrf),
-    ],
+    dependencies=[Depends(set_csrf)],
 )
 def get_login(
+    auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> APILoginResponse:
-    return APILoginResponse(csrf=context.state.csrf)
+    known_scopes = [
+        Scope(name=n, description=d)
+        for n, d in sorted(context.config.known_scopes.items())
+    ]
+    api_config = APIConfig(scopes=known_scopes)
+    return APILoginResponse(
+        csrf=context.state.csrf,
+        username=auth_data.username,
+        scopes=auth_data.scopes,
+        config=api_config,
+    )
 
 
 @router.get(
@@ -128,6 +140,24 @@ async def post_tokens(
     try:
         token = await token_service.create_user_token(
             auth_data, username, **token_params
+        )
+    except BadExpiresError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "expires"],
+                "type": "bad_expires",
+                "msg": str(e),
+            },
+        )
+    except BadScopesError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "scopes"],
+                "type": "bad_scopes",
+                "msg": str(e),
+            },
         )
     except DuplicateTokenNameError as e:
         raise HTTPException(
@@ -213,6 +243,24 @@ async def patch_token(
     try:
         info = await token_service.modify_token(
             key, auth_data, username, **update
+        )
+    except BadExpiresError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "expires"],
+                "type": "bad_expires",
+                "msg": str(e),
+            },
+        )
+    except BadScopesError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "scopes"],
+                "type": "bad_scopes",
+                "msg": str(e),
+            },
         )
     except DuplicateTokenNameError as e:
         raise HTTPException(
