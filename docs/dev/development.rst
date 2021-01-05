@@ -107,7 +107,7 @@ Create a new OAuth App with the following settings:
 
 The rest can be set to whatever you want.
 Replace ``<github-client-id>`` in ``examples/docker/gafaelfawr.yaml`` and ``examples/gafaelfawr-dev.yaml`` with the resulting client ID.
-Put the resulting secret in ``examples/secrets/github-client``.
+Put the resulting secret in ``examples/secrets/github-client-secret``.
 
 Now, use one of the two methods below for running Gafaelfawr.
 
