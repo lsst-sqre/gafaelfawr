@@ -11,6 +11,7 @@ import uvicorn
 from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.models.token import Token
 
 if TYPE_CHECKING:
     from typing import Union
@@ -63,6 +64,12 @@ def generate_key() -> None:
     print(keypair.private_key_as_pem().decode())
     print(keypair.public_key_as_pem().decode())
     print(json.dumps(keypair.public_key_as_jwks(), indent=4))
+
+
+@main.command()
+def generate_token() -> None:
+    """Generate an encoded token, used to generate the bootstrap token."""
+    print(str(Token()))
 
 
 @main.command()
