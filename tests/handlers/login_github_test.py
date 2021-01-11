@@ -325,3 +325,40 @@ async def test_github_uppercase(setup: SetupTest) -> None:
     r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "someuser"
+
+
+@pytest.mark.asyncio
+async def test_github_admin(setup: SetupTest) -> None:
+    """Test that a token administrator gets the admin:token scope."""
+    admin_service = setup.factory.create_admin_service()
+    admin_service.add_admin("someuser", actor="admin", ip_address="127.0.0.1")
+    user_info = GitHubUserInfo(
+        name="A User",
+        username="someuser",
+        uid=1000,
+        email="user@example.com",
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
+    )
+
+    setup.set_github_token_response("some-code", "some-github-token")
+    r = await setup.client.get(
+        "/login",
+        headers={"X-Auth-Request-Redirect": "https://example.com"},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", user_info)
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+
+    # The user should have admin:token scope.
+    r = await setup.client.get("/auth", params={"scope": "admin:token"})
+    assert r.status_code == 200

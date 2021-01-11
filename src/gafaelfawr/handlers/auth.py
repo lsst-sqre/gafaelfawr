@@ -22,7 +22,7 @@ from gafaelfawr.auth import (
     AuthType,
     generate_challenge,
 )
-from gafaelfawr.dependencies.auth import authenticate_with_type
+from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import InsufficientScopeError
 from gafaelfawr.models.token import TokenData
@@ -127,6 +127,15 @@ def auth_config(
         delegate_to=delegate_to,
         delegate_scopes=delegate_scopes,
     )
+
+
+async def authenticate_with_type(
+    auth_type: AuthType = AuthType.Bearer,
+    context: RequestContext = Depends(context_dependency),
+) -> TokenData:
+    """Set authentication challenge based on auth_type parameter."""
+    authenticate = Authenticate(auth_type=auth_type, ajax_forbidden=True)
+    return await authenticate(context)
 
 
 @router.get("/auth")

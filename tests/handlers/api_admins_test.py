@@ -22,11 +22,11 @@ async def test_admins(setup: SetupTest) -> None:
     )
     assert r.status_code == 403
     assert r.json()["detail"] == {
-        "msg": f"{token_data.username} is not an admin",
+        "msg": "Token does not have required scope admin:token",
         "type": "permission_denied",
     }
 
-    token_data = await setup.create_session_token(username="admin")
+    token_data = await setup.create_session_token(scopes=["admin:token"])
     r = await setup.client.get(
         "/auth/api/v1/admins",
         headers={"Authorization": f"bearer {token_data.token}"},

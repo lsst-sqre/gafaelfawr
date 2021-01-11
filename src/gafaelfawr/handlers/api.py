@@ -12,11 +12,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from gafaelfawr.dependencies.auth import (
-    authenticate,
-    authenticate_session,
-    require_admin,
-)
+from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
 from gafaelfawr.exceptions import (
@@ -38,14 +34,18 @@ from gafaelfawr.models.token import (
 __all__ = ["router"]
 
 router = APIRouter()
-"""Router for ``/auth/api/v1`` handlers."""
+authenticate = Authenticate()
+authenticate_admin = Authenticate(
+    require_scope="admin:token", allow_bootstrap_token=True
+)
+authenticate_session = Authenticate(require_session=True)
 
 
 @router.get(
     "/admins",
     response_model=List[Admin],
     responses={403: {"description": "Permission denied"}},
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(authenticate_admin)],
 )
 def get_admins(
     context: RequestContext = Depends(context_dependency),

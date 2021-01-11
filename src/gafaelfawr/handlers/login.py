@@ -208,6 +208,9 @@ async def handle_provider_return(
 
     # Construct a token.
     scopes = get_scopes_from_groups(context.config, user_info.groups)
+    admin_service = context.factory.create_admin_service()
+    if admin_service.is_admin(user_info.username):
+        scopes = sorted(scopes + ["admin:token"])
     token_service = context.factory.create_token_service()
     token = await token_service.create_session_token(user_info, scopes)
     context.state.token = token
