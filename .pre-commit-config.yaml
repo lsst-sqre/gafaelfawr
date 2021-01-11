@@ -39,21 +39,21 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v6.8.0
+    rev: v7.17.0
     hooks:
       - id: eslint
         additional_dependencies:
           # Manually mirror dev dependencies related to eslint here
           - babel-eslint@10.1.0
-          - eslint@7.15.0
+          - eslint@7.17.0
           - eslint-config-airbnb@18.2.1
           - eslint-config-prettier@6.15.0
           - eslint-config-wesbos@1.0.1
           - eslint-plugin-html@6.1.1
           - eslint-plugin-import@2.22.1
           - eslint-plugin-jsx-a11y@6.4.1
-          - eslint-plugin-prettier@3.2.0
-          - eslint-plugin-react@7.21.5
+          - eslint-plugin-prettier@3.3.1
+          - eslint-plugin-react@7.22.0
           - eslint-plugin-react-hooks@4.2.0
           - prettier@2.1.2
           - react@16.12.0
@@ -62,11 +62,4 @@ repos:
     rev: v2.2.1
     hooks:
       - id: prettier
-        files: "\\.(\
-          css|less|scss\
-          |graphql|gql\
-          |html\
-          |json\
-          |mdx\
-          |yaml|yml\
-          )$"
+        files: \.(css|less|scss|graphql|gql|html|json|mdx|yaml|yml)$
