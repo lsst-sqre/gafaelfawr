@@ -109,6 +109,8 @@ class AdminService:
             event_time=datetime.now(timezone.utc),
         )
         with self._transaction_manager.transaction():
+            if self.get_admins() == [admin]:
+                raise PermissionDeniedError("Cannot delete the last admin")
             result = self._admin_store.delete(admin)
             if result:
                 self._admin_history_store.add(history_entry)
