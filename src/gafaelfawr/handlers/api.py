@@ -14,7 +14,6 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.dependencies.csrf import set_csrf, verify_csrf
 from gafaelfawr.exceptions import (
     BadExpiresError,
     BadScopesError,
@@ -30,6 +29,7 @@ from gafaelfawr.models.token import (
     UserTokenModifyRequest,
     UserTokenRequest,
 )
+from gafaelfawr.util import random_128_bits
 
 __all__ = ["router"]
 
@@ -58,7 +58,6 @@ def get_admins(
     "/admins",
     responses={403: {"description": "Permission denied"}},
     status_code=204,
-    dependencies=[Depends(verify_csrf)],
 )
 def add_admin(
     admin: Admin,
@@ -77,7 +76,6 @@ def add_admin(
     "/admins/{username}",
     responses={404: {"description": "Specified user is not an administrator"}},
     status_code=204,
-    dependencies=[Depends(verify_csrf)],
 )
 def delete_admin(
     username: str,
@@ -101,16 +99,13 @@ def delete_admin(
         )
 
 
-@router.get(
-    "/login",
-    response_model=APILoginResponse,
-    responses={307: {"description": "Not currently authenticated"}},
-    dependencies=[Depends(set_csrf)],
-)
+@router.get("/login", response_model=APILoginResponse)
 def get_login(
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> APILoginResponse:
+    if not context.state.csrf:
+        context.state.csrf = random_128_bits()
     known_scopes = [
         Scope(name=n, description=d)
         for n, d in sorted(context.config.known_scopes.items())
@@ -168,11 +163,7 @@ async def get_tokens(
     return token_service.list_tokens(auth_data, username)
 
 
-@router.post(
-    "/users/{username}/tokens",
-    status_code=201,
-    dependencies=[Depends(verify_csrf)],
-)
+@router.post("/users/{username}/tokens", status_code=201)
 async def post_tokens(
     username: str,
     token_request: UserTokenRequest,
@@ -245,11 +236,7 @@ async def get_token(
     return info
 
 
-@router.delete(
-    "/users/{username}/tokens/{key}",
-    status_code=204,
-    dependencies=[Depends(verify_csrf)],
-)
+@router.delete("/users/{username}/tokens/{key}", status_code=204)
 async def delete_token(
     username: str,
     key: str,
@@ -274,7 +261,6 @@ async def delete_token(
     status_code=201,
     response_model=TokenInfo,
     response_model_exclude_none=True,
-    dependencies=[Depends(verify_csrf)],
 )
 async def patch_token(
     username: str,

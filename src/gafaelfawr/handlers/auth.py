@@ -135,7 +135,7 @@ async def authenticate_with_type(
 ) -> TokenData:
     """Set authentication challenge based on auth_type parameter."""
     authenticate = Authenticate(auth_type=auth_type, ajax_forbidden=True)
-    return await authenticate(context)
+    return await authenticate(context=context)
 
 
 @router.get("/auth")

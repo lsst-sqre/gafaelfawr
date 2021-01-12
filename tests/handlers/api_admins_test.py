@@ -50,14 +50,16 @@ async def test_add_delete(setup: SetupTest) -> None:
     r = await setup.client.post(
         "/auth/api/v1/admins", json={"username": "some-user"}
     )
-    assert r.status_code == 403
+    assert r.status_code == 401
     r = await setup.client.delete("/auth/api/v1/admins/admin")
-    assert r.status_code == 403
+    assert r.status_code == 401
 
     token_data = await setup.create_session_token(username="admin")
     csrf = await setup.login(token_data.token)
     r = await setup.client.post(
-        "/auth/api/v1/admins", headers={"X-CSRF-Token": csrf}
+        "/auth/api/v1/admins",
+        headers={"X-CSRF-Token": csrf},
+        json={"username": "new-admin"},
     )
     assert r.status_code == 403
     assert r.json()["detail"] == {
@@ -78,6 +80,11 @@ async def test_add_delete(setup: SetupTest) -> None:
     )
     csrf = await setup.login(token_data.token)
     r = await setup.client.post(
+        "/auth/api/v1/admins", json={"username": "new-admin"}
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"]["type"] == "invalid_csrf"
+    r = await setup.client.post(
         "/auth/api/v1/admins",
         headers={"X-CSRF-Token": csrf},
         json={"username": "new-admin"},
@@ -86,6 +93,9 @@ async def test_add_delete(setup: SetupTest) -> None:
     r = await setup.client.get("/auth/api/v1/admins")
     assert r.status_code == 200
     assert r.json() == [{"username": "admin"}, {"username": "new-admin"}]
+    r = await setup.client.delete("/auth/api/v1/admins/admin")
+    assert r.status_code == 403
+    assert r.json()["detail"]["type"] == "invalid_csrf"
     r = await setup.client.delete(
         "/auth/api/v1/admins/admin", headers={"X-CSRF-Token": csrf}
     )

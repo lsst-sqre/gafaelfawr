@@ -18,8 +18,6 @@ API reference
 
 .. automodapi:: gafaelfawr.dependencies.context
 
-.. automodapi:: gafaelfawr.dependencies.csrf
-
 .. automodapi:: gafaelfawr.dependencies.http_client
 
 .. automodapi:: gafaelfawr.dependencies.logger

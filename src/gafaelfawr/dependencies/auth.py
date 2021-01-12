@@ -3,7 +3,7 @@
 from typing import Optional
 from urllib.parse import urlencode, urlparse
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 
 from gafaelfawr.auth import (
     AuthType,
@@ -67,7 +67,9 @@ class Authenticate:
         self.ajax_forbidden = ajax_forbidden
 
     async def __call__(
-        self, context: RequestContext = Depends(context_dependency)
+        self,
+        x_csrf_token: Optional[str] = Header(None),
+        context: RequestContext = Depends(context_dependency),
     ) -> TokenData:
         """Authenticate the request.
 
@@ -75,8 +77,15 @@ class Authenticate:
         ``Authorization`` header because some applications (JupyterHub, for
         instance) may use the ``Authorization`` header for their own purposes.
 
+        If the request was authenticated via a browser cookie rather than a
+        provided ``Authorization`` header, and the method was something other
+        than ``GET`` or ``OPTIONS``, require and verify the CSRF header as
+        well.
+
         Parameters
         ----------
+        x_csrf_token : `str`, optional
+            The value of the ``X-CSRF-Token`` header, if provided.
         context : `gafaelfawr.dependencies.context.RequestContext`
             The request context.
 
@@ -93,6 +102,7 @@ class Authenticate:
         token = context.state.token
         if token:
             context.rebind_logger(token_source="cookie")
+            self._verify_csrf(context, x_csrf_token)
         elif not self.require_session:
             try:
                 token_str = parse_authorization(context)
@@ -101,25 +111,13 @@ class Authenticate:
             except (InvalidRequestError, InvalidTokenError) as e:
                 raise generate_challenge(context, self.auth_type, e)
         if not token:
-            if self.redirect_if_unauthenticated:
-                raise self._redirect_to_login(context)
-            else:
-                raise generate_unauthorized_challenge(
-                    context, self.auth_type, ajax_forbidden=self.ajax_forbidden
-                )
+            raise self._redirect_or_error(context)
 
         token_service = context.factory.create_token_service()
         data = await token_service.get_data(token)
         if not data:
             if context.state.token:
-                if self.redirect_if_unauthenticated:
-                    raise self._redirect_to_login(context)
-                else:
-                    raise generate_unauthorized_challenge(
-                        context,
-                        self.auth_type,
-                        ajax_forbidden=self.ajax_forbidden,
-                    )
+                raise self._redirect_or_error(context)
             else:
                 exc = InvalidTokenError("Token is not valid")
                 raise generate_challenge(context, self.auth_type, exc)
@@ -137,16 +135,21 @@ class Authenticate:
 
         return data
 
-    def _redirect_to_login(self, context: RequestContext) -> HTTPException:
-        """Redirect to the ``/login`` route.
+    def _redirect_or_error(self, context: RequestContext) -> HTTPException:
+        """Redirect to the ``/login`` route or return a 401 error.
 
-        Send a return URL pointing to the current page.
+        If ``redirect_if_unauthenticated`` is set, send a return URL pointing
+        to the current page.  Otherwise, return a suitable 401 error.
 
         Returns
         -------
         exc : `fastapi.HTTPException`
             The redirect.
         """
+        if not self.redirect_if_unauthenticated:
+            return generate_unauthorized_challenge(
+                context, self.auth_type, ajax_forbidden=self.ajax_forbidden
+            )
         query = urlencode({"rd": str(context.request.url)})
         login_url = urlparse("/login")._replace(query=query).geturl()
         context.logger.info("Redirecting user for authentication")
@@ -154,3 +157,32 @@ class Authenticate:
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
             headers={"Location": login_url},
         )
+
+    def _verify_csrf(
+        self, context: RequestContext, x_csrf_token: Optional[str]
+    ) -> None:
+        """Check the provided CSRF token is correct.
+
+        Raises
+        ------
+        fastapi.HTTPException
+            If no CSRF token was provided or if it was incorrect, and the
+            method was something other than GET or OPTIONS.
+        """
+        if context.request.method in ("GET", "OPTIONS"):
+            return
+        error = None
+        if not x_csrf_token:
+            error = "CSRF token required in X-CSRF-Token header"
+        if x_csrf_token != context.state.csrf:
+            error = "Invalid CSRF token"
+        if error:
+            context.logger.error("CSRF verification failed", error=error)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "loc": ["header", "X-CSRF-Token"],
+                    "type": "invalid_csrf",
+                    "msg": error,
+                },
+            )
