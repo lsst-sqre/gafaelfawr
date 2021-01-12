@@ -71,10 +71,6 @@ class Authenticate:
     ) -> TokenData:
         """Authenticate the request.
 
-        For requests authenticated via session cookie, also checks that a CSRF
-        token was provided in the ``X-CSRF-Token`` header if the request is
-        anything other than GET or OPTIONS.
-
         Always check the user's cookie-based session first before checking the
         ``Authorization`` header because some applications (JupyterHub, for
         instance) may use the ``Authorization`` header for their own purposes.

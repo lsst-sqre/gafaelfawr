@@ -54,6 +54,53 @@ def get_admins(
     return admin_service.get_admins()
 
 
+@router.post(
+    "/admins",
+    responses={403: {"description": "Permission denied"}},
+    status_code=204,
+    dependencies=[Depends(verify_csrf)],
+)
+def add_admin(
+    admin: Admin,
+    auth_data: TokenData = Depends(authenticate_admin),
+    context: RequestContext = Depends(context_dependency),
+) -> None:
+    admin_service = context.factory.create_admin_service()
+    admin_service.add_admin(
+        admin.username,
+        actor=auth_data.username,
+        ip_address=context.request.client.host,
+    )
+
+
+@router.delete(
+    "/admins/{username}",
+    responses={404: {"description": "Specified user is not an administrator"}},
+    status_code=204,
+    dependencies=[Depends(verify_csrf)],
+)
+def delete_admin(
+    username: str,
+    auth_data: TokenData = Depends(authenticate_admin),
+    context: RequestContext = Depends(context_dependency),
+) -> None:
+    admin_service = context.factory.create_admin_service()
+    success = admin_service.delete_admin(
+        username,
+        actor=auth_data.username,
+        ip_address=context.request.client.host,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "loc": ["path", "username"],
+                "type": "not_found",
+                "msg": "Speciried user is not an administrator",
+            },
+        )
+
+
 @router.get(
     "/login",
     response_model=APILoginResponse,

@@ -43,3 +43,62 @@ async def test_admins(setup: SetupTest) -> None:
     )
     assert r.status_code == 200
     assert r.json() == [{"username": "admin"}, {"username": "example"}]
+
+
+@pytest.mark.asyncio
+async def test_add_delete(setup: SetupTest) -> None:
+    r = await setup.client.post(
+        "/auth/api/v1/admins", json={"username": "some-user"}
+    )
+    assert r.status_code == 403
+    r = await setup.client.delete("/auth/api/v1/admins/admin")
+    assert r.status_code == 403
+
+    token_data = await setup.create_session_token(username="admin")
+    csrf = await setup.login(token_data.token)
+    r = await setup.client.post(
+        "/auth/api/v1/admins", headers={"X-CSRF-Token": csrf}
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"] == {
+        "msg": "Token does not have required scope admin:token",
+        "type": "permission_denied",
+    }
+    r = await setup.client.delete(
+        "/auth/api/v1/admins/admin", headers={"X-CSRF-Token": csrf}
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"] == {
+        "msg": "Token does not have required scope admin:token",
+        "type": "permission_denied",
+    }
+
+    token_data = await setup.create_session_token(
+        username="admin", scopes=["admin:token"]
+    )
+    csrf = await setup.login(token_data.token)
+    r = await setup.client.post(
+        "/auth/api/v1/admins",
+        headers={"X-CSRF-Token": csrf},
+        json={"username": "new-admin"},
+    )
+    assert r.status_code == 204
+    r = await setup.client.get("/auth/api/v1/admins")
+    assert r.status_code == 200
+    assert r.json() == [{"username": "admin"}, {"username": "new-admin"}]
+    r = await setup.client.delete(
+        "/auth/api/v1/admins/admin", headers={"X-CSRF-Token": csrf}
+    )
+    assert r.status_code == 204
+    r = await setup.client.get("/auth/api/v1/admins")
+    assert r.json() == [{"username": "new-admin"}]
+
+    # We can still retrieve the list because we have a token with scope
+    # admin:token, but since we (admin) were removed as an admin, we should no
+    # longer be able to add new admins.
+    r = await setup.client.post(
+        "/auth/api/v1/admins",
+        headers={"X-CSRF-Token": csrf},
+        json={"username": "another-admin"},
+    )
+    assert r.status_code == 403

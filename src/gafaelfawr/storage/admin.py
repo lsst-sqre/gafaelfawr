@@ -32,6 +32,27 @@ class AdminStore:
         new = SQLAdmin(username=admin.username)
         self._session.add(new)
 
+    def delete(self, admin: Admin) -> bool:
+        """Delete an administrator.
+
+        Parameters
+        ----------
+        admin : `gafaelfawr.models.admin.Admin`
+            The administrator to delete.
+
+        Returns
+        -------
+        result : `bool`
+            `True` if the administrator was found and deleted, `False`
+            otherwise.
+        """
+        result = (
+            self._session.query(SQLAdmin)
+            .filter_by(username=admin.username)
+            .delete(synchronize_session=False)
+        )
+        return result > 0
+
     def list(self) -> List[Admin]:
         """Return a list of current administrators."""
         return [
