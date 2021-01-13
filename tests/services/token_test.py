@@ -82,6 +82,11 @@ async def test_session_token(setup: SetupTest) -> None:
     assert info
     assert info.scopes == ["exec:admin", "read:all"]
 
+    # Cannot create a session token with a username of <bootstrap>.
+    user_info.username = "<bootstrap>"
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_session_token(user_info, scopes=[])
+
 
 @pytest.mark.asyncio
 async def test_user_token(setup: SetupTest) -> None:
@@ -131,6 +136,13 @@ async def test_user_token(setup: SetupTest) -> None:
         name=user_info.name,
         uid=user_info.uid,
     )
+
+    # Cannot create a user token with a username of <bootstrap>.
+    data.username = "<bootstrap>"
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_user_token(
+            data, "<bootstrap>", token_name="bootstrap-token"
+        )
 
 
 @pytest.mark.asyncio
@@ -398,7 +410,6 @@ async def test_invalid(setup: SetupTest) -> None:
             "key": token.key,
             "secret": token.secret,
         },
-        "username": "example",
         "token_type": "session",
         "scopes": [],
         "created": int(datetime.now(tz=timezone.utc).timestamp()),
@@ -410,7 +421,7 @@ async def test_invalid(setup: SetupTest) -> None:
 
     # Fix the session store and confirm we can retrieve the manually-stored
     # session.
-    json_data["uid"] = 12345
+    json_data["username"] = "example"
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
     await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
     new_data = await token_service.get_data(token)

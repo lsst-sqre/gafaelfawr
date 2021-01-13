@@ -1,6 +1,7 @@
 realm: "example.com"
 session_secret_file: "{session_secret_file}"
 database_url: "{database_url}"
+bootstrap_token: "gt-f3F2NilrdFp_NVe6VwCqyA.tLWB80ztqzQHieXHZL1IRA"
 initial_admins: ["admin"]
 redis_url: "dummy"
 proxies:

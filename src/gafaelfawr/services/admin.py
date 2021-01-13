@@ -59,7 +59,7 @@ class AdminService:
         gafaelfawr.exceptions.PermissionDeniedError
             If the actor is not an admin.
         """
-        if not self.is_admin(actor):
+        if not self.is_admin(actor) and actor != "<bootstrap>":
             raise PermissionDeniedError(f"{actor} is not an admin")
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(
@@ -98,7 +98,7 @@ class AdminService:
         gafaelfawr.exceptions.PermissionDeniedError
             If the actor is not an admin.
         """
-        if not self.is_admin(actor):
+        if not self.is_admin(actor) and actor != "<bootstrap>":
             raise PermissionDeniedError(f"{actor} is not an admin")
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(

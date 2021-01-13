@@ -173,9 +173,6 @@ async def get_auth(
     X-Auth-Request-Client-Ip
         The IP address of the client, as determined after parsing
         X-Forwarded-For headers.
-    X-Auth-Request-Email
-        If enabled and email is available, this will be set based on the
-        ``email`` claim.
     X-Auth-Request-User
         If enabled and the field is available, this will be set from token
         based on the ``JWT_USERNAME_KEY`` field.
@@ -292,8 +289,9 @@ async def build_success_headers(
         "X-Auth-Request-Scopes-Satisfy": auth_config.satisfy.name.lower(),
         "X-Auth-Request-Token-Scopes": " ".join(sorted(token_data.scopes)),
         "X-Auth-Request-User": token_data.username,
-        "X-Auth-Request-Uid": str(token_data.uid),
     }
+    if token_data.uid:
+        headers["X-Auth-Request-Uid"] = str(token_data.uid)
     if token_data.groups:
         groups = ",".join([g.name for g in token_data.groups])
         headers["X-Auth-Request-Groups"] = groups

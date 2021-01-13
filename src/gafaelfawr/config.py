@@ -22,6 +22,7 @@ from pydantic import AnyHttpUrl, BaseModel, IPvAnyNetwork, validator
 from safir.logging import configure_logging
 
 from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.models.token import Token
 
 __all__ = [
     "Config",
@@ -145,6 +146,13 @@ class Settings(BaseModel):
     redis_password_file: Optional[str] = None
     """File containing the password to use when connecting to Redis."""
 
+    bootstrap_token: Optional[Token] = None
+    """Bootstrap authentication token.
+
+    This token can be used with specific routes in the admin API to change the
+    list of admins and create service and user tokens.
+    """
+
     proxies: Optional[List[IPvAnyNetwork]]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
@@ -199,6 +207,15 @@ class Settings(BaseModel):
         if not level:
             raise ValueError("invalid logging level")
         return v
+
+    @validator("bootstrap_token", pre=True)
+    def valid_bootstrap_token(cls, v: Optional[str]) -> Optional[Token]:
+        if not v:
+            return None
+        try:
+            return Token.from_str(v)
+        except Exception as e:
+            raise ValueError(f"bootstrap_token not a valid token: {str(e)}")
 
     @validator("oidc", always=True)
     def exactly_one_provider(
@@ -426,6 +443,13 @@ class Config:
     redis_password: Optional[str]
     """Password for the Redis server that stores sessions."""
 
+    bootstrap_token: Optional[Token]
+    """Bootstrap authentication token.
+
+    This token can be used with specific routes in the admin API to change the
+    list of admins and create service and user tokens.
+    """
+
     proxies: Tuple[_BaseNetwork, ...]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
@@ -589,6 +613,7 @@ class Config:
             session_secret=session_secret.decode(),
             redis_url=settings.redis_url,
             redis_password=redis_password,
+            bootstrap_token=settings.bootstrap_token,
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
             issuer=issuer_config,

@@ -112,3 +112,34 @@ async def test_add_delete(setup: SetupTest) -> None:
         json={"username": "another-admin"},
     )
     assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_bootstrap(setup: SetupTest) -> None:
+    token = str(setup.config.bootstrap_token)
+
+    r = await setup.client.post(
+        "/auth/api/v1/admins",
+        headers={"Authorization": f"bearer {token}"},
+        json={"username": "example"},
+    )
+    assert r.status_code == 204
+
+    r = await setup.client.get(
+        "/auth/api/v1/admins",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == [{"username": "admin"}, {"username": "example"}]
+
+    r = await setup.client.delete(
+        "/auth/api/v1/admins/admin",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 204
+    r = await setup.client.get(
+        "/auth/api/v1/admins",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == [{"username": "example"}]

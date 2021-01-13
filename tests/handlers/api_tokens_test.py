@@ -322,6 +322,45 @@ async def test_csrf_required(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
+async def test_no_bootstrap(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    token = token_data.token
+    bootstrap_token = str(setup.config.bootstrap_token)
+
+    r = await setup.client.get(
+        "/auth/api/v1/users/example/tokens",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.post(
+        "/auth/api/v1/users/example/tokens",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_modify_nonuser(setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
     token = token_data.token

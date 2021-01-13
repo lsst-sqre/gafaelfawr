@@ -75,7 +75,15 @@ class TokenService:
         -------
         token : `gafaelfawr.models.token.Token`
             The newly-created token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the provided username is ``<boostrap>``, since that is reserved
+            for the bootstrap token.
         """
+        if user_info.username == "<bootstrap>":
+            raise PermissionDeniedError("Username <bootstrap> is reserved")
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
         expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
@@ -135,11 +143,14 @@ class TokenService:
             A token with this name for this user already exists.
         gafaelfawr.exceptions.PermissionDeniedError
             If the given username didn't match the user information in the
-            authentication token.
+            authentication token, or if the specified username is
+            ``<bootstrap>``, which is reserved for the bootstrap token.
         """
         if username != auth_data.username:
             msg = "Cannot create tokens for another user"
             raise PermissionDeniedError(msg)
+        if username == "<bootstrap>":
+            raise PermissionDeniedError("Username <bootstrap> is reserved")
 
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)

@@ -1,5 +1,6 @@
 """Authentication dependencies for FastAPI."""
 
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlencode, urlparse
 
@@ -17,7 +18,7 @@ from gafaelfawr.exceptions import (
     InvalidTokenError,
     PermissionDeniedError,
 )
-from gafaelfawr.models.token import Token, TokenData
+from gafaelfawr.models.token import Token, TokenData, TokenType
 
 __all__ = ["Authenticate"]
 
@@ -113,6 +114,17 @@ class Authenticate:
         if not token:
             raise self._redirect_or_error(context)
 
+        if self.allow_bootstrap_token:
+            if token == context.config.bootstrap_token:
+                bootstrap_data = self._build_bootstrap_token_data()
+                context.rebind_logger(
+                    token="<bootstrap>",
+                    user="<bootstrap>",
+                    scope=" ".join(sorted(bootstrap_data.scopes)),
+                )
+                context.logger.info("Authenticated with bootstrap token")
+                return bootstrap_data
+
         token_service = context.factory.create_token_service()
         data = await token_service.get_data(token)
         if not data:
@@ -134,6 +146,25 @@ class Authenticate:
             raise PermissionDeniedError(msg)
 
         return data
+
+    def _build_bootstrap_token_data(self) -> TokenData:
+        """Build authentication data for the bootstrap token.
+
+        This token doesn't exist in the backing store, so instead synthesize a
+        `~gafaelfawr.models.token.TokenData` object for it.
+
+        Returns
+        -------
+        data : `gafaelfawr.models.token.TokenData`
+            Artificial data for the bootstrap token.
+        """
+        return TokenData(
+            token=Token(),
+            username="<bootstrap>",
+            token_type=TokenType.service,
+            scopes=["admin:token"],
+            created=datetime.now(tz=timezone.utc),
+        )
 
     def _redirect_or_error(self, context: RequestContext) -> HTTPException:
         """Redirect to the ``/login`` route or return a 401 error.

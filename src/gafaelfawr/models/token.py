@@ -99,6 +99,7 @@ class TokenType(Enum):
     user = "user"
     notebook = "notebook"
     internal = "internal"
+    service = "service"
 
 
 class TokenGroup(BaseModel):
@@ -228,7 +229,7 @@ class TokenUserInfo(BaseModel):
         None, title="The user's preferred full name", min_length=1
     )
 
-    uid: int = Field(..., title="The user's UID number", ge=1)
+    uid: Optional[int] = Field(None, title="The user's UID number", ge=1)
 
     groups: List[TokenGroup] = Field(
         [], title="The groups of which the user is a member"
