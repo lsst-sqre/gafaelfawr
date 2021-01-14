@@ -251,6 +251,10 @@ class SetupTest:
         assert r.status_code == 200
         return r.json()["csrf"]
 
+    def logout(self) -> None:
+        """Delete the Gafaelfawr session token."""
+        del self.client.cookies[COOKIE_NAME]
+
     def set_github_userinfo_response(
         self, token: str, user_info: GitHubUserInfo
     ) -> None:

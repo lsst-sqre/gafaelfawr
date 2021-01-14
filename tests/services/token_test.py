@@ -9,8 +9,13 @@ from typing import TYPE_CHECKING
 import pytest
 from cryptography.fernet import Fernet
 
-from gafaelfawr.exceptions import PermissionDeniedError
+from gafaelfawr.exceptions import (
+    BadExpiresError,
+    BadScopesError,
+    PermissionDeniedError,
+)
 from gafaelfawr.models.token import (
+    AdminTokenRequest,
     Token,
     TokenData,
     TokenGroup,
@@ -290,6 +295,78 @@ async def test_internal_token(setup: SetupTest) -> None:
     assert info.scopes == []
     expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert info.expires == expires
+
+
+@pytest.mark.asyncio
+async def test_token_from_admin_request(setup: SetupTest) -> None:
+    user_info = TokenUserInfo(
+        username="example", name="Example Person", uid=4137
+    )
+    token_service = setup.factory.create_token_service()
+    token = await token_service.create_session_token(user_info, scopes=[])
+    data = await token_service.get_data(token)
+    assert data
+    now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+    expires = now + timedelta(days=2)
+    request = AdminTokenRequest(
+        username="otheruser",
+        token_type=TokenType.user,
+        token_name="some token",
+        scopes=["read:all"],
+        expires=expires,
+        name="Other User",
+        uid=1345,
+        groups=[TokenGroup(name="some-group", id=4133)],
+    )
+
+    # Cannot create a token via admin request because the authentication
+    # information is missing the admin:token scope.
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_token_from_admin_request(request, data)
+
+    # Get a token with an appropriate scope.
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["admin:token"]
+    )
+    data = await token_service.get_data(session_token)
+    assert data
+
+    # Test a few more errors.
+    request.username = "<bootstrap>"
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_token_from_admin_request(request, data)
+    request.username = "otheruser"
+    request.scopes = ["bogus:scope"]
+    with pytest.raises(BadScopesError):
+        await token_service.create_token_from_admin_request(request, data)
+    request.scopes = ["read:all"]
+    request.expires = now
+    with pytest.raises(BadExpiresError):
+        await token_service.create_token_from_admin_request(request, data)
+    request.expires = expires
+
+    # Try a successful request.
+    token = await token_service.create_token_from_admin_request(request, data)
+    user_data = await token_service.get_data(token)
+    assert user_data
+    assert user_data == TokenData(
+        token=token, created=user_data.created, **request.dict()
+    )
+    assert now <= user_data.created <= now + timedelta(seconds=5)
+
+    # Now request a service token with minimal data instead.
+    request = AdminTokenRequest(
+        username="service", token_type=TokenType.service
+    )
+    token = await token_service.create_token_from_admin_request(request, data)
+    service_data = await token_service.get_data(token)
+    assert service_data
+    assert service_data == TokenData(
+        token=token, created=service_data.created, **request.dict()
+    )
+    assert now <= service_data.created <= now + timedelta(seconds=5)
+
+    request.token_type = TokenType.session
 
 
 @pytest.mark.asyncio

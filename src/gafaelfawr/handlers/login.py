@@ -231,7 +231,7 @@ async def handle_provider_return(
 
 
 def get_scopes_from_groups(
-    config: Config, groups: List[TokenGroup]
+    config: Config, groups: Optional[List[TokenGroup]]
 ) -> List[str]:
     """Get scopes from a list of groups.
 
@@ -249,6 +249,8 @@ def get_scopes_from_groups(
         The scopes generated from the group membership based on the
         ``group_mapping`` configuration parameter.
     """
+    if not groups:
+        return []
     scopes: Set[str] = set()
     for group in [g.name for g in groups]:
         scopes.update(config.issuer.group_mapping.get(group, set()))

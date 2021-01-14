@@ -12,6 +12,7 @@ group_mapping:
   "exec:test": ["test"]
   "read:all": ["foo", "admin", "org-a-team"]
 known_scopes:
+  "admin:token": "token administration"
   "exec:admin": "admin description"
   "exec:test": "test description"
   "read:all": "can read everything"

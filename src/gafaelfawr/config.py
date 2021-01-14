@@ -202,14 +202,14 @@ class Settings(BaseModel):
         env_prefix = "GAFAELFAWR_"
 
     @validator("loglevel")
-    def valid_loglevel(cls, v: str) -> str:
+    def _valid_loglevel(cls, v: str) -> str:
         level = getattr(logging, v, None)
         if not level:
             raise ValueError("invalid logging level")
         return v
 
     @validator("bootstrap_token", pre=True)
-    def valid_bootstrap_token(cls, v: Optional[str]) -> Optional[Token]:
+    def _valid_bootstrap_token(cls, v: Optional[str]) -> Optional[Token]:
         if not v:
             return None
         try:
@@ -218,7 +218,7 @@ class Settings(BaseModel):
             raise ValueError(f"bootstrap_token not a valid token: {str(e)}")
 
     @validator("oidc", always=True)
-    def exactly_one_provider(
+    def _exactly_one_provider(
         cls, v: Optional[OIDCSettings], values: Dict[str, object]
     ) -> Optional[OIDCSettings]:
         """Ensure either github or oidc is set, not both."""
@@ -229,7 +229,7 @@ class Settings(BaseModel):
         return v
 
     @validator("initial_admins", pre=True)
-    def nonempty_list(cls, v: List[str]) -> List[str]:
+    def _nonempty_list(cls, v: List[str]) -> List[str]:
         if not v:
             raise ValueError("initial_admins is empty")
         return v

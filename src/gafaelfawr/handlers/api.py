@@ -9,6 +9,7 @@ models.
 from __future__ import annotations
 
 from typing import List
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
@@ -22,6 +23,7 @@ from gafaelfawr.exceptions import (
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.auth import APIConfig, APILoginResponse, Scope
 from gafaelfawr.models.token import (
+    AdminTokenRequest,
     NewToken,
     TokenData,
     TokenInfo,
@@ -142,7 +144,56 @@ async def get_token_info(
         return info
 
 
-@router.get("/user-info", response_model=TokenUserInfo)
+@router.post("/tokens", response_model=NewToken, status_code=201)
+async def post_admin_tokens(
+    token_request: AdminTokenRequest,
+    response: Response,
+    auth_data: TokenData = Depends(authenticate_admin),
+    context: RequestContext = Depends(context_dependency),
+) -> NewToken:
+    token_service = context.factory.create_token_service()
+    try:
+        token = await token_service.create_token_from_admin_request(
+            token_request, auth_data
+        )
+    except BadExpiresError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "expires"],
+                "type": "bad_expires",
+                "msg": str(e),
+            },
+        )
+    except BadScopesError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "scopes"],
+                "type": "bad_scopes",
+                "msg": str(e),
+            },
+        )
+    except DuplicateTokenNameError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "loc": ["body", "token_name"],
+                "type": "duplicate_token_name",
+                "msg": str(e),
+            },
+        )
+    response.headers["Location"] = quote(
+        f"/auth/api/v1/users/{token_request.username}/tokens/{token.key}"
+    )
+    return NewToken(token=str(token))
+
+
+@router.get(
+    "/user-info",
+    response_model=TokenUserInfo,
+    response_model_exclude_none=True,
+)
 async def get_user_info(
     auth_data: TokenData = Depends(authenticate),
 ) -> TokenUserInfo:
@@ -163,7 +214,9 @@ async def get_tokens(
     return token_service.list_tokens(auth_data, username)
 
 
-@router.post("/users/{username}/tokens", status_code=201)
+@router.post(
+    "/users/{username}/tokens", response_model=NewToken, status_code=201
+)
 async def post_tokens(
     username: str,
     token_request: UserTokenRequest,
@@ -206,8 +259,9 @@ async def post_tokens(
                 "msg": str(e),
             },
         )
-    token_url = f"/auth/api/v1/users/{username}/tokens/{token.key}"
-    response.headers["Location"] = token_url
+    response.headers["Location"] = quote(
+        f"/auth/api/v1/users/{username}/tokens/{token.key}"
+    )
     return NewToken(token=str(token))
 
 
