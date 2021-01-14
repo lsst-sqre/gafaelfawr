@@ -14,3 +14,6 @@ OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 
 SETTINGS_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 """Default configuration path."""
+
+USERNAME_REGEX = "^[a-z0-9._-]+$"
+"""Regex matching all valid usernames."""

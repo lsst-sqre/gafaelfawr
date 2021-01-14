@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 
+from gafaelfawr.constants import USERNAME_REGEX
 from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.util import normalize_datetime, random_128_bits
 
@@ -264,8 +265,13 @@ class AdminTokenRequest(BaseModel):
     username: str = Field(
         ...,
         title="The user for which to issue a token",
+        description=(
+            "The username may only contain lowercase letters, digits,"
+            " period (.), dash (-), and underscore (_)."
+        ),
         min_length=1,
         max_length=64,
+        regex=USERNAME_REGEX,
     )
 
     token_type: TokenType = Field(

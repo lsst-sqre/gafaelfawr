@@ -334,3 +334,36 @@ async def test_verify_error(setup: SetupTest) -> None:
     )
     assert r.status_code == 500
     assert "token verification failed" in r.text
+
+
+@pytest.mark.asyncio
+async def test_invalid_username(setup: SetupTest) -> None:
+    setup.configure("oidc")
+    token = setup.create_upstream_oidc_token(
+        sub="invalid@user", uid="invalid@user"
+    )
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    assert setup.config.oidc
+    return_url = "https://example.com/foo"
+
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 403
+    assert r.json() == {
+        "detail": {
+            "msg": "Invalid username: invalid@user",
+            "type": "permission_denied",
+        }
+    }

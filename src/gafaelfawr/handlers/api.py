@@ -11,8 +11,9 @@ from __future__ import annotations
 from typing import List
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
 
+from gafaelfawr.constants import USERNAME_REGEX
 from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import (
@@ -80,7 +81,13 @@ def add_admin(
     status_code=204,
 )
 def delete_admin(
-    username: str,
+    username: str = Path(
+        ...,
+        title="Administrator",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
+    ),
     auth_data: TokenData = Depends(authenticate_admin),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
@@ -206,7 +213,9 @@ async def get_user_info(
     response_model_exclude_none=True,
 )
 async def get_tokens(
-    username: str,
+    username: str = Path(
+        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+    ),
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> List[TokenInfo]:
@@ -218,9 +227,11 @@ async def get_tokens(
     "/users/{username}/tokens", response_model=NewToken, status_code=201
 )
 async def post_tokens(
-    username: str,
     token_request: UserTokenRequest,
     response: Response,
+    username: str = Path(
+        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+    ),
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
@@ -271,8 +282,10 @@ async def post_tokens(
     response_model_exclude_none=True,
 )
 async def get_token(
-    username: str,
-    key: str,
+    username: str = Path(
+        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+    ),
+    key: str = Path(..., min_length=22, max_length=22),
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
@@ -292,8 +305,10 @@ async def get_token(
 
 @router.delete("/users/{username}/tokens/{key}", status_code=204)
 async def delete_token(
-    username: str,
-    key: str,
+    username: str = Path(
+        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+    ),
+    key: str = Path(..., min_length=22, max_length=22),
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
@@ -317,9 +332,11 @@ async def delete_token(
     response_model_exclude_none=True,
 )
 async def patch_token(
-    username: str,
-    key: str,
     token_request: UserTokenModifyRequest,
+    username: str = Path(
+        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+    ),
+    key: str = Path(..., min_length=22, max_length=22),
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:

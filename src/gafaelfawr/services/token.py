@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from gafaelfawr.constants import MINIMUM_LIFETIME
+from gafaelfawr.constants import MINIMUM_LIFETIME, USERNAME_REGEX
 from gafaelfawr.exceptions import (
     BadExpiresError,
     BadScopesError,
@@ -85,11 +86,9 @@ class TokenService:
         Raises
         ------
         gafaelfawr.exceptions.PermissionDeniedError
-            If the provided username is ``<boostrap>``, since that is reserved
-            for the bootstrap token.
+            If the provided username is invalid.
         """
-        if user_info.username == "<bootstrap>":
-            raise PermissionDeniedError("Username <bootstrap> is reserved")
+        self._validate_username(user_info.username)
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
         expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
@@ -149,14 +148,12 @@ class TokenService:
             A token with this name for this user already exists.
         gafaelfawr.exceptions.PermissionDeniedError
             If the given username didn't match the user information in the
-            authentication token, or if the specified username is
-            ``<bootstrap>``, which is reserved for the bootstrap token.
+            authentication token, or if the specified username is invalid.
         """
         if username != auth_data.username:
             msg = "Cannot create tokens for another user"
             raise PermissionDeniedError(msg)
-        if username == "<bootstrap>":
-            raise PermissionDeniedError("Username <bootstrap> is reserved")
+        self._validate_username(username)
 
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
@@ -210,13 +207,11 @@ class TokenService:
         Raises
         ------
         gafaelfawr.exceptions.PermissionDeniedError
-            If the provided username is ``<boostrap>``, since that is reserved
-            for the bootstrap token.
+            If the provided username is invalid.
         """
         if "admin:token" not in auth_data.scopes:
             raise PermissionDeniedError("Missing required admin:token scope")
-        if request.username == "<bootstrap>":
-            raise PermissionDeniedError("Username <bootstrap> is reserved")
+        self._validate_username(request.username)
         if request.scopes:
             self._validate_scopes(set(request.scopes))
         if request.expires:
@@ -315,9 +310,15 @@ class TokenService:
         -------
         token : `gafaelfawr.models.token.Token`
             The newly-created token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the username is invalid.
         """
         if not set(scopes) <= set(token_data.scopes):
             raise PermissionDeniedError("Token does not have required scopes")
+        self._validate_username(token_data.username)
 
         # See if there's already a matching internal token.
         key = self._token_db_store.get_internal_token_key(
@@ -375,7 +376,14 @@ class TokenService:
         -------
         token : `gafaelfawr.models.token.Token`
             The newly-created token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the username is invalid.
         """
+        self._validate_username(token_data.username)
+
         # See if there's already a matching notebook token.
         key = self._token_db_store.get_notebook_token_key(token_data)
         if key:
@@ -636,3 +644,8 @@ class TokenService:
         if not (scopes <= self._config.known_scopes.keys()):
             msg = "Unknown scopes requested"
             raise BadScopesError(msg)
+
+    def _validate_username(self, username: str) -> None:
+        """Check that the username is valid."""
+        if not re.match(USERNAME_REGEX, username):
+            raise PermissionDeniedError(f"Invalid username: {username}")

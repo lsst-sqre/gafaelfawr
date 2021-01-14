@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from cryptography.fernet import Fernet
+from pydantic import ValidationError
 
 from gafaelfawr.exceptions import (
     BadExpiresError,
@@ -366,8 +367,6 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
     )
     assert now <= service_data.created <= now + timedelta(seconds=5)
 
-    request.token_type = TokenType.session
-
 
 @pytest.mark.asyncio
 async def test_list(setup: SetupTest) -> None:
@@ -503,3 +502,36 @@ async def test_invalid(setup: SetupTest) -> None:
     await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
     new_data = await token_service.get_data(token)
     assert new_data == TokenData.parse_obj(json_data)
+
+
+@pytest.mark.asyncio
+async def test_invalid_username(setup: SetupTest) -> None:
+    user_info = TokenUserInfo(
+        username="example",
+        name="Example Person",
+        uid=4137,
+        groups=[TokenGroup(name="foo", id=1000)],
+    )
+    token_service = setup.factory.create_token_service()
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["read:all", "exec:admin"]
+    )
+    data = await token_service.get_data(session_token)
+    assert data
+
+    # Cannot create a session token with an invalid username.
+    for user in ("in+valid", " invalid", "invalid ", "in/valid", "in@valid"):
+        user_info.username = user
+        with pytest.raises(PermissionDeniedError):
+            await token_service.create_session_token(user_info, scopes=[])
+        data.username = user
+        with pytest.raises(PermissionDeniedError):
+            await token_service.create_user_token(data, user, token_name="n")
+        with pytest.raises(PermissionDeniedError):
+            await token_service.get_notebook_token(data)
+        with pytest.raises(PermissionDeniedError):
+            await token_service.get_internal_token(
+                data, service="s", scopes=[]
+            )
+        with pytest.raises(ValidationError):
+            AdminTokenRequest(username=user, token_type=TokenType.service)

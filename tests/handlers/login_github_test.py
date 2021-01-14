@@ -362,3 +362,40 @@ async def test_github_admin(setup: SetupTest) -> None:
     # The user should have admin:token scope.
     r = await setup.client.get("/auth", params={"scope": "admin:token"})
     assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_invalid_username(setup: SetupTest) -> None:
+    """Test that invalid usernames are rejected."""
+    user_info = GitHubUserInfo(
+        name="A User",
+        username="invalid user",
+        uid=1000,
+        email="foo@example.com",
+        teams=[],
+    )
+
+    setup.set_github_token_response("some-code", "some-github-token")
+    r = await setup.client.get(
+        "/login",
+        headers={"X-Auth-Request-Redirect": "https://example.com"},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", user_info)
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 403
+    assert r.json() == {
+        "detail": {
+            "msg": "Invalid username: invalid user",
+            "type": "permission_denied",
+        }
+    }

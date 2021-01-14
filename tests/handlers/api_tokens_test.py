@@ -758,6 +758,7 @@ async def test_create_admin(setup: SetupTest) -> None:
     token_url = f"/auth/api/v1/users/a-user/tokens/{user_token.key}"
     assert r.headers["Location"] == token_url
 
+    # Successfully create a user token.
     r = await setup.client.get(
         "/auth/api/v1/token-info",
         headers={"Authorization": f"bearer {str(user_token)}"},
@@ -778,6 +779,7 @@ async def test_create_admin(setup: SetupTest) -> None:
     assert r.status_code == 200
     assert r.json() == {"username": "a-user"}
 
+    # Check handling of duplicate token name errors.
     r = await setup.client.post(
         "/auth/api/v1/tokens",
         headers={"Authorization": f"bearer {str(service_token)}"},
@@ -789,6 +791,18 @@ async def test_create_admin(setup: SetupTest) -> None:
     )
     assert r.status_code == 422
     assert r.json()["detail"]["type"] == "duplicate_token_name"
+
+    # Check handling of an invalid username.
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+        json={
+            "username": "invalid(user)",
+            "token_type": "user",
+            "token_name": "some token",
+        },
+    )
+    assert r.status_code == 422
 
     # Check that the bootstrap token also works.
     r = await setup.client.post(
