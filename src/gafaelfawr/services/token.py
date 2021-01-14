@@ -22,7 +22,7 @@ from gafaelfawr.models.token import (
 )
 
 if TYPE_CHECKING:
-    from typing import List, Optional, Set
+    from typing import List, Optional
 
     from structlog import BoundLogger
 
@@ -113,7 +113,6 @@ class TokenService:
         token_name: str,
         scopes: Optional[List[str]] = None,
         expires: Optional[datetime] = None,
-        no_expire: bool = False,
     ) -> Token:
         """Add a new user token.
 
@@ -157,14 +156,8 @@ class TokenService:
 
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
-        if no_expire:
-            expires = None
-        elif not expires:
-            expires = auth_data.expires
-        else:
-            self._validate_expires(expires)
-        if scopes:
-            self._validate_scopes(set(scopes), auth_data)
+        self._validate_expires(expires)
+        self._validate_scopes(scopes, auth_data)
         data = TokenData(
             token=token,
             username=auth_data.username,
@@ -212,10 +205,8 @@ class TokenService:
         if "admin:token" not in auth_data.scopes:
             raise PermissionDeniedError("Missing required admin:token scope")
         self._validate_username(request.username)
-        if request.scopes:
-            self._validate_scopes(set(request.scopes))
-        if request.expires:
-            self._validate_expires(request.expires)
+        self._validate_scopes(request.scopes)
+        self._validate_expires(request.expires)
 
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
@@ -564,10 +555,8 @@ class TokenService:
             msg = "Only user tokens can be modified"
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
-        if scopes:
-            self._validate_scopes(set(scopes), auth_data)
-        if expires:
-            self._validate_expires(expires)
+        self._validate_scopes(scopes, auth_data)
+        self._validate_expires(expires)
 
         with self._transaction_manager.transaction():
             info = self._token_db_store.modify(
@@ -596,12 +585,12 @@ class TokenService:
             )
         return info
 
-    def _validate_expires(self, expires: datetime) -> None:
+    def _validate_expires(self, expires: Optional[datetime]) -> None:
         """Check that a provided token expiration is valid.
 
         Arguments
         ---------
-        expires : `datetime`
+        expires : `datetime` or `None`
             The token expiration time.
 
         Raises
@@ -616,18 +605,22 @@ class TokenService:
         if it isn't valid.  (It could be done using multiple models, but
         isn't currently.)
         """
+        if not expires:
+            return
         if expires.timestamp() < time.time() + MINIMUM_LIFETIME:
             msg = "token must be valid for at least five minutes"
             raise BadExpiresError(msg)
 
     def _validate_scopes(
-        self, scopes: Set[str], auth_data: Optional[TokenData] = None
+        self,
+        scopes: Optional[List[str]],
+        auth_data: Optional[TokenData] = None,
     ) -> None:
         """Check that the requested scopes are valid.
 
         Arguments
         ---------
-        scopes : Set[`str`]
+        scopes : List[`str`] or `None`
             The requested scopes.
         auth_data : `gafaelfawr.models.token.TokenData`, optional
             The token used to authenticate the operation, if the scopes should
@@ -638,10 +631,13 @@ class TokenService:
         gafaelfawr.exceptions.BadScopesError
             The requested scopes are not permitted.
         """
-        if auth_data and not (scopes <= set(auth_data.scopes)):
+        if not scopes:
+            return
+        scopes_set = set(scopes)
+        if auth_data and not (scopes_set <= set(auth_data.scopes)):
             msg = "Requested scopes are broader than your current scopes"
             raise BadScopesError(msg)
-        if not (scopes <= self._config.known_scopes.keys()):
+        if not (scopes_set <= self._config.known_scopes.keys()):
             msg = "Unknown scopes requested"
             raise BadScopesError(msg)
 

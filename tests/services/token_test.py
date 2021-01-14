@@ -202,11 +202,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
     # Check that the expiration time is capped by creating a user token that
     # doesn't expire and then creating a notebook token from it.
     user_token = await token_service.create_user_token(
-        data,
-        data.username,
-        token_name="some token",
-        expires=None,
-        no_expire=True,
+        data, data.username, token_name="some token", expires=None
     )
     data = await token_service.get_data(user_token)
     assert data
@@ -283,7 +279,6 @@ async def test_internal_token(setup: SetupTest) -> None:
         token_name="some token",
         scopes=["exec:admin"],
         expires=None,
-        no_expire=True,
     )
     data = await token_service.get_data(user_token)
     assert data

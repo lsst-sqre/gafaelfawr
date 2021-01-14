@@ -237,8 +237,6 @@ async def post_tokens(
 ) -> NewToken:
     token_service = context.factory.create_token_service()
     token_params = token_request.dict(exclude_unset=True)
-    if "expires" not in token_params or token_params["expires"] is None:
-        token_params["no_expire"] = True
     try:
         token = await token_service.create_user_token(
             auth_data, username, **token_params
