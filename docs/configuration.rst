@@ -21,10 +21,14 @@ Settings
 Some settings are nested, in which case the parent setting takes a dict value.
 The description of that setting will specify whether there is a fixed set of child keys for related settings, or a more general collection of key/value pairs.
 
-All secrets are given in the form of a file path.
+Most secrets are given in the form of a file path.
 The secret is the contents of the file.
 Any leading or trailing whitespace in the file will be removed.
 Secrets beginning or ending in whitespace are not supported.
+
+All top-level settings can be set via environment variables instead of using the configuration file.
+The configuration file will override environment variables, so to set a value with an environment variable, omit it from the configuration file.
+The environment variable name for a setting is the same as the setting name but in all caps and with ``GAFAELFAWR_`` prepended.
 
 ``realm`` (required)
     The authentication realm indicated in the ``WWW-Authenticate`` header returned as part of a 401 error when a user is not already authenticated.
@@ -45,6 +49,16 @@ Secrets beginning or ending in whitespace are not supported.
 
 ``database_url`` (required)
     The URL to the SQL database used as a backing store for token information.
+
+``bootstrap_token`` (optional)
+    If set, must be set to a Gafaelfawr token (such as that created with ``gafaelfawr generate-token``).
+    This special token will have admin permissions to the ``/auth/api/v1/admins`` routes and to ``/auth/api/v1/tokens`` to create service and user tokens.
+    This can be used to add administrators or create a service token with ``admin:token`` scope, which in turn can be used to create other service tokens and bootstrap users.
+
+``initial_admins`` (optional)
+    A list of users who should have admin rights after bootstrapping a fresh database.
+    When Gafaelfawr starts, all usernames in this list will be added as admins if they are not already.
+    These users will then automatically receive the ``admin:token`` scope when authenticating and will be able to add and rmeove administrators and create service and user tokens for any user.
 
 ``proxies`` (optional)
     List of IPs or network ranges (in CIDR notation) that should be assumed to be upstream proxies.
@@ -144,9 +158,10 @@ Secrets beginning or ending in whitespace are not supported.
     ``secret`` is the corresponding ``client_secret`` value for that client.
     See :ref:`openid-connect` for more details.
 
-``known_scopes`` (optional)
+``known_scopes`` (required)
     A dict whose keys are known scope names and whose values are human-language descriptions of that scope.
-    Used only to construct the web page where a user can create a new API token with a specific set of scopes.
+    Only scopes listed here will be permitted in tokens, so every scope referenced in ``group_mapping`` must also be present in this setting.
+    The ``admin:token`` scope used internally by Gafaelfawr must be included.
 
 ``group_mapping`` (optional)
     A dict whose keys are names of scopes and whose values are lists of names of groups (as found in the ``name`` attribute of the values of an ``isMemberOf`` claim in a JWT).
@@ -172,6 +187,8 @@ Secrets beginning or ending in whitespace are not supported.
 
     If GitHub authentication is in use, a user's groups will be based on their GitHub team memberships.
     See :ref:`github-groups` for more information.
+
+    The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr, regardless of the ``group_mapping`` setting.
 
 ``username_claim`` (optional, default ``uid``)
     The token claim to use as the authenticated user's username.

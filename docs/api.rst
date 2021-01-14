@@ -12,6 +12,8 @@ API reference
 .. automodapi:: gafaelfawr.constants
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.database
+
 .. automodapi:: gafaelfawr.dependencies.auth
 
 .. automodapi:: gafaelfawr.dependencies.config

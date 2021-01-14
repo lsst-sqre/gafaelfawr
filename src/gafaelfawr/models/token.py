@@ -12,6 +12,7 @@ from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.util import normalize_datetime, random_128_bits
 
 __all__ = [
+    "AdminTokenRequest",
     "NewToken",
     "Token",
     "TokenBase",

@@ -22,3 +22,9 @@ update: update-deps init
 ui:
 	cd ui && npm run lint:fix
 	cd ui && node_modules/.bin/gatsby build --prefix-paths
+
+# Filter out errors from modules that do not have Sphinx-compatible
+# documentation.
+.PHONY: docs
+docs:
+	tox -e docs | egrep -v ' (fastapi|httpx|pydantic|starlette)\.'

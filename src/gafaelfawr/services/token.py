@@ -415,7 +415,7 @@ class TokenService:
         ----------
         key : `str`
             The key of the token.
-        auth_data : `TokenData`
+        auth_data : `gafaelfawr.models.token.TokenData`
             The authentication data of the person requesting the token
             information, used for authorization checks.
         username : `str`, optional

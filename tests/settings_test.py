@@ -9,12 +9,18 @@ import yaml
 from pydantic import ValidationError
 
 from gafaelfawr.config import Settings
+from gafaelfawr.models.token import Token
 
 
 def parse_settings(path: Path) -> None:
     """Parse the settings file and see if any exceptions are thrown."""
     with path.open("r") as f:
         settings = yaml.safe_load(f)
+
+    # Avoid errors from an invalid bootstrap token in one of the examples.
+    if "bootstrap_token" in settings:
+        settings["bootstrap_token"] = str(Token())
+
     Settings.parse_obj(settings)
 
 

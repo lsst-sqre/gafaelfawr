@@ -3,10 +3,10 @@
 # secret key in examples/secrets/github-client-secret, and then run tox -e
 # run to bring up a test server.
 #
-# WARNING: The session secret and RSA private key included in this package
-# are published to the entire world and are therefore not secure in any
-# way.  Use them ONLY for testing and ONLY with a development server
-# exposed only to localhost.
+# WARNING: The session secret, RSA private key, and bootstrap token
+# included in this package are published to the entire world and are
+# therefore not secure in any way.  Use them ONLY for testing and ONLY
+# with a development server exposed only to localhost.
 #
 # Anyone in the world can decrypt and forge any identity information of
 # any server that uses these settings.
@@ -15,6 +15,10 @@ realm: "localhost"
 loglevel: "DEBUG"
 session_secret_file: "examples/secrets/session-secret"
 database_url: "postgresql://gafaelfawr:INSECURE@localhost/gafaelfawr"
+
+# WARNING: This is public and entirely insecure.  Use only for local
+# development not accessible to the Internet.
+bootstrap_token: "gt-OwYUKbFrIRfcTnKcX9bEGA.9SPTVsVv3fxUzXqogQpCXg"
 
 # Replace this user with your GitHub username.
 initial_admins:
@@ -48,6 +52,7 @@ github:
 # for a scope.
 known_scopes:
   "admin": "Administrative access"
+  "admin:token": "Can create and modify tokens for any user"
   "read:all": "Can read anything"
 
 # To get scopes based on GitHub team membership, replace <org> with the
