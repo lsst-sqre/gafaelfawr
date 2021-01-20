@@ -10,6 +10,7 @@ from click.testing import CliRunner
 
 from gafaelfawr.cli import main
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.models.token import Token
 
 
 def test_generate_key() -> None:
@@ -30,6 +31,14 @@ def test_generate_key() -> None:
         "n": ANY,
         "e": ANY,
     }
+
+
+def test_generate_token() -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["generate-token"])
+
+    assert result.exit_code == 0
+    assert Token.from_str(result.output.rstrip("\n"))
 
 
 def test_help() -> None:

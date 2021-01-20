@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from gafaelfawr.dependencies.auth import authenticate
+from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import NotConfiguredException
 from gafaelfawr.models.token import NewToken, TokenData
@@ -16,7 +16,7 @@ __all__ = ["get_influxdb"]
 
 @router.get("/auth/tokens/influxdb/new", response_model=NewToken)
 async def get_influxdb(
-    token_data: TokenData = Depends(authenticate),
+    token_data: TokenData = Depends(Authenticate()),
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     """Return an InfluxDB-compatible JWT."""

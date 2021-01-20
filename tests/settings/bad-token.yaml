@@ -1,6 +1,10 @@
-realm: "localhost"
+# Bad configuration file with invalid bootstrap_token setting.
+
+realm: "testing"
+loglevel: "INFO"
 session_secret_file: "{session_secret_file}"
-database_url: "{database_url}"
+database_url: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
+bootstrap_token: "bootstrap-token"
 initial_admins: ["admin"]
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
@@ -17,7 +21,6 @@ issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"
   key_file: "{issuer_key_file}"
-  influxdb_secret_file: "{influxdb_secret_file}"
   aud: "https://example.com/"
 github:
   client_id: "some-github-client-id"

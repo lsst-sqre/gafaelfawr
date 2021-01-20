@@ -43,8 +43,23 @@ class AdminService:
         self._transaction_manager = transaction_manager
 
     def add_admin(self, username: str, *, actor: str, ip_address: str) -> None:
-        """Add a new administrator."""
-        if not self.is_admin(actor):
+        """Add a new administrator.
+
+        Parameters
+        ----------
+        username : `str`
+            The administrator to delete.
+        actor : `str`
+            The person doing the deleting.
+        ip_address : `str`
+            The IP address from which the request came.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the actor is not an admin.
+        """
+        if not self.is_admin(actor) and actor != "<bootstrap>":
             raise PermissionDeniedError(f"{actor} is not an admin")
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(
@@ -57,6 +72,49 @@ class AdminService:
         with self._transaction_manager.transaction():
             self._admin_store.add(admin)
             self._admin_history_store.add(history_entry)
+
+    def delete_admin(
+        self, username: str, *, actor: str, ip_address: str
+    ) -> bool:
+        """Delete an administrator.
+
+        Parameters
+        ----------
+        username : `str`
+            The administrator to delete.
+        actor : `str`
+            The person doing the deleting.
+        ip_address : `str`
+            The IP address from which the request came.
+
+        Returns
+        -------
+        success : `bool`
+            `True` if the administrator was found and deleted, `False` if they
+            were not found.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the actor is not an admin.
+        """
+        if not self.is_admin(actor) and actor != "<bootstrap>":
+            raise PermissionDeniedError(f"{actor} is not an admin")
+        admin = Admin(username=username)
+        history_entry = AdminHistoryEntry(
+            username=username,
+            action=AdminChange.remove,
+            actor=actor,
+            ip_address=ip_address,
+            event_time=datetime.now(timezone.utc),
+        )
+        with self._transaction_manager.transaction():
+            if self.get_admins() == [admin]:
+                raise PermissionDeniedError("Cannot delete the last admin")
+            result = self._admin_store.delete(admin)
+            if result:
+                self._admin_history_store.add(history_entry)
+        return result
 
     def get_admins(self) -> List[Admin]:
         """Get the current administrators."""

@@ -4,14 +4,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 
+from gafaelfawr.constants import USERNAME_REGEX
 from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.util import normalize_datetime, random_128_bits
 
 __all__ = [
+    "AdminTokenRequest",
     "NewToken",
     "Token",
     "TokenBase",
@@ -99,6 +101,7 @@ class TokenType(Enum):
     user = "user"
     notebook = "notebook"
     internal = "internal"
+    service = "service"
 
 
 class TokenGroup(BaseModel):
@@ -228,10 +231,10 @@ class TokenUserInfo(BaseModel):
         None, title="The user's preferred full name", min_length=1
     )
 
-    uid: int = Field(..., title="The user's UID number", ge=1)
+    uid: Optional[int] = Field(None, title="The user's UID number", ge=1)
 
-    groups: List[TokenGroup] = Field(
-        [], title="The groups of which the user is a member"
+    groups: Optional[List[TokenGroup]] = Field(
+        None, title="The groups of which the user is a member"
     )
 
 
@@ -254,6 +257,71 @@ class NewToken(BaseModel):
     """Response to a token creation request."""
 
     token: str = Field(..., title="Newly-created token")
+
+
+class AdminTokenRequest(BaseModel):
+    """A request to create a new token via the admin interface."""
+
+    username: str = Field(
+        ...,
+        title="The user for which to issue a token",
+        description=(
+            "The username may only contain lowercase letters, digits,"
+            " period (.), dash (-), and underscore (_)."
+        ),
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
+    )
+
+    token_type: TokenType = Field(
+        ...,
+        title="The type of the token",
+        description="Must be either service or user.",
+    )
+
+    token_name: Optional[str] = Field(
+        None,
+        title="The user-given name of the token",
+        description="Only provide this field for a token type of user.",
+        min_length=1,
+        max_length=64,
+    )
+
+    scopes: List[str] = Field([], title="The scopes of the token")
+
+    expires: Optional[datetime] = Field(
+        None, title="Expiration timestamp of the token in seconds since epoch"
+    )
+
+    name: Optional[str] = Field(
+        None, title="The user's preferred full name", min_length=1
+    )
+
+    uid: Optional[int] = Field(None, title="The user's UID number", ge=1)
+
+    groups: Optional[List[TokenGroup]] = Field(
+        None, title="The groups of which the user is a member"
+    )
+
+    @validator("token_type")
+    def _valid_token_type(cls, v: TokenType) -> TokenType:
+        if v not in (TokenType.service, TokenType.user):
+            raise ValueError("token_type must be service or user")
+        return v
+
+    @validator("token_name", always=True)
+    def _valid_token_name(
+        cls, v: Optional[str], values: Dict[str, Any]
+    ) -> Optional[str]:
+        if "token_type" not in values:
+            # Validation already failed, so the return value doesn't matter.
+            return None
+        if v and values["token_type"] == TokenType.service:
+            raise ValueError("Tokens of type service cannot have a name")
+        if not v and values["token_type"] == TokenType.user:
+            raise ValueError("Tokens of type user must have a name")
+        return v
 
 
 class UserTokenRequest(BaseModel):

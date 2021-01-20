@@ -188,6 +188,7 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
     Mapping of scope names to descriptions.
     This is used to populate the new token creation page.
     It is copied directly to the ``known_scopes`` configuration setting documented in :ref:`settings`.
+    The ``admin:token`` scope used internally by Gafaelfawr for token administrators must be included.
 
 ``group_mapping``
     Mapping of scope names to lists of groups that provide that scope.
@@ -199,3 +200,24 @@ For an example, see `the configuration for the LSST Science Platform deployments
 
 The Helm chart will generate a Gafaelfawr configuration file via a ``ConfigMap`` resource.
 See :ref:`settings` if you need to understand that configuration file or fine-tune its settings.
+
+Administrators
+==============
+
+Gafaelfawr has a concept of token administrators.
+Those users can add and remove other administrators and can create a service or user token for any user.
+Currently, this capability is only available via the API, not the UI.
+
+If a username is marked as a token administrator, that user will be automatically granted the ``admin:token`` scope when they authenticate (via either GitHub or OpenID Connect), regardless of their group membership.
+They can then choose whether to delegate that scope to any user tokens they create.
+
+The initial set of administrators can be added with the ``initial_admins`` configuration option (see :ref:`settings`) or via the bootstrap token.
+
+Bootstrapping
+-------------
+
+Gafaelfawr can be configured with a special token, called the bootstrap token.
+This token must be generated with ``gafaelfawr generate-token`` and then set via the ``bootstrap_token`` configuration option (see :ref:`settings`).
+It can then be used with API calls as a bearer token in the ``Authenticate`` header.
+
+The bootstrap token acts like the token of a service or user with the ``admin:token`` scope, but can only access specific routes, namely ``/auth/api/v1/tokens`` and those under ``/auth/api/v1/admins``.

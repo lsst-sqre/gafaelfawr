@@ -22,6 +22,9 @@ session_secret_file: "/path/to/session-secret"
 # file.
 database_url: "postgresql://gafaelfawr:<password>@example.com/gafaelfawr"
 
+# Replace <token> with a token generated via gafaelfawr generate-token.
+bootstrap_token: "<token>"
+
 # Replace this with a list of users who should have admin rights when
 # bootstrapping a fresh database.
 initial_admins:
@@ -70,6 +73,7 @@ oidc:
 # to use for a scope.  Used to populate the new token creation page.
 known_scopes:
   "admin": "Administrative access"
+  "admin:token": "Can create and modify tokens for any user"
   "read:all": "Can read anything"
 
 # Map scopes to lists of groups that provide that scope.

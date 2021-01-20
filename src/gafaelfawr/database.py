@@ -23,6 +23,8 @@ from gafaelfawr.storage.transaction import TransactionManager
 if TYPE_CHECKING:
     from gafaelfawr.config import Config
 
+__all__ = ["initialize_database"]
+
 
 def initialize_database(config: Config) -> None:
     """Create and initialize a new database.

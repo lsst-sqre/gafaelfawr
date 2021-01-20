@@ -232,13 +232,18 @@ async def test_auth_required(setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
     token = token_data.token
     csrf = await setup.login(token)
-    state = State(token=token)
 
     # Replace the cookie with one containing the CSRF token but not the
     # authentication token.
-    state = State(csrf=csrf)
-    del setup.client.cookies[COOKIE_NAME]
-    setup.client.cookies[COOKIE_NAME] = state.as_cookie()
+    setup.logout()
+    setup.client.cookies[COOKIE_NAME] = State(csrf=csrf).as_cookie()
+
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"username": "foo", "token_type": "service"},
+    )
+    assert r.status_code == 401
 
     r = await setup.client.get("/auth/api/v1/users/example/tokens")
     assert r.status_code == 401
@@ -277,12 +282,24 @@ async def test_auth_required(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_csrf_required(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token()
+    token_data = await setup.create_session_token(scopes=["admin:token"])
     csrf = await setup.login(token_data.token)
     token_service = setup.factory.create_token_service()
     user_token = await token_service.create_user_token(
         token_data, token_data.username, token_name="foo"
     )
+
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        json={"username": "foo", "token_type": "service"},
+    )
+    assert r.status_code == 403
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": f"XXX{csrf}"},
+        json={"username": "foo", "token_type": "service"},
+    )
+    assert r.status_code == 403
 
     r = await setup.client.post(
         "/auth/api/v1/users/example/tokens", json={"token_name": "some token"}
@@ -319,6 +336,45 @@ async def test_csrf_required(setup: SetupTest) -> None:
         json={"token_name": "some token"},
     )
     assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_no_bootstrap(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    token = token_data.token
+    bootstrap_token = str(setup.config.bootstrap_token)
+
+    r = await setup.client.get(
+        "/auth/api/v1/users/example/tokens",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.post(
+        "/auth/api/v1/users/example/tokens",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/example/tokens/{token.key}",
+        headers={"Authorization": f"bearer {bootstrap_token}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -585,3 +641,175 @@ async def test_bad_scopes(setup: SetupTest) -> None:
         data = r.json()
         assert data["detail"]["loc"] == ["body", "scopes"]
         assert data["detail"]["type"] == "bad_scopes"
+
+
+@pytest.mark.asyncio
+async def test_create_admin(setup: SetupTest) -> None:
+    """Test creating a token through the admin interface."""
+    token_data = await setup.create_session_token(scopes=["exec:admin"])
+    csrf = await setup.login(token_data.token)
+
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={"username": "a-service", "token_type": "service"},
+    )
+    assert r.status_code == 403
+
+    token_data = await setup.create_session_token(scopes=["admin:token"])
+    csrf = await setup.login(token_data.token)
+
+    now = datetime.now(tz=timezone.utc)
+    expires = int((now + timedelta(days=2)).timestamp())
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "username": "a-service",
+            "token_type": "service",
+            "scopes": ["admin:token"],
+            "expires": expires,
+            "name": "A Service",
+            "uid": 1234,
+            "groups": [{"name": "some-group", "id": 12381}],
+        },
+    )
+    assert r.status_code == 201
+    assert r.json() == {"token": ANY}
+    service_token = Token.from_str(r.json()["token"])
+    token_url = f"/auth/api/v1/users/a-service/tokens/{service_token.key}"
+    assert r.headers["Location"] == token_url
+
+    setup.logout()
+    r = await setup.client.get(
+        "/auth/api/v1/token-info",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "token": service_token.key,
+        "username": "a-service",
+        "token_type": "service",
+        "scopes": ["admin:token"],
+        "created": ANY,
+        "expires": expires,
+    }
+    r = await setup.client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "a-service",
+        "name": "A Service",
+        "uid": 1234,
+        "groups": [{"name": "some-group", "id": 12381}],
+    }
+
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+        json={"username": "a-user", "token_type": "session"},
+    )
+    assert r.status_code == 422
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+        json={"username": "a-user", "token_type": "user"},
+    )
+    assert r.status_code == 422
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+        json={
+            "username": "a-user",
+            "token_type": "user",
+            "token_name": "some token",
+            "expires": int(datetime.now(tz=timezone.utc).timestamp()),
+        },
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["type"] == "bad_expires"
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+        json={
+            "username": "a-user",
+            "token_type": "user",
+            "token_name": "some token",
+            "scopes": ["bogus:scope"],
+        },
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["type"] == "bad_scopes"
+
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+        json={
+            "username": "a-user",
+            "token_type": "user",
+            "token_name": "some token",
+        },
+    )
+    assert r.status_code == 201
+    assert r.json() == {"token": ANY}
+    user_token = Token.from_str(r.json()["token"])
+    token_url = f"/auth/api/v1/users/a-user/tokens/{user_token.key}"
+    assert r.headers["Location"] == token_url
+
+    # Successfully create a user token.
+    r = await setup.client.get(
+        "/auth/api/v1/token-info",
+        headers={"Authorization": f"bearer {str(user_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "token": user_token.key,
+        "username": "a-user",
+        "token_type": "user",
+        "token_name": "some token",
+        "scopes": [],
+        "created": ANY,
+    }
+    r = await setup.client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"bearer {str(user_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {"username": "a-user"}
+
+    # Check handling of duplicate token name errors.
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+        json={
+            "username": "a-user",
+            "token_type": "user",
+            "token_name": "some token",
+        },
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["type"] == "duplicate_token_name"
+
+    # Check handling of an invalid username.
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+        json={
+            "username": "invalid(user)",
+            "token_type": "user",
+            "token_name": "some token",
+        },
+    )
+    assert r.status_code == 422
+
+    # Check that the bootstrap token also works.
+    r = await setup.client.post(
+        "/auth/api/v1/tokens",
+        headers={
+            "Authorization": f"bearer {str(setup.config.bootstrap_token)}"
+        },
+        json={"username": "other-service", "token_type": "service"},
+    )
+    assert r.status_code == 201

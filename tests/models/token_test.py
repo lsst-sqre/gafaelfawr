@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from gafaelfawr.exceptions import InvalidTokenError
-from gafaelfawr.models.token import Token
+from gafaelfawr.models.token import AdminTokenRequest, Token, TokenType
 
 
 def test_token() -> None:
@@ -37,3 +38,21 @@ def test_token_from_str() -> None:
     assert token.key == "MLF5MB3Peg79wEC0BY8U8Q"
     assert token.secret == "ChbkqEyp3EIJ2e_1Sqff3w"
     assert str(token) == token_str
+
+
+def test_admin_request() -> None:
+    # Invalid token type.
+    with pytest.raises(ValidationError):
+        AdminTokenRequest(username="someuser", token_type=TokenType.session)
+
+    # User tokens must have a name.
+    with pytest.raises(ValidationError):
+        AdminTokenRequest(username="someuser", token_type=TokenType.user)
+
+    # Service tokens may not have a name.
+    with pytest.raises(ValidationError):
+        AdminTokenRequest(
+            username="someuser",
+            token_type=TokenType.service,
+            token_name="some token name",
+        )

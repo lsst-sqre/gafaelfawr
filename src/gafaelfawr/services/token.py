@@ -2,20 +2,27 @@
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from gafaelfawr.constants import MINIMUM_LIFETIME
+from gafaelfawr.constants import MINIMUM_LIFETIME, USERNAME_REGEX
 from gafaelfawr.exceptions import (
     BadExpiresError,
     BadScopesError,
     PermissionDeniedError,
 )
-from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
+from gafaelfawr.models.token import (
+    AdminTokenRequest,
+    Token,
+    TokenData,
+    TokenType,
+    TokenUserInfo,
+)
 
 if TYPE_CHECKING:
-    from typing import List, Optional, Set
+    from typing import List, Optional
 
     from structlog import BoundLogger
 
@@ -62,7 +69,7 @@ class TokenService:
     async def create_session_token(
         self, user_info: TokenUserInfo, scopes: List[str]
     ) -> Token:
-        """Add a new session token.
+        """Create a new session token.
 
         Parameters
         ----------
@@ -75,7 +82,13 @@ class TokenService:
         -------
         token : `gafaelfawr.models.token.Token`
             The newly-created token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the provided username is invalid.
         """
+        self._validate_username(user_info.username)
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
         expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
@@ -100,7 +113,6 @@ class TokenService:
         token_name: str,
         scopes: Optional[List[str]] = None,
         expires: Optional[datetime] = None,
-        no_expire: bool = False,
     ) -> Token:
         """Add a new user token.
 
@@ -135,22 +147,17 @@ class TokenService:
             A token with this name for this user already exists.
         gafaelfawr.exceptions.PermissionDeniedError
             If the given username didn't match the user information in the
-            authentication token.
+            authentication token, or if the specified username is invalid.
         """
         if username != auth_data.username:
             msg = "Cannot create tokens for another user"
             raise PermissionDeniedError(msg)
+        self._validate_username(username)
 
         token = Token()
         created = datetime.now(tz=timezone.utc).replace(microsecond=0)
-        if no_expire:
-            expires = None
-        elif not expires:
-            expires = auth_data.expires
-        else:
-            self._validate_expires(expires)
-        if scopes:
-            self._validate_scopes(auth_data, set(scopes))
+        self._validate_expires(expires)
+        self._validate_scopes(scopes, auth_data)
         data = TokenData(
             token=token,
             username=auth_data.username,
@@ -171,6 +178,53 @@ class TokenService:
             token_name=token_name,
             token_scope=",".join(data.scopes),
         )
+        return token
+
+    async def create_token_from_admin_request(
+        self, request: AdminTokenRequest, auth_data: TokenData
+    ) -> Token:
+        """Create a new service or user token from an admin request.
+
+        Parameters
+        ----------
+        request : `gafaelfawr.models.token.AdminTokenRequest`
+            The incoming request.
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The data for the authenticated user making the request.
+
+        Returns
+        -------
+        token : `gafaelfawr.models.token.Token`
+            The newly-created token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the provided username is invalid.
+        """
+        if "admin:token" not in auth_data.scopes:
+            raise PermissionDeniedError("Missing required admin:token scope")
+        self._validate_username(request.username)
+        self._validate_scopes(request.scopes)
+        self._validate_expires(request.expires)
+
+        token = Token()
+        created = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        data = TokenData(
+            token=token,
+            username=request.username,
+            token_type=request.token_type,
+            scopes=request.scopes,
+            created=created,
+            expires=request.expires,
+            name=request.name,
+            uid=request.uid,
+            groups=request.groups,
+        )
+
+        await self._token_redis_store.store_data(data)
+        with self._transaction_manager.transaction():
+            self._token_db_store.add(data, token_name=request.token_name)
         return token
 
     async def delete_token(
@@ -247,9 +301,15 @@ class TokenService:
         -------
         token : `gafaelfawr.models.token.Token`
             The newly-created token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the username is invalid.
         """
         if not set(scopes) <= set(token_data.scopes):
             raise PermissionDeniedError("Token does not have required scopes")
+        self._validate_username(token_data.username)
 
         # See if there's already a matching internal token.
         key = self._token_db_store.get_internal_token_key(
@@ -307,7 +367,14 @@ class TokenService:
         -------
         token : `gafaelfawr.models.token.Token`
             The newly-created token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.PermissionDeniedError
+            If the username is invalid.
         """
+        self._validate_username(token_data.username)
+
         # See if there's already a matching notebook token.
         key = self._token_db_store.get_notebook_token_key(token_data)
         if key:
@@ -347,7 +414,7 @@ class TokenService:
         ----------
         key : `str`
             The key of the token.
-        auth_data : `TokenData`
+        auth_data : `gafaelfawr.models.token.TokenData`
             The authentication data of the person requesting the token
             information, used for authorization checks.
         username : `str`, optional
@@ -488,10 +555,8 @@ class TokenService:
             msg = "Only user tokens can be modified"
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
-        if scopes:
-            self._validate_scopes(auth_data, set(scopes))
-        if expires:
-            self._validate_expires(expires)
+        self._validate_scopes(scopes, auth_data)
+        self._validate_expires(expires)
 
         with self._transaction_manager.transaction():
             info = self._token_db_store.modify(
@@ -520,12 +585,12 @@ class TokenService:
             )
         return info
 
-    def _validate_expires(self, expires: datetime) -> None:
+    def _validate_expires(self, expires: Optional[datetime]) -> None:
         """Check that a provided token expiration is valid.
 
         Arguments
         ---------
-        expires : `datetime`
+        expires : `datetime` or `None`
             The token expiration time.
 
         Raises
@@ -540,28 +605,43 @@ class TokenService:
         if it isn't valid.  (It could be done using multiple models, but
         isn't currently.)
         """
+        if not expires:
+            return
         if expires.timestamp() < time.time() + MINIMUM_LIFETIME:
             msg = "token must be valid for at least five minutes"
             raise BadExpiresError(msg)
 
-    def _validate_scopes(self, auth_data: TokenData, scopes: Set[str]) -> None:
+    def _validate_scopes(
+        self,
+        scopes: Optional[List[str]],
+        auth_data: Optional[TokenData] = None,
+    ) -> None:
         """Check that the requested scopes are valid.
 
         Arguments
         ---------
-        auth_data : `gafaelfawr.models.token.TokenData`
-            The token used to authenticate the operation.
-        scopes : Set[`str`]
+        scopes : List[`str`] or `None`
             The requested scopes.
+        auth_data : `gafaelfawr.models.token.TokenData`, optional
+            The token used to authenticate the operation, if the scopes should
+            be checked to ensure they are a subset.
 
         Raises
         ------
         gafaelfawr.exceptions.BadScopesError
             The requested scopes are not permitted.
         """
-        if not (scopes <= set(auth_data.scopes)):
+        if not scopes:
+            return
+        scopes_set = set(scopes)
+        if auth_data and not (scopes_set <= set(auth_data.scopes)):
             msg = "Requested scopes are broader than your current scopes"
             raise BadScopesError(msg)
-        if not (scopes <= self._config.known_scopes.keys()):
+        if not (scopes_set <= self._config.known_scopes.keys()):
             msg = "Unknown scopes requested"
             raise BadScopesError(msg)
+
+    def _validate_username(self, username: str) -> None:
+        """Check that the username is valid."""
+        if not re.match(USERNAME_REGEX, username):
+            raise PermissionDeniedError(f"Invalid username: {username}")

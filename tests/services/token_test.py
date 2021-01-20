@@ -8,9 +8,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 from cryptography.fernet import Fernet
+from pydantic import ValidationError
 
-from gafaelfawr.exceptions import PermissionDeniedError
+from gafaelfawr.exceptions import (
+    BadExpiresError,
+    BadScopesError,
+    PermissionDeniedError,
+)
 from gafaelfawr.models.token import (
+    AdminTokenRequest,
     Token,
     TokenData,
     TokenGroup,
@@ -82,6 +88,11 @@ async def test_session_token(setup: SetupTest) -> None:
     assert info
     assert info.scopes == ["exec:admin", "read:all"]
 
+    # Cannot create a session token with a username of <bootstrap>.
+    user_info.username = "<bootstrap>"
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_session_token(user_info, scopes=[])
+
 
 @pytest.mark.asyncio
 async def test_user_token(setup: SetupTest) -> None:
@@ -131,6 +142,13 @@ async def test_user_token(setup: SetupTest) -> None:
         name=user_info.name,
         uid=user_info.uid,
     )
+
+    # Cannot create a user token with a username of <bootstrap>.
+    data.username = "<bootstrap>"
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_user_token(
+            data, "<bootstrap>", token_name="bootstrap-token"
+        )
 
 
 @pytest.mark.asyncio
@@ -184,11 +202,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
     # Check that the expiration time is capped by creating a user token that
     # doesn't expire and then creating a notebook token from it.
     user_token = await token_service.create_user_token(
-        data,
-        data.username,
-        token_name="some token",
-        expires=None,
-        no_expire=True,
+        data, data.username, token_name="some token", expires=None
     )
     data = await token_service.get_data(user_token)
     assert data
@@ -265,7 +279,6 @@ async def test_internal_token(setup: SetupTest) -> None:
         token_name="some token",
         scopes=["exec:admin"],
         expires=None,
-        no_expire=True,
     )
     data = await token_service.get_data(user_token)
     assert data
@@ -278,6 +291,76 @@ async def test_internal_token(setup: SetupTest) -> None:
     assert info.scopes == []
     expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert info.expires == expires
+
+
+@pytest.mark.asyncio
+async def test_token_from_admin_request(setup: SetupTest) -> None:
+    user_info = TokenUserInfo(
+        username="example", name="Example Person", uid=4137
+    )
+    token_service = setup.factory.create_token_service()
+    token = await token_service.create_session_token(user_info, scopes=[])
+    data = await token_service.get_data(token)
+    assert data
+    now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+    expires = now + timedelta(days=2)
+    request = AdminTokenRequest(
+        username="otheruser",
+        token_type=TokenType.user,
+        token_name="some token",
+        scopes=["read:all"],
+        expires=expires,
+        name="Other User",
+        uid=1345,
+        groups=[TokenGroup(name="some-group", id=4133)],
+    )
+
+    # Cannot create a token via admin request because the authentication
+    # information is missing the admin:token scope.
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_token_from_admin_request(request, data)
+
+    # Get a token with an appropriate scope.
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["admin:token"]
+    )
+    data = await token_service.get_data(session_token)
+    assert data
+
+    # Test a few more errors.
+    request.username = "<bootstrap>"
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_token_from_admin_request(request, data)
+    request.username = "otheruser"
+    request.scopes = ["bogus:scope"]
+    with pytest.raises(BadScopesError):
+        await token_service.create_token_from_admin_request(request, data)
+    request.scopes = ["read:all"]
+    request.expires = now
+    with pytest.raises(BadExpiresError):
+        await token_service.create_token_from_admin_request(request, data)
+    request.expires = expires
+
+    # Try a successful request.
+    token = await token_service.create_token_from_admin_request(request, data)
+    user_data = await token_service.get_data(token)
+    assert user_data
+    assert user_data == TokenData(
+        token=token, created=user_data.created, **request.dict()
+    )
+    assert now <= user_data.created <= now + timedelta(seconds=5)
+
+    # Now request a service token with minimal data instead.
+    request = AdminTokenRequest(
+        username="service", token_type=TokenType.service
+    )
+    token = await token_service.create_token_from_admin_request(request, data)
+    service_data = await token_service.get_data(token)
+    assert service_data
+    assert service_data == TokenData(
+        token=token, created=service_data.created, **request.dict()
+    )
+    assert now <= service_data.created <= now + timedelta(seconds=5)
 
 
 @pytest.mark.asyncio
@@ -398,7 +481,6 @@ async def test_invalid(setup: SetupTest) -> None:
             "key": token.key,
             "secret": token.secret,
         },
-        "username": "example",
         "token_type": "session",
         "scopes": [],
         "created": int(datetime.now(tz=timezone.utc).timestamp()),
@@ -410,8 +492,41 @@ async def test_invalid(setup: SetupTest) -> None:
 
     # Fix the session store and confirm we can retrieve the manually-stored
     # session.
-    json_data["uid"] = 12345
+    json_data["username"] = "example"
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
     await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
     new_data = await token_service.get_data(token)
     assert new_data == TokenData.parse_obj(json_data)
+
+
+@pytest.mark.asyncio
+async def test_invalid_username(setup: SetupTest) -> None:
+    user_info = TokenUserInfo(
+        username="example",
+        name="Example Person",
+        uid=4137,
+        groups=[TokenGroup(name="foo", id=1000)],
+    )
+    token_service = setup.factory.create_token_service()
+    session_token = await token_service.create_session_token(
+        user_info, scopes=["read:all", "exec:admin"]
+    )
+    data = await token_service.get_data(session_token)
+    assert data
+
+    # Cannot create a session token with an invalid username.
+    for user in ("in+valid", " invalid", "invalid ", "in/valid", "in@valid"):
+        user_info.username = user
+        with pytest.raises(PermissionDeniedError):
+            await token_service.create_session_token(user_info, scopes=[])
+        data.username = user
+        with pytest.raises(PermissionDeniedError):
+            await token_service.create_user_token(data, user, token_name="n")
+        with pytest.raises(PermissionDeniedError):
+            await token_service.get_notebook_token(data)
+        with pytest.raises(PermissionDeniedError):
+            await token_service.get_internal_token(
+                data, service="s", scopes=[]
+            )
+        with pytest.raises(ValidationError):
+            AdminTokenRequest(username=user, token_type=TokenType.service)
