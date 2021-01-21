@@ -13,7 +13,7 @@ from aioredis import Redis
 from fastapi import Depends, Request
 from fastapi_sqlalchemy import db
 from httpx import AsyncClient
-from structlog import BoundLogger
+from structlog.stdlib import BoundLogger
 
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency

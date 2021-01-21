@@ -14,7 +14,7 @@ from gafaelfawr.providers.base import Provider
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
-    from structlog import BoundLogger
+    from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import OIDCConfig
     from gafaelfawr.verify import TokenVerifier

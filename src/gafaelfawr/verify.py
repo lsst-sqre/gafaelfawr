@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from typing import Any, Dict, List, Mapping, Optional
 
     from httpx import AsyncClient
-    from structlog import BoundLogger
+    from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import VerifierConfig
     from gafaelfawr.tokens import OIDCToken
@@ -86,8 +86,8 @@ class TokenVerifier:
         try:
             payload = jwt.decode(
                 token.encoded,
-                self._config.keypair.public_key_as_pem(),
-                algorithms=ALGORITHM,
+                self._config.keypair.public_key_as_pem().decode(),
+                algorithms=[ALGORITHM],
                 audience=self._config.aud,
             )
         except jwt.InvalidTokenError as e:
@@ -116,7 +116,9 @@ class TokenVerifier:
         """
         unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
-            token.encoded, algorithms=ALGORITHM, verify=False
+            token.encoded,
+            algorithms=[ALGORITHM],
+            options={"verify_signature": False},
         )
         if "iss" not in unverified_token:
             raise InvalidIssuerError("No iss claim in token")
@@ -145,7 +147,7 @@ class TokenVerifier:
         payload = jwt.decode(
             token.encoded,
             key,
-            algorithms=ALGORITHM,
+            algorithms=[ALGORITHM],
             audience=self._config.oidc_aud,
         )
 
@@ -193,7 +195,7 @@ class TokenVerifier:
             uid=uid,
         )
 
-    async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> bytes:
+    async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> str:
         """Get the key for an issuer.
 
         Gets a key as PEM, given the issuer and the request key ID.
@@ -248,13 +250,13 @@ class TokenVerifier:
         return public_key
 
     @staticmethod
-    def _build_public_key(exponent: int, modulus: int) -> bytes:
+    def _build_public_key(exponent: int, modulus: int) -> str:
         """Convert an exponent and modulus to a PEM-encoded key."""
         components = rsa.RSAPublicNumbers(exponent, modulus)
         public_key = components.public_key(backend=default_backend())
         return public_key.public_bytes(
             encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo
-        )
+        ).decode()
 
     async def _get_keys(self, issuer_url: str) -> List[Dict[str, str]]:
         """Fetch the key set for an issuer.

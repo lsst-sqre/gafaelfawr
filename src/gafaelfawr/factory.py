@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
     from aioredis import Redis
     from httpx import AsyncClient
-    from structlog import BoundLogger
+    from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
     from gafaelfawr.providers.base import Provider
@@ -61,6 +61,7 @@ class ComponentFactory:
         if not logger:
             structlog.configure(wrapper_class=structlog.stdlib.BoundLogger)
             logger = structlog.get_logger("gafaelfawr")
+            assert logger
 
         if not session:
             engine = create_engine(config.database_url)

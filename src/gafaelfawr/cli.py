@@ -61,8 +61,8 @@ def run(port: int) -> None:
 def generate_key() -> None:
     """Generate a new RSA key pair."""
     keypair = RSAKeyPair.generate()
-    print(keypair.private_key_as_pem().decode())
-    print(keypair.public_key_as_pem().decode())
+    print(keypair.private_key_as_pem())
+    print(keypair.public_key_as_pem())
     print(json.dumps(keypair.public_key_as_jwks(), indent=4))
 
 

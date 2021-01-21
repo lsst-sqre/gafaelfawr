@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from typing import List, Optional
 
     from sqlalchemy.orm import Session
-    from structlog import BoundLogger
+    from structlog.stdlib import BoundLogger
 
     from gafaelfawr.models.token import Token, TokenData
     from gafaelfawr.storage.base import RedisStorage

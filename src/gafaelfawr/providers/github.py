@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from typing import List
 
     from httpx import AsyncClient
-    from structlog import BoundLogger
+    from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import GitHubConfig
 

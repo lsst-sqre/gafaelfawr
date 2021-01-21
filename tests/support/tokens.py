@@ -67,10 +67,10 @@ def create_test_token(
 
     encoded = jwt.encode(
         payload,
-        config.issuer.keypair.private_key_as_pem(),
+        config.issuer.keypair.private_key_as_pem().decode(),
         algorithm=ALGORITHM,
         headers={"kid": kid},
-    ).decode()
+    )
 
     return OIDCVerifiedToken(
         encoded=encoded,
