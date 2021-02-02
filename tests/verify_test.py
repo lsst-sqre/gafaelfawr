@@ -23,6 +23,8 @@ from gafaelfawr.models.oidc import OIDCToken
 if TYPE_CHECKING:
     from typing import Any, Dict, Optional
 
+    from _pytest._code import ExceptionInfo
+
     from tests.support.setup import SetupTest
 
 
@@ -35,10 +37,10 @@ def encode_token(
         headers["kid"] = kid
     encoded = jwt.encode(
         payload,
-        keypair.private_key_as_pem(),
+        keypair.private_key_as_pem().decode(),
         algorithm=ALGORITHM,
         headers=headers,
-    ).decode()
+    )
     return OIDCToken(encoded=encoded)
 
 
@@ -56,6 +58,7 @@ async def test_verify_oidc(setup: SetupTest) -> None:
     }
     keypair = setup.config.issuer.keypair
     token = encode_token(payload, keypair)
+    excinfo: ExceptionInfo[Exception]
 
     # Missing iss.
     with pytest.raises(InvalidIssuerError) as excinfo:

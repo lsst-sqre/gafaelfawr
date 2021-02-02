@@ -77,7 +77,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        key : `bytes`
+        key : `str`
             Private key encoded using PKCS#8 with no encryption.
         """
         if not self._private_key_as_pem:
@@ -117,7 +117,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        public_key : `bytes`
+        public_key : `str`
             The public key in PEM encoding and SubjectPublicKeyInfo format.
         """
         if not self._public_key_as_pem:

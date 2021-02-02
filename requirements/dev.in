@@ -20,8 +20,12 @@ pytest-asyncio
 pytest-httpx
 pytest-sugar
 selenium
-selenium-wire
+selenium-wire<4
 seqdiag
 sphinx-automodapi==0.12
 sphinx-click
 sphinx-prompt
+
+# Temporary to prevent conflicts with requirements/main.txt due to a different
+# aiohttp requirement on chardet (inherited from safir).
+aiohttp

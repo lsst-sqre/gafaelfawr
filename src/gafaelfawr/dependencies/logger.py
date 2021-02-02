@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import Depends, Request
-from structlog import BoundLogger
+from structlog.stdlib import BoundLogger
 
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
@@ -49,7 +49,7 @@ class LoggerDependency:
 
         Returns
         -------
-        logger : `structlog.BoundLogger`
+        logger : `structlog.stdlib.BoundLogger`
             The bound logger.
         """
         if not self.logger:

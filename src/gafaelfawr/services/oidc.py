@@ -14,7 +14,7 @@ from gafaelfawr.exceptions import (
 if TYPE_CHECKING:
     from typing import Optional
 
-    from structlog import BoundLogger
+    from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import OIDCServerConfig
     from gafaelfawr.issuer import TokenIssuer

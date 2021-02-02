@@ -24,7 +24,7 @@ from gafaelfawr.models.token import (
 if TYPE_CHECKING:
     from typing import List, Optional
 
-    from structlog import BoundLogger
+    from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
     from gafaelfawr.models.token import TokenInfo

@@ -108,7 +108,7 @@ class TokenIssuer:
             "iat": int(time.time()),
             "username": username,
         }
-        return jwt.encode(payload, secret, algorithm="HS256").decode()
+        return jwt.encode(payload, secret, algorithm="HS256")
 
     def _encode_token(self, payload: Dict[str, Any]) -> OIDCVerifiedToken:
         """Encode a token.
@@ -125,10 +125,10 @@ class TokenIssuer:
         """
         encoded_token = jwt.encode(
             payload,
-            self._config.keypair.private_key_as_pem(),
+            self._config.keypair.private_key_as_pem().decode(),
             algorithm=ALGORITHM,
             headers={"kid": self._config.kid},
-        ).decode()
+        )
         return OIDCVerifiedToken(
             encoded=encoded_token,
             claims=payload,
