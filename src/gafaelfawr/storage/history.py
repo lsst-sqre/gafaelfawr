@@ -6,6 +6,7 @@ import re
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_
+from sqlalchemy.sql import text
 
 from gafaelfawr.models.history import (
     HistoryCursor,
@@ -271,8 +272,10 @@ class TokenChangeHistoryStore:
         but the intended supported database is PostgreSQL anyway.
         """
         if "/" in ip_or_cidr:
-            if self._session.get_bind().name == "postgres":
-                return query.filter(":c >> ip_address").params(c=ip_or_cidr)
+            if self._session.get_bind().name == "postgresql":
+                return query.filter(text(":c >> ip_address")).params(
+                    c=ip_or_cidr
+                )
             else:
                 if ":" in str(ip_or_cidr):
                     net = re.sub("::/[0-9]+$", ":%", ip_or_cidr)
