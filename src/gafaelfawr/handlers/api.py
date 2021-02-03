@@ -334,15 +334,6 @@ def get_user_token_change_history(
                 "msg": str(e),
             },
         )
-    if not results.entries:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "loc": ["path", "username"],
-                "type": "not_found",
-                "msg": "Username not found",
-            },
-        )
     if limit:
         response.headers["Link"] = results.link_header(context.request.url)
         response.headers["X-Total-Count"] = str(results.count)
