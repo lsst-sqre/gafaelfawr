@@ -141,7 +141,7 @@ def get_admin_token_change_history(
     key: Optional[str] = Query(None, min_length=22, max_length=22),
     token_type: Optional[TokenType] = None,
     ip_address: Optional[str] = None,
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate_admin),
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
