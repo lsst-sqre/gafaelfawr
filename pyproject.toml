@@ -43,7 +43,7 @@ deps =
     -r{toxinidir}/requirements/main.txt
     -r{toxinidir}/requirements/dev.txt
 commands =
-    pytest --cov=gafaelfawr --cov-branch --cov-report= -n auto {posargs}
+    pytest -vv --cov=gafaelfawr --cov-branch --cov-report= -n auto {posargs}
 setenv =
     GAFAELFAWR_UI_PATH = {toxinidir}/ui/public
 
