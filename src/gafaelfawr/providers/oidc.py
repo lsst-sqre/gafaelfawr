@@ -147,10 +147,15 @@ class OIDCProvider(Provider):
             raise OIDCException(msg)
 
         # Extract information from it to create the user information.
-        groups = [
-            TokenGroup(name=g["name"], id=g["id"])
-            for g in token.claims.get("isMemberOf", [])
-        ]
+        try:
+            groups = [
+                TokenGroup(name=g["name"], id=int(g["id"]))
+                for g in token.claims.get("isMemberOf", [])
+                if "name" in g and "id" in g
+            ]
+        except Exception as e:
+            msg = f"isMemberOf claim is invalid: {str(e)}"
+            raise OIDCException(msg)
         return TokenUserInfo(
             username=token.username,
             name=token.claims.get("name"),
