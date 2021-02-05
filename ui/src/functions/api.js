@@ -15,9 +15,12 @@ function apiLoginRedirect() {
 }
 
 function buildUrl(route, params) {
-  if (!params) return route;
-  const query = new URLSearchParams(params);
-  return `${route}?${query.toString()}`;
+  if (!params) return apiUrl(route);
+  const url = new URL(apiUrl(route));
+  Object.entries(params).forEach(([key, value]) =>
+    url.searchParams.set(key, value)
+  );
+  return url.href;
 }
 
 function jsonIfOkay(response) {
@@ -38,7 +41,7 @@ function jsonIfOkay(response) {
 
 export function apiGet(route, params = null) {
   const url = buildUrl(route, params);
-  return fetch(apiUrl(url), { credentials: 'same-origin' })
+  return fetch(url, { credentials: 'same-origin' })
     .then((response) => {
       if (typeof window !== 'undefined' && response.status === 401) {
         window.location.href = apiLoginRedirect();
