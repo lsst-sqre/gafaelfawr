@@ -1,3 +1,4 @@
+import { Link } from 'gatsby';
 import PropTypes from 'prop-types';
 import React from 'react';
 
@@ -12,6 +13,9 @@ export default function TokenPage({ params }) {
   return (
     <Layout onError={onError}>
       <ErrorBanner error={error} />
+      <p>
+        <Link to="/">Return to token list</Link>
+      </p>
       <TokenData token={params.token} onError={onError} />
     </Layout>
   );

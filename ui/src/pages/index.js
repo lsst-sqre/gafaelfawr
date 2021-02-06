@@ -13,7 +13,9 @@ export default function Home() {
     <Layout onError={onError}>
       <ErrorBanner error={error} />
       <h1>Tokens</h1>
-      <Link to="/changes">Search token change history</Link>
+      <p>
+        <Link to="/changes">Search token change history</Link>
+      </p>
       <TokenList onError={onError} />
     </Layout>
   );

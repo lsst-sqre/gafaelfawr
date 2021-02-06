@@ -1,3 +1,4 @@
+import { Link } from 'gatsby';
 import React from 'react';
 
 import ErrorBanner from '../components/errorBanner';
@@ -11,6 +12,9 @@ export default function Changes() {
   return (
     <Layout onError={onError}>
       <ErrorBanner error={error} />
+      <p>
+        <Link to="/">Return to token list</Link>
+      </p>
       <TokenChangeSearch onError={onError} />
     </Layout>
   );
