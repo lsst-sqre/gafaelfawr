@@ -11,7 +11,7 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.models.oidc import OIDCVerifiedToken
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional, Union
+    from typing import Any, Dict, List, Optional
 
     from gafaelfawr.config import Config
 
@@ -23,7 +23,7 @@ def create_test_token(
     groups: Optional[List[str]] = None,
     *,
     kid: str = "some-kid",
-    **claims: Union[str, int],
+    **claims: Any,
 ) -> OIDCVerifiedToken:
     """Create a signed token using the configured test issuer.
 
@@ -88,7 +88,7 @@ def create_upstream_oidc_token(
     kid: str,
     *,
     groups: Optional[List[str]] = None,
-    **claims: str,
+    **claims: Any,
 ) -> OIDCVerifiedToken:
     """Create a signed token using the OpenID Connect issuer.
 

@@ -203,7 +203,7 @@ class SetupTest:
         *,
         kid: Optional[str] = None,
         groups: Optional[List[str]] = None,
-        **claims: str,
+        **claims: Any,
     ) -> VerifiedToken:
         """Create a signed OpenID Connect token.
 

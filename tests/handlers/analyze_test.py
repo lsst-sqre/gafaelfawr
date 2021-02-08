@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import ANY
 from urllib.parse import urlparse
 
 import pytest
-from fastapi.encoders import jsonable_encoder
 
 from gafaelfawr.models.token import Token
 from tests.support.headers import query_from_url
@@ -30,7 +30,11 @@ async def test_analyze_no_auth(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_analyze_session(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token()
+    token_data = await setup.create_session_token(
+        group_names=["foo", "bar"], scopes=["read:all"]
+    )
+    assert token_data.expires
+    assert token_data.groups
     await setup.login(token_data.token)
 
     r = await setup.client.get("/auth/analyze")
@@ -41,9 +45,27 @@ async def test_analyze_session(setup: SetupTest) -> None:
     assert '": "' in r.text
 
     assert r.json() == {
-        "data": jsonable_encoder(token_data.dict()),
-        "valid": True,
+        "token": {
+            "data": {
+                "exp": int(token_data.expires.timestamp()),
+                "iat": int(token_data.created.timestamp()),
+                "isMemberOf": [g.dict() for g in token_data.groups],
+                "name": token_data.name,
+                "scope": "read:all",
+                "sub": token_data.username,
+                "uid": token_data.username,
+                "uidNumber": str(token_data.uid),
+            },
+            "valid": True,
+        }
     }
+
+
+@pytest.mark.asyncio
+async def test_invalid_token(setup: SetupTest) -> None:
+    r = await setup.client.post("/auth/analyze", data={"token": "some-token"})
+    assert r.status_code == 200
+    assert r.json() == {"token": {"errors": [ANY], "valid": False}}
 
 
 @pytest.mark.asyncio
@@ -54,21 +76,68 @@ async def test_analyze_token(setup: SetupTest) -> None:
     r = await setup.client.post("/auth/analyze", data={"token": str(token)})
     assert r.status_code == 200
     assert r.json() == {
-        "data": {"token": token.dict()},
-        "errors": ["Invalid token"],
-        "valid": False,
+        "handle": token.dict(),
+        "token": {"errors": ["Invalid token"], "valid": False},
     }
 
     # Valid token.
-    token_data = await setup.create_session_token()
+    token_data = await setup.create_session_token(
+        group_names=["foo", "bar"], scopes=["admin:token", "read:all"]
+    )
+    assert token_data.expires
+    assert token_data.groups
     token = token_data.token
     r = await setup.client.post("/auth/analyze", data={"token": str(token)})
 
-    # Check that the results from /analyze include the handle, the session,
-    # and the token information.
+    # Check that the results from /analyze include the token components and
+    # the token information.
     assert r.status_code == 200
-    analysis = r.json()
-    assert analysis == {
-        "data": jsonable_encoder(token_data.dict()),
-        "valid": True,
+    assert r.json() == {
+        "handle": token.dict(),
+        "token": {
+            "data": {
+                "exp": int(token_data.expires.timestamp()),
+                "iat": int(token_data.created.timestamp()),
+                "isMemberOf": [g.dict() for g in token_data.groups],
+                "name": token_data.name,
+                "scope": "admin:token read:all",
+                "sub": token_data.username,
+                "uid": token_data.username,
+                "uidNumber": str(token_data.uid),
+            },
+            "valid": True,
+        },
+    }
+
+    # Create a session token with minimum data.
+    token_data.name = None
+    token_data.uid = None
+    token_data.groups = None
+    token_service = setup.factory.create_token_service()
+    user_token = await token_service.create_user_token(
+        token_data,
+        token_data.username,
+        token_name="foo",
+        scopes=[],
+        expires=None,
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+
+    # Check that the correct fields are omitted and nothing odd happens.
+    r = await setup.client.post(
+        "/auth/analyze", data={"token": str(user_token)}
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "handle": user_token.dict(),
+        "token": {
+            "data": {
+                "iat": int(user_token_data.created.timestamp()),
+                "scope": "",
+                "sub": user_token_data.username,
+                "uid": user_token_data.username,
+            },
+            "valid": True,
+        },
     }

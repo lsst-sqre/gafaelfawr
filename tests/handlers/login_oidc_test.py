@@ -367,3 +367,73 @@ async def test_invalid_username(setup: SetupTest) -> None:
             "type": "permission_denied",
         }
     }
+
+
+@pytest.mark.asyncio
+async def test_invalid_groups(setup: SetupTest) -> None:
+    setup.configure("oidc")
+    token = setup.create_upstream_oidc_token(
+        isMemberOf=[{"name": "foo", "id": ["bar"]}]
+    )
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    assert setup.config.oidc
+    return_url = "https://example.com/foo"
+
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 500
+    assert r.json() == {
+        "detail": {
+            "msg": ANY,
+            "type": "provider_failed",
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_groups_without_ids(setup: SetupTest) -> None:
+    setup.configure("oidc")
+    token = setup.create_upstream_oidc_token(
+        isMemberOf=[
+            {"name": "foo"},
+            {"group": "bar", "id": 4567},
+            {"name": "valid", "id": "7889"},
+            {"name": "admin", "id": 2371, "extra": "blah"},
+        ]
+    )
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    assert setup.config.oidc
+    return_url = "https://example.com/foo"
+
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == return_url
+
+    r = await setup.client.get("/auth", params={"scope": "exec:admin"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Groups"] == "valid,admin"
