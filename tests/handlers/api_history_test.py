@@ -19,7 +19,7 @@ from gafaelfawr.schema import TokenChangeHistory
 from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.util import current_datetime
 from tests.support.constants import TEST_HOSTNAME
-from tests.support.headers import parse_link
+from tests.support.headers import LinkData
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Dict, List, Optional, Union
@@ -218,7 +218,7 @@ async def check_pagination(
 
         # Check the Link contents, except for the next URL, which we'll check
         # by using it to retrieve the next data.
-        link_data = parse_link(r.headers["Link"])
+        link_data = LinkData.from_header(r.headers["Link"])
         assert link_data.first_url == f"https://{TEST_HOSTNAME}{first_url}"
         if end == 5:
             assert not link_data.prev_url
@@ -228,7 +228,7 @@ async def check_pagination(
             assert r.status_code == 200
             assert r.json() == prev_data
             assert r.headers["X-Total-Count"] == str(len(history))
-            prev_link_data = parse_link(r.headers["Link"])
+            prev_link_data = LinkData.from_header(r.headers["Link"])
             assert prev_link_data.first_url == link_data.first_url
             assert prev_link_data.next_url == url
 
@@ -254,7 +254,7 @@ async def check_pagination(
         assert r.status_code == 200
         assert r.headers["X-Total-Count"] == str(len(history))
         backwards_data = r.json() + backwards_data
-        link_data = parse_link(r.headers["Link"])
+        link_data = LinkData.from_header(r.headers["Link"])
     assert all_data == backwards_data
 
 

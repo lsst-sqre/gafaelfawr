@@ -122,7 +122,13 @@ class HistoryCursor:
 
 @dataclass
 class PaginatedHistory(Generic[E]):
-    """Encapsulates paginated history entries with pagination information."""
+    """Encapsulates paginated history entries with pagination information.
+
+    Holds a paginated list of a generic type, complete with a count and
+    cursors.  Can hold any type of entry, but uses a `HistoryCursor`, so
+    implicitly requires the type be one that is meaningfully paginated by that
+    type of cursor.
+    """
 
     entries: List[E]
     """The history entries."""
@@ -246,6 +252,16 @@ class TokenChangeHistoryEntry(BaseModel):
         ),
     )
 
+    # The first implementation tried to use an IPvAnyAddress type here for the
+    # automatic validation, but the corresponding query takes either an IP
+    # address or a CIDR block (so can't use the same type), and all of the
+    # type conversions and calcuations made for ugly code, particularly since
+    # the underlying database layer wants a string.  It turned out to be
+    # easier to manually validate the query and to otherwise store and
+    # manipulate strings.
+    #
+    # We don't gain very much from the Pydantic validation since these entries
+    # are created either in code or sourced from a trusted database.
     ip_address: Optional[str] = Field(
         None,
         title="IP address from which the change was made",
@@ -284,6 +300,13 @@ class TokenChangeHistoryEntry(BaseModel):
 
         Excludes the ``old_`` fields for changes other than edits, and when
         the edit doesn't change those fields.
+
+        Notes
+        -----
+        Knowing which fields to exclude requires understanding the semantics
+        of the change (particularly when deciding whether to drop
+        ``old_expires``) in ways that are too complex to do with the standard
+        Pydantic filtering API, hence the hand-rolled method.
         """
         v = self.dict()
 

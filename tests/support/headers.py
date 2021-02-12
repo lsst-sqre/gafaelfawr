@@ -31,22 +31,22 @@ class LinkData:
     first_url: str
     """The URL of the first page."""
 
+    @classmethod
+    def from_header(cls, header: str) -> LinkData:
+        """Parse an RFC 8288 ``Link`` with pagination URLs."""
+        elements = header.split(",")
+        links = {}
+        for element in elements:
+            match = re.match(' *<([^>]+)>; rel="([^"]+)"', element)
+            assert match, f"Unable to parse Link {element}"
+            assert match.group(2) in ("prev", "next", "first")
+            links[match.group(2)] = match.group(1)
 
-def parse_link(header: str) -> LinkData:
-    """Parse an RFC 8288 ``Link`` with pagination URLs."""
-    elements = header.split(",")
-    links = {}
-    for element in elements:
-        match = re.match(' *<([^>]+)>; rel="([^"]+)"', element)
-        assert match, f"Unable to parse Link {element}"
-        assert match.group(2) in ("prev", "next", "first")
-        links[match.group(2)] = match.group(1)
-
-    return LinkData(
-        prev_url=links.get("prev"),
-        next_url=links.get("next"),
-        first_url=links["first"],
-    )
+        return cls(
+            prev_url=links.get("prev"),
+            next_url=links.get("next"),
+            first_url=links["first"],
+        )
 
 
 def parse_www_authenticate(header: str) -> AuthChallenge:
