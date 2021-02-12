@@ -11,7 +11,6 @@ from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
 from tests.pages.tokens import TokensPage
-from tests.support.selenium import run
 
 if TYPE_CHECKING:
     from seleniumwire import webdriver
@@ -27,7 +26,7 @@ async def test_create_token(
     driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}
 
     tokens_url = urljoin(selenium_config.url, "/auth/tokens")
-    await run(lambda: driver.get(tokens_url))
+    driver.get(tokens_url)
 
     tokens_page = TokensPage(driver)
     assert tokens_page.get_tokens(TokenType.user) == []

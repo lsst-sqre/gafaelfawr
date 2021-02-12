@@ -8,7 +8,6 @@ from selenium.common.exceptions import NoSuchElementException
 
 from gafaelfawr.models.token import TokenType
 from tests.pages.base import BaseElement, BaseModal, BasePage
-from tests.support.selenium import run
 
 if TYPE_CHECKING:
     from typing import List
@@ -19,7 +18,7 @@ if TYPE_CHECKING:
 class TokensPage(BasePage):
     async def click_create_token(self) -> CreateTokenModal:
         button = self.find_element_by_id("qa-create-token")
-        await run(button.click)
+        button.click()
         element = self.find_element_by_id("create-token-modal")
         return CreateTokenModal(element)
 
@@ -48,7 +47,7 @@ class CreateTokenModal(BaseModal):
         field.send_keys(token_name)
 
     async def submit(self) -> None:
-        await run(self.form.submit)
+        self.form.submit()
 
 
 class NewTokenModal(BaseModal):
@@ -72,4 +71,4 @@ class TokenRow(BaseElement):
 
     async def click_delete_token(self) -> None:
         button = self.find_element_by_class_name("qa-token-delete")
-        await run(button.click)
+        button.click()

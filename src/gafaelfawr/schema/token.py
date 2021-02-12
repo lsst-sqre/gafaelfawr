@@ -17,7 +17,7 @@ class Token(Base):
     username = Column(String(64), nullable=False)
     token_type = Column(Enum(TokenType), nullable=False)
     token_name = Column(String(64))
-    scopes = Column(String(256))
+    scopes = Column(String(512), nullable=False)
     service = Column(String(64))
     created = Column(DateTime, nullable=False)
     last_used = Column(DateTime)
@@ -25,5 +25,5 @@ class Token(Base):
 
     __table_args__ = (
         UniqueConstraint("username", "token_name"),
-        Index("token_by_username", "username", "token_type", "service"),
+        Index("token_by_username", "username", "token_type"),
     )

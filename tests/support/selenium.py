@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import errno
 import logging
 import os
@@ -21,9 +20,7 @@ from gafaelfawr.models.token import Token
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Callable, Iterator, TypeVar
-
-    T = TypeVar("T")
+    from typing import Iterator
 
 APP_TEMPLATE = """
 from unittest.mock import MagicMock
@@ -48,7 +45,9 @@ async def startup_event() -> None:
     token_service = factory.create_token_service()
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
-    token = await token_service.create_session_token(user_info, scopes)
+    token = await token_service.create_session_token(
+        user_info, scopes=scopes, ip_address="127.0.0.1"
+    )
     with open("{token_path}", "w") as f:
         f.write(str(token))
 """
@@ -63,27 +62,6 @@ class SeleniumConfig:
 
     url: str
     """The URL at which to contact the server."""
-
-
-async def run(f: Callable[[], T]) -> T:
-    """Run a function async.
-
-    Takes a synchronous function and runs it async in the default thread pool.
-    Used primarily to wrap Selenium calls that may take actions rather than
-    just inspect already-returned pages.
-
-    Parameters
-    ----------
-    f : `typing.Callable`
-        The function to run.
-
-    Returns
-    -------
-    ret : `typing.Any`
-        The return value of the function.
-    """
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, f)
 
 
 def selenium_driver() -> webdriver.Chrome:

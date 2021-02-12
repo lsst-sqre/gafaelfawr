@@ -14,6 +14,15 @@ function apiLoginRedirect() {
   return url.href;
 }
 
+function buildUrl(route, params) {
+  if (!params) return apiUrl(route);
+  const url = new URL(apiUrl(route));
+  Object.entries(params).forEach(([key, value]) =>
+    url.searchParams.set(key, value)
+  );
+  return url.href;
+}
+
 function jsonIfOkay(response) {
   if (response.ok) {
     return response.json().catch((error) => {
@@ -30,8 +39,9 @@ function jsonIfOkay(response) {
     });
 }
 
-export function apiGet(route) {
-  return fetch(apiUrl(route), { credentials: 'same-origin' })
+export function apiGet(route, params = null) {
+  const url = buildUrl(route, params);
+  return fetch(url, { credentials: 'same-origin' })
     .then((response) => {
       if (typeof window !== 'undefined' && response.status === 401) {
         window.location.href = apiLoginRedirect();

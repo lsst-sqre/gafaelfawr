@@ -20,7 +20,7 @@ class TokenAuthHistory(Base):
     token_type = Column(Enum(TokenType), nullable=False)
     token_name = Column(String(64))
     parent = Column(String(64))
-    scopes = Column(String(256))
+    scopes = Column(String(512))
     service = Column(String(64))
     ip_address = Column(String(64).with_variant(postgresql.INET, "postgresql"))
     event_time = Column(DateTime, nullable=False)

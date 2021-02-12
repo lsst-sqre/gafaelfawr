@@ -17,7 +17,8 @@ OpenAPI documentation is available via the ``/docs`` route but not yet fleshed o
 - Eliminate internal JWTs, including the old session and session handle system, in favor of opaque tokens.
 - Add a new token API under ``/auth/api/v1`` for creating, modifying, viewing, and deleting tokens.
   This will be the basis of a new token management UI.
-  The old ``/auth/tokens`` UI has been deleted.
+- Replace the ``/auth/tokens`` UI with a new UI using React and Gatsby.
+  Currently, it supports viewing all the tokens for a user, creating and editing user tokens, revoking tokens, viewing token information with the token change history, and searching the token change history.
 - Protected applications no longer receive a copy of the user's authentication token.
 - The ``/auth`` route now supports requesting a notebook or internal delegated token for the application.
 - Use FastAPI instead of aiohttp, and use httpx to make internal requests.

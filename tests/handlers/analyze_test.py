@@ -120,6 +120,7 @@ async def test_analyze_token(setup: SetupTest) -> None:
         token_name="foo",
         scopes=[],
         expires=None,
+        ip_address="127.0.0.1",
     )
     user_token_data = await token_service.get_data(user_token)
     assert user_token_data
