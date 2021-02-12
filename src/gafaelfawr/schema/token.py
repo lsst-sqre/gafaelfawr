@@ -25,5 +25,5 @@ class Token(Base):
 
     __table_args__ = (
         UniqueConstraint("username", "token_name"),
-        Index("token_by_username", "username", "token_type", "service"),
+        Index("token_by_username", "username", "token_type"),
     )
