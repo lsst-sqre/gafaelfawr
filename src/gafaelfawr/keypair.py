@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -45,10 +46,17 @@ class RSAKeyPair:
         -------
         keypair : `RSAKeyPair`
             The corresponding key pair.
+
+        Raises
+        ------
+        cryptography.exceptions.UnsupportedAlgorithm
+            The provided key is not an RSA private key.
         """
         private_key = load_pem_private_key(
             pem, password=None, backend=default_backend()
         )
+        if not isinstance(private_key, rsa.RSAPrivateKeyWithSerialization):
+            raise UnsupportedAlgorithm("Key is not an RSA private key")
         return cls(private_key)
 
     @classmethod

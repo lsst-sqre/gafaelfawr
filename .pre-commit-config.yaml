@@ -39,13 +39,13 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v7.19.0
+    rev: v7.20.0
     hooks:
       - id: eslint
         additional_dependencies:
           # Manually mirror dev dependencies related to eslint here
           - babel-eslint@10.1.0
-          - eslint@7.19.0
+          - eslint@7.20.0
           - eslint-config-airbnb@18.2.1
           - eslint-config-prettier@6.15.0
           - eslint-config-wesbos@1.0.1
