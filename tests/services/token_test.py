@@ -93,7 +93,7 @@ async def test_session_token(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.create,
             ip_address="127.0.0.1",
-            event_type=data.created,
+            event_time=data.created,
         )
     ]
 
@@ -169,7 +169,7 @@ async def test_user_token(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.create,
             ip_address="192.168.0.1",
-            event_type=info.created,
+            event_time=info.created,
         )
     ]
 
@@ -236,7 +236,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.create,
             ip_address="1.0.0.1",
-            event_type=info.created,
+            event_time=info.created,
         )
     ]
 
@@ -332,7 +332,7 @@ async def test_internal_token(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.create,
             ip_address="2001:db8::45",
-            event_type=info.created,
+            event_time=info.created,
         )
     ]
 
@@ -450,7 +450,7 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
             actor=admin_data.username,
             action=TokenChange.create,
             ip_address="127.0.0.1",
-            event_type=user_data.created,
+            event_time=user_data.created,
         )
     ]
 
@@ -486,7 +486,7 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
             actor=admin_data.username,
             action=TokenChange.create,
             ip_address="127.0.0.1",
-            event_type=service_data.created,
+            event_time=service_data.created,
         )
     ]
 
@@ -604,7 +604,7 @@ async def test_modify(setup: SetupTest) -> None:
             action=TokenChange.edit,
             old_expires=expires,
             ip_address="127.0.4.5",
-            event_time=history.entries[3].event_time,
+            event_time=history.entries[0].event_time,
         ),
         TokenChangeHistoryEntry(
             token=user_token.key,
@@ -618,7 +618,7 @@ async def test_modify(setup: SetupTest) -> None:
             old_scopes=[],
             old_expires=None,
             ip_address="192.168.0.4",
-            event_time=history.entries[2].event_time,
+            event_time=history.entries[1].event_time,
         ),
         TokenChangeHistoryEntry(
             token=user_token.key,
@@ -631,7 +631,7 @@ async def test_modify(setup: SetupTest) -> None:
             action=TokenChange.edit,
             old_token_name="some-token",
             ip_address="127.0.0.1",
-            event_time=history.entries[1].event_time,
+            event_time=history.entries[2].event_time,
         ),
         TokenChangeHistoryEntry(
             token=user_token.key,
@@ -686,7 +686,7 @@ async def test_delete(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.revoke,
             ip_address="127.0.0.1",
-            event_time=history.entries[1].event_time,
+            event_time=history.entries[0].event_time,
         ),
         TokenChangeHistoryEntry(
             token=token.key,
@@ -698,7 +698,7 @@ async def test_delete(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.create,
             ip_address="127.0.0.1",
-            event_time=history.entries[0].event_time,
+            event_time=history.entries[1].event_time,
         ),
     ]
 
