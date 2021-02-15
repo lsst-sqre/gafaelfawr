@@ -18,12 +18,11 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.asyncio
-async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
+async def test_userinfo(setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
     issuer = setup.factory.create_token_issuer()
     oidc_token = issuer.issue_token(token_data, jti="some-jti")
 
-    caplog.clear()
     r = await setup.client.get(
         "/auth/userinfo",
         headers={"Authorization": f"Bearer {oidc_token.encoded}"},
@@ -32,25 +31,9 @@ async def test_userinfo(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.status_code == 200
     assert r.json() == oidc_token.claims
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "event": "Returned user information",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/userinfo",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "token": oidc_token.jti,
-        "token_source": "bearer",
-        "user": oidc_token.username,
-        "user_agent": ANY,
-    }
-
 
 @pytest.mark.asyncio
-async def test_no_auth(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    caplog.clear()
+async def test_no_auth(setup: SetupTest) -> None:
     r = await setup.client.get("/auth/userinfo")
 
     assert r.status_code == 401
@@ -58,18 +41,6 @@ async def test_no_auth(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.realm == setup.config.realm
-
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "event": "No token found, returning unauthorized",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/userinfo",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
 
 
 @pytest.mark.asyncio

@@ -256,7 +256,6 @@ async def get_auth_forbidden(
         "Cache-Control": "no-cache, must-revalidate",
         "WWW-Authenticate": challenge.as_header(),
     }
-    context.logger.info("Serving uncached 403 page")
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         headers=headers,

@@ -210,7 +210,6 @@ def generate_unauthorized_challenge(
         error_type = exc.error
         msg = str(exc)
     else:
-        context.logger.info("No token found, returning unauthorized")
         challenge = AuthChallenge(
             auth_type=auth_type, realm=context.config.realm
         )

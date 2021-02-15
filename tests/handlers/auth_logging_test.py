@@ -105,7 +105,7 @@ async def test_authorization_failed(
     assert data == {
         "auth_uri": "/foo",
         "error": "Token missing required scope",
-        "event": "Token missing required scope",
+        "event": "Permission denied",
         "level": "warning",
         "logger": "gafaelfawr",
         "method": "GET",
@@ -126,16 +126,21 @@ async def test_authorization_failed(
 async def test_original_url(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
+    token_data = await setup.create_session_token()
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
-        headers={"X-Original-Url": "https://example.com/test"},
+        headers={
+            "Authorization": f"bearer {token_data.token}",
+            "X-Original-Url": "https://example.com/test",
+        },
     )
-    assert r.status_code == 401
+    assert r.status_code == 403
     expected = {
         "auth_uri": "https://example.com/test",
-        "event": "No token found, returning unauthorized",
-        "level": "info",
+        "error": "Token missing required scope",
+        "event": "Permission denied",
+        "level": "warning",
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth",
@@ -143,6 +148,10 @@ async def test_original_url(
         "request_id": ANY,
         "required_scope": "exec:admin",
         "satisfy": "all",
+        "scope": "",
+        "token": token_data.token.key,
+        "token_source": "bearer",
+        "user": token_data.username,
         "user_agent": ANY,
     }
     data = json.loads(caplog.record_tuples[-1][2])
@@ -154,11 +163,12 @@ async def test_original_url(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
+            "Authorization": f"bearer {token_data.token}",
             "X-Original-URI": "/foo",
             "X-Original-URL": "https://example.com/test",
         },
     )
-    assert r.status_code == 401
+    assert r.status_code == 403
     expected["auth_uri"] = "/foo"
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == expected
@@ -168,22 +178,25 @@ async def test_original_url(
 async def test_chained_x_forwarded(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
+    token_data = await setup.create_session_token()
     r = await setup.client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
+            "Authorization": f"bearer {token_data.token}",
             "X-Forwarded-For": "2001:db8:85a3:8d3:1319:8a2e:370:734, 10.0.0.1",
             "X-Forwarded-Proto": "https, http",
             "X-Original-Uri": "/foo",
         },
     )
 
-    assert r.status_code == 401
+    assert r.status_code == 403
     data = json.loads(caplog.record_tuples[-1][2])
     assert data == {
         "auth_uri": "/foo",
-        "event": "No token found, returning unauthorized",
-        "level": "info",
+        "error": "Token missing required scope",
+        "event": "Permission denied",
+        "level": "warning",
         "logger": "gafaelfawr",
         "method": "GET",
         "path": "/auth",
@@ -191,6 +204,10 @@ async def test_chained_x_forwarded(
         "request_id": ANY,
         "required_scope": "exec:admin",
         "satisfy": "all",
+        "scope": "",
+        "token": token_data.token.key,
+        "token_source": "bearer",
+        "user": token_data.username,
         "user_agent": ANY,
     }
 

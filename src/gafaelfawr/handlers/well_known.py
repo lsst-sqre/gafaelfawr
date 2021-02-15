@@ -68,7 +68,6 @@ async def get_well_known_jwks(
     """
     keypair = context.config.issuer.keypair
     jwks = keypair.public_key_as_jwks(kid=context.config.issuer.kid)
-    context.logger.info("Returned JWKS")
     return KeySet(keys=[jwks])
 
 
@@ -85,7 +84,6 @@ async def get_well_known_openid(
     Serve metadata about our OpenID Connect implementation.
     """
     base_url = context.config.issuer.iss
-    context.logger.info("Returned OpenID Connect configuration")
     return OpenIdConfig(
         issuer=context.config.issuer.iss,
         authorization_endpoint=base_url + "/auth/openid/login",

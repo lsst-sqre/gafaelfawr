@@ -60,5 +60,4 @@ async def get_userinfo(
     context: RequestContext = Depends(context_dependency),
 ) -> Mapping[str, Any]:
     """Return information about the holder of a JWT."""
-    context.logger.info("Returned user information")
     return token.claims

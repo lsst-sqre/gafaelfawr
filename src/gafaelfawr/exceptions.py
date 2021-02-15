@@ -149,7 +149,7 @@ class InsufficientScopeError(OAuthBearerError):
     """
 
     error = "insufficient_scope"
-    message = "Token missing required scope"
+    message = "Permission denied"
     status_code = status.HTTP_403_FORBIDDEN
 
 
