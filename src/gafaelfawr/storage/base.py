@@ -43,15 +43,21 @@ class RedisStorage(Generic[S]):
         self._fernet = Fernet(key.encode())
         self._redis = redis
 
-    async def delete(self, key: str) -> None:
+    async def delete(self, key: str) -> bool:
         """Delete a stored object.
 
         Parameters
         ----------
         key : `str`
             The key to delete.
+
+        Returns
+        -------
+        success : `bool`
+            `True` if the key was found and deleted, `False` otherwise.
         """
-        await self._redis.delete(key)
+        count = await self._redis.delete(key)
+        return count > 0
 
     async def get(self, key: str) -> Optional[S]:
         """Retrieve a stored object.

@@ -302,7 +302,7 @@ class TokenRedisStore:
         self._storage = storage
         self._logger = logger
 
-    async def delete(self, key: str) -> None:
+    async def delete(self, key: str) -> bool:
         """Delete a token from Redis.
 
         This only requires the token key, not the full token, so that users
@@ -313,8 +313,13 @@ class TokenRedisStore:
         ----------
         key : `str`
             The key portion of the token.
+
+        Returns
+        -------
+        success : `bool`
+            `True` if the token was found and deleted, `False` otherwise.
         """
-        await self._storage.delete(f"token:{key}")
+        return await self._storage.delete(f"token:{key}")
 
     async def get_data(self, token: Token) -> Optional[TokenData]:
         """Retrieve the data for a token from Redis.
