@@ -23,7 +23,7 @@ class Metadata(BaseModel):
     documentation_url: str
 
 
-@router.get("/", response_model=Metadata)
+@router.get("/", response_model=Metadata, tags=["internal"])
 async def get_index(
     config: Config = Depends(config_dependency),
 ) -> Dict[str, Optional[str]]:

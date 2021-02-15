@@ -54,7 +54,7 @@ def verified_token(
     return token
 
 
-@router.get("/auth/userinfo")
+@router.get("/auth/userinfo", tags=["oidc"])
 async def get_userinfo(
     token: OIDCVerifiedToken = Depends(verified_token),
     context: RequestContext = Depends(context_dependency),

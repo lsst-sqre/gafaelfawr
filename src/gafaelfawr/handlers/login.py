@@ -25,8 +25,8 @@ router = APIRouter()
 __all__ = ["get_login"]
 
 
-@router.get("/login")
-@router.get("/oauth2/callback")
+@router.get("/login", tags=["browser"])
+@router.get("/oauth2/callback", tags=["browser"])
 async def get_login(
     code: Optional[str] = None,
     state: Optional[str] = None,

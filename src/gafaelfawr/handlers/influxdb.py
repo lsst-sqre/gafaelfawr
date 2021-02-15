@@ -14,7 +14,9 @@ router = APIRouter()
 __all__ = ["get_influxdb"]
 
 
-@router.get("/auth/tokens/influxdb/new", response_model=NewToken)
+@router.get(
+    "/auth/tokens/influxdb/new", response_model=NewToken, tags=["user"]
+)
 async def get_influxdb(
     token_data: TokenData = Depends(Authenticate()),
     context: RequestContext = Depends(context_dependency),

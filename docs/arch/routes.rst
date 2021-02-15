@@ -17,9 +17,19 @@ Gafaelfawr supports the following routes:
     The response from this route includes various headers that provide information about the JWT claims.
     For a complete list, see :ref:`auth-headers`.
 
+``/auth/analyze``
+    Analyze a token or session handle and return information about it as JSON.
+    If the request method is GET, uses the session handle from the user's session cookie or from an ``Authentication`` header.
+    If the request method is POST, uses a session handle or JWT from the ``token`` form parameter, provided in the POST.
+    This API is deprecated in favor of ``/auth/api/v1/token-info`` and ``/auth/api/v1/user-info``.
+
 ``/auth/api``
     The token API.
     See `SQR-049 <https://sqr-049.lsst.io/>`__ for detailed documentation.
+
+``/auth/docs``
+    Auto-generated documentation for Gafaelfawr routes.
+    Also see ``/auth/redoc``, which is sometimes more thorough.
 
 ``/auth/forbidden``
     Helper error page route for ``/auth``.
@@ -27,10 +37,8 @@ Gafaelfawr supports the following routes:
     For more information on how this route is used, see :ref:`error-caching`.
     For documentation on the parameters accepted by this route, see :ref:`auth-config`.
 
-``/auth/analyze``
-    Analyze a token or session handle and return information about it as JSON.
-    If the request method is GET, uses the session handle from the user's session cookie or from an ``Authentication`` header.
-    If the request method is POST, uses a session handle or JWT from the ``token`` form parameter, provided in the POST.
+``/auth/openapi.json``
+    OpenAPI metadata for Gafaelfawr APIs.
 
 ``/auth/openid/login``
     Initiates or completes an OpenID Connect authentication request.
@@ -41,6 +49,10 @@ Gafaelfawr supports the following routes:
 ``/auth/openid/token``
     Retrieves a JWT given an OpenID Connect authorization code obtained via an authentication request.
     The parameters to this route are those for the Token Request in the Authorization Code Flow in `OpenID Connect`_.
+
+``/auth/redoc``
+    Auto-generated documentation for Gafaelfawr routes.
+    Also see ``/auth/docs``.
 
 ``/auth/tokens/influxdb/new``
     Issue a new InfluxDB token for the authenticated user.

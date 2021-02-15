@@ -37,7 +37,7 @@ authenticate = Authenticate(
 __all__ = ["get_login", "post_token"]
 
 
-@router.get("/auth/openid/login")
+@router.get("/auth/openid/login", tags=["oidc"])
 async def get_login(
     client_id: str,
     parsed_redirect_uri: ParseResult = Depends(parsed_redirect_uri),
@@ -136,6 +136,7 @@ class ErrorReply(BaseModel):
     "/auth/openid/token",
     response_model=TokenReply,
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorReply}},
+    tags=["oidc"],
 )
 async def post_token(
     response: Response,

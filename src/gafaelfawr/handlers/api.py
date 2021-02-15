@@ -62,6 +62,7 @@ authenticate_session = Authenticate(require_session=True)
     response_model=List[Admin],
     responses={403: {"description": "Permission denied"}},
     dependencies=[Depends(authenticate_admin)],
+    tags=["admin"],
 )
 def get_admins(
     context: RequestContext = Depends(context_dependency),
@@ -74,6 +75,7 @@ def get_admins(
     "/admins",
     responses={403: {"description": "Permission denied"}},
     status_code=204,
+    tags=["admin"],
 )
 def add_admin(
     admin: Admin,
@@ -92,6 +94,7 @@ def add_admin(
     "/admins/{username}",
     responses={404: {"description": "Specified user is not an administrator"}},
     status_code=204,
+    tags=["admin"],
 )
 def delete_admin(
     username: str = Path(
@@ -125,6 +128,7 @@ def delete_admin(
     "/history/token-changes",
     response_model=List[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
+    tags=["admin"],
 )
 def get_admin_token_change_history(
     response: Response,
@@ -182,7 +186,7 @@ def get_admin_token_change_history(
     return [r.reduced_dict() for r in results.entries]
 
 
-@router.get("/login", response_model=APILoginResponse)
+@router.get("/login", response_model=APILoginResponse, tags=["user"])
 def get_login(
     auth_data: TokenData = Depends(authenticate_session),
     context: RequestContext = Depends(context_dependency),
@@ -207,6 +211,7 @@ def get_login(
     response_model=TokenInfo,
     response_model_exclude_none=True,
     responses={404: {"description": "Token not found"}},
+    tags=["user"],
 )
 async def get_token_info(
     auth_data: TokenData = Depends(authenticate),
@@ -225,7 +230,9 @@ async def get_token_info(
         return info
 
 
-@router.post("/tokens", response_model=NewToken, status_code=201)
+@router.post(
+    "/tokens", response_model=NewToken, status_code=201, tags=["admin"]
+)
 async def post_admin_tokens(
     token_request: AdminTokenRequest,
     response: Response,
@@ -276,6 +283,7 @@ async def post_admin_tokens(
     "/user-info",
     response_model=TokenUserInfo,
     response_model_exclude_none=True,
+    tags=["user"],
 )
 async def get_user_info(
     auth_data: TokenData = Depends(authenticate),
@@ -287,6 +295,7 @@ async def get_user_info(
     "/users/{username}/token-change-history",
     response_model=List[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
+    tags=["user"],
 )
 def get_user_token_change_history(
     response: Response,
@@ -344,6 +353,7 @@ def get_user_token_change_history(
     "/users/{username}/tokens",
     response_model=List[TokenInfo],
     response_model_exclude_none=True,
+    tags=["user"],
 )
 async def get_tokens(
     username: str = Path(
@@ -357,7 +367,10 @@ async def get_tokens(
 
 
 @router.post(
-    "/users/{username}/tokens", response_model=NewToken, status_code=201
+    "/users/{username}/tokens",
+    response_model=NewToken,
+    status_code=201,
+    tags=["user"],
 )
 async def post_tokens(
     token_request: UserTokenRequest,
@@ -414,6 +427,7 @@ async def post_tokens(
     "/users/{username}/tokens/{key}",
     response_model=TokenInfo,
     response_model_exclude_none=True,
+    tags=["user"],
 )
 async def get_token(
     username: str = Path(
@@ -437,7 +451,9 @@ async def get_token(
     return info
 
 
-@router.delete("/users/{username}/tokens/{key}", status_code=204)
+@router.delete(
+    "/users/{username}/tokens/{key}", status_code=204, tags=["user"]
+)
 async def delete_token(
     username: str = Path(
         ..., min_length=1, max_length=64, regex=USERNAME_REGEX
@@ -469,6 +485,7 @@ async def delete_token(
     status_code=201,
     response_model=TokenInfo,
     response_model_exclude_none=True,
+    tags=["user"],
 )
 async def patch_token(
     token_request: UserTokenModifyRequest,
@@ -534,6 +551,7 @@ async def patch_token(
     "/users/{username}/tokens/{key}/change-history",
     response_model=List[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
+    tags=["user"],
 )
 async def get_token_change_history(
     username: str = Path(

@@ -16,7 +16,7 @@ router = APIRouter()
 __all__ = ["get_logout"]
 
 
-@router.get("/logout")
+@router.get("/logout", tags=["browser"])
 async def get_logout(
     return_url: Optional[str] = Depends(return_url),
     context: RequestContext = Depends(context_dependency),

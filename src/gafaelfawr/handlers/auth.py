@@ -138,7 +138,7 @@ async def authenticate_with_type(
     return await authenticate(context=context)
 
 
-@router.get("/auth")
+@router.get("/auth", tags=["internal"])
 async def get_auth(
     response: Response,
     auth_config: AuthConfig = Depends(auth_config),
@@ -217,7 +217,7 @@ async def get_auth(
     return {"status": "ok"}
 
 
-@router.get("/auth/forbidden")
+@router.get("/auth/forbidden", tags=["internal"])
 async def get_auth_forbidden(
     response: Response,
     auth_config: AuthConfig = Depends(auth_config),

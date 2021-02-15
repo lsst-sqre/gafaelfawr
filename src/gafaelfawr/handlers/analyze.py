@@ -62,7 +62,9 @@ def token_data_to_analysis(token_data: TokenData) -> Dict[str, Dict[str, Any]]:
     return {"token": {"data": data, "valid": True}}
 
 
-@router.get("/auth/analyze", response_class=FormattedJSONResponse)
+@router.get(
+    "/auth/analyze", response_class=FormattedJSONResponse, tags=["user"]
+)
 async def get_analyze(
     token_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
@@ -71,7 +73,9 @@ async def get_analyze(
     return token_data_to_analysis(token_data)
 
 
-@router.post("/auth/analyze", response_class=FormattedJSONResponse)
+@router.post(
+    "/auth/analyze", response_class=FormattedJSONResponse, tags=["user"]
+)
 async def post_analyze(
     token_str: str = Form(..., alias="token"),
     context: RequestContext = Depends(context_dependency),

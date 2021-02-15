@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from importlib.metadata import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -38,8 +39,43 @@ if TYPE_CHECKING:
 __all__ = ["app"]
 
 
-app = FastAPI()
-"""The Gafaelfawr application."""
+app = FastAPI(
+    title="Gafaelfawr",
+    description=(
+        "Gafaelfawr is a FastAPI application for the authorization and"
+        " management of tokens, including their issuance and revocation."
+    ),
+    version=metadata("gafaelfawr").get("Version", "0.0.0"),
+    tags_metadata=[
+        {
+            "name": "user",
+            "description": "APIs that can be used by regular users.",
+        },
+        {
+            "name": "admin",
+            "description": "APIs that can only be used by administrators.",
+        },
+        {
+            "name": "oidc",
+            "description": (
+                "OpenID Connect routes used by protected applications."
+            ),
+        },
+        {
+            "name": "browser",
+            "description": "Routes intended only for use from a web browser.",
+        },
+        {
+            "name": "internal",
+            "description": (
+                "Internal routes used only by the ingress or by health checks."
+            ),
+        },
+    ],
+    openapi_url="/auth/openapi.json",
+    docs_url="/auth/docs",
+    redoc_url="/auth/redoc",
+)
 
 app.include_router(analyze.router)
 app.include_router(api.router, prefix="/auth/api/v1")

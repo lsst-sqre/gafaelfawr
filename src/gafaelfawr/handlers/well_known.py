@@ -58,7 +58,7 @@ class OpenIdConfig(BaseModel):
     """Supported mechanisms to authenticate to the token endpoint."""
 
 
-@router.get("/.well-known/jwks.json", response_model=KeySet)
+@router.get("/.well-known/jwks.json", response_model=KeySet, tags=["oidc"])
 async def get_well_known_jwks(
     context: RequestContext = Depends(context_dependency),
 ) -> KeySet:
@@ -72,7 +72,11 @@ async def get_well_known_jwks(
     return KeySet(keys=[jwks])
 
 
-@router.get("/.well-known/openid-configuration", response_model=OpenIdConfig)
+@router.get(
+    "/.well-known/openid-configuration",
+    response_model=OpenIdConfig,
+    tags=["oidc"],
+)
 async def get_well_known_openid(
     context: RequestContext = Depends(context_dependency),
 ) -> OpenIdConfig:
