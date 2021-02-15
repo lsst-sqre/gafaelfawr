@@ -10,6 +10,8 @@ from urllib.parse import parse_qs, urljoin
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 from pytest_httpx import to_response
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.database import initialize_database
@@ -20,6 +22,7 @@ from gafaelfawr.main import app
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenData, TokenGroup, TokenUserInfo
 from gafaelfawr.providers.github import GitHubProvider
+from gafaelfawr.storage.transaction import TransactionManager
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.settings import build_settings
 from tests.support.tokens import create_upstream_oidc_token
@@ -36,6 +39,7 @@ if TYPE_CHECKING:
     from gafaelfawr.config import Config, OIDCClient
     from gafaelfawr.keypair import RSAKeyPair
     from gafaelfawr.providers.github import GitHubUserInfo
+    from gafaelfawr.storage.transaction import Transaction
     from gafaelfawr.tokens import Token as OldToken
     from gafaelfawr.tokens import VerifiedToken
 
@@ -108,6 +112,7 @@ class SetupTest:
         self.config = config
         self.redis = redis
         self.client = client
+        self._session: Optional[Session] = None
 
     @property
     def factory(self) -> ComponentFactory:
@@ -124,6 +129,24 @@ class SetupTest:
         return ComponentFactory(
             config=self.config, redis=self.redis, http_client=self.client
         )
+
+    @property
+    def session(self) -> Session:
+        """Return a SQLAlchemy session to the underlying database.
+
+        Don't try to use the same session as the spawned application, because
+        SQLite gets very unhappy about using sessions across threads.
+
+        Returns
+        -------
+        session : `sqlalchemy.orm.Session`
+            Session to the underlying database.
+        """
+        if self._session:
+            return self._session
+        engine = create_engine(self.config.database_url)
+        self._session = Session(bind=engine)
+        return self._session
 
     def configure(
         self,
@@ -395,3 +418,14 @@ class SetupTest:
             )
 
         self.httpx_mock.add_callback(callback)
+
+    def transaction(self) -> Transaction:
+        """Run code within an open database transaction.
+
+        Returns
+        -------
+        gafaelfawr.storage.transaction.Transaction
+            A context manager that will automatically commit changes to
+            the underlying database.
+        """
+        return TransactionManager(self.session).transaction()
