@@ -24,7 +24,10 @@ from gafaelfawr.auth import (
 )
 from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import InsufficientScopeError
+from gafaelfawr.exceptions import (
+    InsufficientScopeError,
+    InvalidDelegateToError,
+)
 from gafaelfawr.models.token import TokenData
 
 router = APIRouter()
@@ -107,14 +110,8 @@ def auth_config(
         satisfy=satisfy.name.lower(),
     )
     if notebook and delegate_to:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["query", "delegate_to"],
-                "type": "invalid_delegate",
-                "msg": "delegate_to cannot be set for notebook tokens",
-            },
-        )
+        msg = "delegate_to cannot be set for notebook tokens"
+        raise InvalidDelegateToError(msg)
     if delegate_scope:
         delegate_scopes = [s.strip() for s in delegate_scope.split(",")]
     else:

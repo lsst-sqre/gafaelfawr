@@ -16,7 +16,7 @@ from fastapi_sqlalchemy import DBSessionMiddleware
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.exceptions import PermissionDeniedError
+from gafaelfawr.exceptions import PermissionDeniedError, ValidationError
 from gafaelfawr.handlers import (
     analyze,
     api,
@@ -125,5 +125,14 @@ async def permission_exception_handler(
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN,
-        content={"detail": {"msg": str(exc), "type": "permission_denied"}},
+        content={"detail": [{"msg": str(exc), "type": "permission_denied"}]},
+    )
+
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(
+    request: Request, exc: ValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code, content={"detail": [exc.to_dict()]}
     )

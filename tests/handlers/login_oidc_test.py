@@ -306,7 +306,7 @@ async def test_connection_error(setup: SetupTest) -> None:
         allow_redirects=False,
     )
     assert r.status_code == 500
-    assert r.json()["detail"]["type"] == "provider_connect_failed"
+    assert r.json()["detail"][0]["type"] == "provider_connect_failed"
 
 
 @pytest.mark.asyncio
@@ -362,10 +362,12 @@ async def test_invalid_username(setup: SetupTest) -> None:
     )
     assert r.status_code == 403
     assert r.json() == {
-        "detail": {
-            "msg": "Invalid username: invalid@user",
-            "type": "permission_denied",
-        }
+        "detail": [
+            {
+                "msg": "Invalid username: invalid@user",
+                "type": "permission_denied",
+            }
+        ]
     }
 
 
@@ -395,10 +397,12 @@ async def test_invalid_groups(setup: SetupTest) -> None:
     )
     assert r.status_code == 500
     assert r.json() == {
-        "detail": {
-            "msg": ANY,
-            "type": "provider_failed",
-        }
+        "detail": [
+            {
+                "msg": ANY,
+                "type": "provider_failed",
+            }
+        ]
     }
 
 

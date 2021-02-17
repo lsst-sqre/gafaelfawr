@@ -145,7 +145,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_login_no_destination(setup: SetupTest) -> None:
     r = await setup.client.get("/login", allow_redirects=False)
-    assert r.status_code == 400
+    assert r.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -253,14 +253,14 @@ async def test_bad_redirect(setup: SetupTest) -> None:
         params={"rd": "https://foo.example.com/"},
         allow_redirects=False,
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
 
     r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://foo.example.com/"},
         allow_redirects=False,
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
 
     # But if we're deployed under foo.example.com as determined by the
     # X-Forwarded-Host header, this will be allowed.
@@ -394,8 +394,10 @@ async def test_invalid_username(setup: SetupTest) -> None:
     )
     assert r.status_code == 403
     assert r.json() == {
-        "detail": {
-            "msg": "Invalid username: invalid user",
-            "type": "permission_denied",
-        }
+        "detail": [
+            {
+                "msg": "Invalid username: invalid user",
+                "type": "permission_denied",
+            }
+        ]
     }

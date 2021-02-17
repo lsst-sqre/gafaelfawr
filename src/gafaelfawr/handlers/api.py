@@ -25,13 +25,7 @@ from fastapi import (
 from gafaelfawr.constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
 from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import (
-    BadCursorError,
-    BadExpiresError,
-    BadIpAddressError,
-    BadScopesError,
-    DuplicateTokenNameError,
-)
+from gafaelfawr.exceptions import ErrorLocation, NotFoundError
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.auth import APIConfig, APILoginResponse, Scope
 from gafaelfawr.models.history import TokenChangeHistoryEntry
@@ -114,14 +108,8 @@ def delete_admin(
         ip_address=context.request.client.host,
     )
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "loc": ["path", "username"],
-                "type": "not_found",
-                "msg": "Speciried user is not an administrator",
-            },
-        )
+        msg = "Specified user is not an administrator"
+        raise NotFoundError(msg, ErrorLocation.path, "username")
 
 
 @router.get(
@@ -149,37 +137,18 @@ def get_admin_token_change_history(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
-    try:
-        results = token_service.get_change_history(
-            auth_data,
-            cursor=cursor,
-            limit=limit,
-            since=since,
-            until=until,
-            username=username,
-            actor=actor,
-            key=key,
-            token_type=token_type,
-            ip_or_cidr=ip_address,
-        )
-    except BadCursorError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["query", "cursor"],
-                "type": "bad_cursor",
-                "msg": str(e),
-            },
-        )
-    except BadIpAddressError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["query", "ip_address"],
-                "type": "bad_ip_address",
-                "msg": str(e),
-            },
-        )
+    results = token_service.get_change_history(
+        auth_data,
+        cursor=cursor,
+        limit=limit,
+        since=since,
+        until=until,
+        username=username,
+        actor=actor,
+        key=key,
+        token_type=token_type,
+        ip_or_cidr=ip_address,
+    )
     if limit:
         response.headers["Link"] = results.link_header(context.request.url)
         response.headers["X-Total-Count"] = str(results.count)
@@ -219,15 +188,15 @@ async def get_token_info(
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
     info = token_service.get_token_info_unchecked(auth_data.token.key)
-    if not info:
+    if info:
+        return info
+    else:
         msg = "Token found in Redis but not database"
         context.logger.warning(msg)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"type": "invalid_token", "msg": msg},
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=[{"type": "invalid_token", "msg": msg}],
         )
-    else:
-        return info
 
 
 @router.post(
@@ -240,39 +209,11 @@ async def post_admin_tokens(
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     token_service = context.factory.create_token_service()
-    try:
-        token = await token_service.create_token_from_admin_request(
-            token_request,
-            auth_data,
-            ip_address=context.request.client.host,
-        )
-    except BadExpiresError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "expires"],
-                "type": "bad_expires",
-                "msg": str(e),
-            },
-        )
-    except BadScopesError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "scopes"],
-                "type": "bad_scopes",
-                "msg": str(e),
-            },
-        )
-    except DuplicateTokenNameError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "token_name"],
-                "type": "duplicate_token_name",
-                "msg": str(e),
-            },
-        )
+    token = await token_service.create_token_from_admin_request(
+        token_request,
+        auth_data,
+        ip_address=context.request.client.host,
+    )
     response.headers["Location"] = quote(
         f"/auth/api/v1/users/{token_request.username}/tokens/{token.key}"
     )
@@ -313,36 +254,17 @@ def get_user_token_change_history(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
-    try:
-        results = token_service.get_change_history(
-            auth_data,
-            cursor=cursor,
-            username=username,
-            limit=limit,
-            since=since,
-            until=until,
-            key=key,
-            token_type=token_type,
-            ip_or_cidr=ip_address,
-        )
-    except BadCursorError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["query", "cursor"],
-                "type": "bad_cursor",
-                "msg": str(e),
-            },
-        )
-    except BadIpAddressError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["query", "ip_address"],
-                "type": "bad_ip_address",
-                "msg": str(e),
-            },
-        )
+    results = token_service.get_change_history(
+        auth_data,
+        cursor=cursor,
+        username=username,
+        limit=limit,
+        since=since,
+        until=until,
+        key=key,
+        token_type=token_type,
+        ip_or_cidr=ip_address,
+    )
     if limit:
         response.headers["Link"] = results.link_header(context.request.url)
         response.headers["X-Total-Count"] = str(results.count)
@@ -383,40 +305,12 @@ async def post_tokens(
 ) -> NewToken:
     token_service = context.factory.create_token_service()
     token_params = token_request.dict()
-    try:
-        token = await token_service.create_user_token(
-            auth_data,
-            username,
-            ip_address=context.request.client.host,
-            **token_params,
-        )
-    except BadExpiresError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "expires"],
-                "type": "bad_expires",
-                "msg": str(e),
-            },
-        )
-    except BadScopesError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "scopes"],
-                "type": "bad_scopes",
-                "msg": str(e),
-            },
-        )
-    except DuplicateTokenNameError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "token_name"],
-                "type": "duplicate_token_name",
-                "msg": str(e),
-            },
-        )
+    token = await token_service.create_user_token(
+        auth_data,
+        username,
+        ip_address=context.request.client.host,
+        **token_params,
+    )
     response.headers["Location"] = quote(
         f"/auth/api/v1/users/{username}/tokens/{token.key}"
     )
@@ -439,16 +333,10 @@ async def get_token(
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
     info = token_service.get_token_info(key, auth_data, username)
-    if not info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "loc": ["path", "token"],
-                "type": "not_found",
-                "msg": "Token not found",
-            },
-        )
-    return info
+    if info:
+        return info
+    else:
+        raise NotFoundError("Token not found", ErrorLocation.path, "key")
 
 
 @router.delete(
@@ -470,14 +358,7 @@ async def delete_token(
         ip_address=context.request.client.host,
     )
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "loc": ["path", "token"],
-                "type": "not_found",
-                "msg": "Token not found",
-            },
-        )
+        raise NotFoundError("Token not found", ErrorLocation.path, "key")
 
 
 @router.patch(
@@ -500,50 +381,15 @@ async def patch_token(
     update = token_request.dict(exclude_unset=True)
     if "expires" in update and update["expires"] is None:
         update["no_expire"] = True
-    try:
-        info = await token_service.modify_token(
-            key,
-            auth_data,
-            username,
-            ip_address=context.request.client.host,
-            **update,
-        )
-    except BadExpiresError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "expires"],
-                "type": "bad_expires",
-                "msg": str(e),
-            },
-        )
-    except BadScopesError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "scopes"],
-                "type": "bad_scopes",
-                "msg": str(e),
-            },
-        )
-    except DuplicateTokenNameError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "loc": ["body", "token_name"],
-                "type": "duplicate_token_name",
-                "msg": str(e),
-            },
-        )
+    info = await token_service.modify_token(
+        key,
+        auth_data,
+        username,
+        ip_address=context.request.client.host,
+        **update,
+    )
     if not info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "loc": ["path", "token"],
-                "type": "not_found",
-                "msg": "Token not found",
-            },
-        )
+        raise NotFoundError("Token not found", ErrorLocation.path, "key")
     return info
 
 
@@ -566,12 +412,5 @@ async def get_token_change_history(
         auth_data, username=username, key=key
     )
     if not results.entries:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "loc": ["path", "token"],
-                "type": "not_found",
-                "msg": "Token not found",
-            },
-        )
+        raise NotFoundError("Token not found", ErrorLocation.path, "key")
     return [r.reduced_dict() for r in results.entries]

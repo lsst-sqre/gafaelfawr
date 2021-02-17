@@ -444,7 +444,7 @@ async def test_modify_nonuser(setup: SetupTest) -> None:
         json={"token_name": "happy token"},
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
 
 @pytest.mark.asyncio
@@ -471,7 +471,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
     # Get a token list.
     r = await setup.client.get("/auth/api/v1/users/other-person/tokens")
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Create a new user token.
     r = await setup.client.post(
@@ -480,14 +480,14 @@ async def test_wrong_user(setup: SetupTest) -> None:
         json={"token_name": "happy token"},
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Get an individual token.
     r = await setup.client.get(
         f"/auth/api/v1/users/other-person/tokens/{other_token.key}"
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Get the history of an individual token.
     r = await setup.client.get(
@@ -495,7 +495,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         "/change-history"
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Ensure you can't see someone else's token under your username either.
     r = await setup.client.get(
@@ -516,7 +516,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
     r = await setup.client.delete(
         f"/auth/api/v1/users/{token_data.username}/tokens/{other_token.key}",
         headers={"X-CSRF-Token": csrf},
@@ -530,7 +530,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
     r = await setup.client.patch(
         f"/auth/api/v1/users/{token_data.username}/tokens/{other_token.key}",
         json={"token_name": "happy token"},
@@ -609,7 +609,7 @@ async def test_duplicate_token_name(setup: SetupTest) -> None:
         json={"token_name": "some token"},
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "duplicate_token_name"
+    assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
     # Create a token with a different name and then try to modify the name to
     # conflict.
@@ -626,7 +626,7 @@ async def test_duplicate_token_name(setup: SetupTest) -> None:
         json={"token_name": "some token"},
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "duplicate_token_name"
+    assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
 
 @pytest.mark.asyncio
@@ -645,8 +645,8 @@ async def test_bad_expires(setup: SetupTest) -> None:
         )
         assert r.status_code == 422
         data = r.json()
-        assert data["detail"]["loc"] == ["body", "expires"]
-        assert data["detail"]["type"] == "bad_expires"
+        assert data["detail"][0]["loc"] == ["body", "expires"]
+        assert data["detail"][0]["type"] == "invalid_expires"
 
     # Create a valid token.
     r = await setup.client.post(
@@ -666,8 +666,8 @@ async def test_bad_expires(setup: SetupTest) -> None:
         )
         assert r.status_code == 422
         data = r.json()
-        assert data["detail"]["loc"] == ["body", "expires"]
-        assert data["detail"]["type"] == "bad_expires"
+        assert data["detail"][0]["loc"] == ["body", "expires"]
+        assert data["detail"][0]["type"] == "invalid_expires"
 
 
 @pytest.mark.asyncio
@@ -690,8 +690,8 @@ async def test_bad_scopes(setup: SetupTest) -> None:
         )
         assert r.status_code == 422
         data = r.json()
-        assert data["detail"]["loc"] == ["body", "scopes"]
-        assert data["detail"]["type"] == "bad_scopes"
+        assert data["detail"][0]["loc"] == ["body", "scopes"]
+        assert data["detail"][0]["type"] == "invalid_scopes"
 
     # Create a valid token with all of the scopes as the session.
     r = await setup.client.post(
@@ -711,8 +711,8 @@ async def test_bad_scopes(setup: SetupTest) -> None:
         )
         assert r.status_code == 422
         data = r.json()
-        assert data["detail"]["loc"] == ["body", "scopes"]
-        assert data["detail"]["type"] == "bad_scopes"
+        assert data["detail"][0]["loc"] == ["body", "scopes"]
+        assert data["detail"][0]["type"] == "invalid_scopes"
 
 
 @pytest.mark.asyncio
@@ -801,7 +801,7 @@ async def test_create_admin(setup: SetupTest) -> None:
         },
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "bad_expires"
+    assert r.json()["detail"][0]["type"] == "invalid_expires"
     r = await setup.client.post(
         "/auth/api/v1/tokens",
         headers={"Authorization": f"bearer {str(service_token)}"},
@@ -813,7 +813,7 @@ async def test_create_admin(setup: SetupTest) -> None:
         },
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "bad_scopes"
+    assert r.json()["detail"][0]["type"] == "invalid_scopes"
 
     r = await setup.client.post(
         "/auth/api/v1/tokens",
@@ -862,7 +862,7 @@ async def test_create_admin(setup: SetupTest) -> None:
         },
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "duplicate_token_name"
+    assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
     # Check handling of an invalid username.
     r = await setup.client.post(

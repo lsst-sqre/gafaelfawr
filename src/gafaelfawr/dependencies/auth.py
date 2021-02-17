@@ -14,6 +14,7 @@ from gafaelfawr.auth import (
 )
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import (
+    InvalidCSRFError,
     InvalidRequestError,
     InvalidTokenError,
     PermissionDeniedError,
@@ -210,11 +211,4 @@ class Authenticate:
             error = "Invalid CSRF token"
         if error:
             context.logger.error("CSRF verification failed", error=error)
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "loc": ["header", "X-CSRF-Token"],
-                    "type": "invalid_csrf",
-                    "msg": error,
-                },
-            )
+            raise InvalidCSRFError(error)

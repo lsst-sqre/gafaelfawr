@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 
 from gafaelfawr.constants import MINIMUM_LIFETIME, USERNAME_REGEX
 from gafaelfawr.exceptions import (
-    BadExpiresError,
-    BadIpAddressError,
-    BadScopesError,
+    InvalidExpiresError,
+    InvalidIPAddressError,
+    InvalidScopesError,
     PermissionDeniedError,
 )
 from gafaelfawr.models.history import (
@@ -433,6 +433,7 @@ class TokenService:
             IP address and a CIDR block.
         """
         self._check_authorization(username, auth_data)
+        self._validate_ip_or_cidr(ip_or_cidr)
         return self._token_change_store.list(
             cursor=HistoryCursor.from_str(cursor) if cursor else None,
             limit=limit,
@@ -880,14 +881,14 @@ class TokenService:
             IP address and a CIDR block.
         """
         if ip_or_cidr is None:
-            return None
+            return
         try:
             if "/" in ip_or_cidr:
                 ipaddress.ip_network(ip_or_cidr)
             else:
                 ipaddress.ip_address(ip_or_cidr)
         except ValueError as e:
-            raise BadIpAddressError(f"Invalid IP address: {str(e)}")
+            raise InvalidIPAddressError(f"Invalid IP address: {str(e)}")
 
     def _validate_expires(self, expires: Optional[datetime]) -> None:
         """Check that a provided token expiration is valid.
@@ -913,7 +914,7 @@ class TokenService:
             return
         if expires.timestamp() < time.time() + MINIMUM_LIFETIME:
             msg = "token must be valid for at least five minutes"
-            raise BadExpiresError(msg)
+            raise InvalidExpiresError(msg)
 
     def _validate_scopes(
         self,
@@ -941,10 +942,10 @@ class TokenService:
         if auth_data and "admin:token" not in auth_data.scopes:
             if not (scopes_set <= set(auth_data.scopes)):
                 msg = "Requested scopes are broader than your current scopes"
-                raise BadScopesError(msg)
+                raise InvalidScopesError(msg)
         if not (scopes_set <= self._config.known_scopes.keys()):
             msg = "Unknown scopes requested"
-            raise BadScopesError(msg)
+            raise InvalidScopesError(msg)
 
     def _validate_username(self, username: str) -> None:
         """Check that the username is valid.

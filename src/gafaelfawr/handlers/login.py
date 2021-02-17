@@ -12,7 +12,11 @@ from httpx import HTTPError
 
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import return_url_with_header
-from gafaelfawr.exceptions import ProviderException
+from gafaelfawr.exceptions import (
+    InvalidReturnURLError,
+    InvalidStateError,
+    ProviderException,
+)
 
 if TYPE_CHECKING:
     from typing import List, Set
@@ -75,14 +79,7 @@ async def redirect_to_provider(
         The authentication request is invalid.
     """
     if not return_url:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "loc": ["query", "rd"],
-                "type": "return_url_missing",
-                "msg": "No return URL given",
-            },
-        )
+        raise InvalidReturnURLError("No return URL given", "rd")
     context.state.return_url = return_url
 
     # Reuse the existing state if one already exists in the session cookie.
@@ -153,34 +150,22 @@ async def handle_provider_return(
         information from the provider failed.
     """
     if not state:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "loc": ["query", "state"],
-                "type": "state_mismatch",
-                "msg": "No authentication state",
-            },
-        )
+        msg = "No authentication state"
+        context.logger.warning("Authentication failed", error=msg)
+        raise InvalidStateError(msg)
 
     # Extract details from the reply, check state, and get the return URL.
     if state != context.state.state:
         msg = "Authentication state mismatch"
         context.logger.warning("Authentication failed", error=msg)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "loc": ["query", "state"],
-                "msg": "Authentication state mismatch",
-                "type": "state_mismatch",
-            },
-        )
+        raise InvalidStateError(msg)
     return_url = context.state.return_url
     if not return_url:
         msg = "Invalid authentication state: return_url not present in cookie"
         context.logger.error("Authentication failed", error=msg)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"msg": msg, "type": "return_url_not_set"},
+            detail=[{"msg": msg, "type": "return_url_not_set"}],
         )
     context.rebind_logger(return_url=return_url)
 
@@ -193,17 +178,19 @@ async def handle_provider_return(
         context.logger.warning("Provider authentication failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"type": "provider_failed", "msg": str(e)},
+            detail=[{"type": "provider_failed", "msg": str(e)}],
         )
     except HTTPError as e:
         msg = "Cannot contact authentication provider"
         context.logger.exception(msg, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "type": "provider_connect_failed",
-                "msg": f"{msg}: {str(e)}",
-            },
+            detail=[
+                {
+                    "type": "provider_connect_failed",
+                    "msg": f"{msg}: {str(e)}",
+                }
+            ],
         )
 
     # Construct a token.

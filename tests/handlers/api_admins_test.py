@@ -21,7 +21,7 @@ async def test_admins(setup: SetupTest) -> None:
         headers={"Authorization": f"bearer {token_data.token}"},
     )
     assert r.status_code == 403
-    assert r.json()["detail"] == {
+    assert r.json()["detail"][0] == {
         "msg": "Token does not have required scope admin:token",
         "type": "permission_denied",
     }
@@ -62,7 +62,7 @@ async def test_add_delete(setup: SetupTest) -> None:
         json={"username": "new-admin"},
     )
     assert r.status_code == 403
-    assert r.json()["detail"] == {
+    assert r.json()["detail"][0] == {
         "msg": "Token does not have required scope admin:token",
         "type": "permission_denied",
     }
@@ -70,7 +70,7 @@ async def test_add_delete(setup: SetupTest) -> None:
         "/auth/api/v1/admins/admin", headers={"X-CSRF-Token": csrf}
     )
     assert r.status_code == 403
-    assert r.json()["detail"] == {
+    assert r.json()["detail"][0] == {
         "msg": "Token does not have required scope admin:token",
         "type": "permission_denied",
     }
@@ -83,7 +83,7 @@ async def test_add_delete(setup: SetupTest) -> None:
         "/auth/api/v1/admins", json={"username": "new-admin"}
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "invalid_csrf"
+    assert r.json()["detail"][0]["type"] == "invalid_csrf"
     r = await setup.client.post(
         "/auth/api/v1/admins",
         headers={"X-CSRF-Token": csrf},
@@ -95,7 +95,7 @@ async def test_add_delete(setup: SetupTest) -> None:
     assert r.json() == [{"username": "admin"}, {"username": "new-admin"}]
     r = await setup.client.delete("/auth/api/v1/admins/admin")
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "invalid_csrf"
+    assert r.json()["detail"][0]["type"] == "invalid_csrf"
     r = await setup.client.delete(
         "/auth/api/v1/admins/admin", headers={"X-CSRF-Token": csrf}
     )

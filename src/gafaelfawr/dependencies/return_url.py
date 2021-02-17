@@ -11,9 +11,10 @@ from __future__ import annotations
 from typing import Optional
 from urllib.parse import ParseResult, urlparse
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header
 
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
+from gafaelfawr.exceptions import InvalidReturnURLError
 
 __all__ = ["parsed_redirect_uri", "return_url", "return_url_with_header"]
 
@@ -53,14 +54,7 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
     if parsed_url.hostname != hostname:
         msg = f"URL is not at {hostname}"
         context.logger.warning("Bad return URL", error=msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "loc": ["query", "rd"],
-                "msg": msg,
-                "type": "bad_return_url",
-            },
-        )
+        raise InvalidReturnURLError(msg, param)
 
     # Return the parsed URL.
     return parsed_url

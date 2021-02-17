@@ -11,8 +11,8 @@ from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
 from gafaelfawr.exceptions import (
-    BadExpiresError,
-    BadScopesError,
+    InvalidExpiresError,
+    InvalidScopesError,
     PermissionDeniedError,
 )
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
@@ -299,7 +299,7 @@ async def test_internal_token(setup: SetupTest) -> None:
     assert_is_now(info.created)
 
     # Cannot request a scope that the parent token doesn't have.
-    with pytest.raises(BadScopesError):
+    with pytest.raises(InvalidScopesError):
         await token_service.get_internal_token(
             data,
             service="some-service",
@@ -414,13 +414,13 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
 
     # Test a few more errors.
     request.scopes = ["bogus:scope"]
-    with pytest.raises(BadScopesError):
+    with pytest.raises(InvalidScopesError):
         await token_service.create_token_from_admin_request(
             request, admin_data, ip_address="127.0.0.1"
         )
     request.scopes = ["read:all"]
     request.expires = current_datetime()
-    with pytest.raises(BadExpiresError):
+    with pytest.raises(InvalidExpiresError):
         await token_service.create_token_from_admin_request(
             request, admin_data, ip_address="127.0.0.1"
         )

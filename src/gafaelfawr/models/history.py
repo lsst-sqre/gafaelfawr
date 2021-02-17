@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
 
-from gafaelfawr.exceptions import BadCursorError
+from gafaelfawr.exceptions import InvalidCursorError
 from gafaelfawr.models.token import TokenType
 from gafaelfawr.util import (
     current_datetime,
@@ -104,7 +104,7 @@ class HistoryCursor:
                 previous=previous,
             )
         except Exception as e:
-            raise BadCursorError(f"Invalid cursor: {str(e)}")
+            raise InvalidCursorError(f"Invalid cursor: {str(e)}")
 
     @classmethod
     def invert(cls, cursor: HistoryCursor) -> HistoryCursor:

@@ -240,7 +240,7 @@ async def test_login_errors(
     r = await setup.client.get(
         "/auth/openid/login", params=login_params, allow_redirects=False
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
     assert "URL is not at" in r.text
 
     # Valid redirect_uri but missing response_type.
