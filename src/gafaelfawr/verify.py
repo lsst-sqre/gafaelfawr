@@ -177,14 +177,17 @@ class TokenVerifier:
         """
         if self._config.username_claim not in claims:
             msg = f"No {self._config.username_claim} claim in token"
+            self._logger.warning(msg, claims=claims)
             raise MissingClaimsException(msg)
         if self._config.uid_claim not in claims:
             msg = f"No {self._config.uid_claim} claim in token"
+            self._logger.warning(msg, claims=claims)
             raise MissingClaimsException(msg)
         try:
             uid = int(claims[self._config.uid_claim])
         except Exception:
             msg = f"Invalid {self._config.uid_claim} claim in token"
+            self._logger.warning(msg, claims=claims)
             raise InvalidTokenClaimsException(msg)
 
         return OIDCVerifiedToken(
