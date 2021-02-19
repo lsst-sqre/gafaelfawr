@@ -148,8 +148,8 @@ async def build_history(
                 event_time += timedelta(seconds=5)
 
     history = token_service.get_change_history(service_token_data)
-    assert history.count == 15
-    assert len(history.entries) == 15
+    assert history.count == 20
+    assert len(history.entries) == 20
     return history.entries
 
 
@@ -333,23 +333,23 @@ async def test_admin_change_history(setup: SetupTest) -> None:
     )
     await check_history_request(
         setup,
-        {"since": int(history[4].event_time.timestamp())},
-        history[:5],
+        {"since": int(history[5].event_time.timestamp())},
+        history[:6],
         lambda e: True,
     )
     await check_history_request(
         setup,
-        {"until": int(history[7].event_time.timestamp())},
-        history[7:],
+        {"until": int(history[8].event_time.timestamp())},
+        history[8:],
         lambda e: True,
     )
     await check_history_request(
         setup,
         {
-            "since": int(history[8].event_time.timestamp()),
-            "until": int(history[3].event_time.timestamp()),
+            "since": int(history[9].event_time.timestamp()),
+            "until": int(history[4].event_time.timestamp()),
         },
-        history[3:9],
+        history[4:10],
         lambda e: True,
     )
 

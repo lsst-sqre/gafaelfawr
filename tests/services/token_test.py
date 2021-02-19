@@ -728,6 +728,115 @@ async def test_delete(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
+async def test_delete_cascade(setup: SetupTest) -> None:
+    """Test that deleting a token cascades to child tokens."""
+    token_service = setup.factory.create_token_service()
+    session_token_data = await setup.create_session_token(
+        scopes=["admin:token", "read:all"]
+    )
+    user_token = await token_service.create_user_token(
+        session_token_data,
+        session_token_data.username,
+        token_name="user-token",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+    admin_request = AdminTokenRequest(
+        username="service",
+        token_type=TokenType.service,
+        scopes=["read:all"],
+        name="Some Service",
+    )
+    service_token = await token_service.create_token_from_admin_request(
+        admin_request, session_token_data, ip_address="127.0.0.1"
+    )
+    service_token_data = await token_service.get_data(service_token)
+    assert service_token_data
+
+    # Build a tree of tokens hung off of the session token.
+    notebook_token = await token_service.get_notebook_token(
+        session_token_data, ip_address="127.0.0.1"
+    )
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    session_children = [
+        notebook_token,
+        await token_service.get_internal_token(
+            session_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_internal_token(
+            notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_internal_token(
+            notebook_token_data,
+            "service-a",
+            scopes=["read:all"],
+            ip_address="127.0.0.1",
+        ),
+    ]
+    internal_token_data = await token_service.get_data(session_children[-1])
+    assert internal_token_data
+    session_children.append(
+        await token_service.get_internal_token(
+            internal_token_data,
+            "service-b",
+            scopes=["read:all"],
+            ip_address="127.0.0.1",
+        )
+    )
+
+    # Shorter trees of tokens from the user and service tokens.
+    user_children = [
+        await token_service.get_internal_token(
+            user_token_data, "service-c", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_notebook_token(
+            user_token_data, ip_address="127.0.0.1"
+        ),
+    ]
+    service_children = [
+        await token_service.get_internal_token(
+            service_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+        )
+    ]
+
+    # Deleting the session token should invalidate all of its children.
+    assert await token_service.delete_token(
+        session_token_data.token.key,
+        session_token_data,
+        session_token_data.username,
+        ip_address="127.0.0.1",
+    )
+    for token in session_children:
+        assert await token_service.get_data(token) is None
+
+    # But the user and service token created by this token should not be
+    # deleted.
+    assert await token_service.get_data(user_token_data.token)
+    assert await token_service.get_data(service_token_data.token)
+
+    # Deleting those tokens should cascade to their children.
+    assert await token_service.delete_token(
+        user_token_data.token.key,
+        user_token_data,
+        user_token_data.username,
+        ip_address="127.0.0.1",
+    )
+    for token in user_children:
+        assert await token_service.get_data(token) is None
+    assert await token_service.delete_token(
+        service_token_data.token.key,
+        service_token_data,
+        service_token_data.username,
+        ip_address="127.0.0.1",
+    )
+    for token in service_children:
+        assert await token_service.get_data(token) is None
+
+
+@pytest.mark.asyncio
 async def test_invalid(setup: SetupTest) -> None:
     token_service = setup.factory.create_token_service()
     expires = timedelta(days=1).total_seconds()

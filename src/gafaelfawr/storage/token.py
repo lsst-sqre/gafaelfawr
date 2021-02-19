@@ -105,6 +105,34 @@ class TokenDatabaseStore:
         """
         return self._session.query(SQLToken).filter_by(token=key).delete() >= 1
 
+    def get_children(self, key: str) -> List[str]:
+        """Return all children (recursively) of a token.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token.
+
+        Returns
+        -------
+        children : List[`str`]
+            The keys of all child tokens of that token, recursively.  The
+            direct child tokens will be at the beginning of the list, and
+            other tokens will be listed in a breadth-first search order.
+        """
+        all_children = []
+        parents = [key]
+        while parents:
+            records = (
+                self._session.query(Subtoken.child)
+                .filter(Subtoken.parent.in_(parents))
+                .all()
+            )
+            children = [r.child for r in records]
+            all_children.extend(children)
+            parents = children
+        return all_children
+
     def get_info(self, key: str) -> Optional[TokenInfo]:
         """Return information about a token.
 

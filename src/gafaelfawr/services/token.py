@@ -350,28 +350,17 @@ class TokenService:
             return False
         self._check_authorization(info.username, auth_data)
 
-        history_entry = TokenChangeHistoryEntry(
-            token=key,
-            username=info.username,
-            token_type=info.token_type,
-            token_name=info.token_name,
-            parent=info.parent,
-            scopes=info.scopes,
-            service=info.service,
-            expires=info.expires,
-            actor=auth_data.username,
-            action=TokenChange.revoke,
-            ip_address=ip_address,
-        )
-
-        await self._token_redis_store.delete(key)
+        # Recursively delete the children of this token first.  Children are
+        # returned in breadth-first order, so delete them in reverse order to
+        # delete the tokens farthest down in the tree first.  This minimizes
+        # the number of orphaned children at any given point.
+        children = self._token_db_store.get_children(key)
+        children.reverse()
         with self._transaction_manager.transaction():
-            success = self._token_db_store.delete(key)
-            if success:
-                self._token_change_store.add(history_entry)
+            for child in children:
+                await self._delete_one_token(child, auth_data, ip_address)
+            success = await self._delete_one_token(key, auth_data, ip_address)
 
-        if success:
-            self._logger.info("Deleted token", key=key, username=info.username)
         return success
 
     def get_change_history(
@@ -864,6 +853,57 @@ class TokenService:
                 msg = f"Cannot act on tokens for user {username}"
                 self._logger.warning("Permission denied", error=msg)
                 raise PermissionDeniedError(msg)
+
+    async def _delete_one_token(
+        self,
+        key: str,
+        auth_data: TokenData,
+        ip_address: str,
+    ) -> bool:
+        """Helper function to delete a single token.
+
+        This does not do cascading delete and assumes authorization has
+        already been checked.  Must be called inside a transaction.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token to delete.
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token data for the authentication token of the user deleting
+            the token.
+        ip_address : `str`
+            The IP address from which the request came.
+
+        Returns
+        -------
+        success : `bool`
+            Whether the token was found and deleted.
+        """
+        info = self.get_token_info_unchecked(key)
+        if not info:
+            return False
+
+        history_entry = TokenChangeHistoryEntry(
+            token=key,
+            username=info.username,
+            token_type=info.token_type,
+            token_name=info.token_name,
+            parent=info.parent,
+            scopes=info.scopes,
+            service=info.service,
+            expires=info.expires,
+            actor=auth_data.username,
+            action=TokenChange.revoke,
+            ip_address=ip_address,
+        )
+
+        await self._token_redis_store.delete(key)
+        success = self._token_db_store.delete(key)
+        if success:
+            self._token_change_store.add(history_entry)
+            self._logger.info("Deleted token", key=key, username=info.username)
+        return success
 
     def _validate_ip_or_cidr(self, ip_or_cidr: Optional[str]) -> None:
         """Check that an IP address or CIDR block is valid.
