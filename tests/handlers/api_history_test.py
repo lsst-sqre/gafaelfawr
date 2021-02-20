@@ -37,7 +37,9 @@ async def build_history(
 
     user_info_one = TokenUserInfo(username="one")
     token_one = await token_service.create_session_token(
-        user_info_one, scopes=["exec:test", "read:all"], ip_address="192.0.2.3"
+        user_info_one,
+        scopes=["exec:test", "read:all", "user:token"],
+        ip_address="192.0.2.3",
     )
     token_data_one = await token_service.get_data(token_one)
     assert token_data_one
@@ -71,7 +73,9 @@ async def build_history(
 
     user_info_two = TokenUserInfo(username="two")
     token_two = await token_service.create_session_token(
-        user_info_two, scopes=["read:some"], ip_address="192.0.2.20"
+        user_info_two,
+        scopes=["read:some", "user:token"],
+        ip_address="192.0.2.20",
     )
     token_data_two = await token_service.get_data(token_two)
     assert token_data_two
@@ -79,7 +83,7 @@ async def build_history(
         token_data_two,
         token_data_two.username,
         token_name="some token",
-        scopes=["read:some"],
+        scopes=["read:some", "user:token"],
         ip_address="192.0.2.20",
     )
     token_data_user_two = await token_service.get_data(user_token_two)
@@ -441,3 +445,58 @@ async def test_user_change_history(setup: SetupTest) -> None:
         lambda e: True,
         username="one",
     )
+
+
+@pytest.mark.asyncio
+async def test_auth_required(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    username = token_data.username
+    key = token_data.token.key
+
+    r = await setup.client.get("/auth/api/v1/history/token-changes")
+    assert r.status_code == 401
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{username}/token-change-history"
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{username}/tokens/{key}/change-history"
+    )
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_admin_required(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    await setup.login(token_data.token)
+
+    r = await setup.client.get("/auth/api/v1/history/token-changes")
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_no_scope(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    username = token_data.username
+    token_service = setup.factory.create_token_service()
+    token = await token_service.create_user_token(
+        token_data,
+        token_data.username,
+        token_name="user",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{username}/token-change-history",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{username}/tokens/{token.key}/change-history",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403

@@ -173,10 +173,10 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadExpiresError
-            The provided expiration time was invalid.
         gafaelfawr.exceptions.DuplicateTokenNameError
             A token with this name for this user already exists.
+        gafaelfawr.exceptions.InvalidExpiresError
+            The provided expiration time was invalid.
         gafaelfawr.exceptions.PermissionDeniedError
             If the given username didn't match the user information in the
             authentication token, or if the specified username is invalid.
@@ -410,14 +410,14 @@ class TokenService:
 
         Returns
         -------
-        entries : List[`gafaelfawr.models.history.TokenChangeHistory.Entry`]
+        entries : List[`gafaelfawr.models.history.TokenChangeHistoryEntry`]
             A list of changes matching the search criteria.
 
         Raises
         ------
-        gafaelfawr.exceptions.BadCursorError
+        gafaelfawr.exceptions.InvalidCursorError
             The provided cursor was invalid.
-        gafaelfawr.exceptions.BadIpAddressError
+        gafaelfawr.exceptions.InvalidIPAddressError
             The provided argument was syntactically invalid for both an
             IP address and a CIDR block.
         """
@@ -747,7 +747,7 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadExpiresError
+        gafaelfawr.exceptions.InvalidExpiresError
             The provided expiration time was invalid.
         gafaelfawr.exceptions.DuplicateTokenNameError
             A token with this name for this user already exists.
@@ -853,6 +853,10 @@ class TokenService:
                 msg = f"Cannot act on tokens for user {username}"
                 self._logger.warning("Permission denied", error=msg)
                 raise PermissionDeniedError(msg)
+        if not is_admin and "user:token" not in auth_data.scopes:
+            msg = "Missing required user:token scope"
+            self._logger.warning("Permission denied", error=msg)
+            raise PermissionDeniedError(msg)
 
     async def _delete_one_token(
         self,
@@ -916,7 +920,7 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadIpAddressError
+        gafaelfawr.exceptions.InvalidIPAddressError
             The provided argument was syntactically invalid for both an
             IP address and a CIDR block.
         """
@@ -940,7 +944,7 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadExpiresError
+        gafaelfawr.exceptions.InvalidExpiresError
             The provided expiration time is not valid.
 
         Notes
@@ -973,7 +977,7 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadScopesError
+        gafaelfawr.exceptions.InvalidScopesError
             The requested scopes are not permitted.
         """
         if not scopes:

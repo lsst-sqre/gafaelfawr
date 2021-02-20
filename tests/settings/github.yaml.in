@@ -17,6 +17,7 @@ known_scopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "read:some": "can read some things"
+  "user:token": "Can create and modify user tokens"
 issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"

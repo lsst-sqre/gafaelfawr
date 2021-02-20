@@ -250,7 +250,7 @@ def get_user_token_change_history(
     key: Optional[str] = Query(None, min_length=22, max_length=22),
     token_type: Optional[TokenType] = None,
     ip_address: Optional[str] = None,
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
@@ -281,7 +281,7 @@ async def get_tokens(
     username: str = Path(
         ..., min_length=1, max_length=64, regex=USERNAME_REGEX
     ),
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> List[TokenInfo]:
     token_service = context.factory.create_token_service()
@@ -300,7 +300,7 @@ async def post_tokens(
     username: str = Path(
         ..., min_length=1, max_length=64, regex=USERNAME_REGEX
     ),
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     token_service = context.factory.create_token_service()
@@ -328,7 +328,7 @@ async def get_token(
         ..., min_length=1, max_length=64, regex=USERNAME_REGEX
     ),
     key: str = Path(..., min_length=22, max_length=22),
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
@@ -347,7 +347,7 @@ async def delete_token(
         ..., min_length=1, max_length=64, regex=USERNAME_REGEX
     ),
     key: str = Path(..., min_length=22, max_length=22),
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     token_service = context.factory.create_token_service()
@@ -374,7 +374,7 @@ async def patch_token(
         ..., min_length=1, max_length=64, regex=USERNAME_REGEX
     ),
     key: str = Path(..., min_length=22, max_length=22),
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
@@ -404,7 +404,7 @@ async def get_token_change_history(
         ..., min_length=1, max_length=64, regex=USERNAME_REGEX
     ),
     key: str = Path(..., min_length=22, max_length=22),
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()

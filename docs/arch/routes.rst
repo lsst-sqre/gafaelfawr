@@ -25,7 +25,8 @@ Gafaelfawr supports the following routes:
 
 ``/auth/api``
     The token API.
-    See `SQR-049 <https://sqr-049.lsst.io/>`__ for detailed documentation.
+    See the ``/auth/docs`` or ``/auth/redoc`` routes of the running service for detailed documentation.
+    See `SQR-049 <https://sqr-049.lsst.io/>`__ for the specification.
 
 ``/auth/docs``
     Auto-generated documentation for Gafaelfawr routes.

@@ -29,7 +29,9 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["read:all", "exec:admin"], ip_address="127.0.0.1"
+        user_info,
+        scopes=["read:all", "exec:admin", "user:token"],
+        ip_address="127.0.0.1",
     )
     csrf = await setup.login(session_token)
 
@@ -86,7 +88,7 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
                 "token": session_token.key,
                 "username": "example",
                 "token_type": "session",
-                "scopes": ["exec:admin", "read:all"],
+                "scopes": ["exec:admin", "read:all", "user:token"],
                 "created": ANY,
                 "expires": ANY,
             },
@@ -188,7 +190,7 @@ async def test_token_info(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["exec:admin"], ip_address="127.0.0.1"
+        user_info, scopes=["exec:admin", "user:token"], ip_address="127.0.0.1"
     )
 
     r = await setup.client.get(
@@ -201,7 +203,7 @@ async def test_token_info(setup: SetupTest) -> None:
         "token": session_token.key,
         "username": "example",
         "token_type": "session",
-        "scopes": ["exec:admin"],
+        "scopes": ["exec:admin", "user:token"],
         "created": ANY,
         "expires": ANY,
     }
@@ -292,12 +294,6 @@ async def test_auth_required(setup: SetupTest) -> None:
     assert r.status_code == 401
 
     r = await setup.client.get("/auth/api/v1/users/example/tokens")
-    assert r.status_code == 401
-
-    r = await setup.client.get(
-        "/auth/api/v1/users/example/tokens",
-        headers={"Authorization": f"bearer {token}"},
-    )
     assert r.status_code == 401
 
     r = await setup.client.post(
@@ -433,6 +429,51 @@ async def test_no_bootstrap(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
+async def test_no_scope(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    token_service = setup.factory.create_token_service()
+    token = await token_service.create_user_token(
+        token_data,
+        token_data.username,
+        token_name="user",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"Authorization": f"bearer {token}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
+        headers={"Authorization": f"bearer {token}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_modify_nonuser(setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
     token = token_data.token
@@ -456,7 +497,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         username="other-person", name="Some Other Person", uid=137123
     )
     other_session_token = await token_service.create_session_token(
-        user_info, scopes=[], ip_address="127.0.0.1"
+        user_info, scopes=["user:token"], ip_address="127.0.0.1"
     )
     other_session_data = await token_service.get_data(other_session_token)
     assert other_session_data
@@ -676,7 +717,7 @@ async def test_bad_scopes(setup: SetupTest) -> None:
     known_scopes = list(setup.config.known_scopes.keys())
     assert len(known_scopes) > 4
     token_data = await setup.create_session_token(
-        scopes=known_scopes[1:3] + ["other:scope"]
+        scopes=known_scopes[1:3] + ["other:scope", "user:token"]
     )
     csrf = await setup.login(token_data.token)
 

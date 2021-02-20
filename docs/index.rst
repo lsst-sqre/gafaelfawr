@@ -48,6 +48,7 @@ Architecture
    arch/flow
    arch/routes
    arch/providers
+   arch/scopes
    arch/session
    arch/security
    arch/references

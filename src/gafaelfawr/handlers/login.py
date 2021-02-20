@@ -239,8 +239,8 @@ def get_scopes_from_groups(
         ``group_mapping`` configuration parameter.
     """
     if not groups:
-        return []
-    scopes: Set[str] = set()
+        return ["user:token"]
+    scopes: Set[str] = set(["user:token"])
     for group in [g.name for g in groups]:
         scopes.update(config.issuer.group_mapping.get(group, set()))
     return sorted(scopes)

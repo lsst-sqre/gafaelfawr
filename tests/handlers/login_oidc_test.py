@@ -67,7 +67,8 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["Location"] == return_url
 
     # Verify the logging.
-    expected_scopes_set = setup.config.issuer.group_mapping["admin"]
+    expected_scopes_set = set(setup.config.issuer.group_mapping["admin"])
+    expected_scopes_set.add("user:token")
     expected_scopes = " ".join(sorted(expected_scopes_set))
     data = json.loads(caplog.record_tuples[-1][2])
     event = f"Successfully authenticated user {token.username} ({token.uid})"

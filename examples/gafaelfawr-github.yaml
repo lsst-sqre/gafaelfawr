@@ -65,6 +65,7 @@ known_scopes:
   "admin": "Administrative access"
   "admin:token": "Can create and modify tokens for any user"
   "read:all": "Can read anything"
+  "user:token": "Can create and modify user tokens"
 
 # Map scopes to lists of groups that provide that scope.
 #

@@ -214,7 +214,7 @@ class SetupTest:
             username=username, name="Some User", uid=1000, groups=groups
         )
         if not scopes:
-            scopes = []
+            scopes = ["user:token"]
         token_service = self.factory.create_token_service()
         token = await token_service.create_session_token(
             user_info, scopes=scopes, ip_address="127.0.0.1"

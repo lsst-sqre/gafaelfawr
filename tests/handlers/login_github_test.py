@@ -90,7 +90,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "return_url": return_url,
         "remote": "127.0.0.1",
         "request_id": ANY,
-        "scope": "read:all",
+        "scope": "read:all user:token",
         "token": ANY,
         "user": "githubuser",
         "user_agent": ANY,
@@ -99,7 +99,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     # Check that the /auth route works and finds our token.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
+    assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all user:token"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == "githubuser"

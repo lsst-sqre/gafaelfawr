@@ -54,6 +54,7 @@ known_scopes:
   "admin": "Administrative access"
   "admin:token": "Can create and modify tokens for any user"
   "read:all": "Can read anything"
+  "user:token": "Can create and modify user tokens"
 
 # To get scopes based on GitHub team membership, replace <org> with the
 # name of the GitHub organization and <team> with the name of the team

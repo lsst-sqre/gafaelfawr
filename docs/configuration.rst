@@ -175,7 +175,7 @@ Configuration file settings
 ``known_scopes`` (required)
     A dict whose keys are known scope names and whose values are human-language descriptions of that scope.
     Only scopes listed here will be permitted in tokens, so every scope referenced in ``group_mapping`` must also be present in this setting.
-    The ``admin:token`` scope used internally by Gafaelfawr must be included.
+    The ``admin:token`` and ``user:token`` scopes are used internally by Gafaelfawr and must be included.
 
 ``group_mapping`` (optional)
     A dict whose keys are names of scopes and whose values are lists of names of groups (as found in the ``name`` attribute of the values of an ``isMemberOf`` claim in a JWT).
@@ -202,6 +202,7 @@ Configuration file settings
     If GitHub authentication is in use, a user's groups will be based on their GitHub team memberships.
     See :ref:`github-groups` for more information.
 
+    The ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
     The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr, regardless of the ``group_mapping`` setting.
 
 ``username_claim`` (optional, default ``uid``)
