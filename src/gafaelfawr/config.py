@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from ipaddress import _BaseNetwork
@@ -200,6 +201,16 @@ class Settings(BaseModel):
 
     class Config:
         env_prefix = "GAFAELFAWR_"
+
+    @validator("known_scopes")
+    def _valid_known_scopes(cls, v: Dict[str, str]) -> Dict[str, str]:
+        for scope in v.keys():
+            if not re.match("[a-zA-Z0-9:._-]+$", scope):
+                raise ValueError(f"invalid scope {scope}")
+        for required in ("admin:token", "user:token"):
+            if required not in v:
+                raise ValueError(f"required scope {scope} missing")
+        return v
 
     @validator("loglevel")
     def _valid_loglevel(cls, v: str) -> str:

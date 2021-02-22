@@ -59,7 +59,19 @@ def test_config_invalid_loglevel() -> None:
         parse_settings(settings_path)
 
 
+def test_config_invalid_scope() -> None:
+    settings_path = Path(__file__).parent / "settings" / "bad-scope.yaml"
+    with pytest.raises(ValidationError):
+        parse_settings(settings_path)
+
+
 def test_config_invalid_token() -> None:
     settings_path = Path(__file__).parent / "settings" / "bad-token.yaml"
+    with pytest.raises(ValidationError):
+        parse_settings(settings_path)
+
+
+def test_config_missing_scope() -> None:
+    settings_path = Path(__file__).parent / "settings" / "missing-scope.yaml"
     with pytest.raises(ValidationError):
         parse_settings(settings_path)
