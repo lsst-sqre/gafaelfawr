@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types';
 import React, {
   useCallback,
   useContext,
@@ -6,6 +5,7 @@ import React, {
   useEffect,
   useMemo,
 } from 'react';
+import { useAlert } from 'react-alert';
 
 import CreateTokenButton from './createTokenButton';
 import EditTokenModal from './editTokenModal';
@@ -14,7 +14,8 @@ import TokenTable from './tokenTable';
 import useError from '../hooks/error';
 import { apiDelete, apiGet, apiPost } from '../functions/api';
 
-export default function TokenList({ onError }) {
+export default function TokenList() {
+  const alert = useAlert();
   const { csrf, username, userScopes, config } = useContext(LoginContext);
   const [data, setData] = useState(null);
   const [editingToken, _setEditingToken] = useState(null);
@@ -38,8 +39,8 @@ export default function TokenList({ onError }) {
         internal: tokenList.filter((t) => t.token_type === 'internal'),
       }))
       .then(setData)
-      .catch(onError);
-  }, [onError, username]);
+      .catch((e) => alert.show(e.message));
+  }, [alert, username]);
 
   const createToken = useCallback(
     async ({ name, scopes, expires }, setNewToken) => {
@@ -64,9 +65,9 @@ export default function TokenList({ onError }) {
     async (token) => {
       await apiDelete(`/users/${username}/tokens/${token}`, csrf)
         .then(loadTokenData)
-        .catch(onError);
+        .catch((e) => alert.show(e.message));
     },
-    [csrf, loadTokenData, onError, username]
+    [alert, csrf, loadTokenData, username]
   );
 
   useEffect(loadTokenData, [loadTokenData, username]);
@@ -120,7 +121,6 @@ export default function TokenList({ onError }) {
       {editingToken !== null ? (
         <EditTokenModal
           token={editingToken}
-          onLoadError={onError}
           onSuccess={editToken}
           onExit={clearEditingToken}
         />
@@ -128,6 +128,3 @@ export default function TokenList({ onError }) {
     </>
   );
 }
-TokenList.propTypes = {
-  onError: PropTypes.func.isRequired,
-};

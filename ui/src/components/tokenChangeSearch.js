@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types';
 import React, {
   useCallback,
   useContext,
@@ -6,13 +5,15 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { useAlert } from 'react-alert';
 
 import { LoginContext } from './loginContext';
 import TokenChangeSearchForm from './tokenChangeSearchForm';
 import TokenChangeTable from './tokenChangeTable';
 import { apiGet } from '../functions/api';
 
-export default function TokenChangeSearch({ onError }) {
+export default function TokenChangeSearch() {
+  const alert = useAlert();
   const { username } = useContext(LoginContext);
   const [search, setSearch] = useState(null);
   const [_data, setData] = useState([]);
@@ -23,9 +24,9 @@ export default function TokenChangeSearch({ onError }) {
     if (search === null) return;
     apiGet(`/users/${username}/token-change-history`, search)
       .then(setData)
-      .then(() => onError(null))
-      .catch(onError);
-  }, [onError, search, username]);
+      .then(() => alert.removeAll())
+      .catch((e) => alert.show(e.message));
+  }, [alert, search, username]);
 
   useEffect(loadHistory, [loadHistory, search, username]);
 
@@ -41,6 +42,3 @@ export default function TokenChangeSearch({ onError }) {
     </>
   );
 }
-TokenChangeSearch.propTypes = {
-  onError: PropTypes.func.isRequired,
-};

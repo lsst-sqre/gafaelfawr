@@ -1,18 +1,15 @@
 import fromUnixTime from 'date-fns/fromUnixTime';
 import PropTypes from 'prop-types';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { useAlert } from 'react-alert';
 
 import { LoginContext } from './loginContext.js';
 import TokenModal from './tokenModal.js';
 import useError from '../hooks/error.js';
 import { apiGet, apiPatch } from '../functions/api.js';
 
-export default function EditTokenModal({
-  token,
-  onLoadError,
-  onSuccess,
-  onExit,
-}) {
+export default function EditTokenModal({ token, onSuccess, onExit }) {
+  const alert = useAlert();
   const { csrf, username, userScopes, config } = useContext(LoginContext);
   const [tokenData, setTokenData] = useState(null);
   const { error, onError } = useError();
@@ -21,8 +18,8 @@ export default function EditTokenModal({
     if (!username || !token) return;
     apiGet(`/users/${username}/tokens/${token}`)
       .then(setTokenData)
-      .catch(onLoadError);
-  }, [onLoadError, token, username]);
+      .catch((e) => alert.show(e.message));
+  }, [alert, token, username]);
 
   useEffect(loadTokenData, [loadTokenData, token, username]);
 
@@ -68,7 +65,6 @@ export default function EditTokenModal({
 }
 EditTokenModal.propTypes = {
   token: PropTypes.string.isRequired,
-  onLoadError: PropTypes.func.isRequired,
   onSuccess: PropTypes.func.isRequired,
   onExit: PropTypes.func.isRequired,
 };

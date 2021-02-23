@@ -35,7 +35,7 @@ function jsonIfOkay(response) {
       throw Error(`Error in API call: ${response.statusText}`);
     })
     .then((data) => {
-      throw Error(data.detail.msg);
+      throw Error(data.detail[0].msg);
     });
 }
 
@@ -45,6 +45,7 @@ export function apiGet(route, params = null) {
     .then((response) => {
       if (typeof window !== 'undefined' && response.status === 401) {
         window.location.href = apiLoginRedirect();
+        throw Error('Redirecting for authentication');
       } else {
         return response;
       }
