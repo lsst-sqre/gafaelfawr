@@ -1,19 +1,31 @@
+import formatISO from 'date-fns/formatISO';
 import getUnixTime from 'date-fns/getUnixTime';
+import parseISO from 'date-fns/parseISO';
 import { ErrorMessage, Field, Form, Formik } from 'formik';
 import PropTypes from 'prop-types';
 import React from 'react';
 import DatePicker from 'react-datepicker';
+import { useQueryParams, StringParam, withDefault } from 'use-query-params';
 
 import 'react-datepicker/dist/react-datepicker.css';
 
 export default function TokenChangeSearchForm({ onSubmit }) {
+  const [query, setQuery] = useQueryParams({
+    key: StringParam,
+    tokenType: withDefault(StringParam, 'any'),
+    ipAddress: StringParam,
+    sinceDate: StringParam,
+    untilDate: StringParam,
+  });
+
   return (
     <Formik
       initialValues={{
-        key: null,
-        tokenType: 'any',
-        sinceDate: null,
-        untilDate: null,
+        key: query.key,
+        tokenType: query.tokenType,
+        ipAddress: query.ipAddress,
+        sinceDate: query.sinceDate && parseISO(query.sinceDate),
+        untilDate: query.untilDate && parseISO(query.untilDate),
       }}
       validate={(values) => {
         const errors = {};
@@ -36,6 +48,12 @@ export default function TokenChangeSearchForm({ onSubmit }) {
       }}
       onSubmit={(values, { setSubmitting }) => {
         onSubmit(values.search);
+        const newQuery = { tokenType: values.tokenType };
+        if (values.key) newQuery.key = values.key;
+        if (values.ipAddress) newQuery.ipAddress = values.ipAddress;
+        if (values.sinceDate) newQuery.sinceDate = formatISO(values.sinceDate);
+        if (values.untilDate) newQuery.untilDate = formatISO(values.untilDate);
+        setQuery(newQuery);
         setSubmitting(false);
       }}
     >

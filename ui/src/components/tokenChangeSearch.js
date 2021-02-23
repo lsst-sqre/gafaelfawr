@@ -31,7 +31,7 @@ export default function TokenChangeSearch({ onError }) {
 
   return (
     <>
-      <TokenChangeSearchForm onError={onError} onSubmit={setSearch} />
+      <TokenChangeSearchForm search={search} onSubmit={setSearch} />
       {search !== null && (
         <>
           <h2>Results</h2>

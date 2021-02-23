@@ -6,5 +6,5 @@
 
 module.exports = {
   pathPrefix: `/auth/tokens`,
-  plugins: [],
+  plugins: ['gatsby-plugin-use-query-params'],
 };
