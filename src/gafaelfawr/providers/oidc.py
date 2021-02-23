@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import jwt
+from pydantic import ValidationError
 
 from gafaelfawr.exceptions import OIDCException, VerifyTokenException
 from gafaelfawr.models.oidc import OIDCToken
@@ -147,12 +148,21 @@ class OIDCProvider(Provider):
             raise OIDCException(msg)
 
         # Extract information from it to create the user information.
+        groups = []
+        invalid_groups = {}
         try:
-            groups = [
-                TokenGroup(name=g["name"], id=int(g["id"]))
-                for g in token.claims.get("isMemberOf", [])
-                if "name" in g and "id" in g
-            ]
+            for oidc_group in token.claims.get("isMemberOf", []):
+                if "name" not in oidc_group:
+                    continue
+                name = oidc_group["name"]
+                if "id" not in oidc_group:
+                    invalid_groups[name] = "missing id"
+                    continue
+                gid = int(oidc_group["id"])
+                try:
+                    groups.append(TokenGroup(name=name, id=gid))
+                except ValidationError as e:
+                    invalid_groups[name] = str(e)
         except Exception as e:
             msg = f"isMemberOf claim is invalid: {str(e)}"
             raise OIDCException(msg)

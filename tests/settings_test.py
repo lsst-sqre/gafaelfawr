@@ -53,6 +53,12 @@ def test_config_both_providers() -> None:
         parse_settings(settings_path)
 
 
+def test_config_invalid_admin() -> None:
+    settings_path = Path(__file__).parent / "settings" / "bad-admin.yaml"
+    with pytest.raises(ValidationError):
+        parse_settings(settings_path)
+
+
 def test_config_invalid_loglevel() -> None:
     settings_path = Path(__file__).parent / "settings" / "bad-loglevel.yaml"
     with pytest.raises(ValidationError):

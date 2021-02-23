@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
-from gafaelfawr.constants import USERNAME_REGEX
+from gafaelfawr.constants import GROUPNAME_REGEX, USERNAME_REGEX
 from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.util import (
     current_datetime,
@@ -116,7 +116,9 @@ class TokenGroup(BaseModel):
     identity management system.
     """
 
-    name: str = Field(..., title="The name of the group")
+    name: str = Field(
+        ..., title="The name of the group", min_length=1, regex=GROUPNAME_REGEX
+    )
 
     id: int = Field(..., title="The numeric GID of the group")
 

@@ -401,3 +401,42 @@ async def test_invalid_username(setup: SetupTest) -> None:
             }
         ]
     }
+
+
+@pytest.mark.asyncio
+async def test_invalid_groups(setup: SetupTest) -> None:
+    user_info = GitHubUserInfo(
+        name="A User",
+        username="someuser",
+        uid=1000,
+        email="user@example.com",
+        teams=[
+            GitHubTeam(slug="a-team", gid=1000, organization="ORG"),
+            GitHubTeam(slug="broken slug", gid=4000, organization="ORG"),
+            GitHubTeam(slug="valid", gid=5000, organization="bad:org"),
+        ],
+    )
+
+    setup.set_github_token_response("some-code", "some-github-token")
+    r = await setup.client.get(
+        "/login",
+        headers={"X-Auth-Request-Redirect": "https://example.com"},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", user_info)
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+
+    # The user returned by the /auth route should be forced to lowercase.
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Groups"] == "org-a-team"

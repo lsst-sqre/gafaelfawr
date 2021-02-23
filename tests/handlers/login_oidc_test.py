@@ -373,7 +373,7 @@ async def test_invalid_username(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_groups(setup: SetupTest) -> None:
+async def test_invalid_group_syntax(setup: SetupTest) -> None:
     setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
         isMemberOf=[{"name": "foo", "id": ["bar"]}]
@@ -408,7 +408,7 @@ async def test_invalid_groups(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_groups_without_ids(setup: SetupTest) -> None:
+async def test_invalid_groups(setup: SetupTest) -> None:
     setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
         isMemberOf=[
@@ -416,6 +416,9 @@ async def test_groups_without_ids(setup: SetupTest) -> None:
             {"group": "bar", "id": 4567},
             {"name": "valid", "id": "7889"},
             {"name": "admin", "id": 2371, "extra": "blah"},
+            {"name": "bad:group:name", "id": 5723},
+            {"name": "", "id": 1482},
+            {"name": "21341", "id": 41233},
         ]
     )
     setup.set_oidc_token_response("some-code", token)

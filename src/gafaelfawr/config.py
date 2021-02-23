@@ -22,6 +22,7 @@ import yaml
 from pydantic import AnyHttpUrl, BaseModel, IPvAnyNetwork, validator
 from safir.logging import configure_logging
 
+from gafaelfawr.constants import SCOPE_REGEX, USERNAME_REGEX
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.token import Token
 
@@ -202,10 +203,16 @@ class Settings(BaseModel):
     class Config:
         env_prefix = "GAFAELFAWR_"
 
+    @validator("initial_admins", each_item=True)
+    def _validate_initial_admins(cls, v: str) -> str:
+        if not re.match(USERNAME_REGEX, v):
+            raise ValueError("invalid username")
+        return v
+
     @validator("known_scopes")
     def _valid_known_scopes(cls, v: Dict[str, str]) -> Dict[str, str]:
         for scope in v.keys():
-            if not re.match("[a-zA-Z0-9:._-]+$", scope):
+            if not re.match(SCOPE_REGEX, scope):
                 raise ValueError(f"invalid scope {scope}")
         for required in ("admin:token", "user:token"):
             if required not in v:
