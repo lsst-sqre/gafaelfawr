@@ -1,3 +1,20 @@
+// Custom error that includes the JSON body, used to parse the error location
+// and assign errors to specific form fields.
+export class APIError extends Error {
+  constructor(detail, ...params) {
+    super(detail[0].msg, ...params);
+
+    // Maintains proper stack trace for where our error was thrown (only
+    // available on V8)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, APIError);
+    }
+
+    this.name = 'APIError';
+    this.detail = detail;
+  }
+}
+
 // Determine the URL of an API route by inspecting the URL of the current page
 // and assuming the API URL is /auth/api/v1 at the same host.
 function apiUrl(route) {
@@ -26,16 +43,20 @@ function buildUrl(route, params) {
 function jsonIfOkay(response) {
   if (response.ok) {
     return response.json().catch((error) => {
-      throw Error(`Error in API call: ${error.message}`);
+      throw new Error(`Error in API call: ${error.message}`);
     });
   }
   return response
     .json()
     .catch(() => {
-      throw Error(`Error in API call: ${response.statusText}`);
+      throw new Error(`Error in API call: ${response.statusText}`);
     })
     .then((data) => {
-      throw Error(data.detail[0].msg);
+      if (data.detail) {
+        throw new APIError(data.detail);
+      } else {
+        throw new Error(`Error in API call: ${response.statusText}`);
+      }
     });
 }
 
@@ -45,7 +66,7 @@ export function apiGet(route, params = null) {
     .then((response) => {
       if (typeof window !== 'undefined' && response.status === 401) {
         window.location.href = apiLoginRedirect();
-        throw Error('Redirecting for authentication');
+        throw new Error('Redirecting for authentication');
       } else {
         return response;
       }
