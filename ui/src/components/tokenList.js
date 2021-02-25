@@ -11,16 +11,14 @@ import CreateTokenButton from './createTokenButton';
 import EditTokenModal from './editTokenModal';
 import { LoginContext } from './loginContext.js';
 import TokenTable from './tokenTable';
-import useError from '../hooks/error';
-import { apiDelete, apiGet, apiPost } from '../functions/api';
+import { apiDelete, apiGet } from '../functions/api';
 
 export default function TokenList() {
   const alert = useAlert();
-  const { csrf, username, userScopes, config } = useContext(LoginContext);
+  const { csrf, username } = useContext(LoginContext);
   const [data, setData] = useState(null);
   const [editingToken, _setEditingToken] = useState(null);
   const tokens = useMemo(() => data, [data]);
-  const { error: createError, onError: onCreateError } = useError();
 
   const setEditingToken = useCallback((token) => _setEditingToken(token), [
     _setEditingToken,
@@ -41,20 +39,6 @@ export default function TokenList() {
       .then(setData)
       .catch((e) => alert.show(e.message));
   }, [alert, username]);
-
-  const createToken = useCallback(
-    async ({ name, scopes, expires }, setNewToken) => {
-      await apiPost(`/users/${username}/tokens`, csrf, {
-        token_name: name,
-        scopes,
-        expires,
-      })
-        .then((response) => setNewToken(response.token))
-        .then(loadTokenData)
-        .catch(onCreateError);
-    },
-    [csrf, loadTokenData, onCreateError, username]
-  );
 
   const editToken = useCallback(() => {
     clearEditingToken();
@@ -77,12 +61,7 @@ export default function TokenList() {
   return (
     <>
       <h2>User Tokens</h2>
-      <CreateTokenButton
-        error={createError}
-        userScopes={userScopes}
-        knownScopes={config.scopes}
-        onCreateToken={createToken}
-      />
+      <CreateTokenButton onCreate={loadTokenData} />
       {tokens.user.length ? (
         <TokenTable
           id="tokens-user"

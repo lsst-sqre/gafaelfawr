@@ -1,8 +1,11 @@
 import PropTypes from 'prop-types';
-import React, { useState } from 'react';
+import React, { useCallback, useContext, useState } from 'react';
 import AriaModal from 'react-aria-modal';
 import styled from 'styled-components';
-import TokenModal from './tokenModal.js';
+
+import { LoginContext } from './loginContext';
+import TokenModal from './tokenModal';
+import { apiPost } from '../functions/api';
 
 const StyledModal = styled.div`
   position: fixed;
@@ -38,18 +41,12 @@ NewToken.propTypes = {
   onAccept: PropTypes.func.isRequired,
 };
 
-export default function CreateTokenButton({
-  error,
-  userScopes,
-  knownScopes,
-  onCreateToken,
-}) {
+export default function CreateTokenButton({ onCreate }) {
+  const { csrf, username, userScopes, config } = useContext(LoginContext);
   const [formActive, setFormActive] = useState(false);
   const [newToken, setNewToken] = useState('');
 
-  const activateFormModal = () => {
-    setFormActive(true);
-  };
+  const activateFormModal = () => setFormActive(true);
   const deactivateFormModal = () => {
     setFormActive(false);
   };
@@ -60,13 +57,18 @@ export default function CreateTokenButton({
     document.getElementById('application');
   };
 
-  const createToken = async (values) => {
-    const onCreateSuccess = (token) => {
-      deactivateFormModal();
-      setNewToken(token);
-    };
-    await onCreateToken(values, onCreateSuccess);
-  };
+  const createToken = useCallback(
+    ({ name, scopes, expires }) =>
+      apiPost(`/users/${username}/tokens`, csrf, {
+        token_name: name,
+        scopes,
+        expires,
+      })
+        .then((response) => setNewToken(response.token))
+        .then(() => deactivateFormModal())
+        .then(onCreate),
+    [csrf, onCreate, setNewToken, username]
+  );
 
   return (
     <>
@@ -77,9 +79,8 @@ export default function CreateTokenButton({
         <TokenModal
           idPrefix="create-token"
           buttonLabel="Create"
-          error={error}
           userScopes={userScopes}
-          knownScopes={knownScopes}
+          knownScopes={config.scopes}
           onSubmit={createToken}
           onExit={deactivateFormModal}
         />
@@ -101,13 +102,5 @@ export default function CreateTokenButton({
   );
 }
 CreateTokenButton.propTypes = {
-  error: PropTypes.string,
-  userScopes: PropTypes.arrayOf(PropTypes.string),
-  knownScopes: PropTypes.arrayOf(
-    PropTypes.shape({
-      name: PropTypes.string,
-      description: PropTypes.string,
-    })
-  ),
-  onCreateToken: PropTypes.func.isRequired,
+  onCreate: PropTypes.func.isRequired,
 };

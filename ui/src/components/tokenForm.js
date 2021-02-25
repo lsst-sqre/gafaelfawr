@@ -58,10 +58,7 @@ export default function TokenForm({
         values.expires = calculateExpires(values);
         return errors;
       }}
-      onSubmit={async (values, { setSubmitting }) => {
-        await onSubmit(values);
-        setSubmitting(false);
-      }}
+      onSubmit={(values, actions) => onSubmit(values, actions.setErrors)}
     >
       {({ values, setFieldValue, isSubmitting }) => (
         <Form>
