@@ -61,9 +61,9 @@ class RequestContext:
         return ComponentFactory(
             config=self.config,
             redis=self.redis,
+            session=db.session,
             http_client=self.http_client,
             logger=self.logger,
-            session=db.session,
         )
 
     @property

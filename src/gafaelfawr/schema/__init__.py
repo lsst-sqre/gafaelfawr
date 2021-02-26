@@ -22,8 +22,14 @@ __all__ = [
     "Token",
     "TokenAuthHistory",
     "TokenChangeHistory",
+    "drop_schema",
     "initialize_schema",
 ]
+
+
+def drop_schema(engine: Engine) -> None:
+    """Drop all tables to reset the database."""
+    Base.metadata.drop_all(engine)
 
 
 def initialize_schema(engine: Engine) -> None:

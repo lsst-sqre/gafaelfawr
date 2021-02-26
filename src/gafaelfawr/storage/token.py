@@ -86,6 +86,7 @@ class TokenDatabaseStore:
             expires=data.expires,
         )
         self._session.add(new)
+        self._session.flush()
         if parent:
             subtoken = Subtoken(parent=parent, child=data.token.key)
             self._session.add(subtoken)

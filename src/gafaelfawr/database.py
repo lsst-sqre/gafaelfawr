@@ -16,7 +16,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from gafaelfawr.models.admin import Admin
-from gafaelfawr.schema import initialize_schema
+from gafaelfawr.schema import drop_schema, initialize_schema
 from gafaelfawr.storage.admin import AdminStore
 from gafaelfawr.storage.transaction import TransactionManager
 
@@ -26,13 +26,17 @@ if TYPE_CHECKING:
 __all__ = ["initialize_database"]
 
 
-def initialize_database(config: Config) -> None:
+def initialize_database(config: Config, reset: bool = False) -> None:
     """Create and initialize a new database.
 
     Parameters
     ----------
     config : `gafaelfawr.config.Config`
         The Gafaelfawr configuration.
+    reset : `bool`
+        If set to `True`, drop all tables and reprovision the database.
+        Useful when running tests with an external database.  Default is
+        `False`.
     """
     logger = structlog.get_logger(config.safir.logger_name)
 
@@ -43,6 +47,8 @@ def initialize_database(config: Config) -> None:
     for _ in range(5):
         try:
             engine = create_engine(config.database_url, pool_pre_ping=True)
+            if reset:
+                drop_schema(engine)
             initialize_schema(engine)
             success = True
         except OperationalError:
@@ -62,3 +68,4 @@ def initialize_database(config: Config) -> None:
             for admin in config.initial_admins:
                 logger.info("adding initial admin %s", admin)
                 admin_store.add(Admin(username=admin))
+    session.close()

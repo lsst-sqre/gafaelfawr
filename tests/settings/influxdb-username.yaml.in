@@ -1,8 +1,8 @@
 realm: "testing"
 session_secret_file: "{session_secret_file}"
 database_url: "{database_url}"
+redis_url: "redis://localhost:6379/0"
 initial_admins: ["admin"]
-redis_url: "dummy"
 proxies:
   - "10.0.0.0/8"
 after_logout_url: "https://example.com/landing"

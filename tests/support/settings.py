@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,12 +19,34 @@ if TYPE_CHECKING:
 __all__ = ["build_settings", "build_settings_file", "store_secret"]
 
 
+def _test_database_url(tmp_path: Path) -> str:
+    """Determine the database URL to use for testing.
+
+    Default to a SQLite database stored in the temporary test directory, but
+    switch to PostgreSQL if the environment variable set by tox-docker is
+    present.  Hardcodes the PostgreSQL password also set in
+    ``pyproject.toml``.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        The root of the temporary area.
+
+    Returns
+    -------
+    database_url : `str`
+        The database URL suitable for substituting into a settings file.
+    """
+    if os.environ.get("POSTGRES_5432_TCP_PORT"):
+        return "postgresql://gafaelfawr:INSECURE-PASSWORD@127.0.0.1/gafaelfawr"
+    else:
+        return "sqlite:///" + str(tmp_path / "gafaelfawr.sqlite")
+
+
 def build_settings(
     tmp_path: Path,
     template: str,
     oidc_clients: Optional[List[OIDCClient]] = None,
-    *,
-    database_url: str,
     **settings: str,
 ) -> Path:
     """Generate a test Gafaelfawr settings file with secrets.
@@ -36,8 +59,6 @@ def build_settings(
         Settings template to use.
     oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
         Configuration information for clients of the OpenID Connect server.
-    database_url : `str`
-        The URL to the database to use.
     **settings : `str`
         Any additional settings to add to the settings file.
 
@@ -57,7 +78,7 @@ def build_settings(
     settings_path = build_settings_file(
         tmp_path,
         template,
-        database_url=database_url,
+        database_url=_test_database_url(tmp_path),
         session_secret_file=session_secret_file,
         issuer_key_file=issuer_key_file,
         github_secret_file=github_secret_file,

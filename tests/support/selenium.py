@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 APP_TEMPLATE = """
 from unittest.mock import MagicMock
 
+from fastapi_sqlalchemy import db
+
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
@@ -37,11 +39,13 @@ redis_dependency.is_mocked = True
 @app.on_event("startup")
 async def startup_event() -> None:
     config = config_dependency()
-    factory = ComponentFactory(
-        config=config,
-        redis=await redis_dependency(),
-        http_client=MagicMock(),
-    )
+    with db():
+        factory = ComponentFactory(
+            config=config,
+            redis=await redis_dependency(),
+            session=db.session,
+            http_client=MagicMock(),
+        )
     token_service = factory.create_token_service()
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())

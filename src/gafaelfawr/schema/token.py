@@ -13,7 +13,10 @@ __all__ = ["Token"]
 class Token(Base):
     __tablename__ = "token"
 
-    token = Column(String(64), primary_key=True)
+    token = Column(
+        String(64).with_variant(String(64, collation="C"), "postgresql"),
+        primary_key=True,
+    )
     username = Column(String(64), nullable=False)
     token_type = Column(Enum(TokenType), nullable=False)
     token_name = Column(String(64))

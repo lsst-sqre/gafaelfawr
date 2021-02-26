@@ -845,7 +845,7 @@ async def test_delete_cascade(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_invalid(setup: SetupTest) -> None:
     token_service = setup.factory.create_token_service()
-    expires = timedelta(days=1).total_seconds()
+    expires = int(timedelta(days=1).total_seconds())
 
     # No such key.
     token = Token()

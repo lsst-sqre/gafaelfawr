@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
@@ -66,7 +67,9 @@ class SetupTest:
         This is the only supported way to set up the test environment and
         should be called instead of calling the constructor directly.  It
         initializes and starts the application and configures an
-        `httpx.AsyncClient` to talk to it.
+        `httpx.AsyncClient` to talk to it.  Whether to use a real PostgreSQL
+        and Redis server or to use SQLite and mock Redis is determined by the
+        environment variables set by ``tox``.
 
         Parameters
         ----------
@@ -75,15 +78,29 @@ class SetupTest:
         httpx_mock : `pytest_httpx.HTTPXMock`
             The mock for simulating `httpx.AsyncClient` calls.
         """
-        database_url = "sqlite:///" + str(tmp_path / "gafaelfawr.sqlite")
-        settings_path = build_settings(
-            tmp_path, "github", database_url=database_url
-        )
+        settings_path = build_settings(tmp_path, "github")
         config_dependency.set_settings_path(str(settings_path))
         config = config_dependency()
-        initialize_database(config)
-        redis_dependency.is_mocked = True
+        if not os.environ.get("REDIS_6379_TCP_PORT"):
+            redis_dependency.is_mocked = True
         redis = await redis_dependency(config)
+
+        # Initialize the database and create the database session that will be
+        # used by SetupTest and by the factory it contains.  The application
+        # will use a separate session handled by its middleware.  Non-SQLite
+        # databases need to be reset between tests.
+        if urlparse(config.database_url).scheme == "sqlite":
+            connect_args = {"check_same_thread": False}
+            should_reset = False
+        else:
+            connect_args = {}
+            should_reset = True
+        initialize_database(config, reset=should_reset)
+        engine = create_engine(config.database_url, connect_args=connect_args)
+        session = Session(bind=engine)
+
+        # Build the SetupTest object inside all of the contexts required by
+        # its components and handle clean shutdown.
         try:
             async with LifespanManager(app):
                 base_url = f"https://{TEST_HOSTNAME}"
@@ -93,10 +110,12 @@ class SetupTest:
                         httpx_mock=httpx_mock,
                         config=config,
                         redis=redis,
+                        session=session,
                         client=client,
                     )
         finally:
             await redis_dependency.close()
+            session.close()
 
     def __init__(
         self,
@@ -105,6 +124,7 @@ class SetupTest:
         httpx_mock: HTTPXMock,
         config: Config,
         redis: Redis,
+        session: Session,
         client: AsyncClient,
     ) -> None:
         self.tmp_path = tmp_path
@@ -112,7 +132,7 @@ class SetupTest:
         self.config = config
         self.redis = redis
         self.client = client
-        self._session: Optional[Session] = None
+        self.session = session
 
     @property
     def factory(self) -> ComponentFactory:
@@ -127,55 +147,37 @@ class SetupTest:
             Newly-created factory.
         """
         return ComponentFactory(
-            config=self.config, redis=self.redis, http_client=self.client
+            config=self.config,
+            redis=self.redis,
+            http_client=self.client,
+            session=self.session,
         )
-
-    @property
-    def session(self) -> Session:
-        """Return a SQLAlchemy session to the underlying database.
-
-        Don't try to use the same session as the spawned application, because
-        SQLite gets very unhappy about using sessions across threads.
-
-        Returns
-        -------
-        session : `sqlalchemy.orm.Session`
-            Session to the underlying database.
-        """
-        if self._session:
-            return self._session
-        engine = create_engine(self.config.database_url)
-        self._session = Session(bind=engine)
-        return self._session
 
     def configure(
         self,
         template: str = "github",
         *,
-        database_url: Optional[str] = None,
         oidc_clients: Optional[List[OIDCClient]] = None,
         **settings: str,
     ) -> None:
         """Change the test application configuration.
 
+        This cannot be used to change the database URL because the internal
+        session is not recreated.
+
         Parameters
         ----------
         template : `str`
             Settings template to use.
-        database_url : `str`
-            The URL to the database to use.
         oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
             Configuration information for clients of the OpenID Connect server.
         **settings : str
             Any additional settings to add to the settings file.
         """
-        if not database_url:
-            database_url = self.config.database_url
         settings_path = build_settings(
             self.tmp_path,
             template,
             oidc_clients,
-            database_url=database_url,
             **settings,
         )
         config_dependency.set_settings_path(str(settings_path))
