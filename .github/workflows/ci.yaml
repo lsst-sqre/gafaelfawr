@@ -11,6 +11,9 @@ jobs:
         python:
           - 3.8
           - 3.9
+        database:
+          - SQLite
+          - PostgreSQL
 
     steps:
       - uses: actions/checkout@v2
@@ -56,8 +59,13 @@ jobs:
           # have versioning info that would impact the tox environment.
           key: tox-${{ hashFiles('requirements/*.txt') }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Run tox
-        run: tox -e lint,py,coverage-report,typing # run tox using Python in path
+      - name: Run tox (SQLite)
+        run: tox -e lint,py,coverage-report,typing
+        if: matrix.database == 'SQLite'
+
+      - name: Run tox (PostgreSQL)
+        run: tox -e docker
+        if: matrix.database == 'PostgreSQL'
 
   build:
     runs-on: ubuntu-latest
