@@ -24,9 +24,26 @@ export DEBIAN_FRONTEND=noninteractive
 # Update the package listing, so we know what packages exist:
 apt-get update
 
-# Required to build binary Python modules and the UI.
-apt-get -y install --no-install-recommends build-essential npm
+# Required to build binary Python modules and use nvm.
+apt-get -y install --no-install-recommends build-essential curl
 
-# Delete cached files we don't need anymore:
+# Delete cached files we don't need any more.
 apt-get clean
 rm -rf /var/lib/apt/lists/*
+
+# Clone the nvm repository and install it.
+cd /opt
+git clone https://github.com/nvm-sh/nvm.git nvm
+cd nvm
+git checkout v0.37.2
+
+# Configure nvm.  Since no version of Node is installed, this will exit with
+# status 3, which we want to ignore.
+. nvm.sh || true
+
+# Install Node and Gatsby.  There is an .nvmrc file in /opt that controls what
+# version of Node to install.
+cd /opt
+nvm install
+nvm use
+npm install -g gatsby-cli
