@@ -768,6 +768,12 @@ class TokenService:
             self._validate_scopes(scopes, auth_data)
         self._validate_expires(expires)
 
+        # Determine if the lifetime has decreased, in which case we may have
+        # to update subtokens.
+        update_subtoken_expires = expires and (
+            not info.expires or expires <= info.expires
+        )
+
         history_entry = TokenChangeHistoryEntry(
             token=key,
             username=info.username,
@@ -801,6 +807,14 @@ class TokenService:
                     await self._token_redis_store.store_data(data)
                 else:
                     info = None
+
+            # Update subtokens if needed.
+            if update_subtoken_expires and info:
+                assert expires
+                for child in self._token_db_store.get_children(key):
+                    await self._modify_expires(
+                        child, auth_data, expires, ip_address
+                    )
 
         if info:
             self._logger.info(
@@ -908,6 +922,59 @@ class TokenService:
             self._token_change_store.add(history_entry)
             self._logger.info("Deleted token", key=key, username=info.username)
         return success
+
+    async def _modify_expires(
+        self,
+        key: str,
+        auth_data: TokenData,
+        expires: datetime,
+        ip_address: str,
+    ) -> None:
+        """Change the expiration of a token if necessary.
+
+        Used to update the expiration of subtokens when the parent token
+        expiration has changed.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token to update.
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token data for the authentication token of the user changing
+            the expiration.
+        expires : `datetime.datetime`
+            The new expiration of the parent token.  The expiration of the
+            child token will be changed if it's later than this value.
+        ip_address : `str`
+            The IP address from which the request came.
+        """
+        info = self.get_token_info_unchecked(key)
+        if not info:
+            return
+        if info.expires and info.expires <= expires:
+            return
+
+        history_entry = TokenChangeHistoryEntry(
+            token=key,
+            username=info.username,
+            token_type=info.token_type,
+            token_name=info.token_name,
+            parent=info.parent,
+            scopes=info.scopes,
+            service=info.service,
+            expires=expires,
+            old_expires=info.expires,
+            actor=auth_data.username,
+            action=TokenChange.edit,
+            ip_address=ip_address,
+        )
+
+        self._token_db_store.modify(key, expires=expires)
+        self._token_change_store.add(history_entry)
+        data = await self._token_redis_store.get_data_by_key(key)
+        if data:
+            data.expires = expires
+            await self._token_redis_store.store_data(data)
 
     def _validate_ip_or_cidr(self, ip_or_cidr: Optional[str]) -> None:
         """Check that an IP address or CIDR block is valid.

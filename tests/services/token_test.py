@@ -843,6 +843,80 @@ async def test_delete_cascade(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
+async def test_modify_expires(setup: SetupTest) -> None:
+    """Test that expiration changes cascade to subtokens."""
+    token_service = setup.factory.create_token_service()
+    session_token_data = await setup.create_session_token(
+        scopes=["user:token"]
+    )
+
+    # Create a user token with no expiration and some additional tokens
+    # chained off of it.
+    user_token = await token_service.create_user_token(
+        session_token_data,
+        session_token_data.username,
+        token_name="user-token",
+        scopes=["user:token"],
+        ip_address="127.0.0.1",
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+    notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    internal_token = await token_service.get_internal_token(
+        user_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+    )
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    nested_token = await token_service.get_internal_token(
+        notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
+    )
+    nested_token_data = await token_service.get_data(nested_token)
+    assert nested_token_data
+
+    # Check the expiration of all of those tokens matches the default
+    # expiration for generated tokens.
+    delta = timedelta(minutes=setup.config.issuer.exp_minutes)
+    assert notebook_token_data.expires == notebook_token_data.created + delta
+    assert internal_token_data.expires == internal_token_data.created + delta
+    assert nested_token_data.expires == notebook_token_data.expires
+
+    # Check that Redis also has an appropriate TTL.
+    ttl = delta.total_seconds()
+    for token in (notebook_token, internal_token, nested_token):
+        assert ttl - 2 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
+
+    # Change the expiration of the user token.
+    new_delta = timedelta(minutes=setup.config.issuer.exp_minutes / 2)
+    new_expires = user_token_data.created + new_delta
+    await token_service.modify_token(
+        user_token.key,
+        user_token_data,
+        expires=new_expires,
+        ip_address="127.0.0.1",
+    )
+
+    # Check that all of the tokens have been updated.
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    nested_token_data = await token_service.get_data(nested_token)
+    assert nested_token_data
+    assert notebook_token_data.expires == new_expires
+    assert internal_token_data.expires == new_expires
+    assert nested_token_data.expires == new_expires
+
+    # Check that the Redis TTL has also been updated.
+    ttl = new_delta.total_seconds()
+    for token in (notebook_token, internal_token, nested_token):
+        assert ttl - 2 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
+
+
+@pytest.mark.asyncio
 async def test_invalid(setup: SetupTest) -> None:
     token_service = setup.factory.create_token_service()
     expires = int(timedelta(days=1).total_seconds())
