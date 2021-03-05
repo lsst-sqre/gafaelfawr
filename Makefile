@@ -7,6 +7,7 @@ update-deps:
 	pip-compile --upgrade --build-isolation --allow-unsafe --generate-hashes --output-file requirements/main.txt requirements/main.in
 	pip-compile --upgrade --build-isolation --allow-unsafe --generate-hashes --output-file requirements/dev.txt requirements/dev.in
 
+# npm dependencies have to be installed for pre-commit eslint to work.
 .PHONY: init
 init:
 	pip install --editable .
@@ -14,6 +15,7 @@ init:
 	rm -rf .tox
 	pip install --upgrade tox tox-docker
 	pre-commit install
+	cd ui && npm install
 
 .PHONY: update
 update: update-deps init
