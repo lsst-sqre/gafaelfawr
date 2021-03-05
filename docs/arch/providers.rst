@@ -10,6 +10,14 @@ Gafaelfawr uses the authentication provider to determine the numeric UID of the 
 Be aware that changing from one authentication provider to another will likely result in UID changes for all users.
 Gafaelfawr itself does not care and will pass along the new values, but protected applications that use those values may be surprised by a change.
 
+The username obtained from the authentication provider must meet the following requirements:
+
+* Only lowercase alphanumeric characters (GitHub usernames will be automatically lowercased) or hyphen
+* May not start or end with a hyphen
+* May not have two consecutive hyphens
+
+These are the same requirements GitHub imposes.
+
 OpenID Connect
 ==============
 

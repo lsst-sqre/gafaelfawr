@@ -1081,7 +1081,7 @@ async def test_invalid(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_invalid_username(setup: SetupTest) -> None:
     user_info = TokenUserInfo(
-        username="example",
+        username="ex-am-pl-e",
         name="Example Person",
         uid=4137,
         groups=[TokenGroup(name="foo", id=1000)],
@@ -1101,6 +1101,9 @@ async def test_invalid_username(setup: SetupTest) -> None:
         "invalid ",
         "in/valid",
         "in@valid",
+        "-invalid",
+        "invalid-",
+        "in--valid",
     ):
         user_info.username = user
         with pytest.raises(PermissionDeniedError):

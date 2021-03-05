@@ -18,9 +18,6 @@ SETTINGS_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 # The following constants are used for field validation.  Minimum and maximum
 # length are handled separately.
 
-ACTOR_REGEX = "^(?:<bootstrap>|[a-z_][a-z0-9._-]+)$"
-""""Regex matching all valid actors (including ``<bootstrap``)."""
-
 CURSOR_REGEX = "^p?[0-9]+_[0-9]+$"
 """Regex matching a valid cursor."""
 
@@ -30,5 +27,8 @@ GROUPNAME_REGEX = "^[a-z_][a-zA-Z0-9._-]*$"
 SCOPE_REGEX = "^[a-zA-Z0-9:._-]+$"
 """Regex matching a valid scope."""
 
-USERNAME_REGEX = "^[a-z_][a-z0-9._-]*$"
+USERNAME_REGEX = "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 """Regex matching all valid usernames."""
+
+ACTOR_REGEX = f"{USERNAME_REGEX}|^<bootstrap>$"
+""""Regex matching all valid actors (including ``<bootstrap``)."""
