@@ -382,6 +382,111 @@ async def test_internal_token(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
+async def test_child_token_lifetime(setup: SetupTest) -> None:
+    """Test that a new internal token is generated at half its lifetime."""
+    session_token_data = await setup.create_session_token()
+    token_service = setup.factory.create_token_service()
+
+    # Generate a user token with a lifetime less than half of the default
+    # lifetime for an internal token.  This will get us a short-lived internal
+    # token that should be ineligible for handing out for a user token that
+    # doesn't expire.
+    delta = timedelta(minutes=(setup.config.issuer.exp_minutes / 2) - 5)
+    expires = current_datetime() + delta
+    user_token = await token_service.create_user_token(
+        session_token_data,
+        session_token_data.username,
+        token_name="n",
+        expires=expires,
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+
+    # Get an internal token and ensure we get the same one when we ask again.
+    internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    assert internal_token_data.expires == user_token_data.expires
+    new_internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    assert new_internal_token == internal_token
+
+    # Do the same thing with a notebook token.
+    notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    assert notebook_token_data.expires == user_token_data.expires
+    new_notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    assert new_notebook_token == notebook_token
+
+    # Change the expiration of the user token to longer than the maximum
+    # internal token lifetime.
+    new_delta = timedelta(minutes=setup.config.issuer.exp_minutes * 2)
+    expires = current_datetime() + new_delta
+    assert await token_service.modify_token(
+        user_token.key,
+        session_token_data,
+        session_token_data.username,
+        ip_address="127.0.0.1",
+        expires=expires,
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+
+    # Now, request an internal and notebook token.  We should get different
+    # ones with a longer expiration.
+    new_internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    assert new_internal_token != internal_token
+    internal_token = new_internal_token
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    delta = timedelta(minutes=setup.config.issuer.exp_minutes)
+    assert internal_token_data.expires == internal_token_data.created + delta
+    new_notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    assert new_notebook_token != notebook_token
+    notebook_token = new_notebook_token
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    assert notebook_token_data.expires == notebook_token_data.created + delta
+
+    # Change the expiration of the user token to no longer expire.
+    assert await token_service.modify_token(
+        user_token.key,
+        session_token_data,
+        session_token_data.username,
+        ip_address="127.0.0.1",
+        expires=None,
+        no_expire=True,
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+
+    # Get an internal and notebook token again.  We should get the same ones
+    # as last time.
+    new_internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    assert new_internal_token == internal_token
+    new_notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    assert new_notebook_token == notebook_token
+
+
+@pytest.mark.asyncio
 async def test_token_from_admin_request(setup: SetupTest) -> None:
     user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137

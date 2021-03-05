@@ -170,7 +170,11 @@ class TokenDatabaseStore:
             return None
 
     def get_internal_token_key(
-        self, token_data: TokenData, service: str, scopes: List[str]
+        self,
+        token_data: TokenData,
+        service: str,
+        scopes: List[str],
+        min_expires: datetime,
     ) -> Optional[str]:
         """Retrieve an existing internal child token.
 
@@ -182,6 +186,8 @@ class TokenDatabaseStore:
             The service to which the internal token is delegated.
         scopes : List[`str`]
             The scopes of the delegated token.
+        min_expires : `datetime.datetime`
+            The minimum expiration time for the token.
 
         Returns
         -------
@@ -197,17 +203,22 @@ class TokenDatabaseStore:
                 SQLToken.token_type == TokenType.internal,
                 SQLToken.service == service,
                 SQLToken.scopes == ",".join(sorted(scopes)),
+                SQLToken.expires >= min_expires,
             )
             .scalar()
         )
 
-    def get_notebook_token_key(self, token_data: TokenData) -> Optional[str]:
+    def get_notebook_token_key(
+        self, token_data: TokenData, min_expires: datetime
+    ) -> Optional[str]:
         """Retrieve an existing notebook child token.
 
         Parameters
         ----------
         token_data : `gafaelfawr.models.token.TokenData`
             The data for the parent token.
+        min_expires : `datetime.datetime`
+            The minimum expiration time for the token.
 
         Returns
         -------
@@ -219,7 +230,10 @@ class TokenDatabaseStore:
             self._session.query(Subtoken.child)
             .filter_by(parent=token_data.token.key)
             .join(SQLToken, Subtoken.child == SQLToken.token)
-            .filter(SQLToken.token_type == TokenType.notebook)
+            .filter(
+                SQLToken.token_type == TokenType.notebook,
+                SQLToken.expires >= min_expires,
+            )
             .scalar()
         )
 

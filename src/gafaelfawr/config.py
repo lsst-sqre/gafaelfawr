@@ -15,6 +15,7 @@ import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import timedelta
 from ipaddress import _BaseNetwork
 from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
 
@@ -507,6 +508,9 @@ class Config:
     initial_admins: Tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
 
+    token_lifetime: timedelta
+    """Maximum lifetime of session, notebook, and internal tokens."""
+
     safir: SafirConfig
     """Configuration for the Safir middleware."""
 
@@ -642,6 +646,7 @@ class Config:
             known_scopes=settings.known_scopes or {},
             database_url=settings.database_url,
             initial_admins=tuple(settings.initial_admins),
+            token_lifetime=timedelta(minutes=settings.issuer.exp_minutes),
             safir=SafirConfig(log_level=log_level),
         )
 

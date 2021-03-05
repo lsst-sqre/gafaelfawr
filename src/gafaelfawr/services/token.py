@@ -109,7 +109,7 @@ class TokenService:
 
         token = Token()
         created = current_datetime()
-        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
+        expires = created + self._config.token_lifetime
         data = TokenData(
             token=token,
             token_type=TokenType.session,
@@ -496,7 +496,7 @@ class TokenService:
 
         # See if there's already a matching internal token.
         key = self._token_db_store.get_internal_token_key(
-            token_data, service, scopes
+            token_data, service, scopes, self._minimum_expiration(token_data)
         )
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
@@ -506,7 +506,7 @@ class TokenService:
         # There is not, so we need to create a new one.
         token = Token()
         created = current_datetime()
-        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
+        expires = created + self._config.token_lifetime
         if token_data.expires and token_data.expires < expires:
             expires = token_data.expires
         data = TokenData(
@@ -579,7 +579,9 @@ class TokenService:
         self._validate_username(token_data.username)
 
         # See if there's already a matching notebook token.
-        key = self._token_db_store.get_notebook_token_key(token_data)
+        key = self._token_db_store.get_notebook_token_key(
+            token_data, self._minimum_expiration(token_data)
+        )
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
             if data:
@@ -588,7 +590,7 @@ class TokenService:
         # There is not, so we need to create a new one.
         token = Token()
         created = current_datetime()
-        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
+        expires = created + self._config.token_lifetime
         if token_data.expires and token_data.expires < expires:
             expires = token_data.expires
         data = TokenData(
@@ -923,6 +925,29 @@ class TokenService:
             self._token_change_store.add(history_entry)
             self._logger.info("Deleted token", key=key, username=info.username)
         return success
+
+    def _minimum_expiration(self, token_data: TokenData) -> datetime:
+        """Determine the minimum expiration for a child token.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The data for the parent token for which a child token was
+            requested.
+
+        Returns
+        -------
+        min_expires : `datetime.datetime`
+            The minimum acceptable expiration time for the child token.  If
+            no child tokens with at least this expiration time exist, a new
+            child token should be created.
+        """
+        min_expires = current_datetime() + timedelta(
+            seconds=self._config.token_lifetime.total_seconds() / 2
+        )
+        if token_data.expires and min_expires > token_data.expires:
+            min_expires = token_data.expires
+        return min_expires
 
     async def _modify_expires(
         self,
