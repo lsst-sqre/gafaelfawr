@@ -817,12 +817,13 @@ class TokenService:
                     )
 
         if info:
+            timestamp = int(info.expires.timestamp()) if info.expires else None
             self._logger.info(
                 "Modified token",
                 key=key,
                 token_name=info.token_name,
                 token_scope=",".join(info.scopes),
-                expires=info.expires,
+                expires=timestamp,
             )
         return info
 
