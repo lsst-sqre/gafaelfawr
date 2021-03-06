@@ -31,6 +31,7 @@ from gafaelfawr.handlers import (
 )
 from gafaelfawr.middleware.state import StateMiddleware
 from gafaelfawr.middleware.x_forwarded import XForwardedMiddleware
+from gafaelfawr.models.error import ErrorModel
 from gafaelfawr.models.state import State
 
 if TYPE_CHECKING:
@@ -78,7 +79,14 @@ app = FastAPI(
 )
 
 app.include_router(analyze.router)
-app.include_router(api.router, prefix="/auth/api/v1")
+app.include_router(
+    api.router,
+    prefix="/auth/api/v1",
+    responses={
+        401: {"description": "Unauthenticated"},
+        403: {"description": "Permission denied", "model": ErrorModel},
+    },
+)
 app.include_router(auth.router)
 app.include_router(index.router)
 app.include_router(influxdb.router)

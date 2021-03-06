@@ -6,7 +6,7 @@ import base64
 import os
 from typing import TYPE_CHECKING, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from httpx import HTTPError
 
@@ -29,11 +29,37 @@ router = APIRouter()
 __all__ = ["get_login"]
 
 
-@router.get("/login", tags=["browser"])
-@router.get("/oauth2/callback", tags=["browser"])
+@router.get(
+    "/login",
+    description=(
+        "Protected applications redirect to this URL when the user is not"
+        " authenticated to start the authentication process. The user will"
+        " then be sent to an authentication provider, back to this URL with"
+        " additional parameters to complete the process, and then back to the"
+        " protected site."
+    ),
+    responses={307: {"description": "Redirect to provider or destination"}},
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    summary="Authenticate browser",
+    tags=["browser"],
+)
+@router.get("/oauth2/callback", include_in_schema=False, tags=["browser"])
 async def get_login(
-    code: Optional[str] = None,
-    state: Optional[str] = None,
+    code: Optional[str] = Query(
+        None,
+        title="Provider code",
+        description="Set by the authentication provider after authentication",
+        example="V2hrNqgM_eiIjXvV41RlMw",
+    ),
+    state: Optional[str] = Query(
+        None,
+        title="Authentication state",
+        description=(
+            "Set by the authentication provider after authentication to"
+            " protect against session fixation"
+        ),
+        example="wkC2bAP5VFpDioKc3JfaDA",
+    ),
     return_url: Optional[str] = Depends(return_url_with_header),
     context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:

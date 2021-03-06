@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Optional
 from urllib.parse import ParseResult, urlparse
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Query
 
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import InvalidReturnURLError
@@ -61,7 +61,12 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
 
 
 def return_url(
-    rd: Optional[str] = None,
+    rd: Optional[str] = Query(
+        None,
+        title="URL to return to",
+        description="User is sent here after operation",
+        example="https://example.com/",
+    ),
     context: RequestContext = Depends(context_dependency),
 ) -> Optional[str]:
     """Validate a return URL in an ``rd`` parameter.
@@ -84,8 +89,21 @@ def return_url(
 
 
 def return_url_with_header(
-    rd: Optional[str] = None,
-    x_auth_request_redirect: Optional[str] = Header(None),
+    rd: Optional[str] = Query(
+        None,
+        title="URL to return to",
+        description=(
+            "User is sent here after successful authentication. Overrides"
+            " X-Auth-Request-Redirect if both are set."
+        ),
+        example="https://example.com/",
+    ),
+    x_auth_request_redirect: Optional[str] = Header(
+        None,
+        title="URL to return to",
+        description="User is sent here after successful authentication",
+        example="https://example.com/",
+    ),
     context: RequestContext = Depends(context_dependency),
 ) -> Optional[str]:
     """Validate a return URL in an ``rd`` parameter or header.
@@ -110,7 +128,12 @@ def return_url_with_header(
 
 
 def parsed_redirect_uri(
-    redirect_uri: str,
+    redirect_uri: str = Query(
+        ...,
+        title="URL to return to",
+        description="User is sent here after successful authentication",
+        example="https://example.com/",
+    ),
     context: RequestContext = Depends(context_dependency),
 ) -> ParseResult:
     """Validate a return URL in a ``redirect_uri`` parameter.

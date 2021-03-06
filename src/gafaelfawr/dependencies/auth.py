@@ -21,14 +21,16 @@ from gafaelfawr.exceptions import (
 )
 from gafaelfawr.models.token import Token, TokenData, TokenType
 
-__all__ = ["Authenticate"]
+__all__ = ["Authenticate", "AuthenticateRead", "AuthenticateWrite"]
 
 
 class Authenticate:
     """Dependency to verify user authentication.
 
     This is a class so that multiple authentication policies can be
-    constructed while easily sharing the same code.
+    constructed while easily sharing the same code.  It is used as a base
+    class for `AuthenticateRead` and `AuthenticateWrite`, which provide
+    ``__call__`` implementations that do the work.
 
     Parameters
     ----------
@@ -68,10 +70,8 @@ class Authenticate:
         self.auth_type = auth_type
         self.ajax_forbidden = ajax_forbidden
 
-    async def __call__(
-        self,
-        x_csrf_token: Optional[str] = Header(None),
-        context: RequestContext = Depends(context_dependency),
+    async def authenticate(
+        self, context: RequestContext, x_csrf_token: Optional[str] = None
     ) -> TokenData:
         """Authenticate the request.
 
@@ -86,10 +86,10 @@ class Authenticate:
 
         Parameters
         ----------
-        x_csrf_token : `str`, optional
-            The value of the ``X-CSRF-Token`` header, if provided.
         context : `gafaelfawr.dependencies.context.RequestContext`
             The request context.
+        x_csrf_token : `str`, optional
+            The value of the ``X-CSRF-Token`` header, if provided.
 
         Returns
         -------
@@ -212,3 +212,31 @@ class Authenticate:
         if error:
             context.logger.error("CSRF verification failed", error=error)
             raise InvalidCSRFError(error)
+
+
+class AuthenticateRead(Authenticate):
+    """Authenticate a read API."""
+
+    async def __call__(
+        self, context: RequestContext = Depends(context_dependency)
+    ) -> TokenData:
+        return await self.authenticate(context)
+
+
+class AuthenticateWrite(Authenticate):
+    """Authenticate a write API."""
+
+    async def __call__(
+        self,
+        x_csrf_token: Optional[str] = Header(
+            None,
+            title="CSRF token",
+            description=(
+                "Only required when authenticating with a cookie, such as via"
+                " the JavaScript UI."
+            ),
+            example="OmNdVTtKKuK_VuJsGFdrqg",
+        ),
+        context: RequestContext = Depends(context_dependency),
+    ) -> TokenData:
+        return await self.authenticate(context, x_csrf_token)

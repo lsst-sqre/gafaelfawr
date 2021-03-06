@@ -23,11 +23,12 @@ from fastapi import (
 )
 
 from gafaelfawr.constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
-from gafaelfawr.dependencies.auth import Authenticate
+from gafaelfawr.dependencies.auth import AuthenticateRead, AuthenticateWrite
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import ErrorLocation, NotFoundError
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.auth import APIConfig, APILoginResponse, Scope
+from gafaelfawr.models.error import ErrorModel
 from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.token import (
     AdminTokenRequest,
@@ -44,18 +45,22 @@ from gafaelfawr.util import random_128_bits
 __all__ = ["router"]
 
 router = APIRouter()
-authenticate = Authenticate()
-authenticate_admin = Authenticate(
+authenticate_read = AuthenticateRead()
+authenticate_write = AuthenticateWrite()
+authenticate_admin_read = AuthenticateRead(
     require_scope="admin:token", allow_bootstrap_token=True
 )
-authenticate_session = Authenticate(require_session=True)
+authenticate_admin_write = AuthenticateWrite(
+    require_scope="admin:token", allow_bootstrap_token=True
+)
+authenticate_session_read = AuthenticateRead(require_session=True)
 
 
 @router.get(
     "/admins",
+    dependencies=[Depends(authenticate_admin_read)],
     response_model=List[Admin],
-    responses={403: {"description": "Permission denied"}},
-    dependencies=[Depends(authenticate_admin)],
+    summary="List all administrators",
     tags=["admin"],
 )
 def get_admins(
@@ -67,13 +72,13 @@ def get_admins(
 
 @router.post(
     "/admins",
-    responses={403: {"description": "Permission denied"}},
     status_code=204,
+    summary="Add new administrator",
     tags=["admin"],
 )
 def add_admin(
     admin: Admin,
-    auth_data: TokenData = Depends(authenticate_admin),
+    auth_data: TokenData = Depends(authenticate_admin_write),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     admin_service = context.factory.create_admin_service()
@@ -86,19 +91,25 @@ def add_admin(
 
 @router.delete(
     "/admins/{username}",
-    responses={404: {"description": "Specified user is not an administrator"}},
+    responses={
+        403: {"description": "Permission denied", "model": ErrorModel},
+        404: {"description": "Specified user is not an administrator"},
+    },
     status_code=204,
+    summary="Delete an administrator",
     tags=["admin"],
 )
 def delete_admin(
     username: str = Path(
         ...,
         title="Administrator",
+        description="Username of administrator to delete",
+        example="adminuser",
         min_length=1,
         max_length=64,
         regex=USERNAME_REGEX,
     ),
-    auth_data: TokenData = Depends(authenticate_admin),
+    auth_data: TokenData = Depends(authenticate_admin_write),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     admin_service = context.factory.create_admin_service()
@@ -114,26 +125,84 @@ def delete_admin(
 
 @router.get(
     "/history/token-changes",
+    description=(
+        "Get the change history of tokens for any user. If a limit or cursor"
+        " was specified, links to paginated results may be found in the Link"
+        " header of the reply and the total number of records in the"
+        " X-Total-Count header."
+    ),
     response_model=List[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
+    summary="Get token change history",
     tags=["admin"],
 )
 def get_admin_token_change_history(
     response: Response,
-    cursor: Optional[str] = Query(None, regex=CURSOR_REGEX),
-    limit: Optional[int] = Query(None, ge=1),
-    since: Optional[datetime] = None,
-    until: Optional[datetime] = None,
+    cursor: Optional[str] = Query(
+        None,
+        title="Cursor",
+        description="Pagination cursor",
+        example="1614985055_4234",
+        regex=CURSOR_REGEX,
+    ),
+    limit: Optional[int] = Query(
+        None,
+        title="Row limit",
+        description="Maximum number of entries to return",
+        example=500,
+        ge=1,
+    ),
+    since: Optional[datetime] = Query(
+        None,
+        title="Not before",
+        description="Only show entries at or after this time",
+        example="2021-03-05T14:59:52Z",
+    ),
+    until: Optional[datetime] = Query(
+        None,
+        title="Not after",
+        description="Only show entries before or at this time",
+        example="2021-03-05T14:59:52Z",
+    ),
     username: Optional[str] = Query(
-        None, min_length=1, max_length=64, regex=USERNAME_REGEX
+        None,
+        title="Username",
+        description="Only show tokens for this user",
+        example="someuser",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
     ),
     actor: Optional[str] = Query(
-        None, min_length=1, max_length=64, regex=ACTOR_REGEX
+        None,
+        title="Actor",
+        description="Only show actions performed by this user",
+        example="adminuser",
+        min_length=1,
+        max_length=64,
+        regex=ACTOR_REGEX,
     ),
-    key: Optional[str] = Query(None, min_length=22, max_length=22),
-    token_type: Optional[TokenType] = None,
-    ip_address: Optional[str] = None,
-    auth_data: TokenData = Depends(authenticate_admin),
+    key: Optional[str] = Query(
+        None,
+        title="Token",
+        description="Only show changes for this token",
+        example="dDQg_NTNS51GxeEteqnkag",
+        min_length=22,
+        max_length=22,
+    ),
+    token_type: Optional[TokenType] = Query(
+        None,
+        title="Token type",
+        description="Only show tokens of this type",
+        example="user",
+    ),
+    ip_address: Optional[str] = Query(
+        None,
+        title="IP or CIDR",
+        description="Only show changes from this IP or CIDR block",
+        example="198.51.100.0/24",
+    ),
+    auth_data: TokenData = Depends(authenticate_admin_read),
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
@@ -155,9 +224,18 @@ def get_admin_token_change_history(
     return [r.reduced_dict() for r in results.entries]
 
 
-@router.get("/login", response_model=APILoginResponse, tags=["user"])
+@router.get(
+    "/login",
+    description=(
+        "Used by the JavaScript UI to obtain a CSRF token, user metadata,"
+        " and server configuration. Not used with regular API calls."
+    ),
+    response_model=APILoginResponse,
+    summary="Initialize UI",
+    tags=["browser"],
+)
 def get_login(
-    auth_data: TokenData = Depends(authenticate_session),
+    auth_data: TokenData = Depends(authenticate_session_read),
     context: RequestContext = Depends(context_dependency),
 ) -> APILoginResponse:
     if not context.state.csrf:
@@ -177,13 +255,15 @@ def get_login(
 
 @router.get(
     "/token-info",
+    description="Return metadata about the authentication token",
     response_model=TokenInfo,
     response_model_exclude_none=True,
-    responses={404: {"description": "Token not found"}},
+    responses={404: {"description": "Token not found", "model": ErrorModel}},
+    summary="Get token details",
     tags=["user"],
 )
 async def get_token_info(
-    auth_data: TokenData = Depends(authenticate),
+    auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
@@ -200,12 +280,16 @@ async def get_token_info(
 
 
 @router.post(
-    "/tokens", response_model=NewToken, status_code=201, tags=["admin"]
+    "/tokens",
+    response_model=NewToken,
+    status_code=201,
+    summary="Create a token",
+    tags=["admin"],
 )
 async def post_admin_tokens(
     token_request: AdminTokenRequest,
     response: Response,
-    auth_data: TokenData = Depends(authenticate_admin),
+    auth_data: TokenData = Depends(authenticate_admin_write),
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     token_service = context.factory.create_token_service()
@@ -222,35 +306,88 @@ async def post_admin_tokens(
 
 @router.get(
     "/user-info",
+    description="Get metadata about the autheticated user",
     response_model=TokenUserInfo,
     response_model_exclude_none=True,
+    summary="Get user metadata",
     tags=["user"],
 )
 async def get_user_info(
-    auth_data: TokenData = Depends(authenticate),
+    auth_data: TokenData = Depends(authenticate_read),
 ) -> TokenUserInfo:
     return auth_data
 
 
 @router.get(
     "/users/{username}/token-change-history",
+    description=(
+        "Get the change history of tokens for the current user. If a limit"
+        " or cursor was specified, links to paginated results may be found"
+        " in the Link header of the reply and the total number of records"
+        " in the X-Total-Count header."
+    ),
     response_model=List[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
+    summary="Get token change history",
     tags=["user"],
 )
 def get_user_token_change_history(
     response: Response,
     username: str = Path(
-        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+        ...,
+        title="Username",
+        example="someuser",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
     ),
-    cursor: Optional[str] = Query(None, regex=CURSOR_REGEX),
-    limit: Optional[int] = Query(None, ge=1),
-    since: Optional[datetime] = None,
-    until: Optional[datetime] = None,
-    key: Optional[str] = Query(None, min_length=22, max_length=22),
-    token_type: Optional[TokenType] = None,
-    ip_address: Optional[str] = None,
-    auth_data: TokenData = Depends(authenticate),
+    cursor: Optional[str] = Query(
+        None,
+        title="Cursor",
+        description="Pagination cursor",
+        example="1614985055_4234",
+        regex=CURSOR_REGEX,
+    ),
+    limit: Optional[int] = Query(
+        None,
+        title="Row limit",
+        description="Maximum number of entries to return",
+        example=500,
+        ge=1,
+    ),
+    since: Optional[datetime] = Query(
+        None,
+        title="Not before",
+        description="Only show entries at or after this time",
+        example="2021-03-05T14:59:52Z",
+    ),
+    until: Optional[datetime] = Query(
+        None,
+        title="Not after",
+        description="Only show entries before or at this time",
+        example="2021-03-05T14:59:52Z",
+    ),
+    key: Optional[str] = Query(
+        None,
+        title="Token",
+        description="Only show changes for this token",
+        example="dDQg_NTNS51GxeEteqnkag",
+        min_length=22,
+        max_length=22,
+    ),
+    token_type: Optional[TokenType] = Query(
+        None,
+        title="Token type",
+        description="Only show tokens of this type",
+        example="user",
+    ),
+    ip_address: Optional[str] = Query(
+        None,
+        title="IP or CIDR",
+        description="Only show changes from this IP or CIDR block",
+        example="198.51.100.0/24",
+    ),
+    auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
@@ -275,13 +412,19 @@ def get_user_token_change_history(
     "/users/{username}/tokens",
     response_model=List[TokenInfo],
     response_model_exclude_none=True,
+    summary="List tokens",
     tags=["user"],
 )
 async def get_tokens(
     username: str = Path(
-        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+        ...,
+        title="Username",
+        example="someuser",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
     ),
-    auth_data: TokenData = Depends(authenticate),
+    auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
 ) -> List[TokenInfo]:
     token_service = context.factory.create_token_service()
@@ -292,15 +435,21 @@ async def get_tokens(
     "/users/{username}/tokens",
     response_model=NewToken,
     status_code=201,
+    summary="Create user token",
     tags=["user"],
 )
 async def post_tokens(
     token_request: UserTokenRequest,
     response: Response,
     username: str = Path(
-        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+        ...,
+        title="Username",
+        example="someuser",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
     ),
-    auth_data: TokenData = Depends(authenticate),
+    auth_data: TokenData = Depends(authenticate_write),
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     token_service = context.factory.create_token_service()
@@ -321,14 +470,27 @@ async def post_tokens(
     "/users/{username}/tokens/{key}",
     response_model=TokenInfo,
     response_model_exclude_none=True,
+    responses={404: {"description": "Token not found", "model": ErrorModel}},
+    summary="Get token metadata",
     tags=["user"],
 )
 async def get_token(
     username: str = Path(
-        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+        ...,
+        title="Username",
+        example="someuser",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
     ),
-    key: str = Path(..., min_length=22, max_length=22),
-    auth_data: TokenData = Depends(authenticate),
+    key: str = Path(
+        ...,
+        title="Token key",
+        example="GpbIL3_qhgZlpfGTFF",
+        min_length=22,
+        max_length=22,
+    ),
+    auth_data: TokenData = Depends(authenticate_write),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
@@ -340,14 +502,29 @@ async def get_token(
 
 
 @router.delete(
-    "/users/{username}/tokens/{key}", status_code=204, tags=["user"]
+    "/users/{username}/tokens/{key}",
+    responses={404: {"description": "Token not found", "model": ErrorModel}},
+    summary="Revoke token",
+    status_code=204,
+    tags=["user"],
 )
 async def delete_token(
     username: str = Path(
-        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+        ...,
+        title="Username",
+        example="someuser",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
     ),
-    key: str = Path(..., min_length=22, max_length=22),
-    auth_data: TokenData = Depends(authenticate),
+    key: str = Path(
+        ...,
+        title="Token key",
+        example="GpbIL3_qhgZlpfGTFF",
+        min_length=22,
+        max_length=22,
+    ),
+    auth_data: TokenData = Depends(authenticate_write),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     token_service = context.factory.create_token_service()
@@ -363,18 +540,31 @@ async def delete_token(
 
 @router.patch(
     "/users/{username}/tokens/{key}",
-    status_code=201,
     response_model=TokenInfo,
     response_model_exclude_none=True,
+    responses={404: {"description": "Token not found", "model": ErrorModel}},
+    status_code=201,
+    summary="Modify user token",
     tags=["user"],
 )
 async def patch_token(
     token_request: UserTokenModifyRequest,
     username: str = Path(
-        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+        ...,
+        title="Username",
+        example="someuser",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
     ),
-    key: str = Path(..., min_length=22, max_length=22),
-    auth_data: TokenData = Depends(authenticate),
+    key: str = Path(
+        ...,
+        title="Token key",
+        example="GpbIL3_qhgZlpfGTFF",
+        min_length=22,
+        max_length=22,
+    ),
+    auth_data: TokenData = Depends(authenticate_write),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
@@ -397,14 +587,27 @@ async def patch_token(
     "/users/{username}/tokens/{key}/change-history",
     response_model=List[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
+    responses={404: {"description": "Token not found", "model": ErrorModel}},
+    summary="Get change history of token",
     tags=["user"],
 )
 async def get_token_change_history(
     username: str = Path(
-        ..., min_length=1, max_length=64, regex=USERNAME_REGEX
+        ...,
+        title="Username",
+        example="someuser",
+        min_length=1,
+        max_length=64,
+        regex=USERNAME_REGEX,
     ),
-    key: str = Path(..., min_length=22, max_length=22),
-    auth_data: TokenData = Depends(authenticate),
+    key: str = Path(
+        ...,
+        title="Token key",
+        example="GpbIL3_qhgZlpfGTFF",
+        min_length=22,
+        max_length=22,
+    ),
+    auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()

@@ -12,9 +12,13 @@ __all__ = ["APILoginResponse"]
 class Scope(BaseModel):
     """A known token scope."""
 
-    name: str = Field(..., title="Name of the scope")
+    name: str = Field(..., title="Scope name", example="user:token")
 
-    description: str = Field(..., title="Description of the scope")
+    description: str = Field(
+        ...,
+        title="Scope description",
+        example="Can create and modify user tokens",
+    )
 
 
 class APIConfig(BaseModel):
@@ -45,19 +49,30 @@ class APILoginResponse(BaseModel):
 
     csrf: str = Field(
         ...,
-        title="CSRF token for subsequent requests",
+        title="CSRF token",
         description=(
             "This token must be included in any non-GET request using cookie"
             " authentication as the value of the X-CSRF-Token header."
         ),
+        example="OmNdVTtKKuK_VuJsGFdrqg",
     )
 
-    username: str = Field(..., title="Authenticated identity from the cookie")
+    username: str = Field(
+        ...,
+        title="Username",
+        description="Authenticated identity from the cookie",
+        example="someuser",
+    )
 
     scopes: List[str] = Field(
-        ..., title="Access scopes for this authenticated user"
+        ...,
+        title="Access scopes",
+        description="Access scopes for this authenticated user",
+        example=["read:all", "user:token"],
     )
 
     config: APIConfig = Field(
-        ..., title="Additional configuration information"
+        ...,
+        title="Server configuration",
+        description="Additional configuration information",
     )

@@ -15,6 +15,7 @@ from fastapi import (
     Response,
     status,
 )
+from fastapi.responses import HTMLResponse
 
 from gafaelfawr.auth import (
     AuthError,
@@ -22,7 +23,7 @@ from gafaelfawr.auth import (
     AuthType,
     generate_challenge,
 )
-from gafaelfawr.dependencies.auth import Authenticate
+from gafaelfawr.dependencies.auth import AuthenticateRead
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import (
     InsufficientScopeError,
@@ -85,12 +86,52 @@ def auth_uri(
 
 
 def auth_config(
-    scope: List[str] = Query(...),
-    satisfy: Satisfy = Satisfy.ALL,
-    auth_type: AuthType = AuthType.Bearer,
-    notebook: bool = False,
-    delegate_to: Optional[str] = None,
-    delegate_scope: Optional[str] = None,
+    scope: List[str] = Query(
+        ...,
+        title="Required scopes",
+        description=(
+            "If given more than once, meaning is determined by the satisfy"
+            " parameter"
+        ),
+        example="read:all",
+    ),
+    satisfy: Satisfy = Query(
+        Satisfy.ALL,
+        title="Scope matching policy",
+        description=(
+            "Set to all to require all listed scopes, set to any to require"
+            " any of the listed scopes"
+        ),
+        example="any",
+    ),
+    auth_type: AuthType = Query(
+        AuthType.Bearer,
+        title="Challenge type",
+        description="Control the type of WWW-Authenticate challenge returned",
+        example="basic",
+    ),
+    notebook: bool = Query(
+        False,
+        title="Request notebook token",
+        description="Cannot be used with delegate_to or delegate_scope.",
+        example=True,
+    ),
+    delegate_to: Optional[str] = Query(
+        None,
+        title="Service name",
+        description="Create an internal token for the named service",
+        example="some-service",
+    ),
+    delegate_scope: Optional[str] = Query(
+        None,
+        title="Scope of delegated token",
+        description=(
+            "Comma-separated list of scopes to add to the delegated token."
+            " All listed scopes are implicitly added to the scope"
+            " requirements for authorization."
+        ),
+        example="read:all,write:all",
+    ),
     auth_uri: str = Depends(auth_uri),
     context: RequestContext = Depends(context_dependency),
 ) -> AuthConfig:
@@ -127,15 +168,29 @@ def auth_config(
 
 
 async def authenticate_with_type(
-    auth_type: AuthType = AuthType.Bearer,
+    auth_type: AuthType = Query(
+        AuthType.Bearer,
+        title="Challenge type",
+        description="Control the type of WWW-Authenticate challenge returned",
+        example="basic",
+    ),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
     """Set authentication challenge based on auth_type parameter."""
-    authenticate = Authenticate(auth_type=auth_type, ajax_forbidden=True)
+    authenticate = AuthenticateRead(auth_type=auth_type, ajax_forbidden=True)
     return await authenticate(context=context)
 
 
-@router.get("/auth", tags=["internal"])
+@router.get(
+    "/auth",
+    description="Meant to be used as an NGINX auth_request handler",
+    responses={
+        401: {"description": "Unauthenticated"},
+        403: {"description": "Permission denied"},
+    },
+    summary="Authenticate user",
+    tags=["internal"],
+)
 async def get_auth(
     response: Response,
     auth_config: AuthConfig = Depends(auth_config),
@@ -214,7 +269,22 @@ async def get_auth(
     return {"status": "ok"}
 
 
-@router.get("/auth/forbidden", tags=["internal"])
+@router.get(
+    "/auth/forbidden",
+    description=(
+        "This route exists to set a Cache-Control header on 403 errors so"
+        " that the browser will not cache them. This route is configured as"
+        " a custom error page in the ingress configuration. It takes the"
+        " same parameters as the /auth route and uses them to construct an"
+        " appropriate challenge. The response will set the WWW-Authenticate"
+        " header."
+    ),
+    response_class=HTMLResponse,
+    responses={403: {"description": "Permission denied"}},
+    status_code=status.HTTP_403_FORBIDDEN,
+    summary="Generate 403 error",
+    tags=["internal"],
+)
 async def get_auth_forbidden(
     response: Response,
     auth_config: AuthConfig = Depends(auth_config),

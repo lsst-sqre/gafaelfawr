@@ -18,7 +18,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from gafaelfawr.dependencies.auth import Authenticate
+from gafaelfawr.dependencies.auth import AuthenticateRead
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import parsed_redirect_uri
 from gafaelfawr.exceptions import (
@@ -30,7 +30,7 @@ from gafaelfawr.models.oidc import OIDCAuthorizationCode
 from gafaelfawr.models.token import TokenData
 
 router = APIRouter()
-authenticate = Authenticate(
+authenticate = AuthenticateRead(
     require_session=True, redirect_if_unauthenticated=True
 )
 

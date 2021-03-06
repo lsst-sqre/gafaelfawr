@@ -8,15 +8,32 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
 
-from gafaelfawr.dependencies.auth import Authenticate
+from gafaelfawr.dependencies.auth import AuthenticateRead
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.models.token import Token, TokenData
 
 router = APIRouter()
-authenticate = Authenticate(
+authenticate = AuthenticateRead(
     require_session=True, redirect_if_unauthenticated=True
 )
+example_output = {
+    "token": {
+        "data": {
+            "exp": 1616993932,
+            "iat": 1614993932,
+            "isMemberOf": [{"name": "g_special_users", "id": 139131}],
+            "name": "Alice Example",
+            "scope": "read:all user:token",
+            "sub": "someuser",
+            "uid": "someuser",
+            "uidNumber": 4151,
+        },
+        "valid": False,
+        "errors": ["Some error"],
+    }
+}
+
 
 __all__ = ["get_analyze", "post_analyze"]
 
@@ -63,7 +80,20 @@ def token_data_to_analysis(token_data: TokenData) -> Dict[str, Dict[str, Any]]:
 
 
 @router.get(
-    "/auth/analyze", response_class=FormattedJSONResponse, tags=["user"]
+    "/auth/analyze",
+    deprecated=True,
+    description=(
+        "Show a JSON dump of data about a user's cookie authentication.  The"
+        " output format is for backwards compatibility with Gafaelfawr 1.x."
+        " This route will be replaced with a more user-friendly debug page."
+    ),
+    response_class=FormattedJSONResponse,
+    responses={
+        200: {"content": {"application/json": {"example": example_output}}},
+        307: {"description": "User is not authenticated"},
+    },
+    summary="Debug cookie authentication",
+    tags=["user"],
 )
 async def get_analyze(
     token_data: TokenData = Depends(authenticate),
@@ -74,10 +104,27 @@ async def get_analyze(
 
 
 @router.post(
-    "/auth/analyze", response_class=FormattedJSONResponse, tags=["user"]
+    "/auth/analyze",
+    deprecated=True,
+    description=(
+        "Show a JSON dump of data about the provided token.  The output"
+        " format is for backwards compatibility with Gafaelfawr 1.x."
+        " Use /auth/api/v1/token-info and /auth/api/v1/user-info instead."
+    ),
+    response_class=FormattedJSONResponse,
+    responses={
+        200: {"content": {"application/json": {"example": example_output}}},
+    },
+    summary="Debug a token",
+    tags=["user"],
 )
 async def post_analyze(
-    token_str: str = Form(..., alias="token"),
+    token_str: str = Form(
+        ...,
+        alias="token",
+        title="Token to analyze",
+        example="gt-db59fbkT5LrGHvhLMglNWw.G3NEmhWZr8JwO8AQ8sIWpQ",
+    ),
     context: RequestContext = Depends(context_dependency),
 ) -> Dict[str, Dict[str, Any]]:
     """Analyze a token.

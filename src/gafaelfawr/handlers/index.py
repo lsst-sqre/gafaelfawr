@@ -4,26 +4,28 @@ from importlib.metadata import metadata
 from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 from safir.metadata import get_project_url
 
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.models.app import Metadata
 
 router = APIRouter()
 
 __all__ = ["get_index"]
 
 
-class Metadata(BaseModel):
-    name: str
-    version: str
-    description: str
-    repository_url: str
-    documentation_url: str
-
-
-@router.get("/", response_model=Metadata, tags=["internal"])
+@router.get(
+    "/",
+    description=(
+        "Return metadata about the running application. Can also be used as"
+        " a health check. This route is not exposed outside the cluster and"
+        " therefore cannot be used by external clients."
+    ),
+    response_model=Metadata,
+    summary="Application metadata",
+    tags=["internal"],
+)
 async def get_index(
     config: Config = Depends(config_dependency),
 ) -> Dict[str, Optional[str]]:

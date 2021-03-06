@@ -117,10 +117,14 @@ class TokenGroup(BaseModel):
     """
 
     name: str = Field(
-        ..., title="The name of the group", min_length=1, regex=GROUPNAME_REGEX
+        ...,
+        title="Name of the group",
+        example="g_special_users",
+        min_length=1,
+        regex=GROUPNAME_REGEX,
     )
 
-    id: int = Field(..., title="The numeric GID of the group")
+    id: int = Field(..., title="The numeric GID of the group", example=123181)
 
 
 class TokenBase(BaseModel):
@@ -132,22 +136,31 @@ class TokenBase(BaseModel):
 
     username: str = Field(
         ...,
-        title="User to whom the token was issued",
+        title="Username",
+        description="User to whom the token was issued",
+        example="someuser",
         min_length=1,
         max_length=64,
     )
 
-    token_type: TokenType = Field(..., title="Type of the token")
+    token_type: TokenType = Field(..., title="Token type", example="session")
 
-    scopes: List[str] = Field(..., title="Scopes of the token")
+    scopes: List[str] = Field(
+        ..., title="Token scopes", example=["read:all", "user:token"]
+    )
 
     created: datetime = Field(
         default_factory=current_datetime,
-        title="Creation timestamp of the token in seconds since epoch",
+        title="Creation time",
+        description="Creation timestamp of the token in seconds since epoch",
+        example=1614986130,
     )
 
     expires: Optional[datetime] = Field(
-        None, title="Expiration timestamp of the token in seconds since epoch"
+        None,
+        title="Expiration time",
+        description="Expiration timestamp of the token in seconds since epoch",
+        example=1616986130,
     )
 
     _normalize_scopes = validator("scopes", allow_reuse=True, pre=True)(
@@ -163,31 +176,44 @@ class TokenInfo(TokenBase):
     """
 
     token: str = Field(
-        ..., title="Identifier of the token", min_length=22, max_length=22
+        ...,
+        title="Token key",
+        example="5KVApqcVbSQWtO3VIRgOhQ",
+        min_length=22,
+        max_length=22,
     )
 
     token_name: Optional[str] = Field(
         None,
         title="User-given name of the token",
+        example="laptop token",
         min_length=1,
         max_length=64,
     )
 
     service: Optional[str] = Field(
         None,
-        title="Service to which the token was delegated",
-        description="Only present for internal tokens.",
+        title="Service",
+        description=(
+            "Service to which the token was delegated.  Only present for"
+            " internal tokens"
+        ),
+        example="some-service",
         min_length=1,
         max_length=64,
     )
 
     last_used: Optional[datetime] = Field(
-        None, title="When the token was last used in seconds since epoch"
+        None,
+        title="Last used",
+        description="When the token was last used in seconds since epoch",
+        example=1614986130,
     )
 
     parent: Optional[str] = Field(
         None,
-        title="Parent token of this token",
+        title="Parent token",
+        example="DGO1OnPohl0r3C7wqhzRgQ",
         min_length=22,
         max_length=22,
     )
@@ -217,19 +243,26 @@ class TokenUserInfo(BaseModel):
 
     username: str = Field(
         ...,
-        title="User to whom the token was issued",
+        title="Username",
+        description="User to whom the token was issued",
+        example="someuser",
         min_length=1,
         max_length=64,
     )
 
     name: Optional[str] = Field(
-        None, title="User's preferred full name", min_length=1
+        None,
+        title="Preferred full name",
+        example="Alice Example",
+        min_length=1,
     )
 
-    uid: Optional[int] = Field(None, title="User's UID number", ge=1)
+    uid: Optional[int] = Field(None, title="UID number", example=4123, ge=1)
 
     groups: Optional[List[TokenGroup]] = Field(
-        None, title="Groups of which the user is a member"
+        None,
+        title="Groups",
+        description="Groups of which the user is a member",
     )
 
 
@@ -242,7 +275,7 @@ class TokenData(TokenBase, TokenUserInfo):
     response model; for that, see `TokenInfo` and `TokenUserInfo`.
     """
 
-    token: Token = Field(..., title="The associated token")
+    token: Token = Field(..., title="Associated token")
 
     class Config:
         json_encoders = {datetime: lambda v: int(v.timestamp())}
@@ -251,7 +284,11 @@ class TokenData(TokenBase, TokenUserInfo):
 class NewToken(BaseModel):
     """Response to a token creation request."""
 
-    token: str = Field(..., title="Newly-created token")
+    token: str = Field(
+        ...,
+        title="Newly-created token",
+        example="gt-2T1RHkIi4b14JzswnXfCsQ.8t5XdPSYTrteD0pDB15zqQ",
+    )
 
 
 class AdminTokenRequest(BaseModel):
@@ -262,8 +299,9 @@ class AdminTokenRequest(BaseModel):
         title="User for which to issue a token",
         description=(
             "The username may only contain lowercase letters, digits,"
-            " period (.), dash (-), and underscore (_)."
+            " and dash (-), and may not start or end with a dash."
         ),
+        example="some-service",
         min_length=1,
         max_length=64,
         regex=USERNAME_REGEX,
@@ -271,34 +309,46 @@ class AdminTokenRequest(BaseModel):
 
     token_type: TokenType = Field(
         ...,
-        title="Type of the token",
+        title="Token type",
         description="Must be either service or user.",
+        example="service",
     )
 
     token_name: Optional[str] = Field(
         None,
         title="User-given name of the token",
         description="Only provide this field for a token type of user.",
+        example="laptop token",
         min_length=1,
         max_length=64,
     )
 
     scopes: List[str] = Field(
-        default_factory=list, title="The scopes of the token"
+        default_factory=list,
+        title="Token scopes",
+        example=["read:all"],
     )
 
     expires: Optional[datetime] = Field(
-        None, title="Expiration timestamp of the token in seconds since epoch"
+        None,
+        title="Token expiration",
+        description=(
+            "Expiration timestamp of the token in seconds since epoch, or"
+            " omitted to never expire."
+        ),
+        example=1616986130,
     )
 
     name: Optional[str] = Field(
-        None, title="User's preferred full name", min_length=1
+        None, title="Preferred full name", example="Service User", min_length=1
     )
 
-    uid: Optional[int] = Field(None, title="The user's UID number", ge=1)
+    uid: Optional[int] = Field(None, title="UID number", example=4131, ge=1)
 
     groups: Optional[List[TokenGroup]] = Field(
-        None, title="Groups of which the user is a member"
+        None,
+        title="Groups",
+        description="Groups of which the user is a member",
     )
 
     @validator("token_type")
@@ -326,17 +376,23 @@ class UserTokenRequest(BaseModel):
 
     token_name: str = Field(
         ...,
-        title="The user-given name of the token",
+        title="User-given name of the token",
+        example="laptop token",
         min_length=1,
         max_length=64,
     )
 
     scopes: List[str] = Field(
-        default_factory=list, title="Scopes of the token"
+        default_factory=list,
+        title="Token scope",
+        example=["read:all"],
     )
 
     expires: Optional[datetime] = Field(
-        None, title="Expiration timestamp of the token in seconds since epoch"
+        None,
+        title="Expiration time",
+        description="Expiration timestamp of the token in seconds since epoch",
+        example=1625986130,
     )
 
 
@@ -349,13 +405,22 @@ class UserTokenModifyRequest(BaseModel):
 
     token_name: Optional[str] = Field(
         None,
-        title="The user-given name of the token",
+        title="User-given name of the token",
+        example="laptop token",
         min_length=1,
         max_length=64,
     )
 
-    scopes: Optional[List[str]] = Field(None, title="Scopes of the token")
+    scopes: Optional[List[str]] = Field(
+        None, title="Token scopes", example=["read:all"]
+    )
 
     expires: Optional[datetime] = Field(
-        None, title="Expiration timestamp of the token in seconds since epoch"
+        None,
+        title="Expiration time",
+        description=(
+            "Expiration timestamp of the token in seconds since epoch, or"
+            " None to never expire."
+        ),
+        example=1625986130,
     )

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from gafaelfawr.dependencies.auth import Authenticate
+from gafaelfawr.dependencies.auth import AuthenticateRead
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.models.token import NewToken, TokenData
+from gafaelfawr.models.error import ErrorModel
+from gafaelfawr.models.influxdb import InfluxDBToken
+from gafaelfawr.models.token import TokenData
 
 router = APIRouter()
 
@@ -15,12 +17,22 @@ __all__ = ["get_influxdb"]
 
 
 @router.get(
-    "/auth/tokens/influxdb/new", response_model=NewToken, tags=["user"]
+    "/auth/tokens/influxdb/new",
+    description="Construct a JWT for authentication to InfluxDB",
+    response_model=InfluxDBToken,
+    responses={
+        404: {
+            "description": "InfluxDB support not configured",
+            "model": ErrorModel,
+        },
+    },
+    summary="Create InfluxDB token",
+    tags=["user"],
 )
 async def get_influxdb(
-    token_data: TokenData = Depends(Authenticate()),
+    token_data: TokenData = Depends(AuthenticateRead()),
     context: RequestContext = Depends(context_dependency),
-) -> NewToken:
+) -> InfluxDBToken:
     """Return an InfluxDB-compatible JWT."""
     token_issuer = context.factory.create_token_issuer()
     try:
@@ -36,4 +48,4 @@ async def get_influxdb(
     else:
         username = token_data.username
     context.logger.info("Issued InfluxDB token", influxdb_username=username)
-    return NewToken(token=influxdb_token)
+    return InfluxDBToken(token=influxdb_token)
