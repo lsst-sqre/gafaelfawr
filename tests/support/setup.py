@@ -387,7 +387,7 @@ class SetupTest:
             url=config_url, method="GET", json={"jwks_uri": jwks_url}
         )
         self.httpx_mock.add_response(
-            url=jwks_url, method="GET", json={"keys": [jwks]}
+            url=jwks_url, method="GET", json=jwks.dict()
         )
 
     def set_oidc_token_response(self, code: str, token: OldToken) -> None:

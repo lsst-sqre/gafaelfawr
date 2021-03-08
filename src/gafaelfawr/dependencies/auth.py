@@ -19,9 +19,15 @@ from gafaelfawr.exceptions import (
     InvalidTokenError,
     PermissionDeniedError,
 )
+from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
 from gafaelfawr.models.token import Token, TokenData, TokenType
 
-__all__ = ["Authenticate", "AuthenticateRead", "AuthenticateWrite"]
+__all__ = [
+    "Authenticate",
+    "AuthenticateRead",
+    "AuthenticateWrite",
+    "verified_oidc_token",
+]
 
 
 class Authenticate:
@@ -240,3 +246,32 @@ class AuthenticateWrite(Authenticate):
         context: RequestContext = Depends(context_dependency),
     ) -> TokenData:
         return await self.authenticate(context, x_csrf_token)
+
+
+def verified_oidc_token(
+    context: RequestContext = Depends(context_dependency),
+) -> OIDCVerifiedToken:
+    """Require that a request be authenticated with an OpenID Connect token.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        An authorization challenge if no token is provided.
+    """
+    try:
+        encoded_token = parse_authorization(context)
+    except InvalidRequestError as e:
+        raise generate_challenge(context, AuthType.Bearer, e)
+    if not encoded_token:
+        raise generate_unauthorized_challenge(context, AuthType.Bearer)
+    try:
+        unverified_token = OIDCToken(encoded=encoded_token)
+        token_verifier = context.factory.create_token_verifier()
+        token = token_verifier.verify_internal_token(unverified_token)
+    except InvalidTokenError as e:
+        raise generate_challenge(context, AuthType.Bearer, e)
+
+    # Add user information to the logger.
+    context.rebind_logger(token=token.jti, user=token.username)
+
+    return token

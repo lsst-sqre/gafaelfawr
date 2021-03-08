@@ -26,8 +26,6 @@ from gafaelfawr.handlers import (
     login,
     logout,
     oidc,
-    userinfo,
-    well_known,
 )
 from gafaelfawr.middleware.state import StateMiddleware
 from gafaelfawr.middleware.x_forwarded import XForwardedMiddleware
@@ -93,8 +91,6 @@ app.include_router(influxdb.router)
 app.include_router(login.router)
 app.include_router(logout.router)
 app.include_router(oidc.router)
-app.include_router(userinfo.router)
-app.include_router(well_known.router)
 
 static_path = os.getenv(
     "GAFAELFAWR_UI_PATH", Path(__file__).parent.parent.parent / "ui" / "public"

@@ -131,7 +131,9 @@ def parsed_redirect_uri(
     redirect_uri: str = Query(
         ...,
         title="URL to return to",
-        description="User is sent here after successful authentication",
+        description=(
+            "User is sent here after successful or failed authentication"
+        ),
         example="https://example.com/",
     ),
     context: RequestContext = Depends(context_dependency),

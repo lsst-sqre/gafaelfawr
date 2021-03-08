@@ -10,10 +10,13 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import pytest
 
+from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import OIDCClient
+from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
+from gafaelfawr.util import number_to_base64
 from tests.support.constants import TEST_HOSTNAME
-from tests.support.headers import query_from_url
+from tests.support.headers import parse_www_authenticate, query_from_url
 
 if TYPE_CHECKING:
     from typing import Dict
@@ -483,4 +486,152 @@ async def test_token_errors(
     assert r.json() == {
         "error": "invalid_grant",
         "error_description": "Invalid authorization code",
+    }
+
+
+@pytest.mark.asyncio
+async def test_userinfo(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    issuer = setup.factory.create_token_issuer()
+    oidc_token = issuer.issue_token(token_data, jti="some-jti")
+
+    r = await setup.client.get(
+        "/auth/userinfo",
+        headers={"Authorization": f"Bearer {oidc_token.encoded}"},
+    )
+
+    assert r.status_code == 200
+    assert r.json() == oidc_token.claims
+
+
+@pytest.mark.asyncio
+async def test_no_auth(setup: SetupTest) -> None:
+    r = await setup.client.get("/auth/userinfo")
+
+    assert r.status_code == 401
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+
+
+@pytest.mark.asyncio
+async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
+    token_data = await setup.create_session_token()
+    issuer = setup.factory.create_token_issuer()
+    oidc_token = issuer.issue_token(token_data, jti="some-jti")
+
+    caplog.clear()
+    r = await setup.client.get(
+        "/auth/userinfo",
+        headers={"Authorization": f"token {oidc_token.encoded}"},
+    )
+
+    assert r.status_code == 400
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_request
+    assert authenticate.error_description == "Unknown Authorization type token"
+
+    log = json.loads(caplog.record_tuples[0][2])
+    assert log == {
+        "error": "Unknown Authorization type token",
+        "event": "Invalid request",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/userinfo",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "user_agent": ANY,
+    }
+
+    r = await setup.client.get(
+        "/auth/userinfo",
+        headers={"Authorization": f"bearer{oidc_token.encoded}"},
+    )
+
+    assert r.status_code == 400
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_request
+    assert authenticate.error_description == "Malformed Authorization header"
+
+    caplog.clear()
+    r = await setup.client.get(
+        "/auth/userinfo",
+        headers={"Authorization": f"bearer XXX{oidc_token.encoded}"},
+    )
+
+    assert r.status_code == 401
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == setup.config.realm
+    assert authenticate.error == AuthError.invalid_token
+    assert authenticate.error_description
+
+    log = json.loads(caplog.record_tuples[0][2])
+    assert log == {
+        "error": ANY,
+        "event": "Invalid token",
+        "level": "warning",
+        "logger": "gafaelfawr",
+        "method": "GET",
+        "path": "/auth/userinfo",
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "token_source": "bearer",
+        "user_agent": ANY,
+    }
+
+
+@pytest.mark.asyncio
+async def test_well_known_jwks(setup: SetupTest) -> None:
+    r = await setup.client.get("/.well-known/jwks.json")
+    assert r.status_code == 200
+    result = r.json()
+
+    keypair = setup.config.issuer.keypair
+    assert result == {
+        "keys": [
+            {
+                "alg": ALGORITHM,
+                "kty": "RSA",
+                "use": "sig",
+                "n": number_to_base64(keypair.public_numbers().n).decode(),
+                "e": number_to_base64(keypair.public_numbers().e).decode(),
+                "kid": "some-kid",
+            }
+        ],
+    }
+
+    # Ensure that we didn't add padding to the key components.  Stripping the
+    # padding is required by RFC 7515 and 7518.
+    assert "=" not in result["keys"][0]["n"]
+    assert "=" not in result["keys"][0]["e"]
+
+
+@pytest.mark.asyncio
+async def test_well_known_oidc(setup: SetupTest) -> None:
+    r = await setup.client.get("/.well-known/openid-configuration")
+    assert r.status_code == 200
+
+    base_url = setup.config.issuer.iss
+    assert r.json() == {
+        "issuer": setup.config.issuer.iss,
+        "authorization_endpoint": base_url + "/auth/openid/login",
+        "token_endpoint": base_url + "/auth/openid/token",
+        "userinfo_endpoint": base_url + "/auth/openid/userinfo",
+        "jwks_uri": base_url + "/.well-known/jwks.json",
+        "scopes_supported": ["openid"],
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code"],
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": [ALGORITHM],
+        "token_endpoint_auth_methods_supported": ["client_secret_post"],
     }

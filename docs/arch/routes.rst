@@ -51,6 +51,12 @@ Gafaelfawr supports the following routes:
     Retrieves a JWT given an OpenID Connect authorization code obtained via an authentication request.
     The parameters to this route are those for the Token Request in the Authorization Code Flow in `OpenID Connect`_.
 
+``/auth/openid/userinfo``
+    Returns the claims of a JWT, issued by Gafaelfawr, in JSON format.
+    The JWT must be presented as a bearer token in an ``Authorization`` header as defined in `RFC 6750`_.
+
+.. _RFC 6750: https://tools.ietf.org/html/rfc6750
+
 ``/auth/redoc``
     Auto-generated documentation for Gafaelfawr routes.
     Also see ``/auth/docs``.
@@ -58,12 +64,6 @@ Gafaelfawr supports the following routes:
 ``/auth/tokens/influxdb/new``
     Issue a new InfluxDB token for the authenticated user.
     The result will be a JSON object with either a ``token`` key containing the token or ``error`` and ``error_description`` keys explaining the error.
-
-``/auth/userinfo``
-    Returns the claims of a JWT, issued by Gafaelfawr, in JSON format.
-    The JWT must be presented as a bearer token in an ``Authorization`` header as defined in `RFC 6750`_.
-
-.. _RFC 6750: https://tools.ietf.org/html/rfc6750
 
 ``/login``
     Initiates or completes an authentication rqeuest.
