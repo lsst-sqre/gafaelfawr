@@ -992,7 +992,7 @@ async def test_modify_expires(setup: SetupTest) -> None:
     # Check that Redis also has an appropriate TTL.
     ttl = delta.total_seconds()
     for token in (notebook_token, internal_token, nested_token):
-        assert ttl - 2 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
+        assert ttl - 5 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
 
     # Change the expiration of the user token.
     new_delta = timedelta(minutes=setup.config.issuer.exp_minutes / 2)
@@ -1018,7 +1018,7 @@ async def test_modify_expires(setup: SetupTest) -> None:
     # Check that the Redis TTL has also been updated.
     ttl = new_delta.total_seconds()
     for token in (notebook_token, internal_token, nested_token):
-        assert ttl - 2 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
+        assert ttl - 5 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
 
 
 @pytest.mark.asyncio
