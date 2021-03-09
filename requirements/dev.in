@@ -21,7 +21,7 @@ pytest-cov
 pytest-httpx
 pytest-xdist[psutil]
 selenium
-selenium-wire<4
+selenium-wire
 seqdiag
 sphinx-automodapi==0.12
 sphinx-click

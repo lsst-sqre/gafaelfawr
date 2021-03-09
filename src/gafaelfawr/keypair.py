@@ -16,10 +16,11 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.models.oidc import JWK, JWKS
 from gafaelfawr.util import number_to_base64
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional
+    from typing import Optional
 
 __all__ = ["RSAKeyPair"]
 
@@ -94,7 +95,7 @@ class RSAKeyPair:
             )
         return self._private_key_as_pem
 
-    def public_key_as_jwks(self, kid: Optional[str] = None) -> Dict[str, str]:
+    def public_key_as_jwks(self, kid: Optional[str] = None) -> JWKS:
         """Return the public key in JWKS format.
 
         Parameters
@@ -109,16 +110,15 @@ class RSAKeyPair:
             The public key in JWKS format.
         """
         public_numbers = self.public_numbers()
-        jwks = {
-            "alg": ALGORITHM,
-            "kty": "RSA",
-            "use": "sig",
-            "n": number_to_base64(public_numbers.n).decode(),
-            "e": number_to_base64(public_numbers.e).decode(),
-        }
-        if kid:
-            jwks["kid"] = kid
-        return jwks
+        jwk = JWK(
+            alg=ALGORITHM,
+            kid=kid,
+            kty="RSA",
+            use="sig",
+            n=number_to_base64(public_numbers.n).decode(),
+            e=number_to_base64(public_numbers.e).decode(),
+        )
+        return JWKS(keys=[jwk])
 
     def public_key_as_pem(self) -> bytes:
         """Return the PEM-encoded public key.

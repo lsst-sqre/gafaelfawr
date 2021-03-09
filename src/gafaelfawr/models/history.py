@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
 
-from gafaelfawr.exceptions import BadCursorError
+from gafaelfawr.exceptions import InvalidCursorError
 from gafaelfawr.models.token import TokenType
 from gafaelfawr.util import (
     current_datetime,
@@ -47,26 +47,34 @@ class AdminHistoryEntry(BaseModel):
 
     username: str = Field(
         ...,
-        title="Username of the token administrator that was changed",
+        title="Username",
+        description="Username of the token administrator that was changed",
+        example="someadmin",
         min_length=1,
         max_length=64,
     )
 
-    action: AdminChange = Field(..., title="Type of change that was made")
+    action: AdminChange = Field(..., title="Type of change", example="add")
 
     actor: str = Field(
         ...,
-        title="Username of the person making the change",
+        title="Actor",
+        description="Username of the person making the change",
         min_length=1,
         max_length=64,
     )
 
     ip_address: str = Field(
-        ..., title="IP address from which the change was made"
+        ...,
+        title="IP address",
+        description="IP address from which the change was made",
     )
 
     event_time: datetime = Field(
-        default_factory=current_datetime, title="When the change was made"
+        default_factory=current_datetime,
+        title="Timestamp",
+        description="When the change was made",
+        example=1614986130,
     )
 
     class Config:
@@ -104,7 +112,7 @@ class HistoryCursor:
                 previous=previous,
             )
         except Exception as e:
-            raise BadCursorError(f"Invalid cursor: {str(e)}")
+            raise InvalidCursorError(f"Invalid cursor: {str(e)}")
 
     @classmethod
     def invert(cls, cursor: HistoryCursor) -> HistoryCursor:
@@ -172,7 +180,8 @@ class TokenChangeHistoryEntry(BaseModel):
 
     token: str = Field(
         ...,
-        title="Key of the token that was changed",
+        title="Token key",
+        example="dDQg_NTNS51GxeEteqnkag",
         min_length=22,
         max_length=22,
     )
@@ -180,11 +189,14 @@ class TokenChangeHistoryEntry(BaseModel):
     username: str = Field(
         ...,
         title="Username of the token",
+        example="someuser",
         min_length=1,
         max_length=64,
     )
 
-    token_type: TokenType = Field(..., title="Type of the token")
+    token_type: TokenType = Field(
+        ..., title="Type of the token", example="user"
+    )
 
     token_name: Optional[str] = Field(
         None,
@@ -193,18 +205,24 @@ class TokenChangeHistoryEntry(BaseModel):
             "Only set for tokens of type user. If the name was changed, this"
             " will be the new name of the token."
         ),
+        example="a token",
     )
 
     parent: Optional[str] = Field(
-        None, title="Key of parent token of this token"
+        None,
+        title="Key of parent token of this token",
+        example="1NOV_8aPwhCWj6rM-p1XgQ",
     )
 
-    scopes: List[str] = Field(..., title="Scopes of the token")
+    scopes: List[str] = Field(
+        ..., title="Scopes of the token", example=["read:all"]
+    )
 
     service: Optional[str] = Field(
         None,
         title="Service to which the token was issued",
         description="Only set for tokens of type internal.",
+        example="some-service",
     )
 
     expires: Optional[datetime] = Field(
@@ -214,16 +232,20 @@ class TokenChangeHistoryEntry(BaseModel):
             "If the expiration was changed, this will be the new expiration of"
             " the token."
         ),
+        example=1615785631,
     )
 
     actor: str = Field(
         ...,
         title="Username of person making the change",
+        example="adminuser",
         min_length=1,
         max_length=64,
     )
 
-    action: TokenChange = Field(..., title="Type of change that was made")
+    action: TokenChange = Field(
+        ..., title="Type of change that was made", example="edit"
+    )
 
     old_token_name: Optional[str] = Field(
         None,
@@ -232,6 +254,7 @@ class TokenChangeHistoryEntry(BaseModel):
             "This field will only be present for edit changes to user tokens"
             " that changed the token name."
         ),
+        example="old name",
     )
 
     old_scopes: Optional[List[str]] = Field(
@@ -241,6 +264,7 @@ class TokenChangeHistoryEntry(BaseModel):
             "This field will only be present for edit changes that changed the"
             " token scopes."
         ),
+        example=["read:some"],
     )
 
     old_expires: Optional[datetime] = Field(
@@ -250,6 +274,7 @@ class TokenChangeHistoryEntry(BaseModel):
             "This field will only be present for edit changes that changed the"
             " expiration of the token."
         ),
+        example=1614985631,
     )
 
     # The first implementation tried to use an IPvAnyAddress type here for the
@@ -269,10 +294,13 @@ class TokenChangeHistoryEntry(BaseModel):
             "May be null if the change was made internally, such as token"
             " deletion due to expiration."
         ),
+        example="198.51.100.50",
     )
 
     event_time: datetime = Field(
-        default_factory=current_datetime, title="Whent he change was made"
+        default_factory=current_datetime,
+        title="Whent he change was made",
+        example=1614985631,
     )
 
     class Config:

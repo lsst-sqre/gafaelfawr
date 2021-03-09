@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import useFetch from './fetch';
 
-export default function useLogin(setError) {
-  const { data } = useFetch('/login', setError);
+export default function useLogin(alert) {
+  const { data } = useFetch('/login', alert);
   const [csrf, setCsrf] = useState();
   const [username, setUsername] = useState();
   const [userScopes, setUserScopes] = useState([]);

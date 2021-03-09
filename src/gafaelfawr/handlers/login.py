@@ -6,13 +6,17 @@ import base64
 import os
 from typing import TYPE_CHECKING, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from httpx import HTTPError
 
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import return_url_with_header
-from gafaelfawr.exceptions import ProviderException
+from gafaelfawr.exceptions import (
+    InvalidReturnURLError,
+    InvalidStateError,
+    ProviderException,
+)
 
 if TYPE_CHECKING:
     from typing import List, Set
@@ -25,11 +29,37 @@ router = APIRouter()
 __all__ = ["get_login"]
 
 
-@router.get("/login")
-@router.get("/oauth2/callback")
+@router.get(
+    "/login",
+    description=(
+        "Protected applications redirect to this URL when the user is not"
+        " authenticated to start the authentication process. The user will"
+        " then be sent to an authentication provider, back to this URL with"
+        " additional parameters to complete the process, and then back to the"
+        " protected site."
+    ),
+    responses={307: {"description": "Redirect to provider or destination"}},
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    summary="Authenticate browser",
+    tags=["browser"],
+)
+@router.get("/oauth2/callback", include_in_schema=False, tags=["browser"])
 async def get_login(
-    code: Optional[str] = None,
-    state: Optional[str] = None,
+    code: Optional[str] = Query(
+        None,
+        title="Provider code",
+        description="Set by the authentication provider after authentication",
+        example="V2hrNqgM_eiIjXvV41RlMw",
+    ),
+    state: Optional[str] = Query(
+        None,
+        title="Authentication state",
+        description=(
+            "Set by the authentication provider after authentication to"
+            " protect against session fixation"
+        ),
+        example="wkC2bAP5VFpDioKc3JfaDA",
+    ),
     return_url: Optional[str] = Depends(return_url_with_header),
     context: RequestContext = Depends(context_dependency),
 ) -> RedirectResponse:
@@ -75,14 +105,7 @@ async def redirect_to_provider(
         The authentication request is invalid.
     """
     if not return_url:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "loc": ["query", "rd"],
-                "type": "return_url_missing",
-                "msg": "No return URL given",
-            },
-        )
+        raise InvalidReturnURLError("No return URL given", "rd")
     context.state.return_url = return_url
 
     # Reuse the existing state if one already exists in the session cookie.
@@ -153,34 +176,22 @@ async def handle_provider_return(
         information from the provider failed.
     """
     if not state:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "loc": ["query", "state"],
-                "type": "state_mismatch",
-                "msg": "No authentication state",
-            },
-        )
+        msg = "No authentication state"
+        context.logger.warning("Authentication failed", error=msg)
+        raise InvalidStateError(msg)
 
     # Extract details from the reply, check state, and get the return URL.
     if state != context.state.state:
         msg = "Authentication state mismatch"
         context.logger.warning("Authentication failed", error=msg)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "loc": ["query", "state"],
-                "msg": "Authentication state mismatch",
-                "type": "state_mismatch",
-            },
-        )
+        raise InvalidStateError(msg)
     return_url = context.state.return_url
     if not return_url:
         msg = "Invalid authentication state: return_url not present in cookie"
         context.logger.error("Authentication failed", error=msg)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"msg": msg, "type": "return_url_not_set"},
+            detail=[{"msg": msg, "type": "return_url_not_set"}],
         )
     context.rebind_logger(return_url=return_url)
 
@@ -193,17 +204,19 @@ async def handle_provider_return(
         context.logger.warning("Provider authentication failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"type": "provider_failed", "msg": str(e)},
+            detail=[{"type": "provider_failed", "msg": str(e)}],
         )
     except HTTPError as e:
         msg = "Cannot contact authentication provider"
         context.logger.exception(msg, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "type": "provider_connect_failed",
-                "msg": f"{msg}: {str(e)}",
-            },
+            detail=[
+                {
+                    "type": "provider_connect_failed",
+                    "msg": f"{msg}: {str(e)}",
+                }
+            ],
         )
 
     # Construct a token.
@@ -252,8 +265,8 @@ def get_scopes_from_groups(
         ``group_mapping`` configuration parameter.
     """
     if not groups:
-        return []
-    scopes: Set[str] = set()
+        return ["user:token"]
+    scopes: Set[str] = set(["user:token"])
     for group in [g.name for g in groups]:
         scopes.update(config.issuer.group_mapping.get(group, set()))
     return sorted(scopes)

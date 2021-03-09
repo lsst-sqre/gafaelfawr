@@ -86,6 +86,7 @@ class TokenDatabaseStore:
             expires=data.expires,
         )
         self._session.add(new)
+        self._session.flush()
         if parent:
             subtoken = Subtoken(parent=parent, child=data.token.key)
             self._session.add(subtoken)
@@ -104,6 +105,34 @@ class TokenDatabaseStore:
             Whether the token was found to be deleted.
         """
         return self._session.query(SQLToken).filter_by(token=key).delete() >= 1
+
+    def get_children(self, key: str) -> List[str]:
+        """Return all children (recursively) of a token.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token.
+
+        Returns
+        -------
+        children : List[`str`]
+            The keys of all child tokens of that token, recursively.  The
+            direct child tokens will be at the beginning of the list, and
+            other tokens will be listed in a breadth-first search order.
+        """
+        all_children = []
+        parents = [key]
+        while parents:
+            records = (
+                self._session.query(Subtoken.child)
+                .filter(Subtoken.parent.in_(parents))
+                .all()
+            )
+            children = [r.child for r in records]
+            all_children.extend(children)
+            parents = children
+        return all_children
 
     def get_info(self, key: str) -> Optional[TokenInfo]:
         """Return information about a token.
@@ -141,7 +170,11 @@ class TokenDatabaseStore:
             return None
 
     def get_internal_token_key(
-        self, token_data: TokenData, service: str, scopes: List[str]
+        self,
+        token_data: TokenData,
+        service: str,
+        scopes: List[str],
+        min_expires: datetime,
     ) -> Optional[str]:
         """Retrieve an existing internal child token.
 
@@ -153,6 +186,8 @@ class TokenDatabaseStore:
             The service to which the internal token is delegated.
         scopes : List[`str`]
             The scopes of the delegated token.
+        min_expires : `datetime.datetime`
+            The minimum expiration time for the token.
 
         Returns
         -------
@@ -168,17 +203,22 @@ class TokenDatabaseStore:
                 SQLToken.token_type == TokenType.internal,
                 SQLToken.service == service,
                 SQLToken.scopes == ",".join(sorted(scopes)),
+                SQLToken.expires >= min_expires,
             )
             .scalar()
         )
 
-    def get_notebook_token_key(self, token_data: TokenData) -> Optional[str]:
+    def get_notebook_token_key(
+        self, token_data: TokenData, min_expires: datetime
+    ) -> Optional[str]:
         """Retrieve an existing notebook child token.
 
         Parameters
         ----------
         token_data : `gafaelfawr.models.token.TokenData`
             The data for the parent token.
+        min_expires : `datetime.datetime`
+            The minimum expiration time for the token.
 
         Returns
         -------
@@ -190,7 +230,10 @@ class TokenDatabaseStore:
             self._session.query(Subtoken.child)
             .filter_by(parent=token_data.token.key)
             .join(SQLToken, Subtoken.child == SQLToken.token)
-            .filter(SQLToken.token_type == TokenType.notebook)
+            .filter(
+                SQLToken.token_type == TokenType.notebook,
+                SQLToken.expires >= min_expires,
+            )
             .scalar()
         )
 
@@ -302,7 +345,7 @@ class TokenRedisStore:
         self._storage = storage
         self._logger = logger
 
-    async def delete(self, key: str) -> None:
+    async def delete(self, key: str) -> bool:
         """Delete a token from Redis.
 
         This only requires the token key, not the full token, so that users
@@ -313,8 +356,13 @@ class TokenRedisStore:
         ----------
         key : `str`
             The key portion of the token.
+
+        Returns
+        -------
+        success : `bool`
+            `True` if the token was found and deleted, `False` otherwise.
         """
-        await self._storage.delete(f"token:{key}")
+        return await self._storage.delete(f"token:{key}")
 
     async def get_data(self, token: Token) -> Optional[TokenData]:
         """Retrieve the data for a token from Redis.

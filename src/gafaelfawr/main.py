@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from importlib.metadata import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -15,7 +16,7 @@ from fastapi_sqlalchemy import DBSessionMiddleware
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.exceptions import PermissionDeniedError
+from gafaelfawr.exceptions import PermissionDeniedError, ValidationError
 from gafaelfawr.handlers import (
     analyze,
     api,
@@ -25,11 +26,10 @@ from gafaelfawr.handlers import (
     login,
     logout,
     oidc,
-    userinfo,
-    well_known,
 )
 from gafaelfawr.middleware.state import StateMiddleware
 from gafaelfawr.middleware.x_forwarded import XForwardedMiddleware
+from gafaelfawr.models.error import ErrorModel
 from gafaelfawr.models.state import State
 
 if TYPE_CHECKING:
@@ -38,19 +38,59 @@ if TYPE_CHECKING:
 __all__ = ["app"]
 
 
-app = FastAPI()
-"""The Gafaelfawr application."""
+app = FastAPI(
+    title="Gafaelfawr",
+    description=(
+        "Gafaelfawr is a FastAPI application for the authorization and"
+        " management of tokens, including their issuance and revocation."
+    ),
+    version=metadata("gafaelfawr").get("Version", "0.0.0"),
+    tags_metadata=[
+        {
+            "name": "user",
+            "description": "APIs that can be used by regular users.",
+        },
+        {
+            "name": "admin",
+            "description": "APIs that can only be used by administrators.",
+        },
+        {
+            "name": "oidc",
+            "description": (
+                "OpenID Connect routes used by protected applications."
+            ),
+        },
+        {
+            "name": "browser",
+            "description": "Routes intended only for use from a web browser.",
+        },
+        {
+            "name": "internal",
+            "description": (
+                "Internal routes used only by the ingress or by health checks."
+            ),
+        },
+    ],
+    openapi_url="/auth/openapi.json",
+    docs_url="/auth/docs",
+    redoc_url="/auth/redoc",
+)
 
 app.include_router(analyze.router)
-app.include_router(api.router, prefix="/auth/api/v1")
+app.include_router(
+    api.router,
+    prefix="/auth/api/v1",
+    responses={
+        401: {"description": "Unauthenticated"},
+        403: {"description": "Permission denied", "model": ErrorModel},
+    },
+)
 app.include_router(auth.router)
 app.include_router(index.router)
 app.include_router(influxdb.router)
 app.include_router(login.router)
 app.include_router(logout.router)
 app.include_router(oidc.router)
-app.include_router(userinfo.router)
-app.include_router(well_known.router)
 
 static_path = os.getenv(
     "GAFAELFAWR_UI_PATH", Path(__file__).parent.parent.parent / "ui" / "public"
@@ -89,5 +129,14 @@ async def permission_exception_handler(
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN,
-        content={"detail": {"msg": str(exc), "type": "permission_denied"}},
+        content={"detail": [{"msg": str(exc), "type": "permission_denied"}]},
+    )
+
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(
+    request: Request, exc: ValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code, content={"detail": [exc.to_dict()]}
     )

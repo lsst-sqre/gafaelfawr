@@ -55,10 +55,7 @@ def selenium_config(tmp_path: Path) -> Iterable[SeleniumConfig]:
     config : `tests.support.selenium.SeleniumConfig`
         Configuration information for the server.
     """
-    database_url = "sqlite:///" + str(tmp_path / "gafaelfawr.sqlite")
-    settings_path = build_settings(
-        tmp_path, "selenium", database_url=database_url
-    )
+    settings_path = build_settings(tmp_path, "selenium")
     config_dependency.set_settings_path(str(settings_path))
     with run_app(tmp_path, settings_path) as config:
         yield config

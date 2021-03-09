@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 
 from gafaelfawr.constants import MINIMUM_LIFETIME, USERNAME_REGEX
 from gafaelfawr.exceptions import (
-    BadExpiresError,
-    BadIpAddressError,
-    BadScopesError,
+    InvalidExpiresError,
+    InvalidIPAddressError,
+    InvalidScopesError,
     PermissionDeniedError,
 )
 from gafaelfawr.models.history import (
@@ -109,7 +109,7 @@ class TokenService:
 
         token = Token()
         created = current_datetime()
-        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
+        expires = created + self._config.token_lifetime
         data = TokenData(
             token=token,
             token_type=TokenType.session,
@@ -173,10 +173,10 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadExpiresError
-            The provided expiration time was invalid.
         gafaelfawr.exceptions.DuplicateTokenNameError
             A token with this name for this user already exists.
+        gafaelfawr.exceptions.InvalidExpiresError
+            The provided expiration time was invalid.
         gafaelfawr.exceptions.PermissionDeniedError
             If the given username didn't match the user information in the
             authentication token, or if the specified username is invalid.
@@ -350,28 +350,17 @@ class TokenService:
             return False
         self._check_authorization(info.username, auth_data)
 
-        history_entry = TokenChangeHistoryEntry(
-            token=key,
-            username=info.username,
-            token_type=info.token_type,
-            token_name=info.token_name,
-            parent=info.parent,
-            scopes=info.scopes,
-            service=info.service,
-            expires=info.expires,
-            actor=auth_data.username,
-            action=TokenChange.revoke,
-            ip_address=ip_address,
-        )
-
-        await self._token_redis_store.delete(key)
+        # Recursively delete the children of this token first.  Children are
+        # returned in breadth-first order, so delete them in reverse order to
+        # delete the tokens farthest down in the tree first.  This minimizes
+        # the number of orphaned children at any given point.
+        children = self._token_db_store.get_children(key)
+        children.reverse()
         with self._transaction_manager.transaction():
-            success = self._token_db_store.delete(key)
-            if success:
-                self._token_change_store.add(history_entry)
+            for child in children:
+                await self._delete_one_token(child, auth_data, ip_address)
+            success = await self._delete_one_token(key, auth_data, ip_address)
 
-        if success:
-            self._logger.info("Deleted token", key=key, username=info.username)
         return success
 
     def get_change_history(
@@ -421,18 +410,19 @@ class TokenService:
 
         Returns
         -------
-        entries : List[`gafaelfawr.models.history.TokenChangeHistory.Entry`]
+        entries : List[`gafaelfawr.models.history.TokenChangeHistoryEntry`]
             A list of changes matching the search criteria.
 
         Raises
         ------
-        gafaelfawr.exceptions.BadCursorError
+        gafaelfawr.exceptions.InvalidCursorError
             The provided cursor was invalid.
-        gafaelfawr.exceptions.BadIpAddressError
+        gafaelfawr.exceptions.InvalidIPAddressError
             The provided argument was syntactically invalid for both an
             IP address and a CIDR block.
         """
         self._check_authorization(username, auth_data)
+        self._validate_ip_or_cidr(ip_or_cidr)
         return self._token_change_store.list(
             cursor=HistoryCursor.from_str(cursor) if cursor else None,
             limit=limit,
@@ -506,7 +496,7 @@ class TokenService:
 
         # See if there's already a matching internal token.
         key = self._token_db_store.get_internal_token_key(
-            token_data, service, scopes
+            token_data, service, scopes, self._minimum_expiration(token_data)
         )
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
@@ -516,7 +506,7 @@ class TokenService:
         # There is not, so we need to create a new one.
         token = Token()
         created = current_datetime()
-        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
+        expires = created + self._config.token_lifetime
         if token_data.expires and token_data.expires < expires:
             expires = token_data.expires
         data = TokenData(
@@ -589,7 +579,9 @@ class TokenService:
         self._validate_username(token_data.username)
 
         # See if there's already a matching notebook token.
-        key = self._token_db_store.get_notebook_token_key(token_data)
+        key = self._token_db_store.get_notebook_token_key(
+            token_data, self._minimum_expiration(token_data)
+        )
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
             if data:
@@ -598,7 +590,7 @@ class TokenService:
         # There is not, so we need to create a new one.
         token = Token()
         created = current_datetime()
-        expires = created + timedelta(minutes=self._config.issuer.exp_minutes)
+        expires = created + self._config.token_lifetime
         if token_data.expires and token_data.expires < expires:
             expires = token_data.expires
         data = TokenData(
@@ -757,7 +749,7 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadExpiresError
+        gafaelfawr.exceptions.InvalidExpiresError
             The provided expiration time was invalid.
         gafaelfawr.exceptions.DuplicateTokenNameError
             A token with this name for this user already exists.
@@ -777,6 +769,12 @@ class TokenService:
         if scopes:
             self._validate_scopes(scopes, auth_data)
         self._validate_expires(expires)
+
+        # Determine if the lifetime has decreased, in which case we may have
+        # to update subtokens.
+        update_subtoken_expires = expires and (
+            not info.expires or expires <= info.expires
+        )
 
         history_entry = TokenChangeHistoryEntry(
             token=key,
@@ -812,13 +810,22 @@ class TokenService:
                 else:
                     info = None
 
+            # Update subtokens if needed.
+            if update_subtoken_expires and info:
+                assert expires
+                for child in self._token_db_store.get_children(key):
+                    await self._modify_expires(
+                        child, auth_data, expires, ip_address
+                    )
+
         if info:
+            timestamp = int(info.expires.timestamp()) if info.expires else None
             self._logger.info(
                 "Modified token",
                 key=key,
                 token_name=info.token_name,
                 token_scope=",".join(info.scopes),
-                expires=info.expires,
+                expires=timestamp,
             )
         return info
 
@@ -863,6 +870,137 @@ class TokenService:
                 msg = f"Cannot act on tokens for user {username}"
                 self._logger.warning("Permission denied", error=msg)
                 raise PermissionDeniedError(msg)
+        if not is_admin and "user:token" not in auth_data.scopes:
+            msg = "Missing required user:token scope"
+            self._logger.warning("Permission denied", error=msg)
+            raise PermissionDeniedError(msg)
+
+    async def _delete_one_token(
+        self,
+        key: str,
+        auth_data: TokenData,
+        ip_address: str,
+    ) -> bool:
+        """Helper function to delete a single token.
+
+        This does not do cascading delete and assumes authorization has
+        already been checked.  Must be called inside a transaction.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token to delete.
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token data for the authentication token of the user deleting
+            the token.
+        ip_address : `str`
+            The IP address from which the request came.
+
+        Returns
+        -------
+        success : `bool`
+            Whether the token was found and deleted.
+        """
+        info = self.get_token_info_unchecked(key)
+        if not info:
+            return False
+
+        history_entry = TokenChangeHistoryEntry(
+            token=key,
+            username=info.username,
+            token_type=info.token_type,
+            token_name=info.token_name,
+            parent=info.parent,
+            scopes=info.scopes,
+            service=info.service,
+            expires=info.expires,
+            actor=auth_data.username,
+            action=TokenChange.revoke,
+            ip_address=ip_address,
+        )
+
+        await self._token_redis_store.delete(key)
+        success = self._token_db_store.delete(key)
+        if success:
+            self._token_change_store.add(history_entry)
+            self._logger.info("Deleted token", key=key, username=info.username)
+        return success
+
+    def _minimum_expiration(self, token_data: TokenData) -> datetime:
+        """Determine the minimum expiration for a child token.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The data for the parent token for which a child token was
+            requested.
+
+        Returns
+        -------
+        min_expires : `datetime.datetime`
+            The minimum acceptable expiration time for the child token.  If
+            no child tokens with at least this expiration time exist, a new
+            child token should be created.
+        """
+        min_expires = current_datetime() + timedelta(
+            seconds=self._config.token_lifetime.total_seconds() / 2
+        )
+        if token_data.expires and min_expires > token_data.expires:
+            min_expires = token_data.expires
+        return min_expires
+
+    async def _modify_expires(
+        self,
+        key: str,
+        auth_data: TokenData,
+        expires: datetime,
+        ip_address: str,
+    ) -> None:
+        """Change the expiration of a token if necessary.
+
+        Used to update the expiration of subtokens when the parent token
+        expiration has changed.
+
+        Parameters
+        ----------
+        key : `str`
+            The key of the token to update.
+        auth_data : `gafaelfawr.models.token.TokenData`
+            The token data for the authentication token of the user changing
+            the expiration.
+        expires : `datetime.datetime`
+            The new expiration of the parent token.  The expiration of the
+            child token will be changed if it's later than this value.
+        ip_address : `str`
+            The IP address from which the request came.
+        """
+        info = self.get_token_info_unchecked(key)
+        if not info:
+            return
+        if info.expires and info.expires <= expires:
+            return
+
+        history_entry = TokenChangeHistoryEntry(
+            token=key,
+            username=info.username,
+            token_type=info.token_type,
+            token_name=info.token_name,
+            parent=info.parent,
+            scopes=info.scopes,
+            service=info.service,
+            expires=expires,
+            old_expires=info.expires,
+            actor=auth_data.username,
+            action=TokenChange.edit,
+            ip_address=ip_address,
+        )
+
+        self._token_db_store.modify(key, expires=expires)
+        self._token_change_store.add(history_entry)
+        data = await self._token_redis_store.get_data_by_key(key)
+        if data:
+            data.expires = expires
+            await self._token_redis_store.store_data(data)
 
     def _validate_ip_or_cidr(self, ip_or_cidr: Optional[str]) -> None:
         """Check that an IP address or CIDR block is valid.
@@ -875,19 +1013,19 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadIpAddressError
+        gafaelfawr.exceptions.InvalidIPAddressError
             The provided argument was syntactically invalid for both an
             IP address and a CIDR block.
         """
         if ip_or_cidr is None:
-            return None
+            return
         try:
             if "/" in ip_or_cidr:
                 ipaddress.ip_network(ip_or_cidr)
             else:
                 ipaddress.ip_address(ip_or_cidr)
         except ValueError as e:
-            raise BadIpAddressError(f"Invalid IP address: {str(e)}")
+            raise InvalidIPAddressError(f"Invalid IP address: {str(e)}")
 
     def _validate_expires(self, expires: Optional[datetime]) -> None:
         """Check that a provided token expiration is valid.
@@ -899,7 +1037,7 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadExpiresError
+        gafaelfawr.exceptions.InvalidExpiresError
             The provided expiration time is not valid.
 
         Notes
@@ -913,7 +1051,7 @@ class TokenService:
             return
         if expires.timestamp() < time.time() + MINIMUM_LIFETIME:
             msg = "token must be valid for at least five minutes"
-            raise BadExpiresError(msg)
+            raise InvalidExpiresError(msg)
 
     def _validate_scopes(
         self,
@@ -932,7 +1070,7 @@ class TokenService:
 
         Raises
         ------
-        gafaelfawr.exceptions.BadScopesError
+        gafaelfawr.exceptions.InvalidScopesError
             The requested scopes are not permitted.
         """
         if not scopes:
@@ -941,10 +1079,10 @@ class TokenService:
         if auth_data and "admin:token" not in auth_data.scopes:
             if not (scopes_set <= set(auth_data.scopes)):
                 msg = "Requested scopes are broader than your current scopes"
-                raise BadScopesError(msg)
+                raise InvalidScopesError(msg)
         if not (scopes_set <= self._config.known_scopes.keys()):
             msg = "Unknown scopes requested"
-            raise BadScopesError(msg)
+            raise InvalidScopesError(msg)
 
     def _validate_username(self, username: str) -> None:
         """Check that the username is valid.

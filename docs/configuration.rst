@@ -26,9 +26,23 @@ The secret is the contents of the file.
 Any leading or trailing whitespace in the file will be removed.
 Secrets beginning or ending in whitespace are not supported.
 
+Environment variables
+---------------------
+
 All top-level settings can be set via environment variables instead of using the configuration file.
 The configuration file will override environment variables, so to set a value with an environment variable, omit it from the configuration file.
 The environment variable name for a setting is the same as the setting name but in all caps and with ``GAFAELFAWR_`` prepended.
+
+Some settings can only be set via environment variables:
+
+``GAFAELFAWR_UI_PATH``
+    The path to the compiled UI served under ``/auth/tokens``.
+    Gafaelfawr will serve files under this path as static files under the ``/auth/tokens`` route.
+    This should be the contents of the ``ui/public`` directory after running ``make ui``.
+    Normally this is handled automatically as part of the Docker container build and will not need to be changed.
+
+Configuration file settings
+---------------------------
 
 ``realm`` (required)
     The authentication realm indicated in the ``WWW-Authenticate`` header returned as part of a 401 error when a user is not already authenticated.
@@ -161,7 +175,7 @@ The environment variable name for a setting is the same as the setting name but 
 ``known_scopes`` (required)
     A dict whose keys are known scope names and whose values are human-language descriptions of that scope.
     Only scopes listed here will be permitted in tokens, so every scope referenced in ``group_mapping`` must also be present in this setting.
-    The ``admin:token`` scope used internally by Gafaelfawr must be included.
+    The ``admin:token`` and ``user:token`` scopes are used internally by Gafaelfawr and must be included.
 
 ``group_mapping`` (optional)
     A dict whose keys are names of scopes and whose values are lists of names of groups (as found in the ``name`` attribute of the values of an ``isMemberOf`` claim in a JWT).
@@ -188,6 +202,7 @@ The environment variable name for a setting is the same as the setting name but 
     If GitHub authentication is in use, a user's groups will be based on their GitHub team memberships.
     See :ref:`github-groups` for more information.
 
+    The ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
     The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr, regardless of the ``group_mapping`` setting.
 
 ``username_claim`` (optional, default ``uid``)

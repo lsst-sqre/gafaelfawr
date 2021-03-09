@@ -23,6 +23,9 @@ RUN rm ./install-base-packages.sh
 
 FROM base-image AS dependencies-image
 
+# Determine the Node version that we want to install
+COPY .nvmrc /opt/.nvmrc
+
 # Install some additional packages required for building dependencies.
 COPY scripts/install-dependency-packages.sh .
 RUN ./install-dependency-packages.sh
@@ -39,10 +42,6 @@ RUN pip install --upgrade --no-cache-dir pip setuptools wheel
 COPY requirements/main.txt ./requirements.txt
 RUN pip install --quiet --no-cache-dir -r requirements.txt
 
-# Install Gatsby.
-RUN npm install -g npm
-RUN npm install -g gatsby-cli
-
 FROM dependencies-image AS install-image
 
 # Use the virtualenv
@@ -53,12 +52,12 @@ COPY . /app
 WORKDIR /app
 RUN pip install --no-cache-dir .
 
-# Build the UI.  The npm install could be moved into dependencies-image with
-# a bit more work in copying specific directories between the image.
+# Build the UI.
 COPY ui /opt/ui
 WORKDIR /opt/ui
-RUN npm install
-RUN gatsby build --prefix-paths
+ENV NVM_DIR=/opt/nvm
+RUN . "$NVM_DIR/nvm.sh" && npm install
+RUN . "$NVM_DIR/nvm.sh" && gatsby build --prefix-paths
 
 FROM base-image AS runtime-image
 

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from gafaelfawr.models.history import AdminHistoryEntry
     from gafaelfawr.models.token import TokenType
 
-__all__ = ["AdminHistoryStore"]
+__all__ = ["AdminHistoryStore", "TokenChangeHistoryStore"]
 
 
 class AdminHistoryStore:

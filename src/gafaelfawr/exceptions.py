@@ -2,26 +2,30 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from fastapi import status
 
 if TYPE_CHECKING:
-    from typing import ClassVar
+    from typing import ClassVar, Dict, List, Union
 
 __all__ = [
-    "BadCursorError",
-    "BadExpiresError",
-    "BadIpAddressError",
-    "BadScopesError",
     "DeserializeException",
     "DuplicateTokenNameError",
+    "ErrorLocation",
     "FetchKeysException",
     "GitHubException",
     "InsufficientScopeError",
     "InvalidClientError",
+    "InvalidCSRFError",
+    "InvalidCursorError",
+    "InvalidExpiresError",
     "InvalidGrantError",
+    "InvalidIPAddressError",
     "InvalidRequestError",
+    "InvalidReturnURLError",
+    "InvalidScopesError",
     "InvalidTokenClaimsException",
     "InvalidTokenError",
     "MissingClaimsException",
@@ -34,17 +38,163 @@ __all__ = [
     "UnauthorizedClientException",
     "UnknownAlgorithmException",
     "UnknownKeyIdException",
+    "ValidationError",
     "VerifyTokenException",
 ]
 
 
-class DeserializeException(Exception):
-    """A stored object could not be decrypted or deserialized.
+class ErrorLocation(Enum):
+    """Specifies the request component that triggered a `ValidationError`."""
 
-    Used for data stored in the backing store, such as sessions or user
-    tokens.  Should normally be treated the same as a missing object, but
-    reported separately so that an error can be logged.
+    body = "body"
+    header = "header"
+    path = "path"
+    query = "query"
+
+
+class ValidationError(Exception):
+    """Represents an input validation error.
+
+    There is a global handler for this exception and all exceptions derived
+    from it that returns an HTTP 422 status code with a body that's consistent
+    with the error messages generated internally by FastAPI.  It should be
+    used for input and parameter validation errors that cannot be caught by
+    FastAPI for whatever reason.
+
+    Parameters
+    ----------
+    message : `str`
+        The error message (used as the ``msg`` key).
+    location : `ErrorLocation`
+        The part of the request giving rise to the error.
+    field : `str`
+        The field within that part of the request giving rise to the error.
+
+    Notes
+    -----
+    The FastAPI body format supports returning multiple errors at a time as a
+    list in the ``details`` key.  The Gafaelfawr code is not currently capable
+    of diagnosing multiple errors at once, so this functionality hasn't been
+    implemented.
     """
+
+    error: ClassVar[str] = "validation_failed"
+    """Used as the ``type`` field of the error message.
+
+    Should be overridden by any subclass.
+    """
+
+    status_code: ClassVar[int] = status.HTTP_422_UNPROCESSABLE_ENTITY
+    """HTTP status code for this type of validation error."""
+
+    def __init__(
+        self, message: str, location: ErrorLocation, field: str
+    ) -> None:
+        super().__init__(message)
+        self.location = location
+        self.field = field
+
+    def to_dict(self) -> Dict[str, Union[List[str], str]]:
+        """Convert the exception to a dictionary suitable for the exception.
+
+        The return value is intended to be passed as the ``detail`` parameter
+        to a `fastapi.HTTPException`.
+        """
+        return {
+            "loc": [self.location.value, self.field],
+            "msg": str(self),
+            "type": self.error,
+        }
+
+
+class DuplicateTokenNameError(ValidationError):
+    """The user tried to reuse the name of a token."""
+
+    error = "duplicate_token_name"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, "token_name")
+
+
+class InvalidCSRFError(ValidationError):
+    """Invalid or missing CSRF token."""
+
+    error = "invalid_csrf"
+    status_code = status.HTTP_403_FORBIDDEN
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.header, "X-CSRF-Token")
+
+
+class InvalidCursorError(ValidationError):
+    """The provided cursor was invalid."""
+
+    error = "invalid_cursor"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, "cursor")
+
+
+class InvalidExpiresError(ValidationError):
+    """The provided token expiration time was invalid."""
+
+    error = "invalid_expires"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, "expires")
+
+
+class InvalidIPAddressError(ValidationError):
+    """The provided IP address has invalid syntax."""
+
+    error = "invalid_ip_address"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, "ip_address")
+
+
+class InvalidDelegateToError(ValidationError):
+    """The ``delegate_to`` parameter was set to an invalid value."""
+
+    error = "invalid_delegate_to"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, "delegate_to")
+
+
+class InvalidReturnURLError(ValidationError):
+    """Client specified an unsafe return URL."""
+
+    error = "invalid_return_url"
+
+    def __init__(self, message: str, field: str) -> None:
+        super().__init__(message, ErrorLocation.query, field)
+
+
+class InvalidScopesError(ValidationError):
+    """The provided token scopes are invalid or not available."""
+
+    error = "invalid_scopes"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, "scopes")
+
+
+class InvalidStateError(ValidationError):
+    """The login state is not present or is invalid."""
+
+    error = "state_mismatch"
+    status_code = status.HTTP_403_FORBIDDEN
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, "state")
+
+
+class NotFoundError(ValidationError):
+    """The named resource does not exist."""
+
+    error = "not_found"
+    status_code = status.HTTP_404_NOT_FOUND
 
 
 class OAuthError(Exception):
@@ -149,28 +299,17 @@ class InsufficientScopeError(OAuthBearerError):
     """
 
     error = "insufficient_scope"
-    message = "Token missing required scope"
+    message = "Permission denied"
     status_code = status.HTTP_403_FORBIDDEN
 
 
-class BadCursorError(Exception):
-    """The provided cursor was invalid."""
+class DeserializeException(Exception):
+    """A stored object could not be decrypted or deserialized.
 
-
-class BadExpiresError(Exception):
-    """The provided token expiration time was invalid."""
-
-
-class BadIpAddressError(Exception):
-    """The provided IP address has invalid syntax."""
-
-
-class BadScopesError(Exception):
-    """The provided token scopes are invalid or not available."""
-
-
-class DuplicateTokenNameError(Exception):
-    """The user tried to reuse the name of a token."""
+    Used for data stored in the backing store, such as sessions or user
+    tokens.  Should normally be treated the same as a missing object, but
+    reported separately so that an error can be logged.
+    """
 
 
 class NotConfiguredException(Exception):

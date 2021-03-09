@@ -1,8 +1,8 @@
 realm: "localhost"
 session_secret_file: "{session_secret_file}"
 database_url: "{database_url}"
+redis_url: "redis://localhost:6379/0"
 initial_admins: ["admin"]
-redis_url: "dummy"
 after_logout_url: "https://example.com/landing"
 group_mapping:
   "exec:admin": ["admin"]
@@ -13,6 +13,7 @@ known_scopes:
   "exec:admin": "admin description"
   "exec:test": "test description"
   "read:all": "can read everything"
+  "user:token": "Can create and modify user tokens"
 issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"

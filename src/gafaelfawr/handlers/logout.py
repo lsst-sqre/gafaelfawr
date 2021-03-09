@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import RedirectResponse
 
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
@@ -16,7 +16,13 @@ router = APIRouter()
 __all__ = ["get_logout"]
 
 
-@router.get("/logout")
+@router.get(
+    "/logout",
+    responses={307: {"description": "Redirect to landing page"}},
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    summary="Log out",
+    tags=["browser"],
+)
 async def get_logout(
     return_url: Optional[str] = Depends(return_url),
     context: RequestContext = Depends(context_dependency),

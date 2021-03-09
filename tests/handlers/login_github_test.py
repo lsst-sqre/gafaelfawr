@@ -90,7 +90,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "return_url": return_url,
         "remote": "127.0.0.1",
         "request_id": ANY,
-        "scope": "read:all",
+        "scope": "read:all user:token",
         "token": ANY,
         "user": "githubuser",
         "user_agent": ANY,
@@ -99,7 +99,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     # Check that the /auth route works and finds our token.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
+    assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all user:token"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == "githubuser"
@@ -145,7 +145,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_login_no_destination(setup: SetupTest) -> None:
     r = await setup.client.get("/login", allow_redirects=False)
-    assert r.status_code == 400
+    assert r.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -253,14 +253,14 @@ async def test_bad_redirect(setup: SetupTest) -> None:
         params={"rd": "https://foo.example.com/"},
         allow_redirects=False,
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
 
     r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://foo.example.com/"},
         allow_redirects=False,
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
 
     # But if we're deployed under foo.example.com as determined by the
     # X-Forwarded-Host header, this will be allowed.
@@ -394,8 +394,49 @@ async def test_invalid_username(setup: SetupTest) -> None:
     )
     assert r.status_code == 403
     assert r.json() == {
-        "detail": {
-            "msg": "Invalid username: invalid user",
-            "type": "permission_denied",
-        }
+        "detail": [
+            {
+                "msg": "Invalid username: invalid user",
+                "type": "permission_denied",
+            }
+        ]
     }
+
+
+@pytest.mark.asyncio
+async def test_invalid_groups(setup: SetupTest) -> None:
+    user_info = GitHubUserInfo(
+        name="A User",
+        username="someuser",
+        uid=1000,
+        email="user@example.com",
+        teams=[
+            GitHubTeam(slug="a-team", gid=1000, organization="ORG"),
+            GitHubTeam(slug="broken slug", gid=4000, organization="ORG"),
+            GitHubTeam(slug="valid", gid=5000, organization="bad:org"),
+        ],
+    )
+
+    setup.set_github_token_response("some-code", "some-github-token")
+    r = await setup.client.get(
+        "/login",
+        headers={"X-Auth-Request-Redirect": "https://example.com"},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", user_info)
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+
+    # The user returned by the /auth route should be forced to lowercase.
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Groups"] == "org-a-team"

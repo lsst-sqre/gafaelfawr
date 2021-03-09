@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types';
 import React, {
   useCallback,
   useContext,
@@ -6,20 +5,20 @@ import React, {
   useEffect,
   useMemo,
 } from 'react';
+import { useAlert } from 'react-alert';
 
 import CreateTokenButton from './createTokenButton';
 import EditTokenModal from './editTokenModal';
 import { LoginContext } from './loginContext.js';
 import TokenTable from './tokenTable';
-import useError from '../hooks/error';
-import { apiDelete, apiGet, apiPost } from '../functions/api';
+import { apiDelete, apiGet } from '../functions/api';
 
-export default function TokenList({ onError }) {
-  const { csrf, username, userScopes, config } = useContext(LoginContext);
+export default function TokenList() {
+  const alert = useAlert();
+  const { csrf, username } = useContext(LoginContext);
   const [data, setData] = useState(null);
   const [editingToken, _setEditingToken] = useState(null);
   const tokens = useMemo(() => data, [data]);
-  const { error: createError, onError: onCreateError } = useError();
 
   const setEditingToken = useCallback((token) => _setEditingToken(token), [
     _setEditingToken,
@@ -38,22 +37,8 @@ export default function TokenList({ onError }) {
         internal: tokenList.filter((t) => t.token_type === 'internal'),
       }))
       .then(setData)
-      .catch(onError);
-  }, [onError, username]);
-
-  const createToken = useCallback(
-    async ({ name, scopes, expires }, setNewToken) => {
-      await apiPost(`/users/${username}/tokens`, csrf, {
-        token_name: name,
-        scopes,
-        expires,
-      })
-        .then((response) => setNewToken(response.token))
-        .then(loadTokenData)
-        .catch(onCreateError);
-    },
-    [csrf, loadTokenData, onCreateError, username]
-  );
+      .catch((e) => alert.show(e.message));
+  }, [alert, username]);
 
   const editToken = useCallback(() => {
     clearEditingToken();
@@ -64,9 +49,9 @@ export default function TokenList({ onError }) {
     async (token) => {
       await apiDelete(`/users/${username}/tokens/${token}`, csrf)
         .then(loadTokenData)
-        .catch(onError);
+        .catch((e) => alert.show(e.message));
     },
-    [csrf, loadTokenData, onError, username]
+    [alert, csrf, loadTokenData, username]
   );
 
   useEffect(loadTokenData, [loadTokenData, username]);
@@ -76,12 +61,7 @@ export default function TokenList({ onError }) {
   return (
     <>
       <h2>User Tokens</h2>
-      <CreateTokenButton
-        error={createError}
-        userScopes={userScopes}
-        knownScopes={config.scopes}
-        onCreateToken={createToken}
-      />
+      <CreateTokenButton onCreate={loadTokenData} />
       {tokens.user.length ? (
         <TokenTable
           id="tokens-user"
@@ -120,7 +100,6 @@ export default function TokenList({ onError }) {
       {editingToken !== null ? (
         <EditTokenModal
           token={editingToken}
-          onLoadError={onError}
           onSuccess={editToken}
           onExit={clearEditingToken}
         />
@@ -128,6 +107,3 @@ export default function TokenList({ onError }) {
     </>
   );
 }
-TokenList.propTypes = {
-  onError: PropTypes.func.isRequired,
-};

@@ -67,7 +67,8 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["Location"] == return_url
 
     # Verify the logging.
-    expected_scopes_set = setup.config.issuer.group_mapping["admin"]
+    expected_scopes_set = set(setup.config.issuer.group_mapping["admin"])
+    expected_scopes_set.add("user:token")
     expected_scopes = " ".join(sorted(expected_scopes_set))
     data = json.loads(caplog.record_tuples[-1][2])
     event = f"Successfully authenticated user {token.username} ({token.uid})"
@@ -306,7 +307,7 @@ async def test_connection_error(setup: SetupTest) -> None:
         allow_redirects=False,
     )
     assert r.status_code == 500
-    assert r.json()["detail"]["type"] == "provider_connect_failed"
+    assert r.json()["detail"][0]["type"] == "provider_connect_failed"
 
 
 @pytest.mark.asyncio
@@ -362,15 +363,17 @@ async def test_invalid_username(setup: SetupTest) -> None:
     )
     assert r.status_code == 403
     assert r.json() == {
-        "detail": {
-            "msg": "Invalid username: invalid@user",
-            "type": "permission_denied",
-        }
+        "detail": [
+            {
+                "msg": "Invalid username: invalid@user",
+                "type": "permission_denied",
+            }
+        ]
     }
 
 
 @pytest.mark.asyncio
-async def test_invalid_groups(setup: SetupTest) -> None:
+async def test_invalid_group_syntax(setup: SetupTest) -> None:
     setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
         isMemberOf=[{"name": "foo", "id": ["bar"]}]
@@ -395,15 +398,17 @@ async def test_invalid_groups(setup: SetupTest) -> None:
     )
     assert r.status_code == 500
     assert r.json() == {
-        "detail": {
-            "msg": ANY,
-            "type": "provider_failed",
-        }
+        "detail": [
+            {
+                "msg": ANY,
+                "type": "provider_failed",
+            }
+        ]
     }
 
 
 @pytest.mark.asyncio
-async def test_groups_without_ids(setup: SetupTest) -> None:
+async def test_invalid_groups(setup: SetupTest) -> None:
     setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
         isMemberOf=[
@@ -411,6 +416,9 @@ async def test_groups_without_ids(setup: SetupTest) -> None:
             {"group": "bar", "id": 4567},
             {"name": "valid", "id": "7889"},
             {"name": "admin", "id": 2371, "extra": "blah"},
+            {"name": "bad:group:name", "id": 5723},
+            {"name": "", "id": 1482},
+            {"name": "21341", "id": 41233},
         ]
     )
     setup.set_oidc_token_response("some-code", token)

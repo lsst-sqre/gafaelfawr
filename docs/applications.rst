@@ -198,7 +198,7 @@ Each list member must be an object with two keys: ``id`` and ``secret``.
 Then, configure the client.
 The authorization endpoint is ``/auth/openid/login``.
 The token endpoint is ``/auth/openid/token``.
-The userinfo endpoint is ``/auth/userinfo``.
+The userinfo endpoint is ``/auth/openid/userinfo``.
 The JWKS endpoing is ``/.well-known/jwks.json``.
 As with any other protected application, the client must run on the same URL host as Gafaelfawr, and these endpoints are all at that shared host (and should be specified using ``https``).
 
@@ -217,7 +217,7 @@ Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com``
 * ``GENERIC_TOKEN_URL``: ``https://example.com/auth/openid/token``
 * ``USE_ID_TOKEN``: 1
 * ``JWKS_URL``: ``https://example.com/.well-known/jwks.json``
-* ``GENERIC_API_URL``: ``https://example.com/auth/userinfo``
+* ``GENERIC_API_URL``: ``https://example.com/auth/openid/userinfo``
 * ``GENERIC_SCOPES``: ``openid``
 * ``PUBLIC_URL``: ``https://example.com/chronograf``
 * ``TOKEN_SECRET``: ``pCY29u3qMTdWCNetOUD3OShsqwPm+pYKDNt6dqy01qw=``

@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 import structlog
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.models.token import TokenData
@@ -32,6 +29,7 @@ if TYPE_CHECKING:
 
     from aioredis import Redis
     from httpx import AsyncClient
+    from sqlalchemy.orm import Session
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
@@ -58,23 +56,14 @@ class ComponentFactory:
         *,
         config: Config,
         redis: Redis,
+        session: Session,
         http_client: AsyncClient,
         logger: Optional[BoundLogger] = None,
-        session: Optional[Session] = None,
     ) -> None:
         if not logger:
             structlog.configure(wrapper_class=structlog.stdlib.BoundLogger)
             logger = structlog.get_logger("gafaelfawr")
             assert logger
-
-        if not session:
-            connect_args = {}
-            if urlparse(config.database_url).scheme == "sqlite":
-                connect_args["check_same_thread"] = False
-            engine = create_engine(
-                config.database_url, connect_args=connect_args
-            )
-            session = Session(bind=engine)
 
         self._config = config
         self._redis = redis

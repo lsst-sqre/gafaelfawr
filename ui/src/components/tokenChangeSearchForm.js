@@ -1,4 +1,3 @@
-import getUnixTime from 'date-fns/getUnixTime';
 import { ErrorMessage, Field, Form, Formik } from 'formik';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -6,38 +5,17 @@ import DatePicker from 'react-datepicker';
 
 import 'react-datepicker/dist/react-datepicker.css';
 
-export default function TokenChangeSearchForm({ onSubmit }) {
+export default function TokenChangeSearchForm({ initialValues, onSubmit }) {
   return (
     <Formik
-      initialValues={{
-        key: null,
-        tokenType: 'any',
-        sinceDate: null,
-        untilDate: null,
-      }}
+      initialValues={initialValues}
       validate={(values) => {
-        const errors = {};
         if (values.key && values.key.length !== 22) {
-          errors.key = 'Invalid token';
+          return { key: 'Invalid token' };
         }
-        values.search = {};
-        if (values.key) values.search.key = values.key;
-        if (values.tokenType !== 'any') {
-          values.search.token_type = values.tokenType;
-        }
-        if (values.ipAddress) values.search.ip_address = values.ipAddress;
-        if (values.sinceDate) {
-          values.search.since = getUnixTime(values.sinceDate);
-        }
-        if (values.untilDate) {
-          values.search.until = getUnixTime(values.untilDate);
-        }
-        return errors;
+        return {};
       }}
-      onSubmit={(values, { setSubmitting }) => {
-        onSubmit(values.search);
-        setSubmitting(false);
-      }}
+      onSubmit={(values, actions) => onSubmit(values, actions.setErrors)}
     >
       {({ values, setFieldValue, isSubmitting }) => (
         <Form>
@@ -105,5 +83,12 @@ export default function TokenChangeSearchForm({ onSubmit }) {
   );
 }
 TokenChangeSearchForm.propTypes = {
+  initialValues: PropTypes.shape({
+    key: PropTypes.string,
+    tokenType: PropTypes.string.isRequired,
+    ipAddress: PropTypes.string,
+    sinceDate: PropTypes.instanceOf(Date),
+    untilDate: PropTypes.instanceOf(Date),
+  }).isRequired,
   onSubmit: PropTypes.func.isRequired,
 };

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
+from pydantic import ValidationError
+
 from gafaelfawr.exceptions import GitHubException
 from gafaelfawr.models.token import TokenGroup, TokenUserInfo
 from gafaelfawr.providers.base import Provider
@@ -170,9 +172,17 @@ class GitHubProvider(Provider):
         github_token = await self._get_access_token(code, state)
         user_info = await self._get_user_info(github_token)
 
-        groups = [
-            TokenGroup(name=t.group_name, id=t.gid) for t in user_info.teams
-        ]
+        groups = []
+        invalid_groups = {}
+        for team in user_info.teams:
+            try:
+                groups.append(TokenGroup(name=team.group_name, id=team.gid))
+            except ValidationError as e:
+                invalid_groups[team.group_name] = str(e)
+        if invalid_groups:
+            self._logger.warning(
+                "Ignoring invalid groups", invalid_groups=invalid_groups
+            )
         return TokenUserInfo(
             username=user_info.username.lower(),
             name=user_info.name,

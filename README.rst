@@ -4,7 +4,7 @@ Gafaelfawr
 
 |Build|
 
-Gafaelfawr is a `FastAPI`_ application for the authorization and management of tokens, including the issuance and revocation of tokens.
+Gafaelfawr is a `FastAPI`_ application for the authorization and management of tokens, including their issuance and revocation.
 
 .. _FastAPI: https://fastapi.tiangolo.com/
 

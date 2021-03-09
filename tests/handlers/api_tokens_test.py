@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
@@ -16,11 +17,15 @@ from gafaelfawr.util import current_datetime
 from tests.support.constants import TEST_HOSTNAME
 
 if TYPE_CHECKING:
+    from _pytest.logging import LogCaptureFixture
+
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_create_delete_modify(setup: SetupTest) -> None:
+async def test_create_delete_modify(
+    setup: SetupTest, caplog: LogCaptureFixture
+) -> None:
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -29,7 +34,9 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["read:all", "exec:admin"], ip_address="127.0.0.1"
+        user_info,
+        scopes=["read:all", "exec:admin", "user:token"],
+        ip_address="127.0.0.1",
     )
     csrf = await setup.login(session_token)
 
@@ -86,7 +93,7 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
                 "token": session_token.key,
                 "username": "example",
                 "token_type": "session",
-                "scopes": ["exec:admin", "read:all"],
+                "scopes": ["exec:admin", "read:all", "user:token"],
                 "created": ANY,
                 "expires": ANY,
             },
@@ -96,6 +103,7 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
     )
 
     # Change the name, scope, and expiration of the token.
+    caplog.clear()
     new_expires = current_datetime() + timedelta(days=200)
     r = await setup.client.patch(
         token_url,
@@ -115,6 +123,28 @@ async def test_create_delete_modify(setup: SetupTest) -> None:
         "scopes": ["exec:admin"],
         "created": ANY,
         "expires": int(new_expires.timestamp()),
+    }
+
+    # Check the logging.  Regression test for a bug where new expirations
+    # would be logged as raw datetime objects instead of timestamps.
+    log = json.loads(caplog.record_tuples[0][2])
+    assert log == {
+        "expires": int(new_expires.timestamp()),
+        "event": "Modified token",
+        "key": user_token.key,
+        "level": "info",
+        "logger": "gafaelfawr",
+        "method": "PATCH",
+        "path": token_url,
+        "remote": "127.0.0.1",
+        "request_id": ANY,
+        "scope": "exec:admin read:all user:token",
+        "token": session_token.key,
+        "token_name": "happy token",
+        "token_scope": "exec:admin",
+        "token_source": "cookie",
+        "user": "example",
+        "user_agent": ANY,
     }
 
     # Delete the token.
@@ -188,7 +218,7 @@ async def test_token_info(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["exec:admin"], ip_address="127.0.0.1"
+        user_info, scopes=["exec:admin", "user:token"], ip_address="127.0.0.1"
     )
 
     r = await setup.client.get(
@@ -201,7 +231,7 @@ async def test_token_info(setup: SetupTest) -> None:
         "token": session_token.key,
         "username": "example",
         "token_type": "session",
-        "scopes": ["exec:admin"],
+        "scopes": ["exec:admin", "user:token"],
         "created": ANY,
         "expires": ANY,
     }
@@ -292,12 +322,6 @@ async def test_auth_required(setup: SetupTest) -> None:
     assert r.status_code == 401
 
     r = await setup.client.get("/auth/api/v1/users/example/tokens")
-    assert r.status_code == 401
-
-    r = await setup.client.get(
-        "/auth/api/v1/users/example/tokens",
-        headers={"Authorization": f"bearer {token}"},
-    )
     assert r.status_code == 401
 
     r = await setup.client.post(
@@ -433,6 +457,51 @@ async def test_no_bootstrap(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
+async def test_no_scope(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    token_service = setup.factory.create_token_service()
+    token = await token_service.create_user_token(
+        token_data,
+        token_data.username,
+        token_name="user",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.post(
+        f"/auth/api/v1/users/{token_data.username}/tokens",
+        headers={"Authorization": f"bearer {token}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.delete(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.patch(
+        f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
+        headers={"Authorization": f"bearer {token}"},
+        json={"token_name": "some token"},
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_modify_nonuser(setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
     token = token_data.token
@@ -444,7 +513,7 @@ async def test_modify_nonuser(setup: SetupTest) -> None:
         json={"token_name": "happy token"},
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
 
 @pytest.mark.asyncio
@@ -456,7 +525,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         username="other-person", name="Some Other Person", uid=137123
     )
     other_session_token = await token_service.create_session_token(
-        user_info, scopes=[], ip_address="127.0.0.1"
+        user_info, scopes=["user:token"], ip_address="127.0.0.1"
     )
     other_session_data = await token_service.get_data(other_session_token)
     assert other_session_data
@@ -471,7 +540,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
     # Get a token list.
     r = await setup.client.get("/auth/api/v1/users/other-person/tokens")
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Create a new user token.
     r = await setup.client.post(
@@ -480,14 +549,14 @@ async def test_wrong_user(setup: SetupTest) -> None:
         json={"token_name": "happy token"},
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Get an individual token.
     r = await setup.client.get(
         f"/auth/api/v1/users/other-person/tokens/{other_token.key}"
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Get the history of an individual token.
     r = await setup.client.get(
@@ -495,7 +564,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         "/change-history"
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Ensure you can't see someone else's token under your username either.
     r = await setup.client.get(
@@ -516,7 +585,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
     r = await setup.client.delete(
         f"/auth/api/v1/users/{token_data.username}/tokens/{other_token.key}",
         headers={"X-CSRF-Token": csrf},
@@ -530,7 +599,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 403
-    assert r.json()["detail"]["type"] == "permission_denied"
+    assert r.json()["detail"][0]["type"] == "permission_denied"
     r = await setup.client.patch(
         f"/auth/api/v1/users/{token_data.username}/tokens/{other_token.key}",
         json={"token_name": "happy token"},
@@ -609,7 +678,7 @@ async def test_duplicate_token_name(setup: SetupTest) -> None:
         json={"token_name": "some token"},
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "duplicate_token_name"
+    assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
     # Create a token with a different name and then try to modify the name to
     # conflict.
@@ -626,7 +695,7 @@ async def test_duplicate_token_name(setup: SetupTest) -> None:
         json={"token_name": "some token"},
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "duplicate_token_name"
+    assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
 
 @pytest.mark.asyncio
@@ -645,8 +714,8 @@ async def test_bad_expires(setup: SetupTest) -> None:
         )
         assert r.status_code == 422
         data = r.json()
-        assert data["detail"]["loc"] == ["body", "expires"]
-        assert data["detail"]["type"] == "bad_expires"
+        assert data["detail"][0]["loc"] == ["body", "expires"]
+        assert data["detail"][0]["type"] == "invalid_expires"
 
     # Create a valid token.
     r = await setup.client.post(
@@ -666,8 +735,8 @@ async def test_bad_expires(setup: SetupTest) -> None:
         )
         assert r.status_code == 422
         data = r.json()
-        assert data["detail"]["loc"] == ["body", "expires"]
-        assert data["detail"]["type"] == "bad_expires"
+        assert data["detail"][0]["loc"] == ["body", "expires"]
+        assert data["detail"][0]["type"] == "invalid_expires"
 
 
 @pytest.mark.asyncio
@@ -676,7 +745,7 @@ async def test_bad_scopes(setup: SetupTest) -> None:
     known_scopes = list(setup.config.known_scopes.keys())
     assert len(known_scopes) > 4
     token_data = await setup.create_session_token(
-        scopes=known_scopes[1:3] + ["other:scope"]
+        scopes=known_scopes[1:3] + ["other:scope", "user:token"]
     )
     csrf = await setup.login(token_data.token)
 
@@ -690,8 +759,8 @@ async def test_bad_scopes(setup: SetupTest) -> None:
         )
         assert r.status_code == 422
         data = r.json()
-        assert data["detail"]["loc"] == ["body", "scopes"]
-        assert data["detail"]["type"] == "bad_scopes"
+        assert data["detail"][0]["loc"] == ["body", "scopes"]
+        assert data["detail"][0]["type"] == "invalid_scopes"
 
     # Create a valid token with all of the scopes as the session.
     r = await setup.client.post(
@@ -711,8 +780,8 @@ async def test_bad_scopes(setup: SetupTest) -> None:
         )
         assert r.status_code == 422
         data = r.json()
-        assert data["detail"]["loc"] == ["body", "scopes"]
-        assert data["detail"]["type"] == "bad_scopes"
+        assert data["detail"][0]["loc"] == ["body", "scopes"]
+        assert data["detail"][0]["type"] == "invalid_scopes"
 
 
 @pytest.mark.asyncio
@@ -801,7 +870,7 @@ async def test_create_admin(setup: SetupTest) -> None:
         },
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "bad_expires"
+    assert r.json()["detail"][0]["type"] == "invalid_expires"
     r = await setup.client.post(
         "/auth/api/v1/tokens",
         headers={"Authorization": f"bearer {str(service_token)}"},
@@ -813,7 +882,7 @@ async def test_create_admin(setup: SetupTest) -> None:
         },
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "bad_scopes"
+    assert r.json()["detail"][0]["type"] == "invalid_scopes"
 
     r = await setup.client.post(
         "/auth/api/v1/tokens",
@@ -862,7 +931,7 @@ async def test_create_admin(setup: SetupTest) -> None:
         },
     )
     assert r.status_code == 422
-    assert r.json()["detail"]["type"] == "duplicate_token_name"
+    assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
     # Check handling of an invalid username.
     r = await setup.client.post(

@@ -11,8 +11,8 @@ from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
 from gafaelfawr.exceptions import (
-    BadExpiresError,
-    BadScopesError,
+    InvalidExpiresError,
+    InvalidScopesError,
     PermissionDeniedError,
 )
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
@@ -46,14 +46,14 @@ async def test_session_token(setup: SetupTest) -> None:
     )
 
     token = await token_service.create_session_token(
-        user_info, scopes=[], ip_address="127.0.0.1"
+        user_info, scopes=["user:token"], ip_address="127.0.0.1"
     )
     data = await token_service.get_data(token)
     assert data and data == TokenData(
         token=token,
         username="example",
         token_type=TokenType.session,
-        scopes=[],
+        scopes=["user:token"],
         created=data.created,
         expires=data.expires,
         name="Example Person",
@@ -88,12 +88,12 @@ async def test_session_token(setup: SetupTest) -> None:
             token=token.key,
             username=data.username,
             token_type=TokenType.session,
-            scopes=[],
+            scopes=["user:token"],
             expires=data.expires,
             actor=data.username,
             action=TokenChange.create,
             ip_address="127.0.0.1",
-            event_type=data.created,
+            event_time=data.created,
         )
     ]
 
@@ -114,7 +114,9 @@ async def test_user_token(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["read:all", "exec:admin"], ip_address="127.0.0.1"
+        user_info,
+        scopes=["read:all", "exec:admin", "user:token"],
+        ip_address="127.0.0.1",
     )
     data = await token_service.get_data(session_token)
     assert data
@@ -169,7 +171,7 @@ async def test_user_token(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.create,
             ip_address="192.168.0.1",
-            event_type=info.created,
+            event_time=info.created,
         )
     ]
 
@@ -184,7 +186,9 @@ async def test_notebook_token(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["read:all", "exec:admin"], ip_address="127.0.0.1"
+        user_info,
+        scopes=["read:all", "exec:admin", "user:token"],
+        ip_address="127.0.0.1",
     )
     data = await token_service.get_data(session_token)
     assert data
@@ -196,7 +200,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
         token=token.key,
         username=user_info.username,
         token_type=TokenType.notebook,
-        scopes=["exec:admin", "read:all"],
+        scopes=["exec:admin", "read:all", "user:token"],
         created=info.created,
         last_used=None,
         expires=data.expires,
@@ -207,7 +211,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
         token=token,
         username=user_info.username,
         token_type=TokenType.notebook,
-        scopes=["exec:admin", "read:all"],
+        scopes=["exec:admin", "read:all", "user:token"],
         created=info.created,
         expires=data.expires,
         name=user_info.name,
@@ -231,12 +235,12 @@ async def test_notebook_token(setup: SetupTest) -> None:
             username=data.username,
             token_type=TokenType.notebook,
             parent=data.token.key,
-            scopes=["exec:admin", "read:all"],
+            scopes=["exec:admin", "read:all", "user:token"],
             expires=data.expires,
             actor=data.username,
             action=TokenChange.create,
             ip_address="1.0.0.1",
-            event_type=info.created,
+            event_time=info.created,
         )
     ]
 
@@ -272,7 +276,9 @@ async def test_internal_token(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["read:all", "exec:admin"], ip_address="127.0.0.1"
+        user_info,
+        scopes=["read:all", "exec:admin", "user:token"],
+        ip_address="127.0.0.1",
     )
     data = await token_service.get_data(session_token)
     assert data
@@ -299,7 +305,7 @@ async def test_internal_token(setup: SetupTest) -> None:
     assert_is_now(info.created)
 
     # Cannot request a scope that the parent token doesn't have.
-    with pytest.raises(BadScopesError):
+    with pytest.raises(InvalidScopesError):
         await token_service.get_internal_token(
             data,
             service="some-service",
@@ -332,7 +338,7 @@ async def test_internal_token(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.create,
             ip_address="2001:db8::45",
-            event_type=info.created,
+            event_time=info.created,
         )
     ]
 
@@ -376,6 +382,111 @@ async def test_internal_token(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
+async def test_child_token_lifetime(setup: SetupTest) -> None:
+    """Test that a new internal token is generated at half its lifetime."""
+    session_token_data = await setup.create_session_token()
+    token_service = setup.factory.create_token_service()
+
+    # Generate a user token with a lifetime less than half of the default
+    # lifetime for an internal token.  This will get us a short-lived internal
+    # token that should be ineligible for handing out for a user token that
+    # doesn't expire.
+    delta = timedelta(minutes=(setup.config.issuer.exp_minutes / 2) - 5)
+    expires = current_datetime() + delta
+    user_token = await token_service.create_user_token(
+        session_token_data,
+        session_token_data.username,
+        token_name="n",
+        expires=expires,
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+
+    # Get an internal token and ensure we get the same one when we ask again.
+    internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    assert internal_token_data.expires == user_token_data.expires
+    new_internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    assert new_internal_token == internal_token
+
+    # Do the same thing with a notebook token.
+    notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    assert notebook_token_data.expires == user_token_data.expires
+    new_notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    assert new_notebook_token == notebook_token
+
+    # Change the expiration of the user token to longer than the maximum
+    # internal token lifetime.
+    new_delta = timedelta(minutes=setup.config.issuer.exp_minutes * 2)
+    expires = current_datetime() + new_delta
+    assert await token_service.modify_token(
+        user_token.key,
+        session_token_data,
+        session_token_data.username,
+        ip_address="127.0.0.1",
+        expires=expires,
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+
+    # Now, request an internal and notebook token.  We should get different
+    # ones with a longer expiration.
+    new_internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    assert new_internal_token != internal_token
+    internal_token = new_internal_token
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    delta = timedelta(minutes=setup.config.issuer.exp_minutes)
+    assert internal_token_data.expires == internal_token_data.created + delta
+    new_notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    assert new_notebook_token != notebook_token
+    notebook_token = new_notebook_token
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    assert notebook_token_data.expires == notebook_token_data.created + delta
+
+    # Change the expiration of the user token to no longer expire.
+    assert await token_service.modify_token(
+        user_token.key,
+        session_token_data,
+        session_token_data.username,
+        ip_address="127.0.0.1",
+        expires=None,
+        no_expire=True,
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+
+    # Get an internal and notebook token again.  We should get the same ones
+    # as last time.
+    new_internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    assert new_internal_token == internal_token
+    new_notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    assert new_notebook_token == notebook_token
+
+
+@pytest.mark.asyncio
 async def test_token_from_admin_request(setup: SetupTest) -> None:
     user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
@@ -414,13 +525,13 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
 
     # Test a few more errors.
     request.scopes = ["bogus:scope"]
-    with pytest.raises(BadScopesError):
+    with pytest.raises(InvalidScopesError):
         await token_service.create_token_from_admin_request(
             request, admin_data, ip_address="127.0.0.1"
         )
     request.scopes = ["read:all"]
     request.expires = current_datetime()
-    with pytest.raises(BadExpiresError):
+    with pytest.raises(InvalidExpiresError):
         await token_service.create_token_from_admin_request(
             request, admin_data, ip_address="127.0.0.1"
         )
@@ -450,7 +561,7 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
             actor=admin_data.username,
             action=TokenChange.create,
             ip_address="127.0.0.1",
-            event_type=user_data.created,
+            event_time=user_data.created,
         )
     ]
 
@@ -486,7 +597,7 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
             actor=admin_data.username,
             action=TokenChange.create,
             ip_address="127.0.0.1",
-            event_type=service_data.created,
+            event_time=service_data.created,
         )
     ]
 
@@ -498,7 +609,7 @@ async def test_list(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=[], ip_address="127.0.0.1"
+        user_info, scopes=["user:token"], ip_address="127.0.0.1"
     )
     data = await token_service.get_data(session_token)
     assert data
@@ -546,7 +657,7 @@ async def test_modify(setup: SetupTest) -> None:
     )
     token_service = setup.factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["read:all"], ip_address="127.0.0.1"
+        user_info, scopes=["read:all", "user:token"], ip_address="127.0.0.1"
     )
     data = await token_service.get_data(session_token)
     assert data
@@ -604,7 +715,7 @@ async def test_modify(setup: SetupTest) -> None:
             action=TokenChange.edit,
             old_expires=expires,
             ip_address="127.0.4.5",
-            event_time=history.entries[3].event_time,
+            event_time=history.entries[0].event_time,
         ),
         TokenChangeHistoryEntry(
             token=user_token.key,
@@ -618,7 +729,7 @@ async def test_modify(setup: SetupTest) -> None:
             old_scopes=[],
             old_expires=None,
             ip_address="192.168.0.4",
-            event_time=history.entries[2].event_time,
+            event_time=history.entries[1].event_time,
         ),
         TokenChangeHistoryEntry(
             token=user_token.key,
@@ -631,7 +742,7 @@ async def test_modify(setup: SetupTest) -> None:
             action=TokenChange.edit,
             old_token_name="some-token",
             ip_address="127.0.0.1",
-            event_time=history.entries[1].event_time,
+            event_time=history.entries[2].event_time,
         ),
         TokenChangeHistoryEntry(
             token=user_token.key,
@@ -686,7 +797,7 @@ async def test_delete(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.revoke,
             ip_address="127.0.0.1",
-            event_time=history.entries[1].event_time,
+            event_time=history.entries[0].event_time,
         ),
         TokenChangeHistoryEntry(
             token=token.key,
@@ -698,7 +809,7 @@ async def test_delete(setup: SetupTest) -> None:
             actor=data.username,
             action=TokenChange.create,
             ip_address="127.0.0.1",
-            event_time=history.entries[0].event_time,
+            event_time=history.entries[1].event_time,
         ),
     ]
 
@@ -728,9 +839,192 @@ async def test_delete(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
+async def test_delete_cascade(setup: SetupTest) -> None:
+    """Test that deleting a token cascades to child tokens."""
+    token_service = setup.factory.create_token_service()
+    session_token_data = await setup.create_session_token(
+        scopes=["admin:token", "read:all", "user:token"]
+    )
+    user_token = await token_service.create_user_token(
+        session_token_data,
+        session_token_data.username,
+        token_name="user-token",
+        scopes=["user:token"],
+        ip_address="127.0.0.1",
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+    admin_request = AdminTokenRequest(
+        username="service",
+        token_type=TokenType.service,
+        scopes=["read:all", "user:token"],
+        name="Some Service",
+    )
+    service_token = await token_service.create_token_from_admin_request(
+        admin_request, session_token_data, ip_address="127.0.0.1"
+    )
+    service_token_data = await token_service.get_data(service_token)
+    assert service_token_data
+
+    # Build a tree of tokens hung off of the session token.
+    notebook_token = await token_service.get_notebook_token(
+        session_token_data, ip_address="127.0.0.1"
+    )
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    session_children = [
+        notebook_token,
+        await token_service.get_internal_token(
+            session_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_internal_token(
+            notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_internal_token(
+            notebook_token_data,
+            "service-a",
+            scopes=["read:all"],
+            ip_address="127.0.0.1",
+        ),
+    ]
+    internal_token_data = await token_service.get_data(session_children[-1])
+    assert internal_token_data
+    session_children.append(
+        await token_service.get_internal_token(
+            internal_token_data,
+            "service-b",
+            scopes=["read:all"],
+            ip_address="127.0.0.1",
+        )
+    )
+
+    # Shorter trees of tokens from the user and service tokens.
+    user_children = [
+        await token_service.get_internal_token(
+            user_token_data, "service-c", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_notebook_token(
+            user_token_data, ip_address="127.0.0.1"
+        ),
+    ]
+    service_children = [
+        await token_service.get_internal_token(
+            service_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+        )
+    ]
+
+    # Deleting the session token should invalidate all of its children.
+    assert await token_service.delete_token(
+        session_token_data.token.key,
+        session_token_data,
+        session_token_data.username,
+        ip_address="127.0.0.1",
+    )
+    for token in session_children:
+        assert await token_service.get_data(token) is None
+
+    # But the user and service token created by this token should not be
+    # deleted.
+    assert await token_service.get_data(user_token_data.token)
+    assert await token_service.get_data(service_token_data.token)
+
+    # Deleting those tokens should cascade to their children.
+    assert await token_service.delete_token(
+        user_token_data.token.key,
+        user_token_data,
+        user_token_data.username,
+        ip_address="127.0.0.1",
+    )
+    for token in user_children:
+        assert await token_service.get_data(token) is None
+    assert await token_service.delete_token(
+        service_token_data.token.key,
+        service_token_data,
+        service_token_data.username,
+        ip_address="127.0.0.1",
+    )
+    for token in service_children:
+        assert await token_service.get_data(token) is None
+
+
+@pytest.mark.asyncio
+async def test_modify_expires(setup: SetupTest) -> None:
+    """Test that expiration changes cascade to subtokens."""
+    token_service = setup.factory.create_token_service()
+    session_token_data = await setup.create_session_token(
+        scopes=["user:token"]
+    )
+
+    # Create a user token with no expiration and some additional tokens
+    # chained off of it.
+    user_token = await token_service.create_user_token(
+        session_token_data,
+        session_token_data.username,
+        token_name="user-token",
+        scopes=["user:token"],
+        ip_address="127.0.0.1",
+    )
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+    notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    internal_token = await token_service.get_internal_token(
+        user_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+    )
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    nested_token = await token_service.get_internal_token(
+        notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
+    )
+    nested_token_data = await token_service.get_data(nested_token)
+    assert nested_token_data
+
+    # Check the expiration of all of those tokens matches the default
+    # expiration for generated tokens.
+    delta = timedelta(minutes=setup.config.issuer.exp_minutes)
+    assert notebook_token_data.expires == notebook_token_data.created + delta
+    assert internal_token_data.expires == internal_token_data.created + delta
+    assert nested_token_data.expires == notebook_token_data.expires
+
+    # Check that Redis also has an appropriate TTL.
+    ttl = delta.total_seconds()
+    for token in (notebook_token, internal_token, nested_token):
+        assert ttl - 2 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
+
+    # Change the expiration of the user token.
+    new_delta = timedelta(minutes=setup.config.issuer.exp_minutes / 2)
+    new_expires = user_token_data.created + new_delta
+    await token_service.modify_token(
+        user_token.key,
+        user_token_data,
+        expires=new_expires,
+        ip_address="127.0.0.1",
+    )
+
+    # Check that all of the tokens have been updated.
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    nested_token_data = await token_service.get_data(nested_token)
+    assert nested_token_data
+    assert notebook_token_data.expires == new_expires
+    assert internal_token_data.expires == new_expires
+    assert nested_token_data.expires == new_expires
+
+    # Check that the Redis TTL has also been updated.
+    ttl = new_delta.total_seconds()
+    for token in (notebook_token, internal_token, nested_token):
+        assert ttl - 2 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
+
+
+@pytest.mark.asyncio
 async def test_invalid(setup: SetupTest) -> None:
     token_service = setup.factory.create_token_service()
-    expires = timedelta(days=1).total_seconds()
+    expires = int(timedelta(days=1).total_seconds())
 
     # No such key.
     token = Token()
@@ -787,7 +1081,7 @@ async def test_invalid(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_invalid_username(setup: SetupTest) -> None:
     user_info = TokenUserInfo(
-        username="example",
+        username="ex-am-pl-e",
         name="Example Person",
         uid=4137,
         groups=[TokenGroup(name="foo", id=1000)],
@@ -807,6 +1101,9 @@ async def test_invalid_username(setup: SetupTest) -> None:
         "invalid ",
         "in/valid",
         "in@valid",
+        "-invalid",
+        "invalid-",
+        "in--valid",
     ):
         user_info.username = user
         with pytest.raises(PermissionDeniedError):

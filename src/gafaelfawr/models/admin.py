@@ -15,4 +15,4 @@ class Admin(BaseModel):
 
     class Config:
         orm_mode = True
-        schema_extra = {"example": {"username": "some-admin"}}
+        schema_extra = {"example": {"username": "adminuser"}}

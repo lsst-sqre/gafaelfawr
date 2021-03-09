@@ -1,3 +1,5 @@
+# Bad configuration file with invalid scope.
+
 realm: "testing"
 session_secret_file: "{session_secret_file}"
 database_url: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
@@ -10,10 +12,8 @@ group_mapping:
   "read:all": ["foo", "admin", "org-a-team"]
 known_scopes:
   "admin:token": "Can create and modify tokens for any user"
-  "exec:admin": "admin description"
-  "exec:test": "test description"
-  "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
+  "foo bar": "An invalid scope"
 issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"
@@ -22,18 +22,3 @@ issuer:
 github:
   client_id: "some-github-client-id"
   client_secret_file: "{github_secret_file}"
-oidc:
-  client_id: "some-oidc-client-id"
-  client_secret_file: "{oidc_secret_file}"
-  login_url: "https://example.com/oidc/login"
-  login_params:
-    skin: "test"
-  redirect_url: "https://example.com/login"
-  token_url: "https://example.com/token"
-  scopes:
-    - "email"
-    - "voPerson"
-  issuer: "https://upstream.example.com/"
-  audience: "https://test.example.com/"
-  key_ids:
-    - "orig-kid"

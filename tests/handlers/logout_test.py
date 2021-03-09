@@ -96,11 +96,13 @@ async def test_logout_bad_url(setup: SetupTest) -> None:
         params={"rd": "https://foo.example.com/"},
         allow_redirects=False,
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
     assert r.json() == {
-        "detail": {
-            "loc": ["query", "rd"],
-            "msg": "URL is not at example.com",
-            "type": "bad_return_url",
-        }
+        "detail": [
+            {
+                "loc": ["query", "rd"],
+                "msg": "URL is not at example.com",
+                "type": "invalid_return_url",
+            }
+        ]
     }

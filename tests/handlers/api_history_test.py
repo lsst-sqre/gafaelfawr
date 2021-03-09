@@ -9,14 +9,11 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
 from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.token import AdminTokenRequest, TokenType, TokenUserInfo
 from gafaelfawr.schema import TokenChangeHistory
-from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.util import current_datetime
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.headers import LinkData
@@ -40,7 +37,9 @@ async def build_history(
 
     user_info_one = TokenUserInfo(username="one")
     token_one = await token_service.create_session_token(
-        user_info_one, scopes=["exec:test", "read:all"], ip_address="192.0.2.3"
+        user_info_one,
+        scopes=["exec:test", "read:all", "user:token"],
+        ip_address="192.0.2.3",
     )
     token_data_one = await token_service.get_data(token_one)
     assert token_data_one
@@ -74,7 +73,9 @@ async def build_history(
 
     user_info_two = TokenUserInfo(username="two")
     token_two = await token_service.create_session_token(
-        user_info_two, scopes=["read:some"], ip_address="192.0.2.20"
+        user_info_two,
+        scopes=["read:some", "user:token"],
+        ip_address="192.0.2.20",
     )
     token_data_two = await token_service.get_data(token_two)
     assert token_data_two
@@ -82,7 +83,7 @@ async def build_history(
         token_data_two,
         token_data_two.username,
         token_name="some token",
-        scopes=["read:some"],
+        scopes=["read:some", "user:token"],
         ip_address="192.0.2.20",
     )
     token_data_user_two = await token_service.get_data(user_token_two)
@@ -138,21 +139,21 @@ async def build_history(
     # Spread out the timestamps so that we can test date range queries.  Every
     # other entry has the same timestamp as the previous entry to test that
     # queries handle entries with the same timestamp.
-    engine = create_engine(setup.config.database_url)
-    session = Session(bind=engine)
     entries = (
-        session.query(TokenChangeHistory).order_by(TokenChangeHistory.id).all()
+        setup.session.query(TokenChangeHistory)
+        .order_by(TokenChangeHistory.id)
+        .all()
     )
     event_time = current_datetime() - timedelta(seconds=len(entries) * 5)
-    with TransactionManager(session).transaction():
+    with setup.transaction():
         for i, entry in enumerate(entries):
             entry.event_time = event_time
             if i % 2 != 0:
                 event_time += timedelta(seconds=5)
 
     history = token_service.get_change_history(service_token_data)
-    assert history.count == 15
-    assert len(history.entries) == 15
+    assert history.count == 20
+    assert len(history.entries) == 20
     return history.entries
 
 
@@ -321,11 +322,16 @@ async def test_admin_change_history(setup: SetupTest) -> None:
         history,
         lambda e: ip_address(e.ip_address) in cidr_block,
     )
+
+    def ipv6_filter(e: TokenChangeHistoryEntry) -> bool:
+        expected = ip_address("2001:db8:034a:ea78:4278:4562:6578:9876")
+        return ip_address(e.ip_address) == expected
+
     await check_history_request(
         setup,
         {"ip_address": "2001:db8:034a:ea78:4278:4562:6578:9876"},
         history,
-        lambda e: e.ip_address == "2001:db8:034a:ea78:4278:4562:6578:9876",
+        ipv6_filter,
     )
     cidr_block = ip_network("2001:db8::/32")
     await check_history_request(
@@ -336,23 +342,23 @@ async def test_admin_change_history(setup: SetupTest) -> None:
     )
     await check_history_request(
         setup,
-        {"since": int(history[4].event_time.timestamp())},
-        history[:5],
+        {"since": int(history[5].event_time.timestamp())},
+        history[:6],
         lambda e: True,
     )
     await check_history_request(
         setup,
-        {"until": int(history[7].event_time.timestamp())},
-        history[7:],
+        {"until": int(history[8].event_time.timestamp())},
+        history[8:],
         lambda e: True,
     )
     await check_history_request(
         setup,
         {
-            "since": int(history[8].event_time.timestamp()),
-            "until": int(history[3].event_time.timestamp()),
+            "since": int(history[9].event_time.timestamp()),
+            "until": int(history[4].event_time.timestamp()),
         },
-        history[3:9],
+        history[4:10],
         lambda e: True,
     )
 
@@ -405,11 +411,16 @@ async def test_user_change_history(setup: SetupTest) -> None:
         lambda e: e.ip_address == "192.0.2.3",
         username="one",
     )
+
+    def ipv6_filter(e: TokenChangeHistoryEntry) -> bool:
+        expected = ip_address("2001:db8:034a:ea78:4278:4562:6578:9876")
+        return ip_address(e.ip_address) == expected
+
     await check_history_request(
         setup,
         {"ip_address": "2001:db8:034a:ea78:4278:4562:6578:9876"},
         history,
-        lambda e: e.ip_address == "2001:db8:034a:ea78:4278:4562:6578:9876",
+        ipv6_filter,
         username="one",
     )
     cidr_block = ip_network("192.0.2.0/24")
@@ -444,3 +455,58 @@ async def test_user_change_history(setup: SetupTest) -> None:
         lambda e: True,
         username="one",
     )
+
+
+@pytest.mark.asyncio
+async def test_auth_required(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    username = token_data.username
+    key = token_data.token.key
+
+    r = await setup.client.get("/auth/api/v1/history/token-changes")
+    assert r.status_code == 401
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{username}/token-change-history"
+    )
+    assert r.status_code == 401
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{username}/tokens/{key}/change-history"
+    )
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_admin_required(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    await setup.login(token_data.token)
+
+    r = await setup.client.get("/auth/api/v1/history/token-changes")
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_no_scope(setup: SetupTest) -> None:
+    token_data = await setup.create_session_token()
+    username = token_data.username
+    token_service = setup.factory.create_token_service()
+    token = await token_service.create_user_token(
+        token_data,
+        token_data.username,
+        token_name="user",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{username}/token-change-history",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403
+
+    r = await setup.client.get(
+        f"/auth/api/v1/users/{username}/tokens/{token.key}/change-history",
+        headers={"Authorization": f"bearer {token}"},
+    )
+    assert r.status_code == 403

@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { useAlert } from 'react-alert';
 
 import { LoginContext } from './loginContext';
 import Timestamp from './timestamp';
@@ -14,7 +15,8 @@ import TokenChangeHistory from './tokenChangeHistory';
 import TokenName from './tokenName';
 import { apiGet } from '../functions/api';
 
-export default function TokenData({ token, onError }) {
+export default function TokenData({ token }) {
+  const alert = useAlert();
   const { username } = useContext(LoginContext);
   const [_tokenData, setTokenData] = useState(null);
   const tokenData = useMemo(() => _tokenData, [_tokenData]);
@@ -23,8 +25,8 @@ export default function TokenData({ token, onError }) {
     if (!username) return;
     apiGet(`/users/${username}/tokens/${token}`)
       .then(setTokenData)
-      .catch(onError);
-  }, [onError, token, username]);
+      .catch((e) => alert.show(e.message));
+  }, [alert, token, username]);
 
   useEffect(loadTokenData, [loadTokenData, token, username]);
 
@@ -95,11 +97,10 @@ export default function TokenData({ token, onError }) {
         </tbody>
       </table>
       <h2>Change History</h2>
-      <TokenChangeHistory token={token} onError={onError} />
+      <TokenChangeHistory token={token} />
     </>
   );
 }
 TokenData.propTypes = {
   token: PropTypes.string.isRequired,
-  onError: PropTypes.func.isRequired,
 };
