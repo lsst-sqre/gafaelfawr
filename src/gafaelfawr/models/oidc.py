@@ -189,7 +189,7 @@ class OIDCTokenReply(BaseModel):
 
     id_token: str = Field(
         ...,
-        title="Idnetity token",
+        title="Identity token",
         description=(
             "access_token and id_token are the same in this implementation"
         ),
@@ -296,7 +296,7 @@ class JWK(BaseModel):
         ...,
         title="RSA exponent",
         description=(
-            "Big-endian exponent componet of the RSA public key encoded in"
+            "Big-endian exponent component of the RSA public key encoded in"
             " URL-safe base64 without trailing padding"
         ),
         example="AQAB",

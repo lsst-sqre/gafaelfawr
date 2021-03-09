@@ -31,4 +31,4 @@ USERNAME_REGEX = "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 """Regex matching all valid usernames."""
 
 ACTOR_REGEX = f"{USERNAME_REGEX}|^<bootstrap>$"
-""""Regex matching all valid actors (including ``<bootstrap``)."""
+""""Regex matching all valid actors (including ``<bootstrap>``)."""
