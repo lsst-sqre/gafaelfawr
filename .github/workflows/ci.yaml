@@ -69,7 +69,7 @@ jobs:
         working-directory: ./ui
 
       - name: Install tox
-        run: pip install tox
+        run: pip install tox tox-docker
 
       - name: Cache tox environments
         id: cache-tox
