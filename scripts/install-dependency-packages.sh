@@ -39,7 +39,9 @@ git checkout v0.37.2
 
 # Configure nvm.  Since no version of Node is installed, this will exit with
 # status 3, which we want to ignore.
+set +x
 . nvm.sh || true
+set -x
 
 # Install Node and Gatsby.  There is an .nvmrc file in /opt that controls what
 # version of Node to install.
