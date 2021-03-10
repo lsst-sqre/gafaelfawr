@@ -102,7 +102,7 @@ jobs:
 
       - name: Define the Docker tag
         id: vars
-        run: echo ::set-output name=tag::$(echo ${GITHUB_REF} | sed -E 's,refs/(heads|tags)/,,' | sed -E 's,/,-,g')
+        run: echo ::set-output name=tag::$(scripts/docker-tag.sh "$GITHUB_REF")
 
       - name: Print the tag
         id: print
