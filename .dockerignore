@@ -4,7 +4,6 @@ docs/
 examples/
 tests/
 ui/node_modules/
-ui/public/
 
 # Everything below this point is a copy of .gitignore.
 

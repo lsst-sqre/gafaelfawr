@@ -52,20 +52,13 @@ COPY . /app
 WORKDIR /app
 RUN pip install --no-cache-dir .
 
-# Build the UI.
-COPY ui /opt/ui
-WORKDIR /opt/ui
-ENV NVM_DIR=/opt/nvm
-RUN . "$NVM_DIR/nvm.sh" && npm install
-RUN . "$NVM_DIR/nvm.sh" && gatsby build --prefix-paths
-
 FROM base-image AS runtime-image
 
 # Copy the virtualenv.
 COPY --from=install-image /opt/venv /opt/venv
 
-# Copy the UI and tell Gafaelfawr where it is.
-COPY --from=install-image /opt/ui/public /app/ui/public
+# Copy in the built UI and tell Gafaelfawr where it is.
+COPY ui/public /app/ui/public
 ENV GAFAELFAWR_UI_PATH=/app/ui/public
 
 # Make sure we use the virtualenv
