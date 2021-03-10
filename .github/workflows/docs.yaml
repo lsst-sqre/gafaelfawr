@@ -9,6 +9,8 @@ name: Docs
     paths:
       - "docs/**"
       - "src/**.py"
+    tags:
+      - "*"
 
 jobs:
   docs:
