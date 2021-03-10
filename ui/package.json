@@ -5,7 +5,7 @@
   "version": "2.0.0",
   "license": "MIT",
   "scripts": {
-    "build": "gatsby build",
+    "build": "gatsby build --prefix-paths",
     "develop": "gatsby develop",
     "format": "prettier --write \"**/*.{json,css,graphql,yaml}\"",
     "format:check": "prettier --check \"**/*.{json,css,graphql,yaml}\"",

@@ -1,10 +1,78 @@
 name: CI
 
-on: [push]
+"on": [push]
 
 jobs:
+  ui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Read .nvmrc
+        id: node_version
+        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
+
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ steps.node_version.outputs.NODE_VERSION }}
+
+      # First try to restore the fully-installed node modules.  If that
+      # works (no changes to the JavaScript layer), skip npm i and
+      # restoring the cache of downloaded modules.  If that fails, restore
+      # the cache of the downloaded modules and then run npm
+      # clean-install.
+      - name: Cache installed Node modules
+        uses: actions/cache@v2
+        id: node-cache
+        with:
+          path: ./ui/node_modules
+          key: node-${{ steps.node_version.outputs.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Cache downloaded Node.js modules
+        uses: actions/cache@v2
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.npm
+          key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-node-
+
+      - name: Install Node dependencies
+        run: npm ci
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        working-directory: ./ui
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      # This has to happen after installing Node modules because we run
+      # eslint and it wants react to be already installed.  We therefore
+      # do all the linting here instead of during the test job.
+      - name: Run pre-commit
+        uses: pre-commit/action@v2.0.0
+
+      - name: Build the UI
+        run: npm run build
+        working-directory: ./ui
+
+      # Cache the built web UI in a build artifact so that it can be used
+      # by both the test job and the docker job.  We only use this
+      # artifact internally in this workflow, so only keep it for a day,
+      # not the full 90 day default.
+      - name: Cache UI artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ui
+          path: ui/public
+          retention-days: 1
+
   test:
     runs-on: ubuntu-latest
+    needs: [ui]
 
     strategy:
       matrix:
@@ -18,49 +86,34 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      # Reuse the built UI from the ui job.
+      - name: Restore UI artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ui
+          path: ui/public
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Read .nvmrc
-        id: node_version
-        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
-
-      - name: Set up Node
-        uses: actions/setup-node@v2
-        with:
-          node-version: ${{ steps.node_version.outputs.NODE_VERSION }}
-
-      - name: Cache Node.js modules
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.OS }}-node-
-
-      - name: Install Node dependencies
-        run: npm ci
-        working-directory: ./ui
-
-      - name: Build the UI
-        run: make ui
-
       - name: Install tox
-        run: pip install tox
+        run: pip install tox tox-docker
 
       - name: Cache tox environments
         id: cache-tox
         uses: actions/cache@v2
         with:
           path: .tox
-          # requirements/*.txt, pyproject.toml, and .pre-commit-config.yaml
-          # have versioning info that would impact the tox environment.
-          key: tox-${{ hashFiles('requirements/*.txt') }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          # requirements/*.txt and tox.ini have versioning or dependency
+          # information that would impact the tox environment.
+          key: tox-${{ matrix.python }}-${{ hashFiles('requirements/*.txt') }}-${{ hashFiles('tox.ini') }}
+          restore-keys: |
+            tox-${{ matrix.python }}-${{ hashFiles('requirements/*.txt') }}-
 
       - name: Run tox (SQLite)
-        run: tox -e lint,py,coverage-report,typing
+        run: tox -e py,coverage-report,typing
         if: matrix.database == 'SQLite'
 
       - name: Run tox (PostgreSQL)
@@ -71,64 +124,57 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test]
 
+    # Only do Docker builds of ticket branches and tagged releases.
+    if: startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/tickets/')
+
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2
+
+      # Reuse the built UI from the ui job.
+      - name: Restore UI artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ui
+          path: ui/public
 
       - name: Define the Docker tag
         id: vars
-        run: echo ::set-output name=tag::$(echo ${GITHUB_REF} | sed -E 's,refs/(heads|tags)/,,' | sed -E 's,/,-,g')
+        run: echo ::set-output name=tag::$(scripts/docker-tag.sh "$GITHUB_REF")
 
       - name: Print the tag
         id: print
         run: echo ${{steps.vars.outputs.tag}}
 
-      - name: Log into Docker Hub
-        run: echo ${{ secrets.DOCKER_TOKEN }} | docker login --username ${{ secrets.DOCKER_USERNAME }} --password-stdin
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
-      - name: Pull previous images
-        run: |
-          docker pull lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} || true
-          docker pull lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}} || true
-
-      - name: Build the dependencies Docker image
-        run: |
-          docker build --target dependencies-image \
-            --cache-from=lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} \
-            --tag lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}} .
-
-      - name: Build the runtime Docker image
-        run: |
-          docker build --target runtime-image \
-            --cache-from=lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}} \
-            --tag lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}} .
-
-      - name: Push Docker images
-        run: |
-          docker push lsstsqre/gafaelfawr:deps-${{steps.vars.outputs.tag}}
-          docker push lsstsqre/gafaelfawr:${{steps.vars.outputs.tag}}
-
-  docs:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2.3.4
-
-      - name: Set up Python
-        uses: actions/setup-python@v2.1.4
+      - name: Cache Docker layers
+        uses: actions/cache@v2
         with:
-          python-version: 3.8
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys:
+            ${{ runner.os }}-buildx-
 
-      - name: Install tox and LTD Conveyor
-        run: pip install tox ltd-conveyor
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Install graphviz and ImageMagick
-        run: sudo apt-get install graphviz imagemagick
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: lsstsqre/gafaelfawr:${{ steps.vars.outputs.tag }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
 
-      - name: Run tox
-        run: tox -e docs
-
-      - name: Upload to LSST the Docs
-        env:
-          LTD_USERNAME: ${{ secrets.LTD_USERNAME }}
-          LTD_PASSWORD: ${{ secrets.LTD_PASSWORD }}
-        run: ltd upload --product gafaelfawr --gh --dir docs/_build/html
+      # Temp fix
+      # https://github.com/docker/build-push-action/issues/252
+      # https://github.com/moby/buildkit/issues/1896
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache

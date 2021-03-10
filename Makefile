@@ -23,7 +23,7 @@ update: update-deps init
 .PHONY: ui
 ui:
 	cd ui && npm run lint:fix
-	cd ui && node_modules/.bin/gatsby build --prefix-paths
+	cd ui && npm run build
 
 # Filter out errors from modules that do not have Sphinx-compatible
 # documentation.
