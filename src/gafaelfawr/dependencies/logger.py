@@ -66,9 +66,6 @@ class LoggerDependency:
             logger = logger.bind(user_agent=user_agent)
         return logger
 
-    def _configure_logging(self, config: Config) -> None:
-        """Called once to configure the base logger."""
-
 
 logger_dependency = LoggerDependency()
 """The dependency that will return the logger for the current request."""

@@ -39,21 +39,15 @@ redis_dependency.is_mocked = True
 @app.on_event("startup")
 async def startup_event() -> None:
     config = config_dependency()
-    with db():
-        factory = ComponentFactory(
-            config=config,
-            redis=await redis_dependency(),
-            session=db.session,
-            http_client=MagicMock(),
-        )
-    token_service = factory.create_token_service()
-    user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
-    token = await token_service.create_session_token(
-        user_info, scopes=scopes, ip_address="127.0.0.1"
-    )
-    with open("{token_path}", "w") as f:
-        f.write(str(token))
+    user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
+    async with ComponentFactory.standalone() as factory:
+        token_service = factory.create_token_service()
+        token = await token_service.create_session_token(
+            user_info, scopes=scopes, ip_address="127.0.0.1"
+        )
+        with open("{token_path}", "w") as f:
+            f.write(str(token))
 """
 
 

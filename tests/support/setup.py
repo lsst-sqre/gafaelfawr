@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlparse
 
+import structlog
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 from pytest_httpx import to_response
@@ -133,6 +134,8 @@ class SetupTest:
         self.redis = redis
         self.client = client
         self.session = session
+        self._logger = structlog.get_logger(config.safir.logger_name)
+        assert self._logger
 
     @property
     def factory(self) -> ComponentFactory:
@@ -151,6 +154,7 @@ class SetupTest:
             redis=self.redis,
             http_client=self.client,
             session=self.session,
+            logger=self._logger,
         )
 
     def configure(

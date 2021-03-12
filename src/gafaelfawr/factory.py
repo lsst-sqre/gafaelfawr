@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import structlog
+from fastapi_sqlalchemy import db
+from httpx import AsyncClient
 
+from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.models.token import TokenData
 from gafaelfawr.providers.github import GitHubProvider
@@ -25,10 +30,9 @@ from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import AsyncIterator
 
     from aioredis import Redis
-    from httpx import AsyncClient
     from sqlalchemy.orm import Session
     from structlog.stdlib import BoundLogger
 
@@ -42,14 +46,40 @@ class ComponentFactory:
     """Build Gafaelfawr components.
 
     Given the application configuration, construct the components of the
-    application on demand.  This is broken into a separate class primarily so
-    that the test suite can override portions of it.
+    application on demand.
 
     Parameters
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelfawr configuration.
     """
+
+    @classmethod
+    @asynccontextmanager
+    async def standalone(cls) -> AsyncIterator[ComponentFactory]:
+        """Build Gafaelfawr components outside of a request.
+
+        Intended for background jobs.  Uses the non-request default values for
+        the dependencies of `ComponentFactory`.
+
+        Yields
+        ------
+        factory : `ComponentFactory`
+            The factory.  Must be used as a context manager.
+        """
+        config = config_dependency()
+        redis = await redis_dependency()
+        logger = structlog.get_logger(config.safir.logger_name)
+        assert logger
+        with db():
+            async with AsyncClient() as client:
+                yield cls(
+                    config=config,
+                    redis=redis,
+                    session=db.session,
+                    http_client=client,
+                    logger=logger,
+                )
 
     def __init__(
         self,
@@ -58,13 +88,8 @@ class ComponentFactory:
         redis: Redis,
         session: Session,
         http_client: AsyncClient,
-        logger: Optional[BoundLogger] = None,
+        logger: BoundLogger,
     ) -> None:
-        if not logger:
-            structlog.configure(wrapper_class=structlog.stdlib.BoundLogger)
-            logger = structlog.get_logger("gafaelfawr")
-            assert logger
-
         self._config = config
         self._redis = redis
         self._http_client = http_client
