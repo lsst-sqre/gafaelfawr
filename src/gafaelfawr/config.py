@@ -33,11 +33,14 @@ __all__ = [
     "GitHubSettings",
     "IssuerConfig",
     "IssuerSettings",
+    "KubernetesConfig",
+    "KubernetesSettings",
     "OIDCConfig",
     "OIDCClient",
     "OIDCServerConfig",
     "OIDCSettings",
     "SafirConfig",
+    "ServiceSecret",
     "Settings",
     "VerifierConfig",
 ]
@@ -117,6 +120,38 @@ class OIDCSettings(BaseModel):
 
     key_ids: List[str] = []
     """List of acceptable kids that may be used to sign the ID token."""
+
+
+class ServiceSecret(BaseModel):
+    """pydantic model for a Gafaelfawr-managed Kubernetes service secret.
+
+    This specifies a Kubernetes secret that should be created containing a
+    service token.  The secret will have a single key, token, which will be
+    set to the Gafaelfawr service token.
+    """
+
+    secret_name: str
+    """The name of the secret to create."""
+
+    secret_namespace: str
+    """The namespace in which to create the secret."""
+
+    service: str
+    """The name of the service for which to create a token."""
+
+    scopes: List[str] = []
+    """The scopes the service token should have."""
+
+
+class KubernetesSettings(BaseModel):
+    """pydantic model of Kubernetes settings."""
+
+    service_secrets: List[ServiceSecret]
+    """Service token secrets to manage.
+
+    If set, all Gafaelfawr-managed service token secrets not listed here will
+    be deleted.
+    """
 
 
 class Settings(BaseModel):
@@ -200,6 +235,9 @@ class Settings(BaseModel):
 
     group_mapping: Dict[str, List[str]] = {}
     """Mappings of scopes to lists of groups that provide them."""
+
+    kubernetes: Optional[KubernetesSettings] = None
+    """Settings for Kubernetes secret management."""
 
     class Config:
         env_prefix = "GAFAELFAWR_"
@@ -438,6 +476,18 @@ class OIDCServerConfig:
 
 
 @dataclass(frozen=True)
+class KubernetesConfig:
+    """Configuration for Kubernetes secret management."""
+
+    service_secrets: Tuple[ServiceSecret, ...]
+    """Kubernetes service token secrets to manage.
+
+    If set, all Gafaelfawr-managed service token secrets not listed here will
+    be deleted.
+    """
+
+
+@dataclass(frozen=True)
 class Config:
     """Configuration for Gafaelfawr.
 
@@ -510,6 +560,9 @@ class Config:
 
     token_lifetime: timedelta
     """Maximum lifetime of session, notebook, and internal tokens."""
+
+    kubernetes: Optional[KubernetesConfig]
+    """Configuration for Kubernetes secret management."""
 
     safir: SafirConfig
     """Configuration for the Safir middleware."""
@@ -629,6 +682,11 @@ class Config:
                 audience=settings.oidc.audience,
                 key_ids=tuple(settings.oidc.key_ids),
             )
+        kubernetes_config = None
+        if settings.kubernetes:
+            kubernetes_config = KubernetesConfig(
+                service_secrets=tuple(settings.kubernetes.service_secrets)
+            )
         log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
         config = cls(
             realm=settings.realm,
@@ -647,6 +705,7 @@ class Config:
             database_url=settings.database_url,
             initial_admins=tuple(settings.initial_admins),
             token_lifetime=timedelta(minutes=settings.issuer.exp_minutes),
+            kubernetes=kubernetes_config,
             safir=SafirConfig(log_level=log_level),
         )
 

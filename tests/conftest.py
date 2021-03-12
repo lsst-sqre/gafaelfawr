@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
+import kubernetes
 import pytest
 
 from gafaelfawr.dependencies.config import config_dependency
 from tests.support.constants import TEST_HOSTNAME
+from tests.support.kubernetes import MockCoreV1Api
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
 from tests.support.setup import SetupTest
@@ -36,6 +39,14 @@ def driver() -> Iterator[webdriver.Chrome]:
         yield driver
     finally:
         driver.quit()
+
+
+@pytest.fixture
+def mock_kubernetes() -> Iterator[MockCoreV1Api]:
+    MockCoreV1Api.reset_for_test()
+    with patch.object(kubernetes, "config"):
+        with patch.object(kubernetes.client, "CoreV1Api", MockCoreV1Api):
+            yield MockCoreV1Api()
 
 
 @pytest.fixture

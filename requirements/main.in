@@ -19,6 +19,7 @@ aioredis
 alembic
 click
 cryptography
+kubernetes
 httpx
 psycopg2
 pydantic

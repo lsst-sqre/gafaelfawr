@@ -16,6 +16,7 @@ from gafaelfawr.models.token import TokenData
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
 from gafaelfawr.services.admin import AdminService
+from gafaelfawr.services.kubernetes import KubernetesService
 from gafaelfawr.services.oidc import OIDCService
 from gafaelfawr.services.token import TokenService
 from gafaelfawr.storage.admin import AdminStore
@@ -24,6 +25,7 @@ from gafaelfawr.storage.history import (
     AdminHistoryStore,
     TokenChangeHistoryStore,
 )
+from gafaelfawr.storage.kubernetes import KubernetesStorage
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 from gafaelfawr.storage.transaction import TransactionManager
@@ -109,6 +111,18 @@ class ComponentFactory:
         transaction_manager = TransactionManager(self._session)
         return AdminService(
             admin_store, admin_history_store, transaction_manager
+        )
+
+    def create_kubernetes_service(self) -> KubernetesService:
+        """Create a Kubernetes service."""
+        assert self._config.kubernetes
+        storage = KubernetesStorage()
+        token_service = self.create_token_service()
+        return KubernetesService(
+            config=self._config.kubernetes,
+            token_service=token_service,
+            storage=storage,
+            logger=self._logger,
         )
 
     def create_oidc_service(self) -> OIDCService:

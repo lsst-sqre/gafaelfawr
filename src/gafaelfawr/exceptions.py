@@ -28,6 +28,7 @@ __all__ = [
     "InvalidScopesError",
     "InvalidTokenClaimsException",
     "InvalidTokenError",
+    "KubernetesError",
     "MissingClaimsException",
     "NotConfiguredException",
     "OAuthError",
@@ -310,6 +311,10 @@ class DeserializeException(Exception):
     tokens.  Should normally be treated the same as a missing object, but
     reported separately so that an error can be logged.
     """
+
+
+class KubernetesError(Exception):
+    """An error occurred during Kubernetes secret processing."""
 
 
 class NotConfiguredException(Exception):

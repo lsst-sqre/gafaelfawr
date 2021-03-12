@@ -6,6 +6,9 @@ ALGORITHM = "RS256"
 COOKIE_NAME = "gafaelfawr"
 """Name of the state cookie."""
 
+KUBERNETES_TOKEN_TYPE_LABEL = "gafaelfawr.lsst.io/token-type"
+"""Label storing the token type of Gafaelfawr-managed secrets."""
+
 MINIMUM_LIFETIME = 5 * 60
 """Minimum expiration lifetime for a token in seconds."""
 

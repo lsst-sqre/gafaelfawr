@@ -1,6 +1,5 @@
 """Authentication dependencies for FastAPI."""
 
-from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlencode, urlparse
 
@@ -20,7 +19,7 @@ from gafaelfawr.exceptions import (
     PermissionDeniedError,
 )
 from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
-from gafaelfawr.models.token import Token, TokenData, TokenType
+from gafaelfawr.models.token import Token, TokenData
 
 __all__ = [
     "Authenticate",
@@ -123,7 +122,7 @@ class Authenticate:
 
         if self.allow_bootstrap_token:
             if token == context.config.bootstrap_token:
-                bootstrap_data = self._build_bootstrap_token_data()
+                bootstrap_data = TokenData.bootstrap_token()
                 context.rebind_logger(
                     token="<bootstrap>",
                     user="<bootstrap>",
@@ -153,26 +152,6 @@ class Authenticate:
             raise PermissionDeniedError(msg)
 
         return data
-
-    @staticmethod
-    def _build_bootstrap_token_data() -> TokenData:
-        """Build authentication data for the bootstrap token.
-
-        This token doesn't exist in the backing store, so instead synthesize a
-        `~gafaelfawr.models.token.TokenData` object for it.
-
-        Returns
-        -------
-        data : `gafaelfawr.models.token.TokenData`
-            Artificial data for the bootstrap token.
-        """
-        return TokenData(
-            token=Token(),
-            username="<bootstrap>",
-            token_type=TokenType.service,
-            scopes=["admin:token"],
-            created=datetime.now(tz=timezone.utc),
-        )
 
     def _redirect_or_error(self, context: RequestContext) -> HTTPException:
         """Redirect to the ``/login`` route or return a 401 error.

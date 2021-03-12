@@ -240,7 +240,7 @@ class TokenService:
         request: AdminTokenRequest,
         auth_data: TokenData,
         *,
-        ip_address: str,
+        ip_address: Optional[str],
     ) -> Token:
         """Create a new service or user token from an admin request.
 
@@ -250,8 +250,9 @@ class TokenService:
             The incoming request.
         auth_data : `gafaelfawr.models.token.TokenData`
             The data for the authenticated user making the request.
-        ip_address : `str`
-            The IP address from which the request came.
+        ip_address : `str` or `None`
+            The IP address from which the request came, or `None` for internal
+            requests by Gafaelfawr.
 
         Returns
         -------
