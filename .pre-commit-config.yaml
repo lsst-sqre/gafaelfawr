@@ -34,12 +34,12 @@ repos:
         args: [-l, '79', -t, py38]
 
   - repo: https://gitlab.com/pycqa/flake8
-    rev: 3.8.4
+    rev: 3.9.0
     hooks:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v7.21.0
+    rev: v7.22.0
     hooks:
       - id: eslint
         additional_dependencies:
