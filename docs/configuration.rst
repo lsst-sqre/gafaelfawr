@@ -124,6 +124,28 @@ Configuration file settings
     ``client_secret_file`` (required)
         File containing the GitHub OAuth client secret.
 
+``kubernetes`` (optional)
+    Configuration for Gafaelfawr's Kubernetes secret management support.
+
+    ``service_secrets``
+        A list of Kubernetes secrets that Gafaelfawr should manage.
+        These secrets will be used to store service tokens.
+        See :ref:`kubernetes-service-secrets` for more information.
+        Each element of the list should have the following keys:
+
+        ``secret_name``
+            The name of the secret.
+
+        ``secret_namespace``
+            The namespace in which to put the secret.
+
+        ``service``
+            The name of the service for which to create a token.
+
+        ``scopes`` (optional)
+            A list of scopes the token should have.
+            If not provided, the token will have no scopes.
+
 ``oidc`` (optional)
     Configure OpenID Connect authentication.
     Users who go to the ``/login`` route will be sent to an OpenID Connect provider for authentication.

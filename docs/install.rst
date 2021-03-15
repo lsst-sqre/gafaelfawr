@@ -196,6 +196,28 @@ To use that chart, you will need to provide a ``values.yaml`` file with the foll
     See :ref:`github-groups` for more information.
     When an OpenID Connect provider such as CILogon is used as the provider, group membership will be taken from the ``isMemberOf`` claim of the token returned by the provider.
 
+``kubernetes`` (optional)
+    Configuration for Gafaelfawr's Kubernetes secret management support.
+
+    ``service_secrets``
+        A list of Kubernetes secrets that Gafaelfawr should manage.
+        These secrets will be used to store service tokens.
+        See :ref:`kubernetes-service-secrets` for more information.
+        Each element of the list should have the following keys:
+
+        ``secret_name``
+            The name of the secret.
+
+        ``secret_namespace``
+            The namespace in which to put the secret.
+
+        ``service``
+            The name of the service for which to create a token.
+
+        ``scopes`` (optional)
+            A list of scopes the token should have.
+            If not provided, the token will have no scopes.
+
 For an example, see `the configuration for the LSST Science Platform deployments <https://github.com/lsst-sqre/lsp-deploy/blob/master/services/gafaelfawr>`__.
 
 The Helm chart will generate a Gafaelfawr configuration file via a ``ConfigMap`` resource.
