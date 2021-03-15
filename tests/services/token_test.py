@@ -1096,6 +1096,7 @@ async def test_invalid_username(setup: SetupTest) -> None:
     # Cannot create any type of token with an invalid name.
     for user in (
         "<bootstrap>",
+        "<internal>",
         "in+valid",
         " invalid",
         "invalid ",

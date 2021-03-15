@@ -33,5 +33,5 @@ SCOPE_REGEX = "^[a-zA-Z0-9:._-]+$"
 USERNAME_REGEX = "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 """Regex matching all valid usernames."""
 
-ACTOR_REGEX = f"{USERNAME_REGEX}|^<bootstrap>$"
+ACTOR_REGEX = f"{USERNAME_REGEX}|^<[a-z]+>$"
 """"Regex matching all valid actors (including ``<bootstrap>``)."""
