@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 APP_TEMPLATE = """
 from unittest.mock import MagicMock
 
+import structlog
 from fastapi_sqlalchemy import db
 
 from gafaelfawr.dependencies.config import config_dependency
@@ -39,15 +40,23 @@ redis_dependency.is_mocked = True
 @app.on_event("startup")
 async def startup_event() -> None:
     config = config_dependency()
-    scopes = list(config.known_scopes.keys())
+    logger = structlog.get_logger(config.safir.logger_name)
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
-    async with ComponentFactory.standalone() as factory:
+    scopes = list(config.known_scopes.keys())
+    with db():
+        factory = ComponentFactory(
+            config=config,
+            redis=await redis_dependency(config),
+            session=db.session,
+            http_client=MagicMock(),
+            logger=logger,
+        )
         token_service = factory.create_token_service()
         token = await token_service.create_session_token(
             user_info, scopes=scopes, ip_address="127.0.0.1"
         )
-        with open("{token_path}", "w") as f:
-            f.write(str(token))
+    with open("{token_path}", "w") as f:
+        f.write(str(token))
 """
 
 

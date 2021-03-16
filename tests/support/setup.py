@@ -46,6 +46,37 @@ if TYPE_CHECKING:
     from gafaelfawr.tokens import VerifiedToken
 
 
+def initialize(tmp_path: Path) -> Config:
+    """Do basic initialization and return a configuration.
+
+    This shared logic can be used either with `SetupTest`, which assumes an
+    ASGI application and an async test, or with non-async tests such as the
+    tests of the command-line interface.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        The path for temporary files.
+
+    Returns
+    -------
+    config : `gafaelfawr.config.Config`
+        The generated config, using the same defaults as `SetupTest`.
+    """
+    settings_path = build_settings(tmp_path, "github")
+    config_dependency.set_settings_path(str(settings_path))
+    config = config_dependency()
+    if not os.environ.get("REDIS_6379_TCP_PORT"):
+        redis_dependency.is_mocked = True
+
+    # Initialize the database.  Non-SQLite databases need to be reset between
+    # tests.
+    should_reset = not urlparse(config.database_url).scheme == "sqlite"
+    initialize_database(config, reset=should_reset)
+
+    return config
+
+
 class SetupTest:
     """Utility class for test setup.
 
@@ -79,24 +110,15 @@ class SetupTest:
         httpx_mock : `pytest_httpx.HTTPXMock`
             The mock for simulating `httpx.AsyncClient` calls.
         """
-        settings_path = build_settings(tmp_path, "github")
-        config_dependency.set_settings_path(str(settings_path))
-        config = config_dependency()
-        if not os.environ.get("REDIS_6379_TCP_PORT"):
-            redis_dependency.is_mocked = True
+        config = initialize(tmp_path)
         redis = await redis_dependency(config)
 
-        # Initialize the database and create the database session that will be
-        # used by SetupTest and by the factory it contains.  The application
-        # will use a separate session handled by its middleware.  Non-SQLite
-        # databases need to be reset between tests.
+        # Create the database session that will be used by SetupTest and by
+        # the factory it contains.  The application will use a separate
+        # session handled by its middleware.
+        connect_args = {}
         if urlparse(config.database_url).scheme == "sqlite":
             connect_args = {"check_same_thread": False}
-            should_reset = False
-        else:
-            connect_args = {}
-            should_reset = True
-        initialize_database(config, reset=should_reset)
         engine = create_engine(config.database_url, connect_args=connect_args)
         session = Session(bind=engine)
 

@@ -6,8 +6,9 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import structlog
-from fastapi_sqlalchemy import db
 from httpx import AsyncClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
@@ -35,7 +36,6 @@ if TYPE_CHECKING:
     from typing import AsyncIterator
 
     from aioredis import Redis
-    from sqlalchemy.orm import Session
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
@@ -62,7 +62,15 @@ class ComponentFactory:
         """Build Gafaelfawr components outside of a request.
 
         Intended for background jobs.  Uses the non-request default values for
-        the dependencies of `ComponentFactory`.
+        the dependencies of `ComponentFactory`.  Do not use this factory
+        inside the web application or anywhere that may use the default
+        `ComponentFactory`, since they will interfere with each other's
+        Redis pools.
+
+        Notes
+        -----
+        This creates a database session directly because fastapi_sqlalchemy
+        does not work unless an ASGI application has initialized it.
 
         Yields
         ------
@@ -70,18 +78,23 @@ class ComponentFactory:
             The factory.  Must be used as a context manager.
         """
         config = config_dependency()
-        redis = await redis_dependency()
+        redis = await redis_dependency(config)
         logger = structlog.get_logger(config.safir.logger_name)
         assert logger
-        with db():
+        engine = create_engine(config.database_url)
+        session = Session(bind=engine)
+        try:
             async with AsyncClient() as client:
                 yield cls(
                     config=config,
                     redis=redis,
-                    session=db.session,
+                    session=session,
                     http_client=client,
                     logger=logger,
                 )
+        finally:
+            await redis_dependency.close()
+            session.close()
 
     def __init__(
         self,
