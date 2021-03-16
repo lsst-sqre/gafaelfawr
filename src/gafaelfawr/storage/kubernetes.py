@@ -134,11 +134,7 @@ class KubernetesStorage:
             raise KubernetesError(msg)
         label = secret.metadata.labels[KUBERNETES_TOKEN_TYPE_LABEL]
         if label != secret_type.value:
-            secret_type = secret.metadata.labels[KUBERNETES_TOKEN_TYPE_LABEL]
-            msg = (
-                f"Secret {namespace}/{name} is of type {secret_type}, not"
-                " service"
-            )
+            msg = f"Secret {namespace}/{name} is of type {label}, not service"
             raise KubernetesError(msg)
 
         return secret
