@@ -6,6 +6,9 @@ ALGORITHM = "RS256"
 COOKIE_NAME = "gafaelfawr"
 """Name of the state cookie."""
 
+KUBERNETES_TOKEN_TYPE_LABEL = "gafaelfawr.lsst.io/token-type"
+"""Label storing the token type of Gafaelfawr-managed secrets."""
+
 MINIMUM_LIFETIME = 5 * 60
 """Minimum expiration lifetime for a token in seconds."""
 
@@ -30,5 +33,5 @@ SCOPE_REGEX = "^[a-zA-Z0-9:._-]+$"
 USERNAME_REGEX = "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 """Regex matching all valid usernames."""
 
-ACTOR_REGEX = f"{USERNAME_REGEX}|^<bootstrap>$"
+ACTOR_REGEX = f"{USERNAME_REGEX}|^<[a-z]+>$"
 """"Regex matching all valid actors (including ``<bootstrap>``)."""

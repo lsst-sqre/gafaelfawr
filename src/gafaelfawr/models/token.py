@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -279,6 +279,46 @@ class TokenData(TokenBase, TokenUserInfo):
 
     class Config:
         json_encoders = {datetime: lambda v: int(v.timestamp())}
+
+    @classmethod
+    def bootstrap_token(cls) -> TokenData:
+        """Build authentication data for the bootstrap token.
+
+        This token doesn't exist in the backing store, so instead synthesize a
+        `~gafaelfawr.models.token.TokenData` object for it.
+
+        Returns
+        -------
+        data : `gafaelfawr.models.token.TokenData`
+            Artificial data for the bootstrap token.
+        """
+        return cls(
+            token=Token(),
+            username="<bootstrap>",
+            token_type=TokenType.service,
+            scopes=["admin:token"],
+            created=datetime.now(tz=timezone.utc),
+        )
+
+    @classmethod
+    def internal_token(cls) -> TokenData:
+        """Build authentication data for the internal token.
+
+        Similar to the bootstrap token, this does not exist in the backing
+        store.  It is used by background jobs internal to Gafaelfawr.
+
+        Returns
+        -------
+        data : `gafaelfawr.models.token.TokenData`
+            Artificial data for the bootstrap token.
+        """
+        return cls(
+            token=Token(),
+            username="<internal>",
+            token_type=TokenType.service,
+            scopes=["admin:token"],
+            created=datetime.now(tz=timezone.utc),
+        )
 
 
 class NewToken(BaseModel):

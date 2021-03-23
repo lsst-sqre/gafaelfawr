@@ -64,10 +64,13 @@ class AdminHistoryEntry(BaseModel):
         max_length=64,
     )
 
-    ip_address: str = Field(
+    ip_address: Optional[str] = Field(
         ...,
         title="IP address",
-        description="IP address from which the change was made",
+        description=(
+            "IP address from which the change was made. Will be missing if"
+            " the change was made internally by Gafaelfawr."
+        ),
     )
 
     event_time: datetime = Field(

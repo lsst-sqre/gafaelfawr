@@ -2,20 +2,36 @@
 
 from __future__ import annotations
 
+import asyncio
+import sys
+from functools import wraps
 from typing import TYPE_CHECKING
 
 import click
+import structlog
 import uvicorn
 
 from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.exceptions import KubernetesError
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.token import Token
 
 if TYPE_CHECKING:
-    from typing import Union
+    from typing import Any, Awaitable, Callable, TypeVar, Union
+
+    T = TypeVar("T")
 
 __all__ = ["main", "generate_key", "help", "run"]
+
+
+def coroutine(f: Callable[..., Awaitable[T]]) -> Callable[..., T]:
+    @wraps(f)
+    def wrapper(*args: Any, **kwargs: Any) -> T:
+        return asyncio.run(f(*args, **kwargs))
+
+    return wrapper
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -82,3 +98,22 @@ def init(settings: str) -> None:
     config_dependency.set_settings_path(settings)
     config = config_dependency()
     initialize_database(config)
+
+
+@main.command()
+@coroutine
+async def update_service_tokens() -> None:
+    """Update service tokens stored in Kubernetes secrets."""
+    config = config_dependency()
+    logger = structlog.get_logger(config.safir.logger_name)
+    if not config.kubernetes:
+        logger.info("No Kubernetes secrets configured")
+        sys.exit(0)
+    async with ComponentFactory.standalone() as factory:
+        kubernetes_service = factory.create_kubernetes_service()
+        try:
+            await kubernetes_service.update_service_secrets()
+        except KubernetesError as e:
+            msg = "Failed to update service token secrets"
+            logger.error(msg, error=str(e))
+            sys.exit(1)

@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import structlog
+from httpx import AsyncClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
+from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.models.token import TokenData
 from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.providers.oidc import OIDCProvider
 from gafaelfawr.services.admin import AdminService
+from gafaelfawr.services.kubernetes import KubernetesService
 from gafaelfawr.services.oidc import OIDCService
 from gafaelfawr.services.token import TokenService
 from gafaelfawr.storage.admin import AdminStore
@@ -19,17 +26,16 @@ from gafaelfawr.storage.history import (
     AdminHistoryStore,
     TokenChangeHistoryStore,
 )
+from gafaelfawr.storage.kubernetes import KubernetesStorage
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import AsyncIterator
 
     from aioredis import Redis
-    from httpx import AsyncClient
-    from sqlalchemy.orm import Session
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
@@ -42,14 +48,53 @@ class ComponentFactory:
     """Build Gafaelfawr components.
 
     Given the application configuration, construct the components of the
-    application on demand.  This is broken into a separate class primarily so
-    that the test suite can override portions of it.
+    application on demand.
 
     Parameters
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelfawr configuration.
     """
+
+    @classmethod
+    @asynccontextmanager
+    async def standalone(cls) -> AsyncIterator[ComponentFactory]:
+        """Build Gafaelfawr components outside of a request.
+
+        Intended for background jobs.  Uses the non-request default values for
+        the dependencies of `ComponentFactory`.  Do not use this factory
+        inside the web application or anywhere that may use the default
+        `ComponentFactory`, since they will interfere with each other's
+        Redis pools.
+
+        Notes
+        -----
+        This creates a database session directly because fastapi_sqlalchemy
+        does not work unless an ASGI application has initialized it.
+
+        Yields
+        ------
+        factory : `ComponentFactory`
+            The factory.  Must be used as a context manager.
+        """
+        config = config_dependency()
+        redis = await redis_dependency(config)
+        logger = structlog.get_logger(config.safir.logger_name)
+        assert logger
+        engine = create_engine(config.database_url)
+        session = Session(bind=engine)
+        try:
+            async with AsyncClient() as client:
+                yield cls(
+                    config=config,
+                    redis=redis,
+                    session=session,
+                    http_client=client,
+                    logger=logger,
+                )
+        finally:
+            await redis_dependency.close()
+            session.close()
 
     def __init__(
         self,
@@ -58,13 +103,8 @@ class ComponentFactory:
         redis: Redis,
         session: Session,
         http_client: AsyncClient,
-        logger: Optional[BoundLogger] = None,
+        logger: BoundLogger,
     ) -> None:
-        if not logger:
-            structlog.configure(wrapper_class=structlog.stdlib.BoundLogger)
-            logger = structlog.get_logger("gafaelfawr")
-            assert logger
-
         self._config = config
         self._redis = redis
         self._http_client = http_client
@@ -84,6 +124,18 @@ class ComponentFactory:
         transaction_manager = TransactionManager(self._session)
         return AdminService(
             admin_store, admin_history_store, transaction_manager
+        )
+
+    def create_kubernetes_service(self) -> KubernetesService:
+        """Create a Kubernetes service."""
+        assert self._config.kubernetes
+        storage = KubernetesStorage()
+        token_service = self.create_token_service()
+        return KubernetesService(
+            config=self._config.kubernetes,
+            token_service=token_service,
+            storage=storage,
+            logger=self._logger,
         )
 
     def create_oidc_service(self) -> OIDCService:

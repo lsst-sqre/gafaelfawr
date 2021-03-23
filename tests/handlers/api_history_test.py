@@ -10,9 +10,13 @@ from urllib.parse import urlencode
 
 import pytest
 
-from gafaelfawr.dependencies.auth import Authenticate
 from gafaelfawr.models.history import TokenChangeHistoryEntry
-from gafaelfawr.models.token import AdminTokenRequest, TokenType, TokenUserInfo
+from gafaelfawr.models.token import (
+    AdminTokenRequest,
+    TokenData,
+    TokenType,
+    TokenUserInfo,
+)
 from gafaelfawr.schema import TokenChangeHistory
 from gafaelfawr.util import current_datetime
 from tests.support.constants import TEST_HOSTNAME
@@ -107,10 +111,9 @@ async def build_history(
         token_type=TokenType.service,
         scopes=["admin:token"],
     )
-    bootstrap_data = Authenticate._build_bootstrap_token_data()
     service_token = await token_service.create_token_from_admin_request(
         request,
-        bootstrap_data,
+        TokenData.bootstrap_token(),
         ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
     )
     service_token_data = await token_service.get_data(service_token)

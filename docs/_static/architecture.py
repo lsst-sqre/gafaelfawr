@@ -39,6 +39,7 @@ with Diagram(
             server = KubernetesEngine("Server")
             redis = KubernetesEngine("Redis")
             storage = PersistentDisk("Redis Storage")
+            KubernetesEngine("Background")
 
             user >> ingress >> server >> redis >> storage
 

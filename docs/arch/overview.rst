@@ -20,3 +20,5 @@ This was designed with just enough features to support `Chronograf`_.
 It may not work with other applications without additional changes.
 
 .. _Chronograf: https://docs.influxdata.com/chronograf/v1.8/administration/managing-security/
+
+Gafaelfawr also deploys some additional Kubernetes ``CronJob`` resources to run periodic background tasks.
