@@ -46,7 +46,7 @@ class KubernetesStorage:
     """
 
     def __init__(self) -> None:
-        kubernetes.config.load_kube_config()
+        kubernetes.config.load_incluster_config()
         self._api = kubernetes.client.CoreV1Api()
 
     @_convert_exception
