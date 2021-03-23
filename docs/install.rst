@@ -24,7 +24,7 @@ GitHub
 ------
 
 If you will be using GitHub as the authentication provider, you will need to create a GitHub OAuth app for Gafaelfawr and obtain a client ID and secret.
-To get these values, go to Settings > Developer Settings for either a GitHub user or an organization, go into OAuth Apps, and create a new application.
+To get these values, go to Settings → Developer Settings for either a GitHub user or an organization, go into OAuth Apps, and create a new application.
 The callback URL should be the ``/login`` route under the hostname you will use for your Gafaelfawr deployment.
 
 CILogon
@@ -38,9 +38,9 @@ If you will use CILogon as the authentication provider, you will need to registe
 3. Enter the contact email.
    You will be notified at this email when the client is registered.
 4. Enter the top page of the LSP deployment as the home URL.
-   For example: ``https://lsst-lsp-instance.example.com``
+   For example: ``https://lsp-instance.example.com``
 5. Enter the ``/login`` route as the callback URL.
-   For example: ``https://lsst-lsp-instance.example.com/login``
+   For example: ``https://lsp-instance.example.com/login``
 6. Leave the public client box unchecked.
 7. Select the following scopes:
    - email
@@ -106,117 +106,194 @@ Helm deployment
 
 There is a Helm chart for Gafaelfawr named ``gafaelfawr`` available from the `Rubin Observatory charts repository <https://lsst-sqre.github.io/charts/>`__.
 The Helm chart only supports GitHub or CILogon as identity providers.
-To use that chart, you will need to provide a ``values.yaml`` file with the following keys under a ``gafaelfawr`` key:
+To use that chart, you will need to provide a ``values.yaml`` file with the following keys.
 
-``host`` (required)
-    The FQDN of the host under which Gafaelfawr is running.
-    The ``/auth``, ``/login``, ``/logout``, ``/oauth2/callback``, and ``/.well-known/jwks.json`` routes will be claimed under this host by the Gafaelfawr ingress configuration.
-    If ``oidc_server.enabled`` is set to true, the ``/.well-known/openid-configuration`` will also be claimed.
-    This setting will be used to derive multiple other URLs, such as the issuer.
+``affinity`` (optional)
+    Affinity configuration for the Gafaelfawr pod.
 
-``ingress.host`` (optional)
-    The host-based virtual host under which to create the ingress routes.
-    Normally this should be set to the same thing as ``host``.
-    However, you may wish to leave it unset if you want all routes to be configured with the ``*`` virtual host.
-
-``image`` (optional)
-    The Docker image to use for the Gafaelfawr application.
-    Takes the following subkeys:
-
-    ``repository`` (optional)
-        The name of the Docker repository from which to pull an image.
-        Defaults to the official release repository.
-
-    ``tag`` (optional)
-        The version of image to use.
-        If not set, defaults to the image corresponding to the ``appVersion`` metadata property of the chart, which is normally the latest stable release.
-
-    ``pullPolicy`` (optional)
-        Kubernetes pull policy for the image.
-        Defaults to ``Always``.
-
-``redis_claim`` (optional)
-    The name of a persistent volume claim to use for Redis storage.
-    If not given, Redis will use ``emptyDir``, which is ephemeral storage that will be cleared on every pod restart (thus invalidating all user authentication sessions and user-issued tokens).
-
-``vault_secrets_path`` (required)
-    The path in Vault for the Vault secret containing the secret keys described in :ref:`vault-secrets`.
-
-``proxies`` (optional)
-    A list of network blocks that should be treated as internal to the cluster and therefore ignored when analyzing ``X-Forwarded-For`` to find the true client IP.
-    If not set, defaults to the `RFC 1918 private address spaces <https://tools.ietf.org/html/rfc1918>`__.
-    See :ref:`client-ips` and the ``proxies`` documentation in :ref:`settings` for more information.
-
-``loglevel`` (optional)
-    The Python logging level.
-    Set to one of the (all-caps) string log level values from the Python :py:mod:`logging` module.
-
-``issuer.exp_minutes`` (optional)
-    The lifetime (in minutes) of the issued JWTs and thus the user's authentication session.
-    The default is 1440 (one day).
-
-``issuer.influxdb.enabled`` (optional)
-    Whether to enable InfluxDB token issuance.
-    If this is set to true, the Vault secret for Gafaelfawr must contain an ``influxdb-secret`` key.
-
-``issuer.influxdb.username`` (optional)
-    If set, force the username in all InfluxDB tokens to this value rather than the authenticated username of the user requesting a token.
-    Only applicable if InfluxDB token issuance is enabled.
-
-``github.client_id``
-    The client ID for the GitHub OAuth App if using GitHub as the identity provider.
-    Only set either this or ``cilogon.client_id``.
-
-``cilogon.client_id``
+``config.cilogon.clientId``
     The client ID for CILogon if using CILogon as the identity provider.
-    Only set either this or ``github.client_id``.
+    Only set either this or ``config.github.clientId``.
 
-``cilogon.redirect_url``
+``config.cilogon.redirectUrl`` (optional)
     The full redirect URL for CILogon if using CILogon as the identity provider.
     Set this if you need to change the redirect URL to the ``/oauth2/callback`` route instead of the ``/login`` route.
 
-``cilogon.login_params``
+``config.cilogon.loginParams`` (optional)
     A mapping of additional parameters to send to the CILogon authorize route.
     Can be used to set parameters like ``skin`` or ``selected_idp``.
     See the `CILogon OIDC documentation <https://www.cilogon.org/oidc>`__ for more information.
 
-``oidc_server.enabled``
-    Set this to true to enable the OpenID Connect server.
-    If this is set to true, the Vault secret for Gafaelfawr must contain a ``oidc-server-secrets`` key.
+``config.host`` (required)
+    The FQDN of the host under which Gafaelfawr is running.
+    This setting will be used to derive multiple other URLs, such as the issuer.
 
-``known_scopes``
-    Mapping of scope names to descriptions.
-    This is used to populate the new token creation page.
-    It is copied directly to the ``known_scopes`` configuration setting documented in :ref:`settings`.
-    The ``admin:token`` scope used internally by Gafaelfawr for token administrators must be included.
+``config.github.clientId``
+    The client ID for the GitHub OAuth App if using GitHub as the identity provider.
+    Only set either this or ``cilogon.client_id``.
 
-``group_mapping``
+``config.groupMapping`` (required)
     Mapping of scope names to lists of groups that provide that scope.
     When GitHub is used as the provider, group membership will be synthesized from GitHub team membership.
     See :ref:`github-groups` for more information.
     When an OpenID Connect provider such as CILogon is used as the provider, group membership will be taken from the ``isMemberOf`` claim of the token returned by the provider.
+    This must be set to have a reasonably usable system.
 
-``kubernetes`` (optional)
-    Configuration for Gafaelfawr's Kubernetes secret management support.
+``config.issuer.expMinutes`` (optional)
+    The lifetime (in minutes) of the issued JWTs and thus the user's authentication session.
+    The default is 1440 (one day).
 
-    ``service_secrets``
-        A list of Kubernetes secrets that Gafaelfawr should manage.
-        These secrets will be used to store service tokens.
-        See :ref:`kubernetes-service-secrets` for more information.
-        Each element of the list should have the following keys:
+``config.issuer.influxdb.enabled`` (optional)
+    Whether to enable InfluxDB token issuance.
+    If this is set to true, the Vault secret for Gafaelfawr must contain an ``influxdb-secret`` key.
 
-        ``secret_name``
-            The name of the secret.
+``config.issuer.influxdb.username`` (optional)
+    If set, force the username in all InfluxDB tokens to this value rather than the authenticated username of the user requesting a token.
+    Only applicable if InfluxDB token issuance is enabled.
 
-        ``secret_namespace``
-            The namespace in which to put the secret.
+``config.knownScopes``
+    Mapping of scope names to descriptions.
+    This is used to populate the new token creation page.
+    It is copied directly to the ``known_scopes`` configuration setting documented in :ref:`settings`.
+    The ``admin:token`` and ``user:token`` scopes used internally by Gafaelfawr for token administrators must be included.
+    The default list of known scopes are those used by the Rubin Science Platform components.
 
-        ``service``
-            The name of the service for which to create a token.
+``config.kubernetes.service_secrets`` (optional)
+    A list of Kubernetes secrets that Gafaelfawr should manage.
+    These secrets will be used to store service tokens.
+    See :ref:`kubernetes-service-secrets` for more information.
+    Each element of the list should have the following keys:
 
-        ``scopes`` (optional)
-            A list of scopes the token should have.
-            If not provided, the token will have no scopes.
+    ``secretName``
+        The name of the secret.
+
+    ``secretNamespace``
+        The namespace in which to put the secret.
+
+    ``service``
+        The name of the service for which to create a token.
+
+    ``scopes`` (optional)
+        A list of scopes the token should have.
+        If not provided, the token will have no scopes.
+
+``config.loglevel`` (optional)
+    The Python logging level.
+    Set to one of the (all-caps) string log level values from the Python :py:mod:`logging` module.
+
+``config.oidcServer.enabled``
+    Set this to true to enable the OpenID Connect server.
+    If this is set to true, the Vault secret for Gafaelfawr must contain a ``oidc-server-secrets`` key.
+
+``config.proxies`` (optional)
+    A list of network blocks that should be treated as internal to the cluster and therefore ignored when analyzing ``X-Forwarded-For`` to find the true client IP.
+    If not set, defaults to the `RFC 1918 private address spaces <https://tools.ietf.org/html/rfc1918>`__.
+    See :ref:`client-ips` and the ``proxies`` documentation in :ref:`settings` for more information.
+
+``fullnameOverride`` (optional)
+    Override the chart name used to name resources.
+
+``image.pullPolicy`` (optional)
+    The pull policy to use for the Docker image.
+    Defaults to ``IfNotPresent``.
+
+``image.repository`` (optional)
+    The name of the Docker repository from which to pull an image.
+    Defaults to the official release repository.
+
+``image.tag`` (optional)
+    The version of image to use.
+    If not set, defaults to the image corresponding to the ``appVersion`` metadata property of the chart, which is normally the latest stable release.
+
+``imagePullSecrets`` (optional)
+    A list of Kubernetes secret names used as Docker secrets when pulling images.
+
+``ingress.enabled`` (optional)
+    Whether to define an ingress for Gafaelfawr.
+    Defaults to true.
+
+``ingress.annotations`` (optional)
+    Additional annotations to add to the ingress definition.
+
+``ingress.host`` (optional)
+    The host-based virtual host under which to create the ingress routes.
+    Normally this should be set to the same thing as ``config.host``.
+    However, you may wish to leave it unset if you want all routes to be configured with the ``*`` virtual host.
+    The ``/auth``, ``/login``, ``/logout``, ``/oauth2/callback``, and ``/.well-known/jwks.json`` routes will be claimed under this host by the Gafaelfawr ingress configuration.
+    If ``oidcServer.enabled`` is set to true, the ``/.well-known/openid-configuration`` will also be claimed.
+
+``ingress.tls`` (optional)
+    TLS configuration for the ingress.
+    If multiple ingresses share the same hostname, only one of them needs TLS configuration.
+
+``nameOverride`` (optional)
+    Override the chart name used in ``app.kubernetes.io/name`` annotations.
+
+``nodeSelector`` (optional)
+    Kubernetes node selector for where to locate the Gafaelfawr pod.
+
+``podAnnotations`` (optional)
+    Additional annotations to attach to the Gafaelfawr pod.
+
+``replicaCount`` (optional)
+    How many instances of Gafaelfawr to spawn.
+    Defaults to 1.
+
+``redis.affinity`` (optional)
+    Affinity configuration for the Gafaelfawr Redis pod.
+
+``redis.image.repository`` (optional)
+    The repository from which to get Redis images.
+    Defaults to ``redis`` (at Docker Hub).
+
+``redis.image.tag`` (optional)
+    The Redis image to use.
+
+``redis.image.pullPolicy`` (optional)
+    The Kubernetes pull policy to use for the Redis image.
+    Defaults to ``IfNotPresent``
+
+``redis.nodeSelector`` (optional)
+    Node selection criteria for the Gafaelfawr Redis pod.
+
+``redis.persistence.enabled`` (optional)
+    Whether to enable persistent volumes for Redis.
+    If set to true, dynamic provisioning will be used for a persistent volume store for Redis, using the other configuration options below, unless ``redis.persistence.volumeClaimName`` is set.
+    If set to false, Redis will use ``emptyDir``, which is ephemeral storage that will be cleared on every pod restart (thus invalidating all user authentication sessions and user-issued tokens).
+    This setting is only suitable for testing and development.
+    Defaults to true.
+
+``redis.persistence.size`` (optional)
+    The size of persistent volume to request.
+    Defaults to ``1Gi`` (1 GiB).
+
+``redis.persistence.storageClass`` (optional)
+    The storage class of persistent volume to request.
+    Defaults to the empty string, which will use the default storage class.
+
+``redis.persistence.accessMode`` (optional)
+    The access mode of persistent volume to request.
+    Defaults to ``ReadWriteOnce``.
+
+``redis.persistence.volumeClaimName`` (optional)
+    The name of a persistent volume claim to use for Redis storage.
+    This overrides any other persistence settings except ``redis.persistence.enabled`` and uses an existing ``PersistentVolumeClaim`` by name.
+    That ``PersistentVolumeClaim`` must be created and managed outside of the Gafaelfawr chart.
+
+``redis.podAnnotations`` (optional)
+    Pod annotations for the Gafaelfawr Redis pod.
+
+``redis.tolerations`` (optional)
+    List of tolerations for the Gafaelfawr Redis pod.
+
+``resources`` (optional)
+    Resource requests and limits for the Gafaelfawr container.
+
+``tolerations`` (optional)
+    List of tolerations for the Gafaelfawr pod.
+
+``vaultSecretsPath`` (required)
+    The path in Vault for the Vault secret containing the secret keys described in :ref:`vault-secrets`.
 
 For an example, see `the configuration for the LSST Science Platform deployments <https://github.com/lsst-sqre/lsp-deploy/blob/master/services/gafaelfawr>`__.
 
