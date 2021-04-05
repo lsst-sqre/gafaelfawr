@@ -29,7 +29,7 @@
     "react-datepicker": "^3.6.0",
     "react-dom": "^17.0.2",
     "react-icons": "^4.2.0",
-    "react-is": "^17.0.1",
+    "react-is": "^17.0.2",
     "react-table": "^7.6.3",
     "styled-components": "^5.2.1",
     "use-query-params": "^1.2.0"
