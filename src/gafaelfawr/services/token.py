@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from gafaelfawr.storage.history import TokenChangeHistoryStore
     from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
     from gafaelfawr.storage.transaction import TransactionManager
+    from gafaelfawr.token_cache import TokenCache
 
 __all__ = ["TokenService"]
 
@@ -67,6 +68,7 @@ class TokenService:
         self,
         *,
         config: Config,
+        token_cache: TokenCache,
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
         token_change_store: TokenChangeHistoryStore,
@@ -74,6 +76,7 @@ class TokenService:
         logger: BoundLogger,
     ) -> None:
         self._config = config
+        self._token_cache = token_cache
         self._token_db_store = token_db_store
         self._token_redis_store = token_redis_store
         self._token_change_store = token_change_store
@@ -495,6 +498,13 @@ class TokenService:
         self._validate_username(token_data.username)
         scopes = sorted(scopes)
 
+        # See if there is a cached token.
+        token = await self._token_cache.get_internal_token(
+            token_data, service, scopes
+        )
+        if token:
+            return token
+
         # See if there's already a matching internal token.
         key = self._token_db_store.get_internal_token_key(
             token_data, service, scopes, self._minimum_expiration(token_data)
@@ -502,6 +512,9 @@ class TokenService:
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
             if data:
+                self._token_cache.store_internal_token(
+                    data.token, token_data, service, scopes
+                )
                 return data.token
 
         # There is not, so we need to create a new one.
@@ -548,6 +561,11 @@ class TokenService:
             service=service,
             token_scope=",".join(data.scopes),
         )
+
+        # Cache the token and return it.
+        self._token_cache.store_internal_token(
+            token, token_data, service, scopes
+        )
         return token
 
     async def get_notebook_token(
@@ -579,6 +597,11 @@ class TokenService:
         """
         self._validate_username(token_data.username)
 
+        # See if there is a cached token.
+        token = await self._token_cache.get_notebook_token(token_data)
+        if token:
+            return token
+
         # See if there's already a matching notebook token.
         key = self._token_db_store.get_notebook_token_key(
             token_data, self._minimum_expiration(token_data)
@@ -586,6 +609,7 @@ class TokenService:
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
             if data:
+                self._token_cache.store_notebook_token(data.token, token_data)
                 return data.token
 
         # There is not, so we need to create a new one.
@@ -623,7 +647,9 @@ class TokenService:
             self._token_db_store.add(data, parent=token_data.token.key)
             self._token_change_store.add(history_entry)
 
+        # Cache the token and return it.
         self._logger.info("Created new notebook token", key=token.key)
+        self._token_cache.store_notebook_token(token, token_data)
         return token
 
     def get_token_info(

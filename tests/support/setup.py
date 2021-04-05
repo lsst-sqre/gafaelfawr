@@ -83,6 +83,9 @@ class SetupTest:
     This class wraps creating a test FastAPI application, creating a factory
     for building the components, and accessing configuration settings.
 
+    This object should always be created via the :py:meth:`create` method.
+    The constructor should be considered private.
+
     Notes
     -----
     This class is named SetupTest instead of TestSetup because pytest thinks
@@ -156,8 +159,8 @@ class SetupTest:
         self.redis = redis
         self.client = client
         self.session = session
-        self._logger = structlog.get_logger(config.safir.logger_name)
-        assert self._logger
+        self.logger = structlog.get_logger(config.safir.logger_name)
+        assert self.logger
 
     @property
     def factory(self) -> ComponentFactory:
@@ -176,7 +179,7 @@ class SetupTest:
             redis=self.redis,
             http_client=self.client,
             session=self.session,
-            logger=self._logger,
+            logger=self.logger,
         )
 
     def configure(

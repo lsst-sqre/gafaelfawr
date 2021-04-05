@@ -18,6 +18,9 @@ OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 SETTINGS_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 """Default configuration path."""
 
+TOKEN_CACHE_SIZE = 10000
+"""How many internal and notebook tokens to cache in memory."""
+
 # The following constants are used for field validation.  Minimum and maximum
 # length are handled separately.
 

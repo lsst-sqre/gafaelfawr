@@ -30,6 +30,7 @@ from gafaelfawr.storage.kubernetes import KubernetesStorage
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 from gafaelfawr.storage.transaction import TransactionManager
+from gafaelfawr.token_cache import TokenCache
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
@@ -195,6 +196,19 @@ class ComponentFactory:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
 
+    def create_token_cache(self) -> TokenCache:
+        """Create a token cache.
+
+        Returns
+        -------
+        cache : `gafaelfawr.token_cache.TokenCache`
+            A new token cache.
+        """
+        key = self._config.session_secret
+        storage = RedisStorage(TokenData, key, self._redis)
+        token_redis_store = TokenRedisStore(storage, self._logger)
+        return TokenCache(token_redis_store)
+
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.
 
@@ -217,10 +231,12 @@ class ComponentFactory:
         key = self._config.session_secret
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
+        token_cache = TokenCache(token_redis_store)
         token_change_store = TokenChangeHistoryStore(self._session)
         transaction_manager = TransactionManager(self._session)
         return TokenService(
             config=self._config,
+            token_cache=token_cache,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
