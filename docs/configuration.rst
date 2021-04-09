@@ -64,6 +64,14 @@ Configuration file settings
 ``database_url`` (required)
     The URL to the SQL database used as a backing store for token information.
 
+``database_password`` (optional)
+    The password for the database.
+    This can be provided as part of ``database_url`` or separately.
+    If set, it overrides the password portion of ``database_url``, if any.
+
+    The separate ``database_password`` setting exists primarily to allow the base URL to be set in the configuration file but the secret portion to be set via an environment variable.
+    This allows the configuration file to come from a Kubernetes ``ConfigMap`` but the password to come from a ``Secret``.
+
 ``bootstrap_token`` (optional)
     If set, must be set to a Gafaelfawr token (such as that created with ``gafaelfawr generate-token``).
     This special token will have admin permissions to the ``/auth/api/v1/admins`` routes and to ``/auth/api/v1/tokens`` to create service and user tokens.

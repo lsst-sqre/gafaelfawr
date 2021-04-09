@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,9 @@ import yaml
 from pydantic import ValidationError
 
 from gafaelfawr.config import Settings
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.token import Token
+from tests.support.settings import build_settings
 
 
 def parse_settings(path: Path, fix_token: bool = False) -> None:
@@ -81,3 +84,19 @@ def test_config_missing_scope() -> None:
     settings_path = Path(__file__).parent / "settings" / "missing-scope.yaml"
     with pytest.raises(ValidationError):
         parse_settings(settings_path)
+
+
+def test_database_password(tmp_path: Path) -> None:
+    settings_path = build_settings(
+        tmp_path,
+        "github",
+        database_url="postgresql://gafaelfawr@localhost/gafaelfawr",
+    )
+
+    os.environ["GAFAELFAWR_DATABASE_PASSWORD"] = "some-password"
+    config_dependency.set_settings_path(str(settings_path))
+    config = config_dependency()
+    del os.environ["GAFAELFAWR_DATABASE_PASSWORD"]
+
+    expected = "postgresql://gafaelfawr:some-password@localhost/gafaelfawr"
+    assert config.database_url == expected
