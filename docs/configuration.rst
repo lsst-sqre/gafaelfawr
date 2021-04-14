@@ -1,253 +1,454 @@
-######################
-Configuration settings
-######################
+##################
+Installation guide
+##################
 
-Gafaelfawr uses `pydantic`_ for configuration, so configuration settings can be provided in a large number of ways.
-The recommended approach is to use a YAML file.
-By default, the file ``/etc/gafaelfawr/gafaelfawr.yaml`` is loaded as configuration settings.
-This path can be overridden via the ``--settings`` option to the ``gafaelfawr run`` command.
+Gafaelfawr was written to run inside a Kubernetes environment.
+While there is nothing intrinsic in Gafaelfawr that would prevent it from working in some other environment, only installation on Kubernetes has been documented or tested.
 
-.. _pydantic: https://pydantic-docs.helpmanual.io/
+Prerequisites
+=============
 
-When configuring Gafaelfawr to run in Kubernetes, consider defining your settings as the value of a ``gafaelfawr.yaml`` key in a config map, and then mounting that config map at ``/etc/gafaelfawr`` in the pod.
+The `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__ must already be configured and working.
+Gafaelfawr only supports that ingress controller.
+Gafaelfawr also expects TLS termination to be done by the ingress controller.
 
-See the `pydantic`_ documentation for more details, including how to override specific settings with environment variables.
+A PostgreSQL database is required but not provided by the Helm chart.
+You must provision this database and configure it as described below.
+Google Cloud SQL (including the Google Cloud SQL Auth Proxy) is supported.
 
-.. _settings:
+Redis is also required for storage, but the Gafaelfawr Helm chart will configure and deploy a private Redis server for this purpose.
+However, you will need to configure persistent storage for that Redis server for any non-test deployment, which means that the Kubernetes cluster must provide persistent storage.
 
-Settings
-========
+Gafaelfawr requires use of Vault_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets as Kubernetes secrets.
 
-Some settings are nested, in which case the parent setting takes a dict value.
-The description of that setting will specify whether there is a fixed set of child keys for related settings, or a more general collection of key/value pairs.
+.. _Vault: https://vaultproject.io/
+.. _Vault Secrets Operator: https://github.com/ricoberger/vault-secrets-operator
 
-Most secrets are given in the form of a file path.
-The secret is the contents of the file.
-Any leading or trailing whitespace in the file will be removed.
-Secrets beginning or ending in whitespace are not supported.
+Client configuration
+====================
 
-Environment variables
+.. _github-config:
+
+GitHub
+------
+
+If you will be using GitHub as the authentication provider, you will need to create a GitHub OAuth app for Gafaelfawr and obtain a client ID and secret.
+To get these values, go to Settings → Developer Settings for either a GitHub user or an organization, go into OAuth Apps, and create a new application.
+The callback URL should be the ``/login`` route under the hostname you will use for your Gafaelfawr deployment.
+
+.. _cilogon-config:
+
+CILogon
+-------
+
+If you will use CILogon as the authentication provider, you will need to register with CILogon to get a client ID and secret.
+
+1. Go to the `registration page <https://cilogon.org/oauth2/register>`__.
+2. Enter the client name.
+   For Rubin Observatory deployments, include "Rubin Observatory LSP" in the name.
+3. Enter the contact email.
+   You will be notified at this email when the client is registered.
+4. Enter the top page of the LSP deployment as the home URL.
+   For example: ``https://lsp-instance.example.com``
+5. Enter the ``/login`` route as the callback URL.
+   For example: ``https://lsp-instance.example.com/login``
+6. Leave the public client box unchecked.
+7. Select the following scopes:
+   - email
+   - org.cilogin.userinfo
+   - profile
+   You will need some additional custom configuration, but you will have to request that via email since it isn't available on the registration page.
+8. Enter one day (86400 seconds) as the refresh token lifetime.
+
+Submit that information.
+You will get a client ID and secret.
+This will not work immediately; you will need to wait for the CILogon team to register the client.
+
+After you have gotten email confirming that your client has been registered, reply to that email and request that the client configuration be copied from the client ``cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75``.
+This will add the scope that releases group and UID information from LDAP.
+
+.. _vault-secrets:
+
+Vault secrets
+=============
+
+The standard Helm chart for Gafaelfawr (described below) assumes that you will use `Vault`_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets in Kubernetes.
+If you are using it, create a Vault secret with the following keys:
+
+``bootstrap-token``
+    A Gafaelfawr token created with ``gafaelfawr generate-token``.
+    Used to create service tokens, initialize admins, and do other privileged operations.
+    See :ref:`bootstrapping` for more information.
+
+``cilogon-client-secret``
+    The CILogon secret, obtained during client registration as described above.
+    This is not required if you are using GitHub authentication.
+
+``database-password``
+    The password to use for the PostgreSQL database.
+    This should be set to a long, randomly-generated alphanumeric string.
+
+``github-client-secret``
+    The GitHub secret, obtained when creating the OAuth App as described above.
+    This is not required if you are using CILogin authentication.
+
+``influxdb-secret`` (optional)
+    The shared secret to use for issuing InfluxDB tokens.
+    See :ref:`influxdb` for more information.
+    You can omit this if you don't need InfluxDB token support.
+
+``oidc-server-secrets`` (optional)
+    Only used if the Helm chart parameter ``oidcServer.enabled`` is set to true.
+    The JSON representation of the OpenID Connect clients.
+    Must be a JSON list of objects, each of which must have ``id`` and ``secret`` keys corresponding to the ``client_id`` and ``client_secret`` parameters sent by OpenID Connect clients.
+    See :ref:`openid-connect` for more information.
+
+``redis-password``
+    The password to use for Redis authentication.
+    This should be set to a long, randomly-generated alphanumeric string.
+
+``session-secret``
+    Encryption key for the Gafaelfawr session cookie.
+    Generate with :py:meth:`cryptography.fernet.Fernet.generate_key`.
+
+``signing-key``
+    The PEM-encoded RSA private key used to sign internally-issued JWTs.
+    Generate with ``gafaelfawr generate-key``.
+
+You will reference the path to this secret in Vault when configuring the Helm chart later.
+
+.. _helm-settings:
+
+Helm deployment
+===============
+
+The supported way of deploying Gafaelfawr is to use the Helm chart in the `Rubin Observatory charts repository <https://lsst-sqre.github.io/charts/>`__.
+The Helm chart only supports GitHub or CILogon as identity providers.
+
+To use that chart, you will need to provide a ``values.yaml`` file or otherwise set various Helm values.
+Below are the most-commonly-used settings.
+For a complete reference, see `the Helm chart documentation <https://github.com/lsst-sqre/charts/tree/master/charts/gafaelfawr>`__.
+
+For examples, see `the configuration for the LSST Science Platform deployments <https://github.com/lsst-sqre/lsp-deploy/blob/master/services/gafaelfawr>`__.
+
+.. _basic-settings:
+
+Basic settings
+--------------
+
+Set the path in Vault where the Gafaelfawr secret is stored:
+
+.. code-block:: yaml
+
+   vaultSecretsPath: "secret/path/in/vault"
+
+Set the URL to the PostgreSQL database that Gafaelfawr will use:
+
+.. code-block:: yaml
+
+   config:
+     databaseUrl: "postgresql://gafaelfawr@example.com/gafaelfawr"
+
+Do not include the password in the URL; instead, put the password in the ``database-password`` key in the Vault secret.
+If you are using Cloud SQL with the Cloud SQL Auth Proxy (see :ref:`cloudsql`), use ``localhost`` for the hostname portion.
+
+Set the hostname that Gafaelfawr will be protecting:
+
+.. code-block:: yaml
+
+   config:
+     host: "hostname.example.com"
+   ingress:
+     host: "hostname.example.com"
+
+You can omit ``ingress.host`` if you aren't using named virtual hosts and want all routes to be registered for ``*``.
+The ``/auth``, ``/login``, ``/logout``, ``/oauth2/callback``, and ``/.well-known/jwks.json`` routes will be claimed under this host (or under ``*`` if it is not given) by the Gafaelfawr ingress configuration.
+If ``config.oidcServer.enabled`` is set to true, the ``/.well-known/openid-configuration`` route will also be claimed.
+
+If you need to configure TLS options or annotations for the ingress, use ``ingress.annotations`` and ``ingress.tls``.
+The syntax is the same as the ``metadata.annotations`` and ``spec.tls`` attributes of a Kubernetes ``Ingress`` resource.
+
+Finally, you may want to define the initial set of administrators:
+
+.. code-block:: yaml
+
+   config:
+     initialAdmins:
+       - "username"
+       - "otheruser"
+
+This makes the users ``username`` and ``otheruser`` (as authenticated by the upstream authentication provider configured below) admins, meaning that they can create, delete, and modify any authentication tokens.
+This value is only used when initializing a new Gafaelfawr database that does not contain any admins.
+Setting this is optional; you can instead use the bootstrap token (see :ref:`bootstrapping`) to perform any administrative actions through the API.
+
+.. _providers:
+
+Authentication provider
+-----------------------
+
+Configure either GitHub or CILogon as the upstream provider.
+For GitHub:
+
+.. code-block:: yaml
+
+   config:
+     github:
+       clientId: "<github-client-id>"
+
+using the GitHub client ID from :ref:`github-config`.
+
+For CILogon:
+
+.. code-block:: yaml
+
+   config:
+     cilogon:
+       clientId: "<cilogon-client-id>"
+
+using the CILogon client ID from :ref:`cilogon-config`.
+
+CILogon has some additional options under ``config.cilogon`` that you may want to set:
+
+``config.cilogon.redirectUrl``
+    The full redirect URL for CILogon if using CILogon as the identity provider.
+    Set this if you need to change the redirect URL to the ``/oauth2/callback`` route instead of the ``/login`` route.
+
+``config.cilogon.loginParams``
+    A mapping of additional parameters to send to the CILogon authorize route.
+    Can be used to set parameters like ``skin`` or ``selected_idp``.
+    See the `CILogon OIDC documentation <https://www.cilogon.org/oidc>`__ for more information.
+
+.. _scopes:
+
+Scopes
+------
+
+Gafaelfawr takes group information from the upstream authentication provider and maps it to scopes.
+Scopes are then used to restrict access to protected applications (see :ref:`protect-service`).
+
+The list of scopes is configured via ``config.knownScopes``, which is an object mapping scope names to human-readable descriptions.
+Every scope that you want to use must be listed in ``config.knownScopes``.
+The default includes:
+
+.. code-block:: yaml
+
+   config:
+     knownScopes:
+       "admin:token": "Can create and modify tokens for any user"
+       "user:token": "Can create and modify user tokens"
+
+which are used internally by Gafaelfawr, plus the scopes that are used by the Rubin Science Platform.
+You can add additional scopes by adding more key/value pairs to the ``config.knownScopes`` object in ``values.yaml``.
+
+Once the scopes are configured, you will need to set up a mapping from groups to scope names.
+
+When GitHub is used as the provider, group membership will be synthesized from GitHub team membership.
+See :ref:`github-groups` for more information.
+A setting for GitHub might look something like this:
+
+.. code-block:: yaml
+
+   config:
+     groupMapping:
+       "exec:admin":
+         - "lsst-sqre-square"
+       "exec:notebook":
+         - "lsst-sqre-square"
+         - "lsst-sqre-friends"
+       "exec:portal":
+         - "lsst-sqre-square"
+         - "lsst-sqre-friends"
+       "exec:user":
+         - "lsst-sqre-square"
+         - "lsst-sqre-friends"
+       "read:tap":
+         - "lsst-sqre-square"
+         - "lsst-sqre-friends"
+
+This uses groups generated from teams in the GitHub ``lsst-sqre`` organization.
+
+When an OpenID Connect provider such as CILogon is used as the provider, group membership will be taken from the ``isMemberOf`` claim of the token returned by the provider.
+The value of this claim will be all scopes for which the user is a member (according to the ``isMemberOf`` claim) of at least one of the corresponding groups.
+For example, given a configuration like:
+
+.. code-block:: yaml
+
+   config:
+     groupMapping:
+       "admin": ["foo", "bar"]
+
+and a token claim of:
+
+.. code-block:: json
+
+   {"isMemberOf": [{"name": "other"}, {"name": "bar"}]}
+
+a ``scope`` claim of ``admin`` will be added to a reissued token.
+
+Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
+The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
+
+Redis storage
+-------------
+
+For any Gafaelfawr deployment other than a test instance, you will want to configure persistent storage for Redis.
+Otherwise, each upgrade of Gafaelfawr's Redis component will invalidate all of the tokens.
+
+By default, the Gafaelfawr Helm chart uses auto-provisioning to create a ``PersistentVolumeClaim`` with the default storage class, requesting 1GiB of storage with the ``ReadWriteOnce`` access mode.
+If this is suitable for your deployment, you can leave the configuration as is.
+Otherwise, you can adjust the size (you probably won't need to make it larger; Gafaelfawr's storage needs are modest), storage class, or access mode by setting ``redis.persistence.size``, ``redis.persistence.storageClass``, and ``redis.persistence.accessMode``.
+
+If you instead want to manage the persistent volume directly rather than using auto-provisioning, use a configuration such as:
+
+.. code-block:: yaml
+
+   redis:
+     persistence:
+       volumeClaimName: "gafaelfawr-pvc"
+
+to point to an existing ``PersistentVolumeClaim``.
+You can then create that ``PersistentVolumeClaim`` and its associated ``PersistentVolume`` via any mechanism you choose, and the volume pointed to by that claim will be mounted as the Redis volume.
+Gafaelfawr uses the standard Redis Docker image, so the volume must be writable by UID 999, GID 999 (which the ``StatefulSet`` will attempt to ensure using the Kubernetes ``fsGroup`` setting).
+
+Finally, if you do have a test installation where you don't mind invalidating all tokens whenever Redis is restarted, you can use:
+
+.. code-block:: yaml
+
+   redis:
+     persistence:
+       enabled: false
+
+This will use an ephemeral ``emptyDir`` volume for Redis storage.
+
+.. _cloudsql:
+
+Cloud SQL
+---------
+
+If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL database, Gafaelfawr supports using the Cloud SQL Auth Proxy via Workload Identity.
+
+First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
+You do not need to create the Kubernetes service account; two service accounts will be created by the Gafaelfawr Helm chart.
+The default names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-tokens``, both in the ``gafaelfawr`` namespace.
+These names can be overridden with the ``serviceAccount.name`` and ``tokens.serviceAccount.name`` Helm values.
+
+Then, once you have the name of the Google service account for the Cloud SQL Auth Proxy (created in the above instructions), enable the Cloud SQL Auth Proxy sidecar in the Gafaelfawr Helm chart.
+An example configuration:
+
+.. code-block:: yaml
+
+   cloudsql:
+     enabled: true
+     instanceConnectionName: "dev-7696:us-central1:dev-e9e11de2"
+     serviceAccount: "gafaelfawr@dev-7696.iam.gserviceaccount.com"
+
+Replace ``instanceConnectionName`` and ``serviceAccount`` with the values for your environment.
+You will still need to set ``config.databaseUrl`` and the ``database-password`` key in the Vault secret with appropriate values, but use ``localhost`` for the hostname in ``config.databaseUrl``.
+
+As mentioned in the Google documentation, the Cloud SQL Auth Proxy does not support IAM authentication to the database, only password authentication, and IAM authentication is not recommended for connection pools for long-lived processes.
+Gafaelfawr therefore doesn't support IAM authentication to the database.
+
+.. _helm-tokens:
+
+Kubernetes secret management
+----------------------------
+
+Gafaelfawr has the ability to maintain service tokens in Kubernetes secrets that can then be used by other applications.
+The details of how this works are documented in :ref:`kubernetes-service-secrets`.
+
+This is configured in the Helm chart via the ``tokens.secrets`` key, whose value is a list of secrets to maintain.
+Each secret is an object with the following keys:
+
+``secretName``
+    The name of the secret.
+
+``secretNamespace``
+    The namespace in which to put the secret.
+
+``service``
+    The name of the service for which to create a token.
+
+``scopes`` (optional)
+    A list of scopes the token should have.
+    If not provided, the token will have no scopes.
+
+If ``token.secrets`` is set, the Helm chart will create a ``CronJob`` Kubernetes resource that maintains those secrets.
+By default, it runs every 15 minutes.
+
+.. _helm-proxies:
+
+Logging and proxies
+-------------------
+
+The default logging level of Gafaelfawr is ``INFO``, which will log a message for every action it takes.
+To change this, set ``config.loglevel``:
+
+.. code-block:: yaml
+
+   config:
+     loglevel: "WARNING"
+
+Valid values are ``DEBUG`` (to increase the logging), ``INFO`` (the default), ``WARNING``, or ``ERROR``.
+
+Gafaelfawr is meant to be deployed behind an NGINX proxy server.
+In order to accurately log the IP address of the client, instead of the IP address of the proxy server, it must know what IP ranges correspond to possible proxy servers rather than clients.
+Set this with ``config.proxies``:
+
+.. code-block:: yaml
+
+   config:
+     proxies:
+       - "192.0.2.0/24"
+
+If not set, defaults to the `RFC 1918 private address spaces <https://tools.ietf.org/html/rfc1918>`__.
+See :ref:`client-ips` for more information.
+
+OpenID Connect server
 ---------------------
 
-All top-level settings can be set via environment variables instead of using the configuration file.
-The configuration file will override environment variables, so to set a value with an environment variable, omit it from the configuration file.
-The environment variable name for a setting is the same as the setting name but in all caps and with ``GAFAELFAWR_`` prepended.
+Gafaelfawr can act as an OpenID Connect identity provider for relying parties inside the Kubernetes cluster.
+To enable this, set ``config.oidcServer.enabled`` to true.
+If this is set, ``oidc-server-secrets`` must be set in the Gafaelfawr Vault secret.
+See :ref:`openid-connect` for more information.
 
-Some settings can only be set via environment variables:
+InfluxDB tokens
+---------------
 
-``GAFAELFAWR_UI_PATH``
-    The path to the compiled UI served under ``/auth/tokens``.
-    Gafaelfawr will serve files under this path as static files under the ``/auth/tokens`` route.
-    This should be the contents of the ``ui/public`` directory after running ``make ui``.
-    Normally this is handled automatically as part of the Docker container build and will not need to be changed.
+To enable issuing of InfluxDB tokens, set ``config.issuer.influxdb.enabled``.
+To force all InfluxDB tokens to be issued with the same username, instead of the username requesting the token, set ``config.issuer.influxdb.username``.
+For example:
 
-Configuration file settings
----------------------------
+.. code-block:: yaml
 
-``realm`` (required)
-    The authentication realm indicated in the ``WWW-Authenticate`` header returned as part of a 401 error when a user is not already authenticated.
+   config:
+     issuer:
+       influxdb:
+         enabled: true
+         username: "influxdbuser"
 
-``loglevel`` (optional)
-    The Python log level to use, in string form.
+If this is set, ``influxdb-secret`` must be set in the Vault secret.
+See :ref:`influxdb` for more information.
 
-``session_secret_file`` (required)
-    File containing the secret used to encrypt the Gafaelfawr session cookie and the Redis session storage.
-    Must be a Fernet key generated with :py:meth:`cryptography.fernet.Fernet.generate_key`.
+Administrators
+==============
 
-``redis_url`` (required)
-    URL for a Redis instance that will be used to store authentication sessions and user-issued tokens.
+Gafaelfawr has a concept of token administrators.
+Those users can add and remove other administrators and can create a service or user token for any user.
+Currently, this capability is only available via the API, not the UI.
 
-``redis_password_file`` (optional)
-    File containing the password to use to connect to Redis.
-    If not set, Gafaelfawr will assume that Redis does not require authentication.
+If a username is marked as a token administrator, that user will be automatically granted the ``admin:token`` scope when they authenticate (via either GitHub or OpenID Connect), regardless of their group membership.
+They can then choose whether to delegate that scope to any user tokens they create.
 
-``database_url`` (required)
-    The URL to the SQL database used as a backing store for token information.
+The initial set of administrators can be added with the ``config.initialAdmins`` Helm variable (see :ref:`basic-settings`) or via the bootstrap token.
 
-``database_password`` (optional)
-    The password for the database.
-    This can be provided as part of ``database_url`` or separately.
-    If set, it overrides the password portion of ``database_url``, if any.
+.. _bootstrapping:
 
-    The separate ``database_password`` setting exists primarily to allow the base URL to be set in the configuration file but the secret portion to be set via an environment variable.
-    This allows the configuration file to come from a Kubernetes ``ConfigMap`` but the password to come from a ``Secret``.
+Bootstrapping
+-------------
 
-``bootstrap_token`` (optional)
-    If set, must be set to a Gafaelfawr token (such as that created with ``gafaelfawr generate-token``).
-    This special token will have admin permissions to the ``/auth/api/v1/admins`` routes and to ``/auth/api/v1/tokens`` to create service and user tokens.
-    This can be used to add administrators or create a service token with ``admin:token`` scope, which in turn can be used to create other service tokens and bootstrap users.
+Gafaelfawr can be configured with a special token, called the bootstrap token.
+This token must be generated with ``gafaelfawr generate-token`` and then stored in the ``bootstrap-token`` key of the Gafaelfawr Vault secret.
+See :ref:`vault-secrets` for more details.
+It can then be used with API calls as a bearer token in the ``Authenticate`` header.
 
-``initial_admins`` (optional)
-    A list of users who should have admin rights after bootstrapping a fresh database.
-    When Gafaelfawr starts, all usernames in this list will be added as admins if they are not already.
-    These users will then automatically receive the ``admin:token`` scope when authenticating and will be able to add and rmeove administrators and create service and user tokens for any user.
-
-``proxies`` (optional)
-    List of IPs or network ranges (in CIDR notation) that should be assumed to be upstream proxies.
-    Gafaelfawr by default uses the last address in an ``X-Forwarded-For`` header, if present, as the IP address of the client for logging purposes.
-    If this configuration option is set, the right-most IP address in ``X-Forwarded-For`` that does not match one of the IPs or network ranges given in this option will be used as the client IP address for logging purposes.
-    If all IP addresses in ``X-Forwarded-For`` match entries in this list, the left-most will be logged as the client IP address.
-    See :ref:`client-ips` for more information.
-
-``after_logout_url`` (required)
-    URL to which to send the user after logout via the ``/logout`` route, if no destination URL was specified with the ``rd`` parameter.
-    Normally this should be set to some top-level landing page for the protected applications.
-
-``issuer`` (required)
-    Configure the JWT issuer.
-
-    ``iss`` (required)
-        The value to use for the ``iss`` claim in issued JWTs.
-        Should support either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
-        Gafaelfawr will provide the ``/.well-known/jwks.json`` route internally.
-
-    ``key_id`` (required)
-        JWT ``kid`` to use when signing tokens.
-
-    ``aud`` (required)
-        Value for the ``aud`` claim in issued JWTs.
-        By convention this should be a URL.
-
-    ``key_file`` (required)
-        File containing the RSA private key (in PEM encoding) to use for signing JWTs.
-
-    ``exp_minutes`` (optional, default 1440)
-        The expiration period of newly-issued JWTs, in minutes.
-        The default is one day.
-
-    ``influxdb_secret_file`` (optional)
-        File containing the shared secret for issuing InfluxDB tokens.
-        If not set, issuance of InfluxDB tokens will be disabled.
-
-    ``influxdb_username`` (optional)
-        If set, force the username in all InfluxDB tokens to this value rather than the authenticated username of the user requesting a token.
-
-``github`` (optional)
-    Configure GitHub authentication.
-    Users who go to the ``/login`` route will be sent to GitHub for authentication, and their token created based on their GitHub user metadata.
-
-    ``client_id`` (required)
-        The GitHub OAuth client ID.
-
-    ``client_secret_file`` (required)
-        File containing the GitHub OAuth client secret.
-
-``kubernetes`` (optional)
-    Configuration for Gafaelfawr's Kubernetes secret management support.
-
-    ``service_secrets``
-        A list of Kubernetes secrets that Gafaelfawr should manage.
-        These secrets will be used to store service tokens.
-        See :ref:`kubernetes-service-secrets` for more information.
-        Each element of the list should have the following keys:
-
-        ``secret_name``
-            The name of the secret.
-
-        ``secret_namespace``
-            The namespace in which to put the secret.
-
-        ``service``
-            The name of the service for which to create a token.
-
-        ``scopes`` (optional)
-            A list of scopes the token should have.
-            If not provided, the token will have no scopes.
-
-``oidc`` (optional)
-    Configure OpenID Connect authentication.
-    Users who go to the ``/login`` route will be sent to an OpenID Connect provider for authentication.
-    Their token will then be reissued based on the token issued by the OpenID Connect provider.
-    This support has only been tested with CILogon.
-
-    ``client_id`` (required)
-        The client ID registered with the OpenID Connect provider.
-
-    ``client_secret_file`` (required)
-        File containing the client secret registered with the OpenID Connect provider, used to retrieve the ID token for the user after authentication.
-
-    ``login_url`` (required)
-        The URL at the OpenID Connect provider to which to send the user to initiate authentication.
-
-    ``login_params`` (optional)
-        Additional parameters, as a dict, to send in the login URL.
-
-    ``redirect_url`` (required)
-        The URL to which the OpenID Connect provider should send the user after successful authentication.
-        This must be the full URL of the ``/login`` route of Gafaelfawr.
-
-    ``token_url`` (required)
-        The URL at the OpenID Connect provider from which to request an ID token after authentication.
-
-    ``scopes`` (optional)
-        Scopes to request from the OpenID Connect provider.  The ``openid`` scope will be added automatically and does not need to be specified.
-
-    ``issuer`` (required)
-        The ``iss`` claim value for JWTs signed by the OpenID Connect provider.
-        Must support either the ``/.well-known/openid-configuration`` or ``/.well-known/jwks.json`` routes to get public key information.
-
-    ``audience`` (required)
-        The ``aud`` claim value for JWTs signed by the OpenID Connect provider.
-
-    ``key_ids`` (optional)
-        Supported ``kid`` values for this issuer.
-        If given, only JWTs signed by one of the ``kid`` values listed in this configuration key will be verified and all others will be rejected.
-        If omitted, any ``kid`` value matching a key that can be retrieved from the OpenID Connect provider's JWKS URL will be accepted.
-
-``oidc_server_secrets_file`` (optional)
-    File defining the clients allowed to use Gafaelfawr as an OpenID Connect server.
-    The contents of this file must be a list of objects in JSON format.
-    Each object in the list must have two keys: ``id`` and ``secret``.
-    ``id`` is the value sent by an OpenID Connect client as the ``client_id``.
-    ``secret`` is the corresponding ``client_secret`` value for that client.
-    See :ref:`openid-connect` for more details.
-
-``known_scopes`` (required)
-    A dict whose keys are known scope names and whose values are human-language descriptions of that scope.
-    Only scopes listed here will be permitted in tokens, so every scope referenced in ``group_mapping`` must also be present in this setting.
-    The ``admin:token`` and ``user:token`` scopes are used internally by Gafaelfawr and must be included.
-
-``group_mapping`` (optional)
-    A dict whose keys are names of scopes and whose values are lists of names of groups (as found in the ``name`` attribute of the values of an ``isMemberOf`` claim in a JWT).
-    When a JWT from an external issuer is reissued with the native JWT issuer, a ``scope`` claim will be added.
-    The value of this claim will be all scopes for which the user is a member (according to the ``isMemberOf`` claim) of at least one of the corresponding groups.
-    For example, given a configuration like:
-
-    .. code-block:: yaml
-
-       group_mapping:
-           "admin": ["foo", "bar"]
-
-    and a token claim of:
-
-    .. code-block:: json
-
-       {"isMemberOf": [{"name": "other"}, {"name": "bar"}]}
-
-    a ``scope`` claim of ``admin`` will be added to a reissued token.
-
-    This setting will also be used for authorization checking in the ``/auth`` route.
-    Any scope claims constructed from the group membership will be added to a ``scope`` claim present in the JWT before checking if the user has an appropriate scope to be allowed access to the underlying route.
-
-    If GitHub authentication is in use, a user's groups will be based on their GitHub team memberships.
-    See :ref:`github-groups` for more information.
-
-    The ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
-    The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr, regardless of the ``group_mapping`` setting.
-
-``username_claim`` (optional, default ``uid``)
-    The token claim to use as the authenticated user's username.
-
-``uid_claim`` (optional, defualt ``uidNumber``)
-    The token claim to use as the authenticated user's UID.
-
-Examples
-========
-
-See `gafaelfawr-github.yaml <https://github.com/lsst-sqre/gafaelfawr/blob/master/examples/gafaelfawr-github.yaml>`__ and `gafaelfawr-oidc.yaml <https://github.com/lsst-sqre/gafaelfawr/blob/master/examples/gafaelfawr-oidc.yaml>`__ for example configuration files.
-The first configures GitHub authentication.
-The second OpenID Connect.
-
-See `gafaelfawr-dev.yaml <https://github.com/lsst-sqre/gafaelfawr/blob/master/examples/gafaelfawr-dev.yaml>`__ for a configuration file designed for a development server running on localhost.
-**WARNING**: Do not use this configuration for anything other than a local development server.
-It contains published secrets available to anyone on the Internet.
+The bootstrap token acts like the token of a service or user with the ``admin:token`` scope, but can only access specific routes, namely ``/auth/api/v1/tokens`` and those under ``/auth/api/v1/admins``.

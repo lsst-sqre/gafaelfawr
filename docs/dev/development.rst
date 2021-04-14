@@ -90,7 +90,7 @@ To see a listing of test environments, run:
 
    tox -av
 
-.. _dev-build-docs:
+.. _dev-server:
 
 Starting a development server
 =============================

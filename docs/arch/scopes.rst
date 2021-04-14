@@ -11,8 +11,8 @@ Protected applications indicate which scopes are required to access that applica
 When users create their own tokens, they can choose which scopes to delegate to the user token to restrict its power.
 
 Scopes are derived from the user's group membership as determined by their OpenID Connect claims (if OpenID Connect authentication is used) or their GitHub team memberships (if GitHub authentication is used).
-This is controlled by the ``group_mappings`` configuration setting.
-See :ref:`settings` for more information.
+This is controlled by the ``config.groupMappings`` Helm chart value.
+See :ref:`scopes` for more information.
 
 The list of supported scopes and their human-readable descriptions are configured in the ``known_scopes`` configuration setting.
 The human-readable descriptions are used in the UI.

@@ -61,7 +61,7 @@ default_role = "py:obj"
 # Intersphinx ================================================================
 
 intersphinx_mapping = {
-    "aioredis": ("https://aioredis.readthedocs.io/en/latest/", None),
+    "aioredis": ("https://aioredis.readthedocs.io/en/stable/", None),
     "cryptography": ("https://cryptography.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),

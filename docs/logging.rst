@@ -85,7 +85,7 @@ Since Gafaelfawr always expects to be running behind a proxy server, the IP addr
 Making this work properly requires some additional configuration:
 
 #. Set the ``proxies`` configuration setting to the list of networks used for the NGINX ingress and any other proxies.
-   See :ref:`settings`.
+   See :ref:`helm-proxies`.
 
 #. Configure the NGINX ingress to generate full, chained ``X-Forwarded-For`` headers.
    Do this by adding:

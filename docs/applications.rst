@@ -2,6 +2,8 @@
 Application configuration
 #########################
 
+.. _protect-service:
+
 Protecting a service
 ====================
 
@@ -112,8 +114,8 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     The scope claim that the client JWT must have.
     May be given multiple times.
     If given multiple times, the meaning is govered by the ``satisfy`` parameter.
-    Scopes are determined by mapping the group membership provided by the authentication provider, using the ``group_mapping`` configuration directive.
-    See :ref:`settings` for more information.
+    Scopes are determined by mapping the group membership provided by the authentication provider, using the ``config.groupMapping`` Helm chart value.
+    See :ref:`scopes` for more information.
 
 ``satisfy`` (optional)
     How to interpret multiple ``scope`` parameters.
@@ -189,18 +191,18 @@ Service tokens in Kubernetes
 ============================
 
 If an application needs its own service token to make authenticated calls on its own behalf, the recommended way to create such tokens is with Gafaelfawr's Kubernetes secret support.
-Add a list of Kubernetes secrets to create in the ``kubernetes`` configuration setting (see :ref:`helm-settings`).
+Add a list of Kubernetes secrets to create in the ``tokens.secrets`` configuration setting (see :ref:`helm-tokens`).
 For example:
 
 .. code-block:: yaml
 
-   kubernetes:
-     service_secrets:
-       - secret_name: gafaelfawr-secret
-         secret_namespace: some-application
+   tokens:
+     secrets:
+       - secretName: gafaelfawr-secret
+         secretNamespace: some-application
          service: some-application
          scopes:
-           - read:all
+           - "read:all"
 
 This requests that Gafaelfawr create a secret named ``gafaelfawr-secret`` in the ``some-application`` namespace containing a token for ``some-application`` with a scope of ``read:all``.
 Gafaelfawr will process this configuration hourly (via a Kubernetes ``CronJob``) and create any missing secrets, update any secrets that are not valid, and delete any secrets it previously created but which are no longer listed in the configuration.

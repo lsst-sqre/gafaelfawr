@@ -23,9 +23,8 @@ Installation
 .. toctree::
    :maxdepth: 2
 
-   install
-   applications
    configuration
+   applications
    logging
    cli
    glossary
@@ -45,6 +44,7 @@ Architecture
    :maxdepth: 2
 
    arch/overview
+   arch/configuration
    arch/flow
    arch/routes
    arch/providers
