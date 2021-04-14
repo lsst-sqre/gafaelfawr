@@ -17,10 +17,19 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
-from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
+from typing import Dict, FrozenSet, List, Mapping, Optional, Tuple
+from urllib.parse import urlparse
 
 import yaml
-from pydantic import AnyHttpUrl, BaseModel, IPvAnyNetwork, validator
+from pydantic import (
+    AnyHttpUrl,
+    BaseModel,
+    BaseSettings,
+    IPvAnyNetwork,
+    SecretStr,
+    validator,
+)
+from pydantic.env_settings import SettingsSourceCallable
 from safir.logging import configure_logging
 
 from gafaelfawr.constants import SCOPE_REGEX, USERNAME_REGEX
@@ -154,7 +163,7 @@ class KubernetesSettings(BaseModel):
     """
 
 
-class Settings(BaseModel):
+class Settings(BaseSettings):
     """pydantic model of Gafaelfawr settings file.
 
     This describes the settings file as parsed from disk.  This model will be
@@ -218,6 +227,9 @@ class Settings(BaseModel):
     database_url: str
     """URL for the PostgreSQL database."""
 
+    database_password: Optional[SecretStr] = None
+    """Password for the PostgreSQL database."""
+
     initial_admins: List[str]
     """Initial token administrators to configure when initializing database."""
 
@@ -241,6 +253,23 @@ class Settings(BaseModel):
 
     class Config:
         env_prefix = "GAFAELFAWR_"
+
+        @classmethod
+        def customise_sources(
+            cls,
+            init_settings: SettingsSourceCallable,
+            env_settings: SettingsSourceCallable,
+            file_secret_settings: SettingsSourceCallable,
+        ) -> Tuple[SettingsSourceCallable, ...]:
+            """Allow environment variables to override init settings.
+
+            Normally, pydantic prefers parameters passed via its ``__init__``
+            method to environment variables.  However, in our case, those
+            parameters come from a parsed YAML file, and we want environment
+            variables to override that file.  This hook reverses the order of
+            precedence so that environment variables are first.
+            """
+            return env_settings, init_settings, file_secret_settings
 
     @validator("initial_admins", each_item=True)
     def _validate_initial_admins(cls, v: str) -> str:
@@ -568,15 +597,13 @@ class Config:
     """Configuration for the Safir middleware."""
 
     @classmethod
-    def from_file(cls, path: str, **overrides: Any) -> Config:
+    def from_file(cls, path: str) -> Config:
         """Construct a Config object from a settings file.
 
         Parameters
         ----------
         path : `str`
             Path to the settings file in YAML.
-        **overrides : `typing.Any`
-            Settings that override settings read from the configuration file.
 
         Returns
         -------
@@ -585,7 +612,6 @@ class Config:
         """
         with open(path, "r") as f:
             raw_settings = yaml.safe_load(f)
-        raw_settings.update(overrides)
         settings = Settings.parse_obj(raw_settings)
 
         # Load the secrets from disk.
@@ -606,6 +632,18 @@ class Config:
         if settings.oidc:
             path = settings.oidc.client_secret_file
             oidc_secret = cls._load_secret(path).decode()
+
+        # The database URL may have a separate secret in database_password, in
+        # which case it needs to be added to the URL.
+        database_url = settings.database_url
+        if settings.database_password:
+            parsed_url = urlparse(database_url)
+            database_password = settings.database_password.get_secret_value()
+            database_netloc = (
+                f"{parsed_url.username}:{database_password}"
+                f"@{parsed_url.hostname}"
+            )
+            database_url = parsed_url._replace(netloc=database_netloc).geturl()
 
         # If there is an OpenID Connect server configuration, load it from a
         # file in JSON format.  (It contains secrets.)
@@ -702,7 +740,7 @@ class Config:
             oidc=oidc_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
-            database_url=settings.database_url,
+            database_url=database_url,
             initial_admins=tuple(settings.initial_admins),
             token_lifetime=timedelta(minutes=settings.issuer.exp_minutes),
             kubernetes=kubernetes_config,
