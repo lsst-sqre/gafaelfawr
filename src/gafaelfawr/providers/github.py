@@ -186,6 +186,7 @@ class GitHubProvider(Provider):
         return TokenUserInfo(
             username=user_info.username.lower(),
             name=user_info.name,
+            email=user_info.email,
             uid=user_info.uid,
             groups=groups,
         )

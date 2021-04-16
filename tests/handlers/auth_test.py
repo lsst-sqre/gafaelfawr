@@ -9,7 +9,7 @@ from unittest.mock import ANY
 import pytest
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
-from gafaelfawr.models.token import Token
+from gafaelfawr.models.token import Token, TokenUserInfo
 from tests.support.headers import parse_www_authenticate
 
 if TYPE_CHECKING:
@@ -221,8 +221,34 @@ async def test_success(setup: SetupTest) -> None:
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == token_data.username
+    assert r.headers["X-Auth-Request-Name"] == token_data.name
+    assert r.headers["X-Auth-Request-Email"] == token_data.email
     assert r.headers["X-Auth-Request-Uid"] == str(token_data.uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"
+
+
+@pytest.mark.asyncio
+async def test_success_minimal(setup: SetupTest) -> None:
+    user_info = TokenUserInfo(username="user", uid=1234)
+    token_service = setup.factory.create_token_service()
+    token = await token_service.create_session_token(
+        user_info, scopes=["read:all"], ip_address="127.0.0.1"
+    )
+
+    r = await setup.client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
+    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
+    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
+    assert r.headers["X-Auth-Request-User"] == "user"
+    assert r.headers["X-Auth-Request-Uid"] == "1234"
+    assert "X-Auth-Request-Name" not in r.headers
+    assert "X-Auth-Request-Email" not in r.headers
+    assert "X-Auth-Request-Groups" not in r.headers
 
 
 @pytest.mark.asyncio

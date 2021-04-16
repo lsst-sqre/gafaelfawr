@@ -224,17 +224,18 @@ async def get_auth(
 
     X-Auth-Request-Client-Ip
         The IP address of the client, as determined after parsing
-        X-Forwarded-For headers.
+        ``X-Forwarded-For`` headers.
+    X-Auth-Request-Name
+        The full name of the authenticated user, if known.
+    X-Auth-Request-Email
+        The email address of the authenticated user, if known.
     X-Auth-Request-User
-        If enabled and the field is available, this will be set from token
-        based on the ``JWT_USERNAME_KEY`` field.
+        The username of the authenticated user.
     X-Auth-Request-Uid
-        If enabled and the field is available, this will be set from token
-        based on the ``JWT_UID_KEY`` field.
+        The numeric UID of the authenticated user.
     X-Auth-Request-Groups
-        When a token has groups available in the ``isMemberOf`` claim, the
-        names of the groups will be returned, comma-separated, in this
-        header.
+        The names of the groups of the authenticated user, comma-separated, if
+        any.
     X-Auth-Request-Token
         If requested by ``notebook`` or ``delegate_to``, will be set to the
         delegated token.
@@ -356,6 +357,10 @@ async def build_success_headers(
         "X-Auth-Request-Token-Scopes": " ".join(sorted(token_data.scopes)),
         "X-Auth-Request-User": token_data.username,
     }
+    if token_data.name:
+        headers["X-Auth-Request-Name"] = token_data.name
+    if token_data.email:
+        headers["X-Auth-Request-Email"] = token_data.email
     if token_data.uid:
         headers["X-Auth-Request-Uid"] = str(token_data.uid)
     if token_data.groups:

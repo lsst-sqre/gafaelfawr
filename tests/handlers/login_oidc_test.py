@@ -18,7 +18,9 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(groups=["admin"])
+    token = setup.create_upstream_oidc_token(
+        groups=["admin"], name="Some Person", email="person@example.com"
+    )
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     assert setup.config.oidc
@@ -94,6 +96,8 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == token.username
+    assert r.headers["X-Auth-Request-Name"] == "Some Person"
+    assert r.headers["X-Auth-Request-Email"] == "person@example.com"
     assert r.headers["X-Auth-Request-Uid"] == str(token.uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"
 

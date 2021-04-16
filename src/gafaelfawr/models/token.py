@@ -257,6 +257,13 @@ class TokenUserInfo(BaseModel):
         min_length=1,
     )
 
+    email: Optional[str] = Field(
+        None,
+        title="Email address",
+        example="alice@example.com",
+        min_length=1,
+    )
+
     uid: Optional[int] = Field(None, title="UID number", example=4123, ge=1)
 
     groups: Optional[List[TokenGroup]] = Field(
@@ -381,6 +388,13 @@ class AdminTokenRequest(BaseModel):
 
     name: Optional[str] = Field(
         None, title="Preferred full name", example="Service User", min_length=1
+    )
+
+    email: Optional[str] = Field(
+        None,
+        title="Email address",
+        example="service@example.com",
+        min_length=1,
     )
 
     uid: Optional[int] = Field(None, title="UID number", example=4131, ge=1)

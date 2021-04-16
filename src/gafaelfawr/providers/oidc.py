@@ -169,6 +169,7 @@ class OIDCProvider(Provider):
         return TokenUserInfo(
             username=token.username,
             name=token.claims.get("name"),
+            email=token.claims.get("email"),
             uid=token.uid,
             groups=groups,
         )

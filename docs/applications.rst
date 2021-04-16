@@ -159,11 +159,17 @@ The value of that annotation is a comma-separated list of desired headers.
 ``X-Auth-Request-User``
     The username of the authenticated user.
 
+``X-Auth-Request-Name``
+    The name of the authenticated user, if available.
+
+``X-Auth-Request-Email``
+    The email address of the authenticated user, if available.
+
 ``X-Auth-Request-Uid``
     The numeric UID of the authenticated user if the user has one.
 
 ``X-Auth-Request-Groups``
-    If the token lists groups in an ``isMemberOf`` claim, the names of the groups will be returned, comma-separated, in this header.
+    The names of groups of the authenticated user, comma-separated, if any.
 
 ``X-Auth-Request-Token``
     If a notebook or internal token was requested, it will be provided as the value of this header.

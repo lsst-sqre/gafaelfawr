@@ -208,6 +208,7 @@ class TokenService:
             created=created,
             expires=expires,
             name=auth_data.name,
+            email=auth_data.email,
             uid=auth_data.uid,
             groups=auth_data.groups,
         )
@@ -284,6 +285,7 @@ class TokenService:
             created=created,
             expires=request.expires,
             name=request.name,
+            email=request.email,
             uid=request.uid,
             groups=request.groups,
         )
@@ -531,6 +533,7 @@ class TokenService:
             created=created,
             expires=expires,
             name=token_data.name,
+            email=token_data.email,
             uid=token_data.uid,
             groups=token_data.groups,
         )
@@ -626,6 +629,7 @@ class TokenService:
             created=created,
             expires=expires,
             name=token_data.name,
+            email=token_data.email,
             uid=token_data.uid,
             groups=token_data.groups,
         )
@@ -703,6 +707,7 @@ class TokenService:
             username=data.username,
             name=data.name,
             uid=data.uid,
+            email=data.email,
             groups=data.groups,
         )
 

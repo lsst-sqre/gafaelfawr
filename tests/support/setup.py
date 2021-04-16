@@ -242,7 +242,11 @@ class SetupTest:
         else:
             groups = []
         user_info = TokenUserInfo(
-            username=username, name="Some User", uid=1000, groups=groups
+            username=username,
+            name="Some User",
+            email="someuser@example.com",
+            uid=1000,
+            groups=groups,
         )
         if not scopes:
             scopes = ["user:token"]
