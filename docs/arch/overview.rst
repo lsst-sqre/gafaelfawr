@@ -2,7 +2,7 @@
 Overview
 ########
 
-Gafaelfawr is deployed as an auth subrequest handler for a Kubernetes cluster that uses an nginx ingress.
+Gafaelfawr is deployed as an auth subrequest handler for a Kubernetes cluster that uses an NGINX ingress.
 
 .. figure:: /_static/architecture.png
    :name: Gafaelfawr deployment architecture
@@ -21,4 +21,4 @@ It may not work with other applications without additional changes.
 
 .. _Chronograf: https://docs.influxdata.com/chronograf/v1.8/administration/managing-security/
 
-Gafaelfawr also deploys some additional Kubernetes ``CronJob`` resources to run periodic background tasks.
+Gafaelfawr can also deploy a Kubernetes ``CronJob`` resource to maintain service tokens in Kubernetes secrets for the use of other applications deployed in the same cluster.

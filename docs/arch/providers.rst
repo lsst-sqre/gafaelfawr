@@ -3,8 +3,8 @@ Authentication providers
 ########################
 
 Gafaelfawr supports two choices of authentication provider: GitHub and OpenID Connect.
-The authentication provider is chosen based on whether the ``github`` or ``oidc`` settings are present.
-See :ref:`settings` for more information.
+The authentication provider is chosen based on whether the ``config.github.clientId`` or ``config.cilogon.clientId`` settings are present.
+See :ref:`providers` for more information.
 
 Gafaelfawr uses the authentication provider to determine the numeric UID of the user.
 Be aware that changing from one authentication provider to another will likely result in UID changes for all users.
@@ -27,8 +27,8 @@ When configured to use an OpenID Connect provider, Gafaelfawr obtains the ID tok
 - UID is taken from the claim identified by the ``uid_claim`` setting and is converted to a number.
 - Name is taken from the ``name`` claim.
 - Groups are taken from the ``isMemberOf`` claim if it exists.
-- The scope of the token will be based on the group membership from ``isMemberOf`` and the ``group_mapping`` configuration setting.
-  See :ref:`settings` for more details.
+- The scope of the token will be based on the group membership from ``isMemberOf`` and the ``config.groupMapping`` Helm chart value.
+  See :ref:`scopes` for more details.
 
 Registration with the OpenID Connect provider must be done in advance, outside of Gafaelfawr.
 Refresh tokens are not used.
