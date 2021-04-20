@@ -69,3 +69,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 # image documentation and instead relies on the module search path as
 # modified by the virtualenv.
 ENV MODULE_NAME=gafaelfawr.main
+
+# Run on port 8080 instead of the FastAPI default for backward compatibility.
+ENV PORT=8080
