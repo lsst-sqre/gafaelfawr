@@ -193,7 +193,7 @@ class Settings(BaseSettings):
     redis_password_file: Optional[str] = None
     """File containing the password to use when connecting to Redis."""
 
-    bootstrap_token: Optional[Token] = None
+    bootstrap_token: Optional[str] = None
     """Bootstrap authentication token.
 
     This token can be used with specific routes in the admin API to change the
@@ -295,11 +295,12 @@ class Settings(BaseSettings):
         return v
 
     @validator("bootstrap_token", pre=True)
-    def _valid_bootstrap_token(cls, v: Optional[str]) -> Optional[Token]:
+    def _valid_bootstrap_token(cls, v: Optional[str]) -> Optional[str]:
         if not v:
             return None
         try:
-            return Token.from_str(v)
+            Token.from_str(v)
+            return v
         except Exception as e:
             raise ValueError(f"bootstrap_token not a valid token: {str(e)}")
 
@@ -676,6 +677,9 @@ class Config:
         }
 
         # Build the Config object.
+        bootstrap_token = None
+        if settings.bootstrap_token:
+            bootstrap_token = Token.from_str(settings.bootstrap_token)
         issuer_config = IssuerConfig(
             iss=settings.issuer.iss,
             kid=settings.issuer.key_id,
@@ -731,7 +735,7 @@ class Config:
             session_secret=session_secret.decode(),
             redis_url=settings.redis_url,
             redis_password=redis_password,
-            bootstrap_token=settings.bootstrap_token,
+            bootstrap_token=bootstrap_token,
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
             issuer=issuer_config,
