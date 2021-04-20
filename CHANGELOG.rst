@@ -9,21 +9,33 @@ As of this release, Gafaelfawr now uses opaque tokens for all internal authentic
 All existing sessions and tokens will be invalidated by this upgrade and all users will have to reauthenticate.
 
 Gafaelfawr now requires a SQL database.
-Its URL must be set as the ``database_url`` configuration parameter.
+Its URL must be set as the ``config.databaseUrl`` Helm chart parameter.
 
 As of this release, Gafaelfawr now uses FastAPI instead of aiohttp.
-OpenAPI documentation is available via the ``/docs`` route but not yet fleshed out or reviewed for accuracy.
+OpenAPI documentation is available via the ``/auth/docs`` and ``/auth/redoc`` routes.
 
 - Eliminate internal JWTs, including the old session and session handle system, in favor of opaque tokens.
 - Add a new token API under ``/auth/api/v1`` for creating, modifying, viewing, and deleting tokens.
-  This will be the basis of a new token management UI.
+  This is the basis of the new token management UI.
+  API documentation is published under ``/auth/docs`` and ``/auth/redoc``.
+- Add support for several classes of tokens for different purposes.
+  Add additional token metadata to record the purpose of a token.
+- Add caching of internal and notebook tokens.
+  Issue new internal and notebook tokens when the previous token is half-expired.
+- Add support for a bootstrap token that can be used to dynamically create other tokens or configure administrators.
+- Add support for maintaining Kubernetes secrets containing Gafaelfawr service tokens for applications that need to make authenticated calls on their own behalf.
 - Replace the ``/auth/tokens`` UI with a new UI using React and Gatsby.
   Currently, it supports viewing all the tokens for a user, creating and editing user tokens, revoking tokens, viewing token information with the token change history, and searching the token change history.
 - Protected applications no longer receive a copy of the user's authentication token.
+  They must request a delegated token if they want one.
 - The ``/auth`` route now supports requesting a notebook or internal delegated token for the application.
 - Use FastAPI instead of aiohttp, and use httpx to make internal requests.
 - Add ``/.well-known/openid-configuration`` route to provide metadata about the internal OpenID Connect server.
   This follows the OpenID Connect Discovery 1.0 specification.
+- Enforce constraints on valid usernames matching GitHub's constraints, except without allowing capital letters.
+- Be more careful in interpreting ``isMemberOf`` claims from the upstream OpenID Connect provider and discard more invalid data.
+- Only document and support installing Gafaelfawr via the Helm chart.
+- Update all dependencies.
 
 1.5.0 (2020-09-16)
 ==================
