@@ -825,9 +825,9 @@ urllib3==1.26.4 \
     # via
     #   requests
     #   selenium
-virtualenv==20.4.3 \
-    --hash=sha256:49ec4eb4c224c6f7dd81bb6d0a28a09ecae5894f4e593c89b0db0885f565a107 \
-    --hash=sha256:83f95875d382c7abafe06bd2a4cdd1b363e1bb77e02f155ebe8ac082a916b37c
+virtualenv==20.4.4 \
+    --hash=sha256:09c61377ef072f43568207dc8e46ddeac6bcdcaf288d49011bda0e7f4d38c4a2 \
+    --hash=sha256:a935126db63128861987a7d5d30e23e8ec045a73840eeccb467c148514e29535
     # via pre-commit
 webcolors==1.11.1 \
     --hash=sha256:76f360636957d1c976db7466bc71dcb713bb95ac8911944dffc55c01cb516de6 \
