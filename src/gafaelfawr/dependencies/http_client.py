@@ -6,6 +6,8 @@ from typing import AsyncIterator
 
 from httpx import AsyncClient
 
+from gafaelfawr.constants import HTTP_TIMEOUT
+
 __all__ = ["http_client_dependency"]
 
 
@@ -20,5 +22,5 @@ async def http_client_dependency() -> AsyncIterator[AsyncClient]:
 
     This dependency should eventually move into the Safir framework.
     """
-    async with AsyncClient() as client:
+    async with AsyncClient(timeout=HTTP_TIMEOUT) as client:
         yield client
