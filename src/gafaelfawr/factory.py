@@ -7,9 +7,8 @@ from typing import TYPE_CHECKING
 
 import structlog
 from httpx import AsyncClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
+from gafaelfawr.database import create_session
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.issuer import TokenIssuer
@@ -37,6 +36,7 @@ if TYPE_CHECKING:
     from typing import AsyncIterator
 
     from aioredis import Redis
+    from sqlalchemy.orm import Session
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
@@ -82,8 +82,7 @@ class ComponentFactory:
         redis = await redis_dependency(config)
         logger = structlog.get_logger(config.safir.logger_name)
         assert logger
-        engine = create_engine(config.database_url)
-        session = Session(bind=engine)
+        session = create_session(config, logger)
         try:
             async with AsyncClient() as client:
                 yield cls(

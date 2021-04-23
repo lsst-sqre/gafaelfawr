@@ -25,7 +25,8 @@ When configured to use an OpenID Connect provider, Gafaelfawr obtains the ID tok
 
 - Username is taken from the claim identified by the ``username_claim`` setting.
 - UID is taken from the claim identified by the ``uid_claim`` setting and is converted to a number.
-- Name is taken from the ``name`` claim.
+- Name is taken from the ``name`` claim if it exists.
+- Email address is taken from the ``email`` claim if it exists.
 - Groups are taken from the ``isMemberOf`` claim if it exists.
 - The scope of the token will be based on the group membership from ``isMemberOf`` and the ``config.groupMapping`` Helm chart value.
   See :ref:`scopes` for more details.
@@ -40,6 +41,7 @@ GitHub does not issue JWTs, so the token created after GitHub authentication is 
 The username will be taken from the ``login`` value returned by the ``/user`` API route, forced to lowercase.
 The UID will be taken from the ``id`` value returned by the ``/user`` API route.
 The name will be taken from the ``name`` value returned by the ``/user`` API route.
+The email address will be taken from the address tagged primary in the addresses returned by the ``/user/emails`` API route.
 The group membership will be taken from the user's team membership.
 See :ref:`github-groups` for more details.
 The scope of the token will be based on the group membership and the ``group_mapping`` configuration setting.

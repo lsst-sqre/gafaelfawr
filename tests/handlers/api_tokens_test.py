@@ -29,6 +29,7 @@ async def test_create_delete_modify(
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
+        email="example@example.com",
         uid=45613,
         groups=[TokenGroup(name="foo", id=12313)],
     )
@@ -213,6 +214,7 @@ async def test_token_info(setup: SetupTest) -> None:
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
+        email="example@example.com",
         uid=45613,
         groups=[TokenGroup(name="foo", id=12313)],
     )
@@ -250,6 +252,7 @@ async def test_token_info(setup: SetupTest) -> None:
     assert session_user_info == {
         "username": "example",
         "name": "Example Person",
+        "email": "example@example.com",
         "uid": 45613,
         "groups": [
             {
@@ -812,6 +815,7 @@ async def test_create_admin(setup: SetupTest) -> None:
             "expires": expires,
             "name": "A Service",
             "uid": 1234,
+            "email": "service@example.com",
             "groups": [{"name": "some-group", "id": 12381}],
         },
     )
@@ -843,7 +847,9 @@ async def test_create_admin(setup: SetupTest) -> None:
     assert r.json() == {
         "username": "a-service",
         "name": "A Service",
+        "email": "service@example.com",
         "uid": 1234,
+        "email": "service@example.com",
         "groups": [{"name": "some-group", "id": 12381}],
     }
 

@@ -64,11 +64,11 @@ ENV GAFAELFAWR_UI_PATH=/app/ui/public
 # Make sure we use the virtualenv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy over the prestart script that handles database setup.
-COPY scripts/prestart.sh /app/prestart.sh
-
 # We use a module name other than app, so tell the base image that.  This
 # does not copy the app into /app as is recommended by the base Docker
 # image documentation and instead relies on the module search path as
 # modified by the virtualenv.
 ENV MODULE_NAME=gafaelfawr.main
+
+# Run on port 8080 instead of the FastAPI default for backward compatibility.
+ENV PORT=8080
