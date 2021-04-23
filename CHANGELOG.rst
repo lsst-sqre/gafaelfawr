@@ -2,7 +2,7 @@
 Change log
 ##########
 
-2.0.0 (unreleased)
+2.0.0 (2021-04-23)
 ==================
 
 As of this release, Gafaelfawr now uses opaque tokens for all internal authentication and only issues JWTs as part of its OpenID Connect server support.
