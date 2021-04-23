@@ -338,9 +338,9 @@ hyperframe==6.0.1 \
     # via
     #   h2
     #   selenium-wire
-identify==2.2.3 \
-    --hash=sha256:398cb92a7599da0b433c65301a1b62b9b1f4bb8248719b84736af6c0b22289d6 \
-    --hash=sha256:4537474817e0bbb8cea3e5b7504b7de6d44e3f169a90846cbc6adb0fc8294502
+identify==2.2.4 \
+    --hash=sha256:9bcc312d4e2fa96c7abebcdfb1119563b511b5e3985ac52f60d9116277865b2e \
+    --hash=sha256:ad9f3fa0c2316618dc4d840f627d474ab6de106392a4f00221820200f490f5a8
     # via pre-commit
 idna==2.10 \
     --hash=sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6 \
@@ -630,9 +630,9 @@ pysocks==1.7.1 \
     --hash=sha256:2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5 \
     --hash=sha256:3f8804571ebe159c380ac6de37643bb4685970655d3bba243530d6558b799aa0
     # via selenium-wire
-pytest-asyncio==0.14.0 \
-    --hash=sha256:2eae1e34f6c68fc0a9dc12d4bea190483843ff4708d24277c41568d6b6044f1d \
-    --hash=sha256:9882c0c6b24429449f5f969a5158b528f39bde47dc32e85b9f0403965017e700
+pytest-asyncio==0.15.1 \
+    --hash=sha256:2564ceb9612bbd560d19ca4b41347b54e7835c2f792c504f698e05395ed63f6f \
+    --hash=sha256:3042bcdf1c5d978f6b74d96a151c4cfb9dcece65006198389ccd7e6c60eb1eea
     # via -r requirements/dev.in
 pytest-cov==2.11.1 \
     --hash=sha256:359952d9d39b9f822d9d29324483e7ba04a3a17dd7d05aa6beb7ea01e359e5f7 \
