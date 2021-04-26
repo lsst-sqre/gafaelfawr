@@ -2,6 +2,13 @@
 Change log
 ##########
 
+2.0.1 (2021-04-26)
+==================
+
+- Cap workers spawned by the Docker image at 10.
+  The defaults spawned 32 workers in a GKE container, which overwhelmed the available open connections with a micro Cloud SQL server.
+- Update JavaScript dependencies.
+
 2.0.0 (2021-04-23)
 ==================
 
