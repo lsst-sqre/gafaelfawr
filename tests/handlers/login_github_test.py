@@ -96,6 +96,14 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "user_agent": ANY,
     }
 
+    # Examine the resulting cookie and ensure that it has the proper metadata
+    # set.
+    cookie = next((c for c in r.cookies.jar if c.name == "gafaelfawr"))
+    assert cookie.secure
+    assert cookie.discard
+    assert cookie.has_nonstandard_attr("HttpOnly")
+    assert cookie.get_nonstandard_attr("SameSite") == "lax"
+
     # Check that the /auth route works and finds our token.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
