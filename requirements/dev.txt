@@ -707,9 +707,9 @@ rfc3986[idna2008]==1.4.0 \
     --hash=sha256:112398da31a3344dc25dbf477d8df6cb34f9278a94fee2625d89e4514be8bb9d \
     --hash=sha256:af9147e9aceda37c91a05f4deb128d4b4b49d6b199775fd2d2927768abdc8f50
     # via httpx
-selenium-wire==4.2.4 \
-    --hash=sha256:8046133bf20fa6f2ae72959f93f0dcc7ed23cc1613ca348d70abf71f9d18306d \
-    --hash=sha256:82071c2ad8a4a23f795ef235c7e3ecf440fcb31b319b3c4f5231da6efa98ce84
+selenium-wire==4.2.5 \
+    --hash=sha256:0d31b0753463739495798c8a6f8f40981bb004061b87e0a477d2e92e937fd5e5 \
+    --hash=sha256:794b94575bccb2b62a6f09edf6c162a431578868da18e35cc68335a63739ce00
     # via -r requirements/dev.in
 selenium==3.141.0 \
     --hash=sha256:2d7131d7bc5a5b99a2d9b04aaf2612c411b03b8ca1b1ee8d3de5845a9be2cb3c \
