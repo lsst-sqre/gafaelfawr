@@ -75,9 +75,9 @@ attrs==20.3.0 \
     # via
     #   aiohttp
     #   pytest
-babel==2.9.0 \
-    --hash=sha256:9d35c22fcc79893c3ecc85ac4a56cde1ecf3f19c540bba0922308a6c06ca6fa5 \
-    --hash=sha256:da031ab54472314f210b0adcff1588ee5d1d1d0ba4dbd07b94dba82bde791e05
+babel==2.9.1 \
+    --hash=sha256:ab49e12b91d937cd11f0b67cb259a57ab4ad2b59ac7a3b41d6c06c0ac5b0def9 \
+    --hash=sha256:bc0c176f9f6a994582230df350aa6e05ba2ebe4b3ac317eab29d9be5d2768da0
     # via sphinx
 blinker==1.4 \
     --hash=sha256:471aee25f3992bd325afa3772f1063dbdbbca947a041b8b89466dc00d606f8b6
@@ -324,13 +324,13 @@ hpack==4.0.0 \
     --hash=sha256:84a076fad3dc9a9f8063ccb8041ef100867b1878b25ef0ee63847a5d53818a6c \
     --hash=sha256:fc41de0c63e687ebffde81187a948221294896f6bdc0ae2312708df339430095
     # via h2
-httpcore==0.12.3 \
-    --hash=sha256:37ae835fb370049b2030c3290e12ed298bf1473c41bb72ca4aa78681eba9b7c9 \
-    --hash=sha256:93e822cd16c32016b414b789aeff4e855d0ccbfc51df563ee34d4dbadbb3bcdc
+httpcore==0.13.2 \
+    --hash=sha256:52b7d9413f6f5592a667de9209d70d4d41aba3fb0540dd7c93475c78b85941e9 \
+    --hash=sha256:c16efbdf643e1b57bde0adc12c53b08645d7d92d6d345a3f71adfc2a083e7fd2
     # via httpx
-httpx==0.17.1 \
-    --hash=sha256:cc2a55188e4b25272d2bcd46379d300f632045de4377682aa98a8a6069d55967 \
-    --hash=sha256:d379653bd457e8257eb0df99cb94557e4aac441b7ba948e333be969298cac272
+httpx==0.18.1 \
+    --hash=sha256:0a2651dd2b9d7662c70d12ada5c290abcf57373b9633515fe4baa9f62566086f \
+    --hash=sha256:ad2e3db847be736edc4b272c4d5788790a7e5789ef132fc6b5fef8aeb9e9f6e0
     # via pytest-httpx
 hyperframe==6.0.1 \
     --hash=sha256:0ec6bafd80d8ad2195c4f03aacba3a8265e57bc4cff261e802bf39970ed02a15 \
@@ -642,9 +642,9 @@ pytest-forked==1.3.0 \
     --hash=sha256:6aa9ac7e00ad1a539c41bec6d21011332de671e938c7637378ec9710204e37ca \
     --hash=sha256:dc4147784048e70ef5d437951728825a131b81714b398d5d52f17c7c144d8815
     # via pytest-xdist
-pytest-httpx==0.11.0 \
-    --hash=sha256:331e2db4a44c331d037545f024fb75a11c29fff2a0e6cfa58cc8ebaa01ca15bc \
-    --hash=sha256:928cab62e7597d645878ae273fd48b1af11dd3195fd35ec5c99d8537c095d18b
+pytest-httpx==0.12.0 \
+    --hash=sha256:1e135b8779060091fa1c87d8aff7904921e8bea95fce5e971a0262764d064b12 \
+    --hash=sha256:e262932f2d3ce380da8273c7bacbcfdc2c94e167fa94da29571caaf1f4d3ba27
     # via -r requirements/dev.in
 pytest-xdist[psutil]==2.2.1 \
     --hash=sha256:2447a1592ab41745955fb870ac7023026f20a5f0bfccf1b52a879bd193d46450 \
@@ -812,10 +812,10 @@ typed-ast==1.4.3 \
     --hash=sha256:f8afcf15cc511ada719a88e013cec87c11aff7b91f019295eb4530f96fe5ef2f \
     --hash=sha256:fb1bbeac803adea29cedd70781399c99138358c26d05fcbd23c13016b7f5ec65
     # via mypy
-typing-extensions==3.7.4.3 \
-    --hash=sha256:7cb407020f00f7bfc3cb3e7881628838e69d8f3fcab2f64742a5e76b2f841918 \
-    --hash=sha256:99d4073b617d30288f569d3f13d2bd7548c3a7e4c8de87db09a9d29bb3a4a60c \
-    --hash=sha256:dafc7639cde7f1b6e1acc0f457842a83e722ccca8eef5270af2d74792619a89f
+typing-extensions==3.10.0.0 \
+    --hash=sha256:0ac0f89795dd19de6b97debb0c6af1c70987fd80a2d62d1958f7e56fcc31b497 \
+    --hash=sha256:50b6f157849174217d0656f99dc82fe932884fb250826c18350e159ec6cdf342 \
+    --hash=sha256:779383f6086d90c99ae41cf0ff39aac8a7937a9283ce0a414e5dd782f4c94a84
     # via
     #   aiohttp
     #   mypy
