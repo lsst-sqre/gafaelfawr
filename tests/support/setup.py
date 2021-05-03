@@ -329,7 +329,7 @@ class SetupTest:
         """
         assert self.config.github
 
-        def callback(request: Request, ext: Dict[str, Any]) -> Response:
+        def callback(request: Request, extensions: Dict[str, Any]) -> Response:
             assert request.headers["Authorization"] == f"token {token}"
             assert request.method == "GET"
             if str(request.url) == GitHubProvider._USER_URL:
@@ -374,7 +374,7 @@ class SetupTest:
             endpoings.
         """
 
-        def callback(request: Request, ext: Dict[str, Any]) -> Response:
+        def callback(request: Request, extensions: Dict[str, Any]) -> Response:
             assert self.config.github
             assert str(request.url) == GitHubProvider._TOKEN_URL
             assert request.method == "POST"
@@ -434,7 +434,7 @@ class SetupTest:
             The token.
         """
 
-        def callback(request: Request, ext: Dict[str, Any]) -> Response:
+        def callback(request: Request, extensions: Dict[str, Any]) -> Response:
             assert self.config.oidc
             if str(request.url) != self.config.oidc.token_url:
                 assert request.method == "GET"
