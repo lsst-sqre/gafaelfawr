@@ -69,9 +69,9 @@ async-timeout==3.0.1 \
     # via
     #   aiohttp
     #   aioredis
-attrs==20.3.0 \
-    --hash=sha256:31b2eced602aa8423c2aea9c76a724617ed67cf9513173fd3a4f03e3a929c7e6 \
-    --hash=sha256:832aa3cde19744e49938b91fea06d69ecb9e649c93ba974535d08ad92164f700
+attrs==21.2.0 \
+    --hash=sha256:149e90d6d8ac20db7a955ad60cf0e6881a3f20d37096140088356da6c716b0b1 \
+    --hash=sha256:ef6aaac3ca6cd92904cdd0d83f629a15f18053ec84e6432106f7a4d04ae4f5fb
     # via
     #   aiohttp
     #   pytest
@@ -244,9 +244,9 @@ filelock==3.0.12 \
     --hash=sha256:18d82244ee114f543149c66a6e0c14e9c4f8a1044b5cdaadd0f82159d6a6ff59 \
     --hash=sha256:929b7d63ec5b7d6b71b0fa5ac14e030b3f70b75747cef1b10da9b879fef15836
     # via virtualenv
-flake8==3.9.1 \
-    --hash=sha256:1aa8990be1e689d96c745c5682b687ea49f2e05a443aff1f8251092b0014e378 \
-    --hash=sha256:3b9f848952dddccf635be78098ca75010f073bfe14d2c6bda867154bea728d2a
+flake8==3.9.2 \
+    --hash=sha256:07528381786f2a6237b061f6e96610a4167b226cb926e2aa2b6b1d78057c576b \
+    --hash=sha256:bf8fd333346d844f616e8d47905ef3a3384edae6b4e9beb0c5101e25e3110907
     # via -r requirements/dev.in
 funcparserlib==0.3.6 \
     --hash=sha256:b7992eac1a3eb97b3d91faa342bfda0729e990bd8a43774c1592c091e563c91d
@@ -324,9 +324,9 @@ hpack==4.0.0 \
     --hash=sha256:84a076fad3dc9a9f8063ccb8041ef100867b1878b25ef0ee63847a5d53818a6c \
     --hash=sha256:fc41de0c63e687ebffde81187a948221294896f6bdc0ae2312708df339430095
     # via h2
-httpcore==0.13.2 \
-    --hash=sha256:52b7d9413f6f5592a667de9209d70d4d41aba3fb0540dd7c93475c78b85941e9 \
-    --hash=sha256:c16efbdf643e1b57bde0adc12c53b08645d7d92d6d345a3f71adfc2a083e7fd2
+httpcore==0.13.3 \
+    --hash=sha256:5d674b57a11275904d4fd0819ca02f960c538e4472533620f322fc7db1ea0edc \
+    --hash=sha256:ff614f0ef875b9e5fe0bdd459b31ea0eea282ff12dc82add83d68b3811ee94ad
     # via httpx
 httpx==0.18.1 \
     --hash=sha256:0a2651dd2b9d7662c70d12ada5c290abcf57373b9633515fe4baa9f62566086f \
@@ -609,9 +609,9 @@ pyflakes==2.3.1 \
     --hash=sha256:7893783d01b8a89811dd72d7dfd4d84ff098e5eed95cfa8905b22bbffe52efc3 \
     --hash=sha256:f5bc8ecabc05bb9d291eb5203d6810b49040f6ff446a756326104746cc00c1db
     # via flake8
-pygments==2.8.1 \
-    --hash=sha256:2656e1a6edcdabf4275f9a3640db59fd5de107d88e8663c5d4e9a0fa62f77f94 \
-    --hash=sha256:534ef71d539ae97d4c3a4cf7d6f110f214b0e687e92f9cb9d2a3b0d3101289c8
+pygments==2.9.0 \
+    --hash=sha256:a18f47b506a429f6f4b9df81bb02beab9ca21d0a5fee38ed15aef65f0545519f \
+    --hash=sha256:d66e804411278594d764fc69ec36ec13d9ae9147193a1740cd34d272ca383b8e
     # via
     #   sphinx
     #   sphinx-prompt
@@ -650,9 +650,9 @@ pytest-xdist[psutil]==2.2.1 \
     --hash=sha256:2447a1592ab41745955fb870ac7023026f20a5f0bfccf1b52a879bd193d46450 \
     --hash=sha256:718887296892f92683f6a51f25a3ae584993b06f7076ce1e1fd482e59a8220a2
     # via -r requirements/dev.in
-pytest==6.2.3 \
-    --hash=sha256:671238a46e4df0f3498d1c3270e5deb9b32d25134c99b7d75370a68cfbe9b634 \
-    --hash=sha256:6ad9c7bdf517a808242b998ac20063c41532a570d088d77eec1ee12b0b5574bc
+pytest==6.2.4 \
+    --hash=sha256:50bcad0a0b9c5a72c8e4e7c9855a3ad496ca6a881a3641b4260605450772c54b \
+    --hash=sha256:91ef2131a9bd6be8f76f1f08eac5c5317221d6ad1e143ae03894b862e8976890
     # via
     #   -r requirements/dev.in
     #   pytest-asyncio
@@ -703,13 +703,13 @@ requests==2.25.1 \
     # via
     #   documenteer
     #   sphinx
-rfc3986[idna2008]==1.4.0 \
-    --hash=sha256:112398da31a3344dc25dbf477d8df6cb34f9278a94fee2625d89e4514be8bb9d \
-    --hash=sha256:af9147e9aceda37c91a05f4deb128d4b4b49d6b199775fd2d2927768abdc8f50
+rfc3986[idna2008]==1.5.0 \
+    --hash=sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835 \
+    --hash=sha256:a86d6e1f5b1dc238b218b012df0aa79409667bb209e58da56d0b94704e712a97
     # via httpx
-selenium-wire==4.2.5 \
-    --hash=sha256:0d31b0753463739495798c8a6f8f40981bb004061b87e0a477d2e92e937fd5e5 \
-    --hash=sha256:794b94575bccb2b62a6f09edf6c162a431578868da18e35cc68335a63739ce00
+selenium-wire==4.3.0 \
+    --hash=sha256:03a1fafa9447e4e179318de8b067422d32e92df401c70fb533e774ab751a9a99 \
+    --hash=sha256:f5e9d0ef30492d807e4cf57e7b4fd570895774354a466f0898f345d408442e76
     # via -r requirements/dev.in
 selenium==3.141.0 \
     --hash=sha256:2d7131d7bc5a5b99a2d9b04aaf2612c411b03b8ca1b1ee8d3de5845a9be2cb3c \
@@ -721,9 +721,9 @@ seqdiag==2.0.0 \
     --hash=sha256:3167f16b4d15f3cd20de302fa600c96e4a50c92dae873bcbcf136c7588eeaa48 \
     --hash=sha256:93ebc7a0c6b56b6ba0d1e36863c5749f03e82c487b6d1e6f1103b4219323f24c
     # via -r requirements/dev.in
-six==1.15.0 \
-    --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \
-    --hash=sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced
+six==1.16.0 \
+    --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
+    --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
     # via
     #   pyopenssl
     #   sphinx
@@ -825,9 +825,9 @@ urllib3==1.26.4 \
     # via
     #   requests
     #   selenium
-virtualenv==20.4.4 \
-    --hash=sha256:09c61377ef072f43568207dc8e46ddeac6bcdcaf288d49011bda0e7f4d38c4a2 \
-    --hash=sha256:a935126db63128861987a7d5d30e23e8ec045a73840eeccb467c148514e29535
+virtualenv==20.4.6 \
+    --hash=sha256:307a555cf21e1550885c82120eccaf5acedf42978fd362d32ba8410f9593f543 \
+    --hash=sha256:72cf267afc04bf9c86ec932329b7e94db6a0331ae9847576daaa7ca3c86b29a4
     # via pre-commit
 webcolors==1.11.1 \
     --hash=sha256:76f360636957d1c976db7466bc71dcb713bb95ac8911944dffc55c01cb516de6 \
@@ -878,9 +878,9 @@ yarl==1.6.3 \
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==56.0.0 \
-    --hash=sha256:08a1c0f99455307c48690f00d5c2ac2c1ccfab04df00454fef854ec145b81302 \
-    --hash=sha256:7430499900e443375ba9449a9cc5d78506b801e929fef4a186496012f93683b5
+setuptools==56.2.0 \
+    --hash=sha256:7bb5652625e94e73b9358b7ed8c6431b732e80cf31f4e0972294c64f0e5b849e \
+    --hash=sha256:bc30153eec47d82f20c6f5e1a13d4ee725c6deb7013a67557f89bfe5d25235c4
     # via
     #   blockdiag
     #   sphinx
