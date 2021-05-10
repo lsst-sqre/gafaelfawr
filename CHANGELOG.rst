@@ -173,7 +173,7 @@ This release also adds support for specifying the type of authentication challen
 
 JWT Authorizer has been renamed to Gafaelfawr.
 It is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
-Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
+Gafaelfawr is pronounced (very roughly) gah-VILE-vahwr.
 
 As of this release, Gafaelfawr supports OpenID Connect directly and no longer uses oauth2_proxy.
 There are new options to configure the OpenID Connect support.

@@ -14,7 +14,7 @@ Once Gafaelfawr is installed, API documentation is available at ``/auth/docs`` a
 The latter provides somewhat more detailed information.
 
 Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
-Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
+Gafaelfawr is pronounced (very roughly) gah-VILE-vahwr.
 (If you speak Welsh and can provide a better pronunciation guide, please open an issue!)
 
 Installation

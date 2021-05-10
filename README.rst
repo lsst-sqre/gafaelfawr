@@ -19,7 +19,7 @@ It also provides a minimal OpenID Connect server to support protected applicatio
 For full documentation, see `gafaelfawr.lsst.io <https://gafaelfawr.lsst.io/>`__.
 
 Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
-Gafaelfawr is pronounced (very roughly) gah-VILE-fahwr.
+Gafaelfawr is pronounced (very roughly) gah-VILE-vahwr.
 (If you speak Welsh and can provide a better pronunciation guide, please open an issue!)
 
 .. |Build| image:: https://github.com/lsst-sqre/gafaelfawr/workflows/CI/badge.svg
