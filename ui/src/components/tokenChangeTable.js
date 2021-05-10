@@ -77,13 +77,8 @@ export default function TokenChangeTable({ data, includeToken = false }) {
 
   const table = useTable({ columns, data });
 
-  const {
-    getTableProps,
-    getTableBodyProps,
-    headerGroups,
-    rows,
-    prepareRow,
-  } = table;
+  const { getTableProps, getTableBodyProps, headerGroups, rows, prepareRow } =
+    table;
 
   if (!data.length) return <p>No results</p>;
 
