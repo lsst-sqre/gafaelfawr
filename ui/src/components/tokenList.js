@@ -20,12 +20,14 @@ export default function TokenList() {
   const [editingToken, _setEditingToken] = useState(null);
   const tokens = useMemo(() => data, [data]);
 
-  const setEditingToken = useCallback((token) => _setEditingToken(token), [
-    _setEditingToken,
-  ]);
-  const clearEditingToken = useCallback(() => _setEditingToken(null), [
-    _setEditingToken,
-  ]);
+  const setEditingToken = useCallback(
+    (token) => _setEditingToken(token),
+    [_setEditingToken]
+  );
+  const clearEditingToken = useCallback(
+    () => _setEditingToken(null),
+    [_setEditingToken]
+  );
 
   const loadTokenData = useCallback(() => {
     if (!username) return;

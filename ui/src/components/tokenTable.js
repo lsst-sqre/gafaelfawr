@@ -111,13 +111,8 @@ export default function TokenTable({
 
   const table = useTable({ columns, data });
 
-  const {
-    getTableProps,
-    getTableBodyProps,
-    headerGroups,
-    rows,
-    prepareRow,
-  } = table;
+  const { getTableProps, getTableBodyProps, headerGroups, rows, prepareRow } =
+    table;
 
   /* eslint-disable react/jsx-props-no-spreading */
   return (
