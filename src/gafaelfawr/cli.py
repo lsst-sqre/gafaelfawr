@@ -19,7 +19,7 @@ from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.token import Token
 
 if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, TypeVar, Union
+    from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
 
     T = TypeVar("T")
 
@@ -90,20 +90,30 @@ def generate_token() -> None:
     "--settings",
     envvar="GAFAELFAWR_SETTINGS_PATH",
     type=str,
-    default="/etc/gafaelfawr/gafaelfawr.yaml",
+    default=None,
     help="Application settings file.",
 )
-def init(settings: str) -> None:
+def init(settings: Optional[str]) -> None:
     """Initialize the database storage."""
-    config_dependency.set_settings_path(settings)
+    if settings:
+        config_dependency.set_settings_path(settings)
     config = config_dependency()
     initialize_database(config)
 
 
 @main.command()
+@click.option(
+    "--settings",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
+    type=str,
+    default=None,
+    help="Application settings file.",
+)
 @coroutine
-async def update_service_tokens() -> None:
+async def update_service_tokens(settings: Optional[str]) -> None:
     """Update service tokens stored in Kubernetes secrets."""
+    if settings:
+        config_dependency.set_settings_path(settings)
     config = config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     async with ComponentFactory.standalone() as factory:
