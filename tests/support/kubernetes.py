@@ -158,6 +158,37 @@ class MockKubernetesApi(Mock):
         self.objects[namespace][kind][name] = obj
         return obj
 
+    def replace_namespaced_custom_object(
+        self,
+        group: str,
+        version: str,
+        namespace: str,
+        plural: str,
+        name: str,
+        body: Dict[str, Any],
+    ) -> None:
+        self._maybe_error(
+            "replace_namespaced_custom_object",
+            group,
+            version,
+            namespace,
+            plural,
+            name,
+            body,
+        )
+        assert group == "gafaelfawr.lsst.io"
+        assert version == "v1alpha1"
+        assert plural == "gafaelfawrservicetokens"
+        assert body["kind"] == "GafaelfawrServiceToken"
+        assert namespace == body["metadata"]["namespace"]
+        if namespace not in self.objects:
+            reason = f"{namespace}/{name} not found"
+            raise ApiException(status=404, reason=reason)
+        if name not in self.objects[namespace].get(body["kind"], {}):
+            reason = f"{namespace}/{name} not found"
+            raise ApiException(status=404, reason=reason)
+        self.objects[namespace][body["kind"]][name] = body
+
     # SECRETS API
 
     def create_namespaced_secret(

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from base64 import b64decode
+from queue import Queue
+from threading import Thread
 from typing import TYPE_CHECKING
 
 from gafaelfawr.exceptions import (
@@ -16,7 +18,11 @@ from gafaelfawr.models.token import (
     TokenData,
     TokenType,
 )
-from gafaelfawr.storage.kubernetes import StatusReason
+from gafaelfawr.storage.kubernetes import (
+    KubernetesWatcher,
+    StatusReason,
+    WatchEventType,
+)
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -28,6 +34,7 @@ if TYPE_CHECKING:
     from gafaelfawr.storage.kubernetes import (
         GafaelfawrServiceToken,
         KubernetesStorage,
+        WatchEvent,
     )
 
 __all__ = ["KubernetesService"]
@@ -53,6 +60,23 @@ class KubernetesService:
         self._storage = storage
         self._logger = logger
 
+    def create_service_token_watcher(self) -> Queue[WatchEvent]:
+        """Create a Kubernetes watcher for a custom object.
+
+        The watcher will run forever in a background thread.
+
+        Returns
+        -------
+        queue : `queue.Queue`
+            The queue into which the custom object events will be put.
+        """
+        queue: Queue[WatchEvent] = Queue(50)
+        watcher = KubernetesWatcher(
+            "gafaelfawrservicetokens", queue, self._logger
+        )
+        Thread(target=watcher.run, daemon=True).start()
+        return queue
+
     async def update_service_tokens(self) -> None:
         """Ensure all GafaelfawrServiceToken secrets exist and are valid.
 
@@ -77,6 +101,33 @@ class KubernetesService:
         # corresponding secret if needed.
         for service_token in service_tokens:
             await self._update_secret_for_service_token(service_token)
+
+    async def update_service_tokens_from_queue(
+        self, queue: Queue[WatchEvent], exit_on_empty: bool = False
+    ) -> None:
+        """Process GafaelfawrServiceToken changes from a queue.
+
+        Normally this method runs forever.  Set ``exit_on_empty`` to `False`
+        to stop when the queue is empty.
+
+        Parameters
+        ----------
+        queue : `queue.Queue`
+            Queue of changes to GafaelfawrServiceToken objects to process.
+        exit_on_empty : `bool`, optional
+            If set to `True` (the default is `False`), exit when the queue
+            is empty.
+        """
+        while not (queue.empty() and exit_on_empty):
+            event = queue.get()
+            if event.event_type == WatchEventType.DELETED:
+                continue
+            service_token = self._storage.get_service_token(
+                event.name, event.namespace
+            )
+            if service_token:
+                await self._update_secret_for_service_token(service_token)
+            queue.task_done()
 
     async def _create_service_token(
         self, parent: GafaelfawrServiceToken

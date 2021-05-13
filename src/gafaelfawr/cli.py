@@ -110,6 +110,24 @@ def init(settings: Optional[str]) -> None:
     help="Application settings file.",
 )
 @coroutine
+async def kubernetes_controller(settings: Optional[str]) -> None:
+    if settings:
+        config_dependency.set_settings_path(settings)
+    async with ComponentFactory.standalone() as factory:
+        kubernetes_service = factory.create_kubernetes_service()
+        queue = kubernetes_service.create_service_token_watcher()
+        await kubernetes_service.update_service_tokens_from_queue(queue)
+
+
+@main.command()
+@click.option(
+    "--settings",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
+    type=str,
+    default=None,
+    help="Application settings file.",
+)
+@coroutine
 async def update_service_tokens(settings: Optional[str]) -> None:
     """Update service tokens stored in Kubernetes secrets."""
     if settings:

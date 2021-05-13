@@ -22,6 +22,7 @@ from gafaelfawr.exceptions import KubernetesError
 from gafaelfawr.models.token import Token
 
 if TYPE_CHECKING:
+    from queue import Queue
     from typing import Dict, List, Optional
 
     from structlog.stdlib import BoundLogger
@@ -29,6 +30,10 @@ if TYPE_CHECKING:
 F = TypeVar("F", bound=Callable[..., Any])
 
 __all__ = ["KubernetesStorage"]
+
+
+class KubernetesObjectError(Exception):
+    """A Kubernetes object could not be parsed."""
 
 
 @dataclass
@@ -59,6 +64,67 @@ class GafaelfawrServiceToken:
     scopes: List[str]
     """The scopes to grant to the service token."""
 
+    @classmethod
+    def from_dict(cls, obj: Dict[str, Any]) -> GafaelfawrServiceToken:
+        """Convert from the dict returned by Kubernetes.
+
+        Parameters
+        ----------
+        obj : Dict[`str`, Any]
+            The object as returned by the Kubernetes API.
+
+        Raises
+        ------
+        KubernetesObjectError
+            The dict could not be parsed.
+        """
+        name = None
+        namespace = None
+        try:
+            name = obj["metadata"]["name"]
+            namespace = obj["metadata"]["namespace"]
+            return cls(
+                name=name,
+                namespace=namespace,
+                annotations=obj["metadata"].get("annotations", {}),
+                labels=obj["metadata"].get("labels", {}),
+                uid=obj["metadata"]["uid"],
+                generation=obj["metadata"]["generation"],
+                service=obj["spec"]["service"],
+                scopes=obj["spec"]["scopes"],
+            )
+        except KeyError as e:
+            if name and namespace:
+                msg = (
+                    f"GafaelfawrServiceToken {namespace}/{name} is"
+                    f" malformed: {str(e)}"
+                )
+            else:
+                msg = f"GafaelfawrServiceToken is malformed: {str(e)}"
+            raise KubernetesObjectError(msg)
+
+
+class WatchEventType(Enum):
+    """The types of events that can be returned from the watch API."""
+
+    ADDED = "ADDED"
+    MODIFIED = "MODIFIED"
+    DELETED = "DELETED"
+
+
+@dataclass
+class WatchEvent:
+    """A custom resource event returned from a watcher."""
+
+    event_type: WatchEventType
+    """The type of event."""
+
+    name: str
+    """Name of the custom object."""
+
+    namespace: str
+    """Namespace of the custom object."""
+
 
 class StatusReason(Enum):
     """Reason for the status update of a GafaelfawrServiceToken."""
@@ -86,6 +152,11 @@ class KubernetesStorage:
 
     This abstracts storage of Kubernetes objects by wrapping the underlying
     Kubernetes Python client.
+
+    Parameters
+    ----------
+    logger : `structlog.stdlib.BoundLogger`
+        Logger to use for messages.
     """
 
     def __init__(
@@ -152,6 +223,43 @@ class KubernetesStorage:
         return secret
 
     @_convert_exception
+    def get_service_token(
+        self, name: str, namespace: str
+    ) -> Optional[GafaelfawrServiceToken]:
+        """Retrieve a specific GafaelfawrServiceToken by name.
+
+        Parameters
+        ----------
+        name : `str`
+            The name of the object.
+        namespace : `str`
+            The namespace of the object.
+
+        Returns
+        -------
+        token : `GafaelfawrServiceToken` or `None`
+            The token, or `None` if it does not exist.
+        """
+        try:
+            obj = self._custom_api.get_namespaced_custom_object(
+                "gafaelfawr.lsst.io",
+                "v1alpha1",
+                namespace,
+                "gafaelfawrservicetokens",
+                name,
+            )
+            return GafaelfawrServiceToken.from_dict(obj)
+        except ApiException as e:
+            if e.status == 404:
+                return None
+            raise
+        except KubernetesObjectError as e:
+            self._logger.warning(
+                "Ignoring malformed GafaelfawrServiceToken", error=str(e)
+            )
+            return None
+
+    @_convert_exception
     def list_service_tokens(self) -> List[GafaelfawrServiceToken]:
         """Return a list of all GafaelfawrServiceToken objects in the cluster.
 
@@ -166,31 +274,13 @@ class KubernetesStorage:
         # Convert to GafaelfawrServiceToken objects.
         tokens = []
         for obj in obj_list["items"]:
-            name = None
-            namespace = None
             try:
-                name = obj["metadata"]["name"]
-                namespace = obj["metadata"]["namespace"]
-                token = GafaelfawrServiceToken(
-                    name=name,
-                    namespace=namespace,
-                    annotations=obj["metadata"].get("annotations", {}),
-                    labels=obj["metadata"].get("labels", {}),
-                    uid=obj["metadata"]["uid"],
-                    generation=obj["metadata"]["generation"],
-                    service=obj["spec"]["service"],
-                    scopes=obj["spec"]["scopes"],
-                )
+                token = GafaelfawrServiceToken.from_dict(obj)
                 tokens.append(token)
-            except KeyError as e:
-                if name and namespace:
-                    msg = (
-                        f"GafaelfawrServiceToken {namespace}/{name} is"
-                        f" malformed: {str(e)}"
-                    )
-                else:
-                    msg = f"GafaelfawrServiceToken is malformed: {str(e)}"
-                self._logger.warning(msg)
+            except KubernetesObjectError as e:
+                self._logger.warning(
+                    "Ignoring malformed GafaelfawrServiceToken", error=str(e)
+                )
 
         return tokens
 
@@ -305,3 +395,67 @@ class KubernetesStorage:
     def _encode_token(token: Token) -> str:
         """Encode a token in base64."""
         return b64encode(str(token).encode()).decode()
+
+
+class KubernetesWatcher:
+    """Watch for cluster-wide changes to a custom resource.
+
+    Parameters
+    ----------
+    plural : `str`
+        The plural for the custom resource for which to watch.
+    queue : `queue.Queue`
+        The queue into which to put the events.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger to use for messages.
+    """
+
+    def __init__(
+        self,
+        plural: str,
+        queue: Queue[WatchEvent],
+        logger: BoundLogger,
+    ) -> None:
+        self._plural = plural
+        self._queue = queue
+        self._logger = logger
+        self._api = kubernetes.client.CustomObjectsApi()
+
+    def run(self) -> None:
+        """Watch for changes to the configured custom object.
+
+        This method is intended to be run in a separate thread.  It will run
+        forever, adding any custom object changes to the associated queue.
+        """
+        while True:
+            stream = kubernetes.watch.Watch().stream(
+                self._api.list_cluster_custom_object,
+                "gafaelfawr.lsst.io",
+                "v1alpha1",
+                self._plural,
+            )
+            for raw_event in stream:
+                event = self._parse_raw_event(raw_event)
+                if event:
+                    self._queue.put(event)
+
+    def _parse_raw_event(
+        self, raw_event: Dict[str, Any]
+    ) -> Optional[WatchEvent]:
+        """Parse a raw event from the watch API.
+
+        Returns
+        -------
+        event : `WatchEvent` or `None`
+            A `WatchEvent` object if the event could be parsed, otherwise
+           `None`.
+        """
+        try:
+            event_type = WatchEventType(raw_event["type"])
+            name = raw_event["object"]["metadata"]["name"]
+            namespace = raw_event["object"]["metadata"]["namespace"]
+            return WatchEvent(
+                event_type=event_type, name=name, namespace=namespace
+            )
+        except KeyError:
+            return None
