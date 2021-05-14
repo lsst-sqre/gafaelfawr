@@ -458,3 +458,50 @@ async def test_errors_replace_read(
     await kubernetes_service.update_service_tokens()
     objects = mock_kubernetes.get_all_objects_for_test("Secret")
     assert secret in objects
+
+
+@pytest.mark.asyncio
+async def test_errors_scope(
+    setup: SetupTest, mock_kubernetes: MockKubernetesApi
+) -> None:
+    mock_kubernetes.create_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        {
+            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+            "kind": "GafaelfawrServiceToken",
+            "metadata": {
+                "name": "gafaelfawr-secret",
+                "namespace": "mobu",
+                "generation": 1,
+            },
+            "spec": {
+                "service": "mobu",
+                "scopes": ["invalid:scope"],
+            },
+        },
+    )
+    kubernetes_service = setup.factory.create_kubernetes_service()
+
+    await kubernetes_service.update_service_tokens()
+    with pytest.raises(ApiException):
+        mock_kubernetes.read_namespaced_secret("gafaelfawr-secret", "mobu")
+    service_token = mock_kubernetes.get_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        "gafaelfawr-secret",
+    )
+    assert service_token["status"]["conditions"] == [
+        {
+            "lastTransitionTime": ANY,
+            "message": "Unknown scopes requested",
+            "observedGeneration": 1,
+            "reason": StatusReason.Failed.value,
+            "status": "False",
+            "type": "SecretCreated",
+        }
+    ]
