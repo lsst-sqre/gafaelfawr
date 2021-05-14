@@ -120,11 +120,13 @@ class KubernetesService:
         """
         while not (queue.empty() and exit_on_empty):
             event = queue.get()
+            name = event.name
+            namespace = event.namespace
+            msg = f"Saw {event.event_type.value} event for {namespace}/{name}"
+            self._logger.info(msg)
             if event.event_type == WatchEventType.DELETED:
                 continue
-            service_token = self._storage.get_service_token(
-                event.name, event.namespace
-            )
+            service_token = self._storage.get_service_token(name, namespace)
             if service_token:
                 await self._update_secret_for_service_token(service_token)
             queue.task_done()
