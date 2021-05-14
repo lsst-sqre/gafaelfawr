@@ -348,7 +348,9 @@ async def test_modify(
         metadata=V1ObjectMeta(name="gafaelfawr-secret", namespace="mobu"),
         type="Opaque",
     )
-    mock_kubernetes.replace_namespaced_secret("mobu", secret)
+    mock_kubernetes.replace_namespaced_secret(
+        "gafaelfawr-secret", "mobu", secret
+    )
 
     # Replace the other token with a valid token with the wrong scopes.
     token = await token_service.create_token_from_admin_request(
@@ -367,7 +369,7 @@ async def test_modify(
         metadata=V1ObjectMeta(name="gafaelfawr", namespace="nublado2"),
         type="Opaque",
     )
-    mock_kubernetes.replace_namespaced_secret("nublado2", secret)
+    mock_kubernetes.replace_namespaced_secret("gafaelfawr", "nublado2", secret)
 
     # Update the secrets.  This should create new tokens for both.
     await kubernetes_service.update_service_tokens()
@@ -383,7 +385,9 @@ async def test_modify(
         metadata=V1ObjectMeta(name="gafaelfawr-secret", namespace="mobu"),
         type="Opaque",
     )
-    mock_kubernetes.replace_namespaced_secret("mobu", secret)
+    mock_kubernetes.replace_namespaced_secret(
+        "gafaelfawr-secret", "mobu", secret
+    )
 
     # Update the secrets.  This should create a new token for the first secret
     # but not for the second.
@@ -427,6 +431,7 @@ async def test_update_from_queue(
             event_type=WatchEventType.ADDED,
             name="gafaelfawr-secret",
             namespace="mobu",
+            generation=1,
         )
     )
     await kubernetes_service.update_service_tokens_from_queue(
@@ -435,6 +440,110 @@ async def test_update_from_queue(
     await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
     assert queue.empty()
 
+    service_token = mock_kubernetes.get_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        "gafaelfawr-secret",
+    )
+    service_token["metadata"]["generation"] = 2
+    service_token["spec"]["service"] = "other-mobu"
+    mock_kubernetes.replace_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        "gafaelfawr-secret",
+        service_token,
+    )
+    queue.put(
+        WatchEvent(
+            event_type=WatchEventType.MODIFIED,
+            name="gafaelfawr-secret",
+            namespace="mobu",
+            generation=2,
+        )
+    )
+    await kubernetes_service.update_service_tokens_from_queue(
+        queue, exit_on_empty=True
+    )
+    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    assert queue.empty()
+
+    # Deletion does nothing, but shouldn't prompt an error.
+    queue.put(
+        WatchEvent(
+            event_type=WatchEventType.MODIFIED,
+            name="gafaelfawr-secret",
+            namespace="mobu",
+            generation=2,
+        )
+    )
+    await kubernetes_service.update_service_tokens_from_queue(
+        queue, exit_on_empty=True
+    )
+    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    assert queue.empty()
+
+
+@pytest.mark.asyncio
+async def test_update_generation(
+    setup: SetupTest, mock_kubernetes: MockKubernetesApi
+) -> None:
+    """Test that GafaelfawrServiceToken status changes don't trigger updates.
+
+    We always modify the GafaelfawrServiceToken on successful or failed
+    changes to its associated Secret, but that in turn triggers another MODIFY
+    watch message.  We don't want to act on that MODIFY because, if the Secret
+    creation is failing, we could get into an infinite loop.
+
+    This test verifies that we observe the generation for which we last
+    processed an update and decline to attempt another update unless the
+    generation changes.
+    """
+    service_token: Dict[str, Any] = {
+        "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+        "kind": "GafaelfawrServiceToken",
+        "metadata": {
+            "name": "gafaelfawr-secret",
+            "namespace": "mobu",
+            "generation": 1,
+        },
+        "spec": {
+            "service": "mobu",
+            "scopes": ["admin:token"],
+        },
+    }
+    mock_kubernetes.create_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        service_token,
+    )
+    kubernetes_service = setup.factory.create_kubernetes_service()
+    queue: Queue[WatchEvent] = Queue()
+    queue.put(
+        WatchEvent(
+            event_type=WatchEventType.ADDED,
+            name="gafaelfawr-secret",
+            namespace="mobu",
+            generation=1,
+        )
+    )
+    await kubernetes_service.update_service_tokens_from_queue(
+        queue, exit_on_empty=True
+    )
+    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    assert queue.empty()
+    secret = mock_kubernetes.read_namespaced_secret(
+        "gafaelfawr-secret", "mobu"
+    )
+    assert secret
+
+    # Modify the GafaelfawrServiceToken without changing the generation.  The
+    # modify event should then be ignored.
     service_token = mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
@@ -453,30 +562,19 @@ async def test_update_from_queue(
     )
     queue.put(
         WatchEvent(
-            event_type=WatchEventType.MODIFIED,
+            event_type=WatchEventType.ADDED,
             name="gafaelfawr-secret",
             namespace="mobu",
+            generation=1,
         )
     )
     await kubernetes_service.update_service_tokens_from_queue(
         queue, exit_on_empty=True
     )
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
     assert queue.empty()
-
-    # Deletion does nothing, but shouldn't prompt an error.
-    queue.put(
-        WatchEvent(
-            event_type=WatchEventType.MODIFIED,
-            name="gafaelfawr-secret",
-            namespace="mobu",
-        )
+    assert secret == mock_kubernetes.read_namespaced_secret(
+        "gafaelfawr-secret", "mobu"
     )
-    await kubernetes_service.update_service_tokens_from_queue(
-        queue, exit_on_empty=True
-    )
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
-    assert queue.empty()
 
 
 @pytest.mark.asyncio

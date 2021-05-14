@@ -25,7 +25,7 @@ from gafaelfawr.storage.kubernetes import (
 )
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Dict, Optional
 
     from kubernetes.client import V1Secret
     from structlog.stdlib import BoundLogger
@@ -59,6 +59,7 @@ class KubernetesService:
         self._token_service = token_service
         self._storage = storage
         self._logger = logger
+        self._last_generation: Dict[str, int] = {}
 
     def create_service_token_watcher(self) -> Queue[WatchEvent]:
         """Create a Kubernetes watcher for a custom object.
@@ -120,13 +121,17 @@ class KubernetesService:
         """
         while not (queue.empty() and exit_on_empty):
             event = queue.get()
-            name = event.name
-            namespace = event.namespace
-            msg = f"Saw {event.event_type.value} event for {namespace}/{name}"
-            self._logger.info(msg)
             if event.event_type == WatchEventType.DELETED:
                 continue
-            service_token = self._storage.get_service_token(name, namespace)
+            if self._last_generation.get(event.key) == event.generation:
+                self._logger.info(
+                    f"Ignoring {str(event)}, generation unchanged"
+                )
+                continue
+            self._logger.info(f"Saw {str(event)}")
+            service_token = self._storage.get_service_token(
+                event.name, event.namespace
+            )
             if service_token:
                 await self._update_secret_for_service_token(service_token)
             queue.task_done()
@@ -189,15 +194,14 @@ class KubernetesService:
         secret metadata matches the GafaelfawrServiceToken metadata and
         replaces it with a new one if not.
         """
-        name = parent.name
-        namespace = parent.namespace
         try:
             secret = self._storage.get_secret_for_service_token(parent)
         except KubernetesError as e:
-            msg = f"Updating {namespace}/{name} failed"
+            msg = f"Updating {parent.key} failed"
             self._logger.error(msg, error=str(e))
             return
         if not await self._secret_needs_update(parent, secret):
+            self._last_generation[parent.key] = parent.generation
             return
 
         # Something is either different or invalid.  Replace the secret.
@@ -207,8 +211,9 @@ class KubernetesService:
                 self._storage.replace_secret_for_service_token(parent, token)
             else:
                 self._storage.create_secret_for_service_token(parent, token)
+            self._last_generation[parent.key] = parent.generation
         except (KubernetesError, PermissionDeniedError, ValidationError) as e:
-            msg = f"Updating {namespace}/{name} failed"
+            msg = f"Updating {parent.key} failed"
             self._logger.error(msg, error=str(e))
             try:
                 self._storage.update_service_token_status(
@@ -218,13 +223,13 @@ class KubernetesService:
                     success=False,
                 )
             except KubernetesError as e:
-                msg = f"Updating status of {namespace}/{name} failed"
+                msg = f"Updating status of {parent.key} failed"
                 self._logger.error(msg, error=str(e))
         else:
             if secret:
-                msg = f"Updated {namespace}/{name} secret"
+                msg = f"Updated {parent.key} secret"
             else:
-                msg = f"Created {namespace}/{name} secret"
+                msg = f"Created {parent.key} secret"
             self._logger.info(
                 msg, service=parent.service, scopes=parent.scopes
             )

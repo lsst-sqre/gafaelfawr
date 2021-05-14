@@ -216,7 +216,7 @@ class MockKubernetesApi(Mock):
         return self.objects[namespace]["Secret"][name]
 
     def replace_namespaced_secret(
-        self, namespace: str, secret: V1Secret
+        self, name: str, namespace: str, secret: V1Secret
     ) -> None:
         self._maybe_error("replace_namespaced_secret", namespace, secret)
         name = secret.metadata.name

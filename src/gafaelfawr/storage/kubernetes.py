@@ -103,6 +103,11 @@ class GafaelfawrServiceToken:
                 msg = f"GafaelfawrServiceToken is malformed: {str(e)}"
             raise KubernetesObjectError(msg)
 
+    @property
+    def key(self) -> str:
+        """Return a unique key for this custom object."""
+        return f"{self.namespace}/{self.name}"
+
 
 class WatchEventType(Enum):
     """The types of events that can be returned from the watch API."""
@@ -124,6 +129,20 @@ class WatchEvent:
 
     namespace: str
     """Namespace of the custom object."""
+
+    generation: int
+    """Generation of the custom object."""
+
+    @property
+    def key(self) -> str:
+        """Return a unique key for this custom object."""
+        return f"{self.namespace}/{self.name}"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.event_type.value} for {self.key}"
+            f" (generation {self.generation})"
+        )
 
 
 class StatusReason(Enum):
@@ -298,7 +317,9 @@ class KubernetesStorage:
             The token to store.
         """
         secret = self._build_secret_for_service_token(parent, token)
-        self._api.replace_namespaced_secret(parent.namespace, secret)
+        self._api.replace_namespaced_secret(
+            parent.name, parent.namespace, secret
+        )
         self.update_service_token_status(
             parent,
             reason=StatusReason.Updated,
@@ -451,11 +472,11 @@ class KubernetesWatcher:
            `None`.
         """
         try:
-            event_type = WatchEventType(raw_event["type"])
-            name = raw_event["object"]["metadata"]["name"]
-            namespace = raw_event["object"]["metadata"]["namespace"]
             return WatchEvent(
-                event_type=event_type, name=name, namespace=namespace
+                event_type=WatchEventType(raw_event["type"]),
+                name=raw_event["object"]["metadata"]["name"],
+                namespace=raw_event["object"]["metadata"]["namespace"],
+                generation=raw_event["object"]["metadata"]["generation"],
             )
         except KeyError:
             return None
