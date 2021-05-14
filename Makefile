@@ -25,8 +25,11 @@ ui:
 	cd ui && npm run lint:fix
 	cd ui && npm run build
 
-# Filter out errors from modules that do not have Sphinx-compatible
-# documentation.
+# Filter out all "reference target not found" errors.  There are some
+# legitimate warnings, but there are tons of spurious warnings because
+# Sphinx appears not to understand imported symbols in type signatures and
+# because some third-party modules don't have object inventories, making
+# this warning effectively useless.
 .PHONY: docs
 docs:
-	tox -e docs | egrep -v ' (fastapi|httpx|pydantic|starlette)\.'
+	tox -e docs | egrep -v ' py:(class|exc|obj) reference target not found'

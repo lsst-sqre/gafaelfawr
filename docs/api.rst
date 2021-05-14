@@ -42,9 +42,15 @@ API reference
 
 .. automodapi:: gafaelfawr.models.admin
 
+.. automodapi:: gafaelfawr.models.app
+
 .. automodapi:: gafaelfawr.models.auth
 
+.. automodapi:: gafaelfawr.models.error
+
 .. automodapi:: gafaelfawr.models.history
+
+.. automodapi:: gafaelfawr.models.influxdb
 
 .. automodapi:: gafaelfawr.models.oidc
 
@@ -60,6 +66,8 @@ API reference
 
 .. automodapi:: gafaelfawr.services.admin
 
+.. automodapi:: gafaelfawr.services.kubernetes
+
 .. automodapi:: gafaelfawr.services.oidc
 
 .. automodapi:: gafaelfawr.services.token
@@ -70,11 +78,15 @@ API reference
 
 .. automodapi:: gafaelfawr.storage.history
 
+.. automodapi:: gafaelfawr.storage.kubernetes
+
 .. automodapi:: gafaelfawr.storage.oidc
 
 .. automodapi:: gafaelfawr.storage.token
 
 .. automodapi:: gafaelfawr.storage.transaction
+
+.. automodapi:: gafaelfawr.token_cache
 
 .. automodapi:: gafaelfawr.util
 
