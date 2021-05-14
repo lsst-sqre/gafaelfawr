@@ -2,6 +2,19 @@
 Change log
 ##########
 
+3.0.0 (unreleased)
+==================
+
+This release replaces the Kubernetes secret management approach released with 2.0.0 with a new approach based on a ``GafaelfawrServiceToken`` custom resource definition.
+The old configuration-based approach is no longer supported.
+
+- Add new ``kubernetes-controller`` invocation, which reconciles all ``GafaelfawrServiceToken`` objects and then starts a watcher and processes new updates as they happen.
+- Change ``update-service-tokens`` to use the custom resource approach instead of configuration plus labeled Kubernetes ``Secret`` objects.
+- Use local Kubernetes configuration for Kubernetes operations if invoked outside of a Kubernetes cluster.
+- Increase the timeout for outbound HTTP calls to authentication providers to 20 seconds.
+  Some authentication providers and some Kubernetes cluster networking environments can be surprisingly slow.
+- Update dependencies.
+
 2.0.1 (2021-04-26)
 ==================
 
