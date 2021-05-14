@@ -16,7 +16,6 @@ uvicorn[standard]
 
 # Other dependencies.
 aioredis
-alembic
 cachetools
 click
 cryptography
