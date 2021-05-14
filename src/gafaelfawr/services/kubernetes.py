@@ -43,11 +43,40 @@ __all__ = ["KubernetesService"]
 class KubernetesService:
     """Manage Gafaelfawr-related Kubernetes secrets.
 
-    Gafaelfawr supports automatic creation and management of service tokens
-    for other Kubernetes services running in the same cluster.  This service
-    ensures that all the configured service tokens exist as secrets in the
-    appropriate namespace, and that no other secrets exist that are
-    labelled with gafaelfawr.lsst.io/token-type=service.
+    The GafaelfawrServiceToken custom resource defines a Gafaelfawr service
+    token that should be created and managed as a Kubernetes secret.  This
+    object provides two mechanisms to update those Secrets from the custom
+    objects: a full pass that ensures all Secrets are in sync with their
+    parent GafaelfawrServiceToken objects, and a watcher and queue processor
+    that watches for changes and updates Secrets as those changes come in.
+
+    Notes
+    -----
+    Because the GafaelfawrServiceToken is updated with the status of the
+    attempt to create its child Secret, processing a GafaelfawrServiceToken
+    event will trigger another MODIFIED event of the same object.  If the
+    update was successful, this is generally harmless (if a waste of
+    resources), since Gafaelfawr will discover that the secret is already
+    correct.  But if the creation failed, this could produce an infinite loop
+    of updates to the status.
+
+    Work around this by using the generation of the GafaelfawrServiceToken
+    custom object.  The generation metadata is incremented by Kubernetes when
+    the object changes, but not when the object's status changes.  Only
+    attempt to update the token in the Secret if the generation has changed.
+
+    One problem with this approach is that the generation is also not
+    incremented if the metadata changes, but we want to copy labels and
+    annotations from the parent GafaelfawrServiceToken to the Secret.
+    Therefore, even if the generation hasn't changed, retrieve the Secret,
+    check if the annotations and labels do not match, and if they do not,
+    update them.
+
+    To optimize startup, where we will do one pass through all custom objects
+    and then start a watcher, record the current generation of all objects
+    found during that initial pass whose secrets are correctly up to date.  We
+    will then skip the corresponding events when we receive them when starting
+    up the watcher, although will redo the metadata checks.
     """
 
     def __init__(
@@ -101,7 +130,15 @@ class KubernetesService:
         # Process each GafaelfawrServiceToken and create or update its
         # corresponding secret if needed.
         for service_token in service_tokens:
-            await self._update_secret_for_service_token(service_token)
+            try:
+                secret = self._storage.get_secret_for_service_token(
+                    service_token
+                )
+            except KubernetesError as e:
+                msg = f"Cannot retrieve Secret {service_token.key}"
+                self._logger.error(msg, error=str(e))
+                return
+            await self._update_secret_for_service_token(service_token, secret)
 
     async def update_service_tokens_from_queue(
         self, queue: Queue[WatchEvent], exit_on_empty: bool = False
@@ -122,18 +159,42 @@ class KubernetesService:
         while not (queue.empty() and exit_on_empty):
             event = queue.get()
             if event.event_type == WatchEventType.DELETED:
+                if event.key in self._last_generation:
+                    del self._last_generation[event.key]
+                queue.task_done()
                 continue
-            if self._last_generation.get(event.key) == event.generation:
-                self._logger.info(
-                    f"Ignoring {str(event)}, generation unchanged"
-                )
-                continue
-            self._logger.info(f"Saw {str(event)}")
             service_token = self._storage.get_service_token(
                 event.name, event.namespace
             )
-            if service_token:
-                await self._update_secret_for_service_token(service_token)
+            if not service_token:
+                queue.task_done()
+                continue
+
+            # Retrieve the corresponding secret.
+            secret = self._storage.get_secret_for_service_token(service_token)
+
+            # If the generation matches, we won't try to update the token, but
+            # we still need to check the metadata.
+            last_generation = self._last_generation.get(event.key)
+            if secret and last_generation == event.generation:
+                if self._secret_needs_metadata_update(service_token, secret):
+                    self._storage.update_secret_metadata_for_service_token(
+                        service_token
+                    )
+                    self._logger.info(f"Updated metadata for {event.key}")
+                else:
+                    self._logger.info(
+                        f"Ignoring {str(event)}, generation unchanged"
+                    )
+                queue.task_done()
+                continue
+
+            # Update the last generation even if updating the service
+            # token fails so that we don't get into an infinite loop
+            # updating the failure status.
+            self._last_generation[event.key] = event.generation
+            self._logger.info(f"Saw {str(event)}")
+            await self._update_secret_for_service_token(service_token, secret)
             queue.task_done()
 
     async def _create_service_token(
@@ -154,23 +215,23 @@ class KubernetesService:
         """Check if a secret needs to be updated."""
         if not secret:
             return True
-        okay = (
-            secret.metadata.annotations == parent.annotations
-            and secret.metadata.labels == parent.labels
-            and "token" in secret.data
-        )
-        if not okay:
+        if "token" not in secret.data:
             return True
-
-        # Check the token contained in the secret.
         try:
             token_str = b64decode(secret.data["token"]).decode()
             token = Token.from_str(token_str)
-            okay = await self._service_token_valid(token, parent)
+            return not await self._service_token_valid(token, parent)
         except Exception:
-            okay = False
+            return True
 
-        return not okay
+    def _secret_needs_metadata_update(
+        self, parent: GafaelfawrServiceToken, secret: V1Secret
+    ) -> bool:
+        """Check if a secret needs its metadata updated."""
+        return not (
+            secret.metadata.annotations == parent.annotations
+            and secret.metadata.labels == parent.labels
+        )
 
     async def _service_token_valid(
         self, token: Token, parent: GafaelfawrServiceToken
@@ -186,7 +247,7 @@ class KubernetesService:
         return True
 
     async def _update_secret_for_service_token(
-        self, parent: GafaelfawrServiceToken
+        self, parent: GafaelfawrServiceToken, secret: V1Secret
     ) -> None:
         """Verify that a service secret is still correct.
 
@@ -194,14 +255,16 @@ class KubernetesService:
         secret metadata matches the GafaelfawrServiceToken metadata and
         replaces it with a new one if not.
         """
-        try:
-            secret = self._storage.get_secret_for_service_token(parent)
-        except KubernetesError as e:
-            msg = f"Updating {parent.key} failed"
-            self._logger.error(msg, error=str(e))
-            return
         if not await self._secret_needs_update(parent, secret):
             self._last_generation[parent.key] = parent.generation
+            if self._secret_needs_metadata_update(parent, secret):
+                try:
+                    self._storage.update_secret_metadata_for_service_token(
+                        parent
+                    )
+                except KubernetesError as e:
+                    msg = f"Updating Secret {parent.key} failed"
+                    self._logger.error(msg, error=str(e))
             return
 
         # Something is either different or invalid.  Replace the secret.
@@ -213,7 +276,7 @@ class KubernetesService:
                 self._storage.create_secret_for_service_token(parent, token)
             self._last_generation[parent.key] = parent.generation
         except (KubernetesError, PermissionDeniedError, ValidationError) as e:
-            msg = f"Updating {parent.key} failed"
+            msg = f"Updating Secret {parent.key} failed"
             self._logger.error(msg, error=str(e))
             try:
                 self._storage.update_service_token_status(

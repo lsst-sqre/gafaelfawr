@@ -576,6 +576,122 @@ async def test_update_generation(
         "gafaelfawr-secret", "mobu"
     )
 
+    # But if we send a delete and then an add with the same generation, it
+    # should be processed.
+    queue.put(
+        WatchEvent(
+            event_type=WatchEventType.DELETED,
+            name="gafaelfawr-secret",
+            namespace="mobu",
+            generation=1,
+        )
+    )
+    queue.put(
+        WatchEvent(
+            event_type=WatchEventType.ADDED,
+            name="gafaelfawr-secret",
+            namespace="mobu",
+            generation=1,
+        )
+    )
+    await kubernetes_service.update_service_tokens_from_queue(
+        queue, exit_on_empty=True
+    )
+    assert queue.empty()
+    assert secret != mock_kubernetes.read_namespaced_secret(
+        "gafaelfawr-secret", "mobu"
+    )
+    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+
+
+@pytest.mark.asyncio
+async def test_update_generation_metadata(
+    setup: SetupTest, mock_kubernetes: MockKubernetesApi
+) -> None:
+    """Test that Secret metadata is updated even if generation doesn't change.
+
+    Updates to metadata doesn't trigger a generation bump (since generation is
+    in metadata itself), so propagating metadata to secrets has to be handled
+    specially.
+    """
+    service_token: Dict[str, Any] = {
+        "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+        "kind": "GafaelfawrServiceToken",
+        "metadata": {
+            "name": "gafaelfawr-secret",
+            "namespace": "mobu",
+            "generation": 1,
+        },
+        "spec": {
+            "service": "mobu",
+            "scopes": ["admin:token"],
+        },
+    }
+    mock_kubernetes.create_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        service_token,
+    )
+    kubernetes_service = setup.factory.create_kubernetes_service()
+    await kubernetes_service.update_service_tokens()
+    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    secret = mock_kubernetes.read_namespaced_secret(
+        "gafaelfawr-secret", "mobu"
+    )
+    assert secret
+
+    # Sending a modified event does nothing.
+    queue: Queue[WatchEvent] = Queue()
+    queue.put(
+        WatchEvent(
+            event_type=WatchEventType.MODIFIED,
+            name="gafaelfawr-secret",
+            namespace="mobu",
+            generation=1,
+        )
+    )
+    await kubernetes_service.update_service_tokens_from_queue(
+        queue, exit_on_empty=True
+    )
+    assert queue.empty()
+    assert secret == mock_kubernetes.read_namespaced_secret(
+        "gafaelfawr-secret", "mobu"
+    )
+
+    # Now add some labels and annotations.
+    service_token = mock_kubernetes.get_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        "gafaelfawr-secret",
+    )
+    service_token["metadata"]["labels"] = {"foo": "bar"}
+    service_token["metadata"]["annotations"] = {"one": "1", "two": "2"}
+    mock_kubernetes.replace_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        "gafaelfawr-secret",
+        service_token,
+    )
+    queue.put(
+        WatchEvent(
+            event_type=WatchEventType.MODIFIED,
+            name="gafaelfawr-secret",
+            namespace="mobu",
+            generation=1,
+        )
+    )
+    await kubernetes_service.update_service_tokens_from_queue(
+        queue, exit_on_empty=True
+    )
+    assert queue.empty()
+    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+
 
 @pytest.mark.asyncio
 async def test_errors_replace_read(

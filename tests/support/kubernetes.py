@@ -205,6 +205,27 @@ class MockKubernetesApi(Mock):
             raise ApiException(status=500, reason=f"{namespace}/{name} exists")
         self.objects[namespace]["Secret"][name] = secret
 
+    def patch_namespaced_secret(
+        self, name: str, namespace: str, body: List[Dict[str, Any]]
+    ) -> V1Secret:
+        self._maybe_error("patch_namespaced_secret", name, namespace)
+        if namespace not in self.objects:
+            reason = f"{namespace}/{name} not found"
+            raise ApiException(status=404, reason=reason)
+        if name not in self.objects[namespace].get("Secret", {}):
+            reason = f"{namespace}/{name} not found"
+            raise ApiException(status=404, reason=reason)
+        obj = copy.deepcopy(self.objects[namespace]["Secret"][name])
+        for patch in body:
+            assert patch["op"] == "replace"
+            if patch["path"] == "/metadata/annotations":
+                obj.metadata.annotations = patch["value"]
+            elif patch["path"] == "/metadata/labels":
+                obj.metadata.labels = patch["value"]
+            else:
+                assert False, f'unsupported path {patch["path"]}'
+        self.objects[namespace]["Secret"][name] = obj
+
     def read_namespaced_secret(self, name: str, namespace: str) -> V1Secret:
         self._maybe_error("read_namespaced_secret", name, namespace)
         if namespace not in self.objects:

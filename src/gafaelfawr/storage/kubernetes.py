@@ -307,12 +307,12 @@ class KubernetesStorage:
     def replace_secret_for_service_token(
         self, parent: GafaelfawrServiceToken, token: Token
     ) -> None:
-        """Replace the token in a secret.
+        """Replace the token in a Secret.
 
         Parameters
         ----------
         parent : `GafaelfawrServiceToken`
-            The parent ``GafaelfawrServiceToken`` object for the secret.
+            The parent ``GafaelfawrServiceToken`` object for the Secret.
         token : `gafaelfawr.models.token.Token`
             The token to store.
         """
@@ -325,6 +325,34 @@ class KubernetesStorage:
             reason=StatusReason.Updated,
             message="Secret was updated",
             success=True,
+        )
+
+    @_convert_exception
+    def update_secret_metadata_for_service_token(
+        self, parent: GafaelfawrServiceToken
+    ) -> None:
+        """Update the metadata for a Secret.
+
+        Parameters
+        ----------
+        parent : `GafaelfawrServiceToken`
+            The parent ``GafaelfawrServiceToken`` object for the Secret.
+        """
+        self._api.patch_namespaced_secret(
+            parent.name,
+            parent.namespace,
+            [
+                {
+                    "op": "replace",
+                    "path": "/metadata/annotations",
+                    "value": parent.annotations,
+                },
+                {
+                    "op": "replace",
+                    "path": "/metadata/labels",
+                    "value": parent.labels,
+                },
+            ],
         )
 
     @_convert_exception
