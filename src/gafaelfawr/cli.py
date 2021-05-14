@@ -115,6 +115,7 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
         config_dependency.set_settings_path(settings)
     async with ComponentFactory.standalone() as factory:
         kubernetes_service = factory.create_kubernetes_service()
+        await kubernetes_service.update_service_tokens()
         queue = kubernetes_service.create_service_token_watcher()
         await kubernetes_service.update_service_tokens_from_queue(queue)
 
