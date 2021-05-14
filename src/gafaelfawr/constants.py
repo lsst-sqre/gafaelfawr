@@ -6,7 +6,7 @@ ALGORITHM = "RS256"
 COOKIE_NAME = "gafaelfawr"
 """Name of the state cookie."""
 
-HTTP_TIMEOUT = 10.0
+HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
 
 MINIMUM_LIFETIME = 5 * 60
