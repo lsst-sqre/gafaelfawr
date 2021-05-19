@@ -113,10 +113,16 @@ def init(settings: Optional[str]) -> None:
 async def kubernetes_controller(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
+    config = config_dependency()
+    logger = structlog.get_logger(config.safir.logger_name)
+    logger.debug("Starting")
     async with ComponentFactory.standalone() as factory:
         kubernetes_service = factory.create_kubernetes_service()
+        logger.debug("Updating all service tokens")
         await kubernetes_service.update_service_tokens()
+        logger.debug("Starting Kubernetes watcher")
         queue = kubernetes_service.create_service_token_watcher()
+        logger.debug("Starting continuous processing")
         await kubernetes_service.update_service_tokens_from_queue(queue)
 
 
@@ -138,6 +144,7 @@ async def update_service_tokens(settings: Optional[str]) -> None:
     async with ComponentFactory.standalone() as factory:
         kubernetes_service = factory.create_kubernetes_service()
         try:
+            logger.debug("Updating all service tokens")
             await kubernetes_service.update_service_tokens()
         except KubernetesError as e:
             msg = "Failed to update service token secrets"
