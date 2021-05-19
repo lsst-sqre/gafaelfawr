@@ -2,6 +2,11 @@
 Change log
 ##########
 
+3.0.1 (unreleased)
+==================
+
+- Add additional startup logging at the DEBUG level.
+
 3.0.0 (2021-05-18)
 ==================
 

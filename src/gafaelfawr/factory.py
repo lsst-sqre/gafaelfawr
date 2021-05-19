@@ -79,9 +79,11 @@ class ComponentFactory:
             The factory.  Must be used as a context manager.
         """
         config = config_dependency()
-        redis = await redis_dependency(config)
         logger = structlog.get_logger(config.safir.logger_name)
         assert logger
+        logger.debug("Connecting to Redis")
+        redis = await redis_dependency(config)
+        logger.debug("Connecting to PostgreSQL")
         session = create_session(config, logger)
         try:
             async with AsyncClient() as client:
