@@ -19,7 +19,7 @@ from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.token import Token
 
 if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, TypeVar, Union
+    from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
 
     T = TypeVar("T")
 
@@ -90,29 +90,55 @@ def generate_token() -> None:
     "--settings",
     envvar="GAFAELFAWR_SETTINGS_PATH",
     type=str,
-    default="/etc/gafaelfawr/gafaelfawr.yaml",
+    default=None,
     help="Application settings file.",
 )
-def init(settings: str) -> None:
+def init(settings: Optional[str]) -> None:
     """Initialize the database storage."""
-    config_dependency.set_settings_path(settings)
+    if settings:
+        config_dependency.set_settings_path(settings)
     config = config_dependency()
     initialize_database(config)
 
 
 @main.command()
+@click.option(
+    "--settings",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
+    type=str,
+    default=None,
+    help="Application settings file.",
+)
 @coroutine
-async def update_service_tokens() -> None:
+async def kubernetes_controller(settings: Optional[str]) -> None:
+    if settings:
+        config_dependency.set_settings_path(settings)
+    async with ComponentFactory.standalone() as factory:
+        kubernetes_service = factory.create_kubernetes_service()
+        await kubernetes_service.update_service_tokens()
+        queue = kubernetes_service.create_service_token_watcher()
+        await kubernetes_service.update_service_tokens_from_queue(queue)
+
+
+@main.command()
+@click.option(
+    "--settings",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
+    type=str,
+    default=None,
+    help="Application settings file.",
+)
+@coroutine
+async def update_service_tokens(settings: Optional[str]) -> None:
     """Update service tokens stored in Kubernetes secrets."""
+    if settings:
+        config_dependency.set_settings_path(settings)
     config = config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
-    if not config.kubernetes:
-        logger.info("No Kubernetes secrets configured")
-        sys.exit(0)
     async with ComponentFactory.standalone() as factory:
         kubernetes_service = factory.create_kubernetes_service()
         try:
-            await kubernetes_service.update_service_secrets()
+            await kubernetes_service.update_service_tokens()
         except KubernetesError as e:
             msg = "Failed to update service token secrets"
             logger.error(msg, error=str(e))

@@ -8,7 +8,7 @@
 asgi-lifespan
 coverage[toml]
 diagrams
-documenteer>=0.5,<0.6
+documenteer
 flake8
 holdup
 lsst-sphinx-bootstrap-theme<0.3
@@ -23,10 +23,10 @@ pytest-xdist[psutil]
 selenium
 selenium-wire
 seqdiag
-sphinx-automodapi==0.12
+sphinx-automodapi
 sphinx-click
 sphinx-prompt
 
-# Temporary to prevent conflicts with requirements/main.txt due to a different
-# aiohttp requirement on chardet (inherited from safir).
-aiohttp
+# Temporary to prevent conflicts with reuqirements/main.txt due to a different
+# click requirement from uvicorn.
+uvicorn

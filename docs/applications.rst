@@ -191,33 +191,33 @@ Verifying tokens
 
 Tokens may be verified and used to obtain information about a user by presenting them in an ``Authorization`` header with type ``bearer`` to either of the ``/auth/v1/api/token-info`` or ``/auth/v1/api/user-info`` routes.
 
-.. _kubernetes-service-secrets:
+.. _kubernetes-service-tokens:
 
 Service tokens in Kubernetes
 ============================
 
 If an application needs its own service token to make authenticated calls on its own behalf, the recommended way to create such tokens is with Gafaelfawr's Kubernetes secret support.
-Add a list of Kubernetes secrets to create in the ``tokens.secrets`` configuration setting (see :ref:`helm-tokens`).
-For example:
+Create a ``GafaelfawrServiceToken`` object in the same namespace as the application:
 
 .. code-block:: yaml
 
-   tokens:
-     secrets:
-       - secretName: gafaelfawr-secret
-         secretNamespace: some-application
-         service: some-application
-         scopes:
-           - "read:all"
+   apiVersion: gafaelfawr.lsst.io/v1alpha1
+   kind: GafaelfawrServiceToken
+   metadata:
+     name: <name>
+     namespace: <namespace>
+   spec:
+     service: <service-name>
+     scopes:
+       - <scope-1>
+       - <scope-2>
 
-This requests that Gafaelfawr create a secret named ``gafaelfawr-secret`` in the ``some-application`` namespace containing a token for ``some-application`` with a scope of ``read:all``.
-Gafaelfawr will process this configuration hourly (via a Kubernetes ``CronJob``) and create any missing secrets, update any secrets that are not valid, and delete any secrets it previously created but which are no longer listed in the configuration.
-The token will be stored in a ``token`` data element in the secret.
+Gafaelfawr will then create and manage a secret with the same name and in the same namespace.
+That secret will have one ``data`` element, ``token``, which will contain a valid Gafaelfawr service token.
+The service name and the scopes of that token will be determined by the settings in ``spec``.
+Any labels or annotations on the ``GafaelfawrServiceToken`` object will be copied to the created secret.
+
 You can then provide that secret to an application via whatever mechanism is the most convenient, such as by setting an environment variable with its value using the normal Kubernetes ``Pod`` specification.
-
-Gafaelfawr marks the secrets that it manages in this way with labels in the ``gafaelfawr.lsst.io`` namespace and will not touch secrets that do not have those labels.
-The secret must not already exist if you want Gafaelfawr to manage it.
-Gafaelfawr cannot add keys to existing secrets.
 
 .. _openid-connect:
 

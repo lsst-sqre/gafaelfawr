@@ -348,33 +348,6 @@ You will still need to set ``config.databaseUrl`` and the ``database-password`` 
 As mentioned in the Google documentation, the Cloud SQL Auth Proxy does not support IAM authentication to the database, only password authentication, and IAM authentication is not recommended for connection pools for long-lived processes.
 Gafaelfawr therefore doesn't support IAM authentication to the database.
 
-.. _helm-tokens:
-
-Kubernetes secret management
-----------------------------
-
-Gafaelfawr has the ability to maintain service tokens in Kubernetes secrets that can then be used by other applications.
-The details of how this works are documented in :ref:`kubernetes-service-secrets`.
-
-This is configured in the Helm chart via the ``tokens.secrets`` key, whose value is a list of secrets to maintain.
-Each secret is an object with the following keys:
-
-``secretName``
-    The name of the secret.
-
-``secretNamespace``
-    The namespace in which to put the secret.
-
-``service``
-    The name of the service for which to create a token.
-
-``scopes`` (optional)
-    A list of scopes the token should have.
-    If not provided, the token will have no scopes.
-
-If ``token.secrets`` is set, the Helm chart will create a ``CronJob`` Kubernetes resource that maintains those secrets.
-By default, it runs every 15 minutes.
-
 .. _helm-proxies:
 
 Logging and proxies
