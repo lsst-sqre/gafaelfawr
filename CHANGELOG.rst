@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.0.0 (unreleased)
+3.0.0 (2021-05-18)
 ==================
 
 This release replaces the Kubernetes secret management approach released with 2.0.0 with a new approach based on a ``GafaelfawrServiceToken`` custom resource definition.
