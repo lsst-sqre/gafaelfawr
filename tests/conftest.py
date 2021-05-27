@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from unittest.mock import patch
+from urllib.parse import urljoin
 
 import kubernetes
 import pytest
 
+from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.models.state import State
+from gafaelfawr.models.token import TokenType
+from tests.pages.tokens import TokensPage
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.kubernetes import MockKubernetesApi
 from tests.support.selenium import run_app, selenium_driver
@@ -70,10 +75,14 @@ def non_mocked_hosts() -> List[str]:
 
 
 @pytest.fixture
-def selenium_config(tmp_path: Path) -> Iterable[SeleniumConfig]:
+def selenium_config(
+    tmp_path: Path, driver: webdriver.Chrome
+) -> Iterable[SeleniumConfig]:
     """Start a server for Selenium tests.
 
-    The server will be automatically stopped at the end of the test.
+    The server will be automatically stopped at the end of the test.  The
+    Selenium web driver will be automatically configured with a valid
+    authentication token in a cookie.
 
     Returns
     -------
@@ -83,6 +92,20 @@ def selenium_config(tmp_path: Path) -> Iterable[SeleniumConfig]:
     settings_path = build_settings(tmp_path, "selenium")
     config_dependency.set_settings_path(str(settings_path))
     with run_app(tmp_path, settings_path) as config:
+        cookie = State(token=config.token).as_cookie()
+        driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}
+
+        # The synthetic cookie doesn't have a CSRF token, so we want to
+        # replace it with a real cookie.  Do this by visiting the top-level
+        # page of the UI and waiting for the token list to appear, which will
+        # trigger fleshing out the state, and then dropping the header
+        # override for subsequent calls so that the cookie set in the browser
+        # will be used.
+        driver.get(urljoin(config.url, "/auth/tokens/"))
+        tokens_page = TokensPage(driver)
+        tokens_page.get_tokens(TokenType.session)
+        del driver.header_overrides
+
         yield config
 
 
