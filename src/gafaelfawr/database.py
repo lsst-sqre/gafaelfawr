@@ -61,7 +61,7 @@ def create_session(config: Config, logger: BoundLogger) -> Session:
     # caller.
     engine = create_engine(config.database_url)
     session = Session(bind=engine)
-    session.execute(select(Admin))
+    session.execute(select(SQLAdmin))
     return session
 
 
