@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
-import pytest
-
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
@@ -18,8 +16,7 @@ if TYPE_CHECKING:
     from tests.support.selenium import SeleniumConfig
 
 
-@pytest.mark.asyncio
-async def test_create_token(
+def test_create_token(
     driver: webdriver.Chrome, selenium_config: SeleniumConfig
 ) -> None:
     cookie = State(token=selenium_config.token).as_cookie()
@@ -39,9 +36,9 @@ async def test_create_token(
     # creation.
     del driver.header_overrides
 
-    create_modal = await tokens_page.click_create_token()
+    create_modal = tokens_page.click_create_token()
     create_modal.set_token_name("test token")
-    await create_modal.submit()
+    create_modal.submit()
 
     new_token_modal = tokens_page.get_new_token_modal()
     assert new_token_modal.token.startswith("gt-")
