@@ -5,7 +5,12 @@ Change log
 3.0.1 (unreleased)
 ==================
 
+- Display the token key and token type when showing token change history.
+  Since the change history includes subtokens, not showing the type or key was confusing.
+- Initialize the database if needed as part of Gafaelfawr container startup.
 - Add additional startup logging at the DEBUG level.
+- Improve error reporting if Gafaelfawr is unable to connect to its database.
+- Update dependencies.
 
 3.0.0 (2021-05-18)
 ==================
