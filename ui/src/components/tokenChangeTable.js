@@ -5,9 +5,9 @@ import { useTable } from 'react-table';
 import Timestamp from './timestamp';
 import Token from './token';
 
-export default function TokenChangeTable({ data, includeToken = false }) {
-  const columns = useMemo(() => {
-    const prefix = [
+export default function TokenChangeTable({ data }) {
+  const columns = useMemo(
+    () => [
       {
         Header: 'Event Time',
         // eslint-disable-next-line react/display-name, react/prop-types
@@ -17,6 +17,7 @@ export default function TokenChangeTable({ data, includeToken = false }) {
       {
         Header: 'Action',
         accessor: 'action',
+        className: 'qa-action',
       },
       {
         Header: 'Actor',
@@ -26,16 +27,18 @@ export default function TokenChangeTable({ data, includeToken = false }) {
         Header: 'IP Address',
         accessor: 'ip_address',
       },
-    ];
-    const token = [
       {
         Header: 'Token',
         // eslint-disable-next-line react/display-name, react/prop-types
         Cell: ({ value }) => <Token token={value} />,
         accessor: 'token',
+        className: 'qa-token',
       },
-    ];
-    const suffix = [
+      {
+        Header: 'Type',
+        accessor: 'token_type',
+        className: 'qa-type',
+      },
       {
         Header: 'Token Name',
         accessor: 'token_name',
@@ -49,6 +52,7 @@ export default function TokenChangeTable({ data, includeToken = false }) {
         // eslint-disable-next-line react/prop-types
         Cell: ({ value }) => (value ? value.join(', ') : null),
         accessor: 'scopes',
+        className: 'qa-scopes',
       },
       {
         Header: 'Old Scopes',
@@ -68,12 +72,9 @@ export default function TokenChangeTable({ data, includeToken = false }) {
         Cell: ({ value }) => <Timestamp timestamp={value} past={false} />,
         accessor: 'old_expires',
       },
-    ];
-    if (includeToken) {
-      return prefix.concat(token).concat(suffix);
-    }
-    return prefix.concat(suffix);
-  }, [includeToken]);
+    ],
+    []
+  );
 
   const table = useTable({ columns, data });
 
@@ -100,7 +101,11 @@ export default function TokenChangeTable({ data, includeToken = false }) {
           return (
             <tr {...row.getRowProps()} className="qa-token-change-row">
               {row.cells.map((cell) => (
-                <td {...cell.getCellProps()}>{cell.render('Cell')}</td>
+                <td
+                  {...cell.getCellProps({ className: cell.column.className })}
+                >
+                  {cell.render('Cell')}
+                </td>
               ))}
             </tr>
           );
@@ -112,5 +117,4 @@ export default function TokenChangeTable({ data, includeToken = false }) {
 }
 TokenChangeTable.propTypes = {
   data: PropTypes.arrayOf(PropTypes.object).isRequired,
-  includeToken: PropTypes.bool,
 };

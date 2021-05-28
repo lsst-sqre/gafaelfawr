@@ -34,7 +34,7 @@ export default function TokenData({ token }) {
 
   return (
     <>
-      <table>
+      <table className="qa-token-data">
         <tbody>
           <tr>
             <th scope="row">Token</th>
@@ -44,11 +44,11 @@ export default function TokenData({ token }) {
           </tr>
           <tr>
             <th scope="row">Username</th>
-            <td>{tokenData.username}</td>
+            <td className="qa-username">{tokenData.username}</td>
           </tr>
           <tr>
             <th scope="row">Type</th>
-            <td>{tokenData.token_type}</td>
+            <td className="qa-type">{tokenData.token_type}</td>
           </tr>
           {tokenData.token_name && (
             <tr>
@@ -60,7 +60,7 @@ export default function TokenData({ token }) {
           )}
           <tr>
             <th scope="row">Scopes</th>
-            <td>{tokenData.scopes.join(', ')}</td>
+            <td className="qa-scopes">{tokenData.scopes.join(', ')}</td>
           </tr>
           {tokenData.service && (
             <tr>

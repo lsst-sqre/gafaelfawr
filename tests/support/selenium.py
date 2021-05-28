@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import Iterator
 
+    from gafelfawr.config import Config
+
 APP_TEMPLATE = """
 from unittest.mock import MagicMock
 
@@ -63,6 +65,9 @@ async def startup_event() -> None:
 @dataclass
 class SeleniumConfig:
     """Information about the running server at which Selenium can point."""
+
+    config: Config
+    """The config that the server is running with."""
 
     token: Token
     """A valid authentication token for the running server."""
@@ -179,6 +184,7 @@ def run_app(tmp_path: Path, settings_path: Path) -> Iterator[SeleniumConfig]:
 
     try:
         selenium_config = SeleniumConfig(
+            config=config,
             token=Token.from_str(token_path.read_text()),
             url=f"http://localhost:{port}",
         )
