@@ -115,7 +115,7 @@ export default function TokenChangeSearch({ query, setQuery }) {
       {data !== null && (
         <>
           <h2>Results</h2>
-          <TokenChangeTable data={data} includeToken />
+          <TokenChangeTable data={data} />
         </>
       )}
     </>

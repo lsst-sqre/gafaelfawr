@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class TokensPage(BasePage):
-    async def click_create_token(self) -> CreateTokenModal:
+    def click_create_token(self) -> CreateTokenModal:
         button = self.find_element_by_id("qa-create-token")
         button.click()
         element = self.find_element_by_id("create-token-modal")
@@ -46,7 +46,7 @@ class CreateTokenModal(BaseModal):
         field = self.form.find_element_by_id("create-token-name")
         field.send_keys(token_name)
 
-    async def submit(self) -> None:
+    def submit(self) -> None:
         self.form.submit()
 
 
@@ -69,6 +69,52 @@ class TokenRow(BaseElement):
     def token(self) -> str:
         return self.find_element_by_class_name("qa-token").text
 
-    async def click_delete_token(self) -> None:
+    def click_token(self) -> None:
+        token = self.find_element_by_class_name("qa-token")
+        token.click()
+
+    def click_delete_token(self) -> None:
         button = self.find_element_by_class_name("qa-token-delete")
         button.click()
+
+
+class TokenDataPage(BasePage):
+    @property
+    def scopes(self) -> str:
+        return self._data.find_element_by_class_name("qa-scopes").text
+
+    @property
+    def token_type(self) -> str:
+        return self._data.find_element_by_class_name("qa-type").text
+
+    @property
+    def username(self) -> str:
+        return self._data.find_element_by_class_name("qa-username").text
+
+    @property
+    def _data(self) -> WebElement:
+        return self.find_element_by_class_name("qa-token-data")
+
+    def get_change_history(self) -> List[TokenChangeRow]:
+        return [
+            TokenChangeRow(e)
+            for e in self.find_elements_by_class_name("qa-token-change-row")
+        ]
+
+
+class TokenChangeRow(BaseElement):
+    @property
+    def action(self) -> str:
+        return self.find_element_by_class_name("qa-action").text
+
+    @property
+    def scopes(self) -> str:
+        return self.find_element_by_class_name("qa-scopes").text
+
+    @property
+    def token(self) -> str:
+        return self.find_element_by_class_name("qa-token").text
+
+    @property
+    def token_type(self) -> str:
+        return self.find_element_by_class_name("qa-type").text
