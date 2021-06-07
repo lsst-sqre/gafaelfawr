@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.0.1 (unreleased)
+3.0.1 (2021-06-07)
 ==================
 
 - Display the token key and token type when showing token change history.
