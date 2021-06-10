@@ -17,6 +17,7 @@ from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.headers import parse_www_authenticate, query_from_url
+from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
     from typing import Dict
@@ -62,22 +63,20 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     }
     code = query["code"][0]
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "event": "Returned OpenID Connect authorization code",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/openid/login",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "return_url": return_url,
-        "scope": "user:token",
-        "token": token_data.token.key,
-        "token_source": "cookie",
-        "user": token_data.username,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": "Returned OpenID Connect authorization code",
+            "level": "info",
+            "method": "GET",
+            "path": "/auth/openid/login",
+            "remote": "127.0.0.1",
+            "return_url": return_url,
+            "scope": "user:token",
+            "token": token_data.token.key,
+            "token_source": "cookie",
+            "user": token_data.username,
+        }
+    ]
 
     # Redeem the code for a token and check the result.
     caplog.clear()
@@ -126,20 +125,18 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert expected_exp - 5 <= token.claims["exp"] <= expected_exp
     assert now - 5 <= token.claims["iat"] <= now
 
-    log = json.loads(caplog.record_tuples[0][2])
     username = token_data.username
-    assert log == {
-        "event": f"Retrieved token for user {username} via OpenID Connect",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "POST",
-        "path": "/auth/openid/token",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "token": OIDCAuthorizationCode.from_str(code).key,
-        "user": username,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": f"Retrieved token for user {username} via OpenID Connect",
+            "level": "info",
+            "method": "POST",
+            "path": "/auth/openid/token",
+            "remote": "127.0.0.1",
+            "token": OIDCAuthorizationCode.from_str(code).key,
+            "user": username,
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -171,18 +168,16 @@ async def test_unauthenticated(
     expected_url = f"https://{TEST_HOSTNAME}/auth/openid/login?{params}"
     assert query_from_url(r.headers["Location"]) == {"rd": [str(expected_url)]}
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "event": "Redirecting user for authentication",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/openid/login",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "return_url": return_url,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": "Redirecting user for authentication",
+            "level": "info",
+            "method": "GET",
+            "path": "/auth/openid/login",
+            "remote": "127.0.0.1",
+            "return_url": return_url,
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -195,13 +190,11 @@ async def test_login_errors(
     await setup.login(token_data.token)
 
     # No parameters at all.
-    caplog.clear()
     r = await setup.client.get("/auth/openid/login", allow_redirects=False)
     assert r.status_code == 422
 
     # Good client ID but missing redirect_uri.
     login_params = {"client_id": "some-id"}
-    caplog.clear()
     r = await setup.client.get(
         "/auth/openid/login", params=login_params, allow_redirects=False
     )
@@ -219,23 +212,21 @@ async def test_login_errors(
     assert r.status_code == 400
     assert "Unknown client_id bad-client" in r.text
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": "Unknown client_id bad-client in OpenID Connect request",
-        "event": "Invalid request",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/openid/login",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "return_url": f"https://{TEST_HOSTNAME}/",
-        "scope": "user:token",
-        "token": ANY,
-        "token_source": "cookie",
-        "user": token_data.username,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "error": "Unknown client_id bad-client in OpenID Connect request",
+            "event": "Invalid request",
+            "level": "warning",
+            "method": "GET",
+            "path": "/auth/openid/login",
+            "remote": "127.0.0.1",
+            "return_url": f"https://{TEST_HOSTNAME}/",
+            "scope": "user:token",
+            "token": ANY,
+            "token_source": "cookie",
+            "user": token_data.username,
+        }
+    ]
 
     # Bad redirect_uri.
     login_params["client_id"] = "some-id"
@@ -264,23 +255,21 @@ async def test_login_errors(
         "error_description": ["Missing response_type parameter"],
     }
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": "Missing response_type parameter",
-        "event": "Invalid request",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/openid/login",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "return_url": login_params["redirect_uri"],
-        "scope": "user:token",
-        "token": ANY,
-        "token_source": "cookie",
-        "user": token_data.username,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "error": "Missing response_type parameter",
+            "event": "Invalid request",
+            "level": "warning",
+            "method": "GET",
+            "path": "/auth/openid/login",
+            "remote": "127.0.0.1",
+            "return_url": login_params["redirect_uri"],
+            "scope": "user:token",
+            "token": ANY,
+            "token_source": "cookie",
+            "user": token_data.username,
+        }
+    ]
 
     # Invalid response_type.
     login_params["response_type"] = "bogus"
@@ -341,18 +330,16 @@ async def test_token_errors(
         "error_description": "Invalid token request",
     }
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": "Invalid token request",
-        "event": "Invalid request",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "POST",
-        "path": "/auth/openid/token",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "error": "Invalid token request",
+            "event": "Invalid request",
+            "level": "warning",
+            "method": "POST",
+            "path": "/auth/openid/token",
+            "remote": "127.0.0.1",
+        }
+    ]
 
     # Invalid grant type.
     request = {
@@ -369,18 +356,16 @@ async def test_token_errors(
         "error_description": "Invalid grant type bogus",
     }
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": "Invalid grant type bogus",
-        "event": "Unsupported grant type",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "POST",
-        "path": "/auth/openid/token",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "error": "Invalid grant type bogus",
+            "event": "Unsupported grant type",
+            "level": "warning",
+            "method": "POST",
+            "path": "/auth/openid/token",
+            "remote": "127.0.0.1",
+        }
+    ]
 
     # Invalid code.
     request["grant_type"] = "authorization_code"
@@ -401,18 +386,16 @@ async def test_token_errors(
         "error_description": "No client_secret provided",
     }
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": "No client_secret provided",
-        "event": "Unauthorized client",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "POST",
-        "path": "/auth/openid/token",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "error": "No client_secret provided",
+            "event": "Unauthorized client",
+            "level": "warning",
+            "method": "POST",
+            "path": "/auth/openid/token",
+            "remote": "127.0.0.1",
+        }
+    ]
 
     # Incorrect client_id.
     request["client_secret"] = "other-secret"
@@ -535,18 +518,16 @@ async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert authenticate.error == AuthError.invalid_request
     assert authenticate.error_description == "Unknown Authorization type token"
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": "Unknown Authorization type token",
-        "event": "Invalid request",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/userinfo",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "error": "Unknown Authorization type token",
+            "event": "Invalid request",
+            "level": "warning",
+            "method": "GET",
+            "path": "/auth/userinfo",
+            "remote": "127.0.0.1",
+        }
+    ]
 
     r = await setup.client.get(
         "/auth/userinfo",
@@ -575,19 +556,17 @@ async def test_invalid(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert authenticate.error == AuthError.invalid_token
     assert authenticate.error_description
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": ANY,
-        "event": "Invalid token",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/userinfo",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "token_source": "bearer",
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "error": ANY,
+            "event": "Invalid token",
+            "level": "warning",
+            "method": "GET",
+            "path": "/auth/userinfo",
+            "remote": "127.0.0.1",
+            "token_source": "bearer",
+        }
+    ]
 
 
 @pytest.mark.asyncio

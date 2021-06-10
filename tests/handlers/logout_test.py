@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
-from unittest.mock import ANY
 
 import pytest
+
+from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
@@ -30,17 +30,15 @@ async def test_logout(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     # Check the redirect and logging.
     assert r.status_code == 307
     assert r.headers["Location"] == setup.config.after_logout_url
-    data = json.loads(caplog.record_tuples[0][2])
-    assert data == {
-        "event": "Successful logout",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/logout",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": "Successful logout",
+            "level": "info",
+            "method": "GET",
+            "path": "/logout",
+            "remote": "127.0.0.1",
+        }
+    ]
 
     # Confirm that we're no longer logged in.
     r = await setup.client.get("/auth", params={"scope": "read:all"})
@@ -73,20 +71,20 @@ async def test_logout_with_url(setup: SetupTest) -> None:
 async def test_logout_not_logged_in(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
+    caplog.clear()
     r = await setup.client.get("/logout", allow_redirects=False)
+
     assert r.status_code == 307
     assert r.headers["Location"] == setup.config.after_logout_url
-    data = json.loads(caplog.record_tuples[-1][2])
-    assert data == {
-        "event": "Logout of already-logged-out session",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/logout",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": "Logout of already-logged-out session",
+            "level": "info",
+            "method": "GET",
+            "path": "/logout",
+            "remote": "127.0.0.1",
+        }
+    ]
 
 
 @pytest.mark.asyncio

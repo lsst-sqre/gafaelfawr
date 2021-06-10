@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
@@ -14,6 +13,7 @@ from gafaelfawr.providers.github import (
     GitHubTeam,
     GitHubUserInfo,
 )
+from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
@@ -43,6 +43,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
     # Simulate the initial authentication request.
     setup.set_github_token_response("some-code", "some-github-token")
+    caplog.clear()
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
@@ -57,22 +58,20 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "scope": [" ".join(GitHubProvider._SCOPES)],
         "state": [ANY],
     }
-    data = json.loads(caplog.record_tuples[-1][2])
-    assert data == {
-        "event": "Redirecting user to GitHub for authentication",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/login",
-        "return_url": return_url,
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": "Redirecting user to GitHub for authentication",
+            "level": "info",
+            "method": "GET",
+            "path": "/login",
+            "return_url": return_url,
+            "remote": "127.0.0.1",
+        }
+    ]
 
     # Simulate the return from GitHub.
-    caplog.clear()
     setup.set_github_userinfo_response("some-github-token", user_info)
+    caplog.clear()
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -80,21 +79,27 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
-    data = json.loads(caplog.record_tuples[-1][2])
-    assert data == {
-        "event": "Successfully authenticated user githubuser (123456)",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/login",
-        "return_url": return_url,
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "scope": "read:all user:token",
-        "token": ANY,
-        "user": "githubuser",
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": "Getting user information from GitHub",
+            "level": "info",
+            "method": "GET",
+            "path": "/login",
+            "remote": "127.0.0.1",
+            "return_url": return_url,
+        },
+        {
+            "event": "Successfully authenticated user githubuser (123456)",
+            "level": "info",
+            "method": "GET",
+            "path": "/login",
+            "return_url": return_url,
+            "remote": "127.0.0.1",
+            "scope": "read:all user:token",
+            "token": ANY,
+            "user": "githubuser",
+        },
+    ]
 
     # Examine the resulting cookie and ensure that it has the proper metadata
     # set.

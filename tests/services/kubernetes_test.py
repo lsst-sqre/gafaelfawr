@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from base64 import b64decode, b64encode
 from datetime import timedelta
 from queue import Queue
@@ -33,6 +32,7 @@ from tests.support.kubernetes import (
     MockKubernetesApi,
     assert_kubernetes_objects_are,
 )
+from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List
@@ -209,19 +209,17 @@ async def test_create(
         }
     ]
 
-    expected = [
+    assert parse_log(caplog) == [
         {
             "event": "Created new service token",
             "key": ANY,
             "level": "info",
-            "logger": "gafaelfawr",
             "token_scope": "admin:token",
             "token_username": "mobu",
         },
         {
             "event": "Created mobu/gafaelfawr-secret secret",
             "level": "info",
-            "logger": "gafaelfawr",
             "scopes": ["admin:token"],
             "service": "mobu",
         },
@@ -229,19 +227,16 @@ async def test_create(
             "event": "Created new service token",
             "key": ANY,
             "level": "info",
-            "logger": "gafaelfawr",
             "token_scope": "",
             "token_username": "nublado-hub",
         },
         {
             "event": "Created nublado2/gafaelfawr secret",
             "level": "info",
-            "logger": "gafaelfawr",
             "scopes": [],
             "service": "nublado-hub",
         },
     ]
-    assert [json.loads(r[2]) for r in caplog.record_tuples] == expected
 
     # Running creation again should not change anything.
     caplog.clear()
@@ -297,19 +292,17 @@ async def test_modify(
     await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
 
     # Check the logging.
-    expected = [
+    assert parse_log(caplog) == [
         {
             "event": "Created new service token",
             "key": ANY,
             "level": "info",
-            "logger": "gafaelfawr",
             "token_scope": "admin:token",
             "token_username": "mobu",
         },
         {
             "event": "Updated mobu/gafaelfawr-secret secret",
             "level": "info",
-            "logger": "gafaelfawr",
             "scopes": ["admin:token"],
             "service": "mobu",
         },
@@ -317,19 +310,16 @@ async def test_modify(
             "event": "Created new service token",
             "key": ANY,
             "level": "info",
-            "logger": "gafaelfawr",
             "token_scope": "",
             "token_username": "nublado-hub",
         },
         {
             "event": "Updated nublado2/gafaelfawr secret",
             "level": "info",
-            "logger": "gafaelfawr",
             "scopes": [],
             "service": "nublado-hub",
         },
     ]
-    assert [json.loads(r[2]) for r in caplog.record_tuples] == expected
 
     # Replace one secret with a valid token for the wrong service.
     token = await token_service.create_token_from_admin_request(

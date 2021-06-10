@@ -697,6 +697,7 @@ class Config:
             profile=config.safir.profile,
             log_level=config.safir.log_level,
             name=config.safir.logger_name,
+            add_timestamp=True,
         )
 
         # Return the completed configuration.
