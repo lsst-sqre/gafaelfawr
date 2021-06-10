@@ -51,6 +51,10 @@ aioredis==1.3.1 \
     --hash=sha256:15f8af30b044c771aee6787e5ec24694c048184c7b9e54c3b60c750a4b93273a \
     --hash=sha256:b61808d7e97b7cd5a92ed574937a079c9387fdadd22bfbfa7ad2fd319ecc26e3
     # via -r requirements/main.in
+anyio==3.1.0 \
+    --hash=sha256:43e20711a9d003d858d694c12356dc44ab82c03ccc5290313c3392fa349dad0e \
+    --hash=sha256:5e335cef65fbd1a422bbfbb4722e8e9a9fadbd8c06d5afe9cd614d12023f6e5a
+    # via httpcore
 asgiref==3.3.4 \
     --hash=sha256:92906c611ce6c967347bbfea733f13d6313901d54dcca88195eaeb52b2a8e8ee \
     --hash=sha256:d1216dfbdfb63826470995d31caed36225dcaf34f182e0fa257a4dd9e86f1b78
@@ -159,13 +163,13 @@ fastapi-sqlalchemy==0.2.1 \
     --hash=sha256:7a9d44e46cbc73c3f5ee8c444f7e0bcd3d01370a878740abd4cd4d2e900ce9af \
     --hash=sha256:d3bfc6d9388a73a2c3726bc6bd7764cd82debfa71c16e3991c544b9701f48d96
     # via -r requirements/main.in
-fastapi==0.65.1 \
-    --hash=sha256:478b7e0cbb52c9913b9903d88ae14195cb8a479c4596e0b2f2238d317840a7dc \
-    --hash=sha256:7619282fbce0ec53c7dfa3fa262280c00ace9f6d772cfd06e4ab219dce66985e
+fastapi==0.65.2 \
+    --hash=sha256:39569a18914075b2f1aaa03bcb9dc96a38e0e5dabaf3972e088c9077dfffa379 \
+    --hash=sha256:8359e55d8412a5571c0736013d90af235d6949ec4ce978e9b63500c8f4b6f714
     # via -r requirements/main.in
-google-auth==1.30.1 \
-    --hash=sha256:044d81b1e58012f8ebc71cc134e191c1fa312f543f1fbc99973afe28c25e3228 \
-    --hash=sha256:b3ca7a8ff9ab3bdefee3ad5aefb11fc6485423767eee016f5942d8e606ca23fb
+google-auth==1.31.0 \
+    --hash=sha256:154f7889c5d679a6f626f36adb12afbd4dbb0a9a04ec575d989d6ba79c4fd65e \
+    --hash=sha256:6d47c79b5d09fbc7e8355fd9594cc4cf65fdde5d401c63951eaac4baa1ba2ae1
     # via kubernetes
 greenlet==1.1.0 \
     --hash=sha256:03f28a5ea20201e70ab70518d151116ce939b412961c33827519ce620957d44c \
@@ -271,9 +275,9 @@ hiredis==2.0.0 \
     --hash=sha256:f52010e0a44e3d8530437e7da38d11fb822acfb0d5b12e9cd5ba655509937ca0 \
     --hash=sha256:f8196f739092a78e4f6b1b2172679ed3343c39c61a3e9d722ce6fcf1dac2824a
     # via aioredis
-httpcore==0.13.3 \
-    --hash=sha256:5d674b57a11275904d4fd0819ca02f960c538e4472533620f322fc7db1ea0edc \
-    --hash=sha256:ff614f0ef875b9e5fe0bdd459b31ea0eea282ff12dc82add83d68b3811ee94ad
+httpcore==0.13.4 \
+    --hash=sha256:38e09649bb3906c913a2917c4eb3e3b3e11c83d4edebad8b53b7d757abc49267 \
+    --hash=sha256:9fa4c623bb9d2280c009c34658cc6315e4fd425a395145645bee205d827263e4
     # via httpx
 httptools==0.2.0 \
     --hash=sha256:01b392a166adcc8bc2f526a939a8aabf89fe079243e1543fd0e7dc1b58d737cb \
@@ -301,6 +305,7 @@ idna==2.10 \
     --hash=sha256:b97d804b1e9b523befed77c48dacec60e6dcb0b5391d57af6a65a312a90648c0
     # via
     #   -r requirements/main.in
+    #   anyio
     #   requests
     #   rfc3986
     #   yarl
@@ -493,6 +498,7 @@ sniffio==1.2.0 \
     --hash=sha256:471b71698eac1c2112a40ce2752bb2f4a4814c22a54a3eed3676bc0f5ca9f663 \
     --hash=sha256:c4666eecec1d3f50960c6bdf61ab7bc350648da6c126e3cf6898d8cd4ddcd3de
     # via
+    #   anyio
     #   httpcore
     #   httpx
 sqlalchemy==1.4.17 \
@@ -575,9 +581,9 @@ watchgod==0.7 \
     --hash=sha256:48140d62b0ebe9dd9cf8381337f06351e1f2e70b2203fa9c6eff4e572ca84f29 \
     --hash=sha256:d6c1ea21df37847ac0537ca0d6c2f4cdf513562e95f77bb93abbcf05573407b7
     # via uvicorn
-websocket-client==1.0.1 \
-    --hash=sha256:3e2bf58191d4619b161389a95bdce84ce9e0b24eb8107e7e590db682c2d0ca81 \
-    --hash=sha256:abf306dc6351dcef07f4d40453037e51cc5d9da2ef60d0fc5d0fe3bcda255372
+websocket-client==1.1.0 \
+    --hash=sha256:b68e4959d704768fa20e35c9d508c8dc2bbc041fd8d267c0d7345cffe2824568 \
+    --hash=sha256:e5c333bfa9fa739538b652b6f8c8fc2559f1d364243c8a689d7c0e1d41c2e611
     # via kubernetes
 websockets==9.1 \
     --hash=sha256:0dd4eb8e0bbf365d6f652711ce21b8fd2b596f873d32aabb0fbb53ec604418cc \
