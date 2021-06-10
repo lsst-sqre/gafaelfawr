@@ -2,6 +2,12 @@
 Change log
 ##########
 
+3.0.2 (unreleased)
+==================
+
+- Add a timestamp to all log messages, since not all Kubernetes log viewers show the timestamp added by Kubernetes.
+- Update dependencies.
+
 3.0.1 (2021-06-07)
 ==================
 
