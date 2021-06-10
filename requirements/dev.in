@@ -5,6 +5,8 @@
 # After editing, update requirements/dev.txt by running:
 #     make update-deps
 
+-c main.txt
+
 asgi-lifespan
 coverage[toml]
 diagrams
@@ -26,7 +28,5 @@ seqdiag
 sphinx-automodapi
 sphinx-click
 sphinx-prompt
-
-# Temporary to prevent conflicts with reuqirements/main.txt due to a different
-# click requirement from uvicorn.
-uvicorn
+types-cachetools
+types-PyYAML

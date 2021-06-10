@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
@@ -11,6 +10,7 @@ import pytest
 
 from gafaelfawr.auth import AuthErrorChallenge, AuthType
 from tests.support.headers import parse_www_authenticate
+from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
@@ -45,22 +45,20 @@ async def test_influxdb(setup: SetupTest, caplog: LogCaptureFixture) -> None:
         "iat": ANY,
     }
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "event": "Issued InfluxDB token",
-        "influxdb_username": token_data.username,
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/tokens/influxdb/new",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "scope": "user:token",
-        "token": token_data.token.key,
-        "token_source": "bearer",
-        "user": token_data.username,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": "Issued InfluxDB token",
+            "influxdb_username": token_data.username,
+            "level": "info",
+            "method": "GET",
+            "path": "/auth/tokens/influxdb/new",
+            "remote": "127.0.0.1",
+            "scope": "user:token",
+            "token": token_data.token.key,
+            "token_source": "bearer",
+            "user": token_data.username,
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -89,22 +87,20 @@ async def test_not_configured(
     assert r.status_code == 404
     assert r.json()["detail"]["type"] == "not_supported"
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "error": "No InfluxDB issuer configuration",
-        "event": "Not configured",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/tokens/influxdb/new",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "scope": "user:token",
-        "token": token_data.token.key,
-        "token_source": "bearer",
-        "user": token_data.username,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "error": "No InfluxDB issuer configuration",
+            "event": "Not configured",
+            "level": "warning",
+            "method": "GET",
+            "path": "/auth/tokens/influxdb/new",
+            "remote": "127.0.0.1",
+            "scope": "user:token",
+            "token": token_data.token.key,
+            "token_source": "bearer",
+            "user": token_data.username,
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -132,19 +128,17 @@ async def test_influxdb_force_username(
         "iat": ANY,
     }
 
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "event": "Issued InfluxDB token",
-        "influxdb_username": "influxdb-user",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/auth/tokens/influxdb/new",
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "scope": "user:token",
-        "token": token_data.token.key,
-        "token_source": "bearer",
-        "user": token_data.username,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": "Issued InfluxDB token",
+            "influxdb_username": "influxdb-user",
+            "level": "info",
+            "method": "GET",
+            "path": "/auth/tokens/influxdb/new",
+            "remote": "127.0.0.1",
+            "scope": "user:token",
+            "token": token_data.token.key,
+            "token_source": "bearer",
+            "user": token_data.username,
+        }
+    ]

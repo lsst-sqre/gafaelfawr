@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
@@ -15,6 +14,7 @@ from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
 from gafaelfawr.util import current_datetime
 from tests.support.constants import TEST_HOSTNAME
+from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
@@ -128,25 +128,23 @@ async def test_create_delete_modify(
 
     # Check the logging.  Regression test for a bug where new expirations
     # would be logged as raw datetime objects instead of timestamps.
-    log = json.loads(caplog.record_tuples[0][2])
-    assert log == {
-        "expires": int(new_expires.timestamp()),
-        "event": "Modified token",
-        "key": user_token.key,
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "PATCH",
-        "path": token_url,
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "scope": "exec:admin read:all user:token",
-        "token": session_token.key,
-        "token_name": "happy token",
-        "token_scope": "exec:admin",
-        "token_source": "cookie",
-        "user": "example",
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "expires": int(new_expires.timestamp()),
+            "event": "Modified token",
+            "key": user_token.key,
+            "level": "info",
+            "method": "PATCH",
+            "path": token_url,
+            "remote": "127.0.0.1",
+            "scope": "exec:admin read:all user:token",
+            "token": session_token.key,
+            "token_name": "happy token",
+            "token_scope": "exec:admin",
+            "token_source": "cookie",
+            "user": "example",
+        }
+    ]
 
     # Delete the token.
     r = await setup.client.delete(token_url, headers={"X-CSRF-Token": csrf})

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+
+from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
@@ -26,6 +27,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert setup.config.oidc
     return_url = "https://example.com:4444/foo?a=bar&b=baz"
 
+    caplog.clear()
     r = await setup.client.get(
         "/login", params={"rd": return_url}, allow_redirects=False
     )
@@ -45,21 +47,20 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     }
 
     # Verify the logging.
-    data = json.loads(caplog.record_tuples[-1][2])
     login_url = setup.config.oidc.login_url
-    assert data == {
-        "event": f"Redirecting user to {login_url} for authentication",
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/login",
-        "return_url": return_url,
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": f"Redirecting user to {login_url} for authentication",
+            "level": "info",
+            "method": "GET",
+            "path": "/login",
+            "return_url": return_url,
+            "remote": "127.0.0.1",
+        }
+    ]
 
     # Simulate the return from the provider.
+    caplog.clear()
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
@@ -72,22 +73,28 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     expected_scopes_set = set(setup.config.issuer.group_mapping["admin"])
     expected_scopes_set.add("user:token")
     expected_scopes = " ".join(sorted(expected_scopes_set))
-    data = json.loads(caplog.record_tuples[-1][2])
     event = f"Successfully authenticated user {token.username} ({token.uid})"
-    assert data == {
-        "event": event,
-        "level": "info",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/login",
-        "return_url": return_url,
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "scope": expected_scopes,
-        "token": ANY,
-        "user": token.username,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": f"Retrieving ID token from {setup.config.oidc.token_url}",
+            "level": "info",
+            "method": "GET",
+            "path": "/login",
+            "remote": "127.0.0.1",
+            "return_url": return_url,
+        },
+        {
+            "event": event,
+            "level": "info",
+            "method": "GET",
+            "path": "/login",
+            "return_url": return_url,
+            "remote": "127.0.0.1",
+            "scope": expected_scopes,
+            "token": ANY,
+            "user": token.username,
+        },
+    ]
 
     # Check that the /auth route works and finds our token.
     r = await setup.client.get("/auth", params={"scope": "exec:admin"})
@@ -196,19 +203,25 @@ async def test_callback_error(
     )
     assert r.status_code == 500
     assert "error_code: description" in r.text
-    data = json.loads(caplog.record_tuples[-1][2])
-    assert data == {
-        "error": "error_code: description",
-        "event": "Provider authentication failed",
-        "level": "warning",
-        "logger": "gafaelfawr",
-        "method": "GET",
-        "path": "/oauth2/callback",
-        "return_url": return_url,
-        "remote": "127.0.0.1",
-        "request_id": ANY,
-        "user_agent": ANY,
-    }
+    assert parse_log(caplog) == [
+        {
+            "event": f"Retrieving ID token from {setup.config.oidc.token_url}",
+            "level": "info",
+            "method": "GET",
+            "path": "/oauth2/callback",
+            "remote": "127.0.0.1",
+            "return_url": return_url,
+        },
+        {
+            "error": "error_code: description",
+            "event": "Provider authentication failed",
+            "level": "warning",
+            "method": "GET",
+            "path": "/oauth2/callback",
+            "return_url": return_url,
+            "remote": "127.0.0.1",
+        },
+    ]
 
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should

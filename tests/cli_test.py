@@ -8,7 +8,6 @@ conflict with each other.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from click.testing import CliRunner
@@ -17,6 +16,7 @@ from kubernetes.client import ApiException
 from gafaelfawr.cli import main
 from gafaelfawr.models.token import Token
 from tests.support.kubernetes import MockKubernetesApi
+from tests.support.logging import parse_log
 from tests.support.setup import initialize
 
 if TYPE_CHECKING:
@@ -111,17 +111,15 @@ def test_update_service_tokens_error(
     result = runner.invoke(main, ["update-service-tokens"])
 
     assert result.exit_code == 1
-    assert [json.loads(r[2]) for r in caplog.record_tuples] == [
+    assert parse_log(caplog) == [
         {
             "event": "Unable to list GafaelfawrServiceToken objects",
             "error": "Kubernetes API error: (500)\nReason: Some error\n",
             "level": "error",
-            "logger": "gafaelfawr",
         },
         {
             "error": "Kubernetes API error: (500)\nReason: Some error\n",
             "event": "Failed to update service token secrets",
             "level": "error",
-            "logger": "gafaelfawr",
         },
     ]
