@@ -5,6 +5,8 @@
 # After editing, update requirements/dev.txt by running:
 #     make update-deps
 
+-c main.txt
+
 asgi-lifespan
 coverage[toml]
 diagrams
