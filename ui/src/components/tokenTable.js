@@ -62,13 +62,15 @@ export default function TokenTable({
       {
         Header: 'Created',
         // eslint-disable-next-line react/display-name, react/prop-types
-        Cell: ({ value }) => <Timestamp timestamp={value} past />,
+        Cell: ({ value }) => <Timestamp timestamp={value} />,
         accessor: 'created',
       },
       {
         Header: 'Expires',
         // eslint-disable-next-line react/display-name, react/prop-types
-        Cell: ({ value }) => <Timestamp timestamp={value} past={false} />,
+        Cell: ({ value }) => (
+          <Timestamp timestamp={value} className="qa-expires" expiration />
+        ),
         accessor: 'expires',
       },
     ];

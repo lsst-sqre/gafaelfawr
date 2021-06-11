@@ -62,6 +62,10 @@ class NewTokenModal(BaseModal):
 
 class TokenRow(BaseElement):
     @property
+    def expires(self) -> str:
+        return self.find_element_by_class_name("qa-expires").text
+
+    @property
     def name(self) -> str:
         return self.find_element_by_class_name("qa-token-name").text
 
@@ -79,6 +83,10 @@ class TokenRow(BaseElement):
 
 
 class TokenDataPage(BasePage):
+    @property
+    def expires(self) -> str:
+        return self.find_element_by_class_name("qa-expires").text
+
     @property
     def scopes(self) -> str:
         return self._data.find_element_by_class_name("qa-scopes").text
@@ -106,6 +114,10 @@ class TokenChangeRow(BaseElement):
     @property
     def action(self) -> str:
         return self.find_element_by_class_name("qa-action").text
+
+    @property
+    def expires(self) -> str:
+        return self.find_element_by_class_name("qa-expires").text
 
     @property
     def scopes(self) -> str:

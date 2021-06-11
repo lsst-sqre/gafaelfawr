@@ -25,19 +25,25 @@ if TYPE_CHECKING:
     from gafelfawr.config import Config
 
 APP_TEMPLATE = """
+from datetime import timedelta
 from unittest.mock import MagicMock
+from urllib.parse import urlparse
 
 import structlog
 from fastapi_sqlalchemy import db
 
+from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.token import TokenUserInfo
+from tests.support.tokens import add_expired_session_token
+from gafaelfawr.util import current_datetime
 
 config_dependency.set_settings_path("{settings_path}")
 redis_dependency.is_mocked = True
+
 
 @app.on_event("startup")
 async def startup_event() -> None:
@@ -45,7 +51,22 @@ async def startup_event() -> None:
     logger = structlog.get_logger(config.safir.logger_name)
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
+
+    # Initialize the database.  Non-SQLite databases need to be reset between
+    # tests.
+    should_reset = not urlparse(config.database_url).scheme == "sqlite"
+    initialize_database(config, reset=should_reset)
+
     with db():
+        # Add an expired token so that we can test display of expired tokens.
+        await add_expired_session_token(
+            user_info,
+            scopes=scopes,
+            ip_address="127.0.0.1",
+            session=db.session,
+        )
+
+        # Add the valid session token.
         factory = ComponentFactory(
             config=config,
             redis=await redis_dependency(config),
@@ -57,6 +78,7 @@ async def startup_event() -> None:
         token = await token_service.create_session_token(
             user_info, scopes=scopes, ip_address="127.0.0.1"
         )
+
     with open("{token_path}", "w") as f:
         f.write(str(token))
 """
@@ -176,7 +198,12 @@ def run_app(tmp_path: Path, settings_path: Path) -> Iterator[SeleniumConfig]:
 
     cmd = ["uvicorn", "--fd", "0", "testing:app"]
     logging.info("Starting server with command %s", " ".join(cmd))
-    p = subprocess.Popen(cmd, cwd=str(tmp_path), stdin=s.fileno())
+    p = subprocess.Popen(
+        cmd,
+        cwd=str(tmp_path),
+        stdin=s.fileno(),
+        env={**os.environ, "PYTHONPATH": os.getcwd()},
+    )
     s.close()
 
     logging.info("Waiting for server to start")

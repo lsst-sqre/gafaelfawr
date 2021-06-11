@@ -254,7 +254,11 @@ class TokenDatabaseStore:
             tokens = (
                 self._session.query(SQLToken)
                 .filter_by(username=username)
-                .order_by(SQLToken.token)
+                .order_by(
+                    SQLToken.last_used.desc(),
+                    SQLToken.created.desc(),
+                    SQLToken.token,
+                )
             )
         else:
             tokens = self._session.query(SQLToken).order_by(SQLToken.token)
