@@ -2,9 +2,11 @@
 Change log
 ##########
 
-3.0.2 (unreleased)
+3.0.2 (2021-06-15)
 ==================
 
+- Display expired tokens as expired in the UI instead of showing the delta of the expiration from the current time.
+- Sort token lists in the UI in descending order by last used (not yet populated), then creation date, and only then by the token key.
 - Add a timestamp to all log messages, since not all Kubernetes log viewers show the timestamp added by Kubernetes.
 - Update dependencies.
 

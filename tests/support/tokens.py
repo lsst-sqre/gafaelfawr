@@ -8,14 +8,82 @@ from typing import TYPE_CHECKING
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import OIDCVerifiedToken
+from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
+from gafaelfawr.storage.history import TokenChangeHistoryStore
+from gafaelfawr.storage.token import TokenDatabaseStore
+from gafaelfawr.storage.transaction import TransactionManager
+from gafaelfawr.util import current_datetime
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional
 
+    from sqlalchemy.orm import Session
+
     from gafaelfawr.config import Config
 
 __all__ = ["create_test_token", "create_upstream_oidc_token"]
+
+
+async def add_expired_session_token(
+    user_info: TokenUserInfo,
+    *,
+    scopes: List[str],
+    ip_address: str,
+    session: Session,
+) -> None:
+    """Add an expired session token to the database.
+
+    This requires going beneath the service layer, since the service layer
+    rejects creation of expired tokens (since apart from testing this isn't a
+    sensible thing to want to do).
+
+    This does not add the token to Redis, since Redis will refuse to add it
+    with a negative expiration time, so can only be used for tests that
+    exclusively use the database.
+
+    Parameters
+    ----------
+    user_info : `gafaelfawr.models.token.TokenUserInfo`
+        The user information to associate with the token.
+    scopes : List[`str`]
+        The scopes of the token.
+    ip_address : `str`
+        The IP address from which the request came.
+    session : `sqlalchemy.orm.Session`
+        The database session.
+    """
+    token_db_store = TokenDatabaseStore(session)
+    token_change_store = TokenChangeHistoryStore(session)
+    transaction_manager = TransactionManager(session)
+
+    token = Token()
+    created = current_datetime()
+    expires = created - timedelta(minutes=10)
+    data = TokenData(
+        token=token,
+        token_type=TokenType.session,
+        scopes=scopes,
+        created=created,
+        expires=expires,
+        **user_info.dict(),
+    )
+    history_entry = TokenChangeHistoryEntry(
+        token=token.key,
+        username=data.username,
+        token_type=TokenType.session,
+        scopes=scopes,
+        expires=expires,
+        actor=data.username,
+        action=TokenChange.create,
+        ip_address=ip_address,
+        event_time=created,
+    )
+
+    with transaction_manager.transaction():
+        token_db_store.add(data)
+        token_change_store.add(history_entry)
 
 
 def create_test_token(

@@ -26,8 +26,10 @@ def test_create_token(
     tokens_page = TokensPage(driver)
     assert tokens_page.get_tokens(TokenType.user) == []
     session_tokens = tokens_page.get_tokens(TokenType.session)
-    assert len(session_tokens) == 1
-    assert session_tokens[0].token == selenium_config.token.key
+    assert len(session_tokens) == 2
+    assert any(
+        t for t in session_tokens if t.token == selenium_config.token.key
+    )
 
     create_modal = tokens_page.click_create_token()
     create_modal.set_token_name("test token")
@@ -63,9 +65,7 @@ def test_token_info(
     assert r.status_code == 200
     internal_token = Token.from_str(r.headers["X-Auth-Request-Token"])
 
-    # Load the token page and go to the history for our session token.  There
-    # may be a left-over token from the previous test if we use persistent
-    # storage, so find our token.
+    # Load the token page and go to the history for our session token.
     driver.get(urljoin(selenium_config.url, "/auth/tokens"))
     tokens_page = TokensPage(driver)
     session_tokens = tokens_page.get_tokens(TokenType.session)
@@ -91,3 +91,36 @@ def test_token_info(
     assert history[2].action == "create"
     assert history[2].token == selenium_config.token.key
     assert history[2].scopes == ", ".join(scopes)
+
+
+def test_expired_token(
+    driver: webdriver.Chrome, selenium_config: SeleniumConfig
+) -> None:
+    driver.get(urljoin(selenium_config.url, "/auth/tokens"))
+    tokens_page = TokensPage(driver)
+    session_tokens = tokens_page.get_tokens(TokenType.session)
+
+    # Find the expired token, which is the one that doesn't match the one
+    # returned by the selenium configuration.
+    session_token = next(
+        t for t in session_tokens if t.token != selenium_config.token.key
+    )
+    token = session_token.token
+
+    # Check that the expiration time is displayed correctly.
+    assert session_token.expires == "expired"
+
+    # Go to the token page and check that the expiration there and in the
+    # history is also correct.
+    session_token.click_token()
+    data_page = TokenDataPage(driver)
+    assert data_page.username == "testuser"
+    assert data_page.token_type == "session"
+    scopes = sorted(selenium_config.config.known_scopes.keys())
+    assert data_page.scopes == ", ".join(scopes)
+    assert data_page.expires == "expired"
+    history = data_page.get_change_history()
+    assert len(history) == 1
+    assert history[0].action == "create"
+    assert history[0].token == token
+    assert history[0].expires == "expired"

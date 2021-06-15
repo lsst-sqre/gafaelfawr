@@ -79,19 +79,23 @@ export default function TokenData({ token }) {
           <tr>
             <th scope="row">Created</th>
             <td>
-              <Timestamp timestamp={tokenData.created} past />
+              <Timestamp timestamp={tokenData.created} />
             </td>
           </tr>
           <tr>
             <th scope="row">Last Used</th>
             <td>
-              <Timestamp timestamp={tokenData.last_used} past />
+              <Timestamp timestamp={tokenData.last_used} />
             </td>
           </tr>
           <tr>
             <th scope="row">Expires</th>
             <td>
-              <Timestamp timestamp={tokenData.expires} past={false} />
+              <Timestamp
+                timestamp={tokenData.expires}
+                className="qa-expires"
+                expiration
+              />
             </td>
           </tr>
         </tbody>
