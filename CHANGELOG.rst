@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.0.2 (unreleased)
+3.0.2 (2021-06-15)
 ==================
 
 - Display expired tokens as expired in the UI instead of showing the delta of the expiration from the current time.
