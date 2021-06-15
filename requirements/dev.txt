@@ -312,9 +312,9 @@ hpack==4.0.0 \
     --hash=sha256:84a076fad3dc9a9f8063ccb8041ef100867b1878b25ef0ee63847a5d53818a6c \
     --hash=sha256:fc41de0c63e687ebffde81187a948221294896f6bdc0ae2312708df339430095
     # via h2
-httpcore==0.13.4 \
-    --hash=sha256:38e09649bb3906c913a2917c4eb3e3b3e11c83d4edebad8b53b7d757abc49267 \
-    --hash=sha256:9fa4c623bb9d2280c009c34658cc6315e4fd425a395145645bee205d827263e4
+httpcore==0.13.6 \
+    --hash=sha256:b0d16f0012ec88d8cc848f5a55f8a03158405f4bca02ee49bc4ca2c1fda49f3e \
+    --hash=sha256:db4c0dcb8323494d01b8c6d812d80091a31e520033e7b0120883d6f52da649ff
     # via
     #   -c requirements/main.txt
     #   httpx
@@ -710,9 +710,9 @@ sphinx-automodapi==0.13 \
     --hash=sha256:e1019336df7f7f0bcbf848eff7b84e7bef71691a57d8b5bda9107a2a046a226a \
     --hash=sha256:f9ebc9c10597f3aab1d93e5a8b1829903eee7c64f5bafb0cf71fd40e5c7d95f0
     # via -r requirements/dev.in
-sphinx-click==3.0.0 \
-    --hash=sha256:5ae8e558ffe3ee976410f2bbd9213d2c1127bd22df1a47099bf179e775f24591 \
-    --hash=sha256:5f0d10a992eae1aa869b22720281eb3f2d0d8fa30364e75db31db52539c70f9e
+sphinx-click==3.0.1 \
+    --hash=sha256:9b24c46f3b8f25fc639f47c97ac0361d9f80d48c2ed6b3917de2865bbdbe1785 \
+    --hash=sha256:e9ee2237e5a6b6620e9996b8214934afdf8f7f9f9fc082482c77be0e4379038e
     # via -r requirements/dev.in
 sphinx-prompt==1.4.0 \
     --hash=sha256:70c8e66d1f36def1e295ed961c7562bbf8fc697eea5191b92b41e4784c264ef5 \
@@ -767,8 +767,8 @@ toml==0.10.2 \
 types-cachetools==0.1.7 \
     --hash=sha256:51a9ca63b1ac73f7238a1836f82ea9252a15d77811da1663e94f2ee984c6485a
     # via -r requirements/dev.in
-types-pyyaml==0.1.8 \
-    --hash=sha256:8db1c8ceed4f6e86d54484e40709ad5f684a2f780308ba7a5e3850be9fb5961a
+types-pyyaml==5.4.1 \
+    --hash=sha256:88c0c5bcb2656a7da25f0ed5a7cfa557edb8191a7f7a71b3aaabd799792c5321
     # via -r requirements/dev.in
 typing-extensions==3.10.0.0 \
     --hash=sha256:0ac0f89795dd19de6b97debb0c6af1c70987fd80a2d62d1958f7e56fcc31b497 \
