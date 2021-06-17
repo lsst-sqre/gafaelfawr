@@ -195,7 +195,7 @@ class TokenDatabaseStore:
             The key of an existing internal child token with the desired
             properties, or `None` if none exist.
         """
-        return (
+        key = (
             self._session.query(Subtoken.child)
             .filter_by(parent=token_data.token.key)
             .join(SQLToken, Subtoken.child == SQLToken.token)
@@ -205,8 +205,9 @@ class TokenDatabaseStore:
                 SQLToken.scopes == ",".join(sorted(scopes)),
                 SQLToken.expires >= min_expires,
             )
-            .scalar()
+            .first()
         )
+        return key[0] if key else None
 
     def get_notebook_token_key(
         self, token_data: TokenData, min_expires: datetime
