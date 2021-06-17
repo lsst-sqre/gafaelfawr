@@ -54,6 +54,13 @@ class TokenCache:
     def __init__(self, store: TokenRedisStore) -> None:
         self._store = store
 
+    def clear(self) -> None:
+        """Invalidate the cache.
+
+        Used primarily for testing.
+        """
+        self._cache = LRUCache(TOKEN_CACHE_SIZE)
+
     async def get_internal_token(
         self, token_data: TokenData, service: str, scopes: List[str]
     ) -> Optional[Token]:
