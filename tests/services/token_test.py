@@ -226,6 +226,13 @@ async def test_notebook_token(setup: SetupTest) -> None:
     )
     assert token == new_token
 
+    # Try again with the cache cleared to force a database lookup.
+    token_service._token_cache.clear()
+    new_token = await token_service.get_notebook_token(
+        data, ip_address="127.0.0.1"
+    )
+    assert token == new_token
+
     history = token_service.get_change_history(
         data, token=token.key, username=data.username
     )
@@ -243,6 +250,36 @@ async def test_notebook_token(setup: SetupTest) -> None:
             event_time=info.created,
         )
     ]
+
+    # It's possible we'll have a race condition where two workers both create
+    # an notebook token at the same time with the same parameters.  Gafaelfawr
+    # 3.0.2 had a regression where, once that had happened, it could not
+    # retrieve the notebook token because it didn't expect multiple results
+    # from the query.  Simulate this and make sure it's handled properly.  The
+    # easiest way to do this is to use the internals of the token service.
+    second_token = Token()
+    notebook_token_data = TokenData(
+        token=second_token,
+        username=data.username,
+        token_type=TokenType.notebook,
+        scopes=["exec:admin", "read:all", "user:token"],
+        created=info.created,
+        expires=data.expires,
+        name=data.name,
+        email=data.email,
+        uid=data.uid,
+        groups=data.groups,
+    )
+    await token_service._token_redis_store.store_data(notebook_token_data)
+    with token_service._transaction_manager.transaction():
+        token_service._token_db_store.add(
+            notebook_token_data, parent=data.token.key
+        )
+    token_service._token_cache.clear()
+    dup_notebook_token = await token_service.get_notebook_token(
+        data, ip_address="127.0.0.1"
+    )
+    assert dup_notebook_token in (token, second_token)
 
     # Check that the expiration time is capped by creating a user token that
     # doesn't expire and then creating a notebook token from it.
@@ -323,6 +360,16 @@ async def test_internal_token(setup: SetupTest) -> None:
     )
     assert internal_token == new_internal_token
 
+    # Try again with the cache cleared to force a database lookup.
+    token_service._token_cache.clear()
+    new_internal_token = await token_service.get_internal_token(
+        data,
+        service="some-service",
+        scopes=["read:all"],
+        ip_address="127.0.0.1",
+    )
+    assert internal_token == new_internal_token
+
     history = token_service.get_change_history(
         data, token=internal_token.key, username=data.username
     )
@@ -341,6 +388,41 @@ async def test_internal_token(setup: SetupTest) -> None:
             event_time=info.created,
         )
     ]
+
+    # It's possible we'll have a race condition where two workers both create
+    # an internal token at the same time with the same parameters.  Gafaelfawr
+    # 3.0.2 had a regression where, once that had happened, it could not
+    # retrieve the internal token because it didn't expect multiple results
+    # from the query.  Simulate this and make sure it's handled properly.  The
+    # easiest way to do this is to use the internals of the token service.
+    second_internal_token = Token()
+    created = current_datetime()
+    expires = created + setup.config.token_lifetime
+    internal_token_data = TokenData(
+        token=second_internal_token,
+        username=data.username,
+        token_type=TokenType.internal,
+        scopes=["read:all"],
+        created=created,
+        expires=expires,
+        name=data.name,
+        email=data.email,
+        uid=data.uid,
+        groups=data.groups,
+    )
+    await token_service._token_redis_store.store_data(internal_token_data)
+    with token_service._transaction_manager.transaction():
+        token_service._token_db_store.add(
+            internal_token_data, service="some-service", parent=data.token.key
+        )
+    token_service._token_cache.clear()
+    dup_internal_token = await token_service.get_internal_token(
+        data,
+        service="some-service",
+        scopes=["read:all"],
+        ip_address="127.0.0.1",
+    )
+    assert dup_internal_token in (internal_token, second_internal_token)
 
     # A different scope or a different service results in a new token.
     new_internal_token = await token_service.get_internal_token(
@@ -638,11 +720,17 @@ async def test_list(setup: SetupTest) -> None:
     )
     assert other_session_info
     assert token_service.list_tokens(data, "example") == sorted(
-        (session_info, user_token_info), key=lambda t: t.token
+        sorted((session_info, user_token_info), key=lambda t: t.token),
+        key=lambda t: t.created,
+        reverse=True,
     )
     assert token_service.list_tokens(admin_data) == sorted(
-        (session_info, other_session_info, user_token_info),
-        key=lambda t: t.token,
+        sorted(
+            (session_info, other_session_info, user_token_info),
+            key=lambda t: t.token,
+        ),
+        key=lambda t: t.created,
+        reverse=True,
     )
 
     # Regular users can't retrieve all tokens.

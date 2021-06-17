@@ -88,20 +88,23 @@ async def test_create_delete_modify(
     # session token.
     r = await setup.client.get("/auth/api/v1/users/example/tokens")
     assert r.status_code == 200
-    assert r.json() == sorted(
-        [
-            {
-                "token": session_token.key,
-                "username": "example",
-                "token_type": "session",
-                "scopes": ["exec:admin", "read:all", "user:token"],
-                "created": ANY,
-                "expires": ANY,
-            },
-            info,
-        ],
-        key=lambda t: t["token"],
-    )
+    data = r.json()
+
+    # Adjust for sorting, which will be by creation date and then token.
+    assert len(data) == 2
+    if data[0] == info:
+        session_info = data[1]
+    else:
+        assert data[1] == info
+        session_info = data[0]
+    assert session_info == {
+        "token": session_token.key,
+        "username": "example",
+        "token_type": "session",
+        "scopes": ["exec:admin", "read:all", "user:token"],
+        "created": ANY,
+        "expires": ANY,
+    }
 
     # Change the name, scope, and expiration of the token.
     caplog.clear()

@@ -195,7 +195,7 @@ class TokenDatabaseStore:
             The key of an existing internal child token with the desired
             properties, or `None` if none exist.
         """
-        return (
+        key = (
             self._session.query(Subtoken.child)
             .filter_by(parent=token_data.token.key)
             .join(SQLToken, Subtoken.child == SQLToken.token)
@@ -205,8 +205,9 @@ class TokenDatabaseStore:
                 SQLToken.scopes == ",".join(sorted(scopes)),
                 SQLToken.expires >= min_expires,
             )
-            .scalar()
+            .first()
         )
+        return key[0] if key else None
 
     def get_notebook_token_key(
         self, token_data: TokenData, min_expires: datetime
@@ -226,7 +227,7 @@ class TokenDatabaseStore:
             The key of an existing notebook child token, or `None` if none
             exist.
         """
-        return (
+        key = (
             self._session.query(Subtoken.child)
             .filter_by(parent=token_data.token.key)
             .join(SQLToken, Subtoken.child == SQLToken.token)
@@ -234,8 +235,9 @@ class TokenDatabaseStore:
                 SQLToken.token_type == TokenType.notebook,
                 SQLToken.expires >= min_expires,
             )
-            .scalar()
+            .first()
         )
+        return key[0] if key else None
 
     def list(self, *, username: Optional[str] = None) -> List[TokenInfo]:
         """List tokens.
