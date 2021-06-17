@@ -2,6 +2,12 @@
 Change log
 ##########
 
+3.0.3 (unreleased)
+==================
+
+- Fix errors when returning existing internal or notebook tokens when two tokens were created for the same parent token due to a race between workers.
+  In previous versions, Gafaelfawr would fail with an exception if there were more than one matching notebook or internal token for a given set of parameters.
+
 3.0.2 (2021-06-15)
 ==================
 
