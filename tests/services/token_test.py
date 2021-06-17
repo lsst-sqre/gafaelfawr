@@ -638,11 +638,17 @@ async def test_list(setup: SetupTest) -> None:
     )
     assert other_session_info
     assert token_service.list_tokens(data, "example") == sorted(
-        (session_info, user_token_info), key=lambda t: t.token
+        sorted((session_info, user_token_info), key=lambda t: t.token),
+        key=lambda t: t.created,
+        reverse=True,
     )
     assert token_service.list_tokens(admin_data) == sorted(
-        (session_info, other_session_info, user_token_info),
-        key=lambda t: t.token,
+        sorted(
+            (session_info, other_session_info, user_token_info),
+            key=lambda t: t.token,
+        ),
+        key=lambda t: t.created,
+        reverse=True,
     )
 
     # Regular users can't retrieve all tokens.
