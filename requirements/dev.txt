@@ -240,9 +240,9 @@ gitdb==4.0.7 \
     --hash=sha256:6c4cc71933456991da20917998acbe6cf4fb41eeaab7d6d67fbc05ecd4c865b0 \
     --hash=sha256:96bf5c08b157a666fec41129e6d327235284cca4c81e92109260f353ba138005
     # via gitpython
-gitpython==3.1.17 \
-    --hash=sha256:29fe82050709760081f588dd50ce83504feddbebdc4da6956d02351552b1c135 \
-    --hash=sha256:ee24bdc93dce357630764db659edaf6b8d664d4ff5447ccfeedd2dc5c253f41e
+gitpython==3.1.14 \
+    --hash=sha256:3283ae2fba31c913d857e12e5ba5f9a7772bbc064ae2bb09efafa71b0dd4939b \
+    --hash=sha256:be27633e7509e58391f10207cd32b2a6cf5b908f92d9cd30da2e514e1137af61
     # via documenteer
 graphviz==0.16 \
     --hash=sha256:3cad5517c961090dfc679df6402a57de62d97703e2880a1a46147bb0dc1639eb \
@@ -318,9 +318,9 @@ httpcore==0.13.6 \
     # via
     #   -c requirements/main.txt
     #   httpx
-httpx==0.18.1 \
-    --hash=sha256:0a2651dd2b9d7662c70d12ada5c290abcf57373b9633515fe4baa9f62566086f \
-    --hash=sha256:ad2e3db847be736edc4b272c4d5788790a7e5789ef132fc6b5fef8aeb9e9f6e0
+httpx==0.18.2 \
+    --hash=sha256:979afafecb7d22a1d10340bafb403cf2cb75aff214426ff206521fc79d26408c \
+    --hash=sha256:9f99c15d33642d38bce8405df088c1c4cfd940284b4290cacbfb02e64f4877c6
     # via
     #   -c requirements/main.txt
     #   pytest-httpx
@@ -600,9 +600,9 @@ pytest-httpx==0.12.0 \
     --hash=sha256:1e135b8779060091fa1c87d8aff7904921e8bea95fce5e971a0262764d064b12 \
     --hash=sha256:e262932f2d3ce380da8273c7bacbcfdc2c94e167fa94da29571caaf1f4d3ba27
     # via -r requirements/dev.in
-pytest-xdist[psutil]==2.2.1 \
-    --hash=sha256:2447a1592ab41745955fb870ac7023026f20a5f0bfccf1b52a879bd193d46450 \
-    --hash=sha256:718887296892f92683f6a51f25a3ae584993b06f7076ce1e1fd482e59a8220a2
+pytest-xdist[psutil]==2.3.0 \
+    --hash=sha256:e8ecde2f85d88fbcadb7d28cb33da0fa29bca5cf7d5967fa89fc0e97e5299ea5 \
+    --hash=sha256:ed3d7da961070fce2a01818b51f6888327fb88df4379edeb6b9d990e789d9c8d
     # via -r requirements/dev.in
 pytest==6.2.4 \
     --hash=sha256:50bcad0a0b9c5a72c8e4e7c9855a3ad496ca6a881a3641b4260605450772c54b \
@@ -764,11 +764,13 @@ toml==0.10.2 \
     #   pre-commit
     #   pytest
     #   pytest-cov
-types-cachetools==0.1.7 \
-    --hash=sha256:51a9ca63b1ac73f7238a1836f82ea9252a15d77811da1663e94f2ee984c6485a
+types-cachetools==0.1.8 \
+    --hash=sha256:5cd16ee041f0f032cc14a5817cf009bc8b4d64efeeb2535951d86faf2e1cfdda \
+    --hash=sha256:d017463093c52836b5d2d9aefb08a9638598909803390e8f085e6a577ad3c7df
     # via -r requirements/dev.in
-types-pyyaml==5.4.1 \
-    --hash=sha256:88c0c5bcb2656a7da25f0ed5a7cfa557edb8191a7f7a71b3aaabd799792c5321
+types-pyyaml==5.4.3 \
+    --hash=sha256:2e7b81b2b7af751634425107b986086c6ba7cb61270a43a5c290c58be8cdbc3a \
+    --hash=sha256:bca83cbfc0be48600a8abf1e3d87fb762a91e6d35d724029a3321dd2dce2ceb1
     # via -r requirements/dev.in
 typing-extensions==3.10.0.0 \
     --hash=sha256:0ac0f89795dd19de6b97debb0c6af1c70987fd80a2d62d1958f7e56fcc31b497 \
