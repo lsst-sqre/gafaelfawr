@@ -51,9 +51,9 @@ aioredis==1.3.1 \
     --hash=sha256:15f8af30b044c771aee6787e5ec24694c048184c7b9e54c3b60c750a4b93273a \
     --hash=sha256:b61808d7e97b7cd5a92ed574937a079c9387fdadd22bfbfa7ad2fd319ecc26e3
     # via -r requirements/main.in
-anyio==3.1.0 \
-    --hash=sha256:43e20711a9d003d858d694c12356dc44ab82c03ccc5290313c3392fa349dad0e \
-    --hash=sha256:5e335cef65fbd1a422bbfbb4722e8e9a9fadbd8c06d5afe9cd614d12023f6e5a
+anyio==3.2.0 \
+    --hash=sha256:41c4be842c284222b197a625d76a7ab85adf9d52788f563172fe180c2744b6c1 \
+    --hash=sha256:89e19b1498c8a6f12277e0bd2949597e445aa1b14361fbab2c36943639ef5190
     # via httpcore
 asgiref==3.3.4 \
     --hash=sha256:92906c611ce6c967347bbfea733f13d6313901d54dcca88195eaeb52b2a8e8ee \
@@ -417,9 +417,9 @@ python-dateutil==2.8.1 \
     --hash=sha256:73ebfe9dbf22e832286dafa60473e4cd239f8592f699aa5adaf10050e6e1823c \
     --hash=sha256:75bb3f31ea686f1197762692a9ee6a7550b59fc6ca3a1f4b5d7e32fb98e2da2a
     # via kubernetes
-python-dotenv==0.17.1 \
-    --hash=sha256:00aa34e92d992e9f8383730816359647f358f4a3be1ba45e5a5cefd27ee91544 \
-    --hash=sha256:b1ae5e9643d5ed987fc57cc2583021e38db531946518130777734f9589b3141f
+python-dotenv==0.18.0 \
+    --hash=sha256:dd8fe852847f4fbfadabf6183ddd4c824a9651f02d51714fa075c95561959c7d \
+    --hash=sha256:effaac3c1e58d89b3ccb4d04a40dc7ad6e0275fda25fd75ae9d323e2465e202d
     # via uvicorn
 python-multipart==0.0.5 \
     --hash=sha256:f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c83fa43
@@ -476,9 +476,9 @@ rsa==4.7.2 \
     --hash=sha256:78f9a9bf4e7be0c5ded4583326e7461e3a3c5aae24073648b4bdfa797d78c9d2 \
     --hash=sha256:9d689e6ca1b3038bc82bf8d23e944b6b6037bc02301a574935b2dd946e0353b9
     # via google-auth
-safir==0.2.0 \
-    --hash=sha256:240c16ccc43c7a1cb0ee7fcbb94de44a9675d9bf5aef7509cb09c1e49e9d386b \
-    --hash=sha256:fb6c27f1defb13428dde17b7b304d7672955a4b77ae4de9a5ab5f08f3e09e3cc
+safir==1.0.0 \
+    --hash=sha256:43df32e3bd076a5a59e5e69d138e3220304881908669ea3ce4da9a22bf0b9df3 \
+    --hash=sha256:6086fc32c4a95a294ef4fc5520e9bf566585d88e638029509040d2d7a2d4bbb8
     # via -r requirements/main.in
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
