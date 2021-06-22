@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from cryptography.fernet import Fernet
+from safir.dependencies.logger import logger_dependency
 
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.dependencies.logger import get_logger
 from gafaelfawr.middleware.state import BaseState
 from gafaelfawr.models.token import Token
 
@@ -70,7 +70,7 @@ class State(BaseState):
                 token = Token.from_str(data["token"])
         except Exception as e:
             if request:
-                logger = get_logger(request)
+                logger = logger_dependency(request)
                 logger.warning("Discarding invalid state cookie", error=str(e))
             return cls()
 

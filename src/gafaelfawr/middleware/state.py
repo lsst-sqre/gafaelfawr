@@ -68,9 +68,9 @@ class StateMiddleware(BaseHTTPMiddleware):
     unless the application is running on localhost and not using TLS.
 
     This middleware should run after
-    `~gafaelfawr.middleware.x_forwarded.XForwardedMiddleware` since the
-    results of that middleware are used to determine if the cookie should be
-    marked as secure.
+    `~safir.middleware.x_forwarded.XForwardedMiddleware` since the results of
+    that middleware are used to determine if the cookie should be marked as
+    secure.
 
     Parameters
     ----------
@@ -143,8 +143,8 @@ class StateMiddleware(BaseHTTPMiddleware):
         #. The request hostname is localhost
         #. The request proto is http
         #. ``X-Forwarded-Proto``, as determined by the
-           `~gafaelfawr.middleware.x_forwarded.XForwardedMiddleware`, is
-           either not set or is http.
+           `~safir.middleware.x_forwarded.XForwardedMiddleware`, is either not
+           set or is http.
         """
         if request.url.hostname != "localhost":
             return True

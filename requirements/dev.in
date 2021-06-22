@@ -11,14 +11,13 @@ asgi-lifespan
 coverage[toml]
 diagrams
 documenteer
-flake8
 holdup
 lsst-sphinx-bootstrap-theme<0.3
 mockaioredis
 mypy
 pre-commit
 pytest
-pytest-asyncio!=0.15.0
+pytest-asyncio
 pytest-cov
 pytest-httpx
 pytest-xdist[psutil]

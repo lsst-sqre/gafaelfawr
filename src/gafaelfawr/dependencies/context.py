@@ -13,12 +13,12 @@ from aioredis import Redis
 from fastapi import Depends, Request
 from fastapi_sqlalchemy import db
 from httpx import AsyncClient
+from safir.dependencies.http_client import http_client_dependency
+from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.dependencies.http_client import http_client_dependency
-from gafaelfawr.dependencies.logger import logger_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State

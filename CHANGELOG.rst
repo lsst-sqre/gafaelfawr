@@ -2,6 +2,13 @@
 Change log
 ##########
 
+3.0.4 (unreleased)
+==================
+
+- Depend on Safir 2.x and drop remaining aiohttp dependency paths.
+  Remove code that is now supplied by Safir.
+  Share one ``httpx.AsyncClient`` across all requests and close it when the application is shut down.
+
 3.0.3 (2021-06-17)
 ==================
 

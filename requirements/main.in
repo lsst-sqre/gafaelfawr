@@ -6,8 +6,8 @@
 #     make update-deps
 
 # These dependencies are for fastapi including some optional features.
-fastapi
 aiofiles
+fastapi
 fastapi-sqlalchemy
 gunicorn
 python-multipart
@@ -28,7 +28,3 @@ pyyaml
 safir
 sqlalchemy
 structlog
-
-# Temporary to avoid a conflict with requirements/dev.txt due to the requests
-# dependency on idna, which is capped at 2.10.
-idna<=2.10

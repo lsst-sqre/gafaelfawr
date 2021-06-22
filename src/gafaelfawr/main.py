@@ -12,6 +12,8 @@ from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_sqlalchemy import DBSessionMiddleware
+from safir.dependencies.http_client import http_client_dependency
+from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
@@ -28,7 +30,6 @@ from gafaelfawr.handlers import (
     oidc,
 )
 from gafaelfawr.middleware.state import StateMiddleware
-from gafaelfawr.middleware.x_forwarded import XForwardedMiddleware
 from gafaelfawr.models.error import ErrorModel
 from gafaelfawr.models.state import State
 
@@ -120,6 +121,7 @@ async def startup_event() -> None:
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
+    await http_client_dependency.aclose()
     await redis_dependency.close()
 
 
