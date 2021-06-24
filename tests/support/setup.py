@@ -12,6 +12,7 @@ import structlog
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 from pytest_httpx import to_response
+from safir.dependencies.http_client import http_client_dependency
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -140,6 +141,7 @@ class SetupTest:
                         client=client,
                     )
         finally:
+            await http_client_dependency.aclose()
             await redis_dependency.close()
             session.close()
 

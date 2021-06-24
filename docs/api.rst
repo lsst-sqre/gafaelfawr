@@ -20,10 +20,6 @@ API reference
 
 .. automodapi:: gafaelfawr.dependencies.context
 
-.. automodapi:: gafaelfawr.dependencies.http_client
-
-.. automodapi:: gafaelfawr.dependencies.logger
-
 .. automodapi:: gafaelfawr.dependencies.redis
 
 .. automodapi:: gafaelfawr.dependencies.return_url
@@ -38,11 +34,7 @@ API reference
 
 .. automodapi:: gafaelfawr.middleware.state
 
-.. automodapi:: gafaelfawr.middleware.x_forwarded
-
 .. automodapi:: gafaelfawr.models.admin
-
-.. automodapi:: gafaelfawr.models.app
 
 .. automodapi:: gafaelfawr.models.auth
 

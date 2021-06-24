@@ -65,6 +65,7 @@ intersphinx_mapping = {
     "cryptography": ("https://cryptography.io/en/latest/", None),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
+    "safir": ("https://safir.lsst.io/", None),
     "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
     "structlog": ("https://www.structlog.org/en/stable/", None),
 }
