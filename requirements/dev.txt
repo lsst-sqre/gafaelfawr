@@ -746,9 +746,9 @@ toml==0.10.2 \
     #   pre-commit
     #   pytest
     #   pytest-cov
-types-cachetools==0.1.8 \
-    --hash=sha256:5cd16ee041f0f032cc14a5817cf009bc8b4d64efeeb2535951d86faf2e1cfdda \
-    --hash=sha256:d017463093c52836b5d2d9aefb08a9638598909803390e8f085e6a577ad3c7df
+types-cachetools==0.1.9 \
+    --hash=sha256:c3fa1afdfdeaf3cdc396ad5518ef3e6984f73092be61b525708f23f527aea51d \
+    --hash=sha256:cfcb41a71d5dab7b785fa3adeb367fa7584062c4d74e6d91ac72538a349b5f7b
     # via -r requirements/dev.in
 types-pyyaml==5.4.3 \
     --hash=sha256:2e7b81b2b7af751634425107b986086c6ba7cb61270a43a5c290c58be8cdbc3a \
@@ -761,9 +761,9 @@ typing-extensions==3.10.0.0 \
     # via
     #   -c requirements/main.txt
     #   mypy
-urllib3==1.26.5 \
-    --hash=sha256:753a0374df26658f99d826cfe40394a686d05985786d946fbe4165b5148f5a7c \
-    --hash=sha256:a7acd0977125325f516bda9735fa7142b909a8d01e8b2e4c8108d0984e6e0098
+urllib3==1.26.6 \
+    --hash=sha256:39fb8672126159acb139a7718dd10806104dec1e2f0f6c88aab05d17df10c8d4 \
+    --hash=sha256:f57b4c16c62fa2760b7e3d97c35b255512fb6b59a259730f36ba32ce9f8e342f
     # via
     #   -c requirements/main.txt
     #   requests
