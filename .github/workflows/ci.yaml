@@ -129,6 +129,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       # Reuse the built UI from the ui job.
       - name: Restore UI artifact
