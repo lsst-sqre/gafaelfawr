@@ -48,8 +48,8 @@ FROM dependencies-image AS install-image
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install the Gafaelfawr Python application.
-COPY . /app
-WORKDIR /app
+COPY . /workdir
+WORKDIR /workdir
 RUN pip install --no-cache-dir .
 
 FROM base-image AS runtime-image
