@@ -44,6 +44,8 @@ API reference
 
 .. automodapi:: gafaelfawr.models.influxdb
 
+.. automodapi:: gafaelfawr.models.link
+
 .. automodapi:: gafaelfawr.models.oidc
 
 .. automodapi:: gafaelfawr.models.state
