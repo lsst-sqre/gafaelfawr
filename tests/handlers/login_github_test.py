@@ -13,6 +13,7 @@ from gafaelfawr.providers.github import (
     GitHubTeam,
     GitHubUserInfo,
 )
+from tests.support.headers import query_from_url
 from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
@@ -80,14 +81,6 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
     assert parse_log(caplog) == [
-        {
-            "event": "Getting user information from GitHub",
-            "level": "info",
-            "method": "GET",
-            "path": "/login",
-            "remote": "127.0.0.1",
-            "return_url": return_url,
-        },
         {
             "event": "Successfully authenticated user githubuser (123456)",
             "level": "info",
@@ -455,3 +448,55 @@ async def test_invalid_groups(setup: SetupTest) -> None:
     r = await setup.client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-Groups"] == "org-a-team"
+
+
+@pytest.mark.asyncio
+async def test_paginated_teams(setup: SetupTest) -> None:
+    assert setup.config.github
+    user_info = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[
+            GitHubTeam(slug="a-team", gid=1000, organization="org"),
+            GitHubTeam(slug="other-team", gid=1001, organization="org"),
+            GitHubTeam(slug="third-team", gid=1002, organization="foo"),
+            GitHubTeam(
+                slug="team-with-very-long-name",
+                gid=1003,
+                organization="other-org",
+            ),
+        ],
+    )
+
+    setup.set_github_token_response("some-code", "some-github-token")
+    r = await setup.client.get(
+        "/login", params={"rd": "https://example.com"}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    query = query_from_url(r.headers["Location"])
+
+    # Simulate the return from GitHub.
+    setup.set_github_userinfo_response(
+        "some-github-token", user_info, paginate_teams=True
+    )
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+
+    # Check the group list.
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    expected = ",".join(
+        [
+            "org-a-team",
+            "org-other-team",
+            "foo-third-team",
+            "other-org-team-with-very--F279yg",
+        ]
+    )
+    assert r.headers["X-Auth-Request-Groups"] == expected

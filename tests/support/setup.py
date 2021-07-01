@@ -318,7 +318,10 @@ class SetupTest:
         del self.client.cookies[COOKIE_NAME]
 
     def set_github_userinfo_response(
-        self, token: str, user_info: GitHubUserInfo
+        self,
+        token: str,
+        user_info: GitHubUserInfo,
+        paginate_teams: bool = False,
     ) -> None:
         """Set the GitHub user information to return from the GitHub API.
 
@@ -328,13 +331,16 @@ class SetupTest:
             The token that the client must send.
         user_info : `gafaelfawr.providers.github.GitHubUserInfo`
             User information to use to synthesize GitHub API responses.
+        paginate_teams : `bool`, optional
+            Whether to paginate the team results.  Default: `False`
         """
         assert self.config.github
 
         def callback(request: Request, extensions: Dict[str, Any]) -> Response:
             assert request.headers["Authorization"] == f"token {token}"
             assert request.method == "GET"
-            if str(request.url) == GitHubProvider._USER_URL:
+            base_url = str(request.url.copy_with(query=None))
+            if base_url == GitHubProvider._USER_URL:
                 return to_response(
                     json={
                         "login": user_info.username,
@@ -342,7 +348,7 @@ class SetupTest:
                         "name": user_info.name,
                     }
                 )
-            elif str(request.url) == GitHubProvider._TEAMS_URL:
+            elif base_url == GitHubProvider._TEAMS_URL:
                 teams = []
                 for team in user_info.teams:
                     data = {
@@ -351,8 +357,24 @@ class SetupTest:
                         "organization": {"login": team.organization},
                     }
                     teams.append(data)
-                return to_response(json=teams)
-            elif str(request.url) == GitHubProvider._EMAILS_URL:
+                if paginate_teams:
+                    assert len(teams) > 2
+                    if request.url.query == b"page=2":
+                        link = f'<{GitHubProvider._TEAMS_URL}>; rel="prev"'
+                        return to_response(
+                            json=teams[2:], headers={"Link": link}
+                        )
+                    else:
+                        link = (
+                            f"<{GitHubProvider._TEAMS_URL}?page=2>;"
+                            ' rel="next"'
+                        )
+                        return to_response(
+                            json=teams[:2], headers={"Link": link}
+                        )
+                else:
+                    return to_response(json=teams)
+            elif base_url == GitHubProvider._EMAILS_URL:
                 return to_response(
                     json=[
                         {"email": "otheremail@example.com", "primary": False},

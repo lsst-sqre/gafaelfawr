@@ -11,11 +11,12 @@ from urllib.parse import urlencode
 from pydantic import ValidationError
 
 from gafaelfawr.exceptions import GitHubException
+from gafaelfawr.models.link import LinkData
 from gafaelfawr.models.token import TokenGroup, TokenUserInfo
 from gafaelfawr.providers.base import Provider
 
 if TYPE_CHECKING:
-    from typing import List
+    from typing import Any, Dict, List
 
     from httpx import AsyncClient
     from structlog.stdlib import BoundLogger
@@ -168,9 +169,19 @@ class GitHubProvider(Provider):
         gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to a request.
         """
-        self._logger.info("Getting user information from GitHub")
         github_token = await self._get_access_token(code, state)
         user_info = await self._get_user_info(github_token)
+        self._logger.debug(
+            "Got user information from GitHub",
+            name=user_info.name,
+            username=user_info.username,
+            uid=user_info.uid,
+            email=user_info.email,
+            teams=[
+                {"slug": t.slug, "organization": t.organization, "gid": t.gid}
+                for t in user_info.teams
+            ],
+        )
 
         groups = []
         invalid_groups = {}
@@ -260,13 +271,6 @@ class GitHubProvider(Provider):
         )
         r.raise_for_status()
         user_data = r.json()
-        self._logger.debug("Fetching user data from %s", self._TEAMS_URL)
-        r = await self._http_client.get(
-            self._TEAMS_URL,
-            headers={"Authorization": f"token {token}"},
-        )
-        r.raise_for_status()
-        teams_data = r.json()
         self._logger.debug("Fetching user data from %s", self._EMAILS_URL)
         r = await self._http_client.get(
             self._EMAILS_URL,
@@ -274,16 +278,16 @@ class GitHubProvider(Provider):
         )
         r.raise_for_status()
         emails_data = r.json()
+        teams_data = await self._get_user_teams_data(token)
 
-        teams = []
-        for team in teams_data:
-            slug = team["slug"]
-            organization = team["organization"]["login"]
-            teams.append(
-                GitHubTeam(
-                    slug=slug, organization=organization, gid=team["id"]
-                )
+        teams = [
+            GitHubTeam(
+                slug=team["slug"],
+                organization=team["organization"]["login"],
+                gid=team["id"],
             )
+            for team in teams_data
+        ]
 
         email = None
         for email_data in emails_data:
@@ -300,3 +304,55 @@ class GitHubProvider(Provider):
             email=email,
             teams=teams,
         )
+
+    async def _get_user_teams_data(self, token: str) -> List[Dict[str, Any]]:
+        """Retrieve team membership for a user from GitHub.
+
+        Parameters
+        ----------
+        token : `str`
+            The token for that user.
+
+        Returns
+        -------
+        team_data : List[Dict[`str`, Any]]
+            Team information for that user from GitHub in GitHub's JSON
+            format.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.GitHubException
+            The next URL from a Link header didn't point to the teams API URL.
+        httpx.HTTPError
+            An error occurred trying to talk to GitHub.
+        """
+        self._logger.debug("Fetching user team data from %s", self._TEAMS_URL)
+        r = await self._http_client.get(
+            self._TEAMS_URL,
+            headers={"Authorization": f"token {token}"},
+        )
+        r.raise_for_status()
+        teams_data = r.json()
+
+        # If the data was paginated, there will be a Link header with a next
+        # URL.  Retrieve each page until we run out of Link headers.
+        link_data = LinkData.from_header(r.headers.get("Link"))
+        while link_data.next_url:
+            if not link_data.next_url.startswith(self._TEAMS_URL):
+                msg = (
+                    "Invalid next URL for team data from GitHub: "
+                    + link_data.next_url
+                )
+                raise GitHubException(msg)
+            self._logger.debug(
+                "Fetching user team data from %s", link_data.next_url
+            )
+            r = await self._http_client.get(
+                link_data.next_url,
+                headers={"Authorization": f"token {token}"},
+            )
+            r.raise_for_status()
+            teams_data.extend(r.json())
+            link_data = LinkData.from_header(r.headers.get("Link"))
+
+        return teams_data

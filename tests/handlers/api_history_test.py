@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 import pytest
 
 from gafaelfawr.models.history import TokenChangeHistoryEntry
+from gafaelfawr.models.link import LinkData
 from gafaelfawr.models.token import (
     AdminTokenRequest,
     TokenData,
@@ -20,7 +21,6 @@ from gafaelfawr.models.token import (
 from gafaelfawr.schema import TokenChangeHistory
 from gafaelfawr.util import current_datetime
 from tests.support.constants import TEST_HOSTNAME
-from tests.support.headers import LinkData
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Dict, List, Optional, Union
