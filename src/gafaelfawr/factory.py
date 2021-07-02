@@ -164,8 +164,7 @@ class ComponentFactory:
         """Create an authentication provider.
 
         Create a provider object for the configured external authentication
-        provider.  Takes the incoming request to get access to the per-request
-        logger and the client HTTP session.
+        provider.
 
         Returns
         -------

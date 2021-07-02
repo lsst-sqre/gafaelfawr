@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
+from httpx import HTTPError
 from pydantic import ValidationError
 
 from gafaelfawr.exceptions import GitHubException
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import GitHubConfig
+    from gafaelfawr.models.state import State
 
 __all__ = ["GitHubProvider"]
 
@@ -102,6 +104,9 @@ class GitHubProvider(Provider):
     _TOKEN_URL = "https://github.com/login/oauth/access_token"
     """URL from which to request an access token."""
 
+    _GRANT_URL_TMPL = "https://api.github.com/applications/{client_id}/grant"
+    """URL template for revoking an OAuth authorization."""
+
     _EMAILS_URL = "https://api.github.com/user/emails"
     """URL from which to retrieve the user's email addresses."""
 
@@ -146,8 +151,13 @@ class GitHubProvider(Provider):
         self._logger.info("Redirecting user to GitHub for authentication")
         return f"{self._LOGIN_URL}?{urlencode(params)}"
 
-    async def create_user_info(self, code: str, state: str) -> TokenUserInfo:
+    async def create_user_info(
+        self, code: str, state: str, session: State
+    ) -> TokenUserInfo:
         """Given the code from an authentication, create the user information.
+
+        The GitHub access token is stored in the ``github`` field of the
+        ``state`` parameter so that it can be used during logout.
 
         Parameters
         ----------
@@ -155,6 +165,8 @@ class GitHubProvider(Provider):
             Code returned by a successful authentication.
         state : `str`
             The same random string used for the redirect URL.
+        session : `gafaelfawr.models.state.State`
+            The session state, used to store the GitHub access token.
 
         Returns
         -------
@@ -194,6 +206,7 @@ class GitHubProvider(Provider):
             self._logger.warning(
                 "Ignoring invalid groups", invalid_groups=invalid_groups
             )
+        session.github = github_token
         return TokenUserInfo(
             username=user_info.username.lower(),
             name=user_info.name,
@@ -201,6 +214,39 @@ class GitHubProvider(Provider):
             uid=user_info.uid,
             groups=groups,
         )
+
+    async def logout(self, session: State) -> None:
+        """Revoke the OAuth authorization grant for this user.
+
+        During logout, revoke the user's OAuth authorization.  This ensures
+        that, after an explicit logout, logging in again forces a
+        reauthorization and thus an update of the granted information.
+
+        Parameters
+        ----------
+        session : `gafaelfawr.models.state.State`
+            The session state, which contains the GitHub access token.
+        """
+        if not session.github:
+            return
+
+        client_id = self._config.client_id
+        client_secret = self._config.client_secret
+        grant_url = GitHubProvider._GRANT_URL_TMPL.format(client_id=client_id)
+        data = {"access_token": session.github}
+        try:
+            r = await self._http_client.request(
+                "DELETE",
+                grant_url,
+                auth=(client_id, client_secret),
+                headers={"Accept": "application/json"},
+                json=data,
+            )
+            r.raise_for_status()
+            self._logger.info("Revoked GitHub OAuth authorization")
+        except HTTPError as e:
+            msg = "Unable to revoke GitHub OAuth authorization"
+            self._logger.warning(msg, error=str(e))
 
     async def _get_access_token(self, code: str, state: str) -> str:
         """Given the code from a successful authentication, get a token.
