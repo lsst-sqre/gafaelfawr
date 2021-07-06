@@ -252,18 +252,14 @@ class TokenDatabaseStore:
         tokens : List[`gafaelfawr.models.token.TokenInfo`]
             Information about the tokens.
         """
+        tokens = self._session.query(SQLToken)
         if username:
-            tokens = (
-                self._session.query(SQLToken)
-                .filter_by(username=username)
-                .order_by(
-                    SQLToken.last_used.desc(),
-                    SQLToken.created.desc(),
-                    SQLToken.token,
-                )
-            )
-        else:
-            tokens = self._session.query(SQLToken).order_by(SQLToken.token)
+            tokens = tokens.filter_by(username=username)
+        tokens = tokens.order_by(
+            SQLToken.last_used.desc(),
+            SQLToken.created.desc(),
+            SQLToken.token,
+        )
         return [TokenInfo.from_orm(t) for t in tokens]
 
     def modify(

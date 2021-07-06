@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
@@ -416,6 +418,34 @@ class SetupTest:
                     "token_type": "bearer",
                 }
             )
+
+        self.httpx_mock.add_callback(callback)
+
+    def set_github_revoke_response(self, token: str) -> None:
+        """Register the callback for revoking a GitHub authorization.
+
+        Parameters
+        ----------
+        token : `str`
+            The GitHub access token for the user whose authorization should be
+            revoked.
+        """
+        assert self.config.github
+        client_id = self.config.github.client_id
+        client_secret = self.config.github.client_secret
+        grant_url = GitHubProvider._GRANT_URL_TMPL.format(client_id=client_id)
+        basic_auth_raw = f"{client_id}:{client_secret}"
+        basic_auth = base64.b64encode(basic_auth_raw.encode()).decode()
+
+        def callback(request: Request, extensions: Dict[str, Any]) -> Response:
+            assert str(request.url) == grant_url
+            assert request.method == "DELETE"
+            assert request.headers["Accept"] == "application/json"
+            assert request.headers["Authorization"] == f"Basic {basic_auth}"
+            assert json.loads(request.read().decode()) == {
+                "access_token": token
+            }
+            return to_response(status_code=204)
 
         self.httpx_mock.add_callback(callback)
 

@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from gafaelfawr.models.state import State
     from gafaelfawr.models.token import TokenUserInfo
 
 __all__ = ["Provider"]
@@ -30,7 +31,9 @@ class Provider(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def create_user_info(self, code: str, state: str) -> TokenUserInfo:
+    async def create_user_info(
+        self, code: str, state: str, session: State
+    ) -> TokenUserInfo:
         """Given the code from an authentication, create the user information.
 
         Parameters
@@ -39,6 +42,9 @@ class Provider(metaclass=ABCMeta):
             Code returned by a successful authentication.
         state : `str`
             The same random string used for the redirect URL.
+        session : `gafaelfawr.models.state.State`
+            The session state.  The provider may also store data used during
+            logout.
 
         Returns
         -------
@@ -52,4 +58,17 @@ class Provider(metaclass=ABCMeta):
             provider.
         gafaelfawr.exceptions.ProviderException
             The provider responded with an error to a request.
+        """
+
+    @abstractmethod
+    async def logout(self, session: State) -> None:
+        """Called during user logout.
+
+        The authentication provider may revoke the upstream authentication
+        token or take other action during user logout.
+
+        Parameters
+        ----------
+        session : `gafaelfawr.models.state.State`
+            The session state before logout.
         """

@@ -199,7 +199,9 @@ async def handle_provider_return(
     # reply from the authentication provider.
     auth_provider = context.factory.create_provider()
     try:
-        user_info = await auth_provider.create_user_info(code, state)
+        user_info = await auth_provider.create_user_info(
+            code, state, context.state
+        )
     except ProviderException as e:
         context.logger.warning("Provider authentication failed", error=str(e))
         raise HTTPException(

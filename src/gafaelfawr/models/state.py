@@ -36,6 +36,9 @@ class State(BaseState):
     token: Optional[Token] = None
     """Token if the user is authenticated."""
 
+    github: Optional[str] = None
+    """GitHub OAuth token if user authenticated via GitHub."""
+
     return_url: Optional[str] = None
     """Destination URL after completion of login."""
 
@@ -77,6 +80,7 @@ class State(BaseState):
         return cls(
             csrf=data.get("csrf"),
             token=token,
+            github=data.get("github"),
             return_url=data.get("return_url"),
             state=data.get("state"),
         )
@@ -94,6 +98,8 @@ class State(BaseState):
             data["csrf"] = self.csrf
         if self.token:
             data["token"] = str(self.token)
+        if self.github:
+            data["github"] = self.github
         if self.return_url:
             data["return_url"] = self.return_url
         if self.state:

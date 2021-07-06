@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
+from tests.support.headers import query_from_url
 from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
@@ -104,3 +106,59 @@ async def test_logout_bad_url(setup: SetupTest) -> None:
             }
         ]
     }
+
+
+@pytest.mark.asyncio
+async def test_logout_github(
+    setup: SetupTest, caplog: LogCaptureFixture
+) -> None:
+    assert setup.config.github
+    user_info = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[
+            GitHubTeam(slug="a-team", gid=1000, organization="org"),
+        ],
+    )
+
+    setup.set_github_token_response("some-code", "some-github-token")
+    r = await setup.client.get(
+        "/login", params={"rd": "https://example.com"}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    query = query_from_url(r.headers["Location"])
+
+    # Simulate the return from GitHub.
+    setup.set_github_userinfo_response("some-github-token", user_info)
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+
+    setup.set_github_revoke_response("some-github-token")
+    caplog.clear()
+    r = await setup.client.get("/logout", allow_redirects=False)
+
+    # Check the redirect and logging.
+    assert r.status_code == 307
+    assert r.headers["Location"] == setup.config.after_logout_url
+    assert parse_log(caplog) == [
+        {
+            "event": "Revoked GitHub OAuth authorization",
+            "level": "info",
+            "method": "GET",
+            "path": "/logout",
+            "remote": "127.0.0.1",
+        },
+        {
+            "event": "Successful logout",
+            "level": "info",
+            "method": "GET",
+            "path": "/logout",
+            "remote": "127.0.0.1",
+        },
+    ]

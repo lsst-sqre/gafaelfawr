@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import OIDCConfig
+    from gafaelfawr.models.state import State
     from gafaelfawr.verify import TokenVerifier
 
 __all__ = ["OIDCProvider"]
@@ -79,7 +80,9 @@ class OIDCProvider(Provider):
         )
         return f"{self._config.login_url}?{urlencode(params)}"
 
-    async def create_user_info(self, code: str, state: str) -> TokenUserInfo:
+    async def create_user_info(
+        self, code: str, state: str, session: State
+    ) -> TokenUserInfo:
         """Given the code from a successful authentication, get a token.
 
         Parameters
@@ -87,7 +90,9 @@ class OIDCProvider(Provider):
         code : `str`
             Code returned by a successful authentication.
         state : `str`
-            The same random string used for the redirect URL.
+            The same random string used for the redirect URL, not used.
+        session : `gafaelfawr.models.state.State`
+            The session state, not used by this provider.
 
         Returns
         -------
@@ -173,3 +178,15 @@ class OIDCProvider(Provider):
             uid=token.uid,
             groups=groups,
         )
+
+    async def logout(self, session: State) -> None:
+        """User logout callback.
+
+        Currently, this does nothing.
+
+        Parameters
+        ----------
+        session : `gafaelfawr.models.state.State`
+            The session state, which contains the GitHub access token.
+        """
+        pass

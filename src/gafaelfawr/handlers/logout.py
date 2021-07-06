@@ -31,8 +31,13 @@ async def get_logout(
 
     The user is redirected to the URL given in the rd parameter, if any, and
     otherwise to the after_logout_url configuration setting.
+
+    If the user was logged in via GitHub (and Gafaelfawr is still configured
+    to use GitHub), the GitHub OAuth authorization grant is also revoked.
     """
     if context.state.token:
+        auth_provider = context.factory.create_provider()
+        await auth_provider.logout(context.state)
         context.logger.info("Successful logout")
     else:
         context.logger.info("Logout of already-logged-out session")
