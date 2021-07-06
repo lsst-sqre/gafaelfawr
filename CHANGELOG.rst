@@ -2,10 +2,12 @@
 Change log
 ##########
 
-3.0.4 (unreleased)
+3.1.0 (unreleased)
 ==================
 
 - Correctly handle paginated replies from GitHub for the team membership of a user.
+- On explicit logout (via ``/logout``), revoke the OAuth authorization for the user if they authenticated with GitHub.
+  This forces a re-release of attributes on subsequent authentication, which will make it easier for users to resolve problems with incorrect attribute releases (if, for instance, they attempted to log in before their team membership was complete).
 - Depend on Safir 2.x and drop remaining aiohttp dependency paths.
   Remove code that is now supplied by Safir.
   Share one ``httpx.AsyncClient`` across all requests and close it when the application is shut down.
