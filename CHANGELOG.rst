@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.1.0 (unreleased)
+3.1.0 (2021-07-06)
 ==================
 
 - Correctly handle paginated replies from GitHub for the team membership of a user.
