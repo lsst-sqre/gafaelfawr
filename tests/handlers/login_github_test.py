@@ -124,7 +124,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
         username="githubuser",
         uid=123456,
         email="githubuser@example.com",
-        teams=[],
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
     return_url = "https://example.com/foo?a=bar&b=baz"
 
@@ -252,7 +252,7 @@ async def test_bad_redirect(setup: SetupTest) -> None:
         username="githubuser",
         uid=123456,
         email="githubuser@example.com",
-        teams=[],
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
 
     setup.set_github_token_response("some-code", "some-github-token")
@@ -380,7 +380,7 @@ async def test_invalid_username(setup: SetupTest) -> None:
         username="invalid user",
         uid=1000,
         email="foo@example.com",
-        teams=[],
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
 
     setup.set_github_token_response("some-code", "some-github-token")
@@ -394,21 +394,16 @@ async def test_invalid_username(setup: SetupTest) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response("some-github-token", user_info)
+    setup.set_github_userinfo_response(
+        "some-github-token", user_info, expect_revoke=True
+    )
     r = await setup.client.get(
         "/login",
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
     assert r.status_code == 403
-    assert r.json() == {
-        "detail": [
-            {
-                "msg": "Invalid username: invalid user",
-                "type": "permission_denied",
-            }
-        ]
-    }
+    assert "Invalid username: invalid user" in r.text
 
 
 @pytest.mark.asyncio
@@ -500,3 +495,39 @@ async def test_paginated_teams(setup: SetupTest) -> None:
         ]
     )
     assert r.headers["X-Auth-Request-Groups"] == expected
+
+
+@pytest.mark.asyncio
+async def test_no_valid_groups(setup: SetupTest) -> None:
+    assert setup.config.github
+    user_info = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[],
+    )
+
+    setup.set_github_token_response("some-code", "some-github-token")
+    r = await setup.client.get(
+        "/login", params={"rd": "https://example.com"}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    query = query_from_url(r.headers["Location"])
+
+    # Simulate the return from GitHub.
+    setup.set_github_userinfo_response(
+        "some-github-token", user_info, expect_revoke=True
+    )
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 403
+    assert "Not a member of any authorized groups" in r.text
+    assert "Some <bold>error instructions</bold> with HTML." in r.text
+
+    # The user should not be logged in.
+    r = await setup.client.get("/auth", params={"scope": "user:token"})
+    assert r.status_code == 401

@@ -4,22 +4,24 @@ from __future__ import annotations
 
 import base64
 import os
+from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import RedirectResponse, Response
 from httpx import HTTPError
 
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.dependencies.return_url import return_url_with_header
 from gafaelfawr.exceptions import (
     InvalidReturnURLError,
-    InvalidStateError,
+    PermissionDeniedError,
     ProviderException,
 )
+from gafaelfawr.templates import templates
 
 if TYPE_CHECKING:
-    from typing import List, Set
+    from typing import List
 
     from gafaelfawr.config import Config
     from gafaelfawr.models.token import TokenGroup
@@ -27,6 +29,18 @@ if TYPE_CHECKING:
 router = APIRouter()
 
 __all__ = ["get_login"]
+
+
+class LoginError(Enum):
+    """Possible login failure conditions and their error messages."""
+
+    GROUPS_MISSING = "Not a member of any authorized groups"
+    INVALID_USERNAME = "Cannot authenticate"
+    PROVIDER_FAILED = "Authentication provider failed"
+    PROVIDER_NETWORK = "Cannot contact authentication provider"
+    RETURN_URL_MISSING = "Invalid state: return_url not present in cookie"
+    STATE_INVALID = "Authentication state mismatch"
+    STATE_MISSING = "No authentication state"
 
 
 @router.get(
@@ -38,7 +52,13 @@ __all__ = ["get_login"]
         " additional parameters to complete the process, and then back to the"
         " protected site."
     ),
-    responses={307: {"description": "Redirect to provider or destination"}},
+    responses={
+        307: {"description": "Redirect to provider or destination"},
+        403: {
+            "content": {"text/html": {}},
+            "description": "Error authenticating the user",
+        },
+    },
     status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     summary="Authenticate browser",
     tags=["browser"],
@@ -62,7 +82,7 @@ async def get_login(
     ),
     return_url: Optional[str] = Depends(return_url_with_header),
     context: RequestContext = Depends(context_dependency),
-) -> RedirectResponse:
+) -> Response:
     """Handle an initial login or the return from a login provider.
 
     Notes
@@ -146,7 +166,7 @@ async def redirect_to_provider(
 
 async def handle_provider_return(
     code: str, state: Optional[str], context: RequestContext
-) -> RedirectResponse:
+) -> Response:
     """Handle the return from an external authentication provider.
 
     Handles the target of the redirect back from an external authentication
@@ -165,9 +185,10 @@ async def handle_provider_return(
 
     Returns
     -------
-    response : `fastapi.RedirectResponse`
-        A redirect to the resource the user was trying to reach before
-        authentication.
+    response : ``fastapi.Response``
+        Either a redirect to the resource the user was trying to reach before
+        authentication or an HTML page with an error message if the
+        authentication failed.
 
     Raises
     ------
@@ -176,23 +197,14 @@ async def handle_provider_return(
         information from the provider failed.
     """
     if not state:
-        msg = "No authentication state"
-        context.logger.warning("Authentication failed", error=msg)
-        raise InvalidStateError(msg)
+        return login_error(context, LoginError.STATE_MISSING)
 
     # Extract details from the reply, check state, and get the return URL.
     if state != context.state.state:
-        msg = "Authentication state mismatch"
-        context.logger.warning("Authentication failed", error=msg)
-        raise InvalidStateError(msg)
+        return login_error(context, LoginError.STATE_INVALID)
     return_url = context.state.return_url
     if not return_url:
-        msg = "Invalid authentication state: return_url not present in cookie"
-        context.logger.error("Authentication failed", error=msg)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=[{"msg": msg, "type": "return_url_not_set"}],
-        )
+        return login_error(context, LoginError.RETURN_URL_MISSING)
     context.rebind_logger(return_url=return_url)
 
     # Retrieve the user identity and authorization information based on the
@@ -203,33 +215,30 @@ async def handle_provider_return(
             code, state, context.state
         )
     except ProviderException as e:
-        context.logger.warning("Provider authentication failed", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=[{"type": "provider_failed", "msg": str(e)}],
-        )
+        return login_error(context, LoginError.PROVIDER_FAILED, str(e))
     except HTTPError as e:
-        msg = "Cannot contact authentication provider"
-        context.logger.exception(msg, error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=[
-                {
-                    "type": "provider_connect_failed",
-                    "msg": f"{msg}: {str(e)}",
-                }
-            ],
-        )
+        return login_error(context, LoginError.PROVIDER_NETWORK, str(e))
+
+    # Get the user's scopes.  If this returns None, the user isn't in any
+    # recognized groups, which means that we should abort the login and
+    # display an error message.
+    scopes = get_scopes_from_groups(context.config, user_info.groups)
+    if scopes is None:
+        await auth_provider.logout(context.state)
+        return login_error(context, LoginError.GROUPS_MISSING)
 
     # Construct a token.
-    scopes = get_scopes_from_groups(context.config, user_info.groups)
     admin_service = context.factory.create_admin_service()
     if admin_service.is_admin(user_info.username):
         scopes = sorted(scopes + ["admin:token"])
     token_service = context.factory.create_token_service()
-    token = await token_service.create_session_token(
-        user_info, scopes=scopes, ip_address=context.request.client.host
-    )
+    try:
+        token = await token_service.create_session_token(
+            user_info, scopes=scopes, ip_address=context.request.client.host
+        )
+    except PermissionDeniedError as e:
+        await auth_provider.logout(context.state)
+        return login_error(context, LoginError.INVALID_USERNAME, str(e))
     context.state.token = token
 
     # Successful login, so clear the login state and send the user back to
@@ -249,7 +258,7 @@ async def handle_provider_return(
 
 def get_scopes_from_groups(
     config: Config, groups: Optional[List[TokenGroup]]
-) -> List[str]:
+) -> Optional[List[str]]:
     """Get scopes from a list of groups.
 
     Used to determine the scope claim of a token issued based on an OpenID
@@ -257,18 +266,66 @@ def get_scopes_from_groups(
 
     Parameters
     ----------
+    config : `gafaelfawr.config.Config`
+        Gafaelfawr configuration.
     groups : List[`gafaelfawr.models.token.TokenGroup`]
         The groups of a token.
 
     Returns
     -------
-    scopes : List[`str`]
+    scopes : List[`str`] or `None`
         The scopes generated from the group membership based on the
-        ``group_mapping`` configuration parameter.
+        ``group_mapping`` configuration parameter, or `None` if the user was
+        not a member of any known group.
     """
     if not groups:
-        return ["user:token"]
-    scopes: Set[str] = set(["user:token"])
+        return None
+
+    scopes = set(["user:token"])
+    found = False
     for group in [g.name for g in groups]:
-        scopes.update(config.issuer.group_mapping.get(group, set()))
-    return sorted(scopes)
+        if group in config.issuer.group_mapping:
+            found = True
+            scopes.update(config.issuer.group_mapping[group])
+
+    return sorted(scopes) if found else None
+
+
+def login_error(
+    context: RequestContext, error: LoginError, details: Optional[str] = None
+) -> Response:
+    """Generate an error page for a login failure.
+
+    Report errors back to the user in a somewhat more human-readable form than
+    a JSON error message.
+
+    Parameters
+    ----------
+    context : `gafaelfawr.dependencies.config.RequestContext`
+        The context of the incoming request.
+    error : `LoginError`
+        The type of error.
+    details : `str`, optional
+        Additional error details, if provided.
+
+    Returns
+    -------
+    response : ``fastapi.Response``
+        The response to send back to the user.
+    """
+    if details:
+        context.logger.warning(error.value, error=details)
+    else:
+        context.logger.warning("Authentication failed", error=error.value)
+    return templates.TemplateResponse(
+        "login-error.html",
+        context={
+            "error": error,
+            "message": error.value,
+            "details": details,
+            "error_footer": context.config.error_footer,
+            "request": context.request,
+        },
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+        status_code=status.HTTP_403_FORBIDDEN,
+    )

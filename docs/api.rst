@@ -80,6 +80,9 @@ API reference
 
 .. automodapi:: gafaelfawr.storage.transaction
 
+.. automodapi:: gafaelfawr.templates
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.token_cache
 
 .. automodapi:: gafaelfawr.util

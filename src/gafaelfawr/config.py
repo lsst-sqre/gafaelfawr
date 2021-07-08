@@ -213,6 +213,9 @@ class Settings(BaseSettings):
     group_mapping: Dict[str, List[str]] = {}
     """Mappings of scopes to lists of groups that provide them."""
 
+    error_footer: Optional[str] = None
+    """HTML to add (inside ``<p>``) to login error pages."""
+
     class Config:
         env_prefix = "GAFAELFAWR_"
 
@@ -544,6 +547,9 @@ class Config:
     safir: SafirConfig
     """Configuration for the Safir middleware."""
 
+    error_footer: Optional[str] = None
+    """HTML to add (inside ``<p>``) to login error pages."""
+
     @classmethod
     def from_file(cls, path: str) -> Config:
         """Construct a Config object from a settings file.
@@ -690,6 +696,7 @@ class Config:
             initial_admins=tuple(settings.initial_admins),
             token_lifetime=timedelta(minutes=settings.issuer.exp_minutes),
             safir=SafirConfig(log_level=log_level),
+            error_footer=settings.error_footer,
         )
 
         # Configure logging.

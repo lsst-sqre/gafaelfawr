@@ -201,7 +201,7 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status_code == 500
+    assert r.status_code == 403
     assert "error_code: description" in r.text
     assert parse_log(caplog) == [
         {
@@ -214,7 +214,7 @@ async def test_callback_error(
         },
         {
             "error": "error_code: description",
-            "event": "Provider authentication failed",
+            "event": "Authentication provider failed",
             "level": "warning",
             "method": "GET",
             "path": "/oauth2/callback",
@@ -241,7 +241,7 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status_code == 500
+    assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
 
     # Now try a reply that returns 200 but doesn't have the field we
@@ -261,7 +261,7 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status_code == 500
+    assert r.status_code == 403
     assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
@@ -280,7 +280,7 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status_code == 500
+    assert r.status_code == 403
     assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
@@ -299,7 +299,7 @@ async def test_callback_error(
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status_code == 500
+    assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
 
 
@@ -323,8 +323,8 @@ async def test_connection_error(setup: SetupTest) -> None:
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status_code == 500
-    assert r.json()["detail"][0]["type"] == "provider_connect_failed"
+    assert r.status_code == 403
+    assert "Cannot contact authentication provider" in r.text
 
 
 @pytest.mark.asyncio
@@ -350,7 +350,7 @@ async def test_verify_error(setup: SetupTest) -> None:
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status_code == 500
+    assert r.status_code == 403
     assert "token verification failed" in r.text
 
 
@@ -358,7 +358,7 @@ async def test_verify_error(setup: SetupTest) -> None:
 async def test_invalid_username(setup: SetupTest) -> None:
     setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
-        sub="invalid@user", uid="invalid@user"
+        groups=["admin"], sub="invalid@user", uid="invalid@user"
     )
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
@@ -379,14 +379,7 @@ async def test_invalid_username(setup: SetupTest) -> None:
         allow_redirects=False,
     )
     assert r.status_code == 403
-    assert r.json() == {
-        "detail": [
-            {
-                "msg": "Invalid username: invalid@user",
-                "type": "permission_denied",
-            }
-        ]
-    }
+    assert "Invalid username: invalid@user" in r.text
 
 
 @pytest.mark.asyncio
@@ -413,15 +406,8 @@ async def test_invalid_group_syntax(setup: SetupTest) -> None:
         params={"code": "some-code", "state": query["state"][0]},
         allow_redirects=False,
     )
-    assert r.status_code == 500
-    assert r.json() == {
-        "detail": [
-            {
-                "msg": ANY,
-                "type": "provider_failed",
-            }
-        ]
-    }
+    assert r.status_code == 403
+    assert "isMemberOf claim is invalid" in r.text
 
 
 @pytest.mark.asyncio
@@ -462,3 +448,33 @@ async def test_invalid_groups(setup: SetupTest) -> None:
     r = await setup.client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-Groups"] == "valid,admin"
+
+
+@pytest.mark.asyncio
+async def test_no_valid_groups(setup: SetupTest) -> None:
+    setup.configure("oidc")
+    token = setup.create_upstream_oidc_token(groups=[])
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    return_url = "https://example.com/foo?a=bar&b=baz"
+
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 403
+    assert "Not a member of any authorized groups" in r.text
+    assert "Some <bold>error instructions</bold> with HTML." in r.text
+
+    # The user should not be logged in.
+    r = await setup.client.get("/auth", params={"scope": "user:token"})
+    assert r.status_code == 401

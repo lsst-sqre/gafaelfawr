@@ -181,16 +181,6 @@ class InvalidScopesError(ValidationError):
         super().__init__(message, ErrorLocation.body, "scopes")
 
 
-class InvalidStateError(ValidationError):
-    """The login state is not present or is invalid."""
-
-    error = "state_mismatch"
-    status_code = status.HTTP_403_FORBIDDEN
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.query, "state")
-
-
 class NotFoundError(ValidationError):
     """The named resource does not exist."""
 
