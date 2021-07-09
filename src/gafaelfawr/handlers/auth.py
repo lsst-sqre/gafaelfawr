@@ -357,8 +357,6 @@ async def build_success_headers(
         "X-Auth-Request-Token-Scopes": " ".join(sorted(token_data.scopes)),
         "X-Auth-Request-User": token_data.username,
     }
-    if token_data.name:
-        headers["X-Auth-Request-Name"] = token_data.name
     if token_data.email:
         headers["X-Auth-Request-Email"] = token_data.email
     if token_data.uid:
@@ -366,6 +364,13 @@ async def build_success_headers(
     if token_data.groups:
         groups = ",".join([g.name for g in token_data.groups])
         headers["X-Auth-Request-Groups"] = groups
+
+    # HTTP headers have no defined character set and anything other than ASCII
+    # or perhaps ISO-8859-1 is not guaranteed to work.  Starlette forces the
+    # encoding to ISO-8859-1.  However, the user's actual name may contain
+    # arbitrary Unicode.  Work around this for now by sending the username as
+    # the user's full name in the header.
+    headers["X-Auth-Request-Name"] = token_data.username
 
     if auth_config.notebook:
         token_service = context.factory.create_token_service()

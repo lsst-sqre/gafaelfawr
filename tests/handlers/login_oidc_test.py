@@ -103,7 +103,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == token.username
-    assert r.headers["X-Auth-Request-Name"] == "Some Person"
+    assert r.headers["X-Auth-Request-Name"] == token.username
     assert r.headers["X-Auth-Request-Email"] == "person@example.com"
     assert r.headers["X-Auth-Request-Uid"] == str(token.uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"

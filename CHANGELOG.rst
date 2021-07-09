@@ -10,6 +10,9 @@ Change log
   Add a new Helm configuration option, ``config.errorFooter``, that is included in the HTML of any error message that is shown.
 - Fail authentication and show an error if the user is not a member of any of the groups configured in ``config.groupMapping``.
 - Revoke the GitHub OAuth authorization if the login fails due to no known groups or an invalid username, since in both cases we want to force GitHub to redo the attribute release.
+- HTTP headers are not guaranteed to support character sets other than ASCII, and Starlette forces them to ISO 8859-1.
+  This interferes with correctly passing the user's full name to protected services via HTTP headers.
+  For now, send the user's username as their full name, since the username is guaranteed to be ASCII.
 
 3.1.0 (2021-07-06)
 ==================
