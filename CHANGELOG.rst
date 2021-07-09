@@ -12,7 +12,8 @@ Change log
 - Revoke the GitHub OAuth authorization if the login fails due to no known groups or an invalid username, since in both cases we want to force GitHub to redo the attribute release.
 - HTTP headers are not guaranteed to support character sets other than ASCII, and Starlette forces them to ISO 8859-1.
   This interferes with correctly passing the user's full name to protected services via HTTP headers.
-  For now, send the user's username as their full name, since the username is guaranteed to be ASCII.
+  Therefore, drop support for sending the user's full name via ``X-Auth-Request-Name``.
+  The name can still be retrieved from the ``/auth/api/v1/user-info`` API endpoint.
 
 3.1.0 (2021-07-06)
 ==================

@@ -109,7 +109,6 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == "githubuser"
-    assert r.headers["X-Auth-Request-Name"] == "githubuser"
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
     expected = "org-a-team,org-other-team,other-org-team-with-very--F279yg"

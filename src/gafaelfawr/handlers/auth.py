@@ -225,8 +225,6 @@ async def get_auth(
     X-Auth-Request-Client-Ip
         The IP address of the client, as determined after parsing
         ``X-Forwarded-For`` headers.
-    X-Auth-Request-Name
-        The full name of the authenticated user, if known.
     X-Auth-Request-Email
         The email address of the authenticated user, if known.
     X-Auth-Request-User
@@ -364,13 +362,6 @@ async def build_success_headers(
     if token_data.groups:
         groups = ",".join([g.name for g in token_data.groups])
         headers["X-Auth-Request-Groups"] = groups
-
-    # HTTP headers have no defined character set and anything other than ASCII
-    # or perhaps ISO-8859-1 is not guaranteed to work.  Starlette forces the
-    # encoding to ISO-8859-1.  However, the user's actual name may contain
-    # arbitrary Unicode.  Work around this for now by sending the username as
-    # the user's full name in the header.
-    headers["X-Auth-Request-Name"] = token_data.username
 
     if auth_config.notebook:
         token_service = context.factory.create_token_service()

@@ -221,7 +221,6 @@ async def test_success(setup: SetupTest) -> None:
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == token_data.username
-    assert r.headers["X-Auth-Request-Name"] == token_data.username
     assert r.headers["X-Auth-Request-Email"] == token_data.email
     assert r.headers["X-Auth-Request-Uid"] == str(token_data.uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"
@@ -246,7 +245,6 @@ async def test_success_minimal(setup: SetupTest) -> None:
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == "user"
     assert r.headers["X-Auth-Request-Uid"] == "1234"
-    assert r.headers["X-Auth-Request-Name"] == "user"
     assert "X-Auth-Request-Email" not in r.headers
     assert "X-Auth-Request-Groups" not in r.headers
 
@@ -505,4 +503,3 @@ async def test_success_unicode_name(setup: SetupTest) -> None:
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "user"
     assert r.headers["X-Auth-Request-Uid"] == "1234"
-    assert r.headers["X-Auth-Request-Name"] == "user"
