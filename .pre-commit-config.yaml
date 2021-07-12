@@ -15,7 +15,7 @@ repos:
         files: (README\.rst)|(CHANGELOG\.rst)
 
   - repo: https://github.com/pycqa/isort
-    rev: 5.9.1
+    rev: 5.9.2
     hooks:
       - id: isort
         additional_dependencies:
