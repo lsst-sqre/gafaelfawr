@@ -472,6 +472,7 @@ async def test_no_valid_groups(setup: SetupTest) -> None:
         allow_redirects=False,
     )
     assert r.status_code == 403
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     assert "Not a member of any authorized groups" in r.text
     assert "Some <bold>error instructions</bold> with HTML." in r.text
 
