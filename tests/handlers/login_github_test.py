@@ -440,3 +440,28 @@ async def test_no_valid_groups(setup: SetupTest) -> None:
     # The user should not be logged in.
     r = await setup.client.get("/auth", params={"scope": "user:token"})
     assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_unicode_name(setup: SetupTest) -> None:
+    user_info = GitHubUserInfo(
+        name="名字",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
+    )
+
+    r = await simulate_github_login(setup, user_info)
+    assert r.status_code == 307
+
+    # Check that the name as returned from the user-info API is correct.
+    r = await setup.client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "githubuser",
+        "name": "名字",
+        "email": "githubuser@example.com",
+        "uid": 123456,
+        "groups": [{"name": "org-a-team", "id": 1000}],
+    }
