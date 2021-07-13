@@ -517,3 +517,39 @@ async def test_no_valid_groups(setup: SetupTest) -> None:
     # The user should not be logged in.
     r = await setup.client.get("/auth", params={"scope": "user:token"})
     assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_unicode_name(setup: SetupTest) -> None:
+    setup.configure("oidc")
+    token = setup.create_upstream_oidc_token(name="名字", groups=["admin"])
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    return_url = "https://example.com/foo"
+
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == return_url
+
+    # Check that the name as returned from the user-info API is correct.
+    r = await setup.client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token.username,
+        "name": "名字",
+        "email": token.claims["email"],
+        "uid": token.uid,
+        "groups": [{"name": "admin", "id": 1000}],
+    }
