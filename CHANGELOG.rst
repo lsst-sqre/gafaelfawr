@@ -2,6 +2,15 @@
 Change log
 ##########
 
+3.2.0 (unreleased)
+==================
+
+- Return HTML errors from login failures instead of JSON.
+  The HTML is currently entirely unstyled.
+  Add a new Helm configuration option, ``config.errorFooter``, that is included in the HTML of any error message that is shown.
+- Fail authentication and show an error if the user is not a member of any of the groups configured in ``config.groupMapping``.
+- Revoke the GitHub OAuth authorization if the login fails due to no known groups or an invalid username, since in both cases we want to force GitHub to redo the attribute release.
+
 3.1.0 (2021-07-06)
 ==================
 

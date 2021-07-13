@@ -27,3 +27,5 @@ issuer:
 github:
   client_id: "some-github-client-id"
   client_secret_file: "{github_secret_file}"
+error_footer: |
+  Some <strong>error instructions</strong> with HTML.

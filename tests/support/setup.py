@@ -43,10 +43,9 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import Config, OIDCClient
     from gafaelfawr.keypair import RSAKeyPair
+    from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
     from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.storage.transaction import Transaction
-    from gafaelfawr.tokens import Token as OldToken
-    from gafaelfawr.tokens import VerifiedToken
 
 
 def initialize(tmp_path: Path) -> Config:
@@ -268,7 +267,7 @@ class SetupTest:
         kid: Optional[str] = None,
         groups: Optional[List[str]] = None,
         **claims: Any,
-    ) -> VerifiedToken:
+    ) -> OIDCVerifiedToken:
         """Create a signed OpenID Connect token.
 
         Parameters
@@ -283,7 +282,7 @@ class SetupTest:
 
         Returns
         -------
-        token : `gafaelfawr.tokens.VerifiedToken`
+        token : `gafaelfawr.models..oidc.OIDCVerifiedToken`
             The generated token.
         """
         if not kid:
@@ -324,6 +323,7 @@ class SetupTest:
         token: str,
         user_info: GitHubUserInfo,
         paginate_teams: bool = False,
+        expect_revoke: bool = False,
     ) -> None:
         """Set the GitHub user information to return from the GitHub API.
 
@@ -335,6 +335,9 @@ class SetupTest:
             User information to use to synthesize GitHub API responses.
         paginate_teams : `bool`, optional
             Whether to paginate the team results.  Default: `False`
+        expect_revoke : `bool`, optional
+            Whether to expect a revocation of the token after returning all
+            user information.  Default: `False`
         """
         assert self.config.github
 
@@ -363,6 +366,10 @@ class SetupTest:
                     assert len(teams) > 2
                     if request.url.query == b"page=2":
                         link = f'<{GitHubProvider._TEAMS_URL}>; rel="prev"'
+                        # This will be the last request if we're about to fail
+                        # and revoke the token.
+                        if expect_revoke:
+                            self.set_github_revoke_response(token)
                         return to_response(
                             json=teams[2:], headers={"Link": link}
                         )
@@ -375,6 +382,10 @@ class SetupTest:
                             json=teams[:2], headers={"Link": link}
                         )
                 else:
+                    # This will be the last request if we're about to fail
+                    # and revoke the token.
+                    if expect_revoke:
+                        self.set_github_revoke_response(token)
                     return to_response(json=teams)
             elif base_url == GitHubProvider._EMAILS_URL:
                 return to_response(
@@ -477,7 +488,7 @@ class SetupTest:
             url=jwks_url, method="GET", json=jwks.dict()
         )
 
-    def set_oidc_token_response(self, code: str, token: OldToken) -> None:
+    def set_oidc_token_response(self, code: str, token: OIDCToken) -> None:
         """Set the token that will be returned from the OIDC token endpoint.
 
         Parameters

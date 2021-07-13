@@ -1,0 +1,20 @@
+<html>
+  <head>
+    <title>Authentication error</title>
+  </head>
+  <body>
+    <h1>Authentication error</h1>
+    <p>
+      Authentication failed with the following error:
+    </p>
+    <p>
+      <strong>Error:</strong>
+      {{ message }}{% if details %}: {{ details }}{% endif %}
+    </p>
+    {%- if error_footer %}
+    <p>
+      {{ error_footer | safe }}
+    </p>
+    {%- endif %}
+  </body>
+</html>
