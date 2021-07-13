@@ -168,7 +168,7 @@ If ``config.oidcServer.enabled`` is set to true, the ``/.well-known/openid-confi
 If you need to configure TLS options or annotations for the ingress, use ``ingress.annotations`` and ``ingress.tls``.
 The syntax is the same as the ``metadata.annotations`` and ``spec.tls`` attributes of a Kubernetes ``Ingress`` resource.
 
-To add additional information to the error page from a failed login, set ``errorFooter`` to a string.
+To add additional information to the error page from a failed login, set ``config.errorFooter`` to a string.
 This string will be embedded verbatim, inside a ``<p>`` tag, in all login error messages.
 It may include HTML and will not be escaped.
 This is a suitable place to direct the user to support information or bug reporting instructions.
