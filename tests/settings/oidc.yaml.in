@@ -35,4 +35,4 @@ oidc:
   key_ids:
     - "orig-kid"
 error_footer: |
-  Some <bold>error instructions</bold> with HTML.
+  Some <strong>error instructions</strong> with HTML.
