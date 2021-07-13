@@ -34,7 +34,7 @@ __all__ = ["get_login"]
 class LoginError(Enum):
     """Possible login failure conditions and their error messages."""
 
-    GROUPS_MISSING = "Not a member of any authorized groups"
+    GROUPS_MISSING = "User unauthorized"
     INVALID_USERNAME = "Cannot authenticate"
     PROVIDER_FAILED = "Authentication provider failed"
     PROVIDER_NETWORK = "Cannot contact authentication provider"
@@ -225,7 +225,8 @@ async def handle_provider_return(
     scopes = get_scopes_from_groups(context.config, user_info.groups)
     if scopes is None:
         await auth_provider.logout(context.state)
-        return login_error(context, LoginError.GROUPS_MISSING)
+        msg = f"{user_info.username} is not a member of any authorized groups"
+        return login_error(context, LoginError.GROUPS_MISSING, details=msg)
 
     # Construct a token.
     admin_service = context.factory.create_admin_service()
@@ -320,11 +321,11 @@ def login_error(
     return templates.TemplateResponse(
         "login-error.html",
         context={
+            "request": context.request,
             "error": error,
             "message": error.value,
             "details": details,
             "error_footer": context.config.error_footer,
-            "request": context.request,
         },
         headers={"Cache-Control": "no-cache, must-revalidate"},
         status_code=status.HTTP_403_FORBIDDEN,

@@ -526,7 +526,7 @@ async def test_no_valid_groups(setup: SetupTest) -> None:
     )
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    assert "Not a member of any authorized groups" in r.text
+    assert "githubuser is not a member of any authorized groups" in r.text
     assert "Some <bold>error instructions</bold> with HTML." in r.text
 
     # The user should not be logged in.

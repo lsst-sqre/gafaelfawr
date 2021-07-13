@@ -43,10 +43,9 @@ if TYPE_CHECKING:
 
     from gafaelfawr.config import Config, OIDCClient
     from gafaelfawr.keypair import RSAKeyPair
+    from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
     from gafaelfawr.providers.github import GitHubUserInfo
     from gafaelfawr.storage.transaction import Transaction
-    from gafaelfawr.tokens import Token as OldToken
-    from gafaelfawr.tokens import VerifiedToken
 
 
 def initialize(tmp_path: Path) -> Config:
@@ -268,7 +267,7 @@ class SetupTest:
         kid: Optional[str] = None,
         groups: Optional[List[str]] = None,
         **claims: Any,
-    ) -> VerifiedToken:
+    ) -> OIDCVerifiedToken:
         """Create a signed OpenID Connect token.
 
         Parameters
@@ -283,7 +282,7 @@ class SetupTest:
 
         Returns
         -------
-        token : `gafaelfawr.tokens.VerifiedToken`
+        token : `gafaelfawr.models..oidc.OIDCVerifiedToken`
             The generated token.
         """
         if not kid:
@@ -489,7 +488,7 @@ class SetupTest:
             url=jwks_url, method="GET", json=jwks.dict()
         )
 
-    def set_oidc_token_response(self, code: str, token: OldToken) -> None:
+    def set_oidc_token_response(self, code: str, token: OIDCToken) -> None:
         """Set the token that will be returned from the OIDC token endpoint.
 
         Parameters
