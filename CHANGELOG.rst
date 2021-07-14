@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.2.0 (unreleased)
+3.2.0 (2021-07-14)
 ==================
 
 - Return HTML errors from login failures instead of JSON.
