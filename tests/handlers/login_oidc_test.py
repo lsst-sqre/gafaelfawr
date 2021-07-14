@@ -103,7 +103,6 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == token.username
-    assert r.headers["X-Auth-Request-Name"] == "Some Person"
     assert r.headers["X-Auth-Request-Email"] == "person@example.com"
     assert r.headers["X-Auth-Request-Uid"] == str(token.uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"
@@ -163,6 +162,44 @@ async def test_oauth2_callback(setup: SetupTest) -> None:
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
+
+
+@pytest.mark.asyncio
+async def test_claim_names(setup: SetupTest) -> None:
+    """Uses an alternate settings environment with non-default claims."""
+    setup.configure("oidc", username_claim="username", uid_claim="numeric_uid")
+    assert setup.config.oidc
+    token = setup.create_upstream_oidc_token(
+        groups=["admin"], username="alt-username", numeric_uid=7890
+    )
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    return_url = "https://example.com/foo"
+
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+    assert query["redirect_uri"][0] == setup.config.oidc.redirect_url
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == return_url
+
+    # Check that the /auth route works and sets the headers correctly.  uid
+    # will be set to some-user and uidNumber will be set to 1000, so we'll
+    # know if we read the alternate claim names correctly instead.
+    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == "alt-username"
+    assert r.headers["X-Auth-Request-Uid"] == "7890"
 
 
 @pytest.mark.asyncio
@@ -480,3 +517,39 @@ async def test_no_valid_groups(setup: SetupTest) -> None:
     # The user should not be logged in.
     r = await setup.client.get("/auth", params={"scope": "user:token"})
     assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_unicode_name(setup: SetupTest) -> None:
+    setup.configure("oidc")
+    token = setup.create_upstream_oidc_token(name="名字", groups=["admin"])
+    setup.set_oidc_token_response("some-code", token)
+    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    return_url = "https://example.com/foo"
+
+    r = await setup.client.get(
+        "/login", params={"rd": return_url}, allow_redirects=False
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await setup.client.get(
+        "/login",
+        params={"code": "some-code", "state": query["state"][0]},
+        allow_redirects=False,
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == return_url
+
+    # Check that the name as returned from the user-info API is correct.
+    r = await setup.client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token.username,
+        "name": "名字",
+        "email": token.claims["email"],
+        "uid": token.uid,
+        "groups": [{"name": "admin", "id": 1000}],
+    }

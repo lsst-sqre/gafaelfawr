@@ -159,9 +159,6 @@ The value of that annotation is a comma-separated list of desired headers.
 ``X-Auth-Request-User``
     The username of the authenticated user.
 
-``X-Auth-Request-Name``
-    The name of the authenticated user, if available.
-
 ``X-Auth-Request-Email``
     The email address of the authenticated user, if available.
 

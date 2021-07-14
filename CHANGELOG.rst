@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.2.0 (unreleased)
+3.2.0 (2021-07-14)
 ==================
 
 - Return HTML errors from login failures instead of JSON.
@@ -10,6 +10,10 @@ Change log
   Add a new Helm configuration option, ``config.errorFooter``, that is included in the HTML of any error message that is shown.
 - Fail authentication and show an error if the user is not a member of any of the groups configured in ``config.groupMapping``.
 - Revoke the GitHub OAuth authorization if the login fails due to no known groups or an invalid username, since in both cases we want to force GitHub to redo the attribute release.
+- HTTP headers are not guaranteed to support character sets other than ASCII, and Starlette forces them to ISO 8859-1.
+  This interferes with correctly passing the user's full name to protected services via HTTP headers.
+  Therefore, drop support for sending the user's full name via ``X-Auth-Request-Name``.
+  The name can still be retrieved from the ``/auth/api/v1/user-info`` API endpoint.
 
 3.1.0 (2021-07-06)
 ==================
