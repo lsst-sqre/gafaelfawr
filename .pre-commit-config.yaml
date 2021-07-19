@@ -22,7 +22,7 @@ repos:
           - toml
 
   - repo: https://github.com/psf/black
-    rev: 21.6b0
+    rev: 21.7b0
     hooks:
       - id: black
 
@@ -39,6 +39,6 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v7.30.0
+    rev: v7.31.0
     hooks:
       - id: eslint
