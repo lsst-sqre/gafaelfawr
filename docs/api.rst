@@ -38,8 +38,6 @@ API reference
 
 .. automodapi:: gafaelfawr.models.auth
 
-.. automodapi:: gafaelfawr.models.error
-
 .. automodapi:: gafaelfawr.models.history
 
 .. automodapi:: gafaelfawr.models.influxdb

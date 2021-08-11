@@ -16,6 +16,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import JSONResponse, RedirectResponse
+from safir.models import ErrorModel
 
 from gafaelfawr.dependencies.auth import AuthenticateRead, verified_oidc_token
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
@@ -25,7 +26,6 @@ from gafaelfawr.exceptions import (
     OAuthError,
     UnsupportedGrantTypeError,
 )
-from gafaelfawr.models.error import ErrorModel
 from gafaelfawr.models.oidc import (
     JWKS,
     OIDCAuthorizationCode,

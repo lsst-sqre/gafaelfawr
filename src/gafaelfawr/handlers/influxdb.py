@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from safir.models import ErrorModel
 
 from gafaelfawr.dependencies.auth import AuthenticateRead
 from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.models.error import ErrorModel
 from gafaelfawr.models.influxdb import InfluxDBToken
 from gafaelfawr.models.token import TokenData
 
