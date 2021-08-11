@@ -28,7 +28,7 @@ class BaseState(ABC):
 
     @classmethod
     @abstractmethod
-    def from_cookie(cls, cookie: str, request: Request) -> BaseState:
+    async def from_cookie(cls, cookie: str, request: Request) -> BaseState:
         """Reconstruct state from an encrypted cookie.
 
         Parameters
@@ -97,7 +97,7 @@ class StateMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         if self.cookie_name in request.cookies:
             cookie = request.cookies[self.cookie_name]
-            state = self.state_class.from_cookie(cookie, request)
+            state = await self.state_class.from_cookie(cookie, request)
         else:
             state = self.state_class()
 

@@ -53,7 +53,7 @@ async def test_login(setup: SetupTest) -> None:
         "scopes": ["exec:admin", "read:all"],
         "config": {"scopes": expected_scopes},
     }
-    state = State.from_cookie(r.cookies[COOKIE_NAME], None)
+    state = await State.from_cookie(r.cookies[COOKIE_NAME], None)
     assert state.csrf == data["csrf"]
     assert state.token == token_data.token
 

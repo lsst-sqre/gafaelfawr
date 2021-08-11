@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from gafelfawr.config import Config
 
 APP_TEMPLATE = """
+import os
 from datetime import timedelta
 from unittest.mock import MagicMock
 from urllib.parse import urlparse
@@ -42,7 +43,6 @@ from tests.support.tokens import add_expired_session_token
 from gafaelfawr.util import current_datetime
 
 config_dependency.set_settings_path("{settings_path}")
-redis_dependency.is_mocked = True
 
 
 @app.on_event("startup")
@@ -51,6 +51,13 @@ async def startup_event() -> None:
     logger = structlog.get_logger(config.safir.logger_name)
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
+
+    # Mock out Redis if there is none running.
+    if not os.environ.get("REDIS_6379_TCP_PORT"):
+        import mockaioredis
+
+        redis = await mockaioredis.create_redis_pool("")
+        redis_dependency.set_redis(redis)
 
     # Initialize the database.  Non-SQLite databases need to be reset between
     # tests.

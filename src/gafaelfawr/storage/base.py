@@ -111,4 +111,4 @@ class RedisStorage(Generic[S]):
             Returns `None` if the object should not expire.
         """
         encrypted_data = self._fernet.encrypt(obj.json().encode())
-        await self._redis.set(key, encrypted_data, expire=lifetime)
+        await self._redis.set(key, encrypted_data, ex=lifetime)

@@ -46,7 +46,9 @@ class State(BaseState):
     """State token for OAuth 2.0 and OpenID Connect logins."""
 
     @classmethod
-    def from_cookie(cls, cookie: str, request: Optional[Request]) -> State:
+    async def from_cookie(
+        cls, cookie: str, request: Optional[Request]
+    ) -> State:
         """Reconstruct state from an encrypted cookie.
 
         Parameters
@@ -73,7 +75,7 @@ class State(BaseState):
                 token = Token.from_str(data["token"])
         except Exception as e:
             if request:
-                logger = logger_dependency(request)
+                logger = await logger_dependency(request)
                 logger.warning("Discarding invalid state cookie", error=str(e))
             return cls()
 

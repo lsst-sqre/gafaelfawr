@@ -1119,13 +1119,13 @@ async def test_invalid(setup: SetupTest) -> None:
     assert await token_service.get_data(token) is None
 
     # Invalid encrypted blob.
-    await setup.redis.set(f"token:{token.key}", "foo", expire=expires)
+    await setup.redis.set(f"token:{token.key}", "foo", ex=expires)
     assert await token_service.get_data(token) is None
 
     # Malformed session.
     fernet = Fernet(setup.config.session_secret.encode())
     raw_data = fernet.encrypt(b"malformed json")
-    await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
+    await setup.redis.set(f"token:{token.key}", raw_data, ex=expires)
     assert await token_service.get_data(token) is None
 
     # Mismatched token.
@@ -1139,7 +1139,7 @@ async def test_invalid(setup: SetupTest) -> None:
         uid=12345,
     )
     session = fernet.encrypt(data.json().encode())
-    await setup.redis.set(f"token:{token.key}", session, expire=expires)
+    await setup.redis.set(f"token:{token.key}", session, ex=expires)
     assert await token_service.get_data(token) is None
 
     # Missing required fields.
@@ -1154,14 +1154,14 @@ async def test_invalid(setup: SetupTest) -> None:
         "name": "Some User",
     }
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
-    await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
+    await setup.redis.set(f"token:{token.key}", raw_data, ex=expires)
     assert await token_service.get_data(token) is None
 
     # Fix the session store and confirm we can retrieve the manually-stored
     # session.
     json_data["username"] = "example"
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
-    await setup.redis.set(f"token:{token.key}", raw_data, expire=expires)
+    await setup.redis.set(f"token:{token.key}", raw_data, ex=expires)
     new_data = await token_service.get_data(token)
     assert new_data == TokenData.parse_obj(json_data)
 

@@ -68,8 +68,6 @@ def initialize(tmp_path: Path) -> Config:
     settings_path = build_settings(tmp_path, "github")
     config_dependency.set_settings_path(str(settings_path))
     config = config_dependency()
-    if not os.environ.get("REDIS_6379_TCP_PORT"):
-        redis_dependency.is_mocked = True
 
     # Initialize the database.  Non-SQLite databases need to be reset between
     # tests.
@@ -116,6 +114,11 @@ class SetupTest:
             The mock for simulating `httpx.AsyncClient` calls.
         """
         config = initialize(tmp_path)
+        if not os.environ.get("REDIS_6379_TCP_PORT"):
+            import mockaioredis
+
+            redis = await mockaioredis.create_redis_pool("")
+            redis_dependency.set_redis(redis)
         redis = await redis_dependency(config)
 
         # Create the database session that will be used by SetupTest and by
