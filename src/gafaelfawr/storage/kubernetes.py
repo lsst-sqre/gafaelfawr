@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import _thread
 import os
 import time
 from base64 import b64encode
@@ -494,6 +495,13 @@ class KubernetesWatcher:
                 self._logger.exception(msg, error=str(e))
                 self._logger.info("Pausing 10s before attempting to continue")
                 time.sleep(10)
+            except Exception as e:
+                msg = (
+                    f"Unexpected exception {type(e).__name__}, terminating"
+                    " main process"
+                )
+                self._logger.exception(msg, error=str(e))
+                _thread.interrupt_main()
 
     def _parse_raw_event(
         self, raw_event: Dict[str, Any]
