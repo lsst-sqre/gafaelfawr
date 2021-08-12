@@ -151,7 +151,12 @@ class SetupTest:
                     )
         finally:
             await http_client_dependency.aclose()
-            await redis_dependency.close()
+            if os.environ.get("REDIS_6379_TCP_PORT"):
+                await redis_dependency.close()
+            else:
+                redis = await redis_dependency()
+                redis.close()
+                await redis.wait_closed()
             session.close()
 
     def __init__(
