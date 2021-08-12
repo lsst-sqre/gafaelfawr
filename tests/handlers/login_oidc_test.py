@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
         groups=["admin"], name="Some Person", email="person@example.com"
     )
@@ -111,7 +111,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 @pytest.mark.asyncio
 async def test_login_redirect_header(setup: SetupTest) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
@@ -139,7 +139,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_oauth2_callback(setup: SetupTest) -> None:
     """Test the compatibility /oauth2/callback route."""
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
@@ -167,7 +167,9 @@ async def test_oauth2_callback(setup: SetupTest) -> None:
 @pytest.mark.asyncio
 async def test_claim_names(setup: SetupTest) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    setup.configure("oidc", username_claim="username", uid_claim="numeric_uid")
+    await setup.configure(
+        "oidc", username_claim="username", uid_claim="numeric_uid"
+    )
     assert setup.config.oidc
     token = setup.create_upstream_oidc_token(
         groups=["admin"], username="alt-username", numeric_uid=7890
@@ -207,7 +209,7 @@ async def test_callback_error(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
-    setup.configure("oidc")
+    await setup.configure("oidc")
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
@@ -342,7 +344,7 @@ async def test_callback_error(
 
 @pytest.mark.asyncio
 async def test_connection_error(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
@@ -366,7 +368,7 @@ async def test_connection_error(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_verify_error(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     assert setup.config.oidc
@@ -393,7 +395,7 @@ async def test_verify_error(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid_username(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
         groups=["admin"], sub="invalid@user", uid="invalid@user"
     )
@@ -421,7 +423,7 @@ async def test_invalid_username(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid_group_syntax(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
         isMemberOf=[{"name": "foo", "id": ["bar"]}]
     )
@@ -449,7 +451,7 @@ async def test_invalid_group_syntax(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid_groups(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(
         isMemberOf=[
             {"name": "foo"},
@@ -489,7 +491,7 @@ async def test_invalid_groups(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_no_valid_groups(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(groups=[])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
@@ -521,7 +523,7 @@ async def test_no_valid_groups(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_unicode_name(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(name="名字", groups=["admin"])
     setup.set_oidc_token_response("some-code", token)
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)

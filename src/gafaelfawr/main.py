@@ -104,7 +104,7 @@ app.mount(
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    config = config_dependency()
+    config = await config_dependency()
     engine_args = {}
     if urlparse(config.database_url).scheme == "sqlite":
         engine_args["connect_args"] = {"check_same_thread": False}

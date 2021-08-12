@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_issue_code(setup: SetupTest) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup.configure(oidc_clients=clients)
+    await setup.configure(oidc_clients=clients)
     oidc_service = setup.factory.create_oidc_service()
     token_data = await setup.create_session_token()
     token = token_data.token
@@ -65,7 +65,7 @@ async def test_redeem_code(setup: SetupTest) -> None:
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    setup.configure(oidc_clients=clients)
+    await setup.configure(oidc_clients=clients)
     oidc_service = setup.factory.create_oidc_service()
     token_data = await setup.create_session_token()
     token = token_data.token
@@ -98,7 +98,7 @@ async def test_redeem_code_errors(setup: SetupTest) -> None:
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    setup.configure(oidc_clients=clients)
+    await setup.configure(oidc_clients=clients)
     oidc_service = setup.factory.create_oidc_service()
     token_data = await setup.create_session_token()
     token = token_data.token

@@ -26,7 +26,8 @@ async def test_redis_password(tmp_path: Path) -> None:
 
     with patch.object(Redis, "from_url") as mock_from_url:
         redis_dependency.redis = None
-        await redis_dependency(config_dependency())
+        config = await config_dependency()
+        await redis_dependency(config)
         assert mock_from_url.call_args_list == [
             call("redis://localhost:6379/0", password="some-password")
         ]

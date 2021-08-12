@@ -60,7 +60,7 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
     return parsed_url
 
 
-def return_url(
+async def return_url(
     rd: Optional[str] = Query(
         None,
         title="URL to return to",
@@ -88,7 +88,7 @@ def return_url(
     return rd
 
 
-def return_url_with_header(
+async def return_url_with_header(
     rd: Optional[str] = Query(
         None,
         title="URL to return to",
@@ -124,10 +124,10 @@ def return_url_with_header(
     """
     if not rd and x_auth_request_redirect:
         rd = x_auth_request_redirect
-    return return_url(rd, context)
+    return await return_url(rd, context)
 
 
-def parsed_redirect_uri(
+async def parsed_redirect_uri(
     redirect_uri: str = Query(
         ...,
         title="URL to return to",

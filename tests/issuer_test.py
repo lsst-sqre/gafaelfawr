@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_issue_token(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     issuer = setup.factory.create_token_issuer()
 
     token_data = await setup.create_session_token()

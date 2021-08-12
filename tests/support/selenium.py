@@ -8,7 +8,7 @@ import os
 import socket
 import subprocess
 import time
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -20,7 +20,7 @@ from gafaelfawr.models.token import Token
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterator
+    from typing import AsyncIterator
 
     from gafelfawr.config import Config
 
@@ -47,7 +47,7 @@ config_dependency.set_settings_path("{settings_path}")
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    config = config_dependency()
+    config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
@@ -175,8 +175,10 @@ def _wait_for_server(port: int, timeout: float = 5.0) -> None:
         time.sleep(0.1)
 
 
-@contextmanager
-def run_app(tmp_path: Path, settings_path: Path) -> Iterator[SeleniumConfig]:
+@asynccontextmanager
+async def run_app(
+    tmp_path: Path, settings_path: Path
+) -> AsyncIterator[SeleniumConfig]:
     """Run the application as a separate process for Selenium access.
 
     Parameters
@@ -187,7 +189,7 @@ def run_app(tmp_path: Path, settings_path: Path) -> Iterator[SeleniumConfig]:
         The path to the settings file.
     """
     config_dependency.set_settings_path(str(settings_path))
-    config = config_dependency()
+    config = await config_dependency()
     initialize_database(config)
 
     token_path = tmp_path / "token"

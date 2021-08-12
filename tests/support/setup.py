@@ -67,7 +67,12 @@ def initialize(tmp_path: Path) -> Config:
     """
     settings_path = build_settings(tmp_path, "github")
     config_dependency.set_settings_path(str(settings_path))
-    config = config_dependency()
+
+    # Avoid making an async call to config_dependency since this is the
+    # non-async initialization function, used for CLI testing.  We're
+    # guaranteed that set_settings_path will populate this attribute.
+    config = config_dependency._config
+    assert config
 
     # Initialize the database.  Non-SQLite databases need to be reset between
     # tests.
@@ -188,7 +193,7 @@ class SetupTest:
             logger=self.logger,
         )
 
-    def configure(
+    async def configure(
         self,
         template: str = "github",
         *,
@@ -216,7 +221,7 @@ class SetupTest:
             **settings,
         )
         config_dependency.set_settings_path(str(settings_path))
-        self.config = config_dependency()
+        self.config = await config_dependency()
 
     async def create_session_token(
         self,
@@ -311,7 +316,7 @@ class SetupTest:
         csrf : `str`
             The CSRF token to use in subsequent API requests.
         """
-        cookie = State(token=token).as_cookie()
+        cookie = await State(token=token).as_cookie()
         self.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
         r = await self.client.get("/auth/api/v1/login")
         assert r.status_code == 200

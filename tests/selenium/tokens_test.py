@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import httpx
+import pytest
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
@@ -18,7 +19,8 @@ if TYPE_CHECKING:
     from tests.support.selenium import SeleniumConfig
 
 
-def test_create_token(
+@pytest.mark.asyncio
+async def test_create_token(
     driver: webdriver.Chrome, selenium_config: SeleniumConfig
 ) -> None:
     driver.get(urljoin(selenium_config.url, "/auth/tokens"))
@@ -44,10 +46,11 @@ def test_create_token(
     assert user_tokens[0].name == "test token"
 
 
-def test_token_info(
+@pytest.mark.asyncio
+async def test_token_info(
     driver: webdriver.Chrome, selenium_config: SeleniumConfig
 ) -> None:
-    cookie = State(token=selenium_config.token).as_cookie()
+    cookie = await State(token=selenium_config.token).as_cookie()
 
     # Create a notebook token and an internal token.
     r = httpx.get(
@@ -93,7 +96,8 @@ def test_token_info(
     assert history[2].scopes == ", ".join(scopes)
 
 
-def test_expired_token(
+@pytest.mark.asyncio
+async def test_expired_token(
     driver: webdriver.Chrome, selenium_config: SeleniumConfig
 ) -> None:
     driver.get(urljoin(selenium_config.url, "/auth/tokens"))

@@ -90,7 +90,7 @@ class RequestContext:
         self.logger = self.logger.bind(**values)
 
 
-def context_dependency(
+async def context_dependency(
     request: Request,
     config: Config = Depends(config_dependency),
     logger: BoundLogger = Depends(logger_dependency),

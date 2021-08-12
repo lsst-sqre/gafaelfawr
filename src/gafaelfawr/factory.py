@@ -78,7 +78,7 @@ class ComponentFactory:
         factory : `ComponentFactory`
             The factory.  Must be used as a context manager.
         """
-        config = config_dependency()
+        config = await config_dependency()
         logger = structlog.get_logger(config.safir.logger_name)
         assert logger
         logger.debug("Connecting to Redis")

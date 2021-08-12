@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup.configure(oidc_clients=clients)
+    await setup.configure(oidc_clients=clients)
     token_data = await setup.create_session_token()
     await setup.login(token_data.token)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
@@ -144,7 +144,7 @@ async def test_unauthenticated(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup.configure(oidc_clients=clients)
+    await setup.configure(oidc_clients=clients)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     login_params = {
         "response_type": "code",
@@ -185,7 +185,7 @@ async def test_login_errors(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    setup.configure(oidc_clients=clients)
+    await setup.configure(oidc_clients=clients)
     token_data = await setup.create_session_token()
     await setup.login(token_data.token)
 
@@ -313,7 +313,7 @@ async def test_token_errors(
         OIDCClient(client_id="some-id", client_secret="some-secret"),
         OIDCClient(client_id="other-id", client_secret="other-secret"),
     ]
-    setup.configure(oidc_clients=clients)
+    await setup.configure(oidc_clients=clients)
     token_data = await setup.create_session_token()
     token = token_data.token
     oidc_service = setup.factory.create_oidc_service()

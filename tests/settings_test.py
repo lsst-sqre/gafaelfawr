@@ -86,7 +86,8 @@ def test_config_missing_scope() -> None:
         parse_settings(settings_path)
 
 
-def test_database_password(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_database_password(tmp_path: Path) -> None:
     settings_path = build_settings(
         tmp_path,
         "github",
@@ -95,7 +96,7 @@ def test_database_password(tmp_path: Path) -> None:
 
     os.environ["GAFAELFAWR_DATABASE_PASSWORD"] = "some-password"
     config_dependency.set_settings_path(str(settings_path))
-    config = config_dependency()
+    config = await config_dependency()
     del os.environ["GAFAELFAWR_DATABASE_PASSWORD"]
 
     expected = "postgresql://gafaelfawr:some-password@localhost/gafaelfawr"
