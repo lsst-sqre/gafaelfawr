@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from base64 import b64encode
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -477,16 +478,22 @@ class KubernetesWatcher:
         forever, adding any custom object changes to the associated queue.
         """
         while True:
-            stream = kubernetes.watch.Watch().stream(
-                self._api.list_cluster_custom_object,
-                "gafaelfawr.lsst.io",
-                "v1alpha1",
-                self._plural,
-            )
-            for raw_event in stream:
-                event = self._parse_raw_event(raw_event)
-                if event:
-                    self._queue.put(event)
+            try:
+                stream = kubernetes.watch.Watch().stream(
+                    self._api.list_cluster_custom_object,
+                    "gafaelfawr.lsst.io",
+                    "v1alpha1",
+                    self._plural,
+                )
+                for raw_event in stream:
+                    event = self._parse_raw_event(raw_event)
+                    if event:
+                        self._queue.put(event)
+            except ApiException as e:
+                msg = "ApiException from watch"
+                self._logger.exception(msg, error=str(e))
+                self._logger.info("Pausing 10s before attempting to continue")
+                time.sleep(10)
 
     def _parse_raw_event(
         self, raw_event: Dict[str, Any]
