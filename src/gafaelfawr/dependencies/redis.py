@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from aioredis import Redis, create_redis_pool
+from aioredis import Redis
 from fastapi import Depends
 
 from gafaelfawr.config import Config
@@ -35,7 +35,9 @@ class RedisDependency:
     ) -> Redis:
         """Creates the Redis pool if necessary and returns it."""
         if not self.redis:
-            await self._create_pool(config)
+            self.redis = Redis.from_url(
+                config.redis_url, password=config.redis_password
+            )
         assert self.redis
         return self.redis
 
@@ -45,21 +47,18 @@ class RedisDependency:
         Should be called from a shutdown hook to ensure that the Redis clients
         are cleanly shut down and any pending writes are complete.
         """
-        if self.redis:
-            self.redis.close()
-            await self.redis.wait_closed()
+        if self.redis and not self.is_mocked:
+            await self.redis.close()
+            await self.redis.connection_pool.disconnect()
             self.redis = None
 
-    async def _create_pool(self, config: Config) -> None:
-        """Creates the Redis pool, honoring ``is_mocked``."""
-        if self.is_mocked:
-            import mockaioredis
+    def set_redis(self, redis: Redis) -> None:
+        """Set the Redis object returned by ``__call__``.
 
-            self.redis = await mockaioredis.create_redis_pool("")
-        else:
-            self.redis = await create_redis_pool(
-                config.redis_url, password=config.redis_password
-            )
+        Used to inject a mock.
+        """
+        self.redis = redis
+        self.is_mocked = True
 
 
 redis_dependency = RedisDependency()

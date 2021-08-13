@@ -36,7 +36,7 @@ async def test_login(setup: SetupTest) -> None:
     token_data = await setup.create_session_token(
         username="example", scopes=["read:all", "exec:admin"]
     )
-    cookie = State(token=token_data.token).as_cookie()
+    cookie = await State(token=token_data.token).as_cookie()
     setup.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
 
     r = await setup.client.get("/auth/api/v1/login", allow_redirects=False)
@@ -53,7 +53,7 @@ async def test_login(setup: SetupTest) -> None:
         "scopes": ["exec:admin", "read:all"],
         "config": {"scopes": expected_scopes},
     }
-    state = State.from_cookie(r.cookies[COOKIE_NAME], None)
+    state = await State.from_cookie(r.cookies[COOKIE_NAME], None)
     assert state.csrf == data["csrf"]
     assert state.token == token_data.token
 
@@ -75,7 +75,7 @@ async def test_login_no_auth(setup: SetupTest) -> None:
     state = State(token=Token())
     r = await setup.client.get(
         "/auth/api/v1/login",
-        cookies={COOKIE_NAME: state.as_cookie()},
+        cookies={COOKIE_NAME: await state.as_cookie()},
     )
     assert_unauthorized_is_correct(r, setup.config)
 
@@ -92,7 +92,7 @@ async def test_login_no_auth(setup: SetupTest) -> None:
     assert_unauthorized_is_correct(r, setup.config)
 
     # And finally check with a mangled state that won't decrypt.
-    bad_cookie = "XXX" + state.as_cookie()
+    bad_cookie = "XXX" + await state.as_cookie()
     r = await setup.client.get(
         "/auth/api/v1/login",
         cookies={COOKIE_NAME: bad_cookie},

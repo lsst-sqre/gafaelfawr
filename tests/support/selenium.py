@@ -8,7 +8,7 @@ import os
 import socket
 import subprocess
 import time
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -20,11 +20,12 @@ from gafaelfawr.models.token import Token
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterator
+    from typing import AsyncIterator
 
     from gafelfawr.config import Config
 
 APP_TEMPLATE = """
+import os
 from datetime import timedelta
 from unittest.mock import MagicMock
 from urllib.parse import urlparse
@@ -42,15 +43,21 @@ from tests.support.tokens import add_expired_session_token
 from gafaelfawr.util import current_datetime
 
 config_dependency.set_settings_path("{settings_path}")
-redis_dependency.is_mocked = True
 
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    config = config_dependency()
+    config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
+
+    # Mock out Redis if there is none running.
+    if not os.environ.get("REDIS_6379_TCP_PORT"):
+        import mockaioredis
+
+        redis = await mockaioredis.create_redis_pool("")
+        redis_dependency.set_redis(redis)
 
     # Initialize the database.  Non-SQLite databases need to be reset between
     # tests.
@@ -168,8 +175,10 @@ def _wait_for_server(port: int, timeout: float = 5.0) -> None:
         time.sleep(0.1)
 
 
-@contextmanager
-def run_app(tmp_path: Path, settings_path: Path) -> Iterator[SeleniumConfig]:
+@asynccontextmanager
+async def run_app(
+    tmp_path: Path, settings_path: Path
+) -> AsyncIterator[SeleniumConfig]:
     """Run the application as a separate process for Selenium access.
 
     Parameters
@@ -180,7 +189,7 @@ def run_app(tmp_path: Path, settings_path: Path) -> Iterator[SeleniumConfig]:
         The path to the settings file.
     """
     config_dependency.set_settings_path(str(settings_path))
-    config = config_dependency()
+    config = await config_dependency()
     initialize_database(config)
 
     token_path = tmp_path / "token"

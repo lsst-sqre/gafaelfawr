@@ -31,7 +31,7 @@ class ConfigDependency:
         )
         self._config: Optional[Config] = None
 
-    def __call__(self) -> Config:
+    async def __call__(self) -> Config:
         """Load the configuration if necessary and return it."""
         if not self._config:
             self._load_config()

@@ -303,7 +303,7 @@ async def test_token_info(setup: SetupTest) -> None:
     state = State(token=session_token)
     r = await setup.client.get(
         "/auth/api/v1/users/example/tokens",
-        cookies={COOKIE_NAME: state.as_cookie()},
+        cookies={COOKIE_NAME: await state.as_cookie()},
     )
 
 
@@ -316,7 +316,7 @@ async def test_auth_required(setup: SetupTest) -> None:
     # Replace the cookie with one containing the CSRF token but not the
     # authentication token.
     setup.logout()
-    setup.client.cookies[COOKIE_NAME] = State(csrf=csrf).as_cookie()
+    setup.client.cookies[COOKIE_NAME] = await State(csrf=csrf).as_cookie()
 
     r = await setup.client.post(
         "/auth/api/v1/tokens",

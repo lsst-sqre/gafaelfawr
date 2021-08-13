@@ -22,7 +22,7 @@ from tests.support.setup import SetupTest
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import AsyncIterator, Iterable, Iterator, List
+    from typing import AsyncIterator, Iterator, List
 
     from pytest_httpx import HTTPXMock
     from seleniumwire import webdriver
@@ -75,9 +75,9 @@ def non_mocked_hosts() -> List[str]:
 
 
 @pytest.fixture
-def selenium_config(
+async def selenium_config(
     tmp_path: Path, driver: webdriver.Chrome
-) -> Iterable[SeleniumConfig]:
+) -> AsyncIterator[SeleniumConfig]:
     """Start a server for Selenium tests.
 
     The server will be automatically stopped at the end of the test.  The
@@ -91,8 +91,8 @@ def selenium_config(
     """
     settings_path = build_settings(tmp_path, "selenium")
     config_dependency.set_settings_path(str(settings_path))
-    with run_app(tmp_path, settings_path) as config:
-        cookie = State(token=config.token).as_cookie()
+    async with run_app(tmp_path, settings_path) as config:
+        cookie = await State(token=config.token).as_cookie()
         driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}
 
         # The synthetic cookie doesn't have a CSRF token, so we want to

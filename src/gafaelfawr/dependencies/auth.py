@@ -227,7 +227,7 @@ class AuthenticateWrite(Authenticate):
         return await self.authenticate(context, x_csrf_token)
 
 
-def verified_oidc_token(
+async def verified_oidc_token(
     context: RequestContext = Depends(context_dependency),
 ) -> OIDCVerifiedToken:
     """Require that a request be authenticated with an OpenID Connect token.

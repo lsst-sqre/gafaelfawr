@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi_sqlalchemy import DBSessionMiddleware
 from safir.dependencies.http_client import http_client_dependency
 from safir.middleware.x_forwarded import XForwardedMiddleware
+from safir.models import ErrorModel
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
@@ -30,7 +31,6 @@ from gafaelfawr.handlers import (
     oidc,
 )
 from gafaelfawr.middleware.state import StateMiddleware
-from gafaelfawr.models.error import ErrorModel
 from gafaelfawr.models.state import State
 
 if TYPE_CHECKING:
@@ -104,7 +104,7 @@ app.mount(
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    config = config_dependency()
+    config = await config_dependency()
     engine_args = {}
     if urlparse(config.database_url).scheme == "sqlite":
         engine_args["connect_args"] = {"check_same_thread": False}

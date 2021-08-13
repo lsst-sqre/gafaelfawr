@@ -46,7 +46,9 @@ class State(BaseState):
     """State token for OAuth 2.0 and OpenID Connect logins."""
 
     @classmethod
-    def from_cookie(cls, cookie: str, request: Optional[Request]) -> State:
+    async def from_cookie(
+        cls, cookie: str, request: Optional[Request]
+    ) -> State:
         """Reconstruct state from an encrypted cookie.
 
         Parameters
@@ -64,7 +66,8 @@ class State(BaseState):
         state : `State`
             The state represented by the cookie.
         """
-        key = config_dependency().session_secret.encode()
+        config = await config_dependency()
+        key = config.session_secret.encode()
         fernet = Fernet(key)
         try:
             data = json.loads(fernet.decrypt(cookie.encode()).decode())
@@ -73,7 +76,7 @@ class State(BaseState):
                 token = Token.from_str(data["token"])
         except Exception as e:
             if request:
-                logger = logger_dependency(request)
+                logger = await logger_dependency(request)
                 logger.warning("Discarding invalid state cookie", error=str(e))
             return cls()
 
@@ -85,7 +88,7 @@ class State(BaseState):
             state=data.get("state"),
         )
 
-    def as_cookie(self) -> str:
+    async def as_cookie(self) -> str:
         """Build an encrypted cookie representation of the state.
 
         Returns
@@ -105,6 +108,7 @@ class State(BaseState):
         if self.state:
             data["state"] = self.state
 
-        key = config_dependency().session_secret.encode()
+        config = await config_dependency()
+        key = config.session_secret.encode()
         fernet = Fernet(key)
         return fernet.encrypt(json.dumps(data).encode()).decode()

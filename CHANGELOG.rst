@@ -2,6 +2,13 @@
 Change log
 ##########
 
+3.2.1 (unreleased)
+==================
+
+- Switch to aioredis 2.0.
+  Unfortuantely, this breaks mockaioredis, so only the Docker tests (which use a real Redis server) can be run for the time being.
+- Update dependencies.
+
 3.2.0 (2021-07-14)
 ==================
 

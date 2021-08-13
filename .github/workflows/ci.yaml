@@ -80,7 +80,6 @@ jobs:
           - 3.8
           - 3.9
         database:
-          - SQLite
           - PostgreSQL
 
     steps:
@@ -117,7 +116,7 @@ jobs:
         if: matrix.database == 'SQLite'
 
       - name: Run tox (PostgreSQL)
-        run: tox -e docker
+        run: tox -e docker,coverage-report,typing
         if: matrix.database == 'PostgreSQL'
 
   build:

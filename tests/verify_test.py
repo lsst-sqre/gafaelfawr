@@ -46,7 +46,7 @@ def encode_token(
 
 @pytest.mark.asyncio
 async def test_verify_oidc(setup: SetupTest) -> None:
-    setup.configure("oidc")
+    await setup.configure("oidc")
     verifier = setup.factory.create_token_verifier()
 
     now = datetime.now(timezone.utc)
@@ -107,7 +107,7 @@ async def test_verify_oidc(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_verify_oidc_no_kids(setup: SetupTest) -> None:
-    setup.configure("oidc-no-kids")
+    await setup.configure("oidc-no-kids")
     verifier = setup.factory.create_token_verifier()
     setup.set_oidc_configuration_response(setup.config.issuer.keypair, "kid")
 
@@ -129,7 +129,7 @@ async def test_verify_oidc_no_kids(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_key_retrieval(setup: SetupTest) -> None:
-    setup.configure("oidc-no-kids")
+    await setup.configure("oidc-no-kids")
     assert setup.config.oidc
     verifier = setup.factory.create_token_verifier()
 

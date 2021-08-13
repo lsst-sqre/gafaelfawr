@@ -93,11 +93,12 @@ def generate_token() -> None:
     default=None,
     help="Application settings file.",
 )
-def init(settings: Optional[str]) -> None:
+@coroutine
+async def init(settings: Optional[str]) -> None:
     """Initialize the database storage."""
     if settings:
         config_dependency.set_settings_path(settings)
-    config = config_dependency()
+    config = await config_dependency()
     initialize_database(config)
 
 
@@ -113,7 +114,7 @@ def init(settings: Optional[str]) -> None:
 async def kubernetes_controller(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
-    config = config_dependency()
+    config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     logger.debug("Starting")
     async with ComponentFactory.standalone() as factory:
@@ -139,7 +140,7 @@ async def update_service_tokens(settings: Optional[str]) -> None:
     """Update service tokens stored in Kubernetes secrets."""
     if settings:
         config_dependency.set_settings_path(settings)
-    config = config_dependency()
+    config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     async with ComponentFactory.standalone() as factory:
         kubernetes_service = factory.create_kubernetes_service()

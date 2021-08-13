@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import call, patch
 
 import pytest
+from aioredis import Redis
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
@@ -23,11 +24,11 @@ async def test_redis_password(tmp_path: Path) -> None:
     )
     config_dependency.set_settings_path(str(settings_path))
 
-    function = "gafaelfawr.dependencies.redis.create_redis_pool"
-    with patch(function) as mock_create:
-        redis_dependency.is_mocked = False
-        await redis_dependency(config_dependency())
-        assert mock_create.call_args_list == [
+    with patch.object(Redis, "from_url") as mock_from_url:
+        redis_dependency.redis = None
+        config = await config_dependency()
+        await redis_dependency(config)
+        assert mock_from_url.call_args_list == [
             call("redis://localhost:6379/0", password="some-password")
         ]
         redis_dependency.redis = None
