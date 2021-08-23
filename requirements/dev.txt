@@ -115,6 +115,7 @@ charset-normalizer==2.0.4 \
     --hash=sha256:f23667ebe1084be45f6ae0538e4a5a865206544097e4e8bbcacf42cd02a348f3
     # via
     #   -c requirements/main.txt
+    #   httpx
     #   requests
 click==8.0.1 \
     --hash=sha256:8c04c11192119b1ef78ea049e0a6f0463e4c48ef00a30160c704337586f3ad7a \
@@ -265,9 +266,9 @@ httpcore==0.13.6 \
     # via
     #   -c requirements/main.txt
     #   httpx
-httpx==0.18.2 \
-    --hash=sha256:979afafecb7d22a1d10340bafb403cf2cb75aff214426ff206521fc79d26408c \
-    --hash=sha256:9f99c15d33642d38bce8405df088c1c4cfd940284b4290cacbfb02e64f4877c6
+httpx==0.19.0 \
+    --hash=sha256:92ecd2c00c688b529eda11cedb15161eaf02dee9116712f621c70d9a40b2cdd0 \
+    --hash=sha256:9bd728a6c5ec0a9e243932a9983d57d3cc4a87bb4f554e1360fce407f78f9435
     # via
     #   -c requirements/main.txt
     #   pytest-httpx
@@ -530,9 +531,9 @@ pycparser==2.20 \
     # via
     #   -c requirements/main.txt
     #   cffi
-pygments==2.9.0 \
-    --hash=sha256:a18f47b506a429f6f4b9df81bb02beab9ca21d0a5fee38ed15aef65f0545519f \
-    --hash=sha256:d66e804411278594d764fc69ec36ec13d9ae9147193a1740cd34d272ca383b8e
+pygments==2.10.0 \
+    --hash=sha256:b8e67fe6af78f492b3c4b3e2970c0624cbf08beb1e493b2c99b9fa1b67a20380 \
+    --hash=sha256:f398865f7eb6874156579fdf36bc840a03cab64d1cde9e93d68f46a425ec52c6
     # via
     #   sphinx
     #   sphinx-prompt
@@ -573,9 +574,9 @@ pytest-forked==1.3.0 \
     --hash=sha256:6aa9ac7e00ad1a539c41bec6d21011332de671e938c7637378ec9710204e37ca \
     --hash=sha256:dc4147784048e70ef5d437951728825a131b81714b398d5d52f17c7c144d8815
     # via pytest-xdist
-pytest-httpx==0.12.1 \
-    --hash=sha256:703433f65951bde6e08d4b1d8956f8f9dec4b3046c2805414e40adb87908ee7f \
-    --hash=sha256:8c16ff2abba4fc535a505e1df6dab61794bcefde8e7e6a106a366ffc3a04dcc5
+pytest-httpx==0.13.0 \
+    --hash=sha256:3dc8f0deb582b0ab1b042fac0c9a401cd32de3d76cddfbeb1aa0d211107cc9ea \
+    --hash=sha256:6a5f931768bc0a00dc4d3073a9fe82f662c32a6d57fd20c14cb944d96b6d9273
     # via -r requirements/dev.in
 pytest-xdist[psutil]==2.3.0 \
     --hash=sha256:e8ecde2f85d88fbcadb7d28cb33da0fa29bca5cf7d5967fa89fc0e97e5299ea5 \
@@ -639,9 +640,9 @@ selenium==3.141.0 \
     # via
     #   -r requirements/dev.in
     #   selenium-wire
-selenium-wire==4.4.1 \
-    --hash=sha256:6a0fb80573ec143c330e9591b65673bd3ec375ff6aa2d0c5a67ae58b56d538d0 \
-    --hash=sha256:cb8f19792111f93ecb4abafc52e527137039366cb198f1929b612e11b17eacb1
+selenium-wire==4.5.1 \
+    --hash=sha256:612fae854dcde23e2e5dbe31d1aa12fffdebcee2c399fc5b70caac6eba11e927 \
+    --hash=sha256:b92664ed9268966fa1845735c6fb25c55d3f8511c6ab4f5743ec5dbe5a7cf1a4
     # via -r requirements/dev.in
 seqdiag==2.0.0 \
     --hash=sha256:3167f16b4d15f3cd20de302fa600c96e4a50c92dae873bcbcf136c7588eeaa48 \
@@ -730,9 +731,9 @@ toml==0.10.2 \
     #   pre-commit
     #   pytest
     #   pytest-cov
-types-cachetools==0.1.10 \
-    --hash=sha256:76d312d6e55fe19f7a2ea9a3271945e6f5c56f4fd76cc3cb2366109785f3462b \
-    --hash=sha256:f2727cf379989ba4d081f9ed11ec28c6730adbd120dc0deb2036c5ef69e515e0
+types-cachetools==4.2.0 \
+    --hash=sha256:8d96c270ceb5e2d90ea2651e67b96197e2997d464f1ccd3a0d0f3dff9e0463fa \
+    --hash=sha256:9a44c7e1168990240520d1ff24020359e1cc5d9e2e1d63fa96bd54da2c954d07
     # via -r requirements/dev.in
 types-pyyaml==5.4.6 \
     --hash=sha256:745dcb4b1522423026bcc83abb9925fba747f1e8602d902f71a4058f9e7fb662 \
