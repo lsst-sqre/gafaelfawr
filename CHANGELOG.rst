@@ -2,9 +2,12 @@
 Change log
 ##########
 
-3.2.1 (unreleased)
+3.2.1 (2021-08-24)
 ==================
 
+- Catch exceptions in the custom resource background thread.
+  Retry up to ten times for Kubernetes exceptions, and crash the entire process on unknown exceptions or more than ten consecutive Kubernetes failures.
+  This prevents a problem where the token update pod continues running and appears to be healthy, but the watcher thread has crashed so it's doing nothing.
 - Switch to aioredis 2.0.
   Unfortuantely, this breaks mockaioredis, so only the Docker tests (which use a real Redis server) can be run for the time being.
 - Update dependencies.

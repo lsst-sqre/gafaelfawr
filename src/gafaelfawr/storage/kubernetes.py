@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import _thread
 import os
+import time
 from base64 import b64encode
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -476,17 +478,42 @@ class KubernetesWatcher:
         This method is intended to be run in a separate thread.  It will run
         forever, adding any custom object changes to the associated queue.
         """
+        consecutive_failures = 0
         while True:
-            stream = kubernetes.watch.Watch().stream(
-                self._api.list_cluster_custom_object,
-                "gafaelfawr.lsst.io",
-                "v1alpha1",
-                self._plural,
-            )
-            for raw_event in stream:
-                event = self._parse_raw_event(raw_event)
-                if event:
-                    self._queue.put(event)
+            try:
+                stream = kubernetes.watch.Watch().stream(
+                    self._api.list_cluster_custom_object,
+                    "gafaelfawr.lsst.io",
+                    "v1alpha1",
+                    self._plural,
+                )
+                for raw_event in stream:
+                    event = self._parse_raw_event(raw_event)
+                    if event:
+                        self._queue.put(event)
+                    consecutive_failures = 0
+            except ApiException as e:
+                msg = "ApiException from watch"
+                self._logger.exception(msg, error=str(e))
+                consecutive_failures += 1
+                if consecutive_failures > 10:
+                    msg = (
+                        "Kubernetes API failed 10 times consecutively,"
+                        " terminating main process"
+                    )
+                    self._logger.error(msg)
+                    _thread.interrupt_main()
+                else:
+                    msg = "Pausing 10s before attempting to continue"
+                    self._logger.info()
+                    time.sleep(10)
+            except Exception as e:
+                msg = (
+                    f"Unexpected exception {type(e).__name__}, terminating"
+                    " main process"
+                )
+                self._logger.exception(msg, error=str(e))
+                _thread.interrupt_main()
 
     def _parse_raw_event(
         self, raw_event: Dict[str, Any]
