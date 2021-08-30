@@ -22,12 +22,12 @@ repos:
           - toml
 
   - repo: https://github.com/psf/black
-    rev: 21.7b0
+    rev: 21.8b0
     hooks:
       - id: black
 
   - repo: https://github.com/asottile/blacken-docs
-    rev: v1.10.0
+    rev: v1.11.0
     hooks:
       - id: blacken-docs
         additional_dependencies: [black==20.8b1]
@@ -39,6 +39,6 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.0.0-beta.0
+    rev: v8.0.0-beta.1
     hooks:
       - id: eslint
