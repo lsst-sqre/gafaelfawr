@@ -1,6 +1,19 @@
 name: CI
 
-"on": [push]
+"on":
+  push:
+    branches-ignore:
+      # These should always correspond to pull requests, so ignore them for
+      # the push trigger and let them be triggered by the pull_request
+      # trigger, avoiding running the workflow twice.  This is a minor
+      # optimization so there's no need to ensure this is comprehensive.
+      - "dependabot/**"
+      - "renovate/**"
+      - "tickets/**"
+      - "u/**"
+    tags:
+      - "*"
+  pull_request: {}
 
 jobs:
   ui:
@@ -119,12 +132,54 @@ jobs:
         run: tox -e docker,coverage-report,typing
         if: matrix.database == 'PostgreSQL'
 
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install tox and LTD Conveyor
+        run: pip install tox ltd-conveyor
+
+      - name: Install graphviz and ImageMagick
+        run: sudo apt-get install graphviz imagemagick
+
+      - name: Run tox
+        run: tox -e docs
+
+      # Only attempt documentation uploads for long-lived branches, tagged
+      # releases, and pull requests from ticket branches.  This avoids version
+      # clutter in the docs and failures when a PR doesn't have access to
+      # secrets.  This will still trigger on pull requests from untrusted
+      # repositories whose branch names match our tickets/* branch convention,
+      # but in this case the build will fail with an error since the secret
+      # won't be set.
+      - name: Upload to LSST the Docs
+        env:
+          LTD_USERNAME: ${{ secrets.LTD_USERNAME }}
+          LTD_PASSWORD: ${{ secrets.LTD_PASSWORD }}
+        run: ltd upload --product gafaelfawr --gh --dir docs/_build/html
+        if: >
+          github.event_name != 'pull_request'
+          || startsWith(github.head_ref, 'tickets/')
+
   build:
     runs-on: ubuntu-latest
     needs: [test]
 
-    # Only do Docker builds of ticket branches and tagged releases.
-    if: startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/tickets/')
+    # Only do Docker builds of tagged releases and pull requests from ticket
+    # branches.  This will still trigger on pull requests from untrusted
+    # repositories whose branch names match our tickets/* branch convention,
+    # but in this case the build will fail with an error since the secret
+    # won't be set.
+    if: >
+      startsWith(github.ref, 'refs/tags/')
+      || startsWith(github.head_ref, 'tickets/')
 
     steps:
       - uses: actions/checkout@v2
