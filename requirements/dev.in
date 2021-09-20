@@ -29,3 +29,7 @@ sphinx-click
 sphinx-prompt
 types-cachetools
 types-PyYAML
+
+# Temporary pin to an alpha version to pick up a fix for interoperability
+# with the latest setuptools.
+funcparserlib>=1.0.0a0
