@@ -273,6 +273,7 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
     if not header:
         return None
     if " " not in header:
+        context.logger.info(f"Malformed Authorization header {header}")
         raise InvalidRequestError("Malformed Authorization header")
     auth_type, auth_blob = header.split(" ")
     if auth_type.lower() == "bearer":
