@@ -15,14 +15,14 @@ repos:
         files: (README\.rst)|(CHANGELOG\.rst)
 
   - repo: https://github.com/pycqa/isort
-    rev: 5.9.3
+    rev: 5.10.0
     hooks:
       - id: isort
         additional_dependencies:
           - toml
 
   - repo: https://github.com/psf/black
-    rev: 21.9b0
+    rev: 21.10b0
     hooks:
       - id: black
 
@@ -39,6 +39,6 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.0.1
+    rev: v8.2.0
     hooks:
       - id: eslint
