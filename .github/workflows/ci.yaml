@@ -30,6 +30,8 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ steps.node_version.outputs.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
 
       # First try to restore the fully-installed node modules.  If that
       # works (no changes to the JavaScript layer), skip npm i and
@@ -42,15 +44,6 @@ jobs:
         with:
           path: ./ui/node_modules
           key: node-${{ steps.node_version.outputs.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Cache downloaded Node.js modules
-        uses: actions/cache@v2
-        if: steps.node-cache.outputs.cache-hit != 'true'
-        with:
-          path: ~/.npm
-          key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.OS }}-node-
 
       - name: Install Node dependencies
         run: npm ci
