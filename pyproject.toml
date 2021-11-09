@@ -27,7 +27,7 @@ exclude_lines = [
 
 [tool.black]
 line-length = 79
-target-version = ["py38"]
+target-version = ["py39"]
 exclude = '''
 /(
     \.eggs
