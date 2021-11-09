@@ -27,7 +27,7 @@ async def test_logout(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
     # Go to /logout without specifying a redirect URL.
     caplog.clear()
-    r = await setup.client.get("/logout", allow_redirects=False)
+    r = await setup.client.get("/logout")
 
     # Check the redirect and logging.
     assert r.status_code == 307
@@ -58,9 +58,7 @@ async def test_logout_with_url(setup: SetupTest) -> None:
 
     # Go to /logout with a redirect URL and check the redirect.
     redirect_url = "https://example.com:4444/logged-out"
-    r = await setup.client.get(
-        "/logout", params={"rd": redirect_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/logout", params={"rd": redirect_url})
     assert r.status_code == 307
     assert r.headers["Location"] == redirect_url
 
@@ -74,7 +72,7 @@ async def test_logout_not_logged_in(
     setup: SetupTest, caplog: LogCaptureFixture
 ) -> None:
     caplog.clear()
-    r = await setup.client.get("/logout", allow_redirects=False)
+    r = await setup.client.get("/logout")
 
     assert r.status_code == 307
     assert r.headers["Location"] == setup.config.after_logout_url
@@ -92,9 +90,7 @@ async def test_logout_not_logged_in(
 @pytest.mark.asyncio
 async def test_logout_bad_url(setup: SetupTest) -> None:
     r = await setup.client.get(
-        "/logout",
-        params={"rd": "https://foo.example.com/"},
-        allow_redirects=False,
+        "/logout", params={"rd": "https://foo.example.com/"}
     )
     assert r.status_code == 422
     assert r.json() == {
@@ -124,24 +120,20 @@ async def test_logout_github(
     )
 
     setup.set_github_token_response("some-code", "some-github-token")
-    r = await setup.client.get(
-        "/login", params={"rd": "https://example.com"}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": "https://example.com"})
     assert r.status_code == 307
     query = query_from_url(r.headers["Location"])
 
     # Simulate the return from GitHub.
     setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
 
     setup.set_github_revoke_response("some-github-token")
     caplog.clear()
-    r = await setup.client.get("/logout", allow_redirects=False)
+    r = await setup.client.get("/logout")
 
     # Check the redirect and logging.
     assert r.status_code == 307

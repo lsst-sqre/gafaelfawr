@@ -37,9 +37,8 @@ if TYPE_CHECKING:
     from typing import Any, AsyncIterator, Dict, List, Optional
 
     from aioredis import Redis
-    from httpx import Request
+    from httpx import Request, Response
     from pytest_httpx import HTTPXMock
-    from pytest_httpx._httpx_internals import Response
 
     from gafaelfawr.config import Config, OIDCClient
     from gafaelfawr.keypair import RSAKeyPair

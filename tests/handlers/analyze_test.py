@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_analyze_no_auth(setup: SetupTest) -> None:
-    r = await setup.client.get("/auth/analyze", allow_redirects=False)
+    r = await setup.client.get("/auth/analyze")
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert not url.scheme

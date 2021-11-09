@@ -39,7 +39,7 @@ async def test_login(setup: SetupTest) -> None:
     cookie = await State(token=token_data.token).as_cookie()
     setup.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
 
-    r = await setup.client.get("/auth/api/v1/login", allow_redirects=False)
+    r = await setup.client.get("/auth/api/v1/login")
 
     assert r.status_code == 200
     data = r.json()
