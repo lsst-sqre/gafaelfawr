@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 
 import kubernetes
 import pytest
+import respx
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
@@ -24,7 +25,6 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import AsyncIterator, Iterator, List
 
-    from pytest_httpx import HTTPXMock
     from seleniumwire import webdriver
 
     from tests.support.selenium import SeleniumConfig
@@ -111,7 +111,7 @@ async def selenium_config(
 
 @pytest.fixture
 async def setup(
-    tmp_path: Path, httpx_mock: HTTPXMock
+    tmp_path: Path, respx_mock: respx.Router
 ) -> AsyncIterator[SetupTest]:
     """Create a test setup object.
 
@@ -125,5 +125,5 @@ async def setup(
     setup : `tests.support.setup.SetupTest`
         The setup object.
     """
-    async with SetupTest.create(tmp_path, httpx_mock) as setup:
+    async with SetupTest.create(tmp_path, respx_mock) as setup:
         yield setup

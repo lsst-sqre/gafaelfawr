@@ -119,19 +119,15 @@ async def test_logout_github(
         ],
     )
 
-    setup.set_github_token_response("some-code", "some-github-token")
+    # Log in and log out.
+    setup.set_github_response("some-code", user_info, expect_revoke=True)
     r = await setup.client.get("/login", params={"rd": "https://example.com"})
     assert r.status_code == 307
     query = query_from_url(r.headers["Location"])
-
-    # Simulate the return from GitHub.
-    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
-
-    setup.set_github_revoke_response("some-github-token")
     caplog.clear()
     r = await setup.client.get("/logout")
 

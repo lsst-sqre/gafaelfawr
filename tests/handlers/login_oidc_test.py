@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import pytest
+from httpx import ConnectError
 
 from tests.support.logging import parse_log
 
@@ -209,11 +210,8 @@ async def test_callback_error(
         "error": "error_code",
         "error_description": "description",
     }
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        json=response,
-        status_code=400,
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+        400, json=response
     )
 
     # Simulate the return from the OpenID Connect provider.
@@ -247,11 +245,8 @@ async def test_callback_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        json={"foo": "bar"},
-        status_code=400,
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+        400, json={"foo": "bar"}
     )
     r = await setup.client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
@@ -264,11 +259,8 @@ async def test_callback_error(
 
     # Now try a reply that returns 200 but doesn't have the field we
     # need.
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        json={"foo": "bar"},
-        status_code=200,
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+        json={"foo": "bar"}
     )
     r = await setup.client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
@@ -280,12 +272,7 @@ async def test_callback_error(
     assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        data="foo",
-        status_code=200,
-    )
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(content=b"foo")
     r = await setup.client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
@@ -296,11 +283,8 @@ async def test_callback_error(
     assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        data="foo",
-        status_code=400,
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+        400, content=b"foo"
     )
     r = await setup.client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
@@ -323,8 +307,10 @@ async def test_connection_error(setup: SetupTest) -> None:
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
-    # Do not register a response for the callback request to the OIDC provider
-    # and check that an appropriate error is shown to the user.
+    # Register a connection error for the callback request to the OIDC
+    # provider and check that an appropriate error is shown to the user.
+    token_url = setup.config.oidc.token_url
+    setup.respx_mock.post(token_url).mock(side_effect=ConnectError)
     r = await setup.client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
@@ -336,6 +322,12 @@ async def test_connection_error(setup: SetupTest) -> None:
 async def test_verify_error(setup: SetupTest) -> None:
     await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(groups=["admin"])
+    assert setup.config.oidc
+    issuer = setup.config.oidc.issuer
+    config_url = urljoin(issuer, "/.well-known/openid-configuration")
+    jwks_url = urljoin(issuer, "/.well-known/jwks.json")
+    setup.respx_mock.get(config_url).respond(404)
+    setup.respx_mock.get(jwks_url).respond(404)
     setup.set_oidc_token_response("some-code", token)
     assert setup.config.oidc
     return_url = "https://example.com/foo"

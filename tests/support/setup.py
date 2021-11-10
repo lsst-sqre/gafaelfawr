@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import base64
-import json
 import os
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
-from unittest.mock import ANY
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import urlparse
 
+import respx
 import structlog
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
-from pytest_httpx import to_response
 from safir.dependencies.http_client import http_client_dependency
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -26,19 +23,21 @@ from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenData, TokenGroup, TokenUserInfo
-from gafaelfawr.providers.github import GitHubProvider
 from gafaelfawr.storage.transaction import TransactionManager
 from tests.support.constants import TEST_HOSTNAME
+from tests.support.github import mock_github
+from tests.support.oidc import (
+    mock_oidc_provider_config,
+    mock_oidc_provider_token,
+)
 from tests.support.settings import build_settings
 from tests.support.tokens import create_upstream_oidc_token
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, AsyncIterator, Dict, List, Optional
+    from typing import Any, AsyncIterator, List, Optional
 
     from aioredis import Redis
-    from httpx import Request, Response
-    from pytest_httpx import HTTPXMock
 
     from gafaelfawr.config import Config, OIDCClient
     from gafaelfawr.keypair import RSAKeyPair
@@ -99,7 +98,7 @@ class SetupTest:
     @classmethod
     @asynccontextmanager
     async def create(
-        cls, tmp_path: Path, httpx_mock: HTTPXMock
+        cls, tmp_path: Path, respx_mock: respx.Router
     ) -> AsyncIterator[SetupTest]:
         """Create a new `SetupTest` instance.
 
@@ -114,7 +113,7 @@ class SetupTest:
         ----------
         tmp_path : `pathlib.Path`
             The path for temporary files.
-        httpx_mock : `pytest_httpx.HTTPXMock`
+        respx_mock : `respx.Router`
             The mock for simulating `httpx.AsyncClient` calls.
         """
         config = initialize(tmp_path)
@@ -135,19 +134,26 @@ class SetupTest:
         session = Session(bind=engine)
 
         # Build the SetupTest object inside all of the contexts required by
-        # its components and handle clean shutdown.
+        # its components and handle clean shutdown.  We have to build two
+        # separate AsyncClients here, one which will be used to make requests
+        # to the application under test and the other of which will be used in
+        # the factory for components that require a client.  They have to be
+        # separate or requests for routes that are also served by the app will
+        # bypass the mock and call the app instead, causing tests to fail.
         try:
             async with LifespanManager(app):
                 base_url = f"https://{TEST_HOSTNAME}"
                 async with AsyncClient(app=app, base_url=base_url) as client:
-                    yield cls(
-                        tmp_path=tmp_path,
-                        httpx_mock=httpx_mock,
-                        config=config,
-                        redis=redis,
-                        session=session,
-                        client=client,
-                    )
+                    async with AsyncClient() as http_client:
+                        yield cls(
+                            tmp_path=tmp_path,
+                            respx_mock=respx_mock,
+                            config=config,
+                            redis=redis,
+                            session=session,
+                            client=client,
+                            http_client=http_client,
+                        )
         finally:
             await http_client_dependency.aclose()
             if os.environ.get("REDIS_6379_TCP_PORT"):
@@ -162,18 +168,20 @@ class SetupTest:
         self,
         *,
         tmp_path: Path,
-        httpx_mock: HTTPXMock,
+        respx_mock: respx.Router,
         config: Config,
         redis: Redis,
         session: Session,
         client: AsyncClient,
+        http_client: AsyncClient,
     ) -> None:
         self.tmp_path = tmp_path
-        self.httpx_mock = httpx_mock
+        self.respx_mock = respx_mock
         self.config = config
         self.redis = redis
-        self.client = client
         self.session = session
+        self.client = client
+        self.http_client = http_client
         self.logger = structlog.get_logger(config.safir.logger_name)
         assert self.logger
 
@@ -192,7 +200,7 @@ class SetupTest:
         return ComponentFactory(
             config=self.config,
             redis=self.redis,
-            http_client=self.client,
+            http_client=self.http_client,
             session=self.session,
             logger=self.logger,
         )
@@ -330,19 +338,20 @@ class SetupTest:
         """Delete the Gafaelfawr session token."""
         del self.client.cookies[COOKIE_NAME]
 
-    def set_github_userinfo_response(
+    def set_github_response(
         self,
-        token: str,
+        code: str,
         user_info: GitHubUserInfo,
+        *,
         paginate_teams: bool = False,
         expect_revoke: bool = False,
     ) -> None:
-        """Set the GitHub user information to return from the GitHub API.
+        """Mock the GitHub API.
 
         Parameters
         ----------
-        token : `str`
-            The token that the client must send.
+        code : `str`
+            The code that Gafaelfawr must send to redeem a token.
         user_info : `gafaelfawr.providers.github.GitHubUserInfo`
             User information to use to synthesize GitHub API responses.
         paginate_teams : `bool`, optional
@@ -352,156 +361,39 @@ class SetupTest:
             user information.  Default: `False`
         """
         assert self.config.github
-
-        def callback(request: Request, extensions: Dict[str, Any]) -> Response:
-            assert request.headers["Authorization"] == f"token {token}"
-            assert request.method == "GET"
-            base_url = str(request.url.copy_with(query=None))
-            if base_url == GitHubProvider._USER_URL:
-                return to_response(
-                    json={
-                        "login": user_info.username,
-                        "id": user_info.uid,
-                        "name": user_info.name,
-                    }
-                )
-            elif base_url == GitHubProvider._TEAMS_URL:
-                teams = []
-                for team in user_info.teams:
-                    data = {
-                        "slug": team.slug,
-                        "id": team.gid,
-                        "organization": {"login": team.organization},
-                    }
-                    teams.append(data)
-                if paginate_teams:
-                    assert len(teams) > 2
-                    if request.url.query == b"page=2":
-                        link = f'<{GitHubProvider._TEAMS_URL}>; rel="prev"'
-                        # This will be the last request if we're about to fail
-                        # and revoke the token.
-                        if expect_revoke:
-                            self.set_github_revoke_response(token)
-                        return to_response(
-                            json=teams[2:], headers={"Link": link}
-                        )
-                    else:
-                        link = (
-                            f"<{GitHubProvider._TEAMS_URL}?page=2>;"
-                            ' rel="next"'
-                        )
-                        return to_response(
-                            json=teams[:2], headers={"Link": link}
-                        )
-                else:
-                    # This will be the last request if we're about to fail
-                    # and revoke the token.
-                    if expect_revoke:
-                        self.set_github_revoke_response(token)
-                    return to_response(json=teams)
-            elif base_url == GitHubProvider._EMAILS_URL:
-                return to_response(
-                    json=[
-                        {"email": "otheremail@example.com", "primary": False},
-                        {"email": user_info.email, "primary": True},
-                    ]
-                )
-            else:
-                assert False, f"unexpected request for {request.url}"
-
-        self.httpx_mock.add_callback(callback)
-
-    def set_github_token_response(self, code: str, token: str) -> None:
-        """Set the token that will be returned GitHub token endpoint.
-
-        Parameters
-        ----------
-        code : `str`
-            The code that Gafaelfawr must send.
-        token : `str`
-            The token to return, which will be expected by the user info
-            endpoings.
-        """
-
-        def callback(request: Request, extensions: Dict[str, Any]) -> Response:
-            assert self.config.github
-            assert str(request.url) == GitHubProvider._TOKEN_URL
-            assert request.method == "POST"
-            assert request.headers["Accept"] == "application/json"
-            assert parse_qs(request.read().decode()) == {
-                "client_id": [self.config.github.client_id],
-                "client_secret": [self.config.github.client_secret],
-                "code": [code],
-                "state": [ANY],
-            }
-            return to_response(
-                json={
-                    "access_token": token,
-                    "scope": ",".join(GitHubProvider._SCOPES),
-                    "token_type": "bearer",
-                }
-            )
-
-        self.httpx_mock.add_callback(callback)
-
-    def set_github_revoke_response(self, token: str) -> None:
-        """Register the callback for revoking a GitHub authorization.
-
-        Parameters
-        ----------
-        token : `str`
-            The GitHub access token for the user whose authorization should be
-            revoked.
-        """
-        assert self.config.github
-        client_id = self.config.github.client_id
-        client_secret = self.config.github.client_secret
-        grant_url = GitHubProvider._GRANT_URL_TMPL.format(client_id=client_id)
-        basic_auth_raw = f"{client_id}:{client_secret}"
-        basic_auth = base64.b64encode(basic_auth_raw.encode()).decode()
-
-        def callback(request: Request, extensions: Dict[str, Any]) -> Response:
-            assert str(request.url) == grant_url
-            assert request.method == "DELETE"
-            assert request.headers["Accept"] == "application/json"
-            assert request.headers["Authorization"] == f"Basic {basic_auth}"
-            assert json.loads(request.read().decode()) == {
-                "access_token": token
-            }
-            return to_response(status_code=204)
-
-        self.httpx_mock.add_callback(callback)
+        mock_github(
+            self.respx_mock,
+            self.config.github,
+            code,
+            user_info,
+            paginate_teams=paginate_teams,
+            expect_revoke=expect_revoke,
+        )
 
     def set_oidc_configuration_response(
-        self, keypair: RSAKeyPair, kid: Optional[str] = None
+        self,
+        keypair: Optional[RSAKeyPair] = None,
+        kid: Optional[str] = None,
     ) -> None:
-        """Register the callbacks for upstream signing key configuration.
+        """Register configuration callbacks for upstream OpenID Connect.
 
         Parameters
         ----------
-        keypair : `gafaelfawr.keypair.RSAKeyPair`
+        keypair : `gafaelfawr.keypair.RSAKeyPair`, optional
             The key pair used to sign the token, which will be used to
             register the keys callback.
         kid : `str`, optional
             Key ID for the key.  If not given, defaults to the first key ID in
             the configured key_ids list.
         """
-        assert self.config.oidc
-        iss = self.config.oidc.issuer
-        config_url = urljoin(iss, "/.well-known/openid-configuration")
-        jwks_url = urljoin(iss, "/jwks.json")
-        oidc_kid = kid if kid else self.config.oidc.key_ids[0]
-        jwks = keypair.public_key_as_jwks(oidc_kid)
+        mock_oidc_provider_config(self.respx_mock, self.config, keypair, kid)
 
-        self.httpx_mock.add_response(
-            url=config_url, method="GET", json={"jwks_uri": jwks_url}
-        )
-        self.httpx_mock.add_response(
-            url=jwks_url, method="GET", json=jwks.dict()
-        )
-
-    def set_oidc_token_response(self, code: str, token: OIDCToken) -> None:
-        """Set the token that will be returned from the OIDC token endpoint.
+    def set_oidc_token_response(
+        self,
+        code: str,
+        token: OIDCToken,
+    ) -> None:
+        """Register token callbacks for upstream OpenID Connect provider.
 
         Parameters
         ----------
@@ -510,26 +402,7 @@ class SetupTest:
         token : `gafaelfawr.tokens.Token`
             The token.
         """
-
-        def callback(request: Request, extensions: Dict[str, Any]) -> Response:
-            assert self.config.oidc
-            if str(request.url) != self.config.oidc.token_url:
-                assert request.method == "GET"
-                return to_response(status_code=404)
-            assert request.method == "POST"
-            assert request.headers["Accept"] == "application/json"
-            assert parse_qs(request.read().decode()) == {
-                "grant_type": ["authorization_code"],
-                "client_id": [self.config.oidc.client_id],
-                "client_secret": [self.config.oidc.client_secret],
-                "code": [code],
-                "redirect_uri": [self.config.oidc.redirect_url],
-            }
-            return to_response(
-                json={"id_token": token.encoded, "token_type": "Bearer"}
-            )
-
-        self.httpx_mock.add_callback(callback)
+        mock_oidc_provider_token(self.respx_mock, self.config, code, token)
 
     def transaction(self) -> Transaction:
         """Run code within an open database transaction.

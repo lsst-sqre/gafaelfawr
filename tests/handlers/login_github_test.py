@@ -64,9 +64,14 @@ async def simulate_github_login(
     assert setup.config.github
     if not headers:
         headers = {}
+    setup.set_github_response(
+        "some-code",
+        user_info,
+        paginate_teams=paginate_teams,
+        expect_revoke=expect_revoke,
+    )
 
     # Simulate the redirect to GitHub.
-    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
         "/login", params={"rd": return_url}, headers=headers
     )
@@ -83,12 +88,6 @@ async def simulate_github_login(
     }
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response(
-        "some-github-token",
-        user_info,
-        paginate_teams=paginate_teams,
-        expect_revoke=expect_revoke,
-    )
     r = await setup.client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
@@ -191,9 +190,9 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
     return_url = "https://example.com/foo?a=bar&b=baz"
+    setup.set_github_response("some-code", user_info)
 
     # Simulate the initial authentication request.
-    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
         "/login", headers={"X-Auth-Request-Redirect": return_url}
     )
@@ -202,7 +201,6 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
