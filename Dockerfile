@@ -14,7 +14,7 @@
 #   - Sets up additional supporting scripts.
 #   - Configures gunicorn.
 
-FROM tiangolo/uvicorn-gunicorn:python3.8-slim as base-image
+FROM python:3.9.8-slim-bullseye as base-image
 
 # Update system packages
 COPY scripts/install-base-packages.sh .
@@ -54,6 +54,9 @@ RUN pip install --no-cache-dir .
 
 FROM base-image AS runtime-image
 
+# Create a non-root user
+RUN useradd --create-home appuser
+
 # Copy the virtualenv.
 COPY --from=install-image /opt/venv /opt/venv
 
@@ -61,22 +64,17 @@ COPY --from=install-image /opt/venv /opt/venv
 COPY ui/public /app/ui/public
 ENV GAFAELFAWR_UI_PATH=/app/ui/public
 
+# Copy the startup script
+COPY scripts/start.sh /start.sh
+
 # Make sure we use the virtualenv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy over the prestart script that handles database setup.
-COPY scripts/prestart.sh /app/prestart.sh
+# Switch to the non-root user.
+USER appuser
 
-# We use a module name other than app, so tell the base image that.  This
-# does not copy the app into /app as is recommended by the base Docker
-# image documentation and instead relies on the module search path as
-# modified by the virtualenv.
-ENV MODULE_NAME=gafaelfawr.main
+# Expose the port.
+EXPOSE 8080
 
-# The default starts 40 workers, which exhausts the available connections
-# on a micro Cloud SQL PostgreSQL server and seems excessive since we can
-# scale with Kubernetes.  Cap the workers at 10.
-ENV MAX_WORKERS=10
-
-# Run on port 8080 instead of the FastAPI default for backward compatibility.
-ENV PORT=8080
+# Run the application.
+CMD ["/start.sh"]
