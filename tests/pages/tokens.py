@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.by import By
 
 from gafaelfawr.models.token import TokenType
 from tests.pages.base import BaseElement, BaseModal, BasePage
@@ -17,33 +18,33 @@ if TYPE_CHECKING:
 
 class TokensPage(BasePage):
     def click_create_token(self) -> CreateTokenModal:
-        button = self.find_element_by_id("qa-create-token")
+        button = self.find_element(By.ID, "qa-create-token")
         button.click()
-        element = self.find_element_by_id("create-token-modal")
+        element = self.find_element(By.ID, "create-token-modal")
         return CreateTokenModal(element)
 
     def get_new_token_modal(self) -> NewTokenModal:
-        element = self.find_element_by_id("qa-new-token-modal")
+        element = self.find_element(By.ID, "qa-new-token-modal")
         return NewTokenModal(element)
 
     def get_tokens(self, token_type: TokenType) -> List[TokenRow]:
         try:
-            table = self.find_element_by_id(f"tokens-{token_type.value}")
+            table = self.find_element(By.ID, f"tokens-{token_type.value}")
         except NoSuchElementException:
             return []
         return [
             TokenRow(e)
-            for e in table.find_elements_by_class_name("qa-token-row")
+            for e in table.find_elements(By.CLASS_NAME, "qa-token-row")
         ]
 
 
 class CreateTokenModal(BaseModal):
     @property
     def form(self) -> WebElement:
-        return self.find_element_by_tag_name("form")
+        return self.find_element(By.TAG_NAME, "form")
 
     def set_token_name(self, token_name: str) -> None:
-        field = self.form.find_element_by_id("create-token-name")
+        field = self.form.find_element(By.ID, "create-token-name")
         field.send_keys(token_name)
 
     def submit(self) -> None:
@@ -53,80 +54,80 @@ class CreateTokenModal(BaseModal):
 class NewTokenModal(BaseModal):
     @property
     def token(self) -> str:
-        return self.find_element_by_id("qa-new-token").text
+        return self.find_element(By.ID, "qa-new-token").text
 
     def dismiss(self) -> None:
-        button = self.find_element_by_id("token-accept")
+        button = self.find_element(By.ID, "token-accept")
         button.click()
 
 
 class TokenRow(BaseElement):
     @property
     def expires(self) -> str:
-        return self.find_element_by_class_name("qa-expires").text
+        return self.find_element(By.CLASS_NAME, "qa-expires").text
 
     @property
     def name(self) -> str:
-        return self.find_element_by_class_name("qa-token-name").text
+        return self.find_element(By.CLASS_NAME, "qa-token-name").text
 
     @property
     def token(self) -> str:
-        return self.find_element_by_class_name("qa-token").text
+        return self.find_element(By.CLASS_NAME, "qa-token").text
 
     def click_token(self) -> None:
-        token = self.find_element_by_class_name("qa-token")
+        token = self.find_element(By.CLASS_NAME, "qa-token")
         token.click()
 
     def click_delete_token(self) -> None:
-        button = self.find_element_by_class_name("qa-token-delete")
+        button = self.find_element(By.CLASS_NAME, "qa-token-delete")
         button.click()
 
 
 class TokenDataPage(BasePage):
     @property
     def expires(self) -> str:
-        return self.find_element_by_class_name("qa-expires").text
+        return self.find_element(By.CLASS_NAME, "qa-expires").text
 
     @property
     def scopes(self) -> str:
-        return self._data.find_element_by_class_name("qa-scopes").text
+        return self._data.find_element(By.CLASS_NAME, "qa-scopes").text
 
     @property
     def token_type(self) -> str:
-        return self._data.find_element_by_class_name("qa-type").text
+        return self._data.find_element(By.CLASS_NAME, "qa-type").text
 
     @property
     def username(self) -> str:
-        return self._data.find_element_by_class_name("qa-username").text
+        return self._data.find_element(By.CLASS_NAME, "qa-username").text
 
     @property
     def _data(self) -> WebElement:
-        return self.find_element_by_class_name("qa-token-data")
+        return self.find_element(By.CLASS_NAME, "qa-token-data")
 
     def get_change_history(self) -> List[TokenChangeRow]:
         return [
             TokenChangeRow(e)
-            for e in self.find_elements_by_class_name("qa-token-change-row")
+            for e in self.find_elements(By.CLASS_NAME, "qa-token-change-row")
         ]
 
 
 class TokenChangeRow(BaseElement):
     @property
     def action(self) -> str:
-        return self.find_element_by_class_name("qa-action").text
+        return self.find_element(By.CLASS_NAME, "qa-action").text
 
     @property
     def expires(self) -> str:
-        return self.find_element_by_class_name("qa-expires").text
+        return self.find_element(By.CLASS_NAME, "qa-expires").text
 
     @property
     def scopes(self) -> str:
-        return self.find_element_by_class_name("qa-scopes").text
+        return self.find_element(By.CLASS_NAME, "qa-scopes").text
 
     @property
     def token(self) -> str:
-        return self.find_element_by_class_name("qa-token").text
+        return self.find_element(By.CLASS_NAME, "qa-token").text
 
     @property
     def token_type(self) -> str:
-        return self.find_element_by_class_name("qa-type").text
+        return self.find_element(By.CLASS_NAME, "qa-type").text
