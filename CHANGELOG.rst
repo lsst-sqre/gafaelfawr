@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.3.0 (unreleased)
+3.3.0 (2021-11-11)
 ==================
 
 - The Docker image now starts a single async Python process rather than running multiple processes using Gunicorn.
