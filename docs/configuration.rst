@@ -173,6 +173,14 @@ This string will be embedded verbatim, inside a ``<p>`` tag, in all login error 
 It may include HTML and will not be escaped.
 This is a suitable place to direct the user to support information or bug reporting instructions.
 
+Consider increasing the number of Gafaelfawr processes to run.
+This improves robustness and performance scaling.
+Production deployments should use at least two replicas.
+
+.. code-block:: yaml
+
+   replicaCount: 2
+
 Finally, you may want to define the initial set of administrators:
 
 .. code-block:: yaml
