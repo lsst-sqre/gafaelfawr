@@ -11,8 +11,8 @@
 #   Installs the app into the virtual environment.
 # runtime-image
 #   - Copies the virtual environment into place.
-#   - Sets up additional supporting scripts.
-#   - Configures gunicorn.
+#   - Runs as a non-root user.
+#   - Sets up the entrypoint and port.
 
 FROM python:3.9.8-slim-bullseye as base-image
 
