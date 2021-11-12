@@ -53,7 +53,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8
+          python-version: 3.9
 
       # This has to happen after installing Node modules because we run
       # eslint and it wants react to be already installed.  We therefore
@@ -83,8 +83,8 @@ jobs:
     strategy:
       matrix:
         python:
-          - 3.8
-          - 3.9
+          - "3.9"
+          - "3.10"
         database:
           - PostgreSQL
 
@@ -134,7 +134,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8
+          python-version: 3.9
 
       - name: Install tox and LTD Conveyor
         run: pip install tox ltd-conveyor
@@ -188,7 +188,7 @@ jobs:
 
       - name: Define the Docker tag
         id: vars
-        run: echo ::set-output name=tag::$(scripts/docker-tag.sh "$GITHUB_REF")
+        run: echo ::set-output name=tag::$(scripts/docker-tag.sh)
 
       - name: Print the tag
         id: print

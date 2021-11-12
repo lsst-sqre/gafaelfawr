@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import pytest
+from httpx import ConnectError
 
 from tests.support.logging import parse_log
 
@@ -28,9 +29,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     return_url = "https://example.com:4444/foo?a=bar&b=baz"
 
     caplog.clear()
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     assert r.headers["Location"].startswith(setup.config.oidc.login_url)
     url = urlparse(r.headers["Location"])
@@ -62,9 +61,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     # Simulate the return from the provider.
     caplog.clear()
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
@@ -118,9 +115,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
     return_url = "https://example.com/foo?a=bar&b=baz"
 
     r = await setup.client.get(
-        "/login",
-        headers={"X-Auth-Request-Redirect": return_url},
-        allow_redirects=False,
+        "/login", headers={"X-Auth-Request-Redirect": return_url}
     )
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
@@ -128,9 +123,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
 
     # Simulate the return from the OpenID Connect provider.
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
@@ -146,9 +139,7 @@ async def test_oauth2_callback(setup: SetupTest) -> None:
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
@@ -158,7 +149,6 @@ async def test_oauth2_callback(setup: SetupTest) -> None:
     r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
@@ -178,9 +168,7 @@ async def test_claim_names(setup: SetupTest) -> None:
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
@@ -188,9 +176,7 @@ async def test_claim_names(setup: SetupTest) -> None:
 
     # Simulate the return from the OpenID Connect provider.
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
@@ -213,9 +199,7 @@ async def test_callback_error(
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
@@ -226,11 +210,8 @@ async def test_callback_error(
         "error": "error_code",
         "error_description": "description",
     }
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        json=response,
-        status_code=400,
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+        400, json=response
     )
 
     # Simulate the return from the OpenID Connect provider.
@@ -238,7 +219,6 @@ async def test_callback_error(
     r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
     )
     assert r.status_code == 403
     assert "error_code: description" in r.text
@@ -265,78 +245,52 @@ async def test_callback_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        json={"foo": "bar"},
-        status_code=400,
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+        400, json={"foo": "bar"}
     )
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
     )
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
 
     # Now try a reply that returns 200 but doesn't have the field we
     # need.
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        json={"foo": "bar"},
-        status_code=200,
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+        json={"foo": "bar"}
     )
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
     )
     assert r.status_code == 403
     assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        data="foo",
-        status_code=200,
-    )
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(content=b"foo")
+    r = await setup.client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
     )
     assert r.status_code == 403
     assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
-    setup.httpx_mock.add_response(
-        url=setup.config.oidc.token_url,
-        method="POST",
-        data="foo",
-        status_code=400,
+    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+        400, content=b"foo"
     )
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await setup.client.get(
         "/oauth2/callback",
         params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
     )
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
@@ -348,19 +302,17 @@ async def test_connection_error(setup: SetupTest) -> None:
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
-    # Do not register a response for the callback request to the OIDC provider
-    # and check that an appropriate error is shown to the user.
+    # Register a connection error for the callback request to the OIDC
+    # provider and check that an appropriate error is shown to the user.
+    token_url = setup.config.oidc.token_url
+    setup.respx_mock.post(token_url).mock(side_effect=ConnectError)
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
@@ -370,13 +322,17 @@ async def test_connection_error(setup: SetupTest) -> None:
 async def test_verify_error(setup: SetupTest) -> None:
     await setup.configure("oidc")
     token = setup.create_upstream_oidc_token(groups=["admin"])
+    assert setup.config.oidc
+    issuer = setup.config.oidc.issuer
+    config_url = urljoin(issuer, "/.well-known/openid-configuration")
+    jwks_url = urljoin(issuer, "/.well-known/jwks.json")
+    setup.respx_mock.get(config_url).respond(404)
+    setup.respx_mock.get(jwks_url).respond(404)
     setup.set_oidc_token_response("some-code", token)
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
@@ -385,9 +341,7 @@ async def test_verify_error(setup: SetupTest) -> None:
     # registered the signing key, and therefore attempting to retrieve it will
     # fail, causing a token verification error.
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "token verification failed" in r.text
@@ -404,18 +358,14 @@ async def test_invalid_username(setup: SetupTest) -> None:
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from the OpenID Connect provider.
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "Invalid username: invalid@user" in r.text
@@ -432,18 +382,14 @@ async def test_invalid_group_syntax(setup: SetupTest) -> None:
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from the OpenID Connect provider.
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "isMemberOf claim is invalid" in r.text
@@ -468,18 +414,14 @@ async def test_invalid_groups(setup: SetupTest) -> None:
     assert setup.config.oidc
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from the OpenID Connect provider.
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
@@ -497,18 +439,14 @@ async def test_no_valid_groups(setup: SetupTest) -> None:
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     return_url = "https://example.com/foo?a=bar&b=baz"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from the OpenID Connect provider.
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
@@ -529,18 +467,14 @@ async def test_unicode_name(setup: SetupTest) -> None:
     setup.set_oidc_configuration_response(setup.config.issuer.keypair)
     return_url = "https://example.com/foo"
 
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, allow_redirects=False
-    )
+    r = await setup.client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from the OpenID Connect provider.
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url

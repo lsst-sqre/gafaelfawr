@@ -154,7 +154,6 @@ class TokenCache:
         if data.expires:
             lifetime = data.expires - data.created
             remaining = data.expires - current_datetime()
-            print(lifetime, remaining)
             if remaining.total_seconds() < lifetime.total_seconds() / 2:
                 return None
         return token

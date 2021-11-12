@@ -2,6 +2,15 @@
 Change log
 ##########
 
+3.3.0 (2021-11-11)
+==================
+
+- The Docker image now starts a single async Python process rather than running multiple processes using Gunicorn.
+  This follows the FastAPI upstream recommendations for applications running under Kubernetes.
+  Scaling in Kubernetes is better-handled by spawning multiple pods rather than running multiple frontend processes in each pod.
+- Update the base Docker image to Debian bullseye and Python 3.9.
+- Require Python 3.9 or later.
+
 3.2.1 (2021-08-24)
 ==================
 

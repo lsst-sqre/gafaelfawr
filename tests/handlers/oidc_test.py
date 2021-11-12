@@ -46,7 +46,6 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
             "state": "random-state",
             "redirect_uri": return_url,
         },
-        allow_redirects=False,
     )
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
@@ -155,9 +154,7 @@ async def test_unauthenticated(
     }
 
     caplog.clear()
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
+    r = await setup.client.get("/auth/openid/login", params=login_params)
 
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
@@ -190,14 +187,12 @@ async def test_login_errors(
     await setup.login(token_data.token)
 
     # No parameters at all.
-    r = await setup.client.get("/auth/openid/login", allow_redirects=False)
+    r = await setup.client.get("/auth/openid/login")
     assert r.status_code == 422
 
     # Good client ID but missing redirect_uri.
     login_params = {"client_id": "some-id"}
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
+    r = await setup.client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 422
 
     # Bad client ID.
@@ -206,9 +201,7 @@ async def test_login_errors(
         "client_id": "bad-client",
         "redirect_uri": f"https://{TEST_HOSTNAME}/",
     }
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
+    r = await setup.client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 400
     assert "Unknown client_id bad-client" in r.text
 
@@ -231,18 +224,14 @@ async def test_login_errors(
     # Bad redirect_uri.
     login_params["client_id"] = "some-id"
     login_params["redirect_uri"] = "https://foo.example.com/"
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
+    r = await setup.client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 422
     assert "URL is not at" in r.text
 
     # Valid redirect_uri but missing response_type.
     login_params["redirect_uri"] = f"https://{TEST_HOSTNAME}/app"
     caplog.clear()
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
+    r = await setup.client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert url.scheme == "https"
@@ -273,9 +262,7 @@ async def test_login_errors(
 
     # Invalid response_type.
     login_params["response_type"] = "bogus"
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
+    r = await setup.client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 307
     assert query_from_url(r.headers["Location"]) == {
         "error": ["invalid_request"],
@@ -284,9 +271,7 @@ async def test_login_errors(
 
     # Valid response_type but missing scope.
     login_params["response_type"] = "code"
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
+    r = await setup.client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 307
     assert query_from_url(r.headers["Location"]) == {
         "error": ["invalid_request"],
@@ -295,9 +280,7 @@ async def test_login_errors(
 
     # Invalid scope.
     login_params["scope"] = "user:email"
-    r = await setup.client.get(
-        "/auth/openid/login", params=login_params, allow_redirects=False
-    )
+    r = await setup.client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 307
     assert query_from_url(r.headers["Location"]) == {
         "error": ["invalid_request"],

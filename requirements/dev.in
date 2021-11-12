@@ -19,8 +19,8 @@ pre-commit
 pytest
 pytest-asyncio
 pytest-cov
-pytest-httpx
 pytest-xdist[psutil]
+respx
 selenium
 selenium-wire
 seqdiag

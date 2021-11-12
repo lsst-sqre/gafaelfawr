@@ -64,14 +64,16 @@ async def simulate_github_login(
     assert setup.config.github
     if not headers:
         headers = {}
+    setup.set_github_response(
+        "some-code",
+        user_info,
+        paginate_teams=paginate_teams,
+        expect_revoke=expect_revoke,
+    )
 
     # Simulate the redirect to GitHub.
-    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
-        "/login",
-        params={"rd": return_url},
-        headers=headers,
-        allow_redirects=False,
+        "/login", params={"rd": return_url}, headers=headers
     )
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
@@ -86,16 +88,8 @@ async def simulate_github_login(
     }
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response(
-        "some-github-token",
-        user_info,
-        paginate_teams=paginate_teams,
-        expect_revoke=expect_revoke,
-    )
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     if r.status_code == 307:
         assert r.headers["Location"] == return_url
@@ -196,24 +190,19 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
     return_url = "https://example.com/foo?a=bar&b=baz"
+    setup.set_github_response("some-code", user_info)
 
     # Simulate the initial authentication request.
-    setup.set_github_token_response("some-code", "some-github-token")
     r = await setup.client.get(
-        "/login",
-        headers={"X-Auth-Request-Redirect": return_url},
-        allow_redirects=False,
+        "/login", headers={"X-Auth-Request-Redirect": return_url}
     )
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    setup.set_github_userinfo_response("some-github-token", user_info)
     r = await setup.client.get(
-        "/login",
-        params={"code": "some-code", "state": query["state"][0]},
-        allow_redirects=False,
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
@@ -221,7 +210,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_login_no_destination(setup: SetupTest) -> None:
-    r = await setup.client.get("/login", allow_redirects=False)
+    r = await setup.client.get("/login")
     assert r.status_code == 422
 
 
@@ -271,16 +260,13 @@ async def test_bad_redirect(setup: SetupTest) -> None:
     )
 
     r = await setup.client.get(
-        "/login",
-        params={"rd": "https://foo.example.com/"},
-        allow_redirects=False,
+        "/login", params={"rd": "https://foo.example.com/"}
     )
     assert r.status_code == 422
 
     r = await setup.client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://foo.example.com/"},
-        allow_redirects=False,
     )
     assert r.status_code == 422
 

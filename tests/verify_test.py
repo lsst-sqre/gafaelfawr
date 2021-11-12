@@ -139,7 +139,11 @@ async def test_key_retrieval(setup: SetupTest) -> None:
     # Register that handler at the well-known JWKS endpoint.  This will return
     # a connection refused from the OpenID Connect endpoint.
     jwks_url = urljoin(setup.config.oidc.issuer, "/.well-known/jwks.json")
-    setup.httpx_mock.add_response(url=jwks_url, method="GET", json=jwks.dict())
+    oidc_url = urljoin(
+        setup.config.oidc.issuer, "/.well-known/openid-configuration"
+    )
+    setup.respx_mock.get(jwks_url).respond(json=jwks.dict())
+    setup.respx_mock.get(oidc_url).respond(404)
 
     # Check token verification with this configuration.
     token = setup.create_upstream_oidc_token(kid="some-kid")
@@ -147,44 +151,39 @@ async def test_key_retrieval(setup: SetupTest) -> None:
 
     # Wrong algorithm for the key.
     jwks.keys[0].alg = "ES256"
-    setup.httpx_mock.add_response(url=jwks_url, method="GET", json=jwks.dict())
+    setup.respx_mock.get(jwks_url).respond(json=jwks.dict())
     with pytest.raises(UnknownAlgorithmException):
         await verifier.verify_oidc_token(token)
 
     # Should go back to working if we fix the algorithm and add more keys.
     # Add an explicit 404 from the OpenID connect endpoint.
-    oidc_url = urljoin(
-        setup.config.oidc.issuer, "/.well-known/openid-configuration"
-    )
-    setup.httpx_mock.add_response(url=oidc_url, method="GET", status_code=404)
+    setup.respx_mock.get(oidc_url).respond(404)
     jwks.keys[0].alg = ALGORITHM
     keypair = RSAKeyPair.generate()
     jwks.keys.insert(0, keypair.public_key_as_jwks("a-kid").keys[0])
-    setup.httpx_mock.add_response(url=jwks_url, method="GET", json=jwks.dict())
+    setup.respx_mock.get(jwks_url).respond(json=jwks.dict())
     assert await verifier.verify_oidc_token(token)
 
     # Try with a new key ID and return a malformed reponse.
-    setup.httpx_mock.add_response(url=jwks_url, method="GET", json=["foo"])
+    setup.respx_mock.get(jwks_url).respond(json=["foo"])
     token = setup.create_upstream_oidc_token(kid="malformed")
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 
     # Return a 404 error.
-    setup.httpx_mock.add_response(url=jwks_url, method="GET", status_code=404)
+    setup.respx_mock.get(jwks_url).respond(404)
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 
     # Fix the JWKS handler but register a malformed URL as the OpenID Connect
     # configuration endpoint, which should be checked first.
     jwks.keys[1].kid = "another-kid"
-    setup.httpx_mock.add_response(url=jwks_url, method="GET", json=jwks.dict())
-    setup.httpx_mock.add_response(url=oidc_url, method="GET", json=["foo"])
+    setup.respx_mock.get(jwks_url).respond(json=jwks.dict())
+    setup.respx_mock.get(oidc_url).respond(json=["foo"])
     token = setup.create_upstream_oidc_token(kid="another-kid")
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 
     # Try again with a working OpenID Connect configuration.
-    setup.httpx_mock.add_response(
-        url=oidc_url, method="GET", json={"jwks_uri": jwks_url}
-    )
+    setup.respx_mock.get(oidc_url).respond(json={"jwks_uri": jwks_url})
     assert await verifier.verify_oidc_token(token)
