@@ -9,7 +9,6 @@
 aiofiles
 fastapi
 fastapi-sqlalchemy
-gunicorn
 python-multipart
 starlette
 uvicorn[standard]

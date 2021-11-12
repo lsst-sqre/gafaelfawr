@@ -1,6 +1,5 @@
-# The dependencies need --allow-unsafe because sphinx and gunicorn depend on
-# setuptools, which is normally not allowed to appear in a hashed dependency
-# file.
+# The dependencies need --allow-unsafe because sphinx depends on setuptools,
+# which is normally not allowed to appear in a hashed dependency file.
 .PHONY: update-deps
 update-deps:
 	pip install --upgrade pip-tools pip setuptools
