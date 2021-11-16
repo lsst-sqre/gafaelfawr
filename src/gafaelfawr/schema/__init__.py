@@ -13,7 +13,7 @@ from gafaelfawr.schema.token_auth_history import TokenAuthHistory
 from gafaelfawr.schema.token_change_history import TokenChangeHistory
 
 if TYPE_CHECKING:
-    from sqlalchemy.engine import Engine
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 __all__ = [
     "Admin",
@@ -27,11 +27,13 @@ __all__ = [
 ]
 
 
-def drop_schema(engine: Engine) -> None:
+async def drop_schema(engine: AsyncEngine) -> None:
     """Drop all tables to reset the database."""
-    Base.metadata.drop_all(engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
-def initialize_schema(engine: Engine) -> None:
+async def initialize_schema(engine: AsyncEngine) -> None:
     """Initialize the database with all schema."""
-    Base.metadata.create_all(engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

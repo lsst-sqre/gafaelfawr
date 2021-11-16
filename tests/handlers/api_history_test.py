@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import pytest
+from sqlalchemy.future import select
 
 from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.link import LinkData
@@ -19,7 +20,7 @@ from gafaelfawr.models.token import (
     TokenUserInfo,
 )
 from gafaelfawr.schema import TokenChangeHistory
-from gafaelfawr.util import current_datetime
+from gafaelfawr.util import current_datetime, datetime_to_db
 from tests.support.constants import TEST_HOSTNAME
 
 if TYPE_CHECKING:
@@ -142,19 +143,17 @@ async def build_history(
     # Spread out the timestamps so that we can test date range queries.  Every
     # other entry has the same timestamp as the previous entry to test that
     # queries handle entries with the same timestamp.
-    entries = (
-        setup.session.query(TokenChangeHistory)
-        .order_by(TokenChangeHistory.id)
-        .all()
-    )
+    stmt = select(TokenChangeHistory).order_by(TokenChangeHistory.id)
+    result = await setup.session.execute(stmt)
+    entries = [e[0] for e in result.all()]
     event_time = current_datetime() - timedelta(seconds=len(entries) * 5)
-    with setup.transaction():
-        for i, entry in enumerate(entries):
-            entry.event_time = event_time
-            if i % 2 != 0:
-                event_time += timedelta(seconds=5)
+    for i, entry in enumerate(entries):
+        entry.event_time = datetime_to_db(event_time)
+        if i % 2 != 0:
+            event_time += timedelta(seconds=5)
+    await setup.session.commit()
 
-    history = token_service.get_change_history(service_token_data)
+    history = await token_service.get_change_history(service_token_data)
     assert history.count == 20
     assert len(history.entries) == 20
     return history.entries

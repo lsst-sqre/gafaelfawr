@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+
+from sqlalchemy import delete
+from sqlalchemy.engine import CursorResult
+from sqlalchemy.future import select
 
 from gafaelfawr.exceptions import DeserializeException, DuplicateTokenNameError
 from gafaelfawr.models.token import TokenInfo, TokenType
 from gafaelfawr.schema.subtoken import Subtoken
 from gafaelfawr.schema.token import Token as SQLToken
+from gafaelfawr.util import datetime_to_db
 
 if TYPE_CHECKING:
     from typing import List, Optional
 
-    from sqlalchemy.orm import Session
+    from sqlalchemy.ext.asyncio import AsyncSession
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.models.token import Token, TokenData
@@ -33,14 +38,14 @@ class TokenDatabaseStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.orm.Session`
-        The underlying database session.
+    session : `sqlalchemy.ext.asyncio.AsyncSession`
+        The database session proxy.
     """
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    def add(
+    async def add(
         self,
         data: TokenData,
         *,
@@ -67,14 +72,7 @@ class TokenDatabaseStore:
             The user already has a token by that name.
         """
         if token_name:
-            name_conflict = (
-                self._session.query(SQLToken.token)
-                .filter_by(username=data.username, token_name=token_name)
-                .scalar()
-            )
-            if name_conflict:
-                msg = f"Token name {token_name} already used"
-                raise DuplicateTokenNameError(msg)
+            await self._check_name_conflict(data.username, token_name)
         new = SQLToken(
             token=data.token.key,
             username=data.username,
@@ -82,16 +80,16 @@ class TokenDatabaseStore:
             token_name=token_name,
             scopes=",".join(sorted(data.scopes)),
             service=service,
-            created=data.created,
-            expires=data.expires,
+            created=datetime_to_db(data.created),
+            expires=datetime_to_db(data.expires),
         )
         self._session.add(new)
-        self._session.flush()
+        await self._session.flush()
         if parent:
             subtoken = Subtoken(parent=parent, child=data.token.key)
             self._session.add(subtoken)
 
-    def delete(self, key: str) -> bool:
+    async def delete(self, key: str) -> bool:
         """Delete a token.
 
         Parameters
@@ -104,9 +102,11 @@ class TokenDatabaseStore:
         success : `bool`
             Whether the token was found to be deleted.
         """
-        return self._session.query(SQLToken).filter_by(token=key).delete() >= 1
+        stmt = delete(SQLToken).where(SQLToken.token == key)
+        result = cast(CursorResult, await self._session.execute(stmt))
+        return result.rowcount >= 1
 
-    def get_children(self, key: str) -> List[str]:
+    async def get_children(self, key: str) -> List[str]:
         """Return all children (recursively) of a token.
 
         Parameters
@@ -124,17 +124,14 @@ class TokenDatabaseStore:
         all_children = []
         parents = [key]
         while parents:
-            records = (
-                self._session.query(Subtoken.child)
-                .filter(Subtoken.parent.in_(parents))
-                .all()
-            )
-            children = [r.child for r in records]
+            stmt = select(Subtoken.child).where(Subtoken.parent.in_(parents))
+            result = await self._session.scalars(stmt)
+            children = result.all()
             all_children.extend(children)
             parents = children
         return all_children
 
-    def get_info(self, key: str) -> Optional[TokenInfo]:
+    async def get_info(self, key: str) -> Optional[TokenInfo]:
         """Return information about a token.
 
         Parameters
@@ -156,20 +153,20 @@ class TokenDatabaseStore:
         only one database query without fancy ORM mappings at the cost of some
         irritating mangling of the return value.
         """
-        result = (
-            self._session.query(SQLToken, Subtoken.parent)
-            .filter_by(token=key)
+        stmt = (
+            select(SQLToken, Subtoken.parent)
+            .where(SQLToken.token == key)
             .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
-            .one_or_none()
         )
-        if result:
-            info = TokenInfo.from_orm(result[0])
-            info.parent = result[1]
-            return info
-        else:
+        result = (await self._session.execute(stmt)).one_or_none()
+        if not result:
             return None
+        token, parent = result
+        info = TokenInfo.from_orm(token)
+        info.parent = parent
+        return info
 
-    def get_internal_token_key(
+    async def get_internal_token_key(
         self,
         token_data: TokenData,
         service: str,
@@ -195,21 +192,21 @@ class TokenDatabaseStore:
             The key of an existing internal child token with the desired
             properties, or `None` if none exist.
         """
-        key = (
-            self._session.query(Subtoken.child)
-            .filter_by(parent=token_data.token.key)
+        stmt = (
+            select(Subtoken.child)
+            .where(Subtoken.parent == token_data.token.key)
             .join(SQLToken, Subtoken.child == SQLToken.token)
-            .filter(
+            .where(
                 SQLToken.token_type == TokenType.internal,
                 SQLToken.service == service,
                 SQLToken.scopes == ",".join(sorted(scopes)),
-                SQLToken.expires >= min_expires,
+                SQLToken.expires >= datetime_to_db(min_expires),
             )
-            .first()
+            .limit(1)
         )
-        return key[0] if key else None
+        return await self._session.scalar(stmt)
 
-    def get_notebook_token_key(
+    async def get_notebook_token_key(
         self, token_data: TokenData, min_expires: datetime
     ) -> Optional[str]:
         """Retrieve an existing notebook child token.
@@ -227,19 +224,19 @@ class TokenDatabaseStore:
             The key of an existing notebook child token, or `None` if none
             exist.
         """
-        key = (
-            self._session.query(Subtoken.child)
-            .filter_by(parent=token_data.token.key)
+        stmt = (
+            select(Subtoken.child)
+            .where(Subtoken.parent == token_data.token.key)
             .join(SQLToken, Subtoken.child == SQLToken.token)
-            .filter(
+            .where(
                 SQLToken.token_type == TokenType.notebook,
-                SQLToken.expires >= min_expires,
+                SQLToken.expires >= datetime_to_db(min_expires),
             )
-            .first()
+            .limit(1)
         )
-        return key[0] if key else None
+        return await self._session.scalar(stmt)
 
-    def list(self, *, username: Optional[str] = None) -> List[TokenInfo]:
+    async def list(self, *, username: Optional[str] = None) -> List[TokenInfo]:
         """List tokens.
 
         Parameters
@@ -252,17 +249,18 @@ class TokenDatabaseStore:
         tokens : List[`gafaelfawr.models.token.TokenInfo`]
             Information about the tokens.
         """
-        tokens = self._session.query(SQLToken)
+        stmt = select(SQLToken)
         if username:
-            tokens = tokens.filter_by(username=username)
-        tokens = tokens.order_by(
+            stmt = stmt.where(SQLToken.username == username)
+        stmt = stmt.order_by(
             SQLToken.last_used.desc(),
             SQLToken.created.desc(),
             SQLToken.token,
         )
-        return [TokenInfo.from_orm(t) for t in tokens]
+        result = await self._session.scalars(stmt)
+        return [TokenInfo.from_orm(t) for t in result.all()]
 
-    def modify(
+    async def modify(
         self,
         key: str,
         *,
@@ -297,26 +295,32 @@ class TokenDatabaseStore:
         gafaelfawr.exceptions.DuplicateTokenNameError
             The user already has a token by that name.
         """
-        token = self._session.query(SQLToken).filter_by(token=key).scalar()
+        stmt = select(SQLToken).where(SQLToken.token == key)
+        token = await self._session.scalar(stmt)
         if not token:
             return None
-        if token_name:
-            name_conflict = (
-                self._session.query(SQLToken.token)
-                .filter_by(username=token.username, token_name=token_name)
-                .scalar()
-            )
-            if name_conflict:
-                msg = f"Token name {token_name} already used"
-                raise DuplicateTokenNameError(msg)
+        if token_name and token.token_name != token_name:
+            await self._check_name_conflict(token.username, token_name)
             token.token_name = token_name
         if scopes:
             token.scopes = ",".join(sorted(scopes))
         if no_expire:
             token.expires = None
         elif expires:
-            token.expires = expires
+            token.expires = datetime_to_db(expires)
         return TokenInfo.from_orm(token)
+
+    async def _check_name_conflict(
+        self, username: str, token_name: str
+    ) -> None:
+        """Raise exception if the given token name is already used."""
+        stmt = select(SQLToken.token).filter_by(
+            username=username, token_name=token_name
+        )
+        name_conflict = await self._session.scalar(stmt)
+        if name_conflict:
+            msg = f"Token name {token_name} already used"
+            raise DuplicateTokenNameError(msg)
 
 
 class TokenRedisStore:

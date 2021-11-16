@@ -15,6 +15,7 @@ from gafaelfawr.models.token import TokenType
 from gafaelfawr.util import (
     current_datetime,
     normalize_datetime,
+    normalize_ip_address,
     normalize_scopes,
 )
 
@@ -86,6 +87,9 @@ class AdminHistoryEntry(BaseModel):
     _normalize_event_time = validator(
         "event_time", allow_reuse=True, pre=True
     )(normalize_datetime)
+    _normalize_ip_address = validator(
+        "ip_address", allow_reuse=True, pre=True
+    )(normalize_ip_address)
 
 
 @dataclass
@@ -322,6 +326,9 @@ class TokenChangeHistoryEntry(BaseModel):
     _normalize_old_scopes = validator(
         "old_scopes", allow_reuse=True, pre=True
     )(normalize_scopes)
+    _normalize_ip_address = validator(
+        "ip_address", allow_reuse=True, pre=True
+    )(normalize_ip_address)
     _normalize_event_time = validator(
         "event_time", allow_reuse=True, pre=True
     )(normalize_datetime)

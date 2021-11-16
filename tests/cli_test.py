@@ -8,6 +8,7 @@ conflict with each other.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from click.testing import CliRunner
@@ -66,7 +67,7 @@ def test_help() -> None:
 def test_update_service_tokens(
     tmp_path: Path, mock_kubernetes: MockKubernetesApi
 ) -> None:
-    initialize(tmp_path)
+    asyncio.run(initialize(tmp_path))
     mock_kubernetes.create_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
@@ -99,7 +100,7 @@ def test_update_service_tokens_error(
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
-    initialize(tmp_path)
+    asyncio.run(initialize(tmp_path))
 
     def error_callback(method: str, *args: Any) -> None:
         if method == "list_cluster_custom_object":

@@ -11,14 +11,15 @@ from typing import Optional
 
 from aioredis import Redis
 from fastapi import Depends, Request
-from fastapi_sqlalchemy import db
 from httpx import AsyncClient
 from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.db_session import db_session_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
@@ -48,6 +49,9 @@ class RequestContext:
     redis: Redis
     """Connection pool to use to talk to Redis."""
 
+    session: AsyncSession
+    """The database session."""
+
     http_client: AsyncClient
     """Shared HTTP client."""
 
@@ -61,7 +65,7 @@ class RequestContext:
         return ComponentFactory(
             config=self.config,
             redis=self.redis,
-            session=db.session,
+            session=self.session,
             http_client=self.http_client,
             logger=self.logger,
         )
@@ -95,6 +99,7 @@ async def context_dependency(
     config: Config = Depends(config_dependency),
     logger: BoundLogger = Depends(logger_dependency),
     redis: Redis = Depends(redis_dependency),
+    session: AsyncSession = Depends(db_session_dependency),
     http_client: AsyncClient = Depends(http_client_dependency),
 ) -> RequestContext:
     """Provides a RequestContext as a dependency."""
@@ -103,5 +108,6 @@ async def context_dependency(
         config=config,
         logger=logger,
         redis=redis,
+        session=session,
         http_client=http_client,
     )

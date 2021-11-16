@@ -99,5 +99,7 @@ async def test_database_password(tmp_path: Path) -> None:
     config = await config_dependency()
     del os.environ["GAFAELFAWR_DATABASE_PASSWORD"]
 
-    expected = "postgresql://gafaelfawr:some-password@localhost/gafaelfawr"
+    expected = (
+        "postgresql+asyncpg://gafaelfawr:some-password@localhost/gafaelfawr"
+    )
     assert config.database_url == expected

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Column, DateTime, Enum, Index, Integer, String
 from sqlalchemy.dialects import postgresql
 
 from gafaelfawr.models.token import TokenType
 from gafaelfawr.schema.base import Base
+
+if TYPE_CHECKING:
+    from datetime import datetime
+    from typing import Optional
 
 __all__ = ["TokenAuthHistory"]
 
@@ -14,16 +20,18 @@ __all__ = ["TokenAuthHistory"]
 class TokenAuthHistory(Base):
     __tablename__ = "token_auth_history"
 
-    id = Column(Integer, primary_key=True)
-    token = Column(String(64), nullable=False)
-    username = Column(String(64), nullable=False)
-    token_type = Column(Enum(TokenType), nullable=False)
-    token_name = Column(String(64))
-    parent = Column(String(64))
-    scopes = Column(String(512))
-    service = Column(String(64))
-    ip_address = Column(String(64).with_variant(postgresql.INET, "postgresql"))
-    event_time = Column(DateTime, nullable=False)
+    id: int = Column(Integer, primary_key=True)
+    token: str = Column(String(64), nullable=False)
+    username: str = Column(String(64), nullable=False)
+    token_type: TokenType = Column(Enum(TokenType), nullable=False)
+    token_name: Optional[str] = Column(String(64))
+    parent: Optional[str] = Column(String(64))
+    scopes: Optional[str] = Column(String(512))
+    service: Optional[str] = Column(String(64))
+    ip_address: Optional[str] = Column(
+        String(64).with_variant(postgresql.INET, "postgresql")
+    )
+    event_time: datetime = Column(DateTime, nullable=False)
 
     __table_args__ = (
         Index("token_auth_history_by_time", "event_time", "id"),

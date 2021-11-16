@@ -313,7 +313,10 @@ async def test_github_uppercase(setup: SetupTest) -> None:
 async def test_github_admin(setup: SetupTest) -> None:
     """Test that a token administrator gets the admin:token scope."""
     admin_service = setup.factory.create_admin_service()
-    admin_service.add_admin("someuser", actor="admin", ip_address="127.0.0.1")
+    await admin_service.add_admin(
+        "someuser", actor="admin", ip_address="127.0.0.1"
+    )
+    await setup.session.commit()
     user_info = GitHubUserInfo(
         name="A User",
         username="someuser",

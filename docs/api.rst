@@ -20,6 +20,8 @@ API reference
 
 .. automodapi:: gafaelfawr.dependencies.context
 
+.. automodapi:: gafaelfawr.dependencies.db_session
+
 .. automodapi:: gafaelfawr.dependencies.redis
 
 .. automodapi:: gafaelfawr.dependencies.return_url
@@ -75,8 +77,6 @@ API reference
 .. automodapi:: gafaelfawr.storage.oidc
 
 .. automodapi:: gafaelfawr.storage.token
-
-.. automodapi:: gafaelfawr.storage.transaction
 
 .. automodapi:: gafaelfawr.templates
    :include-all-objects:

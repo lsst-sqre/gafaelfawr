@@ -12,8 +12,8 @@ import structlog
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 from safir.dependencies.http_client import http_client_dependency
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.database import initialize_database
@@ -23,7 +23,6 @@ from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenData, TokenGroup, TokenUserInfo
-from gafaelfawr.storage.transaction import TransactionManager
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.github import mock_github
 from tests.support.oidc import (
@@ -43,10 +42,9 @@ if TYPE_CHECKING:
     from gafaelfawr.keypair import RSAKeyPair
     from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
     from gafaelfawr.providers.github import GitHubUserInfo
-    from gafaelfawr.storage.transaction import Transaction
 
 
-def initialize(tmp_path: Path) -> Config:
+async def initialize(tmp_path: Path) -> Config:
     """Do basic initialization and return a configuration.
 
     This shared logic can be used either with `SetupTest`, which assumes an
@@ -75,7 +73,7 @@ def initialize(tmp_path: Path) -> Config:
     # Initialize the database.  Non-SQLite databases need to be reset between
     # tests.
     should_reset = not urlparse(config.database_url).scheme == "sqlite"
-    initialize_database(config, reset=should_reset)
+    await initialize_database(config, reset=should_reset)
 
     return config
 
@@ -116,7 +114,7 @@ class SetupTest:
         respx_mock : `respx.Router`
             The mock for simulating `httpx.AsyncClient` calls.
         """
-        config = initialize(tmp_path)
+        config = await initialize(tmp_path)
         if not os.environ.get("REDIS_6379_TCP_PORT"):
             import mockaioredis
 
@@ -127,11 +125,10 @@ class SetupTest:
         # Create the database session that will be used by SetupTest and by
         # the factory it contains.  The application will use a separate
         # session handled by its middleware.
-        connect_args = {}
-        if urlparse(config.database_url).scheme == "sqlite":
-            connect_args = {"check_same_thread": False}
-        engine = create_engine(config.database_url, connect_args=connect_args)
-        session = Session(bind=engine)
+        engine = create_async_engine(config.database_url, future=True)
+        session_factory = sessionmaker(
+            engine, expire_on_commit=False, class_=AsyncSession
+        )
 
         # Build the SetupTest object inside all of the contexts required by
         # its components and handle clean shutdown.  We have to build two
@@ -145,15 +142,16 @@ class SetupTest:
                 base_url = f"https://{TEST_HOSTNAME}"
                 async with AsyncClient(app=app, base_url=base_url) as client:
                     async with AsyncClient() as http_client:
-                        yield cls(
-                            tmp_path=tmp_path,
-                            respx_mock=respx_mock,
-                            config=config,
-                            redis=redis,
-                            session=session,
-                            client=client,
-                            http_client=http_client,
-                        )
+                        async with session_factory() as session:
+                            yield cls(
+                                tmp_path=tmp_path,
+                                respx_mock=respx_mock,
+                                config=config,
+                                redis=redis,
+                                session=session,
+                                client=client,
+                                http_client=http_client,
+                            )
         finally:
             await http_client_dependency.aclose()
             if os.environ.get("REDIS_6379_TCP_PORT"):
@@ -162,7 +160,7 @@ class SetupTest:
                 redis = await redis_dependency()
                 redis.close()
                 await redis.wait_closed()
-            session.close()
+            await engine.dispose()
 
     def __init__(
         self,
@@ -171,7 +169,7 @@ class SetupTest:
         respx_mock: respx.Router,
         config: Config,
         redis: Redis,
-        session: Session,
+        session: AsyncSession,
         client: AsyncClient,
         http_client: AsyncClient,
     ) -> None:
@@ -279,6 +277,7 @@ class SetupTest:
         )
         data = await token_service.get_data(token)
         assert data
+        await self.session.commit()
         return data
 
     def create_upstream_oidc_token(
@@ -403,14 +402,3 @@ class SetupTest:
             The token.
         """
         mock_oidc_provider_token(self.respx_mock, self.config, code, token)
-
-    def transaction(self) -> Transaction:
-        """Run code within an open database transaction.
-
-        Returns
-        -------
-        gafaelfawr.storage.transaction.Transaction
-            A context manager that will automatically commit changes to
-            the underlying database.
-        """
-        return TransactionManager(self.session).transaction()

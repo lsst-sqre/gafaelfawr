@@ -6,18 +6,19 @@ import os
 from importlib.metadata import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
+import structlog
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi_sqlalchemy import DBSessionMiddleware
 from safir.dependencies.http_client import http_client_dependency
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 
 from gafaelfawr.constants import COOKIE_NAME
+from gafaelfawr.database import check_database
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.db_session import db_session_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.exceptions import PermissionDeniedError, ValidationError
 from gafaelfawr.handlers import (
@@ -105,14 +106,9 @@ app.mount(
 @app.on_event("startup")
 async def startup_event() -> None:
     config = await config_dependency()
-    engine_args = {}
-    if urlparse(config.database_url).scheme == "sqlite":
-        engine_args["connect_args"] = {"check_same_thread": False}
-    app.add_middleware(
-        DBSessionMiddleware,
-        db_url=config.database_url,
-        engine_args=engine_args,
-    )
+    logger = structlog.get_logger(config.safir.logger_name)
+    await check_database(config.database_url, logger)
+    await db_session_dependency.initialize(config.database_url)
     app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
     app.add_middleware(
         StateMiddleware, cookie_name=COOKIE_NAME, state_class=State
@@ -122,6 +118,7 @@ async def startup_event() -> None:
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     await http_client_dependency.aclose()
+    await db_session_dependency.aclose()
     await redis_dependency.close()
 
 

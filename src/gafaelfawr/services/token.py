@@ -39,7 +39,6 @@ if TYPE_CHECKING:
     from gafaelfawr.models.token import TokenInfo
     from gafaelfawr.storage.history import TokenChangeHistoryStore
     from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-    from gafaelfawr.storage.transaction import TransactionManager
     from gafaelfawr.token_cache import TokenCache
 
 __all__ = ["TokenService"]
@@ -58,8 +57,6 @@ class TokenService:
         The Redis backing store for tokens.
     token_change_store : `gafaelfawr.storage.history.TokenChangeHistoryStore`
         The backing store for history of changes to tokens.
-    transaction_manager : `gafaelfawr.storage.transaction.TransactionManager`
-        Database transaction manager.
     logger : `structlog.BoundLogger`
         Logger to use.
     """
@@ -72,7 +69,6 @@ class TokenService:
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
         token_change_store: TokenChangeHistoryStore,
-        transaction_manager: TransactionManager,
         logger: BoundLogger,
     ) -> None:
         self._config = config
@@ -80,7 +76,6 @@ class TokenService:
         self._token_db_store = token_db_store
         self._token_redis_store = token_redis_store
         self._token_change_store = token_change_store
-        self._transaction_manager = transaction_manager
         self._logger = logger
 
     async def create_session_token(
@@ -134,9 +129,8 @@ class TokenService:
         )
 
         await self._token_redis_store.store_data(data)
-        with self._transaction_manager.transaction():
-            self._token_db_store.add(data)
-            self._token_change_store.add(history_entry)
+        await self._token_db_store.add(data)
+        await self._token_change_store.add(history_entry)
 
         return token
 
@@ -226,9 +220,8 @@ class TokenService:
         )
 
         await self._token_redis_store.store_data(data)
-        with self._transaction_manager.transaction():
-            self._token_db_store.add(data, token_name=token_name)
-            self._token_change_store.add(history_entry)
+        await self._token_db_store.add(data, token_name=token_name)
+        await self._token_change_store.add(history_entry)
 
         self._logger.info(
             "Created new user token",
@@ -303,9 +296,8 @@ class TokenService:
         )
 
         await self._token_redis_store.store_data(data)
-        with self._transaction_manager.transaction():
-            self._token_db_store.add(data, token_name=request.token_name)
-            self._token_change_store.add(history_entry)
+        await self._token_db_store.add(data, token_name=request.token_name)
+        await self._token_change_store.add(history_entry)
 
         if data.token_type == TokenType.user:
             self._logger.info(
@@ -351,7 +343,7 @@ class TokenService:
         success : `bool`
             Whether the token was found and deleted.
         """
-        info = self.get_token_info_unchecked(key, username)
+        info = await self.get_token_info_unchecked(key, username)
         if not info:
             return False
         self._check_authorization(info.username, auth_data)
@@ -360,16 +352,15 @@ class TokenService:
         # returned in breadth-first order, so delete them in reverse order to
         # delete the tokens farthest down in the tree first.  This minimizes
         # the number of orphaned children at any given point.
-        children = self._token_db_store.get_children(key)
+        children = await self._token_db_store.get_children(key)
         children.reverse()
-        with self._transaction_manager.transaction():
-            for child in children:
-                await self._delete_one_token(child, auth_data, ip_address)
-            success = await self._delete_one_token(key, auth_data, ip_address)
+        for child in children:
+            await self._delete_one_token(child, auth_data, ip_address)
+        success = await self._delete_one_token(key, auth_data, ip_address)
 
         return success
 
-    def get_change_history(
+    async def get_change_history(
         self,
         auth_data: TokenData,
         *,
@@ -429,7 +420,7 @@ class TokenService:
         """
         self._check_authorization(username, auth_data)
         self._validate_ip_or_cidr(ip_or_cidr)
-        return self._token_change_store.list(
+        return await self._token_change_store.list(
             cursor=HistoryCursor.from_str(cursor) if cursor else None,
             limit=limit,
             since=since,
@@ -508,7 +499,7 @@ class TokenService:
             return token
 
         # See if there's already a matching internal token.
-        key = self._token_db_store.get_internal_token_key(
+        key = await self._token_db_store.get_internal_token_key(
             token_data, service, scopes, self._minimum_expiration(token_data)
         )
         if key:
@@ -552,11 +543,10 @@ class TokenService:
         )
 
         await self._token_redis_store.store_data(data)
-        with self._transaction_manager.transaction():
-            self._token_db_store.add(
-                data, service=service, parent=token_data.token.key
-            )
-            self._token_change_store.add(history_entry)
+        await self._token_db_store.add(
+            data, service=service, parent=token_data.token.key
+        )
+        await self._token_change_store.add(history_entry)
 
         self._logger.info(
             "Created new internal token",
@@ -606,7 +596,7 @@ class TokenService:
             return token
 
         # See if there's already a matching notebook token.
-        key = self._token_db_store.get_notebook_token_key(
+        key = await self._token_db_store.get_notebook_token_key(
             token_data, self._minimum_expiration(token_data)
         )
         if key:
@@ -647,16 +637,15 @@ class TokenService:
         )
 
         await self._token_redis_store.store_data(data)
-        with self._transaction_manager.transaction():
-            self._token_db_store.add(data, parent=token_data.token.key)
-            self._token_change_store.add(history_entry)
+        await self._token_db_store.add(data, parent=token_data.token.key)
+        await self._token_change_store.add(history_entry)
 
         # Cache the token and return it.
         self._logger.info("Created new notebook token", key=token.key)
         self._token_cache.store_notebook_token(token, token_data)
         return token
 
-    def get_token_info(
+    async def get_token_info(
         self, key: str, auth_data: TokenData, username: Optional[str]
     ) -> Optional[TokenInfo]:
         """Get information about a token.
@@ -672,13 +661,13 @@ class TokenService:
             If set, constrain the result to tokens from that user and return
             `None` if the token exists but is for a different user.
         """
-        info = self.get_token_info_unchecked(key, username)
+        info = await self.get_token_info_unchecked(key, username)
         if not info:
             return None
         self._check_authorization(info.username, auth_data)
         return info
 
-    def get_token_info_unchecked(
+    async def get_token_info_unchecked(
         self, key: str, username: Optional[str] = None
     ) -> Optional[TokenInfo]:
         """Get information about a token without checking authorization.
@@ -691,7 +680,7 @@ class TokenService:
             If set, constrain the result to tokens from that user and return
             `None` if the token exists but is for a different user.
         """
-        info = self._token_db_store.get_info(key)
+        info = await self._token_db_store.get_info(key)
         if not info:
             return None
         if username and info.username != username:
@@ -711,7 +700,7 @@ class TokenService:
             groups=data.groups,
         )
 
-    def list_tokens(
+    async def list_tokens(
         self, auth_data: TokenData, username: Optional[str] = None
     ) -> List[TokenInfo]:
         """List tokens.
@@ -736,7 +725,7 @@ class TokenService:
             authentication information.
         """
         self._check_authorization(username, auth_data)
-        return self._token_db_store.list(username=username)
+        return await self._token_db_store.list(username=username)
 
     async def modify_token(
         self,
@@ -790,7 +779,7 @@ class TokenService:
             ``auth_data`` or the user attempted to modify a token type other
             than user.
         """
-        info = self.get_token_info_unchecked(key, username)
+        info = await self.get_token_info_unchecked(key, username)
         if not info:
             return None
         self._check_authorization(info.username, auth_data)
@@ -823,32 +812,31 @@ class TokenService:
             ip_address=ip_address,
         )
 
-        with self._transaction_manager.transaction():
-            info = self._token_db_store.modify(
-                key,
-                token_name=token_name,
-                scopes=sorted(scopes) if scopes else scopes,
-                expires=expires,
-                no_expire=no_expire,
-            )
-            self._token_change_store.add(history_entry)
+        info = await self._token_db_store.modify(
+            key,
+            token_name=token_name,
+            scopes=sorted(scopes) if scopes else scopes,
+            expires=expires,
+            no_expire=no_expire,
+        )
+        await self._token_change_store.add(history_entry)
 
-            # Update the expiration in Redis if needed.
-            if info and (no_expire or expires):
-                data = await self._token_redis_store.get_data_by_key(key)
-                if data:
-                    data.expires = None if no_expire else expires
-                    await self._token_redis_store.store_data(data)
-                else:
-                    info = None
+        # Update the expiration in Redis if needed.
+        if info and (no_expire or expires):
+            data = await self._token_redis_store.get_data_by_key(key)
+            if data:
+                data.expires = None if no_expire else expires
+                await self._token_redis_store.store_data(data)
+            else:
+                info = None
 
-            # Update subtokens if needed.
-            if update_subtoken_expires and info:
-                assert expires
-                for child in self._token_db_store.get_children(key):
-                    await self._modify_expires(
-                        child, auth_data, expires, ip_address
-                    )
+        # Update subtokens if needed.
+        if update_subtoken_expires and info:
+            assert expires
+            for child in await self._token_db_store.get_children(key):
+                await self._modify_expires(
+                    child, auth_data, expires, ip_address
+                )
 
         if info:
             timestamp = int(info.expires.timestamp()) if info.expires else None
@@ -916,7 +904,7 @@ class TokenService:
         """Helper function to delete a single token.
 
         This does not do cascading delete and assumes authorization has
-        already been checked.  Must be called inside a transaction.
+        already been checked.
 
         Parameters
         ----------
@@ -933,7 +921,7 @@ class TokenService:
         success : `bool`
             Whether the token was found and deleted.
         """
-        info = self.get_token_info_unchecked(key)
+        info = await self.get_token_info_unchecked(key)
         if not info:
             return False
 
@@ -952,9 +940,9 @@ class TokenService:
         )
 
         await self._token_redis_store.delete(key)
-        success = self._token_db_store.delete(key)
+        success = await self._token_db_store.delete(key)
         if success:
-            self._token_change_store.add(history_entry)
+            await self._token_change_store.add(history_entry)
             self._logger.info("Deleted token", key=key, username=info.username)
         return success
 
@@ -1006,7 +994,7 @@ class TokenService:
         ip_address : `str`
             The IP address from which the request came.
         """
-        info = self.get_token_info_unchecked(key)
+        info = await self.get_token_info_unchecked(key)
         if not info:
             return
         if info.expires and info.expires <= expires:
@@ -1027,8 +1015,8 @@ class TokenService:
             ip_address=ip_address,
         )
 
-        self._token_db_store.modify(key, expires=expires)
-        self._token_change_store.add(history_entry)
+        await self._token_db_store.modify(key, expires=expires)
+        await self._token_change_store.add(history_entry)
         data = await self._token_redis_store.get_data_by_key(key)
         if data:
             data.expires = expires

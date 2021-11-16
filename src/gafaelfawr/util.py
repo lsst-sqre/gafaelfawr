@@ -5,7 +5,8 @@ from __future__ import annotations
 import base64
 import os
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from ipaddress import IPv4Address, IPv6Address
+from typing import TYPE_CHECKING, overload
 
 if TYPE_CHECKING:
     from typing import List, Optional, Union
@@ -14,6 +15,7 @@ __all__ = [
     "add_padding",
     "base64_to_number",
     "current_datetime",
+    "datetime_to_db",
     "normalize_datetime",
     "number_to_base64",
     "random_128_bits",
@@ -68,6 +70,21 @@ def current_datetime() -> datetime:
     return datetime.now(tz=timezone.utc).replace(microsecond=0)
 
 
+@overload
+def datetime_to_db(time: datetime) -> datetime:
+    ...
+
+
+@overload
+def datetime_to_db(time: None) -> None:
+    ...
+
+
+def datetime_to_db(time: Optional[datetime]) -> Optional[datetime]:
+    """Strip time zone for storing a datetime in the database."""
+    return time.replace(tzinfo=None) if time else None
+
+
 def normalize_datetime(
     v: Optional[Union[int, datetime]]
 ) -> Optional[datetime]:
@@ -96,6 +113,32 @@ def normalize_datetime(
         return v
     else:
         return v.replace(tzinfo=timezone.utc)
+
+
+def normalize_ip_address(
+    v: Optional[Union[str, IPv4Address, IPv6Address]]
+) -> Optional[str]:
+    """Pydantic validator for IP address fields.
+
+    Convert the PostgreSQL INET type to `str` to support reading entries from
+    a PostgreSQL database.
+
+    Parameters
+    ----------
+    v : `str` or `ipaddress.IPv4Address` or `ipaddress.IPv6Address` or `None`
+        The field representing an IP address.
+
+    Returns
+    -------
+    v : `str` or `None`
+        The converted IP address.
+    """
+    if v is None:
+        return v
+    elif isinstance(v, (IPv4Address, IPv6Address)):
+        return str(v)
+    else:
+        return v
 
 
 def normalize_scopes(

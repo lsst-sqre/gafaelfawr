@@ -63,11 +63,11 @@ authenticate_session_read = AuthenticateRead(require_session=True)
     summary="List all administrators",
     tags=["admin"],
 )
-def get_admins(
+async def get_admins(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Admin]:
     admin_service = context.factory.create_admin_service()
-    return admin_service.get_admins()
+    return await admin_service.get_admins()
 
 
 @router.post(
@@ -76,13 +76,13 @@ def get_admins(
     summary="Add new administrator",
     tags=["admin"],
 )
-def add_admin(
+async def add_admin(
     admin: Admin,
     auth_data: TokenData = Depends(authenticate_admin_write),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     admin_service = context.factory.create_admin_service()
-    admin_service.add_admin(
+    await admin_service.add_admin(
         admin.username,
         actor=auth_data.username,
         ip_address=context.request.client.host,
@@ -99,7 +99,7 @@ def add_admin(
     summary="Delete an administrator",
     tags=["admin"],
 )
-def delete_admin(
+async def delete_admin(
     username: str = Path(
         ...,
         title="Administrator",
@@ -113,7 +113,7 @@ def delete_admin(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     admin_service = context.factory.create_admin_service()
-    success = admin_service.delete_admin(
+    success = await admin_service.delete_admin(
         username,
         actor=auth_data.username,
         ip_address=context.request.client.host,
@@ -136,7 +136,7 @@ def delete_admin(
     summary="Get token change history",
     tags=["admin"],
 )
-def get_admin_token_change_history(
+async def get_admin_token_change_history(
     response: Response,
     cursor: Optional[str] = Query(
         None,
@@ -206,7 +206,7 @@ def get_admin_token_change_history(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
-    results = token_service.get_change_history(
+    results = await token_service.get_change_history(
         auth_data,
         cursor=cursor,
         limit=limit,
@@ -234,7 +234,7 @@ def get_admin_token_change_history(
     summary="Initialize UI",
     tags=["browser"],
 )
-def get_login(
+async def get_login(
     auth_data: TokenData = Depends(authenticate_session_read),
     context: RequestContext = Depends(context_dependency),
 ) -> APILoginResponse:
@@ -267,7 +267,7 @@ async def get_token_info(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
-    info = token_service.get_token_info_unchecked(auth_data.token.key)
+    info = await token_service.get_token_info_unchecked(auth_data.token.key)
     if info:
         return info
     else:
@@ -331,7 +331,7 @@ async def get_user_info(
     summary="Get token change history",
     tags=["user"],
 )
-def get_user_token_change_history(
+async def get_user_token_change_history(
     response: Response,
     username: str = Path(
         ...,
@@ -391,7 +391,7 @@ def get_user_token_change_history(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
-    results = token_service.get_change_history(
+    results = await token_service.get_change_history(
         auth_data,
         cursor=cursor,
         username=username,
@@ -428,7 +428,7 @@ async def get_tokens(
     context: RequestContext = Depends(context_dependency),
 ) -> List[TokenInfo]:
     token_service = context.factory.create_token_service()
-    return token_service.list_tokens(auth_data, username)
+    return await token_service.list_tokens(auth_data, username)
 
 
 @router.post(
@@ -494,7 +494,7 @@ async def get_token(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
-    info = token_service.get_token_info(key, auth_data, username)
+    info = await token_service.get_token_info(key, auth_data, username)
     if info:
         return info
     else:
@@ -611,7 +611,7 @@ async def get_token_change_history(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
-    results = token_service.get_change_history(
+    results = await token_service.get_change_history(
         auth_data, username=username, key=key
     )
     if not results.entries:

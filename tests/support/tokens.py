@@ -13,13 +13,12 @@ from gafaelfawr.models.oidc import OIDCVerifiedToken
 from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
-from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.util import current_datetime
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional
 
-    from sqlalchemy.orm import Session
+    from sqlalchemy.ext.asyncio import AsyncSession
 
     from gafaelfawr.config import Config
 
@@ -31,7 +30,8 @@ async def add_expired_session_token(
     *,
     scopes: List[str],
     ip_address: str,
-    session: Session,
+    session: AsyncSession,
+    is_postgres: bool,
 ) -> None:
     """Add an expired session token to the database.
 
@@ -51,12 +51,13 @@ async def add_expired_session_token(
         The scopes of the token.
     ip_address : `str`
         The IP address from which the request came.
-    session : `sqlalchemy.orm.Session`
+    session : `sqlalchemy.ext.asyncio.AsyncSession`
         The database session.
+    is_postgres : `bool`
+        Whether the underlying database is PostgreSQL.
     """
     token_db_store = TokenDatabaseStore(session)
-    token_change_store = TokenChangeHistoryStore(session)
-    transaction_manager = TransactionManager(session)
+    token_change_store = TokenChangeHistoryStore(session, is_postgres)
 
     token = Token()
     created = current_datetime()
@@ -81,9 +82,8 @@ async def add_expired_session_token(
         event_time=created,
     )
 
-    with transaction_manager.transaction():
-        token_db_store.add(data)
-        token_change_store.add(history_entry)
+    await token_db_store.add(data)
+    await token_change_store.add(history_entry)
 
 
 def create_test_token(

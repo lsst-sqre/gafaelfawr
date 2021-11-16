@@ -11,6 +11,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from seleniumwire import webdriver
 
@@ -31,16 +32,16 @@ from unittest.mock import MagicMock
 from urllib.parse import urlparse
 
 import structlog
-from fastapi_sqlalchemy import db
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
-from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.token import TokenUserInfo
-from tests.support.tokens import add_expired_session_token
 from gafaelfawr.util import current_datetime
+from tests.support.tokens import add_expired_session_token
 
 config_dependency.set_settings_path("{settings_path}")
 
@@ -48,6 +49,7 @@ config_dependency.set_settings_path("{settings_path}")
 @app.on_event("startup")
 async def startup_event() -> None:
     config = await config_dependency()
+    is_postgres = config.database_url.startswith("postgresql")
     logger = structlog.get_logger(config.safir.logger_name)
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
@@ -59,32 +61,34 @@ async def startup_event() -> None:
         redis = await mockaioredis.create_redis_pool("")
         redis_dependency.set_redis(redis)
 
-    # Initialize the database.  Non-SQLite databases need to be reset between
-    # tests.
-    should_reset = not urlparse(config.database_url).scheme == "sqlite"
-    initialize_database(config, reset=should_reset)
+    engine = create_async_engine(config.database_url, future=True)
+    session_factory = sessionmaker(
+        engine, expire_on_commit=False, class_=AsyncSession
+    )
+    async with session_factory() as session:
+        async with session.begin():
+            # Add an expired token so that we can test display of expired
+            # tokens.
+            await add_expired_session_token(
+                user_info,
+                scopes=scopes,
+                ip_address="127.0.0.1",
+                session=session,
+                is_postgres=is_postgres,
+            )
 
-    with db():
-        # Add an expired token so that we can test display of expired tokens.
-        await add_expired_session_token(
-            user_info,
-            scopes=scopes,
-            ip_address="127.0.0.1",
-            session=db.session,
-        )
-
-        # Add the valid session token.
-        factory = ComponentFactory(
-            config=config,
-            redis=await redis_dependency(config),
-            session=db.session,
-            http_client=MagicMock(),
-            logger=logger,
-        )
-        token_service = factory.create_token_service()
-        token = await token_service.create_session_token(
-            user_info, scopes=scopes, ip_address="127.0.0.1"
-        )
+            # Add the valid session token.
+            factory = ComponentFactory(
+                config=config,
+                redis=await redis_dependency(config),
+                session=session,
+                http_client=MagicMock(),
+                logger=logger,
+            )
+            token_service = factory.create_token_service()
+            token = await token_service.create_session_token(
+                user_info, scopes=scopes, ip_address="127.0.0.1"
+            )
 
     with open("{token_path}", "w") as f:
         f.write(str(token))
@@ -190,7 +194,11 @@ async def run_app(
     """
     config_dependency.set_settings_path(str(settings_path))
     config = await config_dependency()
-    initialize_database(config)
+
+    # Initialize the database.  Non-SQLite databases need to be reset between
+    # tests.
+    should_reset = not urlparse(config.database_url).scheme == "sqlite"
+    await initialize_database(config, reset=should_reset)
 
     token_path = tmp_path / "token"
     app_source = APP_TEMPLATE.format(

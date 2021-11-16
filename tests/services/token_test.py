@@ -67,7 +67,8 @@ async def test_session_token(setup: SetupTest) -> None:
     expires = data.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert data.expires == expires
 
-    assert token_service.get_token_info_unchecked(token.key) == TokenInfo(
+    info = await token_service.get_token_info_unchecked(token.key)
+    assert info and info == TokenInfo(
         token=token.key,
         username=user_info.username,
         token_name=None,
@@ -80,7 +81,7 @@ async def test_session_token(setup: SetupTest) -> None:
     )
     assert await token_service.get_user_info(token) == user_info
 
-    history = token_service.get_change_history(
+    history = await token_service.get_change_history(
         data, token=token.key, username=data.username
     )
     assert history.entries == [
@@ -103,7 +104,7 @@ async def test_session_token(setup: SetupTest) -> None:
     )
     data = await token_service.get_data(token)
     assert data and data.scopes == ["exec:admin", "read:all"]
-    info = token_service.get_token_info_unchecked(token.key)
+    info = await token_service.get_token_info_unchecked(token.key)
     assert info and info.scopes == ["exec:admin", "read:all"]
 
 
@@ -133,7 +134,7 @@ async def test_user_token(setup: SetupTest) -> None:
         ip_address="192.168.0.1",
     )
     assert await token_service.get_user_info(user_token) == user_info
-    info = token_service.get_token_info_unchecked(user_token.key)
+    info = await token_service.get_token_info_unchecked(user_token.key)
     assert info and info == TokenInfo(
         token=user_token.key,
         username=user_info.username,
@@ -157,7 +158,7 @@ async def test_user_token(setup: SetupTest) -> None:
         uid=user_info.uid,
     )
 
-    history = token_service.get_change_history(
+    history = await token_service.get_change_history(
         data, token=user_token.key, username=data.username
     )
     assert history.entries == [
@@ -195,7 +196,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
 
     token = await token_service.get_notebook_token(data, ip_address="1.0.0.1")
     assert await token_service.get_user_info(token) == user_info
-    info = token_service.get_token_info_unchecked(token.key)
+    info = await token_service.get_token_info_unchecked(token.key)
     assert info and info == TokenInfo(
         token=token.key,
         username=user_info.username,
@@ -233,7 +234,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
     )
     assert token == new_token
 
-    history = token_service.get_change_history(
+    history = await token_service.get_change_history(
         data, token=token.key, username=data.username
     )
     assert history.entries == [
@@ -271,10 +272,10 @@ async def test_notebook_token(setup: SetupTest) -> None:
         groups=data.groups,
     )
     await token_service._token_redis_store.store_data(notebook_token_data)
-    with token_service._transaction_manager.transaction():
-        token_service._token_db_store.add(
-            notebook_token_data, parent=data.token.key
-        )
+    await token_service._token_db_store.add(
+        notebook_token_data, parent=data.token.key
+    )
+    await setup.session.flush()
     token_service._token_cache.clear()
     dup_notebook_token = await token_service.get_notebook_token(
         data, ip_address="127.0.0.1"
@@ -297,7 +298,7 @@ async def test_notebook_token(setup: SetupTest) -> None:
         data, ip_address="127.0.0.1"
     )
     assert new_token != token
-    info = token_service.get_token_info_unchecked(new_token.key)
+    info = await token_service.get_token_info_unchecked(new_token.key)
     assert info
     expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert info.expires == expires
@@ -327,7 +328,7 @@ async def test_internal_token(setup: SetupTest) -> None:
         ip_address="2001:db8::45",
     )
     assert await token_service.get_user_info(internal_token) == user_info
-    info = token_service.get_token_info_unchecked(internal_token.key)
+    info = await token_service.get_token_info_unchecked(internal_token.key)
     assert info and info == TokenInfo(
         token=internal_token.key,
         username=user_info.username,
@@ -370,7 +371,7 @@ async def test_internal_token(setup: SetupTest) -> None:
     )
     assert internal_token == new_internal_token
 
-    history = token_service.get_change_history(
+    history = await token_service.get_change_history(
         data, token=internal_token.key, username=data.username
     )
     assert history.entries == [
@@ -411,10 +412,10 @@ async def test_internal_token(setup: SetupTest) -> None:
         groups=data.groups,
     )
     await token_service._token_redis_store.store_data(internal_token_data)
-    with token_service._transaction_manager.transaction():
-        token_service._token_db_store.add(
-            internal_token_data, service="some-service", parent=data.token.key
-        )
+    await token_service._token_db_store.add(
+        internal_token_data, service="some-service", parent=data.token.key
+    )
+    await setup.session.flush()
     token_service._token_cache.clear()
     dup_internal_token = await token_service.get_internal_token(
         data,
@@ -457,7 +458,7 @@ async def test_internal_token(setup: SetupTest) -> None:
         data, service="some-service", scopes=[], ip_address="127.0.0.1"
     )
     assert new_internal_token != internal_token
-    info = token_service.get_token_info_unchecked(new_internal_token.key)
+    info = await token_service.get_token_info_unchecked(new_internal_token.key)
     assert info and info.scopes == []
     expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
     assert info.expires == expires
@@ -629,7 +630,7 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
     )
     assert_is_now(user_data.created)
 
-    history = token_service.get_change_history(
+    history = await token_service.get_change_history(
         admin_data, token=token.key, username=request.username
     )
     assert history.entries == [
@@ -649,7 +650,7 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
 
     # Non-admins can't see other people's tokens.
     with pytest.raises(PermissionDeniedError):
-        token_service.get_change_history(
+        await token_service.get_change_history(
             data, token=token.key, username=request.username
         )
 
@@ -666,7 +667,7 @@ async def test_token_from_admin_request(setup: SetupTest) -> None:
     )
     assert_is_now(service_data.created)
 
-    history = token_service.get_change_history(
+    history = await token_service.get_change_history(
         admin_data, token=token.key, username=request.username
     )
     assert history.entries == [
@@ -711,20 +712,24 @@ async def test_list(setup: SetupTest) -> None:
     admin_data = await token_service.get_data(other_session_token)
     assert admin_data
 
-    session_info = token_service.get_token_info_unchecked(session_token.key)
+    session_info = await token_service.get_token_info_unchecked(
+        session_token.key
+    )
     assert session_info
-    user_token_info = token_service.get_token_info_unchecked(user_token.key)
+    user_token_info = await token_service.get_token_info_unchecked(
+        user_token.key
+    )
     assert user_token_info
-    other_session_info = token_service.get_token_info_unchecked(
+    other_session_info = await token_service.get_token_info_unchecked(
         other_session_token.key
     )
     assert other_session_info
-    assert token_service.list_tokens(data, "example") == sorted(
+    assert await token_service.list_tokens(data, "example") == sorted(
         sorted((session_info, user_token_info), key=lambda t: t.token),
         key=lambda t: t.created,
         reverse=True,
     )
-    assert token_service.list_tokens(admin_data) == sorted(
+    assert await token_service.list_tokens(admin_data) == sorted(
         sorted(
             (session_info, other_session_info, user_token_info),
             key=lambda t: t.token,
@@ -735,7 +740,7 @@ async def test_list(setup: SetupTest) -> None:
 
     # Regular users can't retrieve all tokens.
     with pytest.raises(PermissionDeniedError):
-        token_service.list_tokens(data)
+        await token_service.list_tokens(data)
 
 
 @pytest.mark.asyncio
@@ -768,7 +773,7 @@ async def test_modify(setup: SetupTest) -> None:
         expires=expires,
         ip_address="192.168.0.4",
     )
-    info = token_service.get_token_info_unchecked(user_token.key)
+    info = await token_service.get_token_info_unchecked(user_token.key)
     assert info and info == TokenInfo(
         token=user_token.key,
         username="example",
@@ -788,7 +793,7 @@ async def test_modify(setup: SetupTest) -> None:
         ip_address="127.0.4.5",
     )
 
-    history = token_service.get_change_history(
+    history = await token_service.get_change_history(
         data, token=user_token.key, username=data.username
     )
     assert history.entries == [
@@ -864,14 +869,14 @@ async def test_delete(setup: SetupTest) -> None:
     )
 
     assert await token_service.get_data(token) is None
-    assert token_service.get_token_info_unchecked(token.key) is None
+    assert await token_service.get_token_info_unchecked(token.key) is None
     assert await token_service.get_user_info(token) is None
 
     assert not await token_service.delete_token(
         token.key, data, data.username, ip_address="127.0.0.1"
     )
 
-    history = token_service.get_change_history(
+    history = await token_service.get_change_history(
         data, token=token.key, username=data.username
     )
     assert history.entries == [

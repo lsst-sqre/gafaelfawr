@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING
 
 import structlog
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
-from gafaelfawr.database import create_session
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.issuer import TokenIssuer
@@ -28,7 +29,6 @@ from gafaelfawr.storage.history import (
 from gafaelfawr.storage.kubernetes import KubernetesStorage
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.token_cache import TokenCache
 from gafaelfawr.verify import TokenVerifier
 
@@ -36,7 +36,6 @@ if TYPE_CHECKING:
     from typing import AsyncIterator
 
     from aioredis import Redis
-    from sqlalchemy.orm import Session
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
@@ -84,26 +83,31 @@ class ComponentFactory:
         logger.debug("Connecting to Redis")
         redis = await redis_dependency(config)
         logger.debug("Connecting to PostgreSQL")
-        session = create_session(config, logger)
+        engine = create_async_engine(config.database_url, future=True)
         try:
-            async with AsyncClient() as client:
-                yield cls(
-                    config=config,
-                    redis=redis,
-                    session=session,
-                    http_client=client,
-                    logger=logger,
-                )
+            factory = sessionmaker(
+                engine, expire_on_commit=False, class_=AsyncSession
+            )
+            async with factory() as session:
+                async with session.begin():
+                    async with AsyncClient() as client:
+                        yield cls(
+                            config=config,
+                            redis=redis,
+                            session=session,
+                            http_client=client,
+                            logger=logger,
+                        )
         finally:
             await redis_dependency.close()
-            session.close()
+            await engine.dispose()
 
     def __init__(
         self,
         *,
         config: Config,
         redis: Redis,
-        session: Session,
+        session: AsyncSession,
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
@@ -123,10 +127,7 @@ class ComponentFactory:
         """
         admin_store = AdminStore(self._session)
         admin_history_store = AdminHistoryStore(self._session)
-        transaction_manager = TransactionManager(self._session)
-        return AdminService(
-            admin_store, admin_history_store, transaction_manager
-        )
+        return AdminService(admin_store, admin_history_store)
 
     def create_kubernetes_service(self) -> KubernetesService:
         """Create a Kubernetes service."""
@@ -230,15 +231,16 @@ class ComponentFactory:
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_cache = TokenCache(token_redis_store)
-        token_change_store = TokenChangeHistoryStore(self._session)
-        transaction_manager = TransactionManager(self._session)
+        is_postgres = self._config.database_url.startswith("postgresql")
+        token_change_store = TokenChangeHistoryStore(
+            self._session, is_postgres
+        )
         return TokenService(
             config=self._config,
             token_cache=token_cache,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
-            transaction_manager=transaction_manager,
             logger=self._logger,
         )
 

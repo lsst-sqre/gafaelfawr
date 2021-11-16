@@ -40,6 +40,7 @@ async def test_create_delete_modify(
         ip_address="127.0.0.1",
     )
     csrf = await setup.login(session_token)
+    await setup.session.commit()
 
     expires = current_datetime() + timedelta(days=100)
     r = await setup.client.post(
@@ -223,6 +224,7 @@ async def test_token_info(setup: SetupTest) -> None:
     session_token = await token_service.create_session_token(
         user_info, scopes=["exec:admin", "user:token"], ip_address="127.0.0.1"
     )
+    await setup.session.commit()
 
     r = await setup.client.get(
         "/auth/api/v1/token-info",
@@ -275,6 +277,7 @@ async def test_token_info(setup: SetupTest) -> None:
         expires=expires,
         ip_address="127.0.0.1",
     )
+    await setup.session.commit()
 
     r = await setup.client.get(
         "/auth/api/v1/token-info",
@@ -471,6 +474,7 @@ async def test_no_scope(setup: SetupTest) -> None:
         scopes=[],
         ip_address="127.0.0.1",
     )
+    await setup.session.commit()
 
     r = await setup.client.get(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -540,6 +544,7 @@ async def test_wrong_user(setup: SetupTest) -> None:
         scopes=[],
         ip_address="127.0.0.1",
     )
+    await setup.session.commit()
 
     # Get a token list.
     r = await setup.client.get("/auth/api/v1/users/other-person/tokens")
