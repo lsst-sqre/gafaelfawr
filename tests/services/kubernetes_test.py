@@ -360,6 +360,7 @@ async def test_modify(
         type="Opaque",
     )
     mock_kubernetes.replace_namespaced_secret("gafaelfawr", "nublado2", secret)
+    await setup.session.commit()
 
     # Update the secrets.  This should create new tokens for both.
     await kubernetes_service.update_service_tokens()
@@ -381,6 +382,7 @@ async def test_modify(
 
     # Update the secrets.  This should create a new token for the first secret
     # but not for the second.
+    await setup.session.commit()
     await kubernetes_service.update_service_tokens()
     await assert_kubernetes_secrets_are_correct(
         setup, mock_kubernetes, is_fresh=False

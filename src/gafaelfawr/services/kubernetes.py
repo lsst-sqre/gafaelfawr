@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from typing import Dict, Optional
 
     from kubernetes.client import V1Secret
+    from sqlalchemy.ext.asyncio import AsyncSession
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.services.token import TokenService
@@ -77,16 +78,35 @@ class KubernetesService:
     found during that initial pass whose secrets are correctly up to date.  We
     will then skip the corresponding events when we receive them when starting
     up the watcher, although will redo the metadata checks.
+
+    This service unfortunately has to be aware of the database session since
+    it has to manage transactions around token issuance.  The token service is
+    transaction-unaware because it normally runs in the context of a request
+    handler, where we implement one transaction per request.
+
+    Parameters
+    ----------
+    token_service : `gafaelfawr.services.token.TokenService`
+        Token management service.
+    storage : `gafaelfawr.storage.kubernetes.KubernetesStorage`
+        Storage layer for the Kubernetes cluster.
+    session : `sqlalchemy.ext.asyncio.AsyncSession`
+        Database session, used for transaction management.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger to report issues.
     """
 
     def __init__(
         self,
+        *,
         token_service: TokenService,
         storage: KubernetesStorage,
+        session: AsyncSession,
         logger: BoundLogger,
     ) -> None:
         self._token_service = token_service
         self._storage = storage
+        self._session = session
         self._logger = logger
         self._last_generation: Dict[str, int] = {}
 
@@ -205,9 +225,10 @@ class KubernetesService:
             token_type=TokenType.service,
             scopes=parent.scopes,
         )
-        return await self._token_service.create_token_from_admin_request(
-            request, TokenData.internal_token(), ip_address=None
-        )
+        async with self._session.begin():
+            return await self._token_service.create_token_from_admin_request(
+                request, TokenData.internal_token(), ip_address=None
+            )
 
     async def _secret_needs_update(
         self, parent: GafaelfawrServiceToken, secret: Optional[V1Secret]

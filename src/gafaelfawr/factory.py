@@ -85,19 +85,18 @@ class ComponentFactory:
         logger.debug("Connecting to PostgreSQL")
         engine = create_async_engine(config.database_url, future=True)
         try:
-            factory = sessionmaker(
+            session_factory = sessionmaker(
                 engine, expire_on_commit=False, class_=AsyncSession
             )
-            async with factory() as session:
-                async with session.begin():
-                    async with AsyncClient() as client:
-                        yield cls(
-                            config=config,
-                            redis=redis,
-                            session=session,
-                            http_client=client,
-                            logger=logger,
-                        )
+            async with session_factory() as session:
+                async with AsyncClient() as client:
+                    yield cls(
+                        config=config,
+                        redis=redis,
+                        session=session,
+                        http_client=client,
+                        logger=logger,
+                    )
         finally:
             await redis_dependency.close()
             await engine.dispose()
@@ -136,6 +135,7 @@ class ComponentFactory:
         return KubernetesService(
             token_service=token_service,
             storage=storage,
+            session=self._session,
             logger=self._logger,
         )
 
