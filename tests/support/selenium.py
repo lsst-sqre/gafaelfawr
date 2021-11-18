@@ -11,88 +11,28 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 from urllib.parse import urlparse
 
+import structlog
+from fastapi import FastAPI
 from seleniumwire import webdriver
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.models.token import Token
+from gafaelfawr.dependencies.redis import redis_dependency
+from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.main import app
+from gafaelfawr.models.token import Token, TokenUserInfo
+from tests.support.tokens import add_expired_session_token
 
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import AsyncIterator
 
     from gafelfawr.config import Config
-
-APP_TEMPLATE = """
-import os
-from datetime import timedelta
-from unittest.mock import MagicMock
-from urllib.parse import urlparse
-
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.main import app
-from gafaelfawr.models.token import TokenUserInfo
-from gafaelfawr.util import current_datetime
-from tests.support.tokens import add_expired_session_token
-
-config_dependency.set_settings_path("{settings_path}")
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    config = await config_dependency()
-    is_postgres = config.database_url.startswith("postgresql")
-    logger = structlog.get_logger(config.safir.logger_name)
-    user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
-    scopes = list(config.known_scopes.keys())
-
-    # Mock out Redis if there is none running.
-    if not os.environ.get("REDIS_6379_TCP_PORT"):
-        import mockaioredis
-
-        redis = await mockaioredis.create_redis_pool("")
-        redis_dependency.set_redis(redis)
-
-    engine = create_async_engine(config.database_url, future=True)
-    session_factory = sessionmaker(
-        engine, expire_on_commit=False, class_=AsyncSession
-    )
-    async with session_factory() as session:
-        async with session.begin():
-            # Add an expired token so that we can test display of expired
-            # tokens.
-            await add_expired_session_token(
-                user_info,
-                scopes=scopes,
-                ip_address="127.0.0.1",
-                session=session,
-                is_postgres=is_postgres,
-            )
-
-            # Add the valid session token.
-            factory = ComponentFactory(
-                config=config,
-                redis=await redis_dependency(config),
-                session=session,
-                http_client=MagicMock(),
-                logger=logger,
-            )
-            token_service = factory.create_token_service()
-            token = await token_service.create_session_token(
-                user_info, scopes=scopes, ip_address="127.0.0.1"
-            )
-
-    with open("{token_path}", "w") as f:
-        f.write(str(token))
-"""
 
 
 @dataclass
@@ -179,6 +119,77 @@ def _wait_for_server(port: int, timeout: float = 5.0) -> None:
         time.sleep(0.1)
 
 
+async def _selenium_startup(token_path: str) -> None:
+    """Startup hook for the app run in Selenium testing mode."""
+    config = await config_dependency()
+    is_postgres = config.database_url.startswith("postgresql")
+    logger = structlog.get_logger(config.safir.logger_name)
+    user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
+    scopes = list(config.known_scopes.keys())
+
+    # Mock out Redis if there is none running.
+    if not os.environ.get("REDIS_6379_TCP_PORT"):
+        import mockaioredis
+
+        redis = await mockaioredis.create_redis_pool("")
+        redis_dependency.set_redis(redis)
+
+    engine = create_async_engine(config.database_url, future=True)
+    session_factory = sessionmaker(
+        engine, expire_on_commit=False, class_=AsyncSession
+    )
+    async with session_factory() as session:
+        async with session.begin():
+            # Add an expired token so that we can test display of expired
+            # tokens.
+            await add_expired_session_token(
+                user_info,
+                scopes=scopes,
+                ip_address="127.0.0.1",
+                session=session,
+                is_postgres=is_postgres,
+            )
+
+            # Add the valid session token.
+            factory = ComponentFactory(
+                config=config,
+                redis=await redis_dependency(config),
+                session=session,
+                http_client=MagicMock(),
+                logger=logger,
+            )
+            token_service = factory.create_token_service()
+            token = await token_service.create_session_token(
+                user_info, scopes=scopes, ip_address="127.0.0.1"
+            )
+
+    with open(token_path, "w") as f:
+        f.write(str(token))
+
+
+def create_app() -> FastAPI:
+    """Create the FastAPI app that Selenium should run.
+
+    This is the same as the main Gafaelfawr app but with an additional startup
+    handler that initializes some tokens in Redis.  This setup must be done
+    inside the spawned app in case the Redis in question is a memory-only mock
+    Redis.
+
+    Notes
+    -----
+    This function modifies the main Gafaelfawr app in place, so it must only
+    be called by uvicorn in the separate process spawned by run_app.  If it is
+    run in the main pytest process, it will break other tests.
+    """
+    token_path = os.environ["GAFAELFAWR_TEST_TOKEN_PATH"]
+
+    @app.on_event("startup")
+    async def selenium_startup_event() -> None:
+        await _selenium_startup(token_path)
+
+    return app
+
+
 @asynccontextmanager
 async def run_app(
     tmp_path: Path, settings_path: Path
@@ -194,32 +205,37 @@ async def run_app(
     """
     config_dependency.set_settings_path(str(settings_path))
     config = await config_dependency()
+    token_path = tmp_path / "token"
 
     # Initialize the database.  Non-SQLite databases need to be reset between
     # tests.
     should_reset = not urlparse(config.database_url).scheme == "sqlite"
     await initialize_database(config, reset=should_reset)
 
-    token_path = tmp_path / "token"
-    app_source = APP_TEMPLATE.format(
-        settings_path=str(settings_path),
-        token_path=str(token_path),
-    )
-    app_path = tmp_path / "testing.py"
-    with app_path.open("w") as f:
-        f.write(app_source)
-
+    # Create the socket that the app will listen on.
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
 
-    cmd = ["uvicorn", "--fd", "0", "testing:app"]
+    # Spawn the app in a separate process using uvicorn.
+    cmd = [
+        "uvicorn",
+        "--fd",
+        "0",
+        "--factory",
+        "tests.support.selenium:create_app",
+    ]
     logging.info("Starting server with command %s", " ".join(cmd))
     p = subprocess.Popen(
         cmd,
         cwd=str(tmp_path),
         stdin=s.fileno(),
-        env={**os.environ, "PYTHONPATH": os.getcwd()},
+        env={
+            **os.environ,
+            "GAFAELFAWR_SETTINGS_PATH": str(settings_path),
+            "GAFAELFAWR_TEST_TOKEN_PATH": str(token_path),
+            "PYTHONPATH": os.getcwd(),
+        },
     )
     s.close()
 
