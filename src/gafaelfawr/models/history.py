@@ -314,24 +314,15 @@ class TokenChangeHistoryEntry(BaseModel):
         json_encoders = {datetime: lambda v: int(v.timestamp())}
         orm_mode = True
 
-    _normalize_scopes = validator("scopes", allow_reuse=True, pre=True)(
-        normalize_scopes
-    )
-    _normalize_expires = validator("expires", allow_reuse=True, pre=True)(
-        normalize_datetime
-    )
-    _normalize_old_expires = validator(
-        "old_expires", allow_reuse=True, pre=True
-    )(normalize_datetime)
-    _normalize_old_scopes = validator(
-        "old_scopes", allow_reuse=True, pre=True
+    _normalize_scopes = validator(
+        "scopes", "old_scopes", allow_reuse=True, pre=True
     )(normalize_scopes)
+    _normalize_expires = validator(
+        "expires", "old_expires", "event_time", allow_reuse=True, pre=True
+    )(normalize_datetime)
     _normalize_ip_address = validator(
         "ip_address", allow_reuse=True, pre=True
     )(normalize_ip_address)
-    _normalize_event_time = validator(
-        "event_time", allow_reuse=True, pre=True
-    )(normalize_datetime)
 
     def reduced_dict(self) -> Dict[str, Any]:
         """Custom ``dict`` method to suppress some fields.
