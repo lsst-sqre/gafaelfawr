@@ -15,7 +15,6 @@ from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
 from tests.pages.tokens import TokensPage
-from tests.support.constants import TEST_HOSTNAME
 from tests.support.kubernetes import MockKubernetesApi
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
@@ -23,7 +22,7 @@ from tests.support.setup import SetupTest
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import AsyncIterator, Iterator, List
+    from typing import AsyncIterator, Iterator
 
     from seleniumwire import webdriver
 
@@ -66,12 +65,6 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
         yield mock_api
         for patcher in patchers:
             patcher.stop()
-
-
-@pytest.fixture
-def non_mocked_hosts() -> List[str]:
-    """Disable pytest-httpx mocking for the test application."""
-    return [TEST_HOSTNAME, "localhost"]
 
 
 @pytest.fixture
