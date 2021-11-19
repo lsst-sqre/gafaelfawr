@@ -36,25 +36,12 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
+async def app(empty_database: None) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
     Wraps the application in a lifespan manager so that startup and shutdown
-    events are sent during test execution.  Initializes the database before
-    creating the app to ensure that data is dropped from a persistent database
-    between test cases.
-
-    Notes
-    -----
-    This always uses a settings file configured for GitHub authentication for
-    the database initialization and initial app configuration, since it
-    shouldn't matter.  Use ``setup.configure()`` after the test has started to
-    change this if needed for a given test.
+    events are sent during test execution.
     """
-    settings_path = build_settings(tmp_path, "github")
-    config_dependency.set_settings_path(str(settings_path))
-    config = await config_dependency()
-    await initialize_database(config, reset=True)
     async with LifespanManager(main.app):
         yield main.app
 
@@ -84,6 +71,29 @@ def driver() -> Iterator[webdriver.Chrome]:
 
 
 @pytest.fixture
+async def empty_database(tmp_path: Path) -> None:
+    """Initialize the database for a new test.
+
+    This exists as a fixture so that multiple other fixtures can depend on it
+    and avoid any duplication of work if, say, we need both a configured
+    FastAPI app and a standalone factory.
+
+    Notes
+    -----
+    This always uses a settings file configured for GitHub authentication for
+    the database initialization and initial app configuration.  Use
+    ``setup.configure()`` after the test has started to change this if needed
+    for a given test, or avoid this fixture and any that depend on it if
+    control over the configuration prior to database initialization is
+    required.
+    """
+    settings_path = build_settings(tmp_path, "github")
+    config_dependency.set_settings_path(str(settings_path))
+    config = await config_dependency()
+    await initialize_database(config, reset=True)
+
+
+@pytest.fixture
 def mock_kubernetes() -> Iterator[MockKubernetesApi]:
     """Replace the Kubernetes API with a mock class.
 
@@ -107,7 +117,7 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
 
 @pytest.fixture
 async def selenium_config(
-    tmp_path: Path, driver: webdriver.Chrome
+    tmp_path: Path, driver: webdriver.Chrome, empty_database: None
 ) -> AsyncIterator[SeleniumConfig]:
     """Start a server for Selenium tests.
 
@@ -142,7 +152,7 @@ async def selenium_config(
 
 @pytest.fixture
 async def setup(
-    tmp_path: Path, respx_mock: respx.Router
+    tmp_path: Path, empty_database: None, respx_mock: respx.Router
 ) -> AsyncIterator[SetupTest]:
     """Create a test setup object.
 

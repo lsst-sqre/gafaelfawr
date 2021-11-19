@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI
 from seleniumwire import webdriver
 
-from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
@@ -179,9 +178,6 @@ async def run_app(
     config_dependency.set_settings_path(str(settings_path))
     config = await config_dependency()
     token_path = tmp_path / "token"
-
-    # Initialize and clear the database.
-    await initialize_database(config, reset=True)
 
     # Create the socket that the app will listen on.
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

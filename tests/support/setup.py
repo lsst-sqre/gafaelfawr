@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from gafaelfawr.constants import COOKIE_NAME
-from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
@@ -38,38 +37,6 @@ if TYPE_CHECKING:
     from gafaelfawr.keypair import RSAKeyPair
     from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
     from gafaelfawr.providers.github import GitHubUserInfo
-
-
-async def initialize(tmp_path: Path) -> Config:
-    """Do basic initialization and return a configuration.
-
-    This shared logic can be used either with `SetupTest`, which assumes an
-    ASGI application and an async test, or with non-async tests such as the
-    tests of the command-line interface.
-
-    Parameters
-    ----------
-    tmp_path : `pathlib.Path`
-        The path for temporary files.
-
-    Returns
-    -------
-    config : `gafaelfawr.config.Config`
-        The generated config, using the same defaults as `SetupTest`.
-    """
-    settings_path = build_settings(tmp_path, "github")
-    config_dependency.set_settings_path(str(settings_path))
-
-    # Avoid making an async call to config_dependency since this is the
-    # non-async initialization function, used for CLI testing.  We're
-    # guaranteed that set_settings_path will populate this attribute.
-    config = config_dependency._config
-    assert config
-
-    # Initialize and clear the database.
-    await initialize_database(config, reset=True)
-
-    return config
 
 
 class SetupTest:
@@ -106,7 +73,7 @@ class SetupTest:
         respx_mock : `respx.Router`
             The mock for simulating `httpx.AsyncClient` calls.
         """
-        config = await initialize(tmp_path)
+        config = await config_dependency()
         redis = await redis_dependency(config)
 
         # Create the database session that will be used by SetupTest and by
