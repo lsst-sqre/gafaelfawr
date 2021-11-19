@@ -590,10 +590,6 @@ class Config:
         # The database URL may have a separate secret in database_password, in
         # which case it needs to be added to the URL.  It also needs to be
         # configured to use asyncpg.
-        #
-        # We have to avoid changing the URL if we're using SQLite, because
-        # urlparse cannot deal with the expected SQLite syntax of multiple
-        # consecutive / characters.
         parsed_url = urlparse(settings.database_url)
         if parsed_url.scheme == "postgresql":
             parsed_url = parsed_url._replace(scheme="postgresql+asyncpg")
@@ -604,12 +600,7 @@ class Config:
                 f"@{parsed_url.hostname}"
             )
             parsed_url = parsed_url._replace(netloc=database_netloc)
-        if parsed_url.scheme == "sqlite":
-            database_url = settings.database_url.replace(
-                "sqlite:", "sqlite+aiosqlite:"
-            )
-        else:
-            database_url = parsed_url.geturl()
+        database_url = parsed_url.geturl()
 
         # If there is an OpenID Connect server configuration, load it from a
         # file in JSON format.  (It contains secrets.)

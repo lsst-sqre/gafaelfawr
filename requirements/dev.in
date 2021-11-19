@@ -12,13 +12,12 @@ coverage[toml]
 diagrams
 documenteer
 holdup
-lsst-sphinx-bootstrap-theme<0.3
+lsst-sphinx-bootstrap-theme
 mypy
 pre-commit
 pytest
 pytest-asyncio
 pytest-cov
-pytest-xdist[psutil]
 respx
 selenium
 selenium-wire

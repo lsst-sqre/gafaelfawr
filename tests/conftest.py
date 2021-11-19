@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from unittest.mock import patch
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import kubernetes
 import pytest
@@ -54,8 +54,7 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
     settings_path = build_settings(tmp_path, "github")
     config_dependency.set_settings_path(str(settings_path))
     config = await config_dependency()
-    should_reset = not urlparse(config.database_url).scheme == "sqlite"
-    await initialize_database(config, reset=should_reset)
+    await initialize_database(config, reset=True)
     async with LifespanManager(main.app):
         yield main.app
 

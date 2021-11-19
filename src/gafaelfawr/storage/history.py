@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, func, or_
@@ -56,13 +55,10 @@ class TokenChangeHistoryStore:
     ----------
     session : `sqlalchemy.ext.asyncio.AsyncSession`
         The database session proxy.
-    is_postgres : `bool`
-        Whether the backend database is PostgreSQL.
     """
 
-    def __init__(self, session: AsyncSession, is_postgres: bool) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
-        self._is_postgres = is_postgres
 
     async def add(self, entry: TokenChangeHistoryEntry) -> None:
         """Record a change to a token."""
@@ -284,20 +280,13 @@ class TokenChangeHistoryStore:
     ) -> Select:
         """Apply an appropriate filter for an IP or CIDR block.
 
-        If the underlying database is not PostgreSQL, which supports native
-        CIDR membership queries, cheat and turn the CIDR block into a string
-        wildcard.  This will only work for CIDR blocks on class boundaries,
-        but the intended supported database is PostgreSQL anyway.
+        Notes
+        -----
+        If there is ever a need to support a database that does not have
+        native CIDR membership queries, fallback code (probably using a LIKE
+        expression) will need to be added here.
         """
         if "/" in ip_or_cidr:
-            cidr = ip_or_cidr
-            if self._is_postgres:
-                return stmt.where(text(":c >> ip_address")).params(c=cidr)
-            else:
-                if ":" in str(ip_or_cidr):
-                    net = re.sub("::/[0-9]+$", ":%", cidr)
-                else:
-                    net = re.sub(r"(\.0)+/[0-9]+$", ".%", cidr)
-                return stmt.where(TokenChangeHistory.ip_address.like(net))
+            return stmt.where(text(":c >> ip_address")).params(c=ip_or_cidr)
         else:
             return stmt.where(TokenChangeHistory.ip_address == str(ip_or_cidr))

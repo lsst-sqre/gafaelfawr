@@ -231,8 +231,7 @@ class ComponentFactory:
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_cache = TokenCache(token_redis_store)
-        is_postgres = self._config.database_url.startswith("postgresql")
-        token_change_store = TokenChangeHistoryStore(self.session, is_postgres)
+        token_change_store = TokenChangeHistoryStore(self.session)
         return TokenService(
             config=self._config,
             token_cache=token_cache,

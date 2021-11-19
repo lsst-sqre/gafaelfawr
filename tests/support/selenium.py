@@ -11,7 +11,6 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 from fastapi import FastAPI
 from seleniumwire import webdriver
@@ -117,7 +116,6 @@ def _wait_for_server(port: int, timeout: float = 5.0) -> None:
 async def _selenium_startup(token_path: str) -> None:
     """Startup hook for the app run in Selenium testing mode."""
     config = await config_dependency()
-    is_postgres = config.database_url.startswith("postgresql")
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
 
@@ -130,7 +128,6 @@ async def _selenium_startup(token_path: str) -> None:
                 scopes=scopes,
                 ip_address="127.0.0.1",
                 session=factory.session,
-                is_postgres=is_postgres,
             )
 
             # Add the valid session token.
@@ -183,10 +180,8 @@ async def run_app(
     config = await config_dependency()
     token_path = tmp_path / "token"
 
-    # Initialize the database.  Non-SQLite databases need to be reset between
-    # tests.
-    should_reset = not urlparse(config.database_url).scheme == "sqlite"
-    await initialize_database(config, reset=should_reset)
+    # Initialize and clear the database.
+    await initialize_database(config, reset=True)
 
     # Create the socket that the app will listen on.
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

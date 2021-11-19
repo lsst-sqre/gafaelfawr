@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 import respx
 import structlog
@@ -67,10 +66,8 @@ async def initialize(tmp_path: Path) -> Config:
     config = config_dependency._config
     assert config
 
-    # Initialize the database.  Non-SQLite databases need to be reset between
-    # tests.
-    should_reset = not urlparse(config.database_url).scheme == "sqlite"
-    await initialize_database(config, reset=should_reset)
+    # Initialize and clear the database.
+    await initialize_database(config, reset=True)
 
     return config
 
@@ -100,9 +97,7 @@ class SetupTest:
         This is the only supported way to set up the test environment and
         should be called instead of calling the constructor directly.  It
         initializes and starts the application and configures an
-        `httpx.AsyncClient` to talk to it.  Whether to use a real PostgreSQL
-        and Redis server or to use SQLite and mock Redis is determined by the
-        environment variables set by ``tox``.
+        `httpx.AsyncClient` to talk to it.
 
         Parameters
         ----------

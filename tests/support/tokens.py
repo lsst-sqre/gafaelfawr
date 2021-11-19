@@ -31,7 +31,6 @@ async def add_expired_session_token(
     scopes: List[str],
     ip_address: str,
     session: AsyncSession,
-    is_postgres: bool,
 ) -> None:
     """Add an expired session token to the database.
 
@@ -53,11 +52,9 @@ async def add_expired_session_token(
         The IP address from which the request came.
     session : `sqlalchemy.ext.asyncio.AsyncSession`
         The database session.
-    is_postgres : `bool`
-        Whether the underlying database is PostgreSQL.
     """
     token_db_store = TokenDatabaseStore(session)
-    token_change_store = TokenChangeHistoryStore(session, is_postgres)
+    token_change_store = TokenChangeHistoryStore(session)
 
     token = Token()
     created = current_datetime()
