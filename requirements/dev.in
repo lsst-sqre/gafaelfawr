@@ -13,7 +13,6 @@ diagrams
 documenteer
 holdup
 lsst-sphinx-bootstrap-theme<0.3
-mockaioredis
 mypy
 pre-commit
 pytest

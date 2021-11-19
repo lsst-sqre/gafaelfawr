@@ -119,7 +119,7 @@ async def startup_event() -> None:
 async def shutdown_event() -> None:
     await http_client_dependency.aclose()
     await db_session_dependency.aclose()
-    await redis_dependency.close()
+    await redis_dependency.aclose()
 
 
 @app.exception_handler(PermissionDeniedError)

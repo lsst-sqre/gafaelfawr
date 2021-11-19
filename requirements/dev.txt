@@ -4,12 +4,6 @@
 #
 #    pip-compile --allow-unsafe --generate-hashes --output-file=requirements/dev.txt requirements/dev.in
 #
-aioredis==2.0.0 \
-    --hash=sha256:3a2de4b614e6a5f8e104238924294dc4e811aefbe17ddf52c04a93cbf06e67db \
-    --hash=sha256:9921d68a3df5c5cdb0d5b49ad4fc88a4cfdd60c108325df4f0066e8410c55ffb
-    # via
-    #   -c requirements/main.txt
-    #   mockaioredis
 alabaster==0.7.12 \
     --hash=sha256:446438bdcca0e05bd45ea2de1668c1d9b032e1a9154c2c259092d77031ddd359 \
     --hash=sha256:a661d72d58e6ea8a57f7a86e37d86716863ee5e92788398526d58b26a4e4dc02
@@ -30,12 +24,6 @@ async-generator==1.10 \
     # via
     #   trio
     #   trio-websocket
-async-timeout==4.0.1 \
-    --hash=sha256:a22c0b311af23337eb05fcf05a8b51c3ea53729d46fb5460af62bee033cec690 \
-    --hash=sha256:b930cb161a39042f9222f6efb7301399c87eeab394727ec5437924a36d6eef51
-    # via
-    #   -c requirements/main.txt
-    #   aioredis
 attrs==21.2.0 \
     --hash=sha256:149e90d6d8ac20db7a955ad60cf0e6881a3f20d37096140088356da6c716b0b1 \
     --hash=sha256:ef6aaac3ca6cd92904cdd0d83f629a15f18053ec84e6432106f7a4d04ae4f5fb
@@ -515,14 +503,6 @@ markupsafe==2.0.1 \
     # via
     #   -c requirements/main.txt
     #   jinja2
-mockaioredis==0.0.16 \
-    --hash=sha256:46ec714d905eb62f35b12254bd8a892f5b5a11c6de77dd155d99d872e274a80b \
-    --hash=sha256:d30d13e4f4312a2edae985dca2a8827f8c58ca0e64240f364530d182ede804fe
-    # via -r requirements/dev.in
-mockredispy-kblin==2.9.3.4 \
-    --hash=sha256:1cbc17ac65481a23390fb1ab12478a034db210b6b9759083d0cf84b9066d188d \
-    --hash=sha256:34b32a8d5b81dfd2ade64167a38ff861fd182f4c1a5a65a255e00c83fd9f04e5
-    # via mockaioredis
 mypy==0.910 \
     --hash=sha256:088cd9c7904b4ad80bec811053272986611b84221835e079be5bcad029e79dd9 \
     --hash=sha256:0aadfb2d3935988ec3815952e44058a3100499f5be5b28c34ac9d79f002a4a9a \
@@ -959,8 +939,6 @@ typing-extensions==4.0.0 \
     --hash=sha256:829704698b22e13ec9eaf959122315eabb370b0884400e9818334d8b677023d9
     # via
     #   -c requirements/main.txt
-    #   aioredis
-    #   async-timeout
     #   gitpython
     #   mypy
     #   sqlalchemy2-stubs

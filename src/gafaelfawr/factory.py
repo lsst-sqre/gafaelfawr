@@ -98,7 +98,7 @@ class ComponentFactory:
                         logger=logger,
                     )
         finally:
-            await redis_dependency.close()
+            await redis_dependency.aclose()
             await engine.dispose()
 
     def __init__(
@@ -110,11 +110,11 @@ class ComponentFactory:
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
+        self.session = session
         self._config = config
         self._redis = redis
         self._http_client = http_client
         self._logger = logger
-        self._session = session
 
     def create_admin_service(self) -> AdminService:
         """Create a new manager object for token administrators.
@@ -124,8 +124,8 @@ class ComponentFactory:
         admin_service : `gafaelfawr.services.admin.AdminService`
             The new token administrator manager.
         """
-        admin_store = AdminStore(self._session)
-        admin_history_store = AdminHistoryStore(self._session)
+        admin_store = AdminStore(self.session)
+        admin_history_store = AdminHistoryStore(self.session)
         return AdminService(admin_store, admin_history_store)
 
     def create_kubernetes_service(self) -> KubernetesService:
@@ -135,7 +135,7 @@ class ComponentFactory:
         return KubernetesService(
             token_service=token_service,
             storage=storage,
-            session=self._session,
+            session=self.session,
             logger=self._logger,
         )
 
@@ -226,15 +226,13 @@ class ComponentFactory:
         token_service : `gafaelfawr.services.token.TokenService`
             The new token manager.
         """
-        token_db_store = TokenDatabaseStore(self._session)
+        token_db_store = TokenDatabaseStore(self.session)
         key = self._config.session_secret
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_cache = TokenCache(token_redis_store)
         is_postgres = self._config.database_url.startswith("postgresql")
-        token_change_store = TokenChangeHistoryStore(
-            self._session, is_postgres
-        )
+        token_change_store = TokenChangeHistoryStore(self.session, is_postgres)
         return TokenService(
             config=self._config,
             token_cache=token_cache,

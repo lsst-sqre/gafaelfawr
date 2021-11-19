@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -113,11 +112,6 @@ class SetupTest:
             The mock for simulating `httpx.AsyncClient` calls.
         """
         config = await initialize(tmp_path)
-        if not os.environ.get("REDIS_6379_TCP_PORT"):
-            import mockaioredis
-
-            redis = await mockaioredis.create_redis_pool("")
-            redis_dependency.set_redis(redis)
         redis = await redis_dependency(config)
 
         # Create the database session that will be used by SetupTest and by
@@ -148,12 +142,7 @@ class SetupTest:
                     )
         finally:
             await http_client_dependency.aclose()
-            if os.environ.get("REDIS_6379_TCP_PORT"):
-                await redis_dependency.close()
-            else:
-                redis = await redis_dependency()
-                redis.close()
-                await redis.wait_closed()
+            await redis_dependency.aclose()
             await engine.dispose()
 
     def __init__(

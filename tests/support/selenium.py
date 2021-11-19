@@ -11,18 +11,13 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
 from urllib.parse import urlparse
 
-import structlog
 from fastapi import FastAPI
 from seleniumwire import webdriver
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
 from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.token import Token, TokenUserInfo
@@ -123,41 +118,22 @@ async def _selenium_startup(token_path: str) -> None:
     """Startup hook for the app run in Selenium testing mode."""
     config = await config_dependency()
     is_postgres = config.database_url.startswith("postgresql")
-    logger = structlog.get_logger(config.safir.logger_name)
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
 
-    # Mock out Redis if there is none running.
-    if not os.environ.get("REDIS_6379_TCP_PORT"):
-        import mockaioredis
-
-        redis = await mockaioredis.create_redis_pool("")
-        redis_dependency.set_redis(redis)
-
-    engine = create_async_engine(config.database_url, future=True)
-    session_factory = sessionmaker(
-        engine, expire_on_commit=False, class_=AsyncSession
-    )
-    async with session_factory() as session:
-        async with session.begin():
+    async with ComponentFactory.standalone() as factory:
+        async with factory.session.begin():
             # Add an expired token so that we can test display of expired
             # tokens.
             await add_expired_session_token(
                 user_info,
                 scopes=scopes,
                 ip_address="127.0.0.1",
-                session=session,
+                session=factory.session,
                 is_postgres=is_postgres,
             )
 
             # Add the valid session token.
-            factory = ComponentFactory(
-                config=config,
-                redis=await redis_dependency(config),
-                session=session,
-                http_client=MagicMock(),
-                logger=logger,
-            )
             token_service = factory.create_token_service()
             token = await token_service.create_session_token(
                 user_info, scopes=scopes, ip_address="127.0.0.1"
