@@ -26,6 +26,8 @@ from tests.support.constants import TEST_HOSTNAME
 if TYPE_CHECKING:
     from typing import Any, Callable, Dict, List, Optional, Union
 
+    from httpx import AsyncClient
+
     from tests.support.setup import SetupTest
 
 
@@ -166,7 +168,7 @@ def entry_to_dict(entry: TokenChangeHistoryEntry) -> Dict[str, Any]:
 
 
 async def check_history_request(
-    setup: SetupTest,
+    client: AsyncClient,
     query: Dict[str, Union[str, int]],
     history: List[TokenChangeHistoryEntry],
     selector: Callable[[TokenChangeHistoryEntry], bool],
@@ -179,7 +181,7 @@ async def check_history_request(
         url = f"/auth/api/v1/users/{username}/token-change-history?{encoded}"
     else:
         url = f"/auth/api/v1/history/token-changes?{encoded}"
-    r = await setup.client.get(url)
+    r = await client.get(url)
     filtered = [entry_to_dict(e) for e in history if selector(e)]
     if username and len(filtered) == 0:
         assert r.status_code == 404
@@ -191,7 +193,7 @@ async def check_history_request(
 
 
 async def check_pagination(
-    setup: SetupTest,
+    client: AsyncClient,
     history: List[TokenChangeHistoryEntry],
     *,
     username: Optional[str] = None,
@@ -213,7 +215,7 @@ async def check_pagination(
     prev_data = None
     all_data = []
     for end in range(5, len(history) + 4, 5):
-        r = await setup.client.get(url)
+        r = await client.get(url)
         assert r.status_code == 200
         data = r.json()
         assert data == [entry_to_dict(e) for e in history[end - 5 : end]]
@@ -227,7 +229,7 @@ async def check_pagination(
             assert not link_data.prev_url
         else:
             assert link_data.prev_url
-            r = await setup.client.get(link_data.prev_url)
+            r = await client.get(link_data.prev_url)
             assert r.status_code == 200
             assert r.json() == prev_data
             assert r.headers["X-Total-Count"] == str(len(history))
@@ -253,7 +255,7 @@ async def check_pagination(
     # URLs.
     backwards_data = data
     while link_data.prev_url:
-        r = await setup.client.get(link_data.prev_url)
+        r = await client.get(link_data.prev_url)
         assert r.status_code == 200
         assert r.headers["X-Total-Count"] == str(len(history))
         backwards_data = r.json() + backwards_data
@@ -262,48 +264,50 @@ async def check_pagination(
 
 
 @pytest.mark.asyncio
-async def test_admin_change_history(setup: SetupTest) -> None:
+async def test_admin_change_history(
+    client: AsyncClient, setup: SetupTest
+) -> None:
     token_data = await setup.create_session_token(scopes=["admin:token"])
-    await setup.login(token_data.token)
+    await setup.login(client, token_data.token)
     history = await build_history(setup)
 
-    r = await setup.client.get("/auth/api/v1/history/token-changes")
+    r = await client.get("/auth/api/v1/history/token-changes")
     assert r.status_code == 200
     assert r.json() == [entry_to_dict(e) for e in history]
     assert "Link" not in r.headers
     assert "X-Total-Count" not in r.headers
 
     # Check making paginated requests.
-    await check_pagination(setup, history)
+    await check_pagination(client, history)
 
     # Try a few different types of filtering.
     await check_history_request(
-        setup,
+        client,
         {"username": history[1].username},
         history,
         lambda e: e.username == history[1].username,
     )
     await check_history_request(
-        setup,
+        client,
         {"actor": "<bootstrap>"},
         history,
         lambda e: e.actor == "<bootstrap>",
     )
     token = history[1].token
     await check_history_request(
-        setup,
+        client,
         {"key": token},
         history,
         lambda e: e.token == token or e.parent == token,
     )
     await check_history_request(
-        setup,
+        client,
         {"token_type": "internal"},
         history,
         lambda e: e.token_type == TokenType.internal,
     )
     await check_history_request(
-        setup,
+        client,
         {"token_type": "internal", "key": token},
         history,
         lambda e: (
@@ -312,14 +316,14 @@ async def test_admin_change_history(setup: SetupTest) -> None:
         ),
     )
     await check_history_request(
-        setup,
+        client,
         {"ip_address": "192.0.2.20"},
         history,
         lambda e: e.ip_address == "192.0.2.20",
     )
     cidr_block = ip_network("192.0.2.0/24")
     await check_history_request(
-        setup,
+        client,
         {"ip_address": "192.0.2.0/24"},
         history,
         lambda e: ip_address(e.ip_address) in cidr_block,
@@ -330,32 +334,32 @@ async def test_admin_change_history(setup: SetupTest) -> None:
         return ip_address(e.ip_address) == expected
 
     await check_history_request(
-        setup,
+        client,
         {"ip_address": "2001:db8:034a:ea78:4278:4562:6578:9876"},
         history,
         ipv6_filter,
     )
     cidr_block = ip_network("2001:db8::/32")
     await check_history_request(
-        setup,
+        client,
         {"ip_address": "2001:db8::/32"},
         history,
         lambda e: ip_address(e.ip_address) in cidr_block,
     )
     await check_history_request(
-        setup,
+        client,
         {"since": int(history[5].event_time.timestamp())},
         history[:6],
         lambda e: True,
     )
     await check_history_request(
-        setup,
+        client,
         {"until": int(history[8].event_time.timestamp())},
         history[8:],
         lambda e: True,
     )
     await check_history_request(
-        setup,
+        client,
         {
             "since": int(history[9].event_time.timestamp()),
             "until": int(history[4].event_time.timestamp()),
@@ -366,38 +370,40 @@ async def test_admin_change_history(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_user_change_history(setup: SetupTest) -> None:
+async def test_user_change_history(
+    client: AsyncClient, setup: SetupTest
+) -> None:
     token_data = await setup.create_session_token(username="one")
-    await setup.login(token_data.token)
+    await setup.login(client, token_data.token)
     history = [e for e in await build_history(setup) if e.username == "one"]
 
-    r = await setup.client.get("/auth/api/v1/users/one/token-change-history")
+    r = await client.get("/auth/api/v1/users/one/token-change-history")
     assert r.status_code == 200
     assert r.json() == [entry_to_dict(e) for e in history]
     assert "Link" not in r.headers
     assert "X-Total-Count" not in r.headers
 
     # Check making paginated requests.
-    await check_pagination(setup, history, username="one")
+    await check_pagination(client, history, username="one")
 
     # Try a few different types of filtering.
     token = history[1].token
     await check_history_request(
-        setup,
+        client,
         {"key": token},
         history,
         lambda e: e.token == token or e.parent == token,
         username="one",
     )
     await check_history_request(
-        setup,
+        client,
         {"token_type": "internal"},
         history,
         lambda e: e.token_type == TokenType.internal,
         username="one",
     )
     await check_history_request(
-        setup,
+        client,
         {"token_type": "internal", "key": token},
         history,
         lambda e: (
@@ -407,7 +413,7 @@ async def test_user_change_history(setup: SetupTest) -> None:
         username="one",
     )
     await check_history_request(
-        setup,
+        client,
         {"ip_address": "192.0.2.3"},
         history,
         lambda e: e.ip_address == "192.0.2.3",
@@ -419,7 +425,7 @@ async def test_user_change_history(setup: SetupTest) -> None:
         return ip_address(e.ip_address) == expected
 
     await check_history_request(
-        setup,
+        client,
         {"ip_address": "2001:db8:034a:ea78:4278:4562:6578:9876"},
         history,
         ipv6_filter,
@@ -427,28 +433,28 @@ async def test_user_change_history(setup: SetupTest) -> None:
     )
     cidr_block = ip_network("192.0.2.0/24")
     await check_history_request(
-        setup,
+        client,
         {"ip_address": "192.0.2.0/24"},
         history,
         lambda e: ip_address(e.ip_address) in cidr_block,
         username="one",
     )
     await check_history_request(
-        setup,
+        client,
         {"since": int(history[3].event_time.timestamp())},
         history[:4],
         lambda e: True,
         username="one",
     )
     await check_history_request(
-        setup,
+        client,
         {"until": int(history[2].event_time.timestamp())},
         history[2:],
         lambda e: True,
         username="one",
     )
     await check_history_request(
-        setup,
+        client,
         {
             "since": int(history[5].event_time.timestamp()),
             "until": int(history[4].event_time.timestamp()),
@@ -460,36 +466,34 @@ async def test_user_change_history(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_auth_required(setup: SetupTest) -> None:
+async def test_auth_required(client: AsyncClient, setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
     username = token_data.username
     key = token_data.token.key
 
-    r = await setup.client.get("/auth/api/v1/history/token-changes")
+    r = await client.get("/auth/api/v1/history/token-changes")
     assert r.status_code == 401
 
-    r = await setup.client.get(
-        f"/auth/api/v1/users/{username}/token-change-history"
-    )
+    r = await client.get(f"/auth/api/v1/users/{username}/token-change-history")
     assert r.status_code == 401
 
-    r = await setup.client.get(
+    r = await client.get(
         f"/auth/api/v1/users/{username}/tokens/{key}/change-history"
     )
     assert r.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_admin_required(setup: SetupTest) -> None:
+async def test_admin_required(client: AsyncClient, setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
-    await setup.login(token_data.token)
+    await setup.login(client, token_data.token)
 
-    r = await setup.client.get("/auth/api/v1/history/token-changes")
+    r = await client.get("/auth/api/v1/history/token-changes")
     assert r.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_no_scope(setup: SetupTest) -> None:
+async def test_no_scope(client: AsyncClient, setup: SetupTest) -> None:
     token_data = await setup.create_session_token()
     username = token_data.username
     token_service = setup.factory.create_token_service()
@@ -501,13 +505,13 @@ async def test_no_scope(setup: SetupTest) -> None:
         ip_address="127.0.0.1",
     )
 
-    r = await setup.client.get(
+    r = await client.get(
         f"/auth/api/v1/users/{username}/token-change-history",
         headers={"Authorization": f"bearer {token}"},
     )
     assert r.status_code == 403
 
-    r = await setup.client.get(
+    r = await client.get(
         f"/auth/api/v1/users/{username}/tokens/{token.key}/change-history",
         headers={"Authorization": f"bearer {token}"},
     )

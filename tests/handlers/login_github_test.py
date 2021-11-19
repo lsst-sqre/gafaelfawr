@@ -19,12 +19,13 @@ if TYPE_CHECKING:
     from typing import Dict, Optional
 
     from _pytest.logging import LogCaptureFixture
-    from httpx import Response
+    from httpx import AsyncClient, Response
 
     from tests.support.setup import SetupTest
 
 
 async def simulate_github_login(
+    client: AsyncClient,
     setup: SetupTest,
     user_info: GitHubUserInfo,
     headers: Optional[Dict[str, str]] = None,
@@ -72,9 +73,7 @@ async def simulate_github_login(
     )
 
     # Simulate the redirect to GitHub.
-    r = await setup.client.get(
-        "/login", params={"rd": return_url}, headers=headers
-    )
+    r = await client.get("/login", params={"rd": return_url}, headers=headers)
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert url.scheme == "https"
@@ -88,7 +87,7 @@ async def simulate_github_login(
     }
 
     # Simulate the return from GitHub.
-    r = await setup.client.get(
+    r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     if r.status_code == 307:
@@ -98,7 +97,9 @@ async def simulate_github_login(
 
 
 @pytest.mark.asyncio
-async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
+async def test_login(
+    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -118,7 +119,9 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
     # Simulate the GitHub login.
     caplog.clear()
-    r = await simulate_github_login(setup, user_info, return_url=return_url)
+    r = await simulate_github_login(
+        client, setup, user_info, return_url=return_url
+    )
     assert r.status_code == 307
     assert parse_log(caplog) == [
         {
@@ -152,7 +155,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
     # Check that the /auth route works and finds our token, and that the user
     # information is correct.
-    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all user:token"
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
@@ -164,7 +167,7 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
     assert r.headers["X-Auth-Request-Groups"] == expected
 
     # Do the same verification with the user-info endpoint.
-    r = await setup.client.get("/auth/api/v1/user-info")
+    r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
     assert r.json() == {
         "username": "githubuser",
@@ -180,7 +183,9 @@ async def test_login(setup: SetupTest, caplog: LogCaptureFixture) -> None:
 
 
 @pytest.mark.asyncio
-async def test_login_redirect_header(setup: SetupTest) -> None:
+async def test_login_redirect_header(
+    client: AsyncClient, setup: SetupTest
+) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -193,7 +198,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
     setup.set_github_response("some-code", user_info)
 
     # Simulate the initial authentication request.
-    r = await setup.client.get(
+    r = await client.get(
         "/login", headers={"X-Auth-Request-Redirect": return_url}
     )
     assert r.status_code == 307
@@ -201,7 +206,7 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
-    r = await setup.client.get(
+    r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 307
@@ -209,13 +214,17 @@ async def test_login_redirect_header(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_login_no_destination(setup: SetupTest) -> None:
-    r = await setup.client.get("/login")
+async def test_login_no_destination(
+    client: AsyncClient, setup: SetupTest
+) -> None:
+    r = await client.get("/login")
     assert r.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_cookie_auth_with_token(setup: SetupTest) -> None:
+async def test_cookie_auth_with_token(
+    client: AsyncClient, setup: SetupTest
+) -> None:
     """Test that cookie auth takes precedence over an Authorization header.
 
     JupyterHub sends an Authorization header in its internal requests with
@@ -234,13 +243,14 @@ async def test_cookie_auth_with_token(setup: SetupTest) -> None:
 
     # Simulate the GitHub login.
     r = await simulate_github_login(
+        client,
         setup,
         user_info,
         headers={"Authorization": "token some-jupyterhub-token"},
     )
 
     # Now make a request to the /auth endpoint with a bogus token.
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "read:all"},
         headers={"Authorization": "token some-jupyterhub-token"},
@@ -250,7 +260,7 @@ async def test_cookie_auth_with_token(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_bad_redirect(setup: SetupTest) -> None:
+async def test_bad_redirect(client: AsyncClient, setup: SetupTest) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -259,12 +269,10 @@ async def test_bad_redirect(setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
 
-    r = await setup.client.get(
-        "/login", params={"rd": "https://foo.example.com/"}
-    )
+    r = await client.get("/login", params={"rd": "https://foo.example.com/"})
     assert r.status_code == 422
 
-    r = await setup.client.get(
+    r = await client.get(
         "/login",
         headers={"X-Auth-Request-Redirect": "https://foo.example.com/"},
     )
@@ -273,6 +281,7 @@ async def test_bad_redirect(setup: SetupTest) -> None:
     # But if we're deployed under foo.example.com as determined by the
     # X-Forwarded-Host header, this will be allowed.
     r = await simulate_github_login(
+        client,
         setup,
         user_info,
         headers={
@@ -285,7 +294,7 @@ async def test_bad_redirect(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_github_uppercase(setup: SetupTest) -> None:
+async def test_github_uppercase(client: AsyncClient, setup: SetupTest) -> None:
     """Tests that usernames and organization names are forced to lowercase.
 
     We do not test that slugs are forced to lowercase (and do not change the
@@ -300,17 +309,17 @@ async def test_github_uppercase(setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
 
-    r = await simulate_github_login(setup, user_info)
+    r = await simulate_github_login(client, setup, user_info)
     assert r.status_code == 307
 
     # The user returned by the /auth route should be forced to lowercase.
-    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "someuser"
 
 
 @pytest.mark.asyncio
-async def test_github_admin(setup: SetupTest) -> None:
+async def test_github_admin(client: AsyncClient, setup: SetupTest) -> None:
     """Test that a token administrator gets the admin:token scope."""
     admin_service = setup.factory.create_admin_service()
     await admin_service.add_admin(
@@ -325,16 +334,16 @@ async def test_github_admin(setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
 
-    r = await simulate_github_login(setup, user_info)
+    r = await simulate_github_login(client, setup, user_info)
     assert r.status_code == 307
 
     # The user should have admin:token scope.
-    r = await setup.client.get("/auth", params={"scope": "admin:token"})
+    r = await client.get("/auth", params={"scope": "admin:token"})
     assert r.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_invalid_username(setup: SetupTest) -> None:
+async def test_invalid_username(client: AsyncClient, setup: SetupTest) -> None:
     """Test that invalid usernames are rejected."""
     user_info = GitHubUserInfo(
         name="A User",
@@ -344,13 +353,15 @@ async def test_invalid_username(setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
 
-    r = await simulate_github_login(setup, user_info, expect_revoke=True)
+    r = await simulate_github_login(
+        client, setup, user_info, expect_revoke=True
+    )
     assert r.status_code == 403
     assert "Invalid username: invalid user" in r.text
 
 
 @pytest.mark.asyncio
-async def test_invalid_groups(setup: SetupTest) -> None:
+async def test_invalid_groups(client: AsyncClient, setup: SetupTest) -> None:
     user_info = GitHubUserInfo(
         name="A User",
         username="someuser",
@@ -363,18 +374,18 @@ async def test_invalid_groups(setup: SetupTest) -> None:
         ],
     )
 
-    r = await simulate_github_login(setup, user_info)
+    r = await simulate_github_login(client, setup, user_info)
     assert r.status_code == 307
 
     # The invalid groups should not appear but the valid group should still be
     # present.
-    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-Groups"] == "org-a-team"
 
 
 @pytest.mark.asyncio
-async def test_paginated_teams(setup: SetupTest) -> None:
+async def test_paginated_teams(client: AsyncClient, setup: SetupTest) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -392,11 +403,13 @@ async def test_paginated_teams(setup: SetupTest) -> None:
         ],
     )
 
-    r = await simulate_github_login(setup, user_info, paginate_teams=True)
+    r = await simulate_github_login(
+        client, setup, user_info, paginate_teams=True
+    )
     assert r.status_code == 307
 
     # Check the group list.
-    r = await setup.client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     expected = ",".join(
         [
@@ -410,7 +423,7 @@ async def test_paginated_teams(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_no_valid_groups(setup: SetupTest) -> None:
+async def test_no_valid_groups(client: AsyncClient, setup: SetupTest) -> None:
     assert setup.config.github
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -420,19 +433,21 @@ async def test_no_valid_groups(setup: SetupTest) -> None:
         teams=[],
     )
 
-    r = await simulate_github_login(setup, user_info, expect_revoke=True)
+    r = await simulate_github_login(
+        client, setup, user_info, expect_revoke=True
+    )
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     assert "githubuser is not a member of any authorized groups" in r.text
     assert "Some <strong>error instructions</strong> with HTML." in r.text
 
     # The user should not be logged in.
-    r = await setup.client.get("/auth", params={"scope": "user:token"})
+    r = await client.get("/auth", params={"scope": "user:token"})
     assert r.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_unicode_name(setup: SetupTest) -> None:
+async def test_unicode_name(client: AsyncClient, setup: SetupTest) -> None:
     user_info = GitHubUserInfo(
         name="名字",
         username="githubuser",
@@ -441,11 +456,11 @@ async def test_unicode_name(setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
 
-    r = await simulate_github_login(setup, user_info)
+    r = await simulate_github_login(client, setup, user_info)
     assert r.status_code == 307
 
     # Check that the name as returned from the user-info API is correct.
-    r = await setup.client.get("/auth/api/v1/user-info")
+    r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
     assert r.json() == {
         "username": "githubuser",

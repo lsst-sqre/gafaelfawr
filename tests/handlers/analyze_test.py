@@ -12,12 +12,14 @@ from gafaelfawr.models.token import Token
 from tests.support.headers import query_from_url
 
 if TYPE_CHECKING:
+    from httpx import AsyncClient
+
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_analyze_no_auth(setup: SetupTest) -> None:
-    r = await setup.client.get("/auth/analyze")
+async def test_analyze_no_auth(client: AsyncClient, setup: SetupTest) -> None:
+    r = await client.get("/auth/analyze")
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     assert not url.scheme
@@ -29,15 +31,15 @@ async def test_analyze_no_auth(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_session(setup: SetupTest) -> None:
+async def test_analyze_session(client: AsyncClient, setup: SetupTest) -> None:
     token_data = await setup.create_session_token(
         group_names=["foo", "bar"], scopes=["read:all"]
     )
     assert token_data.expires
     assert token_data.groups
-    await setup.login(token_data.token)
+    await setup.login(client, token_data.token)
 
-    r = await setup.client.get("/auth/analyze")
+    r = await client.get("/auth/analyze")
     assert r.status_code == 200
 
     # Check that the result is formatted for humans.
@@ -62,18 +64,18 @@ async def test_analyze_session(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_token(setup: SetupTest) -> None:
-    r = await setup.client.post("/auth/analyze", data={"token": "some-token"})
+async def test_invalid_token(client: AsyncClient, setup: SetupTest) -> None:
+    r = await client.post("/auth/analyze", data={"token": "some-token"})
     assert r.status_code == 200
     assert r.json() == {"token": {"errors": [ANY], "valid": False}}
 
 
 @pytest.mark.asyncio
-async def test_analyze_token(setup: SetupTest) -> None:
+async def test_analyze_token(client: AsyncClient, setup: SetupTest) -> None:
     token = Token()
 
     # Handle with no session.
-    r = await setup.client.post("/auth/analyze", data={"token": str(token)})
+    r = await client.post("/auth/analyze", data={"token": str(token)})
     assert r.status_code == 200
     assert r.json() == {
         "handle": token.dict(),
@@ -87,7 +89,7 @@ async def test_analyze_token(setup: SetupTest) -> None:
     assert token_data.expires
     assert token_data.groups
     token = token_data.token
-    r = await setup.client.post("/auth/analyze", data={"token": str(token)})
+    r = await client.post("/auth/analyze", data={"token": str(token)})
 
     # Check that the results from /analyze include the token components and
     # the token information.
@@ -126,9 +128,7 @@ async def test_analyze_token(setup: SetupTest) -> None:
     assert user_token_data
 
     # Check that the correct fields are omitted and nothing odd happens.
-    r = await setup.client.post(
-        "/auth/analyze", data={"token": str(user_token)}
-    )
+    r = await client.post("/auth/analyze", data={"token": str(user_token)})
     assert r.status_code == 200
     assert r.json() == {
         "handle": user_token.dict(),

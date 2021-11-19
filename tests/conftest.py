@@ -4,17 +4,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from unittest.mock import patch
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import kubernetes
 import pytest
 import respx
+from asgi_lifespan import LifespanManager
+from httpx import AsyncClient
 
+from gafaelfawr import main
 from gafaelfawr.constants import COOKIE_NAME
+from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
 from tests.pages.tokens import TokensPage
+from tests.support.constants import TEST_HOSTNAME
 from tests.support.kubernetes import MockKubernetesApi
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
@@ -24,9 +29,43 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import AsyncIterator, Iterator
 
+    from fastapi import FastAPI
     from seleniumwire import webdriver
 
     from tests.support.selenium import SeleniumConfig
+
+
+@pytest.fixture
+async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
+    """Return a configured test application.
+
+    Wraps the application in a lifespan manager so that startup and shutdown
+    events are sent during test execution.  Initializes the database before
+    creating the app to ensure that data is dropped from a persistent database
+    between test cases.
+
+    Notes
+    -----
+    This always uses a settings file configured for GitHub authentication for
+    the database initialization and initial app configuration, since it
+    shouldn't matter.  Use ``setup.configure()`` after the test has started to
+    change this if needed for a given test.
+    """
+    settings_path = build_settings(tmp_path, "github")
+    config_dependency.set_settings_path(str(settings_path))
+    config = await config_dependency()
+    should_reset = not urlparse(config.database_url).scheme == "sqlite"
+    await initialize_database(config, reset=should_reset)
+    async with LifespanManager(main.app):
+        yield main.app
+
+
+@pytest.fixture
+async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
+    """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
+    base_url = f"https://{TEST_HOSTNAME}"
+    async with AsyncClient(app=app, base_url=base_url) as client:
+        yield client
 
 
 @pytest.fixture(scope="session")

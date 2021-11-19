@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 
 import respx
 import structlog
-from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 from safir.dependencies.http_client import http_client_dependency
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -20,7 +19,6 @@ from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.main import app
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenData, TokenGroup, TokenUserInfo
 from tests.support.constants import TEST_HOSTNAME
@@ -138,20 +136,16 @@ class SetupTest:
         # separate or requests for routes that are also served by the app will
         # bypass the mock and call the app instead, causing tests to fail.
         try:
-            async with LifespanManager(app):
-                base_url = f"https://{TEST_HOSTNAME}"
-                async with AsyncClient(app=app, base_url=base_url) as client:
-                    async with AsyncClient() as http_client:
-                        async with session_factory() as session:
-                            yield cls(
-                                tmp_path=tmp_path,
-                                respx_mock=respx_mock,
-                                config=config,
-                                redis=redis,
-                                session=session,
-                                client=client,
-                                http_client=http_client,
-                            )
+            async with AsyncClient() as http_client:
+                async with session_factory() as session:
+                    yield cls(
+                        tmp_path=tmp_path,
+                        respx_mock=respx_mock,
+                        config=config,
+                        redis=redis,
+                        session=session,
+                        http_client=http_client,
+                    )
         finally:
             await http_client_dependency.aclose()
             if os.environ.get("REDIS_6379_TCP_PORT"):
@@ -170,7 +164,6 @@ class SetupTest:
         config: Config,
         redis: Redis,
         session: AsyncSession,
-        client: AsyncClient,
         http_client: AsyncClient,
     ) -> None:
         self.tmp_path = tmp_path
@@ -178,7 +171,6 @@ class SetupTest:
         self.config = config
         self.redis = redis
         self.session = session
-        self.client = client
         self.http_client = http_client
         self.logger = structlog.get_logger(config.safir.logger_name)
         assert self.logger
@@ -311,7 +303,7 @@ class SetupTest:
             self.config, kid, groups=groups, **claims
         )
 
-    async def login(self, token: Token) -> str:
+    async def login(self, client: AsyncClient, token: Token) -> str:
         """Create a valid Gafaelfawr session.
 
         Add a valid Gafaelfawr session cookie to the `httpx.AsyncClient`, use
@@ -319,6 +311,8 @@ class SetupTest:
 
         Parameters
         ----------
+        client : `httpx.AsyncClient`
+            The client to add the session cookie to.
         token : `gafaelfawr.models.token.Token`
             The token for the client identity to use.
 
@@ -328,14 +322,20 @@ class SetupTest:
             The CSRF token to use in subsequent API requests.
         """
         cookie = await State(token=token).as_cookie()
-        self.client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
-        r = await self.client.get("/auth/api/v1/login")
+        client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
+        r = await client.get("/auth/api/v1/login")
         assert r.status_code == 200
         return r.json()["csrf"]
 
-    def logout(self) -> None:
-        """Delete the Gafaelfawr session token."""
-        del self.client.cookies[COOKIE_NAME]
+    def logout(self, client: AsyncClient) -> None:
+        """Delete the Gafaelfawr session token.
+
+        Parameters
+        ----------
+        client : `httpx.AsyncClient`
+            The client from which to remove the session cookie.
+        """
+        del client.cookies[COOKIE_NAME]
 
     def set_github_response(
         self,
