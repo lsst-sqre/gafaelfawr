@@ -5,7 +5,7 @@ import React from 'react';
 import Layout from '../../components/layout';
 import TokenData from '../../components/tokenData';
 
-export default function TokenPage({ params }) {
+const TokenPage = function ({ params }) {
   return (
     <Layout>
       <p>
@@ -14,9 +14,11 @@ export default function TokenPage({ params }) {
       <TokenData token={params.token} />
     </Layout>
   );
-}
+};
 TokenPage.propTypes = {
   params: PropTypes.shape({
     token: PropTypes.string.isRequired,
   }),
 };
+
+export default TokenPage;

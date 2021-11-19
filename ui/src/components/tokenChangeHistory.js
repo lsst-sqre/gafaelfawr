@@ -12,7 +12,7 @@ import TokenChangeTable from './tokenChangeTable';
 import { LoginContext } from './loginContext';
 import { apiGet } from '../functions/api';
 
-export default function TokenChangeHistory({ token }) {
+const TokenChangeHistory = function ({ token }) {
   const alert = useAlert();
   const { username } = useContext(LoginContext);
   const [_data, setData] = useState([]);
@@ -28,7 +28,9 @@ export default function TokenChangeHistory({ token }) {
   useEffect(loadHistory, [loadHistory, token, username]);
 
   return <TokenChangeTable data={data} />;
-}
+};
 TokenChangeHistory.propTypes = {
   token: PropTypes.string.isRequired,
 };
+
+export default TokenChangeHistory;

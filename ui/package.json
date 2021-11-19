@@ -17,9 +17,9 @@
     "lint:fix": "eslint *.js src --fix"
   },
   "dependencies": {
-    "date-fns": "^2.25.0",
+    "date-fns": "^2.26.0",
     "formik": "^2.2.9",
-    "gatsby": "^4.1.6",
+    "gatsby": "^4.2.0",
     "gatsby-plugin-use-query-params": "^1.0.1",
     "prop-types": "^15.7.2",
     "react": "^17.0.2",
@@ -36,15 +36,15 @@
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.16.3",
-    "eslint": "^8.2.0",
-    "eslint-config-airbnb": "^18.2.1",
+    "eslint": "^8.3.0",
+    "eslint-config-airbnb": "^19.0.1",
     "eslint-config-prettier": "^8.3.0",
     "eslint-config-wesbos": "^2.1.0",
     "eslint-plugin-html": "^6.2.0",
     "eslint-plugin-import": "^2.25.3",
     "eslint-plugin-jsx-a11y": "^6.5.1",
     "eslint-plugin-prettier": "^4.0.0",
-    "eslint-plugin-react": "^7.27.0",
+    "eslint-plugin-react": "^7.27.1",
     "eslint-plugin-react-hooks": "^4.3.0",
     "prettier": "^2.4.1"
   },
@@ -67,6 +67,10 @@
             "Field"
           ]
         }
+      ],
+      "react/no-unstable-nested-components": [
+        "error",
+        { "allowAsProps": true }
       ]
     }
   }

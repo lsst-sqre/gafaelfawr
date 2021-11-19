@@ -5,7 +5,7 @@ import { useQueryParams, StringParam, withDefault } from 'use-query-params';
 import Layout from '../components/layout';
 import TokenChangeSearch from '../components/tokenChangeSearch';
 
-export default function Changes() {
+const Changes = function () {
   const [query, setQuery] = useQueryParams({
     key: StringParam,
     tokenType: withDefault(StringParam, 'any'),
@@ -22,4 +22,6 @@ export default function Changes() {
       <TokenChangeSearch query={query} setQuery={setQuery} />
     </Layout>
   );
-}
+};
+
+export default Changes;

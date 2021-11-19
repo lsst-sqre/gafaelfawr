@@ -86,7 +86,7 @@ function exceptionToErrors(e, alert) {
   return errors;
 }
 
-export default function TokenChangeSearch({ query, setQuery }) {
+const TokenChangeSearch = function ({ query, setQuery }) {
   const alert = useAlert();
   const { username } = useContext(LoginContext);
   const [_data, setData] = useState(null);
@@ -120,7 +120,7 @@ export default function TokenChangeSearch({ query, setQuery }) {
       )}
     </>
   );
-}
+};
 TokenChangeSearch.propTypes = {
   query: PropTypes.shape({
     key: PropTypes.string,
@@ -131,3 +131,5 @@ TokenChangeSearch.propTypes = {
   }).isRequired,
   setQuery: PropTypes.func.isRequired,
 };
+
+export default TokenChangeSearch;

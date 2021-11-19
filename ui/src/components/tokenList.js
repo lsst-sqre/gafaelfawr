@@ -13,7 +13,7 @@ import { LoginContext } from './loginContext.js';
 import TokenTable from './tokenTable';
 import { apiDelete, apiGet } from '../functions/api';
 
-export default function TokenList() {
+const TokenList = function () {
   const alert = useAlert();
   const { csrf, username } = useContext(LoginContext);
   const [data, setData] = useState(null);
@@ -108,4 +108,6 @@ export default function TokenList() {
       ) : null}
     </>
   );
-}
+};
+
+export default TokenList;

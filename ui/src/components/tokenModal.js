@@ -49,7 +49,7 @@ function exceptionToErrors(e, alert) {
   return errors;
 }
 
-export default function TokenModal({
+const TokenModal = function ({
   idPrefix,
   buttonLabel,
   name = '',
@@ -88,7 +88,7 @@ export default function TokenModal({
       </StyledModal>
     </AriaModal>
   );
-}
+};
 TokenModal.propTypes = {
   idPrefix: PropTypes.string.isRequired,
   buttonLabel: PropTypes.string.isRequired,
@@ -105,3 +105,5 @@ TokenModal.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   onExit: PropTypes.func.isRequired,
 };
+
+export default TokenModal;

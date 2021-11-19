@@ -15,7 +15,7 @@ import TokenChangeHistory from './tokenChangeHistory';
 import TokenName from './tokenName';
 import { apiGet } from '../functions/api';
 
-export default function TokenData({ token }) {
+const TokenData = function ({ token }) {
   const alert = useAlert();
   const { username } = useContext(LoginContext);
   const [_tokenData, setTokenData] = useState(null);
@@ -104,7 +104,9 @@ export default function TokenData({ token }) {
       <TokenChangeHistory token={token} />
     </>
   );
-}
+};
 TokenData.propTypes = {
   token: PropTypes.string.isRequired,
 };
+
+export default TokenData;

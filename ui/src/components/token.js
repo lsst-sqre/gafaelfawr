@@ -2,7 +2,7 @@ import { Link } from 'gatsby';
 import PropTypes from 'prop-types';
 import React from 'react';
 
-export default function Token({ token, link = true }) {
+const Token = function ({ token, link = true }) {
   return link ? (
     <Link to={`/id/${token}`}>
       <code className="qa-token">{token}</code>
@@ -10,8 +10,10 @@ export default function Token({ token, link = true }) {
   ) : (
     <code className="qa-token">{token}</code>
   );
-}
+};
 Token.propTypes = {
   token: PropTypes.string.isRequired,
   link: PropTypes.bool,
 };
+
+export default Token;

@@ -7,7 +7,7 @@ import { LoginContext } from './loginContext.js';
 import TokenModal from './tokenModal.js';
 import { apiGet, apiPatch } from '../functions/api.js';
 
-export default function EditTokenModal({ token, onSuccess, onExit }) {
+const EditTokenModal = function ({ token, onSuccess, onExit }) {
   const alert = useAlert();
   const { csrf, username, userScopes, config } = useContext(LoginContext);
   const [tokenData, setTokenData] = useState(null);
@@ -59,9 +59,11 @@ export default function EditTokenModal({ token, onSuccess, onExit }) {
       onExit={onExit}
     />
   );
-}
+};
 EditTokenModal.propTypes = {
   token: PropTypes.string.isRequired,
   onSuccess: PropTypes.func.isRequired,
   onExit: PropTypes.func.isRequired,
 };
+
+export default EditTokenModal;
