@@ -7,10 +7,12 @@ from typing import TYPE_CHECKING
 import pytest
 
 from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
+from tests.support.github import mock_github
 from tests.support.headers import query_from_url
 from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
+    import respx
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
@@ -95,7 +97,7 @@ async def test_logout_not_logged_in(
 
 
 @pytest.mark.asyncio
-async def test_logout_bad_url(client: AsyncClient, setup: SetupTest) -> None:
+async def test_logout_bad_url(client: AsyncClient) -> None:
     r = await client.get("/logout", params={"rd": "https://foo.example.com/"})
     assert r.status_code == 422
     assert r.json() == {
@@ -113,7 +115,7 @@ async def test_logout_bad_url(client: AsyncClient, setup: SetupTest) -> None:
 async def test_logout_github(
     client: AsyncClient,
     config: Config,
-    setup: SetupTest,
+    respx_mock: respx.Router,
     caplog: LogCaptureFixture,
 ) -> None:
     user_info = GitHubUserInfo(
@@ -127,7 +129,7 @@ async def test_logout_github(
     )
 
     # Log in and log out.
-    await setup.set_github_response("some-code", user_info, expect_revoke=True)
+    await mock_github(respx_mock, "some-code", user_info, expect_revoke=True)
     r = await client.get("/login", params={"rd": "https://example.com"})
     assert r.status_code == 307
     query = query_from_url(r.headers["Location"])

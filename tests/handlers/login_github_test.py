@@ -14,11 +14,13 @@ from gafaelfawr.providers.github import (
     GitHubTeam,
     GitHubUserInfo,
 )
+from tests.support.github import mock_github
 from tests.support.logging import parse_log
 
 if TYPE_CHECKING:
     from typing import Dict, Optional
 
+    import respx
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient, Response
 
@@ -27,7 +29,7 @@ if TYPE_CHECKING:
 
 async def simulate_github_login(
     client: AsyncClient,
-    setup: SetupTest,
+    respx_mock: respx.Router,
     user_info: GitHubUserInfo,
     headers: Optional[Dict[str, str]] = None,
     return_url: str = "https://example.com/",
@@ -42,8 +44,10 @@ async def simulate_github_login(
 
     Parameters
     ----------
-    setup : `tests.support.setup.SetupTest`
-        The Gafaelfawr test setup.
+    client : `httpx.AsyncClient`
+        Client to use to make calls to the application.
+    respx_mock : `respx.Router`
+        Mock for httpx calls.
     user_info : `gafaelfawr.providers.github.GitHubUserInfo`
         The user information that GitHub should return.
     headers : Dict[`str`, `str`], optional
@@ -67,7 +71,8 @@ async def simulate_github_login(
     assert config.github
     if not headers:
         headers = {}
-    await setup.set_github_response(
+    await mock_github(
+        respx_mock,
         "some-code",
         user_info,
         paginate_teams=paginate_teams,
@@ -100,7 +105,7 @@ async def simulate_github_login(
 
 @pytest.mark.asyncio
 async def test_login(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient, respx_mock: respx.Router, caplog: LogCaptureFixture
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -122,7 +127,7 @@ async def test_login(
     # Simulate the GitHub login.
     caplog.clear()
     r = await simulate_github_login(
-        client, setup, user_info, return_url=return_url
+        client, respx_mock, user_info, return_url=return_url
     )
     assert r.status_code == 307
     assert parse_log(caplog) == [
@@ -186,7 +191,7 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_login_redirect_header(
-    client: AsyncClient, setup: SetupTest
+    client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     user_info = GitHubUserInfo(
@@ -197,7 +202,7 @@ async def test_login_redirect_header(
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
     return_url = "https://example.com/foo?a=bar&b=baz"
-    await setup.set_github_response("some-code", user_info)
+    await mock_github(respx_mock, "some-code", user_info)
 
     # Simulate the initial authentication request.
     r = await client.get(
@@ -216,16 +221,14 @@ async def test_login_redirect_header(
 
 
 @pytest.mark.asyncio
-async def test_login_no_destination(
-    client: AsyncClient, setup: SetupTest
-) -> None:
+async def test_login_no_destination(client: AsyncClient) -> None:
     r = await client.get("/login")
     assert r.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_cookie_auth_with_token(
-    client: AsyncClient, setup: SetupTest
+    client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Test that cookie auth takes precedence over an Authorization header.
 
@@ -246,7 +249,7 @@ async def test_cookie_auth_with_token(
     # Simulate the GitHub login.
     r = await simulate_github_login(
         client,
-        setup,
+        respx_mock,
         user_info,
         headers={"Authorization": "token some-jupyterhub-token"},
     )
@@ -262,7 +265,9 @@ async def test_cookie_auth_with_token(
 
 
 @pytest.mark.asyncio
-async def test_bad_redirect(client: AsyncClient, setup: SetupTest) -> None:
+async def test_bad_redirect(
+    client: AsyncClient, respx_mock: respx.Router
+) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -284,7 +289,7 @@ async def test_bad_redirect(client: AsyncClient, setup: SetupTest) -> None:
     # X-Forwarded-Host header, this will be allowed.
     r = await simulate_github_login(
         client,
-        setup,
+        respx_mock,
         user_info,
         headers={
             "X-Forwarded-For": "192.168.0.1",
@@ -296,7 +301,9 @@ async def test_bad_redirect(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_github_uppercase(client: AsyncClient, setup: SetupTest) -> None:
+async def test_github_uppercase(
+    client: AsyncClient, respx_mock: respx.Router
+) -> None:
     """Tests that usernames and organization names are forced to lowercase.
 
     We do not test that slugs are forced to lowercase (and do not change the
@@ -311,7 +318,7 @@ async def test_github_uppercase(client: AsyncClient, setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
 
-    r = await simulate_github_login(client, setup, user_info)
+    r = await simulate_github_login(client, respx_mock, user_info)
     assert r.status_code == 307
 
     # The user returned by the /auth route should be forced to lowercase.
@@ -321,7 +328,9 @@ async def test_github_uppercase(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_github_admin(client: AsyncClient, setup: SetupTest) -> None:
+async def test_github_admin(
+    client: AsyncClient, respx_mock: respx.Router, setup: SetupTest
+) -> None:
     """Test that a token administrator gets the admin:token scope."""
     admin_service = setup.factory.create_admin_service()
     await admin_service.add_admin(
@@ -336,7 +345,7 @@ async def test_github_admin(client: AsyncClient, setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
 
-    r = await simulate_github_login(client, setup, user_info)
+    r = await simulate_github_login(client, respx_mock, user_info)
     assert r.status_code == 307
 
     # The user should have admin:token scope.
@@ -345,7 +354,9 @@ async def test_github_admin(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_username(client: AsyncClient, setup: SetupTest) -> None:
+async def test_invalid_username(
+    client: AsyncClient, respx_mock: respx.Router
+) -> None:
     """Test that invalid usernames are rejected."""
     user_info = GitHubUserInfo(
         name="A User",
@@ -356,14 +367,16 @@ async def test_invalid_username(client: AsyncClient, setup: SetupTest) -> None:
     )
 
     r = await simulate_github_login(
-        client, setup, user_info, expect_revoke=True
+        client, respx_mock, user_info, expect_revoke=True
     )
     assert r.status_code == 403
     assert "Invalid username: invalid user" in r.text
 
 
 @pytest.mark.asyncio
-async def test_invalid_groups(client: AsyncClient, setup: SetupTest) -> None:
+async def test_invalid_groups(
+    client: AsyncClient, respx_mock: respx.Router
+) -> None:
     user_info = GitHubUserInfo(
         name="A User",
         username="someuser",
@@ -376,7 +389,7 @@ async def test_invalid_groups(client: AsyncClient, setup: SetupTest) -> None:
         ],
     )
 
-    r = await simulate_github_login(client, setup, user_info)
+    r = await simulate_github_login(client, respx_mock, user_info)
     assert r.status_code == 307
 
     # The invalid groups should not appear but the valid group should still be
@@ -387,7 +400,9 @@ async def test_invalid_groups(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_paginated_teams(client: AsyncClient, setup: SetupTest) -> None:
+async def test_paginated_teams(
+    client: AsyncClient, respx_mock: respx.Router
+) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -406,7 +421,7 @@ async def test_paginated_teams(client: AsyncClient, setup: SetupTest) -> None:
     )
 
     r = await simulate_github_login(
-        client, setup, user_info, paginate_teams=True
+        client, respx_mock, user_info, paginate_teams=True
     )
     assert r.status_code == 307
 
@@ -425,7 +440,9 @@ async def test_paginated_teams(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_no_valid_groups(client: AsyncClient, setup: SetupTest) -> None:
+async def test_no_valid_groups(
+    client: AsyncClient, respx_mock: respx.Router
+) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -435,7 +452,7 @@ async def test_no_valid_groups(client: AsyncClient, setup: SetupTest) -> None:
     )
 
     r = await simulate_github_login(
-        client, setup, user_info, expect_revoke=True
+        client, respx_mock, user_info, expect_revoke=True
     )
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
@@ -448,7 +465,9 @@ async def test_no_valid_groups(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_unicode_name(client: AsyncClient, setup: SetupTest) -> None:
+async def test_unicode_name(
+    client: AsyncClient, respx_mock: respx.Router
+) -> None:
     user_info = GitHubUserInfo(
         name="名字",
         username="githubuser",
@@ -457,7 +476,7 @@ async def test_unicode_name(client: AsyncClient, setup: SetupTest) -> None:
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
 
-    r = await simulate_github_login(client, setup, user_info)
+    r = await simulate_github_login(client, respx_mock, user_info)
     assert r.status_code == 307
 
     # Check that the name as returned from the user-info API is correct.

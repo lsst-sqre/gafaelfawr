@@ -19,7 +19,6 @@ from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenData, TokenGroup, TokenUserInfo
 from tests.support.constants import TEST_HOSTNAME
-from tests.support.github import mock_github
 from tests.support.oidc import (
     mock_oidc_provider_config,
     mock_oidc_provider_token,
@@ -34,7 +33,6 @@ if TYPE_CHECKING:
     from gafaelfawr.config import Config
     from gafaelfawr.keypair import RSAKeyPair
     from gafaelfawr.models.oidc import OIDCToken
-    from gafaelfawr.providers.github import GitHubUserInfo
 
 
 class SetupTest:
@@ -224,36 +222,6 @@ class SetupTest:
             The client from which to remove the session cookie.
         """
         del client.cookies[COOKIE_NAME]
-
-    async def set_github_response(
-        self,
-        code: str,
-        user_info: GitHubUserInfo,
-        *,
-        paginate_teams: bool = False,
-        expect_revoke: bool = False,
-    ) -> None:
-        """Mock the GitHub API.
-
-        Parameters
-        ----------
-        code : `str`
-            The code that Gafaelfawr must send to redeem a token.
-        user_info : `gafaelfawr.providers.github.GitHubUserInfo`
-            User information to use to synthesize GitHub API responses.
-        paginate_teams : `bool`, optional
-            Whether to paginate the team results.  Default: `False`
-        expect_revoke : `bool`, optional
-            Whether to expect a revocation of the token after returning all
-            user information.  Default: `False`
-        """
-        await mock_github(
-            self.respx_mock,
-            code,
-            user_info,
-            paginate_teams=paginate_teams,
-            expect_revoke=expect_revoke,
-        )
 
     async def set_oidc_configuration_response(
         self,
