@@ -20,6 +20,7 @@ from gafaelfawr.exceptions import (
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
 from tests.support.settings import configure
+from tests.support.tokens import create_upstream_oidc_token
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -146,7 +147,7 @@ async def test_key_retrieval(tmp_path: Path, setup: SetupTest) -> None:
     setup.respx_mock.get(oidc_url).respond(404)
 
     # Check token verification with this configuration.
-    token = await setup.create_upstream_oidc_token(kid="some-kid")
+    token = await create_upstream_oidc_token(kid="some-kid")
     assert await verifier.verify_oidc_token(token)
 
     # Wrong algorithm for the key.
@@ -166,7 +167,7 @@ async def test_key_retrieval(tmp_path: Path, setup: SetupTest) -> None:
 
     # Try with a new key ID and return a malformed reponse.
     setup.respx_mock.get(jwks_url).respond(json=["foo"])
-    token = await setup.create_upstream_oidc_token(kid="malformed")
+    token = await create_upstream_oidc_token(kid="malformed")
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 
@@ -180,7 +181,7 @@ async def test_key_retrieval(tmp_path: Path, setup: SetupTest) -> None:
     jwks.keys[1].kid = "another-kid"
     setup.respx_mock.get(jwks_url).respond(json=jwks.dict())
     setup.respx_mock.get(oidc_url).respond(json=["foo"])
-    token = await setup.create_upstream_oidc_token(kid="another-kid")
+    token = await create_upstream_oidc_token(kid="another-kid")
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 

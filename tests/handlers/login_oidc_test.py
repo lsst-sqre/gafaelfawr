@@ -11,6 +11,7 @@ from httpx import ConnectError
 
 from tests.support.logging import parse_log
 from tests.support.settings import configure
+from tests.support.tokens import create_upstream_oidc_token
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,7 +30,7 @@ async def test_login(
     caplog: LogCaptureFixture,
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(
+    token = await create_upstream_oidc_token(
         groups=["admin"], name="Some Person", email="person@example.com"
     )
     await setup.set_oidc_token_response("some-code", token)
@@ -120,7 +121,7 @@ async def test_login_redirect_header(
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(groups=["admin"])
+    token = await create_upstream_oidc_token(groups=["admin"])
     await setup.set_oidc_token_response("some-code", token)
     await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo?a=bar&b=baz"
@@ -146,7 +147,7 @@ async def test_oauth2_callback(
 ) -> None:
     """Test the compatibility /oauth2/callback route."""
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(groups=["admin"])
+    token = await create_upstream_oidc_token(groups=["admin"])
     await setup.set_oidc_token_response("some-code", token)
     await setup.set_oidc_configuration_response(config.issuer.keypair)
     assert config.oidc
@@ -176,7 +177,7 @@ async def test_claim_names(
         tmp_path, "oidc", username_claim="username", uid_claim="numeric_uid"
     )
     assert config.oidc
-    token = await setup.create_upstream_oidc_token(
+    token = await create_upstream_oidc_token(
         groups=["admin"], username="alt-username", numeric_uid=7890
     )
     await setup.set_oidc_token_response("some-code", token)
@@ -337,7 +338,7 @@ async def test_verify_error(
     tmp_path: Path, client: AsyncClient, setup: SetupTest
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(groups=["admin"])
+    token = await create_upstream_oidc_token(groups=["admin"])
     assert config.oidc
     issuer = config.oidc.issuer
     config_url = urljoin(issuer, "/.well-known/openid-configuration")
@@ -367,7 +368,7 @@ async def test_invalid_username(
     tmp_path: Path, client: AsyncClient, setup: SetupTest
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(
+    token = await create_upstream_oidc_token(
         groups=["admin"], sub="invalid@user", uid="invalid@user"
     )
     await setup.set_oidc_token_response("some-code", token)
@@ -392,7 +393,7 @@ async def test_invalid_group_syntax(
     tmp_path: Path, client: AsyncClient, setup: SetupTest
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(
+    token = await create_upstream_oidc_token(
         isMemberOf=[{"name": "foo", "id": ["bar"]}]
     )
     await setup.set_oidc_token_response("some-code", token)
@@ -417,7 +418,7 @@ async def test_invalid_groups(
     tmp_path: Path, client: AsyncClient, setup: SetupTest
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(
+    token = await create_upstream_oidc_token(
         isMemberOf=[
             {"name": "foo"},
             {"group": "bar", "id": 4567},
@@ -454,7 +455,7 @@ async def test_no_valid_groups(
     tmp_path: Path, client: AsyncClient, setup: SetupTest
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(groups=[])
+    token = await create_upstream_oidc_token(groups=[])
     await setup.set_oidc_token_response("some-code", token)
     await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo?a=bar&b=baz"
@@ -484,7 +485,7 @@ async def test_unicode_name(
     tmp_path: Path, client: AsyncClient, setup: SetupTest
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await setup.create_upstream_oidc_token(name="名字", groups=["admin"])
+    token = await create_upstream_oidc_token(name="名字", groups=["admin"])
     await setup.set_oidc_token_response("some-code", token)
     await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo"

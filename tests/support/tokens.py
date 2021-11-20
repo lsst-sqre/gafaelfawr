@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import OIDCVerifiedToken
 from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
@@ -148,10 +149,9 @@ def create_test_token(
     )
 
 
-def create_upstream_oidc_token(
-    config: Config,
-    kid: str,
+async def create_upstream_oidc_token(
     *,
+    kid: Optional[str] = None,
     groups: Optional[List[str]] = None,
     **claims: Any,
 ) -> OIDCVerifiedToken:
@@ -164,7 +164,7 @@ def create_upstream_oidc_token(
     ----------
     config : `gafaelfawr.config.Config`
         The configuration.
-    kid : `str`
+    kid : `str`, optional
         Key ID for the token header.
     groups : List[`str`], optional
         Group memberships the generated token should have.
@@ -176,7 +176,10 @@ def create_upstream_oidc_token(
     token : `gafaelfawr.tokens.VerifiedToken`
         The new token.
     """
+    config = await config_dependency()
     assert config.oidc
+    if not kid:
+        kid = config.oidc.key_ids[0]
     payload = {
         "aud": config.oidc.audience,
         "iss": config.oidc.issuer,

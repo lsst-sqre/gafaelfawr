@@ -24,17 +24,16 @@ from tests.support.oidc import (
     mock_oidc_provider_config,
     mock_oidc_provider_token,
 )
-from tests.support.tokens import create_upstream_oidc_token
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, AsyncIterator, List, Optional
+    from typing import AsyncIterator, List, Optional
 
     from aioredis import Redis
 
     from gafaelfawr.config import Config
     from gafaelfawr.keypair import RSAKeyPair
-    from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
+    from gafaelfawr.models.oidc import OIDCToken
     from gafaelfawr.providers.github import GitHubUserInfo
 
 
@@ -191,36 +190,6 @@ class SetupTest:
         assert data
         await self.session.commit()
         return data
-
-    async def create_upstream_oidc_token(
-        self,
-        *,
-        kid: Optional[str] = None,
-        groups: Optional[List[str]] = None,
-        **claims: Any,
-    ) -> OIDCVerifiedToken:
-        """Create a signed OpenID Connect token.
-
-        Parameters
-        ----------
-        kid : `str`, optional
-            Key ID for the token header.  Defaults to the first key in the
-            key_ids configuration for the OpenID Connect provider.
-        groups : List[`str`], optional
-            Group memberships the generated token should have.
-        **claims : `str`, optional
-            Other claims to set or override in the token.
-
-        Returns
-        -------
-        token : `gafaelfawr.models..oidc.OIDCVerifiedToken`
-            The generated token.
-        """
-        config = await config_dependency()
-        if not kid:
-            assert config.oidc
-            kid = config.oidc.key_ids[0]
-        return create_upstream_oidc_token(config, kid, groups=groups, **claims)
 
     async def login(self, client: AsyncClient, token: Token) -> str:
         """Create a valid Gafaelfawr session.
