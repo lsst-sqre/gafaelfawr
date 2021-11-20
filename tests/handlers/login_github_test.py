@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.providers.github import (
     GitHubProvider,
     GitHubTeam,
@@ -62,10 +63,11 @@ async def simulate_github_login(
     response : ``httpx.Response``
         The response from the return to the ``/login`` handler.
     """
-    assert setup.config.github
+    config = await config_dependency()
+    assert config.github
     if not headers:
         headers = {}
-    setup.set_github_response(
+    await setup.set_github_response(
         "some-code",
         user_info,
         paginate_teams=paginate_teams,
@@ -81,7 +83,7 @@ async def simulate_github_login(
     assert url.query
     query = parse_qs(url.query)
     assert query == {
-        "client_id": [setup.config.github.client_id],
+        "client_id": [config.github.client_id],
         "scope": [" ".join(GitHubProvider._SCOPES)],
         "state": [ANY],
     }
@@ -195,7 +197,7 @@ async def test_login_redirect_header(
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
     return_url = "https://example.com/foo?a=bar&b=baz"
-    setup.set_github_response("some-code", user_info)
+    await setup.set_github_response("some-code", user_info)
 
     # Simulate the initial authentication request.
     r = await client.get(
@@ -424,7 +426,6 @@ async def test_paginated_teams(client: AsyncClient, setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_no_valid_groups(client: AsyncClient, setup: SetupTest) -> None:
-    assert setup.config.github
     user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",

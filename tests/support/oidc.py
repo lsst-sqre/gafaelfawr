@@ -7,6 +7,8 @@ from urllib.parse import parse_qs, urljoin
 
 from httpx import Response
 
+from gafaelfawr.dependencies.config import config_dependency
+
 if TYPE_CHECKING:
     from typing import Optional
 
@@ -95,9 +97,8 @@ class MockOIDCToken:
         )
 
 
-def mock_oidc_provider_config(
+async def mock_oidc_provider_config(
     respx_mock: respx.Router,
-    config: Config,
     keypair: Optional[RSAKeyPair] = None,
     kid: Optional[str] = None,
 ) -> None:
@@ -107,14 +108,13 @@ def mock_oidc_provider_config(
     ----------
     respx_mock : `respx.Router`
         The mock router.
-    config : `gafaelfawr.config.Config`
-        Configuration for Gafaelfawr.
     keypair : `gafaelfawr.keypair.RSAKeyPair`, optional
         The keypair to use.  Defaults to the configured issuer keypair.
     kid : `str`, optional
         The key ID to return.  Defaults to the first key ID in the
         configuration.
     """
+    config = await config_dependency()
     assert config.oidc
     mock = MockOIDCConfig(config, keypair, kid)
     issuer = config.oidc.issuer
@@ -124,8 +124,8 @@ def mock_oidc_provider_config(
     respx_mock.get(jwks_url).mock(side_effect=mock.get_jwks)
 
 
-def mock_oidc_provider_token(
-    respx_mock: respx.Router, config: Config, code: str, token: OIDCToken
+async def mock_oidc_provider_token(
+    respx_mock: respx.Router, code: str, token: OIDCToken
 ) -> None:
     """Mock out the API for the upstream OpenID Connect provider.
 
@@ -133,13 +133,12 @@ def mock_oidc_provider_token(
     ----------
     respx_mock : `respx.Router`
         The mock router.
-    config : `gafaelfawr.config.Config`
-        Configuration for Gafaelfawr.
     code : `str`
         The code that Gafaelfawr must send to redeem for a token.
     token : `gafaelfawr.models.oidc.OIDCToken`
         The token to return after authentication.
     """
+    config = await config_dependency()
     assert config.oidc
     mock = MockOIDCToken(config, code, token)
     respx_mock.post(config.oidc.token_url).mock(side_effect=mock.post_token)

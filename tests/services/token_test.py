@@ -29,11 +29,12 @@ from gafaelfawr.util import current_datetime
 from tests.support.util import assert_is_now
 
 if TYPE_CHECKING:
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_session_token(setup: SetupTest) -> None:
+async def test_session_token(config: Config, setup: SetupTest) -> None:
     token_service = setup.factory.create_token_service()
     user_info = TokenUserInfo(
         username="example",
@@ -64,7 +65,7 @@ async def test_session_token(setup: SetupTest) -> None:
         ],
     )
     assert_is_now(data.created)
-    expires = data.created + timedelta(minutes=setup.config.issuer.exp_minutes)
+    expires = data.created + timedelta(minutes=config.issuer.exp_minutes)
     assert data.expires == expires
 
     info = await token_service.get_token_info_unchecked(token.key)
@@ -178,7 +179,7 @@ async def test_user_token(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_notebook_token(setup: SetupTest) -> None:
+async def test_notebook_token(config: Config, setup: SetupTest) -> None:
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -300,12 +301,12 @@ async def test_notebook_token(setup: SetupTest) -> None:
     assert new_token != token
     info = await token_service.get_token_info_unchecked(new_token.key)
     assert info
-    expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
+    expires = info.created + timedelta(minutes=config.issuer.exp_minutes)
     assert info.expires == expires
 
 
 @pytest.mark.asyncio
-async def test_internal_token(setup: SetupTest) -> None:
+async def test_internal_token(config: Config, setup: SetupTest) -> None:
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -398,7 +399,7 @@ async def test_internal_token(setup: SetupTest) -> None:
     # easiest way to do this is to use the internals of the token service.
     second_internal_token = Token()
     created = current_datetime()
-    expires = created + setup.config.token_lifetime
+    expires = created + config.token_lifetime
     internal_token_data = TokenData(
         token=second_internal_token,
         username=data.username,
@@ -460,12 +461,12 @@ async def test_internal_token(setup: SetupTest) -> None:
     assert new_internal_token != internal_token
     info = await token_service.get_token_info_unchecked(new_internal_token.key)
     assert info and info.scopes == []
-    expires = info.created + timedelta(minutes=setup.config.issuer.exp_minutes)
+    expires = info.created + timedelta(minutes=config.issuer.exp_minutes)
     assert info.expires == expires
 
 
 @pytest.mark.asyncio
-async def test_child_token_lifetime(setup: SetupTest) -> None:
+async def test_child_token_lifetime(config: Config, setup: SetupTest) -> None:
     """Test that a new internal token is generated at half its lifetime."""
     session_token_data = await setup.create_session_token()
     token_service = setup.factory.create_token_service()
@@ -474,7 +475,7 @@ async def test_child_token_lifetime(setup: SetupTest) -> None:
     # lifetime for an internal token.  This will get us a short-lived internal
     # token that should be ineligible for handing out for a user token that
     # doesn't expire.
-    delta = timedelta(minutes=(setup.config.issuer.exp_minutes / 2) - 5)
+    delta = timedelta(minutes=(config.issuer.exp_minutes / 2) - 5)
     expires = current_datetime() + delta
     user_token = await token_service.create_user_token(
         session_token_data,
@@ -513,7 +514,7 @@ async def test_child_token_lifetime(setup: SetupTest) -> None:
 
     # Change the expiration of the user token to longer than the maximum
     # internal token lifetime.
-    new_delta = timedelta(minutes=setup.config.issuer.exp_minutes * 2)
+    new_delta = timedelta(minutes=config.issuer.exp_minutes * 2)
     expires = current_datetime() + new_delta
     assert await token_service.modify_token(
         user_token.key,
@@ -534,7 +535,7 @@ async def test_child_token_lifetime(setup: SetupTest) -> None:
     internal_token = new_internal_token
     internal_token_data = await token_service.get_data(internal_token)
     assert internal_token_data
-    delta = timedelta(minutes=setup.config.issuer.exp_minutes)
+    delta = timedelta(minutes=config.issuer.exp_minutes)
     assert internal_token_data.expires == internal_token_data.created + delta
     new_notebook_token = await token_service.get_notebook_token(
         user_token_data, ip_address="127.0.0.1"
@@ -1041,7 +1042,7 @@ async def test_delete_cascade(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_modify_expires(setup: SetupTest) -> None:
+async def test_modify_expires(config: Config, setup: SetupTest) -> None:
     """Test that expiration changes cascade to subtokens."""
     token_service = setup.factory.create_token_service()
     session_token_data = await setup.create_session_token(
@@ -1077,7 +1078,7 @@ async def test_modify_expires(setup: SetupTest) -> None:
 
     # Check the expiration of all of those tokens matches the default
     # expiration for generated tokens.
-    delta = timedelta(minutes=setup.config.issuer.exp_minutes)
+    delta = timedelta(minutes=config.issuer.exp_minutes)
     assert notebook_token_data.expires == notebook_token_data.created + delta
     assert internal_token_data.expires == internal_token_data.created + delta
     assert nested_token_data.expires == notebook_token_data.expires
@@ -1088,7 +1089,7 @@ async def test_modify_expires(setup: SetupTest) -> None:
         assert ttl - 5 <= await setup.redis.ttl(f"token:{token.key}") <= ttl
 
     # Change the expiration of the user token.
-    new_delta = timedelta(minutes=setup.config.issuer.exp_minutes / 2)
+    new_delta = timedelta(minutes=config.issuer.exp_minutes / 2)
     new_expires = user_token_data.created + new_delta
     await token_service.modify_token(
         user_token.key,
@@ -1115,7 +1116,7 @@ async def test_modify_expires(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid(setup: SetupTest) -> None:
+async def test_invalid(config: Config, setup: SetupTest) -> None:
     token_service = setup.factory.create_token_service()
     expires = int(timedelta(days=1).total_seconds())
 
@@ -1128,7 +1129,7 @@ async def test_invalid(setup: SetupTest) -> None:
     assert await token_service.get_data(token) is None
 
     # Malformed session.
-    fernet = Fernet(setup.config.session_secret.encode())
+    fernet = Fernet(config.session_secret.encode())
     raw_data = fernet.encrypt(b"malformed json")
     await setup.redis.set(f"token:{token.key}", raw_data, ex=expires)
     assert await token_service.get_data(token) is None

@@ -10,8 +10,11 @@ import pytest
 from httpx import ConnectError
 
 from tests.support.logging import parse_log
+from tests.support.settings import configure
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
@@ -20,36 +23,39 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_login(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    tmp_path: Path,
+    client: AsyncClient,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(
         groups=["admin"], name="Some Person", email="person@example.com"
     )
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
-    assert setup.config.oidc
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
+    assert config.oidc
     return_url = "https://example.com:4444/foo?a=bar&b=baz"
 
     caplog.clear()
     r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
-    assert r.headers["Location"].startswith(setup.config.oidc.login_url)
+    assert r.headers["Location"].startswith(config.oidc.login_url)
     url = urlparse(r.headers["Location"])
     assert url.query
     query = parse_qs(url.query)
-    login_params = {p: [v] for p, v in setup.config.oidc.login_params.items()}
+    login_params = {p: [v] for p, v in config.oidc.login_params.items()}
     assert query == {
-        "client_id": [setup.config.oidc.client_id],
-        "redirect_uri": [setup.config.oidc.redirect_url],
+        "client_id": [config.oidc.client_id],
+        "redirect_uri": [config.oidc.redirect_url],
         "response_type": ["code"],
-        "scope": ["openid " + " ".join(setup.config.oidc.scopes)],
+        "scope": ["openid " + " ".join(config.oidc.scopes)],
         "state": [ANY],
         **login_params,
     }
 
     # Verify the logging.
-    login_url = setup.config.oidc.login_url
+    login_url = config.oidc.login_url
     assert parse_log(caplog) == [
         {
             "event": f"Redirecting user to {login_url} for authentication",
@@ -70,13 +76,13 @@ async def test_login(
     assert r.headers["Location"] == return_url
 
     # Verify the logging.
-    expected_scopes_set = set(setup.config.issuer.group_mapping["admin"])
+    expected_scopes_set = set(config.issuer.group_mapping["admin"])
     expected_scopes_set.add("user:token")
     expected_scopes = " ".join(sorted(expected_scopes_set))
     event = f"Successfully authenticated user {token.username} ({token.uid})"
     assert parse_log(caplog) == [
         {
-            "event": f"Retrieving ID token from {setup.config.oidc.token_url}",
+            "event": f"Retrieving ID token from {config.oidc.token_url}",
             "level": "info",
             "method": "GET",
             "path": "/login",
@@ -110,13 +116,13 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_login_redirect_header(
-    client: AsyncClient, setup: SetupTest
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(groups=["admin"])
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(groups=["admin"])
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo?a=bar&b=baz"
 
     r = await client.get(
@@ -135,20 +141,22 @@ async def test_login_redirect_header(
 
 
 @pytest.mark.asyncio
-async def test_oauth2_callback(client: AsyncClient, setup: SetupTest) -> None:
+async def test_oauth2_callback(
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
+) -> None:
     """Test the compatibility /oauth2/callback route."""
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(groups=["admin"])
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
-    assert setup.config.oidc
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(groups=["admin"])
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
+    assert config.oidc
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
-    assert query["redirect_uri"][0] == setup.config.oidc.redirect_url
+    assert query["redirect_uri"][0] == config.oidc.redirect_url
 
     # Simulate the return from the OpenID Connect provider.
     r = await client.get(
@@ -160,24 +168,26 @@ async def test_oauth2_callback(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_claim_names(client: AsyncClient, setup: SetupTest) -> None:
+async def test_claim_names(
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
+) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    await setup.configure(
-        "oidc", username_claim="username", uid_claim="numeric_uid"
+    config = await configure(
+        tmp_path, "oidc", username_claim="username", uid_claim="numeric_uid"
     )
-    assert setup.config.oidc
-    token = setup.create_upstream_oidc_token(
+    assert config.oidc
+    token = await setup.create_upstream_oidc_token(
         groups=["admin"], username="alt-username", numeric_uid=7890
     )
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
     query = parse_qs(url.query)
-    assert query["redirect_uri"][0] == setup.config.oidc.redirect_url
+    assert query["redirect_uri"][0] == config.oidc.redirect_url
 
     # Simulate the return from the OpenID Connect provider.
     r = await client.get(
@@ -197,11 +207,14 @@ async def test_claim_names(client: AsyncClient, setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_callback_error(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    tmp_path: Path,
+    client: AsyncClient,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
-    await setup.configure("oidc")
-    assert setup.config.oidc
+    config = await configure(tmp_path, "oidc")
+    assert config.oidc
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
@@ -215,9 +228,7 @@ async def test_callback_error(
         "error": "error_code",
         "error_description": "description",
     }
-    setup.respx_mock.post(setup.config.oidc.token_url).respond(
-        400, json=response
-    )
+    setup.respx_mock.post(config.oidc.token_url).respond(400, json=response)
 
     # Simulate the return from the OpenID Connect provider.
     caplog.clear()
@@ -229,7 +240,7 @@ async def test_callback_error(
     assert "error_code: description" in r.text
     assert parse_log(caplog) == [
         {
-            "event": f"Retrieving ID token from {setup.config.oidc.token_url}",
+            "event": f"Retrieving ID token from {config.oidc.token_url}",
             "level": "info",
             "method": "GET",
             "path": "/oauth2/callback",
@@ -250,7 +261,7 @@ async def test_callback_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    setup.respx_mock.post(setup.config.oidc.token_url).respond(
+    setup.respx_mock.post(config.oidc.token_url).respond(
         400, json={"foo": "bar"}
     )
     r = await client.get("/login", params={"rd": return_url})
@@ -264,9 +275,7 @@ async def test_callback_error(
 
     # Now try a reply that returns 200 but doesn't have the field we
     # need.
-    setup.respx_mock.post(setup.config.oidc.token_url).respond(
-        json={"foo": "bar"}
-    )
+    setup.respx_mock.post(config.oidc.token_url).respond(json={"foo": "bar"})
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
@@ -277,7 +286,7 @@ async def test_callback_error(
     assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
-    setup.respx_mock.post(setup.config.oidc.token_url).respond(content=b"foo")
+    setup.respx_mock.post(config.oidc.token_url).respond(content=b"foo")
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
@@ -288,9 +297,7 @@ async def test_callback_error(
     assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
-    setup.respx_mock.post(setup.config.oidc.token_url).respond(
-        400, content=b"foo"
-    )
+    setup.respx_mock.post(config.oidc.token_url).respond(400, content=b"foo")
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
@@ -302,9 +309,11 @@ async def test_callback_error(
 
 
 @pytest.mark.asyncio
-async def test_connection_error(client: AsyncClient, setup: SetupTest) -> None:
-    await setup.configure("oidc")
-    assert setup.config.oidc
+async def test_connection_error(
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
+) -> None:
+    config = await configure(tmp_path, "oidc")
+    assert config.oidc
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
@@ -314,7 +323,7 @@ async def test_connection_error(client: AsyncClient, setup: SetupTest) -> None:
 
     # Register a connection error for the callback request to the OIDC
     # provider and check that an appropriate error is shown to the user.
-    token_url = setup.config.oidc.token_url
+    token_url = config.oidc.token_url
     setup.respx_mock.post(token_url).mock(side_effect=ConnectError)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
@@ -324,17 +333,18 @@ async def test_connection_error(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_verify_error(client: AsyncClient, setup: SetupTest) -> None:
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(groups=["admin"])
-    assert setup.config.oidc
-    issuer = setup.config.oidc.issuer
+async def test_verify_error(
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
+) -> None:
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(groups=["admin"])
+    assert config.oidc
+    issuer = config.oidc.issuer
     config_url = urljoin(issuer, "/.well-known/openid-configuration")
     jwks_url = urljoin(issuer, "/.well-known/jwks.json")
     setup.respx_mock.get(config_url).respond(404)
     setup.respx_mock.get(jwks_url).respond(404)
-    setup.set_oidc_token_response("some-code", token)
-    assert setup.config.oidc
+    await setup.set_oidc_token_response("some-code", token)
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
@@ -353,14 +363,15 @@ async def test_verify_error(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_username(client: AsyncClient, setup: SetupTest) -> None:
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(
+async def test_invalid_username(
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
+) -> None:
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(
         groups=["admin"], sub="invalid@user", uid="invalid@user"
     )
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
-    assert setup.config.oidc
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
@@ -378,15 +389,14 @@ async def test_invalid_username(client: AsyncClient, setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid_group_syntax(
-    client: AsyncClient, setup: SetupTest
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
 ) -> None:
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(
         isMemberOf=[{"name": "foo", "id": ["bar"]}]
     )
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
-    assert setup.config.oidc
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
@@ -403,9 +413,11 @@ async def test_invalid_group_syntax(
 
 
 @pytest.mark.asyncio
-async def test_invalid_groups(client: AsyncClient, setup: SetupTest) -> None:
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(
+async def test_invalid_groups(
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
+) -> None:
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(
         isMemberOf=[
             {"name": "foo"},
             {"group": "bar", "id": 4567},
@@ -416,9 +428,8 @@ async def test_invalid_groups(client: AsyncClient, setup: SetupTest) -> None:
             {"name": "21341", "id": 41233},
         ]
     )
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
-    assert setup.config.oidc
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
@@ -439,11 +450,13 @@ async def test_invalid_groups(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_no_valid_groups(client: AsyncClient, setup: SetupTest) -> None:
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(groups=[])
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+async def test_no_valid_groups(
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
+) -> None:
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(groups=[])
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo?a=bar&b=baz"
 
     r = await client.get("/login", params={"rd": return_url})
@@ -467,11 +480,13 @@ async def test_no_valid_groups(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_unicode_name(client: AsyncClient, setup: SetupTest) -> None:
-    await setup.configure("oidc")
-    token = setup.create_upstream_oidc_token(name="名字", groups=["admin"])
-    setup.set_oidc_token_response("some-code", token)
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair)
+async def test_unicode_name(
+    tmp_path: Path, client: AsyncClient, setup: SetupTest
+) -> None:
+    config = await configure(tmp_path, "oidc")
+    token = await setup.create_upstream_oidc_token(name="名字", groups=["admin"])
+    await setup.set_oidc_token_response("some-code", token)
+    await setup.set_oidc_configuration_response(config.issuer.keypair)
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})

@@ -14,12 +14,16 @@ if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
 async def test_logout(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient,
+    config: Config,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
     token_data = await setup.create_session_token(scopes=["read:all"])
     await setup.login(client, token_data.token)
@@ -34,7 +38,7 @@ async def test_logout(
 
     # Check the redirect and logging.
     assert r.status_code == 307
-    assert r.headers["Location"] == setup.config.after_logout_url
+    assert r.headers["Location"] == config.after_logout_url
     assert parse_log(caplog) == [
         {
             "event": "Successful logout",
@@ -72,13 +76,13 @@ async def test_logout_with_url(client: AsyncClient, setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_logout_not_logged_in(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient, config: Config, caplog: LogCaptureFixture
 ) -> None:
     caplog.clear()
     r = await client.get("/logout")
 
     assert r.status_code == 307
-    assert r.headers["Location"] == setup.config.after_logout_url
+    assert r.headers["Location"] == config.after_logout_url
     assert parse_log(caplog) == [
         {
             "event": "Logout of already-logged-out session",
@@ -107,9 +111,11 @@ async def test_logout_bad_url(client: AsyncClient, setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_logout_github(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient,
+    config: Config,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
-    assert setup.config.github
     user_info = GitHubUserInfo(
         name="GitHub User",
         username="githubuser",
@@ -121,7 +127,7 @@ async def test_logout_github(
     )
 
     # Log in and log out.
-    setup.set_github_response("some-code", user_info, expect_revoke=True)
+    await setup.set_github_response("some-code", user_info, expect_revoke=True)
     r = await client.get("/login", params={"rd": "https://example.com"})
     assert r.status_code == 307
     query = query_from_url(r.headers["Location"])
@@ -134,7 +140,7 @@ async def test_logout_github(
 
     # Check the redirect and logging.
     assert r.status_code == 307
-    assert r.headers["Location"] == setup.config.after_logout_url
+    assert r.headers["Location"] == config.after_logout_url
     assert parse_log(caplog) == [
         {
             "event": "Revoked GitHub OAuth authorization",

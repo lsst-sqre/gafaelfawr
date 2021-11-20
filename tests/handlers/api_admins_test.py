@@ -9,6 +9,7 @@ import pytest
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
@@ -120,8 +121,8 @@ async def test_add_delete(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_bootstrap(client: AsyncClient, setup: SetupTest) -> None:
-    token = str(setup.config.bootstrap_token)
+async def test_bootstrap(client: AsyncClient, config: Config) -> None:
+    token = str(config.bootstrap_token)
 
     r = await client.post(
         "/auth/api/v1/admins",

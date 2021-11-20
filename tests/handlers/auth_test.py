@@ -10,33 +10,29 @@ import pytest
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.token import Token, TokenUserInfo
-from tests.support.headers import parse_www_authenticate
+from tests.support.headers import (
+    assert_unauthorized_is_correct,
+    parse_www_authenticate,
+)
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
-async def test_no_auth(client: AsyncClient, setup: SetupTest) -> None:
+async def test_no_auth(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     r = await client.get("/auth", params={"scope": "exec:admin"})
-    assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert_unauthorized_is_correct(r, config)
 
     r = await client.get(
         "/auth", params={"scope": "exec:admin", "auth_type": "bearer"}
     )
-    assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert_unauthorized_is_correct(r, config)
 
     r = await client.get(
         "/auth", params={"scope": "exec:admin", "auth_type": "bogus"}
@@ -46,12 +42,7 @@ async def test_no_auth(client: AsyncClient, setup: SetupTest) -> None:
     r = await client.get(
         "/auth", params={"scope": "exec:admin", "auth_type": "basic"}
     )
-    assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Basic
-    assert authenticate.realm == setup.config.realm
+    assert_unauthorized_is_correct(r, config, AuthType.Basic)
 
 
 @pytest.mark.asyncio
@@ -81,7 +72,9 @@ async def test_invalid(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_auth(client: AsyncClient, setup: SetupTest) -> None:
+async def test_invalid_auth(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
@@ -91,7 +84,7 @@ async def test_invalid_auth(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_request
 
     r = await client.get(
@@ -103,7 +96,7 @@ async def test_invalid_auth(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_request
 
     r = await client.get(
@@ -116,7 +109,7 @@ async def test_invalid_auth(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_token
 
     # Create a nonexistent token.
@@ -131,12 +124,14 @@ async def test_invalid_auth(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_token
 
 
 @pytest.mark.asyncio
-async def test_access_denied(client: AsyncClient, setup: SetupTest) -> None:
+async def test_access_denied(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     token_data = await setup.create_session_token()
 
     r = await client.get(
@@ -149,14 +144,16 @@ async def test_access_denied(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin"
     assert "Token missing required scope" in r.text
 
 
 @pytest.mark.asyncio
-async def test_auth_forbidden(client: AsyncClient, setup: SetupTest) -> None:
+async def test_auth_forbidden(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     r = await client.get(
         "/auth/forbidden",
         params=[("scope", "exec:test"), ("scope", "exec:admin")],
@@ -166,7 +163,7 @@ async def test_auth_forbidden(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin exec:test"
     assert "Token missing required scope" in r.text
@@ -179,12 +176,14 @@ async def test_auth_forbidden(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Basic
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert "Token missing required scope" in r.text
 
 
 @pytest.mark.asyncio
-async def test_satisfy_all(client: AsyncClient, setup: SetupTest) -> None:
+async def test_satisfy_all(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     token_data = await setup.create_session_token(scopes=["exec:test"])
 
     r = await client.get(
@@ -197,7 +196,7 @@ async def test_satisfy_all(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin exec:test"
     assert "Token missing required scope" in r.text
@@ -446,7 +445,9 @@ async def test_basic(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_basic_failure(client: AsyncClient, setup: SetupTest) -> None:
+async def test_basic_failure(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     basic_b64 = base64.b64encode(b"bogus-string").decode()
     r = await client.get(
         "/auth",
@@ -457,7 +458,7 @@ async def test_basic_failure(client: AsyncClient, setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_request
 
     for basic in (b"foo:foo", b"x-oauth-basic:foo", b"foo:x-oauth-basic"):
@@ -467,16 +468,12 @@ async def test_basic_failure(client: AsyncClient, setup: SetupTest) -> None:
             params={"scope": "exec:admin", "auth_type": "basic"},
             headers={"Authorization": f"Basic {basic_b64}"},
         )
-        assert r.status_code == 401
-        authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-        assert not isinstance(authenticate, AuthErrorChallenge)
-        assert authenticate.auth_type == AuthType.Basic
-        assert authenticate.realm == setup.config.realm
+        assert_unauthorized_is_correct(r, config, AuthType.Basic)
 
 
 @pytest.mark.asyncio
 async def test_ajax_unauthorized(
-    client: AsyncClient, setup: SetupTest
+    client: AsyncClient, config: Config, setup: SetupTest
 ) -> None:
     """Test that AJAX requests without auth get 403, not 401."""
     r = await client.get(
@@ -488,7 +485,7 @@ async def test_ajax_unauthorized(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
 
 
 @pytest.mark.asyncio

@@ -19,8 +19,10 @@ from gafaelfawr.exceptions import (
 )
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
+from tests.support.settings import configure
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from typing import Any, Dict, Optional
 
     from _pytest._code import ExceptionInfo
@@ -45,18 +47,18 @@ def encode_token(
 
 
 @pytest.mark.asyncio
-async def test_verify_oidc(setup: SetupTest) -> None:
-    await setup.configure("oidc")
+async def test_verify_oidc(tmp_path: Path, setup: SetupTest) -> None:
+    config = await configure(tmp_path, "oidc")
     verifier = setup.factory.create_token_verifier()
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
     payload: Dict[str, Any] = {
-        "aud": setup.config.verifier.oidc_aud,
+        "aud": config.verifier.oidc_aud,
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
     }
-    keypair = setup.config.issuer.keypair
+    keypair = config.issuer.keypair
     token = encode_token(payload, keypair)
     excinfo: ExceptionInfo[Exception]
 
@@ -79,74 +81,72 @@ async def test_verify_oidc(setup: SetupTest) -> None:
     assert str(excinfo.value) == "Unknown issuer: https://bogus.example.com/"
 
     # Unknown kid.
-    payload["iss"] = setup.config.verifier.oidc_iss
+    payload["iss"] = config.verifier.oidc_iss
     token = encode_token(payload, keypair, kid="a-kid")
     with pytest.raises(UnknownKeyIdException) as excinfo:
         await verifier.verify_oidc_token(token)
-    expected = f"kid a-kid not allowed for {setup.config.verifier.oidc_iss}"
+    expected = f"kid a-kid not allowed for {config.verifier.oidc_iss}"
     assert str(excinfo.value) == expected
 
     # Missing username claim.
-    setup.set_oidc_configuration_response(keypair)
-    kid = setup.config.verifier.oidc_kids[0]
-    token = encode_token(payload, setup.config.issuer.keypair, kid=kid)
+    await setup.set_oidc_configuration_response(keypair)
+    kid = config.verifier.oidc_kids[0]
+    token = encode_token(payload, config.issuer.keypair, kid=kid)
     with pytest.raises(MissingClaimsException) as excinfo:
         await verifier.verify_oidc_token(token)
-    expected = f"No {setup.config.verifier.username_claim} claim in token"
+    expected = f"No {config.verifier.username_claim} claim in token"
     assert str(excinfo.value) == expected
 
     # Missing UID claim.
-    setup.set_oidc_configuration_response(keypair)
-    payload[setup.config.verifier.username_claim] = "some-user"
-    token = encode_token(payload, setup.config.issuer.keypair, kid=kid)
+    await setup.set_oidc_configuration_response(keypair)
+    payload[config.verifier.username_claim] = "some-user"
+    token = encode_token(payload, config.issuer.keypair, kid=kid)
     with pytest.raises(MissingClaimsException) as excinfo:
         await verifier.verify_oidc_token(token)
-    expected = f"No {setup.config.verifier.uid_claim} claim in token"
+    expected = f"No {config.verifier.uid_claim} claim in token"
     assert str(excinfo.value) == expected
 
 
 @pytest.mark.asyncio
-async def test_verify_oidc_no_kids(setup: SetupTest) -> None:
-    await setup.configure("oidc-no-kids")
+async def test_verify_oidc_no_kids(tmp_path: Path, setup: SetupTest) -> None:
+    config = await configure(tmp_path, "oidc-no-kids")
     verifier = setup.factory.create_token_verifier()
-    setup.set_oidc_configuration_response(setup.config.issuer.keypair, "kid")
+    await setup.set_oidc_configuration_response(config.issuer.keypair, "kid")
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
     payload: Dict[str, Any] = {
-        "aud": setup.config.verifier.oidc_aud,
+        "aud": config.verifier.oidc_aud,
         "iat": int(now.timestamp()),
-        "iss": setup.config.verifier.oidc_iss,
+        "iss": config.verifier.oidc_iss,
         "exp": int(exp.timestamp()),
     }
-    keypair = setup.config.issuer.keypair
+    keypair = config.issuer.keypair
     token = encode_token(payload, keypair, kid="a-kid")
     with pytest.raises(UnknownKeyIdException) as excinfo:
         await verifier.verify_oidc_token(token)
-    expected = f"Issuer {setup.config.verifier.oidc_iss} has no kid a-kid"
+    expected = f"Issuer {config.verifier.oidc_iss} has no kid a-kid"
     assert str(excinfo.value) == expected
 
 
 @pytest.mark.asyncio
-async def test_key_retrieval(setup: SetupTest) -> None:
-    await setup.configure("oidc-no-kids")
-    assert setup.config.oidc
+async def test_key_retrieval(tmp_path: Path, setup: SetupTest) -> None:
+    config = await configure(tmp_path, "oidc-no-kids")
+    assert config.oidc
     verifier = setup.factory.create_token_verifier()
 
     # Initial working JWKS configuration.
-    jwks = setup.config.issuer.keypair.public_key_as_jwks("some-kid")
+    jwks = config.issuer.keypair.public_key_as_jwks("some-kid")
 
     # Register that handler at the well-known JWKS endpoint.  This will return
     # a connection refused from the OpenID Connect endpoint.
-    jwks_url = urljoin(setup.config.oidc.issuer, "/.well-known/jwks.json")
-    oidc_url = urljoin(
-        setup.config.oidc.issuer, "/.well-known/openid-configuration"
-    )
+    jwks_url = urljoin(config.oidc.issuer, "/.well-known/jwks.json")
+    oidc_url = urljoin(config.oidc.issuer, "/.well-known/openid-configuration")
     setup.respx_mock.get(jwks_url).respond(json=jwks.dict())
     setup.respx_mock.get(oidc_url).respond(404)
 
     # Check token verification with this configuration.
-    token = setup.create_upstream_oidc_token(kid="some-kid")
+    token = await setup.create_upstream_oidc_token(kid="some-kid")
     assert await verifier.verify_oidc_token(token)
 
     # Wrong algorithm for the key.
@@ -166,7 +166,7 @@ async def test_key_retrieval(setup: SetupTest) -> None:
 
     # Try with a new key ID and return a malformed reponse.
     setup.respx_mock.get(jwks_url).respond(json=["foo"])
-    token = setup.create_upstream_oidc_token(kid="malformed")
+    token = await setup.create_upstream_oidc_token(kid="malformed")
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 
@@ -180,7 +180,7 @@ async def test_key_retrieval(setup: SetupTest) -> None:
     jwks.keys[1].kid = "another-kid"
     setup.respx_mock.get(jwks_url).respond(json=jwks.dict())
     setup.respx_mock.get(oidc_url).respond(json=["foo"])
-    token = setup.create_upstream_oidc_token(kid="another-kid")
+    token = await setup.create_upstream_oidc_token(kid="another-kid")
     with pytest.raises(FetchKeysException):
         await verifier.verify_oidc_token(token)
 

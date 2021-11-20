@@ -8,15 +8,65 @@ from typing import TYPE_CHECKING
 
 from cryptography.fernet import Fernet
 
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.keypair import RSAKeyPair
 from tests.support.constants import TEST_DATABASE_URL
 
 if TYPE_CHECKING:
     from typing import List, Optional, Union
 
-    from gafaelfawr.config import OIDCClient
+    from gafaelfawr.config import Config, OIDCClient
 
-__all__ = ["build_settings", "build_settings_file", "store_secret"]
+__all__ = [
+    "build_settings",
+    "configure",
+    "store_secret",
+]
+
+
+def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
+    """Store a secret in a temporary path.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        The root of the temporary area.
+    name : `str`
+        The name of the secret to construct nice file names.
+    secret : `bytes`
+        The value of the secret.
+    """
+    secret_path = tmp_path / name
+    secret_path.write_bytes(secret)
+    return secret_path
+
+
+def _build_settings_file(
+    tmp_path: Path, template: str, **kwargs: Union[str, Path]
+) -> Path:
+    """Construct a settings file from a format template.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        The root of the temporary area.
+    template : `str`
+        Name of the configuration template to use.
+    **kwargs : `str`
+        The values to substitute into the template.
+
+    Returns
+    -------
+    settings_path : `pathlib.Path`
+        The path to the newly-constructed configuration file.
+    """
+    template_file = template + ".yaml.in"
+    template_path = Path(__file__).parent.parent / "settings" / template_file
+    template = template_path.read_text()
+    settings = template.format(**kwargs)
+    settings_path = tmp_path / "gafaelfawr.yaml"
+    settings_path.write_text(settings)
+    return settings_path
 
 
 def build_settings(
@@ -56,7 +106,7 @@ def build_settings(
     else:
         database_url = TEST_DATABASE_URL
 
-    settings_path = build_settings_file(
+    settings_path = _build_settings_file(
         tmp_path,
         template,
         database_url=database_url,
@@ -84,46 +134,40 @@ def build_settings(
     return settings_path
 
 
-def build_settings_file(
-    tmp_path: Path, template: str, **kwargs: Union[str, Path]
-) -> Path:
-    """Construct a settings file from a format template.
+async def configure(
+    tmp_path: Path,
+    template: str,
+    *,
+    oidc_clients: Optional[List[OIDCClient]] = None,
+    **settings: str,
+) -> Config:
+    """Change the test application configuration.
+
+    This cannot be used to change the database URL because sessions will not
+    be recreated or the database reinitialized.
 
     Parameters
     ----------
     tmp_path : `pathlib.Path`
-        The root of the temporary area.
+        Root of the test temporary directory, used to write the settings
+        file.
     template : `str`
-        Name of the configuration template to use.
-    **kwargs : `str`
-        The values to substitute into the template.
+        Settings template to use.
+    oidc_clients : List[`gafaelfawr.config.OIDCClient`], optional
+        Configuration information for clients of the OpenID Connect server.
+    **settings : str, optional
+        Any additional settings to add to the settings file.
 
     Returns
     -------
-    settings_path : `pathlib.Path`
-        The path to the newly-constructed configuration file.
+    config : `gafaelfawr.config.Config`
+        The new configuration.
     """
-    template_file = template + ".yaml.in"
-    template_path = Path(__file__).parent.parent / "settings" / template_file
-    template = template_path.read_text()
-    settings = template.format(**kwargs)
-    settings_path = tmp_path / "gafaelfawr.yaml"
-    settings_path.write_text(settings)
-    return settings_path
-
-
-def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
-    """Store a secret in a temporary path.
-
-    Parameters
-    ----------
-    tmp_path : `pathlib.Path`
-        The root of the temporary area.
-    name : `str`
-        The name of the secret to construct nice file names.
-    secret : `bytes`
-        The value of the secret.
-    """
-    secret_path = tmp_path / name
-    secret_path.write_bytes(secret)
-    return secret_path
+    settings_path = build_settings(
+        tmp_path,
+        template,
+        oidc_clients,
+        **settings,
+    )
+    config_dependency.set_settings_path(str(settings_path))
+    return await config_dependency()

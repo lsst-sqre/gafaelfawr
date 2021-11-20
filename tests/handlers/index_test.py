@@ -9,15 +9,15 @@ import pytest
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
-    from tests.support.setup import SetupTest
+    from gafaelfawr.config import Config
 
 
 @pytest.mark.asyncio
-async def test_get_index(client: AsyncClient, setup: SetupTest) -> None:
+async def test_get_index(client: AsyncClient, config: Config) -> None:
     r = await client.get("/")
     assert r.status_code == 200
     data = r.json()
-    assert data["name"] == setup.config.safir.name
+    assert data["name"] == config.safir.name
     assert isinstance(data["version"], str)
     assert isinstance(data["description"], str)
     assert isinstance(data["repository_url"], str)

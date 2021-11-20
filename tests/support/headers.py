@@ -16,6 +16,38 @@ from gafaelfawr.auth import (
 if TYPE_CHECKING:
     from typing import Dict, List
 
+    from httpx import Response
+
+    from gafaelfawr.config import Config
+
+__all__ = [
+    "assert_unauthorized_is_correct",
+    "parse_www_authenticate",
+    "query_from_url",
+]
+
+
+def assert_unauthorized_is_correct(
+    r: Response, config: Config, auth_type: AuthType = AuthType.Bearer
+) -> None:
+    """Check that an unauthorized response is correct.
+
+    Parameters
+    ----------
+    r : `httpx.Response`
+        The unauthorized response.
+    config : `gafaelfawr.config.Config`
+        The Gafaelfawr configuration.
+    auth_type : `gafaelfawr.auth.AuthType`
+        Expected authentication type.
+    """
+    assert r.status_code == 401
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    challenge = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert not isinstance(challenge, AuthErrorChallenge)
+    assert challenge.auth_type == auth_type
+    assert challenge.realm == config.realm
+
 
 def parse_www_authenticate(header: str) -> AuthChallenge:
     """Parse a ``WWW-Authenticate`` header into this representation.

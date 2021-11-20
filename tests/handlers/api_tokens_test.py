@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
@@ -213,7 +214,9 @@ async def test_create_delete_modify(
 
 
 @pytest.mark.asyncio
-async def test_token_info(client: AsyncClient, setup: SetupTest) -> None:
+async def test_token_info(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -244,7 +247,7 @@ async def test_token_info(client: AsyncClient, setup: SetupTest) -> None:
     now = datetime.now(tz=timezone.utc)
     created = datetime.fromtimestamp(data["created"], tz=timezone.utc)
     assert now - timedelta(seconds=2) <= created <= now
-    expires = created + timedelta(minutes=setup.config.issuer.exp_minutes)
+    expires = created + timedelta(minutes=config.issuer.exp_minutes)
     assert datetime.fromtimestamp(data["expires"], tz=timezone.utc) == expires
 
     r = await client.get(
@@ -424,10 +427,12 @@ async def test_csrf_required(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_no_bootstrap(client: AsyncClient, setup: SetupTest) -> None:
+async def test_no_bootstrap(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     token_data = await setup.create_session_token()
     token = token_data.token
-    bootstrap_token = str(setup.config.bootstrap_token)
+    bootstrap_token = str(config.bootstrap_token)
 
     r = await client.get(
         "/auth/api/v1/users/example/tokens",
@@ -750,9 +755,11 @@ async def test_bad_expires(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_bad_scopes(client: AsyncClient, setup: SetupTest) -> None:
+async def test_bad_scopes(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     """Test creating or modifying a token with bogus scopes."""
-    known_scopes = list(setup.config.known_scopes.keys())
+    known_scopes = list(config.known_scopes.keys())
     assert len(known_scopes) > 4
     token_data = await setup.create_session_token(
         scopes=known_scopes[1:3] + ["other:scope", "user:token"]
@@ -795,7 +802,9 @@ async def test_bad_scopes(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_admin(client: AsyncClient, setup: SetupTest) -> None:
+async def test_create_admin(
+    client: AsyncClient, config: Config, setup: SetupTest
+) -> None:
     """Test creating a token through the admin interface."""
     token_data = await setup.create_session_token(scopes=["exec:admin"])
     csrf = await setup.login(client, token_data.token)
@@ -961,9 +970,7 @@ async def test_create_admin(client: AsyncClient, setup: SetupTest) -> None:
     # Check that the bootstrap token also works.
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={
-            "Authorization": f"bearer {str(setup.config.bootstrap_token)}"
-        },
+        headers={"Authorization": f"bearer {str(config.bootstrap_token)}"},
         json={"username": "other-service", "token_type": "service"},
     )
     assert r.status_code == 201

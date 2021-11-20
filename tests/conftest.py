@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from seleniumwire import webdriver
 
+    from gafaelfawr.config import Config
     from tests.support.selenium import SeleniumConfig
 
 
@@ -54,6 +55,14 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
         yield client
 
 
+@pytest.fixture
+async def config(tmp_path: Path) -> Config:
+    """Set up and return the default test configuration."""
+    settings_path = build_settings(tmp_path, "github")
+    config_dependency.set_settings_path(str(settings_path))
+    return await config_dependency()
+
+
 @pytest.fixture(scope="session")
 def driver() -> Iterator[webdriver.Chrome]:
     """Create a driver for Selenium testing.
@@ -71,7 +80,7 @@ def driver() -> Iterator[webdriver.Chrome]:
 
 
 @pytest.fixture
-async def empty_database(tmp_path: Path) -> None:
+async def empty_database(config: Config) -> None:
     """Initialize the database for a new test.
 
     This exists as a fixture so that multiple other fixtures can depend on it
@@ -82,14 +91,11 @@ async def empty_database(tmp_path: Path) -> None:
     -----
     This always uses a settings file configured for GitHub authentication for
     the database initialization and initial app configuration.  Use
-    ``setup.configure()`` after the test has started to change this if needed
-    for a given test, or avoid this fixture and any that depend on it if
-    control over the configuration prior to database initialization is
-    required.
+    `tests.support.settings.configure` after the test has started to change
+    this if needed for a given test, or avoid this fixture and any that depend
+    on it if control over the configuration prior to database initialization
+    is required.
     """
-    settings_path = build_settings(tmp_path, "github")
-    config_dependency.set_settings_path(str(settings_path))
-    config = await config_dependency()
     await initialize_database(config, reset=True)
 
 

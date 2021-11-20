@@ -24,7 +24,6 @@ from tests.support.oidc import (
     mock_oidc_provider_config,
     mock_oidc_provider_token,
 )
-from tests.support.settings import build_settings
 from tests.support.tokens import create_upstream_oidc_token
 
 if TYPE_CHECKING:
@@ -33,7 +32,7 @@ if TYPE_CHECKING:
 
     from aioredis import Redis
 
-    from gafaelfawr.config import Config, OIDCClient
+    from gafaelfawr.config import Config
     from gafaelfawr.keypair import RSAKeyPair
     from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
     from gafaelfawr.providers.github import GitHubUserInfo
@@ -119,7 +118,6 @@ class SetupTest:
     ) -> None:
         self.tmp_path = tmp_path
         self.respx_mock = respx_mock
-        self.config = config
         self.redis = redis
         self.session = session
         self.http_client = http_client
@@ -138,43 +136,14 @@ class SetupTest:
         factory : `gafaelfawr.factory.ComponentFactory`
             Newly-created factory.
         """
+        assert config_dependency._config
         return ComponentFactory(
-            config=self.config,
+            config=config_dependency._config,
             redis=self.redis,
             http_client=self.http_client,
             session=self.session,
             logger=self.logger,
         )
-
-    async def configure(
-        self,
-        template: str = "github",
-        *,
-        oidc_clients: Optional[List[OIDCClient]] = None,
-        **settings: str,
-    ) -> None:
-        """Change the test application configuration.
-
-        This cannot be used to change the database URL because the internal
-        session is not recreated.
-
-        Parameters
-        ----------
-        template : `str`
-            Settings template to use.
-        oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
-            Configuration information for clients of the OpenID Connect server.
-        **settings : str
-            Any additional settings to add to the settings file.
-        """
-        settings_path = build_settings(
-            self.tmp_path,
-            template,
-            oidc_clients,
-            **settings,
-        )
-        config_dependency.set_settings_path(str(settings_path))
-        self.config = await config_dependency()
 
     async def create_session_token(
         self,
@@ -223,7 +192,7 @@ class SetupTest:
         await self.session.commit()
         return data
 
-    def create_upstream_oidc_token(
+    async def create_upstream_oidc_token(
         self,
         *,
         kid: Optional[str] = None,
@@ -247,12 +216,11 @@ class SetupTest:
         token : `gafaelfawr.models..oidc.OIDCVerifiedToken`
             The generated token.
         """
+        config = await config_dependency()
         if not kid:
-            assert self.config.oidc
-            kid = self.config.oidc.key_ids[0]
-        return create_upstream_oidc_token(
-            self.config, kid, groups=groups, **claims
-        )
+            assert config.oidc
+            kid = config.oidc.key_ids[0]
+        return create_upstream_oidc_token(config, kid, groups=groups, **claims)
 
     async def login(self, client: AsyncClient, token: Token) -> str:
         """Create a valid Gafaelfawr session.
@@ -288,7 +256,7 @@ class SetupTest:
         """
         del client.cookies[COOKIE_NAME]
 
-    def set_github_response(
+    async def set_github_response(
         self,
         code: str,
         user_info: GitHubUserInfo,
@@ -310,17 +278,15 @@ class SetupTest:
             Whether to expect a revocation of the token after returning all
             user information.  Default: `False`
         """
-        assert self.config.github
-        mock_github(
+        await mock_github(
             self.respx_mock,
-            self.config.github,
             code,
             user_info,
             paginate_teams=paginate_teams,
             expect_revoke=expect_revoke,
         )
 
-    def set_oidc_configuration_response(
+    async def set_oidc_configuration_response(
         self,
         keypair: Optional[RSAKeyPair] = None,
         kid: Optional[str] = None,
@@ -336,9 +302,9 @@ class SetupTest:
             Key ID for the key.  If not given, defaults to the first key ID in
             the configured key_ids list.
         """
-        mock_oidc_provider_config(self.respx_mock, self.config, keypair, kid)
+        await mock_oidc_provider_config(self.respx_mock, keypair, kid)
 
-    def set_oidc_token_response(
+    async def set_oidc_token_response(
         self,
         code: str,
         token: OIDCToken,
@@ -352,4 +318,4 @@ class SetupTest:
         token : `gafaelfawr.tokens.Token`
             The token.
         """
-        mock_oidc_provider_token(self.respx_mock, self.config, code, token)
+        await mock_oidc_provider_token(self.respx_mock, code, token)

@@ -13,6 +13,7 @@ from gafaelfawr.storage.token import TokenRedisStore
 from gafaelfawr.util import current_datetime
 
 if TYPE_CHECKING:
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
@@ -85,12 +86,12 @@ async def test_invalid(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_expiration(setup: SetupTest) -> None:
+async def test_expiration(config: Config, setup: SetupTest) -> None:
     """The cache is valid until half the lifetime of the child token."""
     token_data = await setup.create_session_token(scopes=["read:all"])
-    lifetime = setup.config.token_lifetime
+    lifetime = config.token_lifetime
     now = current_datetime()
-    storage = RedisStorage(TokenData, setup.config.session_secret, setup.redis)
+    storage = RedisStorage(TokenData, config.session_secret, setup.redis)
     token_store = TokenRedisStore(storage, setup.logger)
     token_cache = setup.factory.create_token_cache()
 
@@ -98,7 +99,7 @@ async def test_expiration(setup: SetupTest) -> None:
     # typical token lifetime in the future and cache that token as an internal
     # token for our session token.
     created = now - timedelta(seconds=lifetime.total_seconds() // 2)
-    expires = created + setup.config.token_lifetime + timedelta(seconds=5)
+    expires = created + lifetime + timedelta(seconds=5)
     internal_token_data = TokenData(
         token=Token(),
         username=token_data.username,

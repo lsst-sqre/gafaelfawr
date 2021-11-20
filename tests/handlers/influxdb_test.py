@@ -8,24 +8,30 @@ from unittest.mock import ANY
 import jwt
 import pytest
 
-from gafaelfawr.auth import AuthErrorChallenge, AuthType
-from tests.support.headers import parse_www_authenticate
+from tests.support.headers import assert_unauthorized_is_correct
 from tests.support.logging import parse_log
+from tests.support.settings import configure
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
 async def test_influxdb(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient,
+    config: Config,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
     token_data = await setup.create_session_token()
     assert token_data.expires
-    influxdb_secret = setup.config.issuer.influxdb_secret
+    influxdb_secret = config.issuer.influxdb_secret
     assert influxdb_secret
 
     caplog.clear()
@@ -65,20 +71,19 @@ async def test_influxdb(
 
 
 @pytest.mark.asyncio
-async def test_no_auth(client: AsyncClient, setup: SetupTest) -> None:
+async def test_no_auth(client: AsyncClient, config: Config) -> None:
     r = await client.get("/auth/tokens/influxdb/new")
-    assert r.status_code == 401
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert_unauthorized_is_correct(r, config)
 
 
 @pytest.mark.asyncio
 async def test_not_configured(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    tmp_path: Path,
+    client: AsyncClient,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
-    await setup.configure("oidc")
+    await configure(tmp_path, "oidc")
     token_data = await setup.create_session_token()
 
     caplog.clear()
@@ -108,12 +113,15 @@ async def test_not_configured(
 
 @pytest.mark.asyncio
 async def test_influxdb_force_username(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    tmp_path: Path,
+    client: AsyncClient,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
-    await setup.configure("influxdb-username")
+    config = await configure(tmp_path, "influxdb-username")
     token_data = await setup.create_session_token()
     assert token_data.expires
-    influxdb_secret = setup.config.issuer.influxdb_secret
+    influxdb_secret = config.issuer.influxdb_secret
     assert influxdb_secret
 
     caplog.clear()

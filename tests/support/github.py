@@ -11,6 +11,7 @@ from urllib.parse import parse_qs
 
 from httpx import Response
 
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.providers.github import GitHubProvider
 
 if TYPE_CHECKING:
@@ -151,9 +152,8 @@ class MockGitHub:
         )
 
 
-def mock_github(
+async def mock_github(
     respx_mock: respx.Router,
-    config: GitHubConfig,
     code: str,
     user_info: GitHubUserInfo,
     *,
@@ -166,8 +166,6 @@ def mock_github(
     ----------
     respx_mock : `respx.Router`
         The mock router.
-    config : `gafaelfawr.config.GitHubConfig`
-        Configuration of the GitHub provider.
     code : `str`
         The code that Gafaelfawr must send to redeem a token.
     user_info : `gafaelfawr.providers.github.GitHubUserInfo`
@@ -178,8 +176,15 @@ def mock_github(
         Whether to expect a revocation of the token after returning all user
         information.  Default: `False`
     """
+    config = await config_dependency()
+    assert config.github
     mock = MockGitHub(
-        respx_mock, config, code, user_info, paginate_teams, expect_revoke
+        respx_mock,
+        config.github,
+        code,
+        user_info,
+        paginate_teams,
+        expect_revoke,
     )
     token_url = GitHubProvider._TOKEN_URL
     respx_mock.post(token_url).mock(side_effect=mock.post_token)

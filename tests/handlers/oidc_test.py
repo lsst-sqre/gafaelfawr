@@ -16,24 +16,34 @@ from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
 from tests.support.constants import TEST_HOSTNAME
-from tests.support.headers import parse_www_authenticate, query_from_url
+from tests.support.headers import (
+    assert_unauthorized_is_correct,
+    parse_www_authenticate,
+    query_from_url,
+)
 from tests.support.logging import parse_log
+from tests.support.settings import configure
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from typing import Dict
 
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
+    from gafaelfawr.config import Config
     from tests.support.setup import SetupTest
 
 
 @pytest.mark.asyncio
 async def test_login(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    tmp_path: Path,
+    client: AsyncClient,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    await setup.configure(oidc_clients=clients)
+    config = await configure(tmp_path, "github", oidc_clients=clients)
     token_data = await setup.create_session_token()
     await setup.login(client, token_data.token)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
@@ -103,27 +113,27 @@ async def test_login(
         "id_token": ANY,
     }
     assert isinstance(data["expires_in"], int)
-    exp_seconds = setup.config.issuer.exp_minutes * 60
+    exp_seconds = config.issuer.exp_minutes * 60
     assert exp_seconds - 5 <= data["expires_in"] <= exp_seconds
 
     assert data["access_token"] == data["id_token"]
     verifier = setup.factory.create_token_verifier()
     token = verifier.verify_internal_token(OIDCToken(encoded=data["id_token"]))
     assert token.claims == {
-        "aud": setup.config.issuer.aud,
+        "aud": config.issuer.aud,
         "exp": ANY,
         "iat": ANY,
-        "iss": setup.config.issuer.iss,
+        "iss": config.issuer.iss,
         "jti": OIDCAuthorizationCode.from_str(code).key,
         "name": token_data.name,
         "preferred_username": token_data.username,
         "scope": "openid",
         "sub": token_data.username,
-        setup.config.issuer.username_claim: token_data.username,
-        setup.config.issuer.uid_claim: token_data.uid,
+        config.issuer.username_claim: token_data.username,
+        config.issuer.uid_claim: token_data.uid,
     }
     now = time.time()
-    expected_exp = now + setup.config.issuer.exp_minutes * 60
+    expected_exp = now + config.issuer.exp_minutes * 60
     assert expected_exp - 5 <= token.claims["exp"] <= expected_exp
     assert now - 5 <= token.claims["iat"] <= now
 
@@ -143,10 +153,13 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_unauthenticated(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    tmp_path: Path,
+    client: AsyncClient,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    await setup.configure(oidc_clients=clients)
+    await configure(tmp_path, "github", oidc_clients=clients)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     login_params = {
         "response_type": "code",
@@ -182,10 +195,13 @@ async def test_unauthenticated(
 
 @pytest.mark.asyncio
 async def test_login_errors(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    tmp_path: Path,
+    client: AsyncClient,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    await setup.configure(oidc_clients=clients)
+    await configure(tmp_path, "github", oidc_clients=clients)
     token_data = await setup.create_session_token()
     await setup.login(client, token_data.token)
 
@@ -293,13 +309,16 @@ async def test_login_errors(
 
 @pytest.mark.asyncio
 async def test_token_errors(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    tmp_path: Path,
+    client: AsyncClient,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
     clients = [
         OIDCClient(client_id="some-id", client_secret="some-secret"),
         OIDCClient(client_id="other-id", client_secret="other-secret"),
     ]
-    await setup.configure(oidc_clients=clients)
+    await configure(tmp_path, "github", oidc_clients=clients)
     token_data = await setup.create_session_token()
     token = token_data.token
     oidc_service = setup.factory.create_oidc_service()
@@ -474,19 +493,17 @@ async def test_userinfo(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_no_auth(client: AsyncClient, setup: SetupTest) -> None:
+async def test_no_auth(client: AsyncClient, config: Config) -> None:
     r = await client.get("/auth/userinfo")
-
-    assert r.status_code == 401
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert_unauthorized_is_correct(r, config)
 
 
 @pytest.mark.asyncio
 async def test_invalid(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient,
+    config: Config,
+    setup: SetupTest,
+    caplog: LogCaptureFixture,
 ) -> None:
     token_data = await setup.create_session_token()
     issuer = setup.factory.create_token_issuer()
@@ -502,7 +519,7 @@ async def test_invalid(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_request
     assert authenticate.error_description == "Unknown Authorization type token"
 
@@ -526,7 +543,7 @@ async def test_invalid(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_request
     assert authenticate.error_description == "Malformed Authorization header"
 
@@ -540,7 +557,7 @@ async def test_invalid(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_token
     assert authenticate.error_description
 
@@ -558,12 +575,12 @@ async def test_invalid(
 
 
 @pytest.mark.asyncio
-async def test_well_known_jwks(client: AsyncClient, setup: SetupTest) -> None:
+async def test_well_known_jwks(client: AsyncClient, config: Config) -> None:
     r = await client.get("/.well-known/jwks.json")
     assert r.status_code == 200
     result = r.json()
 
-    keypair = setup.config.issuer.keypair
+    keypair = config.issuer.keypair
     assert result == {
         "keys": [
             {
@@ -584,13 +601,13 @@ async def test_well_known_jwks(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_well_known_oidc(client: AsyncClient, setup: SetupTest) -> None:
+async def test_well_known_oidc(client: AsyncClient, config: Config) -> None:
     r = await client.get("/.well-known/openid-configuration")
     assert r.status_code == 200
 
-    base_url = setup.config.issuer.iss
+    base_url = config.issuer.iss
     assert r.json() == {
-        "issuer": setup.config.issuer.iss,
+        "issuer": config.issuer.iss,
         "authorization_endpoint": base_url + "/auth/openid/login",
         "token_endpoint": base_url + "/auth/openid/token",
         "userinfo_endpoint": base_url + "/auth/openid/userinfo",
