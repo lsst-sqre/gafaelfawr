@@ -8,7 +8,6 @@ from urllib.parse import urljoin
 
 import kubernetes
 import pytest
-import respx
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
 
@@ -158,7 +157,7 @@ async def selenium_config(
 
 @pytest.fixture
 async def setup(
-    tmp_path: Path, empty_database: None, respx_mock: respx.Router
+    tmp_path: Path, empty_database: None
 ) -> AsyncIterator[SetupTest]:
     """Create a test setup object.
 
@@ -172,5 +171,5 @@ async def setup(
     setup : `tests.support.setup.SetupTest`
         The setup object.
     """
-    async with SetupTest.create(tmp_path, respx_mock) as setup:
+    async with SetupTest.create(tmp_path) as setup:
         yield setup

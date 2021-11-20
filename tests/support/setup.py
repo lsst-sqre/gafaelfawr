@@ -5,7 +5,6 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
-import respx
 import structlog
 from httpx import AsyncClient
 from safir.dependencies.http_client import http_client_dependency
@@ -19,10 +18,6 @@ from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenData, TokenGroup, TokenUserInfo
 from tests.support.constants import TEST_HOSTNAME
-from tests.support.oidc import (
-    mock_oidc_provider_config,
-    mock_oidc_provider_token,
-)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -31,8 +26,6 @@ if TYPE_CHECKING:
     from aioredis import Redis
 
     from gafaelfawr.config import Config
-    from gafaelfawr.keypair import RSAKeyPair
-    from gafaelfawr.models.oidc import OIDCToken
 
 
 class SetupTest:
@@ -52,9 +45,7 @@ class SetupTest:
 
     @classmethod
     @asynccontextmanager
-    async def create(
-        cls, tmp_path: Path, respx_mock: respx.Router
-    ) -> AsyncIterator[SetupTest]:
+    async def create(cls, tmp_path: Path) -> AsyncIterator[SetupTest]:
         """Create a new `SetupTest` instance.
 
         This is the only supported way to set up the test environment and
@@ -66,8 +57,6 @@ class SetupTest:
         ----------
         tmp_path : `pathlib.Path`
             The path for temporary files.
-        respx_mock : `respx.Router`
-            The mock for simulating `httpx.AsyncClient` calls.
         """
         config = await config_dependency()
         redis = await redis_dependency(config)
@@ -92,7 +81,6 @@ class SetupTest:
                 async with session_factory() as session:
                     yield cls(
                         tmp_path=tmp_path,
-                        respx_mock=respx_mock,
                         config=config,
                         redis=redis,
                         session=session,
@@ -107,14 +95,12 @@ class SetupTest:
         self,
         *,
         tmp_path: Path,
-        respx_mock: respx.Router,
         config: Config,
         redis: Redis,
         session: AsyncSession,
         http_client: AsyncClient,
     ) -> None:
         self.tmp_path = tmp_path
-        self.respx_mock = respx_mock
         self.redis = redis
         self.session = session
         self.http_client = http_client
@@ -222,37 +208,3 @@ class SetupTest:
             The client from which to remove the session cookie.
         """
         del client.cookies[COOKIE_NAME]
-
-    async def set_oidc_configuration_response(
-        self,
-        keypair: Optional[RSAKeyPair] = None,
-        kid: Optional[str] = None,
-    ) -> None:
-        """Register configuration callbacks for upstream OpenID Connect.
-
-        Parameters
-        ----------
-        keypair : `gafaelfawr.keypair.RSAKeyPair`, optional
-            The key pair used to sign the token, which will be used to
-            register the keys callback.
-        kid : `str`, optional
-            Key ID for the key.  If not given, defaults to the first key ID in
-            the configured key_ids list.
-        """
-        await mock_oidc_provider_config(self.respx_mock, keypair, kid)
-
-    async def set_oidc_token_response(
-        self,
-        code: str,
-        token: OIDCToken,
-    ) -> None:
-        """Register token callbacks for upstream OpenID Connect provider.
-
-        Parameters
-        ----------
-        code : `str`
-            The code that Gafaelfawr must send.
-        token : `gafaelfawr.tokens.Token`
-            The token.
-        """
-        await mock_oidc_provider_token(self.respx_mock, code, token)
