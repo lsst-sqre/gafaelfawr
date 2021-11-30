@@ -206,7 +206,15 @@ class ComponentFactory:
         key = self._config.session_secret
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
-        return TokenCache(token_redis_store)
+        token_db_store = TokenDatabaseStore(self.session)
+        token_change_store = TokenChangeHistoryStore(self.session)
+        return TokenCache(
+            config=self._config,
+            token_db_store=token_db_store,
+            token_redis_store=token_redis_store,
+            token_change_store=token_change_store,
+            logger=self._logger,
+        )
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.
@@ -230,8 +238,14 @@ class ComponentFactory:
         key = self._config.session_secret
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
-        token_cache = TokenCache(token_redis_store)
         token_change_store = TokenChangeHistoryStore(self.session)
+        token_cache = TokenCache(
+            config=self._config,
+            token_db_store=token_db_store,
+            token_redis_store=token_redis_store,
+            token_change_store=token_change_store,
+            logger=self._logger,
+        )
         return TokenService(
             config=self._config,
             token_cache=token_cache,

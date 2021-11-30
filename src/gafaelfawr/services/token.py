@@ -5,7 +5,7 @@ from __future__ import annotations
 import ipaddress
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from gafaelfawr.constants import MINIMUM_LIFETIME, USERNAME_REGEX
@@ -461,11 +461,6 @@ class TokenService:
     ) -> Token:
         """Get or create a new internal token.
 
-        The new token will have the same expiration time as the existing token
-        on which it's based unless that expiration time is longer than the
-        expiration time of normal interactive tokens, in which case it will be
-        capped at the interactive token expiration time.
-
         Parameters
         ----------
         token_data : `gafaelfawr.models.token.TokenData`
@@ -490,86 +485,14 @@ class TokenService:
         self._validate_scopes(scopes, token_data)
         self._validate_username(token_data.username)
         scopes = sorted(scopes)
-
-        # See if there is a cached token.
-        token = await self._token_cache.get_internal_token(
-            token_data, service, scopes
+        return await self._token_cache.get_internal_token(
+            token_data, service, scopes, ip_address
         )
-        if token:
-            return token
-
-        # See if there's already a matching internal token.
-        key = await self._token_db_store.get_internal_token_key(
-            token_data, service, scopes, self._minimum_expiration(token_data)
-        )
-        if key:
-            data = await self._token_redis_store.get_data_by_key(key)
-            if data:
-                self._token_cache.store_internal_token(
-                    data.token, token_data, service, scopes
-                )
-                return data.token
-
-        # There is not, so we need to create a new one.
-        token = Token()
-        created = current_datetime()
-        expires = created + self._config.token_lifetime
-        if token_data.expires and token_data.expires < expires:
-            expires = token_data.expires
-        data = TokenData(
-            token=token,
-            username=token_data.username,
-            token_type=TokenType.internal,
-            scopes=scopes,
-            created=created,
-            expires=expires,
-            name=token_data.name,
-            email=token_data.email,
-            uid=token_data.uid,
-            groups=token_data.groups,
-        )
-        history_entry = TokenChangeHistoryEntry(
-            token=token.key,
-            username=data.username,
-            token_type=TokenType.internal,
-            parent=token_data.token.key,
-            scopes=scopes,
-            service=service,
-            expires=expires,
-            actor=token_data.username,
-            action=TokenChange.create,
-            ip_address=ip_address,
-            event_time=created,
-        )
-
-        await self._token_redis_store.store_data(data)
-        await self._token_db_store.add(
-            data, service=service, parent=token_data.token.key
-        )
-        await self._token_change_store.add(history_entry)
-
-        self._logger.info(
-            "Created new internal token",
-            key=token.key,
-            service=service,
-            token_scope=",".join(data.scopes),
-        )
-
-        # Cache the token and return it.
-        self._token_cache.store_internal_token(
-            token, token_data, service, scopes
-        )
-        return token
 
     async def get_notebook_token(
         self, token_data: TokenData, ip_address: str
     ) -> Token:
         """Get or create a new notebook token.
-
-        The new token will have the same expiration time as the existing token
-        on which it's based unless that expiration time is longer than the
-        expiration time of normal interactive tokens, in which case it will be
-        capped at the interactive token expiration time.
 
         Parameters
         ----------
@@ -589,61 +512,9 @@ class TokenService:
             If the username is invalid.
         """
         self._validate_username(token_data.username)
-
-        # See if there is a cached token.
-        token = await self._token_cache.get_notebook_token(token_data)
-        if token:
-            return token
-
-        # See if there's already a matching notebook token.
-        key = await self._token_db_store.get_notebook_token_key(
-            token_data, self._minimum_expiration(token_data)
+        return await self._token_cache.get_notebook_token(
+            token_data, ip_address
         )
-        if key:
-            data = await self._token_redis_store.get_data_by_key(key)
-            if data:
-                self._token_cache.store_notebook_token(data.token, token_data)
-                return data.token
-
-        # There is not, so we need to create a new one.
-        token = Token()
-        created = current_datetime()
-        expires = created + self._config.token_lifetime
-        if token_data.expires and token_data.expires < expires:
-            expires = token_data.expires
-        data = TokenData(
-            token=token,
-            username=token_data.username,
-            token_type=TokenType.notebook,
-            scopes=token_data.scopes,
-            created=created,
-            expires=expires,
-            name=token_data.name,
-            email=token_data.email,
-            uid=token_data.uid,
-            groups=token_data.groups,
-        )
-        history_entry = TokenChangeHistoryEntry(
-            token=token.key,
-            username=data.username,
-            token_type=TokenType.notebook,
-            parent=token_data.token.key,
-            scopes=data.scopes,
-            expires=expires,
-            actor=token_data.username,
-            action=TokenChange.create,
-            ip_address=ip_address,
-            event_time=created,
-        )
-
-        await self._token_redis_store.store_data(data)
-        await self._token_db_store.add(data, parent=token_data.token.key)
-        await self._token_change_store.add(history_entry)
-
-        # Cache the token and return it.
-        self._logger.info("Created new notebook token", key=token.key)
-        self._token_cache.store_notebook_token(token, token_data)
-        return token
 
     async def get_token_info(
         self, key: str, auth_data: TokenData, username: Optional[str]
@@ -945,29 +816,6 @@ class TokenService:
             await self._token_change_store.add(history_entry)
             self._logger.info("Deleted token", key=key, username=info.username)
         return success
-
-    def _minimum_expiration(self, token_data: TokenData) -> datetime:
-        """Determine the minimum expiration for a child token.
-
-        Parameters
-        ----------
-        token_data : `gafaelfawr.models.token.TokenData`
-            The data for the parent token for which a child token was
-            requested.
-
-        Returns
-        -------
-        min_expires : `datetime.datetime`
-            The minimum acceptable expiration time for the child token.  If
-            no child tokens with at least this expiration time exist, a new
-            child token should be created.
-        """
-        min_expires = current_datetime() + timedelta(
-            seconds=self._config.token_lifetime.total_seconds() / 2
-        )
-        if token_data.expires and min_expires > token_data.expires:
-            min_expires = token_data.expires
-        return min_expires
 
     async def _modify_expires(
         self,

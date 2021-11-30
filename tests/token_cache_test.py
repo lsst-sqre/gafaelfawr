@@ -30,39 +30,40 @@ async def test_basic(setup: SetupTest) -> None:
     )
 
     assert internal_token == await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"]
+        token_data, "some-service", ["read:all"], "127.0.0.1"
     )
-    assert notebook_token == await token_cache.get_notebook_token(token_data)
+    assert notebook_token == await token_cache.get_notebook_token(
+        token_data, "127.0.0.1"
+    )
 
     # Requesting different internal tokens doesn't work.
-    assert not await token_cache.get_internal_token(
-        token_data, "other-service", ["read:all"]
+    assert internal_token != await token_cache.get_internal_token(
+        token_data, "other-service", ["read:all"], "127.0.0.1"
     )
-    assert not await token_cache.get_internal_token(
-        token_data, "some-service", []
+    assert notebook_token != await token_cache.get_internal_token(
+        token_data, "some-service", [], "127.0.0.1"
     )
 
     # A different service token for the same user requesting the same
-    # information doesn't get anything back.
+    # information creates a different internal token.
     new_token_data = await setup.create_session_token(scopes=["read:all"])
-    assert not await token_cache.get_internal_token(
-        new_token_data, "some-service", ["read:all"]
+    assert internal_token != await token_cache.get_internal_token(
+        new_token_data, "some-service", ["read:all"], "127.0.0.1"
     )
-    assert not await token_cache.get_notebook_token(new_token_data)
+    assert notebook_token != await token_cache.get_notebook_token(
+        new_token_data, "127.0.0.1"
+    )
 
     # Changing the scope of the parent token doesn't matter as long as the
-    # internal token is requested with the same scope, as long as the parent
-    # token has that scope.
+    # internal token is requested with the same scope.  Cases where the parent
+    # token no longer has that scope are caught one level up by the token
+    # service and thus aren't tested here.
     token_data.scopes = ["read:all", "admin:token"]
     assert internal_token == await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"]
+        token_data, "some-service", ["read:all"], "127.0.0.1"
     )
-    assert not await token_cache.get_internal_token(
-        token_data, "some-service", ["admin:token"]
-    )
-    token_data.scopes = []
-    assert not await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"]
+    assert internal_token != await token_cache.get_internal_token(
+        token_data, "some-service", ["admin:token"], "127.0.0.1"
     )
 
 
@@ -79,10 +80,12 @@ async def test_invalid(setup: SetupTest) -> None:
     )
     token_cache.store_notebook_token(notebook_token, token_data)
 
-    assert not await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"]
+    assert internal_token != await token_cache.get_internal_token(
+        token_data, "some-service", ["read:all"], "127.0.0.1"
     )
-    assert not await token_cache.get_notebook_token(token_data)
+    assert notebook_token != await token_cache.get_notebook_token(
+        token_data, "127.0.0.1"
+    )
 
 
 @pytest.mark.asyncio
@@ -115,7 +118,7 @@ async def test_expiration(config: Config, setup: SetupTest) -> None:
 
     # The cache should return this token.
     assert internal_token_data.token == await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"]
+        token_data, "some-service", ["read:all"], "127.0.0.1"
     )
 
     # Now change the expiration to be ten seconds earlier, which should make
@@ -124,9 +127,9 @@ async def test_expiration(config: Config, setup: SetupTest) -> None:
     internal_token_data.expires = expires - timedelta(seconds=20)
     await token_store.store_data(internal_token_data)
 
-    # The cache should now decline to return the token.
-    assert not await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"]
+    # The cache should now decline to return the token and generate a new one.
+    assert internal_token_data.token != await token_cache.get_internal_token(
+        token_data, "some-service", ["read:all"], "127.0.0.1"
     )
 
     # Do the same test with a notebook token.
@@ -140,8 +143,11 @@ async def test_expiration(config: Config, setup: SetupTest) -> None:
     )
     await token_store.store_data(notebook_token_data)
     token_cache.store_notebook_token(notebook_token_data.token, token_data)
-    token = notebook_token_data.token
-    assert token == await token_cache.get_notebook_token(token_data)
+    assert notebook_token_data.token == await token_cache.get_notebook_token(
+        token_data, "127.0.0.1"
+    )
     notebook_token_data.expires = expires - timedelta(seconds=20)
     await token_store.store_data(notebook_token_data)
-    assert not await token_cache.get_notebook_token(token_data)
+    assert notebook_token_data.token != await token_cache.get_notebook_token(
+        token_data, "127.0.0.1"
+    )

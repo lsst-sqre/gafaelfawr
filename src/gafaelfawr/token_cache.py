@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from cachetools import LRUCache
 
 from gafaelfawr.constants import TOKEN_CACHE_SIZE
+from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
+from gafaelfawr.models.token import Token, TokenData, TokenType
 from gafaelfawr.util import current_datetime
 
 if TYPE_CHECKING:
-    from typing import List, Optional, Tuple
+    from typing import Dict, List, Optional, Tuple
 
-    from gafaelfawr.models.token import Token, TokenData
-    from gafaelfawr.storage.token import TokenRedisStore
+    from structlog.stdlib import BoundLogger
+
+    from gafaelfawr.config import Config
+    from gafaelfawr.storage.history import TokenChangeHistoryStore
+    from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 
 __all__ = ["TokenCache"]
 
@@ -35,10 +42,10 @@ class TokenCache:
 
     Notes
     -----
-    The cache storage is process-global.  It isn't protected by a lock and
-    thus isn't thread-safe.  The expectation is that this code will be used by
-    a single-process asyncio server, and scaling will be done by adding more
-    processes.
+    The cache storage is process-global and is locked only for asyncio access,
+    not for threaded access.  It is not thread-safe.  The expectation is that
+    this code will be used by a single-process asyncio server, and scaling
+    will be done by adding more processes.
 
     Notebook tokens are cached under the key of the parent token and its
     expiration.  Internal tokens add the service name and the requested
@@ -51,20 +58,54 @@ class TokenCache:
     _cache: LRUCache[Tuple[str, ...], Token] = LRUCache(TOKEN_CACHE_SIZE)
     """Shared cache storage for the tokens, global to each process."""
 
-    def __init__(self, store: TokenRedisStore) -> None:
-        self._store = store
+    _cache_lock = asyncio.Lock()
+    """Lock around the per-user cache locks."""
 
-    def clear(self) -> None:
+    _cache_user_lock: Dict[str, asyncio.Lock] = {}
+    """Per-user locks to wait for token issuance for a particular user."""
+
+    def __init__(
+        self,
+        *,
+        config: Config,
+        token_redis_store: TokenRedisStore,
+        token_db_store: TokenDatabaseStore,
+        token_change_store: TokenChangeHistoryStore,
+        logger: BoundLogger,
+    ) -> None:
+        self._config = config
+        self._token_redis_store = token_redis_store
+        self._token_db_store = token_db_store
+        self._token_change_store = token_change_store
+        self._logger = logger
+
+    async def clear(self) -> None:
         """Invalidate the cache.
 
         Used primarily for testing.
         """
-        self._cache = LRUCache(TOKEN_CACHE_SIZE)
+        async with self._cache_lock:
+            self._cache = LRUCache(TOKEN_CACHE_SIZE)
+            for user, lock in list(self._cache_user_lock.items()):
+                async with lock:
+                    del self._cache_user_lock[user]
 
     async def get_internal_token(
-        self, token_data: TokenData, service: str, scopes: List[str]
-    ) -> Optional[Token]:
-        """Retrieve a cached internal token.
+        self,
+        token_data: TokenData,
+        service: str,
+        scopes: List[str],
+        ip_address: str,
+    ) -> Token:
+        """Retrieve or create an internal token.
+
+        Return the cached token if one is available, a matching token if one
+        exists in the database, or a newly-created token if necessary.
+
+        The new token will have the same expiration time as the existing token
+        on which it's based unless that expiration time is longer than the
+        expiration time of normal interactive tokens, in which case it will be
+        capped at the interactive token expiration time.
 
         Parameters
         ----------
@@ -74,24 +115,51 @@ class TokenCache:
             The service of the internal token.
         scopes : List[`str`]
             The scopes the internal token should have.
+        ip_address : `str`
+            The IP address from which the request came.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token` or `None`
-            The cached token or `None` if no matching token is cached.
+        token : `gafaelfawr.models.token.Token`
+            The cached token or newly-created token.
         """
         key = self._internal_key(token_data, service, scopes)
-        return await self._get_token(key, token_data.scopes)
+        token = await self._get_token(key, token_data.scopes)
+        if not token:
+            lock = await self._acquire_user_lock(token_data.username)
+            try:
+                # Check again now that we've taken the lock, since another
+                # thread of execution may have created and cached a token.
+                token = await self._get_token(key, token_data.scopes)
+                if token:
+                    return token
+                token = await self._create_internal_token(
+                    token_data, service, scopes, ip_address
+                )
+                self._cache[key] = token
+            finally:
+                lock.release()
+        return token
 
     async def get_notebook_token(
-        self, token_data: TokenData
-    ) -> Optional[Token]:
-        """Retrieve a cached notebook token.
+        self, token_data: TokenData, ip_address: str
+    ) -> Token:
+        """Retrieve or create a notebook token.
+
+        Return the cached token if one is available, a matching token if one
+        exists in the database, or a newly-created token if necessary.
+
+        The new token will have the same expiration time as the existing token
+        on which it's based unless that expiration time is longer than the
+        expiration time of normal interactive tokens, in which case it will be
+        capped at the interactive token expiration time.
 
         Parameters
         ----------
         token_data : `gafaelfawr.models.token.TokenData`
             The authentication data for the parent token.
+        ip_address : `str`
+            The IP address from which the request came.
 
         Returns
         -------
@@ -99,7 +167,22 @@ class TokenCache:
             The cached token or `None` if no matching token is cached.
         """
         key = self._notebook_key(token_data)
-        return await self._get_token(key)
+        token = await self._get_token(key)
+        if not token:
+            lock = await self._acquire_user_lock(token_data.username)
+            try:
+                # Check again now that we've taken the lock, since another
+                # thread of execution may have created and cached a token.
+                token = await self._get_token(key)
+                if token:
+                    return token
+                token = await self._create_notebook_token(
+                    token_data, ip_address
+                )
+                self._cache[key] = token
+            finally:
+                lock.release()
+        return token
 
     def store_internal_token(
         self,
@@ -109,6 +192,8 @@ class TokenCache:
         scopes: List[str],
     ) -> None:
         """Cache an internal token.
+
+        Used primarily for the test suite.
 
         Parameters
         ----------
@@ -129,6 +214,8 @@ class TokenCache:
     ) -> None:
         """Cache a notebook token.
 
+        Used primarily for the test suite.
+
         Parameters
         ----------
         token : `gafaelfawr.models.token.Token`
@@ -139,6 +226,177 @@ class TokenCache:
         key = self._notebook_key(token_data)
         self._cache[key] = token
 
+    async def _acquire_user_lock(self, username: str) -> asyncio.Lock:
+        """Acquire a per-user cache lock.
+
+        This lock serializes token creation for a specific user so that if a
+        user without a matching internal or notebook token requests many of
+        them simultaneously, only one will be created and cached and then
+        returned by all the other requests.
+
+        Parameters
+        ----------
+        username : `str`
+            The user for which to acquire a lock.
+
+        Returns
+        -------
+        lock : `asyncio.Lock`
+            The acquired per-user lock.
+        """
+        async with self._cache_lock:
+            if username in self._cache_user_lock:
+                lock = self._cache_user_lock[username]
+            else:
+                lock = asyncio.Lock()
+                self._cache_user_lock[username] = lock
+            await lock.acquire()
+            return lock
+
+    async def _create_internal_token(
+        self,
+        token_data: TokenData,
+        service: str,
+        scopes: List[str],
+        ip_address: str,
+    ) -> Token:
+        """Retrieve or create a new internal token.
+
+        This must be run with the per-user token lock taken so that any other
+        requests for a token for the same user will wait until this request is
+        complete.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The authentication data for the parent token.
+        service : `str`
+            The service of the internal token.
+        scopes : List[`str`]
+            The scopes the internal token should have.
+        ip_address : `str`
+            The IP address from which the request came.
+        """
+        # See if there's already a matching internal token.
+        key = await self._token_db_store.get_internal_token_key(
+            token_data, service, scopes, self._minimum_expiration(token_data)
+        )
+        if key:
+            data = await self._token_redis_store.get_data_by_key(key)
+            if data:
+                return data.token
+
+        # There is not, so we need to create a new one.
+        token = Token()
+        created = current_datetime()
+        expires = created + self._config.token_lifetime
+        if token_data.expires and token_data.expires < expires:
+            expires = token_data.expires
+        data = TokenData(
+            token=token,
+            username=token_data.username,
+            token_type=TokenType.internal,
+            scopes=scopes,
+            created=created,
+            expires=expires,
+            name=token_data.name,
+            email=token_data.email,
+            uid=token_data.uid,
+            groups=token_data.groups,
+        )
+        history_entry = TokenChangeHistoryEntry(
+            token=token.key,
+            username=data.username,
+            token_type=TokenType.internal,
+            parent=token_data.token.key,
+            scopes=scopes,
+            service=service,
+            expires=expires,
+            actor=token_data.username,
+            action=TokenChange.create,
+            ip_address=ip_address,
+            event_time=created,
+        )
+
+        await self._token_redis_store.store_data(data)
+        await self._token_db_store.add(
+            data, service=service, parent=token_data.token.key
+        )
+        await self._token_change_store.add(history_entry)
+
+        self._logger.info(
+            "Created new internal token",
+            key=token.key,
+            service=service,
+            token_scope=",".join(data.scopes),
+        )
+
+        return token
+
+    async def _create_notebook_token(
+        self, token_data: TokenData, ip_address: str
+    ) -> Token:
+        """Retrieve or create a notebook token.
+
+        This must be run with the per-user token lock taken so that any other
+        requests for a token for the same user will wait until this request is
+        complete.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The authentication data for the parent token.
+        ip_address : `str`
+            The IP address from which the request came.
+        """
+        # See if there's already a matching notebook token.
+        key = await self._token_db_store.get_notebook_token_key(
+            token_data, self._minimum_expiration(token_data)
+        )
+        if key:
+            data = await self._token_redis_store.get_data_by_key(key)
+            if data:
+                return data.token
+
+        # There is not, so we need to create a new one.
+        token = Token()
+        created = current_datetime()
+        expires = created + self._config.token_lifetime
+        if token_data.expires and token_data.expires < expires:
+            expires = token_data.expires
+        data = TokenData(
+            token=token,
+            username=token_data.username,
+            token_type=TokenType.notebook,
+            scopes=token_data.scopes,
+            created=created,
+            expires=expires,
+            name=token_data.name,
+            email=token_data.email,
+            uid=token_data.uid,
+            groups=token_data.groups,
+        )
+        history_entry = TokenChangeHistoryEntry(
+            token=token.key,
+            username=data.username,
+            token_type=TokenType.notebook,
+            parent=token_data.token.key,
+            scopes=data.scopes,
+            expires=expires,
+            actor=token_data.username,
+            action=TokenChange.create,
+            ip_address=ip_address,
+            event_time=created,
+        )
+
+        await self._token_redis_store.store_data(data)
+        await self._token_db_store.add(data, parent=token_data.token.key)
+        await self._token_change_store.add(history_entry)
+
+        # Cache the token and return it.
+        self._logger.info("Created new notebook token", key=token.key)
+        return token
+
     async def _get_token(
         self, key: Tuple[str, ...], scopes: Optional[List[str]] = None
     ) -> Optional[Token]:
@@ -146,7 +404,7 @@ class TokenCache:
         token = self._cache.get(key)
         if not token:
             return None
-        data = await self._store.get_data(token)
+        data = await self._token_redis_store.get_data(token)
         if not data:
             return None
         if scopes is not None and not (set(data.scopes) <= set(scopes)):
@@ -162,11 +420,34 @@ class TokenCache:
         self, token_data: TokenData, service: str, scopes: List[str]
     ) -> Tuple[str, ...]:
         """Build a cache key for an internal token."""
-        scope = ",".join(sorted(scopes))
         expires = str(token_data.expires) if token_data.expires else "None"
+        scope = ",".join(sorted(scopes))
         return ("internal", token_data.token.key, expires, service, scope)
 
     def _notebook_key(self, token_data: TokenData) -> Tuple[str, ...]:
         """Build a cache key for a notebook token."""
         expires = str(token_data.expires) if token_data.expires else "None"
         return ("notebook", token_data.token.key, expires)
+
+    def _minimum_expiration(self, token_data: TokenData) -> datetime:
+        """Determine the minimum expiration for a child token.
+
+        Parameters
+        ----------
+        token_data : `gafaelfawr.models.token.TokenData`
+            The data for the parent token for which a child token was
+            requested.
+
+        Returns
+        -------
+        min_expires : `datetime.datetime`
+            The minimum acceptable expiration time for the child token.  If
+            no child tokens with at least this expiration time exist, a new
+            child token should be created.
+        """
+        min_expires = current_datetime() + timedelta(
+            seconds=self._config.token_lifetime.total_seconds() / 2
+        )
+        if token_data.expires and min_expires > token_data.expires:
+            min_expires = token_data.expires
+        return min_expires

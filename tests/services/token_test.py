@@ -229,7 +229,7 @@ async def test_notebook_token(config: Config, setup: SetupTest) -> None:
     assert token == new_token
 
     # Try again with the cache cleared to force a database lookup.
-    token_service._token_cache.clear()
+    await token_service._token_cache.clear()
     new_token = await token_service.get_notebook_token(
         data, ip_address="127.0.0.1"
     )
@@ -277,7 +277,7 @@ async def test_notebook_token(config: Config, setup: SetupTest) -> None:
         notebook_token_data, parent=data.token.key
     )
     await setup.session.flush()
-    token_service._token_cache.clear()
+    await token_service._token_cache.clear()
     dup_notebook_token = await token_service.get_notebook_token(
         data, ip_address="127.0.0.1"
     )
@@ -363,7 +363,7 @@ async def test_internal_token(config: Config, setup: SetupTest) -> None:
     assert internal_token == new_internal_token
 
     # Try again with the cache cleared to force a database lookup.
-    token_service._token_cache.clear()
+    await token_service._token_cache.clear()
     new_internal_token = await token_service.get_internal_token(
         data,
         service="some-service",
@@ -417,7 +417,7 @@ async def test_internal_token(config: Config, setup: SetupTest) -> None:
         internal_token_data, service="some-service", parent=data.token.key
     )
     await setup.session.flush()
-    token_service._token_cache.clear()
+    await token_service._token_cache.clear()
     dup_internal_token = await token_service.get_internal_token(
         data,
         service="some-service",
