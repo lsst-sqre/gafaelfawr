@@ -14,18 +14,17 @@ from tests.support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
 )
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
     from gafaelfawr.config import Config
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
-async def test_no_auth(
-    client: AsyncClient, config: Config, setup: SetupTest
-) -> None:
+async def test_no_auth(client: AsyncClient, config: Config) -> None:
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert_unauthorized_is_correct(r, config)
 
@@ -46,8 +45,9 @@ async def test_no_auth(
 
 
 @pytest.mark.asyncio
-async def test_invalid(client: AsyncClient, setup: SetupTest) -> None:
-    token = await setup.create_session_token()
+async def test_invalid(client: AsyncClient, factory: ComponentFactory) -> None:
+    token = await create_session_token(factory)
+
     r = await client.get(
         "/auth", headers={"Authorization": f"bearer {token.token}"}
     )
@@ -72,9 +72,7 @@ async def test_invalid(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_auth(
-    client: AsyncClient, config: Config, setup: SetupTest
-) -> None:
+async def test_invalid_auth(client: AsyncClient, config: Config) -> None:
     r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
@@ -130,9 +128,9 @@ async def test_invalid_auth(
 
 @pytest.mark.asyncio
 async def test_access_denied(
-    client: AsyncClient, config: Config, setup: SetupTest
+    client: AsyncClient, config: Config, factory: ComponentFactory
 ) -> None:
-    token_data = await setup.create_session_token()
+    token_data = await create_session_token(factory)
 
     r = await client.get(
         "/auth",
@@ -151,9 +149,7 @@ async def test_access_denied(
 
 
 @pytest.mark.asyncio
-async def test_auth_forbidden(
-    client: AsyncClient, config: Config, setup: SetupTest
-) -> None:
+async def test_auth_forbidden(client: AsyncClient, config: Config) -> None:
     r = await client.get(
         "/auth/forbidden",
         params=[("scope", "exec:test"), ("scope", "exec:admin")],
@@ -182,9 +178,9 @@ async def test_auth_forbidden(
 
 @pytest.mark.asyncio
 async def test_satisfy_all(
-    client: AsyncClient, config: Config, setup: SetupTest
+    client: AsyncClient, config: Config, factory: ComponentFactory
 ) -> None:
-    token_data = await setup.create_session_token(scopes=["exec:test"])
+    token_data = await create_session_token(factory, scopes=["exec:test"])
 
     r = await client.get(
         "/auth",
@@ -203,9 +199,9 @@ async def test_satisfy_all(
 
 
 @pytest.mark.asyncio
-async def test_success(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["admin"], scopes=["exec:admin", "read:all"]
+async def test_success(client: AsyncClient, factory: ComponentFactory) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
 
     r = await client.get(
@@ -228,12 +224,15 @@ async def test_success(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_success_minimal(client: AsyncClient, setup: SetupTest) -> None:
+async def test_success_minimal(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     user_info = TokenUserInfo(username="user", uid=1234)
-    token_service = setup.factory.create_token_service()
-    token = await token_service.create_session_token(
-        user_info, scopes=["read:all"], ip_address="127.0.0.1"
-    )
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        token = await token_service.create_session_token(
+            user_info, scopes=["read:all"], ip_address="127.0.0.1"
+        )
 
     r = await client.get(
         "/auth",
@@ -251,9 +250,11 @@ async def test_success_minimal(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_notebook(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["admin"], scopes=["exec:admin", "read:all"]
+async def test_notebook(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
     assert token_data.expires
 
@@ -292,9 +293,13 @@ async def test_notebook(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_internal(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["admin"], scopes=["exec:admin", "read:all", "read:some"]
+async def test_internal(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(
+        factory,
+        group_names=["admin"],
+        scopes=["exec:admin", "read:all", "read:some"],
     )
     assert token_data.expires
 
@@ -342,8 +347,10 @@ async def test_internal(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_internal_errors(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(scopes=["read:some"])
+async def test_internal_errors(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory, scopes=["read:some"])
 
     # Delegating a token with a scope the original doesn't have will fail.
     r = await client.get(
@@ -377,15 +384,17 @@ async def test_internal_errors(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_success_any(client: AsyncClient, setup: SetupTest) -> None:
+async def test_success_any(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     """Test ``satisfy=any`` as an ``/auth`` parameter.
 
     Ask for either ``exec:admin`` or ``exec:test`` and pass in credentials
     with only ``exec:test``.  Ensure they are accepted but also the headers
     don't claim the client has ``exec:admin``.
     """
-    token_data = await setup.create_session_token(
-        group_names=["test"], scopes=["exec:test"]
+    token_data = await create_session_token(
+        factory, group_names=["test"], scopes=["exec:test"]
     )
 
     r = await client.get(
@@ -406,9 +415,9 @@ async def test_success_any(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_basic(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["test"], scopes=["exec:admin"]
+async def test_basic(client: AsyncClient, factory: ComponentFactory) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["test"], scopes=["exec:admin"]
     )
 
     basic = f"{token_data.token}:x-oauth-basic".encode()
@@ -445,9 +454,7 @@ async def test_basic(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_basic_failure(
-    client: AsyncClient, config: Config, setup: SetupTest
-) -> None:
+async def test_basic_failure(client: AsyncClient, config: Config) -> None:
     basic_b64 = base64.b64encode(b"bogus-string").decode()
     r = await client.get(
         "/auth",
@@ -472,9 +479,7 @@ async def test_basic_failure(
 
 
 @pytest.mark.asyncio
-async def test_ajax_unauthorized(
-    client: AsyncClient, config: Config, setup: SetupTest
-) -> None:
+async def test_ajax_unauthorized(client: AsyncClient, config: Config) -> None:
     """Test that AJAX requests without auth get 403, not 401."""
     r = await client.get(
         "/auth",
@@ -490,13 +495,14 @@ async def test_ajax_unauthorized(
 
 @pytest.mark.asyncio
 async def test_success_unicode_name(
-    client: AsyncClient, setup: SetupTest
+    client: AsyncClient, factory: ComponentFactory
 ) -> None:
     user_info = TokenUserInfo(username="user", uid=1234, name="名字")
-    token_service = setup.factory.create_token_service()
-    token = await token_service.create_session_token(
-        user_info, scopes=["read:all"], ip_address="127.0.0.1"
-    )
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        token = await token_service.create_session_token(
+            user_info, scopes=["read:all"], ip_address="127.0.0.1"
+        )
 
     r = await client.get(
         "/auth",

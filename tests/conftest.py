@@ -15,6 +15,7 @@ from gafaelfawr import main
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
 from tests.pages.tokens import TokensPage
@@ -22,7 +23,6 @@ from tests.support.constants import TEST_HOSTNAME
 from tests.support.kubernetes import MockKubernetesApi
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
-from tests.support.setup import SetupTest
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -99,6 +99,17 @@ async def empty_database(config: Config) -> None:
 
 
 @pytest.fixture
+async def factory(empty_database: None) -> AsyncIterator[ComponentFactory]:
+    """Return a component factory.
+
+    Note that this creates a separate SQLAlchemy AsyncSession from any that
+    may be created by the FastAPI app.
+    """
+    async with ComponentFactory.standalone() as factory:
+        yield factory
+
+
+@pytest.fixture
 def mock_kubernetes() -> Iterator[MockKubernetesApi]:
     """Replace the Kubernetes API with a mock class.
 
@@ -153,23 +164,3 @@ async def selenium_config(
         del driver.header_overrides
 
         yield config
-
-
-@pytest.fixture
-async def setup(
-    tmp_path: Path, empty_database: None
-) -> AsyncIterator[SetupTest]:
-    """Create a test setup object.
-
-    This encapsulates a lot of the configuration and machinery of setting up
-    tests, mocking responses, and doing repetitive checks.  This fixture must
-    be referenced even if not used to set up the application properly for
-    testing.
-
-    Returns
-    -------
-    setup : `tests.support.setup.SetupTest`
-        The setup object.
-    """
-    async with SetupTest.create(tmp_path) as setup:
-        yield setup

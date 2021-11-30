@@ -13,17 +13,23 @@ from typing import TYPE_CHECKING
 import pytest
 
 from gafaelfawr.models.token import Token
+from tests.support.cookies import set_session_cookie
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
-async def test_notebook(client: AsyncClient, setup: SetupTest) -> None:
-    data = await setup.create_session_token(scopes=["exec:test", "read:all"])
-    await setup.login(client, data.token)
+async def test_notebook(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    data = await create_session_token(
+        factory, scopes=["exec:test", "read:all"]
+    )
+    await set_session_cookie(client, data.token)
 
     request_awaits = []
     for _ in range(100):
@@ -41,9 +47,13 @@ async def test_notebook(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_internal(client: AsyncClient, setup: SetupTest) -> None:
-    data = await setup.create_session_token(scopes=["exec:test", "read:all"])
-    await setup.login(client, data.token)
+async def test_internal(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    data = await create_session_token(
+        factory, scopes=["exec:test", "read:all"]
+    )
+    await set_session_cookie(client, data.token)
 
     request_awaits = []
     for _ in range(100):

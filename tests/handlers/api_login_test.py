@@ -14,20 +14,21 @@ from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.headers import assert_unauthorized_is_correct
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
     from gafaelfawr.config import Config
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
 async def test_login(
-    client: AsyncClient, config: Config, setup: SetupTest
+    client: AsyncClient, config: Config, factory: ComponentFactory
 ) -> None:
-    token_data = await setup.create_session_token(
-        username="example", scopes=["read:all", "exec:admin"]
+    token_data = await create_session_token(
+        factory, username="example", scopes=["read:all", "exec:admin"]
     )
     cookie = await State(token=token_data.token).as_cookie()
     client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
@@ -53,13 +54,13 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_login_no_auth(
-    client: AsyncClient, config: Config, setup: SetupTest
+    client: AsyncClient, config: Config, factory: ComponentFactory
 ) -> None:
     r = await client.get("/auth/api/v1/login")
     assert_unauthorized_is_correct(r, config)
 
     # An Authorization header with a valid token still redirects.
-    token_data = await setup.create_session_token()
+    token_data = await create_session_token(factory)
     r = await client.get(
         "/auth/api/v1/login",
         headers={"Authorization": f"bearer {token_data.token}"},

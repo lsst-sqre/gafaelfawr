@@ -6,19 +6,22 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from tests.support.cookies import set_session_cookie
+from tests.support.tokens import create_session_token
+
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
     from gafaelfawr.config import Config
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
-async def test_admins(client: AsyncClient, setup: SetupTest) -> None:
+async def test_admins(client: AsyncClient, factory: ComponentFactory) -> None:
     r = await client.get("/auth/api/v1/admins")
     assert r.status_code == 401
 
-    token_data = await setup.create_session_token()
+    token_data = await create_session_token(factory)
     r = await client.get(
         "/auth/api/v1/admins",
         headers={"Authorization": f"bearer {token_data.token}"},
@@ -29,7 +32,7 @@ async def test_admins(client: AsyncClient, setup: SetupTest) -> None:
         "type": "permission_denied",
     }
 
-    token_data = await setup.create_session_token(scopes=["admin:token"])
+    token_data = await create_session_token(factory, scopes=["admin:token"])
     r = await client.get(
         "/auth/api/v1/admins",
         headers={"Authorization": f"bearer {token_data.token}"},
@@ -37,11 +40,11 @@ async def test_admins(client: AsyncClient, setup: SetupTest) -> None:
     assert r.status_code == 200
     assert r.json() == [{"username": "admin"}]
 
-    admin_service = setup.factory.create_admin_service()
-    await admin_service.add_admin(
-        "example", actor="admin", ip_address="127.0.0.1"
-    )
-    await setup.session.commit()
+    admin_service = factory.create_admin_service()
+    async with factory.session.begin():
+        await admin_service.add_admin(
+            "example", actor="admin", ip_address="127.0.0.1"
+        )
 
     r = await client.get(
         "/auth/api/v1/admins",
@@ -52,7 +55,9 @@ async def test_admins(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_add_delete(client: AsyncClient, setup: SetupTest) -> None:
+async def test_add_delete(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     r = await client.post(
         "/auth/api/v1/admins", json={"username": "some-user"}
     )
@@ -60,8 +65,8 @@ async def test_add_delete(client: AsyncClient, setup: SetupTest) -> None:
     r = await client.delete("/auth/api/v1/admins/admin")
     assert r.status_code == 401
 
-    token_data = await setup.create_session_token(username="admin")
-    csrf = await setup.login(client, token_data.token)
+    token_data = await create_session_token(factory, username="admin")
+    csrf = await set_session_cookie(client, token_data.token)
     r = await client.post(
         "/auth/api/v1/admins",
         headers={"X-CSRF-Token": csrf},
@@ -81,10 +86,10 @@ async def test_add_delete(client: AsyncClient, setup: SetupTest) -> None:
         "type": "permission_denied",
     }
 
-    token_data = await setup.create_session_token(
-        username="admin", scopes=["admin:token"]
+    token_data = await create_session_token(
+        factory, username="admin", scopes=["admin:token"]
     )
-    csrf = await setup.login(client, token_data.token)
+    csrf = await set_session_cookie(client, token_data.token)
     r = await client.post(
         "/auth/api/v1/admins", json={"username": "new-admin"}
     )

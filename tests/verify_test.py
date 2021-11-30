@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     import respx
     from _pytest._code import ExceptionInfo
 
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 def encode_token(
@@ -51,10 +51,11 @@ def encode_token(
 
 @pytest.mark.asyncio
 async def test_verify_oidc(
-    tmp_path: Path, respx_mock: respx.Router, setup: SetupTest
+    tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    verifier = setup.factory.create_token_verifier()
+    factory.reconfigure(config)
+    verifier = factory.create_token_verifier()
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
@@ -114,11 +115,12 @@ async def test_verify_oidc(
 
 @pytest.mark.asyncio
 async def test_verify_oidc_no_kids(
-    tmp_path: Path, respx_mock: respx.Router, setup: SetupTest
+    tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
     config = await configure(tmp_path, "oidc-no-kids")
+    factory.reconfigure(config)
     keypair = config.issuer.keypair
-    verifier = setup.factory.create_token_verifier()
+    verifier = factory.create_token_verifier()
     await mock_oidc_provider_config(respx_mock, keypair, "kid")
 
     now = datetime.now(timezone.utc)
@@ -138,11 +140,12 @@ async def test_verify_oidc_no_kids(
 
 @pytest.mark.asyncio
 async def test_key_retrieval(
-    tmp_path: Path, respx_mock: respx.Router, setup: SetupTest
+    tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
     config = await configure(tmp_path, "oidc-no-kids")
+    factory.reconfigure(config)
     assert config.oidc
-    verifier = setup.factory.create_token_verifier()
+    verifier = factory.create_token_verifier()
 
     # Initial working JWKS configuration.
     jwks = config.issuer.keypair.public_key_as_jwks("some-kid")

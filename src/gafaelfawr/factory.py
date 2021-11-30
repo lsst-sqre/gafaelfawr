@@ -278,3 +278,16 @@ class ComponentFactory:
         return TokenVerifier(
             self._config.verifier, self._http_client, self._logger
         )
+
+    def reconfigure(self, config: Config) -> None:
+        """Change the internal configuration.
+
+        Intended for the test suite, which may have to reconfigure the
+        component factory after creating it.
+
+        Parameters
+        ----------
+        config : `gafaelfawr.config.Config`
+            New configuration.
+        """
+        self._config = config

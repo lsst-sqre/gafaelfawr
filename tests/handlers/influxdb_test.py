@@ -11,6 +11,7 @@ import pytest
 from tests.support.headers import assert_unauthorized_is_correct
 from tests.support.logging import parse_log
 from tests.support.settings import configure
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,17 +20,17 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
     from gafaelfawr.config import Config
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
 async def test_influxdb(
     client: AsyncClient,
     config: Config,
-    setup: SetupTest,
+    factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
-    token_data = await setup.create_session_token()
+    token_data = await create_session_token(factory)
     assert token_data.expires
     influxdb_secret = config.issuer.influxdb_secret
     assert influxdb_secret
@@ -80,11 +81,12 @@ async def test_no_auth(client: AsyncClient, config: Config) -> None:
 async def test_not_configured(
     tmp_path: Path,
     client: AsyncClient,
-    setup: SetupTest,
+    factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
-    await configure(tmp_path, "oidc")
-    token_data = await setup.create_session_token()
+    config = await configure(tmp_path, "oidc")
+    factory.reconfigure(config)
+    token_data = await create_session_token(factory)
 
     caplog.clear()
     r = await client.get(
@@ -115,11 +117,12 @@ async def test_not_configured(
 async def test_influxdb_force_username(
     tmp_path: Path,
     client: AsyncClient,
-    setup: SetupTest,
+    factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
     config = await configure(tmp_path, "influxdb-username")
-    token_data = await setup.create_session_token()
+    factory.reconfigure(config)
+    token_data = await create_session_token(factory)
     assert token_data.expires
     influxdb_secret = config.issuer.influxdb_secret
     assert influxdb_secret

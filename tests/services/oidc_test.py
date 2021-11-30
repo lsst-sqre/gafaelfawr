@@ -11,6 +11,7 @@ import pytest
 from cryptography.fernet import Fernet
 
 from gafaelfawr.config import OIDCClient
+from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.exceptions import (
     InvalidClientError,
     InvalidGrantError,
@@ -18,19 +19,21 @@ from gafaelfawr.exceptions import (
 )
 from gafaelfawr.models.oidc import OIDCAuthorizationCode
 from tests.support.settings import configure
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
-async def test_issue_code(tmp_path: Path, setup: SetupTest) -> None:
+async def test_issue_code(tmp_path: Path, factory: ComponentFactory) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     config = await configure(tmp_path, "github", oidc_clients=clients)
-    oidc_service = setup.factory.create_oidc_service()
-    token_data = await setup.create_session_token()
+    factory.reconfigure(config)
+    oidc_service = factory.create_oidc_service()
+    token_data = await create_session_token(factory)
     token = token_data.token
     redirect_uri = "https://example.com/"
 
@@ -41,7 +44,8 @@ async def test_issue_code(tmp_path: Path, setup: SetupTest) -> None:
         await oidc_service.issue_code("unknown-client", redirect_uri, token)
 
     code = await oidc_service.issue_code("some-id", redirect_uri, token)
-    encrypted_code = await setup.redis.get(f"oidc:{code.key}")
+    redis = await redis_dependency()
+    encrypted_code = await redis.get(f"oidc:{code.key}")
     assert encrypted_code
     fernet = Fernet(config.session_secret.encode())
     serialized_code = json.loads(fernet.decrypt(encrypted_code))
@@ -63,14 +67,15 @@ async def test_issue_code(tmp_path: Path, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_redeem_code(tmp_path: Path, setup: SetupTest) -> None:
+async def test_redeem_code(tmp_path: Path, factory: ComponentFactory) -> None:
     clients = [
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
     config = await configure(tmp_path, "github", oidc_clients=clients)
-    oidc_service = setup.factory.create_oidc_service()
-    token_data = await setup.create_session_token()
+    factory.reconfigure(config)
+    oidc_service = factory.create_oidc_service()
+    token_data = await create_session_token(factory)
     token = token_data.token
     redirect_uri = "https://example.com/"
     code = await oidc_service.issue_code("client-2", redirect_uri, token)
@@ -92,18 +97,22 @@ async def test_redeem_code(tmp_path: Path, setup: SetupTest) -> None:
         config.issuer.uid_claim: token_data.uid,
     }
 
-    assert not await setup.redis.get(f"oidc:{code.key}")
+    redis = await redis_dependency()
+    assert not await redis.get(f"oidc:{code.key}")
 
 
 @pytest.mark.asyncio
-async def test_redeem_code_errors(tmp_path: Path, setup: SetupTest) -> None:
+async def test_redeem_code_errors(
+    tmp_path: Path, factory: ComponentFactory
+) -> None:
     clients = [
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    await configure(tmp_path, "github", oidc_clients=clients)
-    oidc_service = setup.factory.create_oidc_service()
-    token_data = await setup.create_session_token()
+    config = await configure(tmp_path, "github", oidc_clients=clients)
+    factory.reconfigure(config)
+    oidc_service = factory.create_oidc_service()
+    token_data = await create_session_token(factory)
     token = token_data.token
     redirect_uri = "https://example.com/"
     code = await oidc_service.issue_code("client-2", redirect_uri, token)

@@ -8,19 +8,20 @@ from typing import TYPE_CHECKING
 import pytest
 
 from tests.support.logging import parse_log
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
 async def test_success(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
 ) -> None:
-    token_data = await setup.create_session_token(scopes=["exec:admin"])
+    token_data = await create_session_token(factory, scopes=["exec:admin"])
 
     # Successful request with X-Forwarded-For and a bearer token.
     caplog.clear()
@@ -87,9 +88,9 @@ async def test_success(
 
 @pytest.mark.asyncio
 async def test_authorization_failed(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
 ) -> None:
-    token_data = await setup.create_session_token(scopes=["exec:admin"])
+    token_data = await create_session_token(factory, scopes=["exec:admin"])
 
     caplog.clear()
     r = await client.get(
@@ -123,9 +124,9 @@ async def test_authorization_failed(
 
 @pytest.mark.asyncio
 async def test_original_url(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
 ) -> None:
-    token_data = await setup.create_session_token()
+    token_data = await create_session_token(factory)
 
     caplog.clear()
     r = await client.get(
@@ -173,9 +174,9 @@ async def test_original_url(
 
 @pytest.mark.asyncio
 async def test_chained_x_forwarded(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
 ) -> None:
-    token_data = await setup.create_session_token()
+    token_data = await create_session_token(factory)
 
     caplog.clear()
     r = await client.get(
@@ -211,7 +212,7 @@ async def test_chained_x_forwarded(
 
 @pytest.mark.asyncio
 async def test_invalid_token(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     caplog.clear()
     r = await client.get(

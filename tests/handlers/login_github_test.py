@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient, Response
 
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 async def simulate_github_login(
@@ -329,14 +329,14 @@ async def test_github_uppercase(
 
 @pytest.mark.asyncio
 async def test_github_admin(
-    client: AsyncClient, respx_mock: respx.Router, setup: SetupTest
+    client: AsyncClient, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
     """Test that a token administrator gets the admin:token scope."""
-    admin_service = setup.factory.create_admin_service()
-    await admin_service.add_admin(
-        "someuser", actor="admin", ip_address="127.0.0.1"
-    )
-    await setup.session.commit()
+    admin_service = factory.create_admin_service()
+    async with factory.session.begin():
+        await admin_service.add_admin(
+            "someuser", actor="admin", ip_address="127.0.0.1"
+        )
     user_info = GitHubUserInfo(
         name="A User",
         username="someuser",

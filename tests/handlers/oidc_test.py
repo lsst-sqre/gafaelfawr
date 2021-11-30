@@ -13,9 +13,11 @@ import pytest
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import OIDCClient
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
 from tests.support.constants import TEST_HOSTNAME
+from tests.support.cookies import set_session_cookie
 from tests.support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
@@ -23,6 +25,7 @@ from tests.support.headers import (
 )
 from tests.support.logging import parse_log
 from tests.support.settings import configure
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -32,20 +35,21 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
     from gafaelfawr.config import Config
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
 async def test_login(
     tmp_path: Path,
     client: AsyncClient,
-    setup: SetupTest,
+    factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     config = await configure(tmp_path, "github", oidc_clients=clients)
-    token_data = await setup.create_session_token()
-    await setup.login(client, token_data.token)
+    factory.reconfigure(config)
+    token_data = await create_session_token(factory)
+    await set_session_cookie(client, token_data.token)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
 
     # Log in
@@ -117,7 +121,7 @@ async def test_login(
     assert exp_seconds - 5 <= data["expires_in"] <= exp_seconds
 
     assert data["access_token"] == data["id_token"]
-    verifier = setup.factory.create_token_verifier()
+    verifier = factory.create_token_verifier()
     token = verifier.verify_internal_token(OIDCToken(encoded=data["id_token"]))
     assert token.claims == {
         "aud": config.issuer.aud,
@@ -153,10 +157,7 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_unauthenticated(
-    tmp_path: Path,
-    client: AsyncClient,
-    setup: SetupTest,
-    caplog: LogCaptureFixture,
+    tmp_path: Path, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     await configure(tmp_path, "github", oidc_clients=clients)
@@ -197,13 +198,14 @@ async def test_unauthenticated(
 async def test_login_errors(
     tmp_path: Path,
     client: AsyncClient,
-    setup: SetupTest,
+    factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    await configure(tmp_path, "github", oidc_clients=clients)
-    token_data = await setup.create_session_token()
-    await setup.login(client, token_data.token)
+    config = await configure(tmp_path, "github", oidc_clients=clients)
+    factory.reconfigure(config)
+    token_data = await create_session_token(factory)
+    await set_session_cookie(client, token_data.token)
 
     # No parameters at all.
     r = await client.get("/auth/openid/login")
@@ -313,17 +315,18 @@ async def test_login_errors(
 async def test_token_errors(
     tmp_path: Path,
     client: AsyncClient,
-    setup: SetupTest,
+    factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [
         OIDCClient(client_id="some-id", client_secret="some-secret"),
         OIDCClient(client_id="other-id", client_secret="other-secret"),
     ]
-    await configure(tmp_path, "github", oidc_clients=clients)
-    token_data = await setup.create_session_token()
+    config = await configure(tmp_path, "github", oidc_clients=clients)
+    factory.reconfigure(config)
+    token_data = await create_session_token(factory)
     token = token_data.token
-    oidc_service = setup.factory.create_oidc_service()
+    oidc_service = factory.create_oidc_service()
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
     code = await oidc_service.issue_code("some-id", redirect_uri, token)
 
@@ -438,7 +441,8 @@ async def test_token_errors(
     assert log["error"] == f"Unknown authorization code {bogus_code.key}"
 
     # Corrupt stored data.
-    await setup.redis.set(bogus_code.key, "XXXXXXX")
+    redis = await redis_dependency()
+    await redis.set(bogus_code.key, "XXXXXXX")
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
     assert r.json() == {
@@ -466,10 +470,11 @@ async def test_token_errors(
     }
 
     # Delete the underlying token.
-    token_service = setup.factory.create_token_service()
-    await token_service.delete_token(
-        token.key, token_data, token_data.username, ip_address="127.0.0.1"
-    )
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        await token_service.delete_token(
+            token.key, token_data, token_data.username, ip_address="127.0.0.1"
+        )
     request["redirect_uri"] = redirect_uri
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
@@ -480,9 +485,11 @@ async def test_token_errors(
 
 
 @pytest.mark.asyncio
-async def test_userinfo(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token()
-    issuer = setup.factory.create_token_issuer()
+async def test_userinfo(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory)
+    issuer = factory.create_token_issuer()
     oidc_token = issuer.issue_token(token_data, jti="some-jti")
 
     r = await client.get(
@@ -504,11 +511,11 @@ async def test_no_auth(client: AsyncClient, config: Config) -> None:
 async def test_invalid(
     client: AsyncClient,
     config: Config,
-    setup: SetupTest,
+    factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
-    token_data = await setup.create_session_token()
-    issuer = setup.factory.create_token_issuer()
+    token_data = await create_session_token(factory)
+    issuer = factory.create_token_issuer()
     oidc_token = issuer.issue_token(token_data, jti="some-jti")
 
     caplog.clear()

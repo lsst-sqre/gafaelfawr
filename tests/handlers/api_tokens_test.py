@@ -14,19 +14,21 @@ from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
 from gafaelfawr.util import current_datetime
 from tests.support.constants import TEST_HOSTNAME
+from tests.support.cookies import clear_session_cookie, set_session_cookie
 from tests.support.logging import parse_log
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from httpx import AsyncClient
 
     from gafaelfawr.config import Config
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
 async def test_create_delete_modify(
-    client: AsyncClient, setup: SetupTest, caplog: LogCaptureFixture
+    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
 ) -> None:
     user_info = TokenUserInfo(
         username="example",
@@ -35,14 +37,14 @@ async def test_create_delete_modify(
         uid=45613,
         groups=[TokenGroup(name="foo", id=12313)],
     )
-    token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(
-        user_info,
-        scopes=["read:all", "exec:admin", "user:token"],
-        ip_address="127.0.0.1",
-    )
-    csrf = await setup.login(client, session_token)
-    await setup.session.commit()
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        session_token = await token_service.create_session_token(
+            user_info,
+            scopes=["read:all", "exec:admin", "user:token"],
+            ip_address="127.0.0.1",
+        )
+    csrf = await set_session_cookie(client, session_token)
 
     expires = current_datetime() + timedelta(days=100)
     r = await client.post(
@@ -215,7 +217,7 @@ async def test_create_delete_modify(
 
 @pytest.mark.asyncio
 async def test_token_info(
-    client: AsyncClient, config: Config, setup: SetupTest
+    client: AsyncClient, config: Config, factory: ComponentFactory
 ) -> None:
     user_info = TokenUserInfo(
         username="example",
@@ -224,11 +226,13 @@ async def test_token_info(
         uid=45613,
         groups=[TokenGroup(name="foo", id=12313)],
     )
-    token_service = setup.factory.create_token_service()
-    session_token = await token_service.create_session_token(
-        user_info, scopes=["exec:admin", "user:token"], ip_address="127.0.0.1"
-    )
-    await setup.session.commit()
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        session_token = await token_service.create_session_token(
+            user_info,
+            scopes=["exec:admin", "user:token"],
+            ip_address="127.0.0.1",
+        )
 
     r = await client.get(
         "/auth/api/v1/token-info",
@@ -273,15 +277,15 @@ async def test_token_info(
     # data.
     expires = now + timedelta(days=100)
     data = await token_service.get_data(session_token)
-    user_token = await token_service.create_user_token(
-        data,
-        data.username,
-        token_name="some-token",
-        scopes=["exec:admin"],
-        expires=expires,
-        ip_address="127.0.0.1",
-    )
-    await setup.session.commit()
+    async with factory.session.begin():
+        user_token = await token_service.create_user_token(
+            data,
+            data.username,
+            token_name="some-token",
+            scopes=["exec:admin"],
+            expires=expires,
+            ip_address="127.0.0.1",
+        )
 
     r = await client.get(
         "/auth/api/v1/token-info",
@@ -315,14 +319,16 @@ async def test_token_info(
 
 
 @pytest.mark.asyncio
-async def test_auth_required(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token()
+async def test_auth_required(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory)
     token = token_data.token
-    csrf = await setup.login(client, token)
+    csrf = await set_session_cookie(client, token)
 
     # Replace the cookie with one containing the CSRF token but not the
     # authentication token.
-    setup.logout(client)
+    clear_session_cookie(client)
     client.cookies[COOKIE_NAME] = await State(csrf=csrf).as_cookie()
 
     r = await client.post(
@@ -365,17 +371,20 @@ async def test_auth_required(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_csrf_required(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(scopes=["admin:token"])
-    csrf = await setup.login(client, token_data.token)
-    token_service = setup.factory.create_token_service()
-    user_token = await token_service.create_user_token(
-        token_data,
-        token_data.username,
-        token_name="foo",
-        scopes=[],
-        ip_address="127.0.0.1",
-    )
+async def test_csrf_required(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory, scopes=["admin:token"])
+    csrf = await set_session_cookie(client, token_data.token)
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        user_token = await token_service.create_user_token(
+            token_data,
+            token_data.username,
+            token_name="foo",
+            scopes=[],
+            ip_address="127.0.0.1",
+        )
 
     r = await client.post(
         "/auth/api/v1/tokens",
@@ -428,9 +437,9 @@ async def test_csrf_required(client: AsyncClient, setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_no_bootstrap(
-    client: AsyncClient, config: Config, setup: SetupTest
+    client: AsyncClient, config: Config, factory: ComponentFactory
 ) -> None:
-    token_data = await setup.create_session_token()
+    token_data = await create_session_token(factory)
     token = token_data.token
     bootstrap_token = str(config.bootstrap_token)
 
@@ -468,17 +477,19 @@ async def test_no_bootstrap(
 
 
 @pytest.mark.asyncio
-async def test_no_scope(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token()
-    token_service = setup.factory.create_token_service()
-    token = await token_service.create_user_token(
-        token_data,
-        token_data.username,
-        token_name="user",
-        scopes=[],
-        ip_address="127.0.0.1",
-    )
-    await setup.session.commit()
+async def test_no_scope(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory)
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        token = await token_service.create_user_token(
+            token_data,
+            token_data.username,
+            token_name="user",
+            scopes=[],
+            ip_address="127.0.0.1",
+        )
 
     r = await client.get(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -514,10 +525,12 @@ async def test_no_scope(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_modify_nonuser(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token()
+async def test_modify_nonuser(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory)
     token = token_data.token
-    csrf = await setup.login(client, token)
+    csrf = await set_session_cookie(client, token)
 
     r = await client.patch(
         f"/auth/api/v1/users/{token_data.username}/tokens/{token.key}",
@@ -529,26 +542,29 @@ async def test_modify_nonuser(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_wrong_user(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token()
-    csrf = await setup.login(client, token_data.token)
-    token_service = setup.factory.create_token_service()
+async def test_wrong_user(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory)
+    csrf = await set_session_cookie(client, token_data.token)
+    token_service = factory.create_token_service()
     user_info = TokenUserInfo(
         username="other-person", name="Some Other Person", uid=137123
     )
-    other_session_token = await token_service.create_session_token(
-        user_info, scopes=["user:token"], ip_address="127.0.0.1"
-    )
+    async with factory.session.begin():
+        other_session_token = await token_service.create_session_token(
+            user_info, scopes=["user:token"], ip_address="127.0.0.1"
+        )
     other_session_data = await token_service.get_data(other_session_token)
     assert other_session_data
-    other_token = await token_service.create_user_token(
-        other_session_data,
-        "other-person",
-        token_name="foo",
-        scopes=[],
-        ip_address="127.0.0.1",
-    )
-    await setup.session.commit()
+    async with factory.session.begin():
+        other_token = await token_service.create_user_token(
+            other_session_data,
+            "other-person",
+            token_name="foo",
+            scopes=[],
+            ip_address="127.0.0.1",
+        )
 
     # Get a token list.
     r = await client.get("/auth/api/v1/users/other-person/tokens")
@@ -622,10 +638,12 @@ async def test_wrong_user(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_no_expires(client: AsyncClient, setup: SetupTest) -> None:
+async def test_no_expires(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     """Test creating a user token that doesn't expire."""
-    token_data = await setup.create_session_token()
-    csrf = await setup.login(client, token_data.token)
+    token_data = await create_session_token(factory)
+    csrf = await set_session_cookie(client, token_data.token)
 
     r = await client.post(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -651,7 +669,7 @@ async def test_no_expires(client: AsyncClient, setup: SetupTest) -> None:
     )
     assert r.status_code == 201
     user_token = Token.from_str(r.json()["token"])
-    token_service = setup.factory.create_token_service()
+    token_service = factory.create_token_service()
     user_token_data = await token_service.get_data(user_token)
     assert user_token_data and user_token_data.expires == expires
     token_url = r.headers["Location"]
@@ -668,18 +686,17 @@ async def test_no_expires(client: AsyncClient, setup: SetupTest) -> None:
     assert "expires" not in r.json()
 
     # Check that the expiration was also changed in Redis.
-    token_service = setup.factory.create_token_service()
     user_token_data = await token_service.get_data(user_token)
     assert user_token_data and user_token_data.expires is None
 
 
 @pytest.mark.asyncio
 async def test_duplicate_token_name(
-    client: AsyncClient, setup: SetupTest
+    client: AsyncClient, factory: ComponentFactory
 ) -> None:
     """Test duplicate token names."""
-    token_data = await setup.create_session_token()
-    csrf = await setup.login(client, token_data.token)
+    token_data = await create_session_token(factory)
+    csrf = await set_session_cookie(client, token_data.token)
 
     r = await client.post(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -714,10 +731,12 @@ async def test_duplicate_token_name(
 
 
 @pytest.mark.asyncio
-async def test_bad_expires(client: AsyncClient, setup: SetupTest) -> None:
+async def test_bad_expires(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     """Test creating or modifying a token with bogus expirations."""
-    token_data = await setup.create_session_token()
-    csrf = await setup.login(client, token_data.token)
+    token_data = await create_session_token(factory)
+    csrf = await set_session_cookie(client, token_data.token)
 
     now = int(time.time())
     bad_expires = [-now, -1, 0, now, now + (5 * 60) - 1]
@@ -756,15 +775,15 @@ async def test_bad_expires(client: AsyncClient, setup: SetupTest) -> None:
 
 @pytest.mark.asyncio
 async def test_bad_scopes(
-    client: AsyncClient, config: Config, setup: SetupTest
+    client: AsyncClient, config: Config, factory: ComponentFactory
 ) -> None:
     """Test creating or modifying a token with bogus scopes."""
     known_scopes = list(config.known_scopes.keys())
     assert len(known_scopes) > 4
-    token_data = await setup.create_session_token(
-        scopes=known_scopes[1:3] + ["other:scope", "user:token"]
+    token_data = await create_session_token(
+        factory, scopes=known_scopes[1:3] + ["other:scope", "user:token"]
     )
-    csrf = await setup.login(client, token_data.token)
+    csrf = await set_session_cookie(client, token_data.token)
 
     # Check that we reject both an unknown scope and a scope that's present on
     # the session but isn't valid in the configuration.
@@ -803,11 +822,11 @@ async def test_bad_scopes(
 
 @pytest.mark.asyncio
 async def test_create_admin(
-    client: AsyncClient, config: Config, setup: SetupTest
+    client: AsyncClient, config: Config, factory: ComponentFactory
 ) -> None:
     """Test creating a token through the admin interface."""
-    token_data = await setup.create_session_token(scopes=["exec:admin"])
-    csrf = await setup.login(client, token_data.token)
+    token_data = await create_session_token(factory, scopes=["exec:admin"])
+    csrf = await set_session_cookie(client, token_data.token)
 
     r = await client.post(
         "/auth/api/v1/tokens",
@@ -816,8 +835,8 @@ async def test_create_admin(
     )
     assert r.status_code == 403
 
-    token_data = await setup.create_session_token(scopes=["admin:token"])
-    csrf = await setup.login(client, token_data.token)
+    token_data = await create_session_token(factory, scopes=["admin:token"])
+    csrf = await set_session_cookie(client, token_data.token)
 
     now = datetime.now(tz=timezone.utc)
     expires = int((now + timedelta(days=2)).timestamp())
@@ -841,7 +860,7 @@ async def test_create_admin(
     token_url = f"/auth/api/v1/users/a-service/tokens/{service_token.key}"
     assert r.headers["Location"] == token_url
 
-    setup.logout(client)
+    clear_session_cookie(client)
     r = await client.get(
         "/auth/api/v1/token-info",
         headers={"Authorization": f"bearer {str(service_token)}"},

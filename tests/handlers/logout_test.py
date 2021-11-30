@@ -7,9 +7,11 @@ from typing import TYPE_CHECKING
 import pytest
 
 from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
+from tests.support.cookies import set_session_cookie
 from tests.support.github import mock_github
 from tests.support.headers import query_from_url
 from tests.support.logging import parse_log
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     import respx
@@ -17,18 +19,18 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
     from gafaelfawr.config import Config
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
 async def test_logout(
     client: AsyncClient,
     config: Config,
-    setup: SetupTest,
+    factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
-    token_data = await setup.create_session_token(scopes=["read:all"])
-    await setup.login(client, token_data.token)
+    token_data = await create_session_token(factory, scopes=["read:all"])
+    await set_session_cookie(client, token_data.token)
 
     # Confirm that we're logged in.
     r = await client.get("/auth", params={"scope": "read:all"})
@@ -57,9 +59,11 @@ async def test_logout(
 
 
 @pytest.mark.asyncio
-async def test_logout_with_url(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(scopes=["read:all"])
-    await setup.login(client, token_data.token)
+async def test_logout_with_url(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory, scopes=["read:all"])
+    await set_session_cookie(client, token_data.token)
 
     # Confirm that we're logged in.
     r = await client.get("/auth", params={"scope": "read:all"})

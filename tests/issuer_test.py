@@ -9,19 +9,21 @@ from unittest.mock import ANY
 import pytest
 
 from tests.support.settings import configure
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
-async def test_issue_token(tmp_path: Path, setup: SetupTest) -> None:
+async def test_issue_token(tmp_path: Path, factory: ComponentFactory) -> None:
     config = await configure(tmp_path, "oidc")
-    issuer = setup.factory.create_token_issuer()
+    factory.reconfigure(config)
+    issuer = factory.create_token_issuer()
 
-    token_data = await setup.create_session_token()
+    token_data = await create_session_token(factory)
     oidc_token = issuer.issue_token(token_data, jti="new-jti", scope="openid")
 
     assert oidc_token.claims == {

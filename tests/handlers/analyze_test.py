@@ -9,16 +9,18 @@ from urllib.parse import urlparse
 import pytest
 
 from gafaelfawr.models.token import Token
+from tests.support.cookies import set_session_cookie
 from tests.support.headers import query_from_url
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
-    from tests.support.setup import SetupTest
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
-async def test_analyze_no_auth(client: AsyncClient, setup: SetupTest) -> None:
+async def test_analyze_no_auth(client: AsyncClient) -> None:
     r = await client.get("/auth/analyze")
     assert r.status_code == 307
     url = urlparse(r.headers["Location"])
@@ -31,13 +33,15 @@ async def test_analyze_no_auth(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_session(client: AsyncClient, setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["foo", "bar"], scopes=["read:all"]
+async def test_analyze_session(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["foo", "bar"], scopes=["read:all"]
     )
     assert token_data.expires
     assert token_data.groups
-    await setup.login(client, token_data.token)
+    await set_session_cookie(client, token_data.token)
 
     r = await client.get("/auth/analyze")
     assert r.status_code == 200
@@ -64,14 +68,16 @@ async def test_analyze_session(client: AsyncClient, setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_token(client: AsyncClient, setup: SetupTest) -> None:
+async def test_invalid_token(client: AsyncClient) -> None:
     r = await client.post("/auth/analyze", data={"token": "some-token"})
     assert r.status_code == 200
     assert r.json() == {"token": {"errors": [ANY], "valid": False}}
 
 
 @pytest.mark.asyncio
-async def test_analyze_token(client: AsyncClient, setup: SetupTest) -> None:
+async def test_analyze_token(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     token = Token()
 
     # Handle with no session.
@@ -83,8 +89,8 @@ async def test_analyze_token(client: AsyncClient, setup: SetupTest) -> None:
     }
 
     # Valid token.
-    token_data = await setup.create_session_token(
-        group_names=["foo", "bar"], scopes=["admin:token", "read:all"]
+    token_data = await create_session_token(
+        factory, group_names=["foo", "bar"], scopes=["admin:token", "read:all"]
     )
     assert token_data.expires
     assert token_data.groups
@@ -115,7 +121,7 @@ async def test_analyze_token(client: AsyncClient, setup: SetupTest) -> None:
     token_data.name = None
     token_data.uid = None
     token_data.groups = None
-    token_service = setup.factory.create_token_service()
+    token_service = factory.create_token_service()
     user_token = await token_service.create_user_token(
         token_data,
         token_data.username,
