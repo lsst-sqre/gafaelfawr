@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 async def test_basic(setup: SetupTest) -> None:
     token_data = await setup.create_session_token(scopes=["read:all"])
     token_service = setup.factory.create_token_service()
-    token_cache = setup.factory.create_token_cache()
+    token_cache = setup.factory.create_token_cache_service()
     internal_token = await token_service.get_internal_token(
         token_data, "some-service", ["read:all"], ip_address="127.0.0.1"
     )
@@ -71,7 +71,7 @@ async def test_basic(setup: SetupTest) -> None:
 async def test_invalid(setup: SetupTest) -> None:
     """Invalid tokens should not be returned even if cached."""
     token_data = await setup.create_session_token(scopes=["read:all"])
-    token_cache = setup.factory.create_token_cache()
+    token_cache = setup.factory.create_token_cache_service()
     internal_token = Token()
     notebook_token = Token()
 
@@ -96,7 +96,7 @@ async def test_expiration(config: Config, setup: SetupTest) -> None:
     now = current_datetime()
     storage = RedisStorage(TokenData, config.session_secret, setup.redis)
     token_store = TokenRedisStore(storage, setup.logger)
-    token_cache = setup.factory.create_token_cache()
+    token_cache = setup.factory.create_token_cache_service()
 
     # Store a token whose expiration is five seconds more than half the
     # typical token lifetime in the future and cache that token as an internal

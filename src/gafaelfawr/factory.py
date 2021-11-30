@@ -20,6 +20,7 @@ from gafaelfawr.services.admin import AdminService
 from gafaelfawr.services.kubernetes import KubernetesService
 from gafaelfawr.services.oidc import OIDCService
 from gafaelfawr.services.token import TokenService
+from gafaelfawr.services.token_cache import TokenCacheService
 from gafaelfawr.storage.admin import AdminStore
 from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.history import (
@@ -29,7 +30,6 @@ from gafaelfawr.storage.history import (
 from gafaelfawr.storage.kubernetes import KubernetesStorage
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-from gafaelfawr.token_cache import TokenCache
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
@@ -195,12 +195,12 @@ class ComponentFactory:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
 
-    def create_token_cache(self) -> TokenCache:
+    def create_token_cache_service(self) -> TokenCacheService:
         """Create a token cache.
 
         Returns
         -------
-        cache : `gafaelfawr.token_cache.TokenCache`
+        cache : `gafaelfawr.services.token_cache.TokenCacheService`
             A new token cache.
         """
         key = self._config.session_secret
@@ -208,7 +208,7 @@ class ComponentFactory:
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_db_store = TokenDatabaseStore(self.session)
         token_change_store = TokenChangeHistoryStore(self.session)
-        return TokenCache(
+        return TokenCacheService(
             config=self._config,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
@@ -239,7 +239,7 @@ class ComponentFactory:
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_change_store = TokenChangeHistoryStore(self.session)
-        token_cache = TokenCache(
+        token_cache = TokenCacheService(
             config=self._config,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,

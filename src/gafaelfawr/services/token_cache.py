@@ -22,10 +22,10 @@ if TYPE_CHECKING:
     from gafaelfawr.storage.history import TokenChangeHistoryStore
     from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 
-__all__ = ["TokenCache"]
+__all__ = ["TokenCacheService"]
 
 
-class TokenCache:
+class TokenCacheService:
     """Cache internal and notebook tokens.
 
     To reduce latency and database query load, notebook and internal tokens

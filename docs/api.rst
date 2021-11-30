@@ -66,6 +66,8 @@ API reference
 
 .. automodapi:: gafaelfawr.services.token
 
+.. automodapi:: gafaelfawr.services.token_cache
+
 .. automodapi:: gafaelfawr.storage.admin
 
 .. automodapi:: gafaelfawr.storage.base
@@ -80,8 +82,6 @@ API reference
 
 .. automodapi:: gafaelfawr.templates
    :include-all-objects:
-
-.. automodapi:: gafaelfawr.token_cache
 
 .. automodapi:: gafaelfawr.util
 

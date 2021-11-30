@@ -37,9 +37,9 @@ if TYPE_CHECKING:
     from gafaelfawr.config import Config
     from gafaelfawr.models.history import PaginatedHistory
     from gafaelfawr.models.token import TokenInfo
+    from gafaelfawr.services.token_cache import TokenCacheService
     from gafaelfawr.storage.history import TokenChangeHistoryStore
     from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-    from gafaelfawr.token_cache import TokenCache
 
 __all__ = ["TokenService"]
 
@@ -51,6 +51,8 @@ class TokenService:
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelfawr configuration.
+    token_cache : `gafaelfawr.services.token_cache.TokenCacheService`
+        Cache of internal and notebook tokens.
     token_db_store : `gafaelfawr.storage.token.TokenDatabaseStore`
         The database backing store for tokens.
     token_redis_store : `gafaelfawr.storage.token.TokenRedisStore`
@@ -65,7 +67,7 @@ class TokenService:
         self,
         *,
         config: Config,
-        token_cache: TokenCache,
+        token_cache: TokenCacheService,
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
         token_change_store: TokenChangeHistoryStore,
