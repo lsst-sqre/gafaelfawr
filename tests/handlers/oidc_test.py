@@ -222,7 +222,9 @@ async def test_login_errors(
     }
     r = await client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 400
-    assert "Unknown client_id bad-client" in r.text
+    data = r.json()
+    assert data["detail"][0]["type"] == "invalid_client"
+    assert "Unknown client_id bad-client" in data["detail"][0]["msg"]
 
     assert parse_log(caplog) == [
         {
