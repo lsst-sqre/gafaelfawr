@@ -597,7 +597,7 @@ async def test_update_generation(
 
 
 @pytest.mark.asyncio
-async def test_update_generation_metadata(
+async def test_update_metadata(
     setup: SetupTest, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test that Secret metadata is updated even if generation doesn't change.
