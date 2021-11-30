@@ -38,3 +38,48 @@ async def test_notebook(client: AsyncClient, setup: SetupTest) -> None:
     for r in responses:
         assert r.status_code == 200
         assert Token.from_str(r.headers["X-Auth-Request-Token"]) == token
+
+
+@pytest.mark.asyncio
+async def test_internal(client: AsyncClient, setup: SetupTest) -> None:
+    data = await setup.create_session_token(scopes=["exec:test", "read:all"])
+    await setup.login(client, data.token)
+
+    request_awaits = []
+    for _ in range(100):
+        request_awaits.append(
+            client.get(
+                "/auth",
+                params={
+                    "scope": "exec:test",
+                    "delegate_to": "a-service",
+                    "delegate_scope": "read:all",
+                },
+            )
+        )
+    responses = await asyncio.gather(*request_awaits)
+    assert responses[0].status_code == 200
+    token = Token.from_str(responses[0].headers["X-Auth-Request-Token"])
+    for r in responses:
+        assert r.status_code == 200
+        assert Token.from_str(r.headers["X-Auth-Request-Token"]) == token
+
+    request_awaits = []
+    for _ in range(100):
+        request_awaits.append(
+            client.get(
+                "/auth",
+                params={
+                    "scope": "exec:test",
+                    "delegate_to": "a-service",
+                    "delegate_scope": "exec:test",
+                },
+            )
+        )
+    responses = await asyncio.gather(*request_awaits)
+    assert responses[0].status_code == 200
+    new_token = Token.from_str(responses[0].headers["X-Auth-Request-Token"])
+    assert new_token != token
+    for r in responses:
+        assert r.status_code == 200
+        assert Token.from_str(r.headers["X-Auth-Request-Token"]) == new_token

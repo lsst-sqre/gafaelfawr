@@ -20,6 +20,7 @@ from gafaelfawr.database import check_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.db_session import db_session_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
+from gafaelfawr.dependencies.token_cache import token_cache_dependency
 from gafaelfawr.exceptions import PermissionDeniedError, ValidationError
 from gafaelfawr.handlers import (
     analyze,
@@ -120,6 +121,7 @@ async def shutdown_event() -> None:
     await http_client_dependency.aclose()
     await db_session_dependency.aclose()
     await redis_dependency.aclose()
+    await token_cache_dependency.aclose()
 
 
 @app.exception_handler(PermissionDeniedError)

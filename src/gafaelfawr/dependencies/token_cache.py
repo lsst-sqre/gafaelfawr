@@ -57,6 +57,17 @@ class TokenCache:
     user_lock: Dict[str, asyncio.Lock] = field(default_factory=dict)
     """Dict of per-user locks."""
 
+    async def clear(self) -> None:
+        """Invalidate the cache.
+
+        Used primarily for testing.
+        """
+        async with self.lock:
+            self.cache = LRUCache(TOKEN_CACHE_SIZE)
+            for user, lock in list(self.user_lock.items()):
+                async with lock:
+                    del self.user_lock[user]
+
 
 class TokenCacheDependency:
     """Manage a single global token cache.
@@ -75,6 +86,16 @@ class TokenCacheDependency:
         if not self._cache:
             self._cache = TokenCache()
         return self._cache
+
+    async def aclose(self) -> None:
+        """Clear the cache.
+
+        Should be called from a shutdown hook to ensure that cache locks are
+        not reused across tests when running the test suite.
+        """
+        if self._cache:
+            await self._cache.clear()
+            self._cache = None
 
 
 token_cache_dependency = TokenCacheDependency()

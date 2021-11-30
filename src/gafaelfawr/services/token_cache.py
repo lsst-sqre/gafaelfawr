@@ -6,9 +6,6 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from cachetools import LRUCache
-
-from gafaelfawr.constants import TOKEN_CACHE_SIZE
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.token import Token, TokenData, TokenType
 from gafaelfawr.util import current_datetime
@@ -86,11 +83,7 @@ class TokenCacheService:
 
         Used primarily for testing.
         """
-        async with self._cache.lock:
-            self._cache.cache = LRUCache(TOKEN_CACHE_SIZE)
-            for user, lock in list(self._cache.user_lock.items()):
-                async with lock:
-                    del self._cache.user_lock[user]
+        await self._cache.clear()
 
     async def get_internal_token(
         self,
