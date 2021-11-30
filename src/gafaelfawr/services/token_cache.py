@@ -14,11 +14,12 @@ from gafaelfawr.models.token import Token, TokenData, TokenType
 from gafaelfawr.util import current_datetime
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional, Tuple
+    from typing import List, Optional, Tuple
 
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
+    from gafaelfawr.dependencies.token_cache import TokenCache
     from gafaelfawr.storage.history import TokenChangeHistoryStore
     from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
 
@@ -26,7 +27,7 @@ __all__ = ["TokenCacheService"]
 
 
 class TokenCacheService:
-    """Cache internal and notebook tokens.
+    """Manage cache internal and notebook tokens.
 
     To reduce latency and database query load, notebook and internal tokens
     for a given parent token are cached in memory and reused as long as the
@@ -35,10 +36,18 @@ class TokenCacheService:
 
     Parameters
     ----------
+    cache : `gafaelfawr.dependencies.token_cache.TokenCache`
+        The underlying cache and locks.
     config : `gafaelfawr.config.Config`
         The Gafaelfawr configuration.
-    redis : `aioredis.Redis`
-        The Redis client to use to check validity of the cached token.
+    token_db_store : `gafaelfawr.storage.token.TokenDatabaseStore`
+        The database backing store for tokens.
+    token_redis_store : `gafaelfawr.storage.token.TokenRedisStore`
+        The Redis backing store for tokens.
+    token_change_store : `gafaelfawr.storage.history.TokenChangeHistoryStore`
+        The backing store for history of changes to tokens.
+    logger : `structlog.BoundLogger`
+        Logger to use.
 
     Notes
     -----
@@ -55,24 +64,17 @@ class TokenCacheService:
     change by returning a cached token.
     """
 
-    _cache: LRUCache[Tuple[str, ...], Token] = LRUCache(TOKEN_CACHE_SIZE)
-    """Shared cache storage for the tokens, global to each process."""
-
-    _cache_lock = asyncio.Lock()
-    """Lock around the per-user cache locks."""
-
-    _cache_user_lock: Dict[str, asyncio.Lock] = {}
-    """Per-user locks to wait for token issuance for a particular user."""
-
     def __init__(
         self,
         *,
+        cache: TokenCache,
         config: Config,
         token_redis_store: TokenRedisStore,
         token_db_store: TokenDatabaseStore,
         token_change_store: TokenChangeHistoryStore,
         logger: BoundLogger,
     ) -> None:
+        self._cache = cache
         self._config = config
         self._token_redis_store = token_redis_store
         self._token_db_store = token_db_store
@@ -84,11 +86,11 @@ class TokenCacheService:
 
         Used primarily for testing.
         """
-        async with self._cache_lock:
-            self._cache = LRUCache(TOKEN_CACHE_SIZE)
-            for user, lock in list(self._cache_user_lock.items()):
+        async with self._cache.lock:
+            self._cache.cache = LRUCache(TOKEN_CACHE_SIZE)
+            for user, lock in list(self._cache.user_lock.items()):
                 async with lock:
-                    del self._cache_user_lock[user]
+                    del self._cache.user_lock[user]
 
     async def get_internal_token(
         self,
@@ -136,7 +138,7 @@ class TokenCacheService:
                 token = await self._create_internal_token(
                     token_data, service, scopes, ip_address
                 )
-                self._cache[key] = token
+                self._cache.cache[key] = token
             finally:
                 lock.release()
         return token
@@ -179,7 +181,7 @@ class TokenCacheService:
                 token = await self._create_notebook_token(
                     token_data, ip_address
                 )
-                self._cache[key] = token
+                self._cache.cache[key] = token
             finally:
                 lock.release()
         return token
@@ -207,7 +209,7 @@ class TokenCacheService:
             The scopes the internal token should have.
         """
         key = self._internal_key(token_data, service, scopes)
-        self._cache[key] = token
+        self._cache.cache[key] = token
 
     def store_notebook_token(
         self, token: Token, token_data: TokenData
@@ -224,15 +226,10 @@ class TokenCacheService:
             The authentication data for the parent token.
         """
         key = self._notebook_key(token_data)
-        self._cache[key] = token
+        self._cache.cache[key] = token
 
     async def _acquire_user_lock(self, username: str) -> asyncio.Lock:
         """Acquire a per-user cache lock.
-
-        This lock serializes token creation for a specific user so that if a
-        user without a matching internal or notebook token requests many of
-        them simultaneously, only one will be created and cached and then
-        returned by all the other requests.
 
         Parameters
         ----------
@@ -242,14 +239,15 @@ class TokenCacheService:
         Returns
         -------
         lock : `asyncio.Lock`
-            The acquired per-user lock.
+            The acquired per-user lock.  The caller is responsible for
+            ensuring the lock is released.
         """
-        async with self._cache_lock:
-            if username in self._cache_user_lock:
-                lock = self._cache_user_lock[username]
+        async with self._cache.lock:
+            if username in self._cache.user_lock:
+                lock = self._cache.user_lock[username]
             else:
                 lock = asyncio.Lock()
-                self._cache_user_lock[username] = lock
+                self._cache.user_lock[username] = lock
             await lock.acquire()
             return lock
 
@@ -400,8 +398,24 @@ class TokenCacheService:
     async def _get_token(
         self, key: Tuple[str, ...], scopes: Optional[List[str]] = None
     ) -> Optional[Token]:
-        """Retrieve a cached token by key."""
-        token = self._cache.get(key)
+        """Retrieve a cached token by key.
+
+        Parameters
+        ----------
+        key : Tuple[`str`, ...]
+            The cache key, created by ``_internal_key`` or ``_notebook_key``.
+        scopes : List[`str`], optional
+            If provided, ensure that the returned token has scopes that are a
+            subset of this scope list.  This is used to force a cache miss if
+            an internal token is requested but the requesting token no longer
+            has the scopes that the internal token provides.
+
+        Returns
+        -------
+        token : `gafaelfawr.models.token.Token` or `None`
+            The cached token, or `None` on a cache miss.
+        """
+        token = self._cache.cache.get(key)
         if not token:
             return None
         data = await self._token_redis_store.get_data(token)

@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
+from gafaelfawr.dependencies.token_cache import TokenCache
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.models.token import TokenData
 from gafaelfawr.providers.github import GitHubProvider
@@ -54,6 +55,16 @@ class ComponentFactory:
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelfawr configuration.
+    redis : `aioredis.Redis`
+        Redis client.
+    session : `sqlalchemy.ext.asyncio.AsyncSession`
+        SQLAlchemy async session.
+    http_client : `httpx.AsyncClient`
+        HTTP async client.
+    token_cache : `gafaelfawr.dependencies.token_cache.TokenCache`
+        Shared token cache.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger to use for errors.
     """
 
     @classmethod
@@ -67,17 +78,13 @@ class ComponentFactory:
         `ComponentFactory`, since they will interfere with each other's
         Redis pools.
 
-        Notes
-        -----
-        This creates a database session directly because fastapi_sqlalchemy
-        does not work unless an ASGI application has initialized it.
-
         Yields
         ------
         factory : `ComponentFactory`
             The factory.  Must be used as a context manager.
         """
         config = await config_dependency()
+        token_cache = TokenCache()
         logger = structlog.get_logger(config.safir.logger_name)
         assert logger
         logger.debug("Connecting to Redis")
@@ -95,6 +102,7 @@ class ComponentFactory:
                         redis=redis,
                         session=session,
                         http_client=client,
+                        token_cache=token_cache,
                         logger=logger,
                     )
         finally:
@@ -108,12 +116,14 @@ class ComponentFactory:
         redis: Redis,
         session: AsyncSession,
         http_client: AsyncClient,
+        token_cache: TokenCache,
         logger: BoundLogger,
     ) -> None:
         self.session = session
         self._config = config
         self._redis = redis
         self._http_client = http_client
+        self._token_cache = token_cache
         self._logger = logger
 
     def create_admin_service(self) -> AdminService:
@@ -209,6 +219,7 @@ class ComponentFactory:
         token_db_store = TokenDatabaseStore(self.session)
         token_change_store = TokenChangeHistoryStore(self.session)
         return TokenCacheService(
+            cache=self._token_cache,
             config=self._config,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
@@ -239,7 +250,8 @@ class ComponentFactory:
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_change_store = TokenChangeHistoryStore(self.session)
-        token_cache = TokenCacheService(
+        token_cache_service = TokenCacheService(
+            cache=self._token_cache,
             config=self._config,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
@@ -248,7 +260,7 @@ class ComponentFactory:
         )
         return TokenService(
             config=self._config,
-            token_cache=token_cache,
+            token_cache=token_cache_service,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,

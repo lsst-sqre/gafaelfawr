@@ -21,6 +21,10 @@ from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.db_session import db_session_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
+from gafaelfawr.dependencies.token_cache import (
+    TokenCache,
+    token_cache_dependency,
+)
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 
@@ -55,6 +59,9 @@ class RequestContext:
     http_client: AsyncClient
     """Shared HTTP client."""
 
+    token_cache: TokenCache
+    """Shared token cache."""
+
     @property
     def factory(self) -> ComponentFactory:
         """A factory for constructing Gafaelfawr components.
@@ -67,6 +74,7 @@ class RequestContext:
             redis=self.redis,
             session=self.session,
             http_client=self.http_client,
+            token_cache=self.token_cache,
             logger=self.logger,
         )
 
@@ -101,6 +109,7 @@ async def context_dependency(
     redis: Redis = Depends(redis_dependency),
     session: AsyncSession = Depends(db_session_dependency),
     http_client: AsyncClient = Depends(http_client_dependency),
+    token_cache: TokenCache = Depends(token_cache_dependency),
 ) -> RequestContext:
     """Provides a RequestContext as a dependency."""
     return RequestContext(
@@ -110,4 +119,5 @@ async def context_dependency(
         redis=redis,
         session=session,
         http_client=http_client,
+        token_cache=token_cache,
     )

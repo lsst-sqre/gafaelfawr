@@ -14,6 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
+from gafaelfawr.dependencies.token_cache import TokenCache
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenData, TokenGroup, TokenUserInfo
@@ -104,6 +105,7 @@ class SetupTest:
         self.redis = redis
         self.session = session
         self.http_client = http_client
+        self.token_cache = TokenCache()
         self.logger = structlog.get_logger(config.safir.logger_name)
         assert self.logger
 
@@ -124,6 +126,7 @@ class SetupTest:
             config=config_dependency._config,
             redis=self.redis,
             http_client=self.http_client,
+            token_cache=self.token_cache,
             session=self.session,
             logger=self.logger,
         )
