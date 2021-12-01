@@ -2,6 +2,16 @@
 Change log
 ##########
 
+3.4.0 (unreleased)
+==================
+
+- Gafaelfawr now uses async SQLAlchemy for all database calls, which avoids latency affecting the whole process when a request requires database queries or writes.
+- Internal and notebook tokens are now acquired, when needed, while holding a per-user cache lock.
+  This means that when a flood of requests that all require a delegated token come in at the same time, a given Gafaelfawr process allows only the first request to proceed and blocks the rest until it completes.
+  All the other requests are then served from the cache.
+  This fixes a deadlock observed in previous versions of Gafaelfawr under heavy load from a single user who does not have a cached delegated token.
+- Update dependencies.
+
 3.3.0 (2021-11-11)
 ==================
 
