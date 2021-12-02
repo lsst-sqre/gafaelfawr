@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.4.0 (unreleased)
+3.4.0 (2021-12-02)
 ==================
 
 - Gafaelfawr now uses async SQLAlchemy for all database calls, which avoids latency affecting the whole process when a request requires database queries or writes.
