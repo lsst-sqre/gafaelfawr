@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
+import bonsai
 import jwt
 from pydantic import ValidationError
 
@@ -14,10 +15,12 @@ from gafaelfawr.models.token import TokenGroup, TokenUserInfo
 from gafaelfawr.providers.base import Provider
 
 if TYPE_CHECKING:
+    from typing import Dict, List, Optional, Union
+
     from httpx import AsyncClient
     from structlog.stdlib import BoundLogger
 
-    from gafaelfawr.config import OIDCConfig
+    from gafaelfawr.config import LDAPConfig, OIDCConfig
     from gafaelfawr.models.state import State
     from gafaelfawr.verify import TokenVerifier
 
@@ -43,11 +46,13 @@ class OIDCProvider(Provider):
         self,
         *,
         config: OIDCConfig,
+        ldap_config: Optional[LDAPConfig],
         verifier: TokenVerifier,
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
+        self._ldap_config = ldap_config
         self._verifier = verifier
         self._http_client = http_client
         self._logger = logger
@@ -156,7 +161,9 @@ class OIDCProvider(Provider):
         groups = []
         invalid_groups = {}
         try:
-            for oidc_group in token.claims.get("isMemberOf", []):
+            if self._ldap_config:
+                groups = await self.get_ldap_groups(token.username)
+            for oidc_group in groups or token.claims.get("isMemberOf", []):
                 if "name" not in oidc_group:
                     continue
                 name = oidc_group["name"]
@@ -190,3 +197,22 @@ class OIDCProvider(Provider):
             The session state, which contains the GitHub access token.
         """
         pass
+
+    async def get_ldap_groups(
+        self, uid: str
+    ) -> List[Dict[str, Union[str, int]]]:
+        assert self._ldap_config
+        client = bonsai.LDAPClient(self._ldap_config.url)
+        async with client.connect(is_async=True) as conn:
+            attributes = ["cn", "gidNumber"]
+            group_class = self._ldap_config.group_object_class
+            member_attr = self._ldap_config.group_member
+            ldap_query = f"(&(objectClass={group_class})({member_attr}={uid}))"
+            results = await conn.search(
+                self._ldap_config.base_dn, 2, ldap_query, attrlist=attributes
+            )
+            groups = [
+                {"name": result["cn"][0], "id": int(result["gidNumber"][0])}
+                for result in results
+            ]
+            return groups
