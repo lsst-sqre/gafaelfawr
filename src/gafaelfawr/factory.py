@@ -197,6 +197,7 @@ class ComponentFactory:
             token_verifier = self.create_token_verifier()
             return OIDCProvider(
                 config=self._config.oidc,
+                ldap_config=self._config.ldap,
                 verifier=token_verifier,
                 http_client=self._http_client,
                 logger=self._logger,

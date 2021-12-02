@@ -42,9 +42,9 @@ backports.entry-points-selectable==1.1.1 \
 blinker==1.4 \
     --hash=sha256:471aee25f3992bd325afa3772f1063dbdbbca947a041b8b89466dc00d606f8b6
     # via selenium-wire
-blockdiag==2.0.1 \
-    --hash=sha256:16a69dd9f3b44c9e0869999ce82aa968586698febc86ece9ca0c902dba772397 \
-    --hash=sha256:fa0b47cf25bfc4d546b7fc284c70c3bac875a066e744b4a6b1d9ba457e4ed077
+blockdiag==3.0.0 \
+    --hash=sha256:4031bfae6a7f36071d733dec639987346e10f7871356ee2c7a221961c64961d8 \
+    --hash=sha256:dee4195bb87d23654546ba2bf5091480dbf253b409891fce2cd527c91d00a3e2
     # via seqdiag
 brotli==1.0.9 \
     --hash=sha256:160c78292e98d21e73a4cc7f76a234390e516afcd982fa17e1422f7c6a9ce9c8 \
@@ -258,9 +258,9 @@ diagrams==0.20.0 \
     --hash=sha256:395391663b4d3f2d3e3614797402ca99494e00baf3926f5c9e72856d34cafedd \
     --hash=sha256:a50743ed9274e194e7898820f69aa12868ae217003580ef9e7d0285132c9674a
     # via -r requirements/dev.in
-distlib==0.3.3 \
-    --hash=sha256:c8b54e8454e5bf6237cc84c20e8264c3e991e824ef27e8f1e81049867d861e31 \
-    --hash=sha256:d982d0751ff6eaaab5e2ec8e691d949ee80eddf01a62eaa96ddb11531fe16b05
+distlib==0.3.4 \
+    --hash=sha256:6564fe0a8f51e734df6333d08b8b94d4ea8ee6b99b5ed50613f731fd4089f34b \
+    --hash=sha256:e4b58818180336dc9c529bfb9a0b58728ffc09ad92027a3f30b7cd91e3458579
     # via virtualenv
 documenteer==0.6.9 \
     --hash=sha256:5cbe4858611548aa2492fe8b35fd6a03a1026510493ebd4d5857f279fd02e174 \
@@ -732,9 +732,9 @@ selenium-wire==4.5.6 \
     --hash=sha256:ee0278803ea64502a337ed40c2fac845ef90c885513649af5c795865a294aed9 \
     --hash=sha256:efbfcf20e557792abfe96bc0f0c7ca741f907b4151069fecb5a76fcc20282389
     # via -r requirements/dev.in
-seqdiag==2.0.0 \
-    --hash=sha256:3167f16b4d15f3cd20de302fa600c96e4a50c92dae873bcbcf136c7588eeaa48 \
-    --hash=sha256:93ebc7a0c6b56b6ba0d1e36863c5749f03e82c487b6d1e6f1103b4219323f24c
+seqdiag==3.0.0 \
+    --hash=sha256:8fc941a0badc992766ffb393cf46d56f087e6c58438bc20699e7cdbae202033d \
+    --hash=sha256:e15113a28bd075460a62da44e15a88fafa3c81fdf3a35dcd5e3cd64ef15e961a
     # via -r requirements/dev.in
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \

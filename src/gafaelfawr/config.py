@@ -42,6 +42,8 @@ __all__ = [
     "GitHubSettings",
     "IssuerConfig",
     "IssuerSettings",
+    "LDAPConfig",
+    "LDAPSettings",
     "OIDCConfig",
     "OIDCClient",
     "OIDCServerConfig",
@@ -128,6 +130,25 @@ class OIDCSettings(BaseModel):
     """List of acceptable kids that may be used to sign the ID token."""
 
 
+class LDAPSettings(BaseModel):
+    """pydantic model of LDAP configuration"""
+
+    url: str
+    """LDAP Server URL. Use with `ldaps` if using SSL."""
+
+    base_dn: str
+    """Base DN to use when executing LDAP search."""
+
+    group_object_class: str
+    """LDAP Group Object Class. Usually `posixGroup` as in RFC2307(bis)."""
+
+    group_member: str
+    """LDAP group member. `memberuid` in RFC2307 and `member` in RFC2307bis."""
+
+    group_name: str
+    """LDAP Group Name. `cn` in RFC2307 and RFC2307bis"""
+
+
 class Settings(BaseSettings):
     """pydantic model of Gafaelfawr settings file.
 
@@ -204,6 +225,9 @@ class Settings(BaseSettings):
     oidc: Optional[OIDCSettings] = None
     """Settings for the OpenID Connect authentication provider."""
 
+    ldap: Optional[LDAPSettings] = None
+    """Settings for the LDAP-based group lookups with OIDC provider."""
+
     oidc_server_secrets_file: Optional[str] = None
     """Path to file containing OpenID Connect client secrets in JSON."""
 
@@ -278,6 +302,18 @@ class Settings(BaseSettings):
             raise ValueError("both github and oidc settings present")
         if not v and ("github" not in values or not values["github"]):
             raise ValueError("neither github nor oidc settings present")
+        return v
+
+    @validator("ldap", always=True)
+    def _valid_ldap_config(
+        cls, v: Optional[LDAPSettings], values: Dict[str, object]
+    ) -> Optional[LDAPSettings]:
+        """Ensure all fields are non-empty if url is non-empty."""
+        if v and v.url:
+            if not all(
+                [v.base_dn, v.group_name, v.group_object_class, v.group_member]
+            ):
+                raise ValueError("not all required ldap fields are present")
         return v
 
     @validator("initial_admins", pre=True)
@@ -410,6 +446,32 @@ class GitHubConfig:
 
 
 @dataclass(frozen=True)
+class LDAPConfig:
+    """Configuration for LDAP support.
+
+    Note: In all known implementations, it seems `gidNumber` is used
+    when finding the gid number of a group.
+
+    We assume LDAP is enabled if url is non-empty.
+    """
+
+    url: str
+    """LDAP Server URL. Use with `ldaps` if using SSL."""
+
+    base_dn: str
+    """Base DN to use when executing LDAP search."""
+
+    group_object_class: str
+    """LDAP Group Object Class. Usually `posixGroup` as in RFC2307(bis)."""
+
+    group_member: str
+    """LDAP group member. `memberuid` in RFC2307 and `member` in RFC2307bis."""
+
+    group_name: str
+    """LDAP Group Name. `cn` in RFC2307 and RFC2307bis"""
+
+
+@dataclass(frozen=True)
 class OIDCConfig:
     """Configuration for OpenID Connect authentication."""
 
@@ -525,6 +587,9 @@ class Config:
 
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
+
+    ldap: Optional[LDAPConfig]
+    """Configuration for LDAP."""
 
     oidc: Optional[OIDCConfig]
     """Configuration for OpenID Connect authentication."""
@@ -680,6 +745,15 @@ class Config:
                 audience=settings.oidc.audience,
                 key_ids=tuple(settings.oidc.key_ids),
             )
+        ldap_config = None
+        if settings.ldap and settings.ldap.url:
+            ldap_config = LDAPConfig(
+                url=settings.ldap.url,
+                base_dn=settings.ldap.base_dn,
+                group_object_class=settings.ldap.group_object_class,
+                group_member=settings.ldap.group_member,
+                group_name=settings.ldap.group_name,
+            )
         log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
         config = cls(
             realm=settings.realm,
@@ -693,6 +767,7 @@ class Config:
             verifier=verifier_config,
             github=github_config,
             oidc=oidc_config,
+            ldap=ldap_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
             database_url=database_url,
