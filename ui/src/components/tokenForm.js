@@ -23,7 +23,7 @@ function calculateExpires({
   return getUnixTime(date);
 }
 
-export default function TokenForm({
+const TokenForm = function ({
   idPrefix,
   buttonLabel,
   name = '',
@@ -158,7 +158,7 @@ export default function TokenForm({
       )}
     </Formik>
   );
-}
+};
 TokenForm.propTypes = {
   idPrefix: PropTypes.string.isRequired,
   buttonLabel: PropTypes.string.isRequired,
@@ -175,3 +175,5 @@ TokenForm.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
 };
+
+export default TokenForm;

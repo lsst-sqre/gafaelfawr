@@ -11,47 +11,49 @@ import time
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.schema import Admin as SQLAdmin
 from gafaelfawr.schema import drop_schema, initialize_schema
 from gafaelfawr.storage.admin import AdminStore
-from gafaelfawr.storage.transaction import TransactionManager
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncEngine
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
 
-__all__ = ["create_session", "initialize_database"]
+__all__ = ["check_database", "initialize_database"]
 
 
-def create_session(config: Config, logger: BoundLogger) -> Session:
-    """Create a new database session.
+def _create_session_factory(engine: AsyncEngine) -> sessionmaker:
+    """Create a session factory that generates async sessions."""
+    return sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-    Checks that the database is available and retries in a loop for 10s if it
-    is not.
+
+async def check_database(url: str, logger: BoundLogger) -> None:
+    """Check that the database is accessible.
 
     Parameters
     ----------
     config : `gafaelfawr.config.Config`
         The Gafaelfawr configuration.
-
-    Returns
-    -------
-    session : `sqlalchemy.orm.Session`
-        The database session.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger used to report problems
     """
+    engine = create_async_engine(url, future=True)
+    factory = _create_session_factory(engine)
     for _ in range(5):
         try:
-            engine = create_engine(config.database_url)
-            session = Session(bind=engine)
-            session.execute(select(SQLAdmin))
-            return session
-        except OperationalError:
+            async with factory() as session:
+                async with session.begin():
+                    await session.execute(select(SQLAdmin).limit(1))
+                    return
+        except (ConnectionRefusedError, OperationalError):
             logger.info("database not ready, waiting two seconds")
             time.sleep(2)
             continue
@@ -59,13 +61,12 @@ def create_session(config: Config, logger: BoundLogger) -> Session:
     # If we got here, we failed five times.  Try one last time without
     # catching exceptions so that we raise the appropriate exception to our
     # caller.
-    engine = create_engine(config.database_url)
-    session = Session(bind=engine)
-    session.execute(select(SQLAdmin))
-    return session
+    async with factory() as session:
+        async with session.begin():
+            await session.execute(select(SQLAdmin).limit(1))
 
 
-def initialize_database(config: Config, reset: bool = False) -> None:
+async def initialize_database(config: Config, reset: bool = False) -> None:
     """Create and initialize a new database.
 
     Parameters
@@ -83,29 +84,33 @@ def initialize_database(config: Config, reset: bool = False) -> None:
     # pre-ping to ensure the database is available and attempts to connect
     # five times with a two second delay between each attempt.
     success = False
+    engine = create_async_engine(config.database_url, future=True)
     for _ in range(5):
         try:
-            engine = create_engine(config.database_url, pool_pre_ping=True)
             if reset:
-                drop_schema(engine)
-            initialize_schema(engine)
+                await drop_schema(engine)
+            await initialize_schema(engine)
             success = True
-        except OperationalError:
+        except (ConnectionRefusedError, OperationalError):
             logger.info("database not ready, waiting two seconds")
             time.sleep(2)
             continue
         if success:
             logger.info("initialized database schema")
-        break
+            break
     if not success:
         msg = "database schema initialization failed (database not reachable?)"
         logger.error(msg)
+        await engine.dispose()
+        return
 
-    session = Session(bind=engine)
-    with TransactionManager(session).transaction():
+    # Add the initial admins.
+    factory = _create_session_factory(engine)
+    async with factory() as session:
         admin_store = AdminStore(session)
-        if not admin_store.list():
-            for admin in config.initial_admins:
-                logger.info("adding initial admin %s", admin)
-                admin_store.add(Admin(username=admin))
-    session.close()
+        async with session.begin():
+            if not await admin_store.list():
+                for admin in config.initial_admins:
+                    logger.info("adding initial admin %s", admin)
+                    await admin_store.add(Admin(username=admin))
+    await engine.dispose()

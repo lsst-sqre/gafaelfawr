@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
+from sqlalchemy.future import select
 from sqlalchemy.sql import text
 
 from gafaelfawr.models.history import (
@@ -14,13 +14,14 @@ from gafaelfawr.models.history import (
     TokenChangeHistoryEntry,
 )
 from gafaelfawr.schema import AdminHistory, TokenChangeHistory
-from gafaelfawr.util import normalize_datetime
+from gafaelfawr.util import datetime_to_db, normalize_datetime
 
 if TYPE_CHECKING:
     from datetime import datetime
     from typing import Optional
 
-    from sqlalchemy.orm import Query, Session
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.sql import Select
 
     from gafaelfawr.models.history import AdminHistoryEntry
     from gafaelfawr.models.token import TokenType
@@ -33,16 +34,17 @@ class AdminHistoryStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.orm.Session`
-        The underlying database session.
+    session : `sqlalchemy.ext.AsyncSession`
+        The database session proxy.
     """
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    def add(self, entry: AdminHistoryEntry) -> None:
+    async def add(self, entry: AdminHistoryEntry) -> None:
         """Record a change to the token administrators."""
         new = AdminHistory(**entry.dict())
+        new.event_time = datetime_to_db(entry.event_time)
         self._session.add(new)
 
 
@@ -51,14 +53,14 @@ class TokenChangeHistoryStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.orm.Session`
-        The underlying database session.
+    session : `sqlalchemy.ext.asyncio.AsyncSession`
+        The database session proxy.
     """
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    def add(self, entry: TokenChangeHistoryEntry) -> None:
+    async def add(self, entry: TokenChangeHistoryEntry) -> None:
         """Record a change to a token."""
         entry_dict = entry.dict()
 
@@ -69,9 +71,12 @@ class TokenChangeHistoryStore:
             entry_dict["old_scopes"] = ",".join(sorted(entry.old_scopes))
 
         new = TokenChangeHistory(**entry_dict)
+        new.expires = datetime_to_db(entry.expires)
+        new.old_expires = datetime_to_db(entry.old_expires)
+        new.event_time = datetime_to_db(entry.event_time)
         self._session.add(new)
 
-    def list(
+    async def list(
         self,
         *,
         cursor: Optional[HistoryCursor] = None,
@@ -119,70 +124,74 @@ class TokenChangeHistoryStore:
         entries : List[`gafaelfawr.models.history.TokenChangeHistoryEntry`]
             List of change history entries, which may be empty.
         """
-        query = self._session.query(TokenChangeHistory)
+        stmt = select(TokenChangeHistory)
 
         if since:
-            query = query.filter(TokenChangeHistory.event_time >= since)
+            since = datetime_to_db(since)
+            stmt = stmt.where(TokenChangeHistory.event_time >= since)
         if until:
-            query = query.filter(TokenChangeHistory.event_time <= until)
+            until = datetime_to_db(until)
+            stmt = stmt.where(TokenChangeHistory.event_time <= until)
         if username:
-            query = query.filter_by(username=username)
+            stmt = stmt.where(TokenChangeHistory.username == username)
         if actor:
-            query = query.filter_by(actor=actor)
+            stmt = stmt.where(TokenChangeHistory.actor == actor)
         if key:
-            query = query.filter(
+            stmt = stmt.where(
                 or_(
                     TokenChangeHistory.token == key,
                     TokenChangeHistory.parent == key,
                 )
             )
         if token:
-            query = query.filter_by(token=token)
+            stmt = stmt.where(TokenChangeHistory.token == token)
         if token_type:
-            query = query.filter_by(token_type=token_type)
+            stmt = stmt.where(TokenChangeHistory.token_type == token_type)
         if ip_or_cidr:
-            query = self._apply_ip_or_cidr_filter(query, ip_or_cidr)
+            stmt = self._apply_ip_or_cidr_filter(stmt, ip_or_cidr)
 
         # Shunt the complicated case of a paginated query to a separate
         # function to keep the logic more transparent.
         if cursor or limit:
-            return self._paginated_query(query, cursor, limit)
+            return await self._paginated_query(stmt, cursor, limit)
 
         # Perform the query and return the results.
-        query = query.order_by(
+        stmt = stmt.order_by(
             TokenChangeHistory.event_time.desc(), TokenChangeHistory.id.desc()
         )
-        entries = query.all()
-        return PaginatedHistory[TokenChangeHistoryEntry](
+        result = await self._session.scalars(stmt)
+        entries = result.all()
+        history = PaginatedHistory[TokenChangeHistoryEntry](
             entries=[TokenChangeHistoryEntry.from_orm(e) for e in entries],
             count=len(entries),
             prev_cursor=None,
             next_cursor=None,
         )
+        return history
 
-    def _paginated_query(
+    async def _paginated_query(
         self,
-        query: Query,
+        stmt: Select,
         cursor: Optional[HistoryCursor],
         limit: Optional[int],
     ) -> PaginatedHistory[TokenChangeHistoryEntry]:
         """Run a paginated query (one with a limit or a cursor)."""
-        limited_query = query
+        limited_stmt = stmt
 
         # Apply the cursor, if there is one.
         if cursor:
-            limited_query = self._apply_cursor(limited_query, cursor)
+            limited_stmt = self._apply_cursor(limited_stmt, cursor)
 
         # When retrieving a previous set of results using a previous
         # cursor, we have to reverse the sort algorithm so that the cursor
         # boundary can be applied correctly.  We'll then later reverse the
         # result set to return it in proper forward-sorted order.
         if cursor and cursor.previous:
-            limited_query = limited_query.order_by(
+            limited_stmt = limited_stmt.order_by(
                 TokenChangeHistory.event_time, TokenChangeHistory.id
             )
         else:
-            limited_query = limited_query.order_by(
+            limited_stmt = limited_stmt.order_by(
                 TokenChangeHistory.event_time.desc(),
                 TokenChangeHistory.id.desc(),
             )
@@ -191,12 +200,14 @@ class TokenChangeHistoryStore:
         # to create a cursor (because there are more elements) and what the
         # cursor value should be (for forward cursors).
         if limit:
-            limited_query = limited_query.limit(limit + 1)
+            limited_stmt = limited_stmt.limit(limit + 1)
 
         # Execute the query twice, once to get the next bach of results and
         # once to get the count of all entries without pagination.
-        entries = limited_query.all()
-        count = query.count()
+        result = await self._session.scalars(limited_stmt)
+        entries = result.all()
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        count = await self._session.scalar(count_stmt)
 
         # Calculate the cursors, remove the extra element we asked for, and
         # reverse the results again if we did a reverse sort because we were
@@ -226,24 +237,25 @@ class TokenChangeHistoryStore:
         )
 
     @staticmethod
-    def _apply_cursor(query: Query, cursor: HistoryCursor) -> Query:
+    def _apply_cursor(stmt: Select, cursor: HistoryCursor) -> Select:
         """Apply a cursor to a query."""
+        time = datetime_to_db(cursor.time)
         if cursor.previous:
-            return query.filter(
+            return stmt.where(
                 or_(
-                    TokenChangeHistory.event_time > cursor.time,
+                    TokenChangeHistory.event_time > time,
                     and_(
-                        TokenChangeHistory.event_time == cursor.time,
+                        TokenChangeHistory.event_time == time,
                         TokenChangeHistory.id > cursor.id,
                     ),
                 )
             )
         else:
-            return query.filter(
+            return stmt.where(
                 or_(
-                    TokenChangeHistory.event_time < cursor.time,
+                    TokenChangeHistory.event_time < time,
                     and_(
-                        TokenChangeHistory.event_time == cursor.time,
+                        TokenChangeHistory.event_time == time,
                         TokenChangeHistory.id <= cursor.id,
                     ),
                 )
@@ -263,24 +275,18 @@ class TokenChangeHistoryStore:
         assert prev_time
         return HistoryCursor(time=prev_time, id=entry.id, previous=True)
 
-    def _apply_ip_or_cidr_filter(self, query: Query, ip_or_cidr: str) -> Query:
+    def _apply_ip_or_cidr_filter(
+        self, stmt: Select, ip_or_cidr: str
+    ) -> Select:
         """Apply an appropriate filter for an IP or CIDR block.
 
-        If the underlying database is not PostgreSQL, which supports native
-        CIDR membership queries, cheat and turn the CIDR block into a string
-        wildcard.  This will only work for CIDR blocks on class boundaries,
-        but the intended supported database is PostgreSQL anyway.
+        Notes
+        -----
+        If there is ever a need to support a database that does not have
+        native CIDR membership queries, fallback code (probably using a LIKE
+        expression) will need to be added here.
         """
         if "/" in ip_or_cidr:
-            if self._session.get_bind().name == "postgresql":
-                return query.filter(text(":c >> ip_address")).params(
-                    c=ip_or_cidr
-                )
-            else:
-                if ":" in str(ip_or_cidr):
-                    net = re.sub("::/[0-9]+$", ":%", ip_or_cidr)
-                else:
-                    net = re.sub(r"(\.0)+/[0-9]+$", ".%", ip_or_cidr)
-                return query.filter(TokenChangeHistory.ip_address.like(net))
+            return stmt.where(text(":c >> ip_address")).params(c=ip_or_cidr)
         else:
-            return query.filter_by(ip_address=str(ip_or_cidr))
+            return stmt.where(TokenChangeHistory.ip_address == str(ip_or_cidr))

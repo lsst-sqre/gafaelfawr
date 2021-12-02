@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
     from gafaelfawr.storage.admin import AdminStore
     from gafaelfawr.storage.history import AdminHistoryStore
-    from gafaelfawr.storage.transaction import TransactionManager
 
 __all__ = ["AdminService"]
 
@@ -28,21 +27,17 @@ class AdminService:
         The backing store for token administrators.
     admin_history_store : `gafaelfawr.storage.history.AdminHistoryStore`
         The backing store for history of changes to token administrators.
-    transaction_manager : `gafaelfawr.storage.transaction.TransactionManager`
-        Database transaction manager.
     """
 
     def __init__(
-        self,
-        admin_store: AdminStore,
-        admin_history_store: AdminHistoryStore,
-        transaction_manager: TransactionManager,
+        self, admin_store: AdminStore, admin_history_store: AdminHistoryStore
     ) -> None:
         self._admin_store = admin_store
         self._admin_history_store = admin_history_store
-        self._transaction_manager = transaction_manager
 
-    def add_admin(self, username: str, *, actor: str, ip_address: str) -> None:
+    async def add_admin(
+        self, username: str, *, actor: str, ip_address: str
+    ) -> None:
         """Add a new administrator.
 
         Parameters
@@ -59,7 +54,7 @@ class AdminService:
         gafaelfawr.exceptions.PermissionDeniedError
             If the actor is not an admin.
         """
-        if not self.is_admin(actor) and actor != "<bootstrap>":
+        if not await self.is_admin(actor) and actor != "<bootstrap>":
             raise PermissionDeniedError(f"{actor} is not an admin")
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(
@@ -69,11 +64,10 @@ class AdminService:
             ip_address=ip_address,
             event_time=datetime.now(timezone.utc),
         )
-        with self._transaction_manager.transaction():
-            self._admin_store.add(admin)
-            self._admin_history_store.add(history_entry)
+        await self._admin_store.add(admin)
+        await self._admin_history_store.add(history_entry)
 
-    def delete_admin(
+    async def delete_admin(
         self, username: str, *, actor: str, ip_address: str
     ) -> bool:
         """Delete an administrator.
@@ -98,7 +92,7 @@ class AdminService:
         gafaelfawr.exceptions.PermissionDeniedError
             If the actor is not an admin.
         """
-        if not self.is_admin(actor) and actor != "<bootstrap>":
+        if not await self.is_admin(actor) and actor != "<bootstrap>":
             raise PermissionDeniedError(f"{actor} is not an admin")
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(
@@ -108,18 +102,17 @@ class AdminService:
             ip_address=ip_address,
             event_time=datetime.now(timezone.utc),
         )
-        with self._transaction_manager.transaction():
-            if self.get_admins() == [admin]:
-                raise PermissionDeniedError("Cannot delete the last admin")
-            result = self._admin_store.delete(admin)
-            if result:
-                self._admin_history_store.add(history_entry)
+        if await self.get_admins() == [admin]:
+            raise PermissionDeniedError("Cannot delete the last admin")
+        result = await self._admin_store.delete(admin)
+        if result:
+            await self._admin_history_store.add(history_entry)
         return result
 
-    def get_admins(self) -> List[Admin]:
+    async def get_admins(self) -> List[Admin]:
         """Get the current administrators."""
-        return self._admin_store.list()
+        return await self._admin_store.list()
 
-    def is_admin(self, username: str) -> bool:
+    async def is_admin(self, username: str) -> bool:
         """Returns whether the given user is a token administrator."""
-        return any((username == a.username for a in self.get_admins()))
+        return any((username == a.username for a in await self.get_admins()))

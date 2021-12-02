@@ -17,7 +17,6 @@ from gafaelfawr.cli import main
 from gafaelfawr.models.token import Token
 from tests.support.kubernetes import MockKubernetesApi
 from tests.support.logging import parse_log
-from tests.support.setup import initialize
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -64,9 +63,8 @@ def test_help() -> None:
 
 
 def test_update_service_tokens(
-    tmp_path: Path, mock_kubernetes: MockKubernetesApi
+    tmp_path: Path, empty_database: None, mock_kubernetes: MockKubernetesApi
 ) -> None:
-    initialize(tmp_path)
     mock_kubernetes.create_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
@@ -96,17 +94,17 @@ def test_update_service_tokens(
 
 def test_update_service_tokens_error(
     tmp_path: Path,
+    empty_database: None,
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
-    initialize(tmp_path)
+    caplog.clear()
 
     def error_callback(method: str, *args: Any) -> None:
         if method == "list_cluster_custom_object":
             raise ApiException(status=500, reason="Some error")
 
     mock_kubernetes.error_callback = error_callback
-    caplog.clear()
     runner = CliRunner()
     result = runner.invoke(main, ["update-service-tokens"])
 

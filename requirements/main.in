@@ -8,7 +8,6 @@
 # These dependencies are for fastapi including some optional features.
 aiofiles
 fastapi
-fastapi-sqlalchemy
 python-multipart
 starlette
 uvicorn[standard]
@@ -18,12 +17,12 @@ jinja2<3
 
 # Other dependencies.
 aioredis
+asyncpg
 cachetools
 click
 cryptography
 kubernetes
 httpx
-psycopg2
 pydantic
 PyJWT
 pyyaml

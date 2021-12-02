@@ -222,15 +222,9 @@ class TokenInfo(TokenBase):
         orm_mode = True
         json_encoders = {datetime: lambda v: int(v.timestamp())}
 
-    _normalize_created = validator("created", allow_reuse=True, pre=True)(
-        normalize_datetime
-    )
-    _normalize_last_used = validator("last_used", allow_reuse=True, pre=True)(
-        normalize_datetime
-    )
-    _normalize_expires = validator("expires", allow_reuse=True, pre=True)(
-        normalize_datetime
-    )
+    _normalize_created = validator(
+        "created", "last_used", "expires", allow_reuse=True, pre=True
+    )(normalize_datetime)
 
 
 class TokenUserInfo(BaseModel):

@@ -4,7 +4,7 @@ import React from 'react';
 import Layout from '../components/layout';
 import TokenList from '../components/tokenList';
 
-export default function Home() {
+const Home = function () {
   return (
     <Layout>
       <h1>Tokens</h1>
@@ -14,4 +14,6 @@ export default function Home() {
       <TokenList />
     </Layout>
   );
-}
+};
+
+export default Home;

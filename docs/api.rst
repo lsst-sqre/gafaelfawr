@@ -20,6 +20,8 @@ API reference
 
 .. automodapi:: gafaelfawr.dependencies.context
 
+.. automodapi:: gafaelfawr.dependencies.db_session
+
 .. automodapi:: gafaelfawr.dependencies.redis
 
 .. automodapi:: gafaelfawr.dependencies.return_url
@@ -64,6 +66,8 @@ API reference
 
 .. automodapi:: gafaelfawr.services.token
 
+.. automodapi:: gafaelfawr.services.token_cache
+
 .. automodapi:: gafaelfawr.storage.admin
 
 .. automodapi:: gafaelfawr.storage.base
@@ -76,12 +80,8 @@ API reference
 
 .. automodapi:: gafaelfawr.storage.token
 
-.. automodapi:: gafaelfawr.storage.transaction
-
 .. automodapi:: gafaelfawr.templates
    :include-all-objects:
-
-.. automodapi:: gafaelfawr.token_cache
 
 .. automodapi:: gafaelfawr.util
 

@@ -10,58 +10,51 @@ import pytest
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.token import Token, TokenUserInfo
-from tests.support.headers import parse_www_authenticate
+from tests.support.headers import (
+    assert_unauthorized_is_correct,
+    parse_www_authenticate,
+)
+from tests.support.tokens import create_session_token
 
 if TYPE_CHECKING:
-    from tests.support.setup import SetupTest
+    from httpx import AsyncClient
+
+    from gafaelfawr.config import Config
+    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio
-async def test_no_auth(setup: SetupTest) -> None:
-    r = await setup.client.get("/auth", params={"scope": "exec:admin"})
-    assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+async def test_no_auth(client: AsyncClient, config: Config) -> None:
+    r = await client.get("/auth", params={"scope": "exec:admin"})
+    assert_unauthorized_is_correct(r, config)
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth", params={"scope": "exec:admin", "auth_type": "bearer"}
     )
-    assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert_unauthorized_is_correct(r, config)
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth", params={"scope": "exec:admin", "auth_type": "bogus"}
     )
     assert r.status_code == 422
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth", params={"scope": "exec:admin", "auth_type": "basic"}
     )
-    assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Basic
-    assert authenticate.realm == setup.config.realm
+    assert_unauthorized_is_correct(r, config, AuthType.Basic)
 
 
 @pytest.mark.asyncio
-async def test_invalid(setup: SetupTest) -> None:
-    token = await setup.create_session_token()
-    r = await setup.client.get(
+async def test_invalid(client: AsyncClient, factory: ComponentFactory) -> None:
+    token = await create_session_token(factory)
+
+    r = await client.get(
         "/auth", headers={"Authorization": f"bearer {token.token}"}
     )
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "value_error.missing"
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         headers={"Authorization": f"bearer {token.token}"},
         params={"scope": "exec:admin", "satisfy": "foo"},
@@ -69,7 +62,7 @@ async def test_invalid(setup: SetupTest) -> None:
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "type_error.enum"
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         headers={"Authorization": f"bearer {token.token}"},
         params={"scope": "exec:admin", "auth_type": "foo"},
@@ -79,8 +72,8 @@ async def test_invalid(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_auth(setup: SetupTest) -> None:
-    r = await setup.client.get(
+async def test_invalid_auth(client: AsyncClient, config: Config) -> None:
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer"},
@@ -89,10 +82,10 @@ async def test_invalid_auth(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_request
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "token foo"},
@@ -101,10 +94,10 @@ async def test_invalid_auth(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_request
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer token"},
@@ -114,12 +107,12 @@ async def test_invalid_auth(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_token
 
     # Create a nonexistent token.
     token = Token()
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {token}"},
@@ -129,15 +122,17 @@ async def test_invalid_auth(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_token
 
 
 @pytest.mark.asyncio
-async def test_access_denied(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token()
+async def test_access_denied(
+    client: AsyncClient, config: Config, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory)
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {token_data.token}"},
@@ -147,15 +142,15 @@ async def test_access_denied(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin"
     assert "Token missing required scope" in r.text
 
 
 @pytest.mark.asyncio
-async def test_auth_forbidden(setup: SetupTest) -> None:
-    r = await setup.client.get(
+async def test_auth_forbidden(client: AsyncClient, config: Config) -> None:
+    r = await client.get(
         "/auth/forbidden",
         params=[("scope", "exec:test"), ("scope", "exec:admin")],
     )
@@ -164,12 +159,12 @@ async def test_auth_forbidden(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin exec:test"
     assert "Token missing required scope" in r.text
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth/forbidden", params={"scope": "exec:admin", "auth_type": "basic"}
     )
     assert r.status_code == 403
@@ -177,15 +172,17 @@ async def test_auth_forbidden(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Basic
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert "Token missing required scope" in r.text
 
 
 @pytest.mark.asyncio
-async def test_satisfy_all(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(scopes=["exec:test"])
+async def test_satisfy_all(
+    client: AsyncClient, config: Config, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory, scopes=["exec:test"])
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params=[("scope", "exec:test"), ("scope", "exec:admin")],
         headers={"Authorization": f"Bearer {token_data.token}"},
@@ -195,19 +192,19 @@ async def test_satisfy_all(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin exec:test"
     assert "Token missing required scope" in r.text
 
 
 @pytest.mark.asyncio
-async def test_success(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["admin"], scopes=["exec:admin", "read:all"]
+async def test_success(client: AsyncClient, factory: ComponentFactory) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={
@@ -227,14 +224,17 @@ async def test_success(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_success_minimal(setup: SetupTest) -> None:
+async def test_success_minimal(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     user_info = TokenUserInfo(username="user", uid=1234)
-    token_service = setup.factory.create_token_service()
-    token = await token_service.create_session_token(
-        user_info, scopes=["read:all"], ip_address="127.0.0.1"
-    )
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        token = await token_service.create_session_token(
+            user_info, scopes=["read:all"], ip_address="127.0.0.1"
+        )
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"Bearer {token}"},
@@ -250,13 +250,15 @@ async def test_success_minimal(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_notebook(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["admin"], scopes=["exec:admin", "read:all"]
+async def test_notebook(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
     assert token_data.expires
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin", "notebook": "true"},
         headers={"Authorization": f"Bearer {token_data.token}"},
@@ -265,7 +267,7 @@ async def test_notebook(setup: SetupTest) -> None:
     notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
     assert notebook_token != token_data.token
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth/api/v1/token-info",
         headers={"Authorization": f"Bearer {notebook_token}"},
     )
@@ -281,7 +283,7 @@ async def test_notebook(setup: SetupTest) -> None:
     }
 
     # Requesting a token with the same parameters returns the same token.
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin", "notebook": "true"},
         headers={"Authorization": f"Bearer {token_data.token}"},
@@ -291,13 +293,17 @@ async def test_notebook(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_internal(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["admin"], scopes=["exec:admin", "read:all", "read:some"]
+async def test_internal(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(
+        factory,
+        group_names=["admin"],
+        scopes=["exec:admin", "read:all", "read:some"],
     )
     assert token_data.expires
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={
             "scope": "exec:admin",
@@ -310,7 +316,7 @@ async def test_internal(setup: SetupTest) -> None:
     internal_token = Token.from_str(r.headers["X-Auth-Request-Token"])
     assert internal_token != token_data.token
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth/api/v1/token-info",
         headers={"Authorization": f"Bearer {internal_token}"},
     )
@@ -327,7 +333,7 @@ async def test_internal(setup: SetupTest) -> None:
     }
 
     # Requesting a token with the same parameters returns the same token.
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={
             "scope": "exec:admin",
@@ -341,11 +347,13 @@ async def test_internal(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_internal_errors(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(scopes=["read:some"])
+async def test_internal_errors(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
+    token_data = await create_session_token(factory, scopes=["read:some"])
 
     # Delegating a token with a scope the original doesn't have will fail.
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={
             "scope": "read:some",
@@ -362,7 +370,7 @@ async def test_internal_errors(setup: SetupTest) -> None:
     assert authenticate.scope == "read:all read:some"
 
     # Cannot request a notebook token and an internal token at the same time.
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={
             "scope": "read:some",
@@ -376,18 +384,20 @@ async def test_internal_errors(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_success_any(setup: SetupTest) -> None:
+async def test_success_any(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     """Test ``satisfy=any`` as an ``/auth`` parameter.
 
     Ask for either ``exec:admin`` or ``exec:test`` and pass in credentials
     with only ``exec:test``.  Ensure they are accepted but also the headers
     don't claim the client has ``exec:admin``.
     """
-    token_data = await setup.create_session_token(
-        group_names=["test"], scopes=["exec:test"]
+    token_data = await create_session_token(
+        factory, group_names=["test"], scopes=["exec:test"]
     )
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params=[
             ("scope", "exec:admin"),
@@ -405,14 +415,14 @@ async def test_success_any(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_basic(setup: SetupTest) -> None:
-    token_data = await setup.create_session_token(
-        group_names=["test"], scopes=["exec:admin"]
+async def test_basic(client: AsyncClient, factory: ComponentFactory) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["test"], scopes=["exec:admin"]
     )
 
     basic = f"{token_data.token}:x-oauth-basic".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -422,7 +432,7 @@ async def test_basic(setup: SetupTest) -> None:
 
     basic = f"x-oauth-basic:{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -434,7 +444,7 @@ async def test_basic(setup: SetupTest) -> None:
     # appear anywhere in the auth string.
     basic = f"{token_data.token}:something-else".encode()
     basic_b64 = base64.b64encode(basic).decode()
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -444,9 +454,9 @@ async def test_basic(setup: SetupTest) -> None:
 
 
 @pytest.mark.asyncio
-async def test_basic_failure(setup: SetupTest) -> None:
+async def test_basic_failure(client: AsyncClient, config: Config) -> None:
     basic_b64 = base64.b64encode(b"bogus-string").decode()
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
@@ -455,27 +465,23 @@ async def test_basic_failure(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_request
 
     for basic in (b"foo:foo", b"x-oauth-basic:foo", b"foo:x-oauth-basic"):
         basic_b64 = base64.b64encode(basic).decode()
-        r = await setup.client.get(
+        r = await client.get(
             "/auth",
             params={"scope": "exec:admin", "auth_type": "basic"},
             headers={"Authorization": f"Basic {basic_b64}"},
         )
-        assert r.status_code == 401
-        authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-        assert not isinstance(authenticate, AuthErrorChallenge)
-        assert authenticate.auth_type == AuthType.Basic
-        assert authenticate.realm == setup.config.realm
+        assert_unauthorized_is_correct(r, config, AuthType.Basic)
 
 
 @pytest.mark.asyncio
-async def test_ajax_unauthorized(setup: SetupTest) -> None:
+async def test_ajax_unauthorized(client: AsyncClient, config: Config) -> None:
     """Test that AJAX requests without auth get 403, not 401."""
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
         headers={"X-Requested-With": "XMLHttpRequest"},
@@ -484,18 +490,21 @@ async def test_ajax_unauthorized(setup: SetupTest) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == setup.config.realm
+    assert authenticate.realm == config.realm
 
 
 @pytest.mark.asyncio
-async def test_success_unicode_name(setup: SetupTest) -> None:
+async def test_success_unicode_name(
+    client: AsyncClient, factory: ComponentFactory
+) -> None:
     user_info = TokenUserInfo(username="user", uid=1234, name="名字")
-    token_service = setup.factory.create_token_service()
-    token = await token_service.create_session_token(
-        user_info, scopes=["read:all"], ip_address="127.0.0.1"
-    )
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        token = await token_service.create_session_token(
+            user_info, scopes=["read:all"], ip_address="127.0.0.1"
+        )
 
-    r = await setup.client.get(
+    r = await client.get(
         "/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"Bearer {token}"},

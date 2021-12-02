@@ -230,7 +230,7 @@ async def handle_provider_return(
 
     # Construct a token.
     admin_service = context.factory.create_admin_service()
-    if admin_service.is_admin(user_info.username):
+    if await admin_service.is_admin(user_info.username):
         scopes = sorted(scopes + ["admin:token"])
     token_service = context.factory.create_token_service()
     try:

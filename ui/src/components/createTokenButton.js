@@ -18,7 +18,7 @@ const StyledModal = styled.div`
   max-width: 100%;
 `;
 
-function NewToken({ token, onAccept }) {
+const NewToken = function ({ token, onAccept }) {
   return (
     <>
       <p>Your new token is:</p>
@@ -35,13 +35,13 @@ function NewToken({ token, onAccept }) {
       </button>
     </>
   );
-}
+};
 NewToken.propTypes = {
   token: PropTypes.string.isRequired,
   onAccept: PropTypes.func.isRequired,
 };
 
-export default function CreateTokenButton({ onCreate }) {
+const CreateTokenButton = function ({ onCreate }) {
   const { csrf, username, userScopes, config } = useContext(LoginContext);
   const [formActive, setFormActive] = useState(false);
   const [newToken, setNewToken] = useState('');
@@ -100,7 +100,9 @@ export default function CreateTokenButton({ onCreate }) {
       )}
     </>
   );
-}
+};
 CreateTokenButton.propTypes = {
   onCreate: PropTypes.func.isRequired,
 };
+
+export default CreateTokenButton;

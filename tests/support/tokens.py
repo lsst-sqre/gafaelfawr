@@ -8,22 +8,34 @@ from typing import TYPE_CHECKING
 import jwt
 
 from gafaelfawr.constants import ALGORITHM
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import OIDCVerifiedToken
-from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
+from gafaelfawr.models.token import (
+    Token,
+    TokenData,
+    TokenGroup,
+    TokenType,
+    TokenUserInfo,
+)
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
-from gafaelfawr.storage.transaction import TransactionManager
 from gafaelfawr.util import current_datetime
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional
 
-    from sqlalchemy.orm import Session
+    from sqlalchemy.ext.asyncio import AsyncSession
 
     from gafaelfawr.config import Config
+    from gafaelfawr.factory import ComponentFactory
 
-__all__ = ["create_test_token", "create_upstream_oidc_token"]
+__all__ = [
+    "add_expired_session_token",
+    "create_session_token",
+    "create_test_token",
+    "create_upstream_oidc_token",
+]
 
 
 async def add_expired_session_token(
@@ -31,7 +43,7 @@ async def add_expired_session_token(
     *,
     scopes: List[str],
     ip_address: str,
-    session: Session,
+    session: AsyncSession,
 ) -> None:
     """Add an expired session token to the database.
 
@@ -51,12 +63,11 @@ async def add_expired_session_token(
         The scopes of the token.
     ip_address : `str`
         The IP address from which the request came.
-    session : `sqlalchemy.orm.Session`
+    session : `sqlalchemy.ext.asyncio.AsyncSession`
         The database session.
     """
     token_db_store = TokenDatabaseStore(session)
     token_change_store = TokenChangeHistoryStore(session)
-    transaction_manager = TransactionManager(session)
 
     token = Token()
     created = current_datetime()
@@ -81,9 +92,58 @@ async def add_expired_session_token(
         event_time=created,
     )
 
-    with transaction_manager.transaction():
-        token_db_store.add(data)
-        token_change_store.add(history_entry)
+    await token_db_store.add(data)
+    await token_change_store.add(history_entry)
+
+
+async def create_session_token(
+    factory: ComponentFactory,
+    *,
+    username: Optional[str] = None,
+    group_names: Optional[List[str]] = None,
+    scopes: Optional[List[str]] = None,
+) -> TokenData:
+    """Create a session token.
+
+    Parameters
+    ----------
+    factory : `gafaelfawr.factory.ComponentFactory`
+        Factory used to create services to add the token.
+    username : `str`, optional
+        Override the username of the generated token.
+    group_namess : List[`str`], optional
+        Group memberships the generated token should have.
+    scopes : List[`str`], optional
+        Scope for the generated token.
+
+    Returns
+    -------
+    data : `gafaelfawr.models.token.TokenData`
+        The data for the generated token.
+    """
+    if not username:
+        username = "some-user"
+    if group_names:
+        groups = [TokenGroup(name=g, id=1000) for g in group_names]
+    else:
+        groups = []
+    user_info = TokenUserInfo(
+        username=username,
+        name="Some User",
+        email="someuser@example.com",
+        uid=1000,
+        groups=groups,
+    )
+    if not scopes:
+        scopes = ["user:token"]
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        token = await token_service.create_session_token(
+            user_info, scopes=scopes, ip_address="127.0.0.1"
+        )
+    data = await token_service.get_data(token)
+    assert data
+    return data
 
 
 def create_test_token(
@@ -151,10 +211,9 @@ def create_test_token(
     )
 
 
-def create_upstream_oidc_token(
-    config: Config,
-    kid: str,
+async def create_upstream_oidc_token(
     *,
+    kid: Optional[str] = None,
     groups: Optional[List[str]] = None,
     **claims: Any,
 ) -> OIDCVerifiedToken:
@@ -167,7 +226,7 @@ def create_upstream_oidc_token(
     ----------
     config : `gafaelfawr.config.Config`
         The configuration.
-    kid : `str`
+    kid : `str`, optional
         Key ID for the token header.
     groups : List[`str`], optional
         Group memberships the generated token should have.
@@ -179,7 +238,10 @@ def create_upstream_oidc_token(
     token : `gafaelfawr.tokens.VerifiedToken`
         The new token.
     """
+    config = await config_dependency()
     assert config.oidc
+    if not kid:
+        kid = config.oidc.key_ids[0]
     payload = {
         "aud": config.oidc.audience,
         "iss": config.oidc.issuer,

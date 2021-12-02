@@ -7,10 +7,12 @@ from typing import TYPE_CHECKING
 
 import structlog
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
-from gafaelfawr.database import create_session
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
+from gafaelfawr.dependencies.token_cache import TokenCache
 from gafaelfawr.issuer import TokenIssuer
 from gafaelfawr.models.token import TokenData
 from gafaelfawr.providers.github import GitHubProvider
@@ -19,6 +21,7 @@ from gafaelfawr.services.admin import AdminService
 from gafaelfawr.services.kubernetes import KubernetesService
 from gafaelfawr.services.oidc import OIDCService
 from gafaelfawr.services.token import TokenService
+from gafaelfawr.services.token_cache import TokenCacheService
 from gafaelfawr.storage.admin import AdminStore
 from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.history import (
@@ -28,15 +31,12 @@ from gafaelfawr.storage.history import (
 from gafaelfawr.storage.kubernetes import KubernetesStorage
 from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-from gafaelfawr.storage.transaction import TransactionManager
-from gafaelfawr.token_cache import TokenCache
 from gafaelfawr.verify import TokenVerifier
 
 if TYPE_CHECKING:
     from typing import AsyncIterator
 
     from aioredis import Redis
-    from sqlalchemy.orm import Session
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
@@ -55,6 +55,16 @@ class ComponentFactory:
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelfawr configuration.
+    redis : `aioredis.Redis`
+        Redis client.
+    session : `sqlalchemy.ext.asyncio.AsyncSession`
+        SQLAlchemy async session.
+    http_client : `httpx.AsyncClient`
+        HTTP async client.
+    token_cache : `gafaelfawr.dependencies.token_cache.TokenCache`
+        Shared token cache.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger to use for errors.
     """
 
     @classmethod
@@ -68,50 +78,53 @@ class ComponentFactory:
         `ComponentFactory`, since they will interfere with each other's
         Redis pools.
 
-        Notes
-        -----
-        This creates a database session directly because fastapi_sqlalchemy
-        does not work unless an ASGI application has initialized it.
-
         Yields
         ------
         factory : `ComponentFactory`
             The factory.  Must be used as a context manager.
         """
         config = await config_dependency()
+        token_cache = TokenCache()
         logger = structlog.get_logger(config.safir.logger_name)
         assert logger
         logger.debug("Connecting to Redis")
         redis = await redis_dependency(config)
         logger.debug("Connecting to PostgreSQL")
-        session = create_session(config, logger)
+        engine = create_async_engine(config.database_url, future=True)
         try:
-            async with AsyncClient() as client:
-                yield cls(
-                    config=config,
-                    redis=redis,
-                    session=session,
-                    http_client=client,
-                    logger=logger,
-                )
+            session_factory = sessionmaker(
+                engine, expire_on_commit=False, class_=AsyncSession
+            )
+            async with session_factory() as session:
+                async with AsyncClient() as client:
+                    yield cls(
+                        config=config,
+                        redis=redis,
+                        session=session,
+                        http_client=client,
+                        token_cache=token_cache,
+                        logger=logger,
+                    )
         finally:
-            await redis_dependency.close()
-            session.close()
+            await redis_dependency.aclose()
+            await engine.dispose()
 
     def __init__(
         self,
         *,
         config: Config,
         redis: Redis,
-        session: Session,
+        session: AsyncSession,
         http_client: AsyncClient,
+        token_cache: TokenCache,
         logger: BoundLogger,
     ) -> None:
+        self.session = session
         self._config = config
         self._redis = redis
         self._http_client = http_client
+        self._token_cache = token_cache
         self._logger = logger
-        self._session = session
 
     def create_admin_service(self) -> AdminService:
         """Create a new manager object for token administrators.
@@ -121,12 +134,9 @@ class ComponentFactory:
         admin_service : `gafaelfawr.services.admin.AdminService`
             The new token administrator manager.
         """
-        admin_store = AdminStore(self._session)
-        admin_history_store = AdminHistoryStore(self._session)
-        transaction_manager = TransactionManager(self._session)
-        return AdminService(
-            admin_store, admin_history_store, transaction_manager
-        )
+        admin_store = AdminStore(self.session)
+        admin_history_store = AdminHistoryStore(self.session)
+        return AdminService(admin_store, admin_history_store)
 
     def create_kubernetes_service(self) -> KubernetesService:
         """Create a Kubernetes service."""
@@ -135,6 +145,7 @@ class ComponentFactory:
         return KubernetesService(
             token_service=token_service,
             storage=storage,
+            session=self.session,
             logger=self._logger,
         )
 
@@ -194,18 +205,27 @@ class ComponentFactory:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
 
-    def create_token_cache(self) -> TokenCache:
+    def create_token_cache_service(self) -> TokenCacheService:
         """Create a token cache.
 
         Returns
         -------
-        cache : `gafaelfawr.token_cache.TokenCache`
+        cache : `gafaelfawr.services.token_cache.TokenCacheService`
             A new token cache.
         """
         key = self._config.session_secret
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
-        return TokenCache(token_redis_store)
+        token_db_store = TokenDatabaseStore(self.session)
+        token_change_store = TokenChangeHistoryStore(self.session)
+        return TokenCacheService(
+            cache=self._token_cache,
+            config=self._config,
+            token_db_store=token_db_store,
+            token_redis_store=token_redis_store,
+            token_change_store=token_change_store,
+            logger=self._logger,
+        )
 
     def create_token_issuer(self) -> TokenIssuer:
         """Create a TokenIssuer.
@@ -225,20 +245,25 @@ class ComponentFactory:
         token_service : `gafaelfawr.services.token.TokenService`
             The new token manager.
         """
-        token_db_store = TokenDatabaseStore(self._session)
+        token_db_store = TokenDatabaseStore(self.session)
         key = self._config.session_secret
         storage = RedisStorage(TokenData, key, self._redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
-        token_cache = TokenCache(token_redis_store)
-        token_change_store = TokenChangeHistoryStore(self._session)
-        transaction_manager = TransactionManager(self._session)
-        return TokenService(
+        token_change_store = TokenChangeHistoryStore(self.session)
+        token_cache_service = TokenCacheService(
+            cache=self._token_cache,
             config=self._config,
-            token_cache=token_cache,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
-            transaction_manager=transaction_manager,
+            logger=self._logger,
+        )
+        return TokenService(
+            config=self._config,
+            token_cache=token_cache_service,
+            token_db_store=token_db_store,
+            token_redis_store=token_redis_store,
+            token_change_store=token_change_store,
             logger=self._logger,
         )
 
@@ -253,3 +278,16 @@ class ComponentFactory:
         return TokenVerifier(
             self._config.verifier, self._http_client, self._logger
         )
+
+    def reconfigure(self, config: Config) -> None:
+        """Change the internal configuration.
+
+        Intended for the test suite, which may have to reconfigure the
+        component factory after creating it.
+
+        Parameters
+        ----------
+        config : `gafaelfawr.config.Config`
+            New configuration.
+        """
+        self._config = config

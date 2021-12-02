@@ -85,8 +85,6 @@ jobs:
         python:
           - "3.9"
           - "3.10"
-        database:
-          - PostgreSQL
 
     steps:
       - uses: actions/checkout@v2
@@ -117,13 +115,8 @@ jobs:
           restore-keys: |
             tox-${{ matrix.python }}-${{ hashFiles('requirements/*.txt') }}-
 
-      - name: Run tox (SQLite)
+      - name: Run tox
         run: tox -e py,coverage-report,typing
-        if: matrix.database == 'SQLite'
-
-      - name: Run tox (PostgreSQL)
-        run: tox -e docker,coverage-report,typing
-        if: matrix.database == 'PostgreSQL'
 
   docs:
     runs-on: ubuntu-latest

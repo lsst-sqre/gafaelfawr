@@ -5,7 +5,7 @@ import DatePicker from 'react-datepicker';
 
 import 'react-datepicker/dist/react-datepicker.css';
 
-export default function TokenChangeSearchForm({ initialValues, onSubmit }) {
+const TokenChangeSearchForm = function ({ initialValues, onSubmit }) {
   return (
     <Formik
       initialValues={initialValues}
@@ -81,7 +81,7 @@ export default function TokenChangeSearchForm({ initialValues, onSubmit }) {
       )}
     </Formik>
   );
-}
+};
 TokenChangeSearchForm.propTypes = {
   initialValues: PropTypes.shape({
     key: PropTypes.string,
@@ -92,3 +92,5 @@ TokenChangeSearchForm.propTypes = {
   }).isRequired,
   onSubmit: PropTypes.func.isRequired,
 };
+
+export default TokenChangeSearchForm;

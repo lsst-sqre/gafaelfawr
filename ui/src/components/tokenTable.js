@@ -9,7 +9,7 @@ import Timestamp from './timestamp';
 import Token from './token';
 import TokenName from './tokenName';
 
-function DeleteTokenButton({ token, onDeleteToken }) {
+const DeleteTokenButton = function ({ token, onDeleteToken }) {
   const onClick = () => {
     onDeleteToken(token);
   };
@@ -18,13 +18,13 @@ function DeleteTokenButton({ token, onDeleteToken }) {
       <FaTrash />
     </button>
   );
-}
+};
 DeleteTokenButton.propTypes = {
   token: PropTypes.string.isRequired,
   onDeleteToken: PropTypes.func.isRequired,
 };
 
-function EditTokenButton({ token, onEditToken }) {
+const EditTokenButton = function ({ token, onEditToken }) {
   const onClick = () => {
     onEditToken(token);
   };
@@ -33,13 +33,13 @@ function EditTokenButton({ token, onEditToken }) {
       <FaEdit />
     </button>
   );
-}
+};
 EditTokenButton.propTypes = {
   token: PropTypes.string.isRequired,
   onEditToken: PropTypes.func.isRequired,
 };
 
-export default function TokenTable({
+const TokenTable = function ({
   id,
   data,
   onEditToken,
@@ -143,7 +143,7 @@ export default function TokenTable({
     </table>
   );
   /* eslint-enable react/jsx-props-no-spreading */
-}
+};
 TokenTable.propTypes = {
   id: PropTypes.string.isRequired,
   data: PropTypes.arrayOf(PropTypes.object).isRequired,
@@ -151,3 +151,5 @@ TokenTable.propTypes = {
   onDeleteToken: PropTypes.func.isRequired,
   includeName: PropTypes.bool,
 };
+
+export default TokenTable;

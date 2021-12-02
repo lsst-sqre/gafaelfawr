@@ -1,26 +1,35 @@
 import PropTypes from 'prop-types';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { positions, Provider as AlertProvider, useAlert } from 'react-alert';
 import AlertTemplate from 'react-alert-template-basic';
 
 import { LoginContext } from './loginContext';
 import useLogin from '../hooks/login';
 
-function Application({ children }) {
+const Application = function ({ children }) {
   const alert = useAlert();
   const { csrf, username, userScopes, config } = useLogin(alert);
+  const value = useMemo(
+    () => ({
+      csrf,
+      username,
+      userScopes,
+      config,
+    }),
+    [csrf, username, userScopes, config]
+  );
 
   return (
-    <LoginContext.Provider value={{ csrf, username, userScopes, config }}>
+    <LoginContext.Provider value={value}>
       <div id="application">{children}</div>
     </LoginContext.Provider>
   );
-}
+};
 Application.propTypes = {
   children: PropTypes.element.isRequired,
 };
 
-export default function Layout({ children }) {
+const Layout = function ({ children }) {
   return (
     <AlertProvider
       template={AlertTemplate}
@@ -30,7 +39,9 @@ export default function Layout({ children }) {
       <Application>{children}</Application>
     </AlertProvider>
   );
-}
+};
 Layout.propTypes = {
   children: PropTypes.element.isRequired,
 };
+
+export default Layout;

@@ -39,8 +39,8 @@ if TYPE_CHECKING:
 
     from _pytest.logging import LogCaptureFixture
 
+    from gafaelfawr.factory import ComponentFactory
     from gafaelfawr.services.token import TokenService
-    from tests.support.setup import SetupTest
 
 TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
     {
@@ -106,9 +106,9 @@ async def token_data_from_secret(
 
 
 async def assert_kubernetes_secrets_are_correct(
-    setup: SetupTest, mock: MockKubernetesApi, is_fresh: bool = True
+    factory: ComponentFactory, mock: MockKubernetesApi, is_fresh: bool = True
 ) -> None:
-    token_service = setup.factory.create_token_service()
+    token_service = factory.create_token_service()
 
     # Get all of the GafaelfawrServiceToken custom objects.
     service_tokens = mock.get_all_objects_for_test("GafaelfawrServiceToken")
@@ -165,14 +165,14 @@ async def assert_kubernetes_secrets_are_correct(
 
 @pytest.mark.asyncio
 async def test_create(
-    setup: SetupTest,
+    factory: ComponentFactory,
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
     create_test_service_tokens(mock_kubernetes)
-    kubernetes_service = setup.factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service()
     await kubernetes_service.update_service_tokens()
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
 
     service_token = mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
@@ -248,13 +248,13 @@ async def test_create(
 
 @pytest.mark.asyncio
 async def test_modify(
-    setup: SetupTest,
+    factory: ComponentFactory,
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
     create_test_service_tokens(mock_kubernetes)
-    kubernetes_service = setup.factory.create_kubernetes_service()
-    token_service = setup.factory.create_token_service()
+    kubernetes_service = factory.create_kubernetes_service()
+    token_service = factory.create_token_service()
 
     # Valid secret but with a bogus token.
     secret = V1Secret(
@@ -289,7 +289,7 @@ async def test_modify(
 
     # Update the secrets.  This should replace both with fresh secrets.
     await kubernetes_service.update_service_tokens()
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
 
     # Check the logging.
     assert parse_log(caplog) == [
@@ -322,15 +322,16 @@ async def test_modify(
     ]
 
     # Replace one secret with a valid token for the wrong service.
-    token = await token_service.create_token_from_admin_request(
-        AdminTokenRequest(
-            username="some-other-service",
-            token_type=TokenType.service,
-            scopes=["admin:token"],
-        ),
-        TokenData.internal_token(),
-        ip_address=None,
-    )
+    async with factory.session.begin():
+        token = await token_service.create_token_from_admin_request(
+            AdminTokenRequest(
+                username="some-other-service",
+                token_type=TokenType.service,
+                scopes=["admin:token"],
+            ),
+            TokenData.internal_token(),
+            ip_address=None,
+        )
     secret = V1Secret(
         api_version="v1",
         kind="Secret",
@@ -343,15 +344,16 @@ async def test_modify(
     )
 
     # Replace the other token with a valid token with the wrong scopes.
-    token = await token_service.create_token_from_admin_request(
-        AdminTokenRequest(
-            username="nublado-hub",
-            token_type=TokenType.service,
-            scopes=["read:all"],
-        ),
-        TokenData.internal_token(),
-        ip_address=None,
-    )
+    async with factory.session.begin():
+        token = await token_service.create_token_from_admin_request(
+            AdminTokenRequest(
+                username="nublado-hub",
+                token_type=TokenType.service,
+                scopes=["read:all"],
+            ),
+            TokenData.internal_token(),
+            ip_address=None,
+        )
     secret = V1Secret(
         api_version="v1",
         kind="Secret",
@@ -363,7 +365,7 @@ async def test_modify(
 
     # Update the secrets.  This should create new tokens for both.
     await kubernetes_service.update_service_tokens()
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
     nublado_secret = mock_kubernetes.read_namespaced_secret(
         "gafaelfawr", "nublado2"
     )
@@ -383,7 +385,7 @@ async def test_modify(
     # but not for the second.
     await kubernetes_service.update_service_tokens()
     await assert_kubernetes_secrets_are_correct(
-        setup, mock_kubernetes, is_fresh=False
+        factory, mock_kubernetes, is_fresh=False
     )
     assert nublado_secret == mock_kubernetes.read_namespaced_secret(
         "gafaelfawr", "nublado2"
@@ -392,7 +394,7 @@ async def test_modify(
 
 @pytest.mark.asyncio
 async def test_update_from_queue(
-    setup: SetupTest, mock_kubernetes: MockKubernetesApi
+    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     service_token: Dict[str, Any] = {
         "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
@@ -414,7 +416,7 @@ async def test_update_from_queue(
         "gafaelfawrservicetokens",
         service_token,
     )
-    kubernetes_service = setup.factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service()
     queue: Queue[WatchEvent] = Queue()
     queue.put(
         WatchEvent(
@@ -427,7 +429,7 @@ async def test_update_from_queue(
     await kubernetes_service.update_service_tokens_from_queue(
         queue, exit_on_empty=True
     )
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
     assert queue.empty()
 
     service_token = mock_kubernetes.get_namespaced_custom_object(
@@ -458,7 +460,7 @@ async def test_update_from_queue(
     await kubernetes_service.update_service_tokens_from_queue(
         queue, exit_on_empty=True
     )
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
     assert queue.empty()
 
     # Deletion does nothing, but shouldn't prompt an error.
@@ -473,13 +475,13 @@ async def test_update_from_queue(
     await kubernetes_service.update_service_tokens_from_queue(
         queue, exit_on_empty=True
     )
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
     assert queue.empty()
 
 
 @pytest.mark.asyncio
 async def test_update_generation(
-    setup: SetupTest, mock_kubernetes: MockKubernetesApi
+    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test that GafaelfawrServiceToken status changes don't trigger updates.
 
@@ -512,7 +514,7 @@ async def test_update_generation(
         "gafaelfawrservicetokens",
         service_token,
     )
-    kubernetes_service = setup.factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service()
     queue: Queue[WatchEvent] = Queue()
     queue.put(
         WatchEvent(
@@ -525,7 +527,7 @@ async def test_update_generation(
     await kubernetes_service.update_service_tokens_from_queue(
         queue, exit_on_empty=True
     )
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
     assert queue.empty()
     secret = mock_kubernetes.read_namespaced_secret(
         "gafaelfawr-secret", "mobu"
@@ -591,12 +593,12 @@ async def test_update_generation(
     assert secret != mock_kubernetes.read_namespaced_secret(
         "gafaelfawr-secret", "mobu"
     )
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
 
 
 @pytest.mark.asyncio
-async def test_update_generation_metadata(
-    setup: SetupTest, mock_kubernetes: MockKubernetesApi
+async def test_update_metadata(
+    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test that Secret metadata is updated even if generation doesn't change.
 
@@ -624,9 +626,9 @@ async def test_update_generation_metadata(
         "gafaelfawrservicetokens",
         service_token,
     )
-    kubernetes_service = setup.factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service()
     await kubernetes_service.update_service_tokens()
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
     secret = mock_kubernetes.read_namespaced_secret(
         "gafaelfawr-secret", "mobu"
     )
@@ -680,16 +682,16 @@ async def test_update_generation_metadata(
         queue, exit_on_empty=True
     )
     assert queue.empty()
-    await assert_kubernetes_secrets_are_correct(setup, mock_kubernetes)
+    await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
 
 
 @pytest.mark.asyncio
 async def test_errors_replace_read(
-    setup: SetupTest, mock_kubernetes: MockKubernetesApi
+    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     create_test_service_tokens(mock_kubernetes)
-    kubernetes_service = setup.factory.create_kubernetes_service()
-    token_service = setup.factory.create_token_service()
+    kubernetes_service = factory.create_kubernetes_service()
+    token_service = factory.create_token_service()
 
     # Create a secret that should exist but has an invalid token.
     secret = V1Secret(
@@ -753,7 +755,7 @@ async def test_errors_replace_read(
 
 @pytest.mark.asyncio
 async def test_errors_scope(
-    setup: SetupTest, mock_kubernetes: MockKubernetesApi
+    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     mock_kubernetes.create_namespaced_custom_object(
         "gafaelfawr.lsst.io",
@@ -774,7 +776,7 @@ async def test_errors_scope(
             },
         },
     )
-    kubernetes_service = setup.factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service()
 
     await kubernetes_service.update_service_tokens()
     with pytest.raises(ApiException):

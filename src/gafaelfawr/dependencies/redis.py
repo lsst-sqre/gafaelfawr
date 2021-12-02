@@ -20,45 +20,32 @@ class RedisDependency:
     Notes
     -----
     Creation of the Redis pool has to be deferred until the configuration has
-    been loaded, which in turn is deferred for the first request.  We also
-    want to provide an opportunity for the test suite to tell it to use a
-    mockaioredis pool instead.  Do this by deferring creation of the pool
-    until the first time the dependency is called.
+    been loaded, which in turn is deferred for the first request.
     """
 
     def __init__(self) -> None:
         self.redis: Optional[Redis] = None
-        self.is_mocked = False
 
     async def __call__(
         self, config: Config = Depends(config_dependency)
     ) -> Redis:
         """Creates the Redis pool if necessary and returns it."""
         if not self.redis:
-            self.redis = Redis.from_url(
-                config.redis_url, password=config.redis_password
-            )
+            password = config.redis_password
+            self.redis = Redis.from_url(config.redis_url, password=password)
         assert self.redis
         return self.redis
 
-    async def close(self) -> None:
+    async def aclose(self) -> None:
         """Close the open Redis pool.
 
         Should be called from a shutdown hook to ensure that the Redis clients
         are cleanly shut down and any pending writes are complete.
         """
-        if self.redis and not self.is_mocked:
+        if self.redis:
             await self.redis.close()
             await self.redis.connection_pool.disconnect()
             self.redis = None
-
-    def set_redis(self, redis: Redis) -> None:
-        """Set the Redis object returned by ``__call__``.
-
-        Used to inject a mock.
-        """
-        self.redis = redis
-        self.is_mocked = True
 
 
 redis_dependency = RedisDependency()

@@ -3,7 +3,7 @@ import fromUnixTime from 'date-fns/fromUnixTime';
 import PropTypes from 'prop-types';
 import React from 'react';
 
-export default function Timestamp({
+const Timestamp = function ({
   timestamp,
   expiration = false,
   className = undefined,
@@ -24,9 +24,11 @@ export default function Timestamp({
       {relative}
     </time>
   );
-}
+};
 Timestamp.propTypes = {
   timestamp: PropTypes.number.isRequired,
   expiration: PropTypes.bool,
   className: PropTypes.string,
 };
+
+export default Timestamp;

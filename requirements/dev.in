@@ -12,14 +12,12 @@ coverage[toml]
 diagrams
 documenteer
 holdup
-lsst-sphinx-bootstrap-theme<0.3
-mockaioredis
+lsst-sphinx-bootstrap-theme
 mypy
 pre-commit
 pytest
 pytest-asyncio
 pytest-cov
-pytest-xdist[psutil]
 respx
 selenium
 selenium-wire
@@ -27,6 +25,7 @@ seqdiag
 sphinx-automodapi
 sphinx-click
 sphinx-prompt
+sqlalchemy[mypy]
 types-cachetools
 types-PyYAML
 

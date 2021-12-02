@@ -5,7 +5,7 @@ import { useTable } from 'react-table';
 import Timestamp from './timestamp';
 import Token from './token';
 
-export default function TokenChangeTable({ data }) {
+const TokenChangeTable = function ({ data }) {
   const columns = useMemo(
     () => [
       {
@@ -116,7 +116,9 @@ export default function TokenChangeTable({ data }) {
     </table>
   );
   /* eslint-enable react/jsx-props-no-spreading */
-}
+};
 TokenChangeTable.propTypes = {
   data: PropTypes.arrayOf(PropTypes.object).isRequired,
 };
+
+export default TokenChangeTable;
