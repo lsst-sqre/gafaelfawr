@@ -2,7 +2,7 @@
 Change log
 ##########
 
-3.4.1 (unreleased)
+3.4.1 (2021-12-09)
 ==================
 
 - Fix database initialization with ``gafaelfawr init``, which is also run on pod startup.
