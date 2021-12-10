@@ -8,13 +8,16 @@ conflict with each other.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from click.testing import CliRunner
 from kubernetes.client import ApiException
 
 from gafaelfawr.cli import main
-from gafaelfawr.models.token import Token
+from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.models.admin import Admin
+from gafaelfawr.models.token import Token, TokenData
 from tests.support.kubernetes import MockKubernetesApi
 from tests.support.logging import parse_log
 
@@ -23,6 +26,8 @@ if TYPE_CHECKING:
     from typing import Any
 
     from _pytest.logging import LogCaptureFixture
+
+    from gafaelfawr.config import Config
 
 
 def test_generate_key() -> None:
@@ -60,6 +65,26 @@ def test_help() -> None:
     result = runner.invoke(main, ["help", "unknown-command"])
     assert result.exit_code != 0
     assert "Unknown help topic unknown-command" in result.output
+
+
+def test_init(config: Config) -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["init"])
+    assert result.exit_code == 0
+
+    # We can't make the test async or its loop will interfere with the one
+    # created by gafaelfawr.cli, so instead use asyncio.run to run a check
+    # that the database schema is present.
+    async def check_database() -> None:
+        async with ComponentFactory.standalone() as factory:
+            admin_service = factory.create_admin_service()
+            expected = [Admin(username=u) for u in config.initial_admins]
+            assert await admin_service.get_admins() == expected
+            token_service = factory.create_token_service()
+            bootstrap = TokenData.bootstrap_token()
+            assert await token_service.list_tokens(bootstrap) == []
+
+    asyncio.run(check_database())
 
 
 def test_update_service_tokens(
