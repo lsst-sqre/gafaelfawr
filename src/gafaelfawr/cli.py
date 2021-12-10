@@ -99,7 +99,7 @@ async def init(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
-    initialize_database(config)
+    await initialize_database(config)
 
 
 @main.command()
