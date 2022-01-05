@@ -63,11 +63,13 @@ async def test_login(
     assert parse_log(caplog) == [
         {
             "event": f"Redirecting user to {login_url} for authentication",
-            "level": "info",
-            "method": "GET",
-            "path": "/login",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
-            "remote": "127.0.0.1",
+            "severity": "info",
         }
     ]
 
@@ -87,20 +89,24 @@ async def test_login(
     assert parse_log(caplog) == [
         {
             "event": f"Retrieving ID token from {config.oidc.token_url}",
-            "level": "info",
-            "method": "GET",
-            "path": "/login",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
+            "severity": "info",
         },
         {
             "event": event,
-            "level": "info",
-            "method": "GET",
-            "path": "/login",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
-            "remote": "127.0.0.1",
             "scope": expected_scopes,
+            "severity": "info",
             "token": ANY,
             "user": token.username,
         },
@@ -245,20 +251,24 @@ async def test_callback_error(
     assert parse_log(caplog) == [
         {
             "event": f"Retrieving ID token from {config.oidc.token_url}",
-            "level": "info",
-            "method": "GET",
-            "path": "/oauth2/callback",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
+            "severity": "info",
         },
         {
             "error": "error_code: description",
             "event": "Authentication provider failed",
-            "level": "warning",
-            "method": "GET",
-            "path": "/oauth2/callback",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
-            "remote": "127.0.0.1",
+            "severity": "warning",
         },
     ]
 

@@ -138,11 +138,11 @@ def test_update_service_tokens_error(
         {
             "event": "Unable to list GafaelfawrServiceToken objects",
             "error": "Kubernetes API error: (500)\nReason: Some error\n",
-            "level": "error",
+            "severity": "error",
         },
         {
             "error": "Kubernetes API error: (500)\nReason: Some error\n",
             "event": "Failed to update service token secrets",
-            "level": "error",
+            "severity": "error",
         },
     ]

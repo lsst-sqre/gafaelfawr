@@ -213,27 +213,27 @@ async def test_create(
         {
             "event": "Created new service token",
             "key": ANY,
-            "level": "info",
+            "severity": "info",
             "token_scope": "admin:token",
             "token_username": "mobu",
         },
         {
             "event": "Created mobu/gafaelfawr-secret secret",
-            "level": "info",
             "scopes": ["admin:token"],
+            "severity": "info",
             "service": "mobu",
         },
         {
             "event": "Created new service token",
             "key": ANY,
-            "level": "info",
+            "severity": "info",
             "token_scope": "",
             "token_username": "nublado-hub",
         },
         {
             "event": "Created nublado2/gafaelfawr secret",
-            "level": "info",
             "scopes": [],
+            "severity": "info",
             "service": "nublado-hub",
         },
     ]
@@ -296,27 +296,27 @@ async def test_modify(
         {
             "event": "Created new service token",
             "key": ANY,
-            "level": "info",
+            "severity": "info",
             "token_scope": "admin:token",
             "token_username": "mobu",
         },
         {
             "event": "Updated mobu/gafaelfawr-secret secret",
-            "level": "info",
             "scopes": ["admin:token"],
+            "severity": "info",
             "service": "mobu",
         },
         {
             "event": "Created new service token",
             "key": ANY,
-            "level": "info",
+            "severity": "info",
             "token_scope": "",
             "token_username": "nublado-hub",
         },
         {
             "event": "Updated nublado2/gafaelfawr secret",
-            "level": "info",
             "scopes": [],
+            "severity": "info",
             "service": "nublado-hub",
         },
     ]
