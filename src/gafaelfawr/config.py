@@ -139,13 +139,13 @@ class LDAPSettings(BaseModel):
     base_dn: str
     """Base DN to use when executing LDAP search."""
 
-    group_object_class: str
+    group_object_class: str = "posixGroup"
     """LDAP Group Object Class. Usually `posixGroup` as in RFC2307(bis)."""
 
-    group_member: str
+    group_member: str = "member"
     """LDAP group member. `memberuid` in RFC2307 and `member` in RFC2307bis."""
 
-    group_name: str
+    group_name: str = "cn"
     """LDAP Group Name. `cn` in RFC2307 and RFC2307bis"""
 
 

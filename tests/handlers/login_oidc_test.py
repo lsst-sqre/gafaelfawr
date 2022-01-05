@@ -9,6 +9,8 @@ from urllib.parse import parse_qs, urljoin, urlparse
 import pytest
 from httpx import ConnectError
 
+from gafaelfawr.dependencies.config import config_dependency
+from tests.support.ldap import MockLDAP
 from tests.support.logging import parse_log
 from tests.support.oidc import (
     mock_oidc_provider_config,
@@ -523,3 +525,41 @@ async def test_unicode_name(
         "uid": token.uid,
         "groups": [{"name": "admin", "id": 1000}],
     }
+
+
+@pytest.mark.asyncio
+async def test_ldap(
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
+) -> None:
+    config = await config_dependency()
+    assert config.ldap
+    token = await create_upstream_oidc_token(groups=["admin"])
+    await mock_oidc_provider_config(respx_mock, config.issuer.keypair)
+    await mock_oidc_provider_token(respx_mock, "some-code", token)
+    return_url = "https://example.com/foo"
+
+    r = await client.get("/login", params={"rd": return_url})
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == return_url
+
+    # Check that the name as returned from the user-info API is correct.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token.username,
+        "email": token.claims["email"],
+        "uid": token.uid,
+        "groups": [{"name": g.name, "id": g.id} for g in mock_ldap.groups],
+    }
+    assert mock_ldap.query == (
+        f"(&(objectClass={config.ldap.group_object_class})"
+        f"({config.ldap.group_member}={token.username}))"
+    )
