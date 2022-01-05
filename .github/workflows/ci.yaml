@@ -101,6 +101,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Install extra packages
+        run: sudo apt install libpq-dev libldap2-dev libsasl2-dev
+
       - name: Install tox
         run: pip install tox tox-docker
 
