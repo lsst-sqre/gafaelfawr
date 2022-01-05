@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
+from tests.support.constants import TEST_HOSTNAME
 from tests.support.cookies import set_session_cookie
 from tests.support.github import mock_github
 from tests.support.headers import query_from_url
@@ -46,10 +47,12 @@ async def test_logout(
     assert parse_log(caplog) == [
         {
             "event": "Successful logout",
-            "level": "info",
-            "method": "GET",
-            "path": "/logout",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": f"https://{TEST_HOSTNAME}/logout",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "info",
         }
     ]
 
@@ -92,10 +95,12 @@ async def test_logout_not_logged_in(
     assert parse_log(caplog) == [
         {
             "event": "Logout of already-logged-out session",
-            "level": "info",
-            "method": "GET",
-            "path": "/logout",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": f"https://{TEST_HOSTNAME}/logout",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "info",
         }
     ]
 
@@ -150,16 +155,20 @@ async def test_logout_github(
     assert parse_log(caplog) == [
         {
             "event": "Revoked GitHub OAuth authorization",
-            "level": "info",
-            "method": "GET",
-            "path": "/logout",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": f"https://{TEST_HOSTNAME}/logout",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "info",
         },
         {
             "event": "Successful logout",
-            "level": "info",
-            "method": "GET",
-            "path": "/logout",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": f"https://{TEST_HOSTNAME}/logout",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "info",
         },
     ]

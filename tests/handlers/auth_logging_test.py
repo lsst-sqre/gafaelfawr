@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from tests.support.constants import TEST_HOSTNAME
 from tests.support.logging import parse_log
 from tests.support.tokens import create_session_token
 
@@ -38,13 +39,15 @@ async def test_success(
     expected_log = {
         "auth_uri": "/foo",
         "event": "Token authorized",
-        "level": "info",
-        "method": "GET",
-        "path": "/auth",
-        "remote": "192.0.2.1",
+        "httpRequest": {
+            "requestMethod": "GET",
+            "requestUrl": f"https://{TEST_HOSTNAME}/auth?scope=exec%3Aadmin",
+            "remoteIp": "192.0.2.1",
+        },
         "required_scope": "exec:admin",
         "satisfy": "all",
         "scope": "exec:admin",
+        "severity": "info",
         "token": token_data.token.key,
         "token_source": "bearer",
         "user": token_data.username,
@@ -108,13 +111,18 @@ async def test_authorization_failed(
             "auth_uri": "/foo",
             "error": "Token missing required scope",
             "event": "Permission denied",
-            "level": "warning",
-            "method": "GET",
-            "path": "/auth",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": (
+                    f"https://{TEST_HOSTNAME}/auth"
+                    "?scope=exec%3Atest&satisfy=any"
+                ),
+                "remoteIp": "127.0.0.1",
+            },
             "required_scope": "exec:test",
             "satisfy": "any",
             "scope": "exec:admin",
+            "severity": "warning",
             "token": token_data.token.key,
             "token_source": "bearer",
             "user": token_data.username,
@@ -142,13 +150,15 @@ async def test_original_url(
         "auth_uri": "https://example.com/test",
         "error": "Token missing required scope",
         "event": "Permission denied",
-        "level": "warning",
-        "method": "GET",
-        "path": "/auth",
-        "remote": "127.0.0.1",
+        "httpRequest": {
+            "requestMethod": "GET",
+            "requestUrl": f"https://{TEST_HOSTNAME}/auth?scope=exec%3Aadmin",
+            "remoteIp": "127.0.0.1",
+        },
         "required_scope": "exec:admin",
         "satisfy": "all",
         "scope": "user:token",
+        "severity": "warning",
         "token": token_data.token.key,
         "token_source": "bearer",
         "user": token_data.username,
@@ -196,13 +206,17 @@ async def test_chained_x_forwarded(
             "auth_uri": "/foo",
             "error": "Token missing required scope",
             "event": "Permission denied",
-            "level": "warning",
-            "method": "GET",
-            "path": "/auth",
-            "remote": "2001:db8:85a3:8d3:1319:8a2e:370:734",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": (
+                    f"https://{TEST_HOSTNAME}/auth?scope=exec%3Aadmin"
+                ),
+                "remoteIp": "2001:db8:85a3:8d3:1319:8a2e:370:734",
+            },
             "required_scope": "exec:admin",
             "satisfy": "all",
             "scope": "user:token",
+            "severity": "warning",
             "token": token_data.token.key,
             "token_source": "bearer",
             "user": token_data.username,
@@ -227,12 +241,16 @@ async def test_invalid_token(
             "auth_uri": "NONE",
             "error": "Token does not start with gt-",
             "event": "Invalid token",
-            "level": "warning",
-            "method": "GET",
-            "path": "/auth",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": (
+                    f"https://{TEST_HOSTNAME}/auth?scope=exec%3Aadmin"
+                ),
+                "remoteIp": "127.0.0.1",
+            },
             "required_scope": "exec:admin",
             "satisfy": "all",
+            "severity": "warning",
             "token_source": "bearer",
         }
     ]

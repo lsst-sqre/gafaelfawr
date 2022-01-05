@@ -46,8 +46,8 @@ def parse_log(caplog: LogCaptureFixture) -> List[Dict[str, Any]]:
 
         if "request_id" in message:
             del message["request_id"]
-            assert "user_agent" in message
-            del message["user_agent"]
+            assert "userAgent" in message["httpRequest"]
+            del message["httpRequest"]["userAgent"]
 
         messages.append(message)
 

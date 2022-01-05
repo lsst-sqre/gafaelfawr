@@ -82,12 +82,14 @@ async def test_login(
     assert parse_log(caplog) == [
         {
             "event": "Returned OpenID Connect authorization code",
-            "level": "info",
-            "method": "GET",
-            "path": "/auth/openid/login",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
             "scope": "user:token",
+            "severity": "info",
             "token": token_data.token.key,
             "token_source": "cookie",
             "user": token_data.username,
@@ -145,10 +147,12 @@ async def test_login(
     assert parse_log(caplog) == [
         {
             "event": f"Retrieved token for user {username} via OpenID Connect",
-            "level": "info",
-            "method": "POST",
-            "path": "/auth/openid/token",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "POST",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "info",
             "token": OIDCAuthorizationCode.from_str(code).key,
             "user": username,
         }
@@ -185,11 +189,13 @@ async def test_unauthenticated(
     assert parse_log(caplog) == [
         {
             "event": "Redirecting user for authentication",
-            "level": "info",
-            "method": "GET",
-            "path": "/auth/openid/login",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
+            "severity": "info",
         }
     ]
 
@@ -232,12 +238,14 @@ async def test_login_errors(
         {
             "error": "Unknown client_id bad-client in OpenID Connect request",
             "event": "Invalid request",
-            "level": "warning",
-            "method": "GET",
-            "path": "/auth/openid/login",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": f"https://{TEST_HOSTNAME}/",
             "scope": "user:token",
+            "severity": "warning",
             "token": ANY,
             "token_source": "cookie",
             "user": token_data.username,
@@ -271,12 +279,14 @@ async def test_login_errors(
         {
             "error": "Missing response_type parameter",
             "event": "Invalid request",
-            "level": "warning",
-            "method": "GET",
-            "path": "/auth/openid/login",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": login_params["redirect_uri"],
             "scope": "user:token",
+            "severity": "warning",
             "token": ANY,
             "token_source": "cookie",
             "user": token_data.username,
@@ -344,10 +354,12 @@ async def test_token_errors(
         {
             "error": "Invalid token request",
             "event": "Invalid request",
-            "level": "warning",
-            "method": "POST",
-            "path": "/auth/openid/token",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "POST",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "warning",
         }
     ]
 
@@ -370,10 +382,12 @@ async def test_token_errors(
         {
             "error": "Invalid grant type bogus",
             "event": "Unsupported grant type",
-            "level": "warning",
-            "method": "POST",
-            "path": "/auth/openid/token",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "POST",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "warning",
         }
     ]
 
@@ -400,10 +414,12 @@ async def test_token_errors(
         {
             "error": "No client_secret provided",
             "event": "Unauthorized client",
-            "level": "warning",
-            "method": "POST",
-            "path": "/auth/openid/token",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "POST",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "warning",
         }
     ]
 
@@ -536,10 +552,12 @@ async def test_invalid(
         {
             "error": "Unknown Authorization type token",
             "event": "Invalid request",
-            "level": "warning",
-            "method": "GET",
-            "path": "/auth/userinfo",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/userinfo",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "warning",
         }
     ]
 
@@ -574,10 +592,12 @@ async def test_invalid(
         {
             "error": ANY,
             "event": "Invalid token",
-            "level": "warning",
-            "method": "GET",
-            "path": "/auth/userinfo",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/userinfo",
+                "remoteIp": "127.0.0.1",
+            },
+            "severity": "warning",
             "token_source": "bearer",
         }
     ]

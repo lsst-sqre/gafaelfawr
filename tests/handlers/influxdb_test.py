@@ -8,6 +8,7 @@ from unittest.mock import ANY
 import jwt
 import pytest
 
+from tests.support.constants import TEST_HOSTNAME
 from tests.support.headers import assert_unauthorized_is_correct
 from tests.support.logging import parse_log
 from tests.support.settings import configure
@@ -59,11 +60,15 @@ async def test_influxdb(
         {
             "event": "Issued InfluxDB token",
             "influxdb_username": token_data.username,
-            "level": "info",
-            "method": "GET",
-            "path": "/auth/tokens/influxdb/new",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": (
+                    f"https://{TEST_HOSTNAME}/auth/tokens/influxdb/new"
+                ),
+                "remoteIp": "127.0.0.1",
+            },
             "scope": "user:token",
+            "severity": "info",
             "token": token_data.token.key,
             "token_source": "bearer",
             "user": token_data.username,
@@ -101,11 +106,15 @@ async def test_not_configured(
         {
             "error": "No InfluxDB issuer configuration",
             "event": "Not configured",
-            "level": "warning",
-            "method": "GET",
-            "path": "/auth/tokens/influxdb/new",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": (
+                    f"https://{TEST_HOSTNAME}/auth/tokens/influxdb/new"
+                ),
+                "remoteIp": "127.0.0.1",
+            },
             "scope": "user:token",
+            "severity": "warning",
             "token": token_data.token.key,
             "token_source": "bearer",
             "user": token_data.username,
@@ -146,11 +155,15 @@ async def test_influxdb_force_username(
         {
             "event": "Issued InfluxDB token",
             "influxdb_username": "influxdb-user",
-            "level": "info",
-            "method": "GET",
-            "path": "/auth/tokens/influxdb/new",
-            "remote": "127.0.0.1",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": (
+                    f"https://{TEST_HOSTNAME}/auth/tokens/influxdb/new"
+                ),
+                "remoteIp": "127.0.0.1",
+            },
             "scope": "user:token",
+            "severity": "info",
             "token": token_data.token.key,
             "token_source": "bearer",
             "user": token_data.username,

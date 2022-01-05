@@ -140,12 +140,14 @@ async def test_create_delete_modify(
         {
             "expires": int(new_expires.timestamp()),
             "event": "Modified token",
+            "httpRequest": {
+                "requestMethod": "PATCH",
+                "requestUrl": f"https://{TEST_HOSTNAME}{token_url}",
+                "remoteIp": "127.0.0.1",
+            },
             "key": user_token.key,
-            "level": "info",
-            "method": "PATCH",
-            "path": token_url,
-            "remote": "127.0.0.1",
             "scope": "exec:admin read:all user:token",
+            "severity": "info",
             "token": session_token.key,
             "token_name": "happy token",
             "token_scope": "exec:admin",

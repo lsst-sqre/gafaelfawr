@@ -133,20 +133,24 @@ async def test_login(
     assert parse_log(caplog) == [
         {
             "event": "Redirecting user to GitHub for authentication",
-            "level": "info",
-            "method": "GET",
-            "path": "/login",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
-            "remote": "127.0.0.1",
+            "severity": "info",
         },
         {
             "event": "Successfully authenticated user githubuser (123456)",
-            "level": "info",
-            "method": "GET",
-            "path": "/login",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
             "return_url": return_url,
-            "remote": "127.0.0.1",
             "scope": "read:all user:token",
+            "severity": "info",
             "token": ANY,
             "user": "githubuser",
         },
