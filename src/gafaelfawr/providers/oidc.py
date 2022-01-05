@@ -9,13 +9,17 @@ import bonsai
 import jwt
 from pydantic import ValidationError
 
-from gafaelfawr.exceptions import OIDCException, VerifyTokenException
+from gafaelfawr.exceptions import (
+    LDAPException,
+    OIDCException,
+    VerifyTokenException,
+)
 from gafaelfawr.models.oidc import OIDCToken
 from gafaelfawr.models.token import TokenGroup, TokenUserInfo
 from gafaelfawr.providers.base import Provider
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional, Union
+    from typing import List, Optional
 
     from httpx import AsyncClient
     from structlog.stdlib import BoundLogger
@@ -107,7 +111,11 @@ class OIDCProvider(Provider):
         Raises
         ------
         gafaelfawr.exceptions.OIDCException
-            The OpenID Connect provider responded with an error to a request.
+            The OpenID Connect provider responded with an error to a request
+            or the group membership in the resulting token was not valid.
+        gafaelfawr.exceptions.LDAPException
+            One of the groups for the user in LDAP was not valid (missing
+            cn or gidNumber attributes, or gidNumber is not an integer).
         httpx.HTTPError
             An HTTP client error occurred trying to talk to the authentication
             provider.
@@ -157,27 +165,29 @@ class OIDCProvider(Provider):
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCException(msg)
 
-        # Extract information from it to create the user information.
-        groups = []
-        invalid_groups = {}
-        try:
-            if self._ldap_config:
-                groups = await self.get_ldap_groups(token.username)
-            for oidc_group in groups or token.claims.get("isMemberOf", []):
-                if "name" not in oidc_group:
-                    continue
-                name = oidc_group["name"]
-                if "id" not in oidc_group:
-                    invalid_groups[name] = "missing id"
-                    continue
-                gid = int(oidc_group["id"])
-                try:
-                    groups.append(TokenGroup(name=name, id=gid))
-                except ValidationError as e:
-                    invalid_groups[name] = str(e)
-        except Exception as e:
-            msg = f"isMemberOf claim is invalid: {str(e)}"
-            raise OIDCException(msg)
+        # If configured with LDAP support, get user group information from
+        # LDAP.  Otherwise, extract it from the token.
+        if self._ldap_config:
+            groups = await self._get_ldap_groups(token.username)
+        else:
+            groups = []
+            invalid_groups = {}
+            try:
+                for oidc_group in token.claims.get("isMemberOf", []):
+                    if "name" not in oidc_group:
+                        continue
+                    name = oidc_group["name"]
+                    if "id" not in oidc_group:
+                        invalid_groups[name] = "missing id"
+                        continue
+                    gid = int(oidc_group["id"])
+                    try:
+                        groups.append(TokenGroup(name=name, id=gid))
+                    except ValidationError as e:
+                        invalid_groups[name] = str(e)
+            except Exception as e:
+                msg = f"isMemberOf claim is invalid: {str(e)}"
+                raise OIDCException(msg)
         return TokenUserInfo(
             username=token.username,
             name=token.claims.get("name"),
@@ -198,21 +208,48 @@ class OIDCProvider(Provider):
         """
         pass
 
-    async def get_ldap_groups(
-        self, uid: str
-    ) -> List[Dict[str, Union[str, int]]]:
+    async def _get_ldap_groups(self, uid: str) -> List[TokenGroup]:
+        """Get groups for a user from LDAP.
+
+        Parameters
+        ----------
+        uid : `str`
+            Username of the user.
+
+        Returns
+        -------
+        groups : List[`gafaelfawr.models.token.TokenGroup`]
+            User's groups from LDAP.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.LDAPException
+            One of the groups for the user in LDAP was not valid (missing
+            cn or gidNumber attributes, or gidNumber is not an integer)
+        """
         assert self._ldap_config
+        group_class = self._ldap_config.group_object_class
+        member_attr = self._ldap_config.group_member
+        ldap_query = f"(&(objectClass={group_class})({member_attr}={uid}))"
+
         client = bonsai.LDAPClient(self._ldap_config.url)
         async with client.connect(is_async=True) as conn:
-            attributes = ["cn", "gidNumber"]
-            group_class = self._ldap_config.group_object_class
-            member_attr = self._ldap_config.group_member
-            ldap_query = f"(&(objectClass={group_class})({member_attr}={uid}))"
             results = await conn.search(
-                self._ldap_config.base_dn, 2, ldap_query, attrlist=attributes
+                self._ldap_config.base_dn,
+                bonsai.LDAPSearchScope.SUB,
+                ldap_query,
+                attrlist=["cn", "gidNumber"],
             )
-            groups = [
-                {"name": result["cn"][0], "id": int(result["gidNumber"][0])}
-                for result in results
-            ]
+
+            # Parse the results into the group list.
+            groups = []
+            for result in results:
+                name = None
+                try:
+                    name = result["cn"][0]
+                    gid = int(result["gidNumber"][0])
+                    groups.append(TokenGroup(name=name, id=gid))
+                except Exception as e:
+                    msg = f"LDAP group {name} for user {uid} invalid: {str(e)}"
+                    raise LDAPException(msg)
             return groups
