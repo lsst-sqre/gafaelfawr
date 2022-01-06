@@ -132,6 +132,9 @@ jobs:
         with:
           python-version: 3.9
 
+      - name: Install extra packages
+        run: sudo apt install libpq-dev libldap2-dev libsasl2-dev
+
       - name: Install tox and LTD Conveyor
         run: pip install tox ltd-conveyor
 
