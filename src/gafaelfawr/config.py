@@ -145,9 +145,6 @@ class LDAPSettings(BaseModel):
     group_member: str = "member"
     """LDAP group member. `memberuid` in RFC2307 and `member` in RFC2307bis."""
 
-    group_name: str = "cn"
-    """LDAP Group Name. `cn` in RFC2307 and RFC2307bis"""
-
 
 class Settings(BaseSettings):
     """pydantic model of Gafaelfawr settings file.
@@ -309,11 +306,8 @@ class Settings(BaseSettings):
         cls, v: Optional[LDAPSettings], values: Dict[str, object]
     ) -> Optional[LDAPSettings]:
         """Ensure all fields are non-empty if url is non-empty."""
-        if v and v.url:
-            if not all(
-                [v.base_dn, v.group_name, v.group_object_class, v.group_member]
-            ):
-                raise ValueError("not all required ldap fields are present")
+        if v and v.url and not v.base_dn:
+            raise ValueError("not all required ldap fields are present")
         return v
 
     @validator("initial_admins", pre=True)
@@ -466,9 +460,6 @@ class LDAPConfig:
 
     group_member: str
     """LDAP group member. `memberuid` in RFC2307 and `member` in RFC2307bis."""
-
-    group_name: str
-    """LDAP Group Name. `cn` in RFC2307 and RFC2307bis"""
 
 
 @dataclass(frozen=True)
@@ -752,7 +743,6 @@ class Config:
                 base_dn=settings.ldap.base_dn,
                 group_object_class=settings.ldap.group_object_class,
                 group_member=settings.ldap.group_member,
-                group_name=settings.ldap.group_name,
             )
         log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
         config = cls(

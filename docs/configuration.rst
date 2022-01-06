@@ -67,6 +67,20 @@ This will not work immediately; you will need to wait for the CILogon team to re
 After you have gotten email confirming that your client has been registered, reply to that email and request that the client configuration be copied from the client ``cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75``.
 This will add the scope that releases group and UID information from LDAP.
 
+Other OpenID Connect provider
+-----------------------------
+
+Gafaelfawr supports client authentication using an arbitrary OpenID Connect provider, as long as the provider supports a ``response_type`` of ``code``, a ``grant_type`` of ``authorization_code``, accepts a ``client_secret`` for authentication, and returns tokens that contain a username and numeric UID.
+You will need the following information from the OpenID Connect provider:
+
+- Client ID that Gafaelfawr will use to authenticate
+- Client secret corresponding to that client ID
+- JWT audience corresponding to that client ID
+- URL to which to direct the user to authorize Gafaelfawr
+- URL from which to retrieve a token after a user has authenticated
+- JWT issuer URL
+- List of scopes to request from the OpenID Connect provider
+
 .. _vault-secrets:
 
 Vault secrets
@@ -82,7 +96,7 @@ If you are using it, create a Vault secret with the following keys:
 
 ``cilogon-client-secret``
     The CILogon secret, obtained during client registration as described above.
-    This is not required if you are using GitHub authentication.
+    This is not required if you are using GitHub or generic OpenID Connect authentication.
 
 ``database-password``
     The password to use for the PostgreSQL database.
@@ -90,12 +104,16 @@ If you are using it, create a Vault secret with the following keys:
 
 ``github-client-secret``
     The GitHub secret, obtained when creating the OAuth App as described above.
-    This is not required if you are using CILogin authentication.
+    This is not required if you are using OpenID Connect authentication (either CILogon or generic).
 
 ``influxdb-secret`` (optional)
     The shared secret to use for issuing InfluxDB tokens.
     See :ref:`influxdb` for more information.
     You can omit this if you don't need InfluxDB token support.
+
+``oidc-client-secret``
+    The secret for an OpenID Connect authentication provider.
+    This is not required if you are using GitHub or CILogon authentication.
 
 ``oidc-server-secrets`` (optional)
     Only used if the Helm chart parameter ``oidcServer.enabled`` is set to true.
@@ -199,8 +217,10 @@ Setting this is optional; you can instead use the bootstrap token (see :ref:`boo
 Authentication provider
 -----------------------
 
-Configure either GitHub or CILogon as the upstream provider.
-For GitHub:
+Configure GitHub, CILogon, or OpenID Connect as the upstream provider.
+
+GitHub
+^^^^^^
 
 .. code-block:: yaml
 
@@ -210,7 +230,8 @@ For GitHub:
 
 using the GitHub client ID from :ref:`github-config`.
 
-For CILogon:
+CILogon
+^^^^^^^
 
 .. code-block:: yaml
 
@@ -231,7 +252,57 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     Can be used to set parameters like ``skin`` or ``selected_idp``.
     See the `CILogon OIDC documentation <https://www.cilogon.org/oidc>`__ for more information.
 
+Generic OpenID Connect
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: yaml
+
+   config:
+     oidc:
+       clientId: "<oidc-client-id>"
+       audience: "<oidc-client-audience>"
+       loginUrl: "<oidc-login-url>"
+       tokenUrl: "<oidc-token-url>"
+       issuer: "<oidc-issuer>"
+       scopes:
+         - "<scope-to-request>"
+         - "<scope-to-request>"
+
+There is one additional option under ``config.oidc`` that you may want to set:
+
+``config.oidc.loginParams``
+    A mapping of additional parameters to send to the login route.
+    Can be used to set additional configuration options for some OpenID Connect providers.
+
 .. _scopes:
+
+LDAP groups
+-----------
+
+When using either CILogon or generic OpenID Connect as an authentication provider, you can choose to obtain group information from an LDAP server rather than an ``isMemberOf`` attribute inside the token.
+Currently, Gafaelfawr only supports anonymous LDAP binds.
+
+To do this, add the following configuration:
+
+.. code-block:: yaml
+
+   config:
+     ldap:
+       url: "ldaps://<ldap-server>"
+       baseDn: "<base-dn-for-search>"
+
+You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
+
+``config.ldap.groupObjectClass``
+    The object class from which group information should be looked up.
+    Default: ``posixGroup``.
+
+``config.ldap.groupMember``
+    The member attribute of that object class.
+    The values must match the username returned in the token from the OpenID Connect authentication server.
+    Default: ``member``.
+
+The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
 
 Scopes
 ------
