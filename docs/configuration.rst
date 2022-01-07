@@ -76,8 +76,8 @@ You will need the following information from the OpenID Connect provider:
 - Client ID that Gafaelfawr will use to authenticate
 - Client secret corresponding to that client ID
 - JWT audience corresponding to that client ID
-- URL to which to direct the user to authorize Gafaelfawr
-- URL from which to retrieve a token after a user has authenticated
+- Authorization endpoint URL (where the user is sent to authorize Gafaelafwr)
+- Token endpoint URL (from which Gafaelfawr retrieves a token after authentication)
 - JWT issuer URL
 - List of scopes to request from the OpenID Connect provider
 
@@ -96,7 +96,7 @@ If you are using it, create a Vault secret with the following keys:
 
 ``cilogon-client-secret``
     The CILogon secret, obtained during client registration as described above.
-    This is not required if you are using GitHub or generic OpenID Connect authentication.
+    This is only required if you're using CILogon for authentication.
 
 ``database-password``
     The password to use for the PostgreSQL database.
@@ -104,7 +104,7 @@ If you are using it, create a Vault secret with the following keys:
 
 ``github-client-secret``
     The GitHub secret, obtained when creating the OAuth App as described above.
-    This is not required if you are using OpenID Connect authentication (either CILogon or generic).
+    This is only required if you're using GitHub for authentication.
 
 ``influxdb-secret`` (optional)
     The shared secret to use for issuing InfluxDB tokens.
@@ -113,7 +113,7 @@ If you are using it, create a Vault secret with the following keys:
 
 ``oidc-client-secret``
     The secret for an OpenID Connect authentication provider.
-    This is not required if you are using GitHub or CILogon authentication.
+    This is only required if you're using generic OpenID Connect for authentication.
 
 ``oidc-server-secrets`` (optional)
     Only used if the Helm chart parameter ``oidcServer.enabled`` is set to true.

@@ -134,16 +134,28 @@ class LDAPSettings(BaseModel):
     """pydantic model of LDAP configuration"""
 
     url: str
-    """LDAP Server URL. Use with `ldaps` if using SSL."""
+    """LDAP server URL.
+
+    Use the ``ldaps`` scheme if you're using TLS.  Only anonymous binds are
+    supported.
+    """
 
     base_dn: str
     """Base DN to use when executing LDAP search."""
 
     group_object_class: str = "posixGroup"
-    """LDAP Group Object Class. Usually `posixGroup` as in RFC2307(bis)."""
+    """LDAP group object class.
+
+    Usually ``posixGroup``, as specified in :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
 
     group_member: str = "member"
-    """LDAP group member. `memberuid` in RFC2307 and `member` in RFC2307bis."""
+    """LDAP group member attribute.
+
+    ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
 
 
 class Settings(BaseSettings):
