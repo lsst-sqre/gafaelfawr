@@ -29,6 +29,7 @@ __all__ = [
     "InvalidTokenClaimsException",
     "InvalidTokenError",
     "KubernetesError",
+    "LDAPException",
     "MissingClaimsException",
     "NotConfiguredException",
     "OAuthError",
@@ -325,6 +326,10 @@ class GitHubException(ProviderException):
 
 class OIDCException(ProviderException):
     """The OpenID Connect provider returned an error from an API call."""
+
+
+class LDAPException(ProviderException):
+    """Group information for the user in LDAP was invalid."""
 
 
 class UnauthorizedClientException(Exception):

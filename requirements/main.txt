@@ -54,6 +54,18 @@ asyncpg==0.25.0 \
     --hash=sha256:f55918ded7b85723a5eaeb34e86e7b9280d4474be67df853ab5a7fa0cc7c6bf2 \
     --hash=sha256:fe471ccd915b739ca65e2e4dbd92a11b44a5b37f2e38f70827a1c147dafe0fa8
     # via -r requirements/main.in
+bonsai==1.3.0 \
+    --hash=sha256:60c10abed2ae5a2d6ed4b9d1d353f3e0305bc312c8498b11fda20407a416b08f \
+    --hash=sha256:729292f2462646207f0d8b91941db271020fa18627ac488e83e594be35f8b4bc \
+    --hash=sha256:8424b4c6c21a85a111c5a36e5af3400446e2b14071318f07578605253fbaf0b5 \
+    --hash=sha256:8cc90c46a78d6365b91d2c1e45721b0b49808b4ed769aa1507ec7cb4f1e4c932 \
+    --hash=sha256:8e12a28d86636383ae3045b73d223c3586af78cadfbad14840d25b3f4607cd12 \
+    --hash=sha256:c74453d35a457f6997db8f1cfc505b7d7ae452b7e7714377176da1e80a2377ff \
+    --hash=sha256:e4822c575af68516e3ffb412b037dc3f56b7d211d9f87d90656137f831821cc3 \
+    --hash=sha256:ec1bfcf076113f3f3ffa5309bb000f9f9bfcb9678d7dfda32ce18d7b83469226 \
+    --hash=sha256:ec53b8fd31dae4750ba07d5bea7534f23d291c513af6d140bbdda15a91d3f3b0 \
+    --hash=sha256:ee894d2a9612ca86d5edf828efa5b23cf3c5e85d402b636ec1a423d3a8bcc49d
+    # via -r requirements/main.in
 cachetools==4.2.4 \
     --hash=sha256:89ea6f1b638d5a73a4f9226be57ac5e4f399d22770b92355f92dcb0f7f001693 \
     --hash=sha256:92971d3cb7d2a97efff7c7bb1657f21a8f5fb309a37530537c71b1774189f2d1
@@ -120,9 +132,9 @@ cffi==1.15.0 \
     --hash=sha256:fd8a250edc26254fe5b33be00402e6d287f562b6a5b2152dec302fa15bb3e997 \
     --hash=sha256:ffaa5c925128e29efbde7301d8ecaf35c8c60ffbcd6a1ffd3a552177c8e5e796
     # via cryptography
-charset-normalizer==2.0.9 \
-    --hash=sha256:1eecaa09422db5be9e29d7fc65664e6c33bd06f9ced7838578ba40d58bdf3721 \
-    --hash=sha256:b0b883e8e874edfdece9c28f314e3dd5badf067342e42fb162203335ae61aa2c
+charset-normalizer==2.0.10 \
+    --hash=sha256:876d180e9d7432c5d1dfd4c5d26b72f099d503e8fcc0feb7532c9289be60fcbd \
+    --hash=sha256:cb957888737fc0bbcd78e3df769addb41fd1ff8cf950dc9e7ad7793f1bf44455
     # via
     #   httpx
     #   requests
@@ -227,9 +239,9 @@ h11==0.12.0 \
     # via
     #   httpcore
     #   uvicorn
-httpcore==0.14.3 \
-    --hash=sha256:9a98d2416b78976fc5396ff1f6b26ae9885efbb3105d24eed490f20ab4c95ec1 \
-    --hash=sha256:d10162a63265a0228d5807964bd964478cbdb5178f9a2eedfebb2faba27eef5d
+httpcore==0.14.4 \
+    --hash=sha256:9410fe352bea732311f2b2bee0555c8cc5e62b9a73b9d3272fe125a2aa6eb28e \
+    --hash=sha256:d4305811f604d3c2e22869147392f134796976ff946c96a8cfba87f4e0171d83
     # via httpx
 httptools==0.3.0 \
     --hash=sha256:04114db99605c9b56ea22a8ec4d7b1485b908128ed4f4a8f6438489c428da794 \
@@ -257,9 +269,9 @@ httptools==0.3.0 \
     --hash=sha256:cdc3975db86c29817e6d13df14e037c931fc893a710fb71097777a4147090068 \
     --hash=sha256:eda95634027200f4b2a6d499e7c2e7fa9b8ee57e045dfda26958ea0af27c070b
     # via uvicorn
-httpx==0.21.1 \
-    --hash=sha256:02af20df486b78892a614a7ccd4e4e86a5409ec4981ab0e422c579a887acad83 \
-    --hash=sha256:208e5ef2ad4d105213463cfd541898ed9d11851b346473539a8425e644bb7c66
+httpx==0.21.2 \
+    --hash=sha256:6d88b1208f0996ee99c7a1e38fcfbdc66891c8fc583673337152681ac23585f6 \
+    --hash=sha256:c7c71345faa8983a094bbd24b5b5cc6f4bd274aadcb072a25b312cb209167aef
     # via
     #   -r requirements/main.in
     #   safir
@@ -460,9 +472,9 @@ pyyaml==6.0 \
     #   -r requirements/main.in
     #   kubernetes
     #   uvicorn
-requests==2.26.0 \
-    --hash=sha256:6c1246513ecd5ecd4528a0906f910e8f0f9c6b8ec72030dc9fd154dc1a6efd24 \
-    --hash=sha256:b8aa58f8cf793ffd8782d3d8cb19e66ef36f7aba4353eec859e74678b01b07a7
+requests==2.27.1 \
+    --hash=sha256:68d7c56fd5a8999887728ef304a6d12edc7be74f1cfa47714fc8b414525c9a61 \
+    --hash=sha256:f22fa1e554c9ddfd16e6e41ac79759e17be9e492b3587efa038054674760e72d
     # via
     #   kubernetes
     #   requests-oauthlib

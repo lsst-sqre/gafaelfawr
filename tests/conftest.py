@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 from urllib.parse import urljoin
 
+import bonsai
 import kubernetes
 import pytest
 from asgi_lifespan import LifespanManager
@@ -21,6 +22,7 @@ from gafaelfawr.models.token import TokenType
 from tests.pages.tokens import TokensPage
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.kubernetes import MockKubernetesApi
+from tests.support.ldap import MockLDAP
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
 
@@ -129,6 +131,25 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
         yield mock_api
         for patcher in patchers:
             patcher.stop()
+
+
+@pytest.fixture
+async def mock_ldap(tmp_path: Path, config: Config) -> AsyncIterator[MockLDAP]:
+    """Replace the bonsai LDAP API with a mock class.
+
+    Returns
+    -------
+    mock_ldap : `tests.support.ldap.MockLDAP`
+        The mock LDAP API object.
+    """
+    settings_path = build_settings(tmp_path, "oidc-ldap")
+    config_dependency.set_settings_path(str(settings_path))
+    config = await config_dependency()
+    assert config.ldap
+    ldap = MockLDAP(config.ldap)
+    with patch.object(bonsai, "LDAPClient") as mock:
+        mock.return_value = ldap
+        yield ldap
 
 
 @pytest.fixture

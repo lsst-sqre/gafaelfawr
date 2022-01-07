@@ -2,6 +2,13 @@
 Change log
 ##########
 
+3.5.0 (unreleased)
+==================
+
+- Add support for obtaining group membership information from LDAP.
+  Currently, this can only be used in conjunction with the OpenID Connect authentication provider.
+- Update dependencies.
+
 3.4.1 (2021-12-09)
 ==================
 
