@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from typing import AsyncIterator
 
     from aioredis import Redis
+    from kubernetes_asyncio.client import ApiClient
     from structlog.stdlib import BoundLogger
 
     from gafaelfawr.config import Config
@@ -138,9 +139,11 @@ class ComponentFactory:
         admin_history_store = AdminHistoryStore(self.session)
         return AdminService(admin_store, admin_history_store)
 
-    def create_kubernetes_service(self) -> KubernetesService:
+    def create_kubernetes_service(
+        self, api_client: ApiClient
+    ) -> KubernetesService:
         """Create a Kubernetes service."""
-        storage = KubernetesStorage(self._logger)
+        storage = KubernetesStorage(api_client, self._logger)
         token_service = self.create_token_service()
         return KubernetesService(
             token_service=token_service,

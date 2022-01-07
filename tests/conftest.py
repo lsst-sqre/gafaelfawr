@@ -7,7 +7,6 @@ from unittest.mock import patch
 from urllib.parse import urljoin
 
 import bonsai
-import kubernetes
 import pytest
 from asgi_lifespan import LifespanManager
 from httpx import AsyncClient
@@ -21,7 +20,7 @@ from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
 from tests.pages.tokens import TokensPage
 from tests.support.constants import TEST_HOSTNAME
-from tests.support.kubernetes import MockKubernetesApi
+from tests.support.kubernetes import patch_kubernetes
 from tests.support.ldap import MockLDAP
 from tests.support.selenium import run_app, selenium_driver
 from tests.support.settings import build_settings
@@ -34,6 +33,7 @@ if TYPE_CHECKING:
     from seleniumwire import webdriver
 
     from gafaelfawr.config import Config
+    from tests.support.kubernetes import MockKubernetesApi
     from tests.support.selenium import SeleniumConfig
 
 
@@ -120,17 +120,7 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
     mock_kubernetes : `tests.support.kubernetes.MockKubernetesApi`
         The mock Kubernetes API object.
     """
-    with patch.object(kubernetes, "config"):
-        mock_api = MockKubernetesApi()
-        patchers = []
-        for api in ("CoreV1Api", "CustomObjectsApi"):
-            patcher = patch.object(kubernetes.client, api)
-            mock_class = patcher.start()
-            mock_class.return_value = mock_api
-            patchers.append(patcher)
-        yield mock_api
-        for patcher in patchers:
-            patcher.stop()
+    yield from patch_kubernetes()
 
 
 @pytest.fixture

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from base64 import b64decode
-from queue import Queue
-from threading import Thread
 from typing import TYPE_CHECKING
 
 from gafaelfawr.exceptions import (
@@ -18,16 +16,13 @@ from gafaelfawr.models.token import (
     TokenData,
     TokenType,
 )
-from gafaelfawr.storage.kubernetes import (
-    KubernetesWatcher,
-    StatusReason,
-    WatchEventType,
-)
+from gafaelfawr.storage.kubernetes import StatusReason, WatchEventType
 
 if TYPE_CHECKING:
+    from asyncio import Queue
     from typing import Dict, Optional
 
-    from kubernetes.client import V1Secret
+    from kubernetes_asyncio.client import V1Secret
     from sqlalchemy.ext.asyncio import AsyncSession
     from structlog.stdlib import BoundLogger
 
@@ -110,23 +105,6 @@ class KubernetesService:
         self._logger = logger
         self._last_generation: Dict[str, int] = {}
 
-    def create_service_token_watcher(self) -> Queue[WatchEvent]:
-        """Create a Kubernetes watcher for a custom object.
-
-        The watcher will run forever in a background thread.
-
-        Returns
-        -------
-        queue : `queue.Queue`
-            The queue into which the custom object events will be put.
-        """
-        queue: Queue[WatchEvent] = Queue(50)
-        watcher = KubernetesWatcher(
-            "gafaelfawrservicetokens", queue, self._logger
-        )
-        Thread(target=watcher.run, daemon=True).start()
-        return queue
-
     async def update_service_tokens(self) -> None:
         """Ensure all GafaelfawrServiceToken secrets exist and are valid.
 
@@ -138,7 +116,7 @@ class KubernetesService:
             attempt to continue processing the remaining secrets.
         """
         try:
-            service_tokens = self._storage.list_service_tokens()
+            service_tokens = await self._storage.list_service_tokens()
         except KubernetesError as e:
             # Report this error even though it's unrecoverable and we're
             # re-raising it, since our caller doesn't have the context that
@@ -151,7 +129,7 @@ class KubernetesService:
         # corresponding secret if needed.
         for service_token in service_tokens:
             try:
-                secret = self._storage.get_secret_for_service_token(
+                secret = await self._storage.get_secret_for_service_token(
                     service_token
                 )
             except KubernetesError as e:
@@ -159,6 +137,24 @@ class KubernetesService:
                 self._logger.error(msg, error=str(e))
                 return
             await self._update_secret_for_service_token(service_token, secret)
+
+    async def start_watcher(self) -> Queue[WatchEvent]:
+        """Start a watcher to process GafaelfawrServiceToken changes.
+
+        The watcher will be started as a background daemon task.
+
+        Returns
+        -------
+        queue : `asyncio.Queue`
+            Queue returning `gafaelfawr.storage.kubernetes.WatchEvent`
+            events.
+
+        Notes
+        -----
+        This is separate from `update_service_tokens_from_queue` for ease of
+        testing.
+        """
+        return await self._storage.create_service_token_watcher()
 
     async def update_service_tokens_from_queue(
         self, queue: Queue[WatchEvent], exit_on_empty: bool = False
@@ -170,20 +166,21 @@ class KubernetesService:
 
         Parameters
         ----------
-        queue : `queue.Queue`
+        queue : `asyncio.Queue`
             Queue of changes to GafaelfawrServiceToken objects to process.
         exit_on_empty : `bool`, optional
             If set to `True` (the default is `False`), exit when the queue
             is empty.
         """
-        while not (queue.empty() and exit_on_empty):
-            event = queue.get()
+        storage = self._storage
+        while not (exit_on_empty and queue.empty()):
+            event = await queue.get()
             if event.event_type == WatchEventType.DELETED:
                 if event.key in self._last_generation:
                     del self._last_generation[event.key]
                 queue.task_done()
                 continue
-            service_token = self._storage.get_service_token(
+            service_token = await storage.get_service_token(
                 event.name, event.namespace
             )
             if not service_token:
@@ -191,14 +188,14 @@ class KubernetesService:
                 continue
 
             # Retrieve the corresponding secret.
-            secret = self._storage.get_secret_for_service_token(service_token)
+            secret = await storage.get_secret_for_service_token(service_token)
 
             # If the generation matches, we won't try to update the token, but
             # we still need to check the metadata.
             last_generation = self._last_generation.get(event.key)
             if secret and last_generation == event.generation:
                 if self._secret_needs_metadata_update(service_token, secret):
-                    self._storage.update_secret_metadata_for_service_token(
+                    await storage.update_secret_metadata_for_service_token(
                         service_token
                     )
                     self._logger.info(f"Updated metadata for {event.key}")
@@ -276,11 +273,12 @@ class KubernetesService:
         secret metadata matches the GafaelfawrServiceToken metadata and
         replaces it with a new one if not.
         """
+        storage = self._storage
         if not await self._secret_needs_update(parent, secret):
             self._last_generation[parent.key] = parent.generation
             if self._secret_needs_metadata_update(parent, secret):
                 try:
-                    self._storage.update_secret_metadata_for_service_token(
+                    await storage.update_secret_metadata_for_service_token(
                         parent
                     )
                 except KubernetesError as e:
@@ -292,15 +290,15 @@ class KubernetesService:
         try:
             token = await self._create_service_token(parent)
             if secret:
-                self._storage.replace_secret_for_service_token(parent, token)
+                await storage.replace_secret_for_service_token(parent, token)
             else:
-                self._storage.create_secret_for_service_token(parent, token)
+                await storage.create_secret_for_service_token(parent, token)
             self._last_generation[parent.key] = parent.generation
         except (KubernetesError, PermissionDeniedError, ValidationError) as e:
             msg = f"Updating Secret {parent.key} failed"
             self._logger.error(msg, error=str(e))
             try:
-                self._storage.update_service_token_status(
+                await storage.update_service_token_status(
                     parent,
                     reason=StatusReason.Failed,
                     message=str(e),

@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import copy
+import os
 import uuid
 from typing import TYPE_CHECKING
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock, patch
 
-import kubernetes
-from kubernetes.client import ApiException, V1Secret
+import kubernetes_asyncio
+from kubernetes_asyncio.client import ApiClient, ApiException, V1Secret
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, List, Optional
+    from typing import Any, Callable, Dict, Iterator, List, Optional
 
-__all__ = ["MockKubernetesApi", "assert_kubernetes_objects_are"]
+__all__ = [
+    "MockKubernetesApi",
+    "assert_kubernetes_objects_are",
+    "patch_kubernetes",
+]
 
 
 def assert_kubernetes_objects_are(
@@ -30,17 +35,16 @@ def assert_kubernetes_objects_are(
 class MockKubernetesApi(Mock):
     """Mock Kubernetes API for testing.
 
-    This object simulates (with almost everything left out) the
-    `kubernetes.client.CoreV1Api` and `kubernetes.client.CustomObjectApi`
-    client objects while keeping simple internal state.  It is intended to be
-    used as a mock inside tests.
+    This object simulates (with almost everything left out) the ``CoreV1Api``
+    and ``CustomObjectApi`` client objects while keeping simple internal
+    state.  It is intended to be used as a mock inside tests.
 
     Methods ending with ``_for_test`` are outside of the API and are intended
     for use by the test suite.
     """
 
     def __init__(self) -> None:
-        super().__init__(spec=kubernetes.client.CoreV1Api)
+        super().__init__(spec=kubernetes_asyncio.client.CoreV1Api)
         self.error_callback: Optional[Callable[..., None]] = None
         self.objects: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
@@ -62,7 +66,7 @@ class MockKubernetesApi(Mock):
 
     # CUSTOM OBJECT API
 
-    def create_namespaced_custom_object(
+    async def create_namespaced_custom_object(
         self,
         group: str,
         version: str,
@@ -94,7 +98,7 @@ class MockKubernetesApi(Mock):
             raise ApiException(status=500, reason=f"{namespace}/{name} exists")
         self.objects[namespace][body["kind"]][name] = obj
 
-    def get_namespaced_custom_object(
+    async def get_namespaced_custom_object(
         self,
         group: str,
         version: str,
@@ -114,7 +118,7 @@ class MockKubernetesApi(Mock):
             raise ApiException(status=404, reason=reason)
         return self.objects[namespace][kind][name]
 
-    def list_cluster_custom_object(
+    async def list_cluster_custom_object(
         self, group: str, version: str, plural: str
     ) -> Dict[str, List[Dict[str, Any]]]:
         self._maybe_error("list_cluster_custom_object", group, version, plural)
@@ -130,7 +134,7 @@ class MockKubernetesApi(Mock):
                 results.append(self.objects[namespace][kind][name])
         return {"items": results}
 
-    def patch_namespaced_custom_object_status(
+    async def patch_namespaced_custom_object_status(
         self,
         group: str,
         version: str,
@@ -158,7 +162,7 @@ class MockKubernetesApi(Mock):
         self.objects[namespace][kind][name] = obj
         return obj
 
-    def replace_namespaced_custom_object(
+    async def replace_namespaced_custom_object(
         self,
         group: str,
         version: str,
@@ -191,7 +195,7 @@ class MockKubernetesApi(Mock):
 
     # SECRETS API
 
-    def create_namespaced_secret(
+    async def create_namespaced_secret(
         self, namespace: str, secret: V1Secret
     ) -> None:
         self._maybe_error("create_namespaced_secret", namespace, secret)
@@ -205,7 +209,7 @@ class MockKubernetesApi(Mock):
             raise ApiException(status=500, reason=f"{namespace}/{name} exists")
         self.objects[namespace]["Secret"][name] = secret
 
-    def patch_namespaced_secret(
+    async def patch_namespaced_secret(
         self, name: str, namespace: str, body: List[Dict[str, Any]]
     ) -> V1Secret:
         self._maybe_error("patch_namespaced_secret", name, namespace)
@@ -216,17 +220,19 @@ class MockKubernetesApi(Mock):
             reason = f"{namespace}/{name} not found"
             raise ApiException(status=404, reason=reason)
         obj = copy.deepcopy(self.objects[namespace]["Secret"][name])
-        for patch in body:
-            assert patch["op"] == "replace"
-            if patch["path"] == "/metadata/annotations":
-                obj.metadata.annotations = patch["value"]
-            elif patch["path"] == "/metadata/labels":
-                obj.metadata.labels = patch["value"]
+        for change in body:
+            assert change["op"] == "replace"
+            if change["path"] == "/metadata/annotations":
+                obj.metadata.annotations = change["value"]
+            elif change["path"] == "/metadata/labels":
+                obj.metadata.labels = change["value"]
             else:
-                assert False, f'unsupported path {patch["path"]}'
+                assert False, f'unsupported path {change["path"]}'
         self.objects[namespace]["Secret"][name] = obj
 
-    def read_namespaced_secret(self, name: str, namespace: str) -> V1Secret:
+    async def read_namespaced_secret(
+        self, name: str, namespace: str
+    ) -> V1Secret:
         self._maybe_error("read_namespaced_secret", name, namespace)
         if namespace not in self.objects:
             reason = f"{namespace}/{name} not found"
@@ -236,7 +242,7 @@ class MockKubernetesApi(Mock):
             raise ApiException(status=404, reason=reason)
         return self.objects[namespace]["Secret"][name]
 
-    def replace_namespaced_secret(
+    async def replace_namespaced_secret(
         self, name: str, namespace: str, secret: V1Secret
     ) -> None:
         self._maybe_error("replace_namespaced_secret", namespace, secret)
@@ -248,3 +254,28 @@ class MockKubernetesApi(Mock):
             reason = f"{namespace}/{name} not found"
             raise ApiException(status=404, reason=reason)
         self.objects[namespace]["Secret"][name] = secret
+
+
+def patch_kubernetes() -> Iterator[MockKubernetesApi]:
+    """Replace the Kubernetes API with a mock class.
+
+    Returns
+    -------
+    mock_kubernetes : `tests.support.kubernetes.MockKubernetesApi`
+        The mock Kubernetes API object.
+    """
+    with patch.object(kubernetes_asyncio.config, "load_incluster_config"):
+        mock_api = MockKubernetesApi()
+        patchers = []
+        for api in ("CoreV1Api", "CustomObjectsApi"):
+            patcher = patch.object(kubernetes_asyncio.client, api)
+            mock_class = patcher.start()
+            mock_class.return_value = mock_api
+            patchers.append(patcher)
+        with patch.object(kubernetes_asyncio.client, "ApiClient") as client:
+            client.return_value = MagicMock(spec=ApiClient)
+            os.environ["KUBERNETES_PORT"] = "tcp://10.0.0.1:443"
+            yield mock_api
+            del os.environ["KUBERNETES_PORT"]
+        for patcher in patchers:
+            patcher.stop()

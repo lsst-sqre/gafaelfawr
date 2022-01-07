@@ -12,7 +12,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from click.testing import CliRunner
-from kubernetes.client import ApiException
+from kubernetes_asyncio.client import ApiException
 
 from gafaelfawr.cli import main
 from gafaelfawr.factory import ComponentFactory
@@ -90,31 +90,33 @@ def test_init(config: Config) -> None:
 def test_update_service_tokens(
     tmp_path: Path, empty_database: None, mock_kubernetes: MockKubernetesApi
 ) -> None:
-    mock_kubernetes.create_namespaced_custom_object(
-        "gafaelfawr.lsst.io",
-        "v1alpha1",
-        "mobu",
-        "gafaelfawrservicetokens",
-        {
-            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
-            "kind": "GafaelfawrServiceToken",
-            "metadata": {
-                "name": "gafaelfawr-secret",
-                "namespace": "mobu",
-                "generation": 1,
+    asyncio.run(
+        mock_kubernetes.create_namespaced_custom_object(
+            "gafaelfawr.lsst.io",
+            "v1alpha1",
+            "mobu",
+            "gafaelfawrservicetokens",
+            {
+                "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+                "kind": "GafaelfawrServiceToken",
+                "metadata": {
+                    "name": "gafaelfawr-secret",
+                    "namespace": "mobu",
+                    "generation": 1,
+                },
+                "spec": {
+                    "service": "mobu",
+                    "scopes": ["admin:token"],
+                },
             },
-            "spec": {
-                "service": "mobu",
-                "scopes": ["admin:token"],
-            },
-        },
+        )
     )
 
     runner = CliRunner()
     result = runner.invoke(main, ["update-service-tokens"])
 
     assert result.exit_code == 0
-    assert mock_kubernetes.read_namespaced_secret("gafaelfawr-secret", "mobu")
+    assert mock_kubernetes.get_all_objects_for_test("Secret")
 
 
 def test_update_service_tokens_error(
