@@ -10,15 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql import Select, text
 
-from gafaelfawr.models.history import (
+from ..models.history import (
     AdminHistoryEntry,
     HistoryCursor,
     PaginatedHistory,
     TokenChangeHistoryEntry,
 )
-from gafaelfawr.models.token import TokenType
-from gafaelfawr.schema import AdminHistory, TokenChangeHistory
-from gafaelfawr.util import datetime_to_db, normalize_datetime
+from ..models.token import TokenType
+from ..schema import AdminHistory, TokenChangeHistory
+from ..util import datetime_to_db, normalize_datetime
 
 __all__ = ["AdminHistoryStore", "TokenChangeHistoryStore"]
 

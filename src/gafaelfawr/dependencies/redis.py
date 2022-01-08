@@ -5,8 +5,8 @@ from typing import Optional
 from aioredis import Redis
 from fastapi import Depends
 
-from gafaelfawr.config import Config
-from gafaelfawr.dependencies.config import config_dependency
+from ..config import Config
+from .config import config_dependency
 
 __all__ = ["RedisDependency", "redis_dependency"]
 

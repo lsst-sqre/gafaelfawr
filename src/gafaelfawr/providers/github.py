@@ -12,12 +12,12 @@ from httpx import AsyncClient, HTTPError
 from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import GitHubConfig
-from gafaelfawr.exceptions import GitHubException
-from gafaelfawr.models.link import LinkData
-from gafaelfawr.models.state import State
-from gafaelfawr.models.token import TokenGroup, TokenUserInfo
-from gafaelfawr.providers.base import Provider
+from ..config import GitHubConfig
+from ..exceptions import GitHubException
+from ..models.link import LinkData
+from ..models.state import State
+from ..models.token import TokenGroup, TokenUserInfo
+from .base import Provider
 
 __all__ = ["GitHubProvider"]
 

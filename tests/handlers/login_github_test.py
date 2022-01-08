@@ -18,8 +18,9 @@ from gafaelfawr.providers.github import (
     GitHubTeam,
     GitHubUserInfo,
 )
-from tests.support.github import mock_github
-from tests.support.logging import parse_log
+
+from ..support.github import mock_github
+from ..support.logging import parse_log
 
 
 async def simulate_github_login(

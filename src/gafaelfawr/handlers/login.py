@@ -9,16 +9,16 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse, Response
 from httpx import HTTPError
 
-from gafaelfawr.config import Config
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.dependencies.return_url import return_url_with_header
-from gafaelfawr.exceptions import (
+from ..config import Config
+from ..dependencies.context import RequestContext, context_dependency
+from ..dependencies.return_url import return_url_with_header
+from ..exceptions import (
     InvalidReturnURLError,
     PermissionDeniedError,
     ProviderException,
 )
-from gafaelfawr.models.token import TokenGroup
-from gafaelfawr.templates import templates
+from ..models.token import TokenGroup
+from ..templates import templates
 
 router = APIRouter()
 

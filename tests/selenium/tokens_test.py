@@ -11,8 +11,9 @@ from seleniumwire import webdriver
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenType
-from tests.pages.tokens import TokenDataPage, TokensPage
-from tests.support.selenium import SeleniumConfig
+
+from ..pages.tokens import TokenDataPage, TokensPage
+from ..support.selenium import SeleniumConfig
 
 
 @pytest.mark.asyncio

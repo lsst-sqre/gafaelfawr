@@ -8,11 +8,11 @@ from typing import Any, Dict
 
 import jwt
 
-from gafaelfawr.config import IssuerConfig
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.models.oidc import OIDCVerifiedToken
-from gafaelfawr.models.token import TokenData, TokenUserInfo
+from .config import IssuerConfig
+from .constants import ALGORITHM
+from .exceptions import NotConfiguredException
+from .models.oidc import OIDCVerifiedToken
+from .models.token import TokenData, TokenUserInfo
 
 __all__ = ["TokenIssuer"]
 

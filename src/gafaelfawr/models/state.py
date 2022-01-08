@@ -15,9 +15,9 @@ from cryptography.fernet import Fernet
 from fastapi import Request
 from safir.dependencies.logger import logger_dependency
 
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.middleware.state import BaseState
-from gafaelfawr.models.token import Token
+from ..dependencies.config import config_dependency
+from ..middleware.state import BaseState
+from .token import Token
 
 __all__ = ["State"]
 

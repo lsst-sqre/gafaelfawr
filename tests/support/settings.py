@@ -11,7 +11,8 @@ from cryptography.fernet import Fernet
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.keypair import RSAKeyPair
-from tests.support.constants import TEST_DATABASE_URL
+
+from .constants import TEST_DATABASE_URL
 
 __all__ = [
     "build_settings",

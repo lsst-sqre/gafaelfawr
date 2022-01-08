@@ -11,8 +11,8 @@ from datetime import datetime
 from sqlalchemy import Column, DateTime, Enum, Index, Integer, String
 from sqlalchemy.dialects import postgresql
 
-from gafaelfawr.models.history import AdminChange
-from gafaelfawr.schema.base import Base
+from ..models.history import AdminChange
+from .base import Base
 
 __all__ = ["AdminHistory"]
 

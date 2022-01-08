@@ -22,12 +22,13 @@ from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
-from tests.pages.tokens import TokensPage
-from tests.support.constants import TEST_HOSTNAME
-from tests.support.kubernetes import MockKubernetesApi, patch_kubernetes
-from tests.support.ldap import MockLDAP
-from tests.support.selenium import SeleniumConfig, run_app, selenium_driver
-from tests.support.settings import build_settings
+
+from .pages.tokens import TokensPage
+from .support.constants import TEST_HOSTNAME
+from .support.kubernetes import MockKubernetesApi, patch_kubernetes
+from .support.ldap import MockLDAP
+from .support.selenium import SeleniumConfig, run_app, selenium_driver
+from .support.settings import build_settings
 
 
 @pytest.fixture

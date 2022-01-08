@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from gafaelfawr.constants import OIDC_AUTHORIZATION_LIFETIME
-from gafaelfawr.exceptions import DeserializeException
-from gafaelfawr.models.oidc import OIDCAuthorization, OIDCAuthorizationCode
-from gafaelfawr.models.token import Token
-from gafaelfawr.storage.base import RedisStorage
+from ..constants import OIDC_AUTHORIZATION_LIFETIME
+from ..exceptions import DeserializeException
+from ..models.oidc import OIDCAuthorization, OIDCAuthorizationCode
+from ..models.token import Token
+from .base import RedisStorage
 
 __all__ = ["OIDCAuthorizationStore"]
 

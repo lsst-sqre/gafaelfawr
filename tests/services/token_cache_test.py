@@ -14,7 +14,8 @@ from gafaelfawr.models.token import Token, TokenData, TokenType
 from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.token import TokenRedisStore
 from gafaelfawr.util import current_datetime
-from tests.support.tokens import create_session_token
+
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

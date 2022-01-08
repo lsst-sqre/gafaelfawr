@@ -9,9 +9,10 @@ from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 
 from gafaelfawr.factory import ComponentFactory
-from tests.support.constants import TEST_HOSTNAME
-from tests.support.logging import parse_log
-from tests.support.tokens import create_session_token
+
+from ..support.constants import TEST_HOSTNAME
+from ..support.logging import parse_log
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

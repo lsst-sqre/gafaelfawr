@@ -7,9 +7,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import RedirectResponse
 
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.dependencies.return_url import return_url
-from gafaelfawr.models.state import State
+from ..dependencies.context import RequestContext, context_dependency
+from ..dependencies.return_url import return_url
+from ..models.state import State
 
 router = APIRouter()
 

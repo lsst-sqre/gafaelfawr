@@ -14,7 +14,7 @@ from aioredis import Redis
 from cryptography.fernet import Fernet, InvalidToken
 from pydantic import BaseModel  # noqa: F401
 
-from gafaelfawr.exceptions import DeserializeException
+from ..exceptions import DeserializeException
 
 S = TypeVar("S", bound="BaseModel")
 

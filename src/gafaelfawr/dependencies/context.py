@@ -17,16 +17,13 @@ from safir.dependencies.logger import logger_dependency
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import Config
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.dependencies.db_session import db_session_dependency
-from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.dependencies.token_cache import (
-    TokenCache,
-    token_cache_dependency,
-)
-from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.models.state import State
+from ..config import Config
+from ..factory import ComponentFactory
+from ..models.state import State
+from .config import config_dependency
+from .db_session import db_session_dependency
+from .redis import redis_dependency
+from .token_cache import TokenCache, token_cache_dependency
 
 __all__ = ["RequestContext", "context_dependency"]
 

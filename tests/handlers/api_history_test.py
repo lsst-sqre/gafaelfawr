@@ -23,9 +23,10 @@ from gafaelfawr.models.token import (
 )
 from gafaelfawr.schema import TokenChangeHistory
 from gafaelfawr.util import current_datetime, datetime_to_db
-from tests.support.constants import TEST_HOSTNAME
-from tests.support.cookies import set_session_cookie
-from tests.support.tokens import create_session_token
+
+from ..support.constants import TEST_HOSTNAME
+from ..support.cookies import set_session_cookie
+from ..support.tokens import create_session_token
 
 
 async def build_history(

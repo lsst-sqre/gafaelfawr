@@ -8,10 +8,10 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
 
-from gafaelfawr.dependencies.auth import AuthenticateRead
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import InvalidTokenError
-from gafaelfawr.models.token import Token, TokenData
+from ..dependencies.auth import AuthenticateRead
+from ..dependencies.context import RequestContext, context_dependency
+from ..exceptions import InvalidTokenError
+from ..models.token import Token, TokenData
 
 router = APIRouter()
 authenticate = AuthenticateRead(

@@ -23,9 +23,10 @@ from gafaelfawr.exceptions import (
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
-from tests.support.oidc import mock_oidc_provider_config
-from tests.support.settings import configure
-from tests.support.tokens import create_upstream_oidc_token
+
+from .support.oidc import mock_oidc_provider_config
+from .support.settings import configure
+from .support.tokens import create_upstream_oidc_token
 
 
 def encode_token(

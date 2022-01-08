@@ -12,13 +12,13 @@ import structlog
 import uvicorn
 from kubernetes_asyncio.client import ApiClient
 
-from gafaelfawr.database import initialize_database
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.exceptions import KubernetesError
-from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.keypair import RSAKeyPair
-from gafaelfawr.models.token import Token
-from gafaelfawr.storage.kubernetes import initialize_kubernetes
+from .database import initialize_database
+from .dependencies.config import config_dependency
+from .exceptions import KubernetesError
+from .factory import ComponentFactory
+from .keypair import RSAKeyPair
+from .models.token import Token
+from .storage.kubernetes import initialize_kubernetes
 
 T = TypeVar("T")
 

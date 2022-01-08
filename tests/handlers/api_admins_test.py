@@ -7,8 +7,9 @@ from httpx import AsyncClient
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import ComponentFactory
-from tests.support.cookies import set_session_cookie
-from tests.support.tokens import create_session_token
+
+from ..support.cookies import set_session_cookie
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

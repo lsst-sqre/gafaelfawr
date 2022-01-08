@@ -10,21 +10,21 @@ from typing import List, Optional
 
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import Config
-from gafaelfawr.constants import MINIMUM_LIFETIME, USERNAME_REGEX
-from gafaelfawr.exceptions import (
+from ..config import Config
+from ..constants import MINIMUM_LIFETIME, USERNAME_REGEX
+from ..exceptions import (
     InvalidExpiresError,
     InvalidIPAddressError,
     InvalidScopesError,
     PermissionDeniedError,
 )
-from gafaelfawr.models.history import (
+from ..models.history import (
     HistoryCursor,
     PaginatedHistory,
     TokenChange,
     TokenChangeHistoryEntry,
 )
-from gafaelfawr.models.token import (
+from ..models.token import (
     AdminTokenRequest,
     Token,
     TokenData,
@@ -32,10 +32,10 @@ from gafaelfawr.models.token import (
     TokenType,
     TokenUserInfo,
 )
-from gafaelfawr.services.token_cache import TokenCacheService
-from gafaelfawr.storage.history import TokenChangeHistoryStore
-from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-from gafaelfawr.util import current_datetime
+from ..storage.history import TokenChangeHistoryStore
+from ..storage.token import TokenDatabaseStore, TokenRedisStore
+from ..util import current_datetime
+from .token_cache import TokenCacheService
 
 __all__ = ["TokenService"]
 

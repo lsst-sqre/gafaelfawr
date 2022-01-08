@@ -12,11 +12,12 @@ from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import Config
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.token import Token, TokenUserInfo
-from tests.support.headers import (
+
+from ..support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
 )
-from tests.support.tokens import create_session_token
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

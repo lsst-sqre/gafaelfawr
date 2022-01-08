@@ -6,7 +6,7 @@ from typing import Optional
 
 from sqlalchemy import Column, ForeignKey, Index, String
 
-from gafaelfawr.schema.base import Base
+from .base import Base
 
 __all__ = ["Subtoken"]
 

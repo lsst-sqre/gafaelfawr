@@ -10,7 +10,8 @@ from aioredis import Redis
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
-from tests.support.settings import build_settings, store_secret
+
+from ..support.settings import build_settings, store_secret
 
 
 @pytest.mark.asyncio

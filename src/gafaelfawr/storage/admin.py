@@ -9,8 +9,8 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from gafaelfawr.models.admin import Admin
-from gafaelfawr.schema import Admin as SQLAdmin
+from ..models.admin import Admin
+from ..schema import Admin as SQLAdmin
 
 __all__ = ["AdminStore"]
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from sqlalchemy import Column, String
 
-from gafaelfawr.schema.base import Base
+from .base import Base
 
 __all__ = ["Admin"]
 

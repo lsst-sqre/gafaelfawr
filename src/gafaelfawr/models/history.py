@@ -11,14 +11,14 @@ from urllib.parse import parse_qs, urlencode
 from pydantic import BaseModel, Field, validator
 from starlette.datastructures import URL
 
-from gafaelfawr.exceptions import InvalidCursorError
-from gafaelfawr.models.token import TokenType
-from gafaelfawr.util import (
+from ..exceptions import InvalidCursorError
+from ..util import (
     current_datetime,
     normalize_datetime,
     normalize_ip_address,
     normalize_scopes,
 )
+from .token import TokenType
 
 E = TypeVar("E", bound="BaseModel")
 

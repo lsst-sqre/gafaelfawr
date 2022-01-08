@@ -13,30 +13,27 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import Config
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.dependencies.token_cache import TokenCache
-from gafaelfawr.issuer import TokenIssuer
-from gafaelfawr.models.token import TokenData
-from gafaelfawr.providers.base import Provider
-from gafaelfawr.providers.github import GitHubProvider
-from gafaelfawr.providers.oidc import OIDCProvider
-from gafaelfawr.services.admin import AdminService
-from gafaelfawr.services.kubernetes import KubernetesService
-from gafaelfawr.services.oidc import OIDCService
-from gafaelfawr.services.token import TokenService
-from gafaelfawr.services.token_cache import TokenCacheService
-from gafaelfawr.storage.admin import AdminStore
-from gafaelfawr.storage.base import RedisStorage
-from gafaelfawr.storage.history import (
-    AdminHistoryStore,
-    TokenChangeHistoryStore,
-)
-from gafaelfawr.storage.kubernetes import KubernetesStorage
-from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
-from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-from gafaelfawr.verify import TokenVerifier
+from .config import Config
+from .dependencies.config import config_dependency
+from .dependencies.redis import redis_dependency
+from .dependencies.token_cache import TokenCache
+from .issuer import TokenIssuer
+from .models.token import TokenData
+from .providers.base import Provider
+from .providers.github import GitHubProvider
+from .providers.oidc import OIDCProvider
+from .services.admin import AdminService
+from .services.kubernetes import KubernetesService
+from .services.oidc import OIDCService
+from .services.token import TokenService
+from .services.token_cache import TokenCacheService
+from .storage.admin import AdminStore
+from .storage.base import RedisStorage
+from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
+from .storage.kubernetes import KubernetesStorage
+from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
+from .storage.token import TokenDatabaseStore, TokenRedisStore
+from .verify import TokenVerifier
 
 __all__ = ["ComponentFactory"]
 

@@ -8,9 +8,9 @@ from typing import Optional
 from sqlalchemy import Column, DateTime, Enum, Index, Integer, String
 from sqlalchemy.dialects import postgresql
 
-from gafaelfawr.models.history import TokenChange
-from gafaelfawr.models.token import TokenType
-from gafaelfawr.schema.base import Base
+from ..models.history import TokenChange
+from ..models.token import TokenType
+from .base import Base
 
 __all__ = ["TokenChangeHistory"]
 

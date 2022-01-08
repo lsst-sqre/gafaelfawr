@@ -31,11 +31,12 @@ from gafaelfawr.storage.kubernetes import (
     WatchEventType,
 )
 from gafaelfawr.util import current_datetime
-from tests.support.kubernetes import (
+
+from ..support.kubernetes import (
     MockKubernetesApi,
     assert_kubernetes_objects_are,
 )
-from tests.support.logging import parse_log
+from ..support.logging import parse_log
 
 TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
     {

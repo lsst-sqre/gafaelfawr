@@ -8,9 +8,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
-from gafaelfawr.constants import GROUPNAME_REGEX, USERNAME_REGEX
-from gafaelfawr.exceptions import InvalidTokenError
-from gafaelfawr.util import (
+from ..constants import GROUPNAME_REGEX, USERNAME_REGEX
+from ..exceptions import InvalidTokenError
+from ..util import (
     current_datetime,
     normalize_datetime,
     normalize_scopes,

@@ -7,10 +7,10 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.exceptions import InvalidGrantError
-from gafaelfawr.models.token import Token
-from gafaelfawr.util import normalize_datetime, random_128_bits
+from ..constants import ALGORITHM
+from ..exceptions import InvalidGrantError
+from ..util import normalize_datetime, random_128_bits
+from .token import Token
 
 __all__ = [
     "JWK",

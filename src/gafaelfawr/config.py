@@ -32,9 +32,9 @@ from pydantic import (
 from pydantic.env_settings import SettingsSourceCallable
 from safir.logging import configure_logging
 
-from gafaelfawr.constants import SCOPE_REGEX, USERNAME_REGEX
-from gafaelfawr.keypair import RSAKeyPair
-from gafaelfawr.models.token import Token
+from .constants import SCOPE_REGEX, USERNAME_REGEX
+from .keypair import RSAKeyPair
+from .models.token import Token
 
 __all__ = [
     "Config",

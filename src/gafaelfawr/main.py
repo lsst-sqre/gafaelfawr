@@ -14,25 +14,16 @@ from safir.dependencies.http_client import http_client_dependency
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 
-from gafaelfawr.constants import COOKIE_NAME
-from gafaelfawr.database import check_database
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.dependencies.db_session import db_session_dependency
-from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.dependencies.token_cache import token_cache_dependency
-from gafaelfawr.exceptions import PermissionDeniedError, ValidationError
-from gafaelfawr.handlers import (
-    analyze,
-    api,
-    auth,
-    index,
-    influxdb,
-    login,
-    logout,
-    oidc,
-)
-from gafaelfawr.middleware.state import StateMiddleware
-from gafaelfawr.models.state import State
+from .constants import COOKIE_NAME
+from .database import check_database
+from .dependencies.config import config_dependency
+from .dependencies.db_session import db_session_dependency
+from .dependencies.redis import redis_dependency
+from .dependencies.token_cache import token_cache_dependency
+from .exceptions import PermissionDeniedError, ValidationError
+from .handlers import analyze, api, auth, index, influxdb, login, logout, oidc
+from .middleware.state import StateMiddleware
+from .models.state import State
 
 __all__ = ["app"]
 

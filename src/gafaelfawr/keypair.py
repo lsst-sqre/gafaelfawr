@@ -15,9 +15,9 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.models.oidc import JWK, JWKS
-from gafaelfawr.util import number_to_base64
+from .constants import ALGORITHM
+from .models.oidc import JWK, JWKS
+from .util import number_to_base64
 
 __all__ = ["RSAKeyPair"]
 

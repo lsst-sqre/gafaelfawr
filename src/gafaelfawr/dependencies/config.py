@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from gafaelfawr.config import Config
-from gafaelfawr.constants import SETTINGS_PATH
+from ..config import Config
+from ..constants import SETTINGS_PATH
 
 __all__ = ["ConfigDependency", "config_dependency"]
 

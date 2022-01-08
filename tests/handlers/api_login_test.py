@@ -14,9 +14,10 @@ from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token
-from tests.support.constants import TEST_HOSTNAME
-from tests.support.headers import assert_unauthorized_is_correct
-from tests.support.tokens import create_session_token
+
+from ..support.constants import TEST_HOSTNAME
+from ..support.headers import assert_unauthorized_is_correct
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

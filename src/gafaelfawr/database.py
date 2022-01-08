@@ -20,11 +20,11 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import sessionmaker
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import Config
-from gafaelfawr.models.admin import Admin
-from gafaelfawr.schema import Admin as SQLAdmin
-from gafaelfawr.schema import drop_schema, initialize_schema
-from gafaelfawr.storage.admin import AdminStore
+from .config import Config
+from .models.admin import Admin
+from .schema import Admin as SQLAdmin
+from .schema import drop_schema, initialize_schema
+from .storage.admin import AdminStore
 
 __all__ = ["check_database", "initialize_database"]
 

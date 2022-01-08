@@ -21,7 +21,8 @@ from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.token import Token, TokenUserInfo
-from tests.support.tokens import add_expired_session_token
+
+from .tokens import add_expired_session_token
 
 
 @dataclass

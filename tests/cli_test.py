@@ -21,8 +21,9 @@ from gafaelfawr.config import Config
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.token import Token, TokenData
-from tests.support.kubernetes import MockKubernetesApi
-from tests.support.logging import parse_log
+
+from .support.kubernetes import MockKubernetesApi
+from .support.logging import parse_log
 
 
 def test_generate_key() -> None:

@@ -10,8 +10,8 @@ from typing import Optional, Set
 
 from fastapi import HTTPException, status
 
-from gafaelfawr.dependencies.context import RequestContext
-from gafaelfawr.exceptions import (
+from .dependencies.context import RequestContext
+from .exceptions import (
     InvalidRequestError,
     InvalidTokenError,
     OAuthBearerError,

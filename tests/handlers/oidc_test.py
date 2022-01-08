@@ -20,16 +20,17 @@ from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
-from tests.support.constants import TEST_HOSTNAME
-from tests.support.cookies import set_session_cookie
-from tests.support.headers import (
+
+from ..support.constants import TEST_HOSTNAME
+from ..support.cookies import set_session_cookie
+from ..support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
     query_from_url,
 )
-from tests.support.logging import parse_log
-from tests.support.settings import configure
-from tests.support.tokens import create_session_token
+from ..support.logging import parse_log
+from ..support.settings import configure
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

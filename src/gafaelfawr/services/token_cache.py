@@ -8,13 +8,13 @@ from typing import List, Optional, Tuple
 
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import Config
-from gafaelfawr.dependencies.token_cache import TokenCache
-from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
-from gafaelfawr.models.token import Token, TokenData, TokenType
-from gafaelfawr.storage.history import TokenChangeHistoryStore
-from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-from gafaelfawr.util import current_datetime
+from ..config import Config
+from ..dependencies.token_cache import TokenCache
+from ..models.history import TokenChange, TokenChangeHistoryEntry
+from ..models.token import Token, TokenData, TokenType
+from ..storage.history import TokenChangeHistoryStore
+from ..storage.token import TokenDatabaseStore, TokenRedisStore
+from ..util import current_datetime
 
 __all__ = ["TokenCacheService"]
 

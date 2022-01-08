@@ -28,8 +28,9 @@ from gafaelfawr.models.token import (
     TokenUserInfo,
 )
 from gafaelfawr.util import current_datetime
-from tests.support.tokens import create_session_token
-from tests.support.util import assert_is_now
+
+from ..support.tokens import create_session_token
+from ..support.util import assert_is_now
 
 
 @pytest.mark.asyncio

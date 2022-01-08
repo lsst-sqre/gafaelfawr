@@ -13,9 +13,9 @@ from httpx import AsyncClient, RequestError
 from jwt.exceptions import InvalidIssuerError
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import VerifierConfig
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.exceptions import (
+from .config import VerifierConfig
+from .constants import ALGORITHM
+from .exceptions import (
     FetchKeysException,
     InvalidTokenClaimsException,
     InvalidTokenError,
@@ -23,8 +23,8 @@ from gafaelfawr.exceptions import (
     UnknownAlgorithmException,
     UnknownKeyIdException,
 )
-from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
-from gafaelfawr.util import base64_to_number
+from .models.oidc import OIDCToken, OIDCVerifiedToken
+from .util import base64_to_number
 
 __all__ = ["TokenVerifier"]
 

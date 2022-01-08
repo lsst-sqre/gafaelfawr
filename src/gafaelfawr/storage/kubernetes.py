@@ -32,8 +32,8 @@ from kubernetes_asyncio.client import (
 from kubernetes_asyncio.watch import Watch
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.exceptions import KubernetesError, KubernetesObjectError
-from gafaelfawr.models.token import Token
+from ..exceptions import KubernetesError, KubernetesObjectError
+from ..models.token import Token
 
 F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 

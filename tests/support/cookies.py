@@ -7,7 +7,8 @@ from httpx import AsyncClient
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token
-from tests.support.constants import TEST_HOSTNAME
+
+from .constants import TEST_HOSTNAME
 
 __all__ = [
     "clear_session_cookie",

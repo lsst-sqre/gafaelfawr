@@ -11,12 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.exceptions import DeserializeException, DuplicateTokenNameError
-from gafaelfawr.models.token import Token, TokenData, TokenInfo, TokenType
-from gafaelfawr.schema.subtoken import Subtoken
-from gafaelfawr.schema.token import Token as SQLToken
-from gafaelfawr.storage.base import RedisStorage
-from gafaelfawr.util import datetime_to_db
+from ..exceptions import DeserializeException, DuplicateTokenNameError
+from ..models.token import Token, TokenData, TokenInfo, TokenType
+from ..schema.subtoken import Subtoken
+from ..schema.token import Token as SQLToken
+from ..util import datetime_to_db
+from .base import RedisStorage
 
 __all__ = ["TokenDatabaseStore", "TokenRedisStore"]
 

@@ -10,25 +10,20 @@ from kubernetes_asyncio.client import V1Secret
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.exceptions import (
+from ..exceptions import (
     KubernetesError,
     PermissionDeniedError,
     ValidationError,
 )
-from gafaelfawr.models.token import (
-    AdminTokenRequest,
-    Token,
-    TokenData,
-    TokenType,
-)
-from gafaelfawr.services.token import TokenService
-from gafaelfawr.storage.kubernetes import (
+from ..models.token import AdminTokenRequest, Token, TokenData, TokenType
+from ..storage.kubernetes import (
     GafaelfawrServiceToken,
     KubernetesStorage,
     StatusReason,
     WatchEvent,
     WatchEventType,
 )
+from .token import TokenService
 
 __all__ = ["KubernetesService"]
 

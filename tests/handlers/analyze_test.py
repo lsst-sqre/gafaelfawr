@@ -10,9 +10,10 @@ from httpx import AsyncClient
 
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.token import Token
-from tests.support.cookies import set_session_cookie
-from tests.support.headers import query_from_url
-from tests.support.tokens import create_session_token
+
+from ..support.cookies import set_session_cookie
+from ..support.headers import query_from_url
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

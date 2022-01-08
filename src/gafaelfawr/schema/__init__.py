@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from gafaelfawr.schema.admin import Admin
-from gafaelfawr.schema.admin_history import AdminHistory
-from gafaelfawr.schema.base import Base
-from gafaelfawr.schema.subtoken import Subtoken
-from gafaelfawr.schema.token import Token
-from gafaelfawr.schema.token_auth_history import TokenAuthHistory
-from gafaelfawr.schema.token_change_history import TokenChangeHistory
+from .admin import Admin
+from .admin_history import AdminHistory
+from .base import Base
+from .subtoken import Subtoken
+from .token import Token
+from .token_auth_history import TokenAuthHistory
+from .token_change_history import TokenChangeHistory
 
 __all__ = [
     "Admin",

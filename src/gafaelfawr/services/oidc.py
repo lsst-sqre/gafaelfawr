@@ -6,21 +6,18 @@ from typing import Optional
 
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import OIDCServerConfig
-from gafaelfawr.exceptions import (
+from ..config import OIDCServerConfig
+from ..exceptions import (
     DeserializeException,
     InvalidClientError,
     InvalidGrantError,
     UnauthorizedClientException,
 )
-from gafaelfawr.issuer import TokenIssuer
-from gafaelfawr.models.oidc import OIDCVerifiedToken
-from gafaelfawr.models.token import Token
-from gafaelfawr.services.token import TokenService
-from gafaelfawr.storage.oidc import (
-    OIDCAuthorizationCode,
-    OIDCAuthorizationStore,
-)
+from ..issuer import TokenIssuer
+from ..models.oidc import OIDCVerifiedToken
+from ..models.token import Token
+from ..storage.oidc import OIDCAuthorizationCode, OIDCAuthorizationStore
+from .token import TokenService
 
 __all__ = ["OIDCService"]
 

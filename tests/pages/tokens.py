@@ -9,7 +9,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 from gafaelfawr.models.token import TokenType
-from tests.pages.base import BaseElement, BaseModal, BasePage
+
+from .base import BaseElement, BaseModal, BasePage
 
 
 class TokensPage(BasePage):

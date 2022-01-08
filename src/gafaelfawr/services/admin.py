@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List
 
-from gafaelfawr.exceptions import PermissionDeniedError
-from gafaelfawr.models.admin import Admin
-from gafaelfawr.models.history import AdminChange, AdminHistoryEntry
-from gafaelfawr.storage.admin import AdminStore
-from gafaelfawr.storage.history import AdminHistoryStore
+from ..exceptions import PermissionDeniedError
+from ..models.admin import Admin
+from ..models.history import AdminChange, AdminHistoryEntry
+from ..storage.admin import AdminStore
+from ..storage.history import AdminHistoryStore
 
 __all__ = ["AdminService"]
 

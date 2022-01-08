@@ -11,17 +11,13 @@ from httpx import AsyncClient
 from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
-from gafaelfawr.config import LDAPConfig, OIDCConfig
-from gafaelfawr.exceptions import (
-    LDAPException,
-    OIDCException,
-    VerifyTokenException,
-)
-from gafaelfawr.models.oidc import OIDCToken
-from gafaelfawr.models.state import State
-from gafaelfawr.models.token import TokenGroup, TokenUserInfo
-from gafaelfawr.providers.base import Provider
-from gafaelfawr.verify import TokenVerifier
+from ..config import LDAPConfig, OIDCConfig
+from ..exceptions import LDAPException, OIDCException, VerifyTokenException
+from ..models.oidc import OIDCToken
+from ..models.state import State
+from ..models.token import TokenGroup, TokenUserInfo
+from ..verify import TokenVerifier
+from .base import Provider
 
 __all__ = ["OIDCProvider"]
 

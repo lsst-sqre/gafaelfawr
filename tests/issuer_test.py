@@ -9,8 +9,9 @@ from unittest.mock import ANY
 import pytest
 
 from gafaelfawr.factory import ComponentFactory
-from tests.support.settings import configure
-from tests.support.tokens import create_session_token
+
+from .support.settings import configure
+from .support.tokens import create_session_token
 
 
 @pytest.mark.asyncio
