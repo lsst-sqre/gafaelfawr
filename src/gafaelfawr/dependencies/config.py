@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import Optional
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import SETTINGS_PATH
-
-if TYPE_CHECKING:
-    from typing import Optional
 
 __all__ = ["ConfigDependency", "config_dependency"]
 

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 import pytest
+from _pytest.logging import LogCaptureFixture
+from httpx import AsyncClient
 
+from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
 from gafaelfawr.util import current_datetime
@@ -17,13 +20,6 @@ from tests.support.constants import TEST_HOSTNAME
 from tests.support.cookies import clear_session_cookie, set_session_cookie
 from tests.support.logging import parse_log
 from tests.support.tokens import create_session_token
-
-if TYPE_CHECKING:
-    from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio

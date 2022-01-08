@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import httpx
 import pytest
+from seleniumwire import webdriver
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenType
 from tests.pages.tokens import TokenDataPage, TokensPage
-
-if TYPE_CHECKING:
-    from seleniumwire import webdriver
-
-    from tests.support.selenium import SeleniumConfig
+from tests.support.selenium import SeleniumConfig
 
 
 @pytest.mark.asyncio

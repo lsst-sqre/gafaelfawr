@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pytest
+import respx
+from _pytest.logging import LogCaptureFixture
+from httpx import AsyncClient
 
+from gafaelfawr.config import Config
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.cookies import set_session_cookie
@@ -13,14 +16,6 @@ from tests.support.github import mock_github
 from tests.support.headers import query_from_url
 from tests.support.logging import parse_log
 from tests.support.tokens import create_session_token
-
-if TYPE_CHECKING:
-    import respx
-    from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio

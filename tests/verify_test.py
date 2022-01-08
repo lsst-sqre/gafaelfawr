@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 
 import jwt
 import pytest
+import respx
+from _pytest._code import ExceptionInfo
 from jwt.exceptions import InvalidIssuerError
 
 from gafaelfawr.constants import ALGORITHM
@@ -17,20 +20,12 @@ from gafaelfawr.exceptions import (
     UnknownAlgorithmException,
     UnknownKeyIdException,
 )
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
 from tests.support.oidc import mock_oidc_provider_config
 from tests.support.settings import configure
 from tests.support.tokens import create_upstream_oidc_token
-
-if TYPE_CHECKING:
-    from pathlib import Path
-    from typing import Any, Dict, Optional
-
-    import respx
-    from _pytest._code import ExceptionInfo
-
-    from gafaelfawr.factory import ComponentFactory
 
 
 def encode_token(

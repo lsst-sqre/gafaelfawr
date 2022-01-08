@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import json
 import time
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Dict
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import pytest
+from _pytest.logging import LogCaptureFixture
+from httpx import AsyncClient
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
-from gafaelfawr.config import OIDCClient
+from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.dependencies.redis import redis_dependency
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
 from tests.support.constants import TEST_HOSTNAME
@@ -26,16 +30,6 @@ from tests.support.headers import (
 from tests.support.logging import parse_log
 from tests.support.settings import configure
 from tests.support.tokens import create_session_token
-
-if TYPE_CHECKING:
-    from pathlib import Path
-    from typing import Dict
-
-    from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio

@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import ClassVar, Dict, List, Union
 
 from fastapi import status
-
-if TYPE_CHECKING:
-    from typing import ClassVar, Dict, List, Union
 
 __all__ = [
     "DeserializeException",

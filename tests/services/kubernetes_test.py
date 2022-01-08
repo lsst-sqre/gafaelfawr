@@ -5,10 +5,11 @@ from __future__ import annotations
 from asyncio import Queue
 from base64 import b64decode, b64encode
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import Any, Dict, List
 from unittest.mock import ANY, MagicMock
 
 import pytest
+from _pytest.logging import LogCaptureFixture
 from kubernetes_asyncio.client import (
     ApiException,
     V1ObjectMeta,
@@ -16,12 +17,14 @@ from kubernetes_asyncio.client import (
     V1Secret,
 )
 
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.token import (
     AdminTokenRequest,
     Token,
     TokenData,
     TokenType,
 )
+from gafaelfawr.services.token import TokenService
 from gafaelfawr.storage.kubernetes import (
     StatusReason,
     WatchEvent,
@@ -33,14 +36,6 @@ from tests.support.kubernetes import (
     assert_kubernetes_objects_are,
 )
 from tests.support.logging import parse_log
-
-if TYPE_CHECKING:
-    from typing import Any, Dict, List
-
-    from _pytest.logging import LogCaptureFixture
-
-    from gafaelfawr.factory import ComponentFactory
-    from gafaelfawr.services.token import TokenService
 
 TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
     {

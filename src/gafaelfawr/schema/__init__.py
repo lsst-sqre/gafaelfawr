@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.schema.admin import Admin
 from gafaelfawr.schema.admin_history import AdminHistory
@@ -11,9 +11,6 @@ from gafaelfawr.schema.subtoken import Subtoken
 from gafaelfawr.schema.token import Token
 from gafaelfawr.schema.token_auth_history import TokenAuthHistory
 from gafaelfawr.schema.token_change_history import TokenChangeHistory
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncEngine
 
 __all__ = [
     "Admin",

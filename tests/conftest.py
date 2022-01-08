@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import AsyncIterator, Iterator
 from unittest.mock import patch
 from urllib.parse import urljoin
 
 import bonsai
 import pytest
 from asgi_lifespan import LifespanManager
+from fastapi import FastAPI
 from httpx import AsyncClient
+from seleniumwire import webdriver
 
 from gafaelfawr import main
+from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
@@ -20,21 +24,10 @@ from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
 from tests.pages.tokens import TokensPage
 from tests.support.constants import TEST_HOSTNAME
-from tests.support.kubernetes import patch_kubernetes
+from tests.support.kubernetes import MockKubernetesApi, patch_kubernetes
 from tests.support.ldap import MockLDAP
-from tests.support.selenium import run_app, selenium_driver
+from tests.support.selenium import SeleniumConfig, run_app, selenium_driver
 from tests.support.settings import build_settings
-
-if TYPE_CHECKING:
-    from pathlib import Path
-    from typing import AsyncIterator, Iterator
-
-    from fastapi import FastAPI
-    from seleniumwire import webdriver
-
-    from gafaelfawr.config import Config
-    from tests.support.kubernetes import MockKubernetesApi
-    from tests.support.selenium import SeleniumConfig
 
 
 @pytest.fixture

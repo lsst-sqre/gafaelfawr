@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import call, patch
 
 import pytest
@@ -11,9 +11,6 @@ from aioredis import Redis
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.redis import redis_dependency
 from tests.support.settings import build_settings, store_secret
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.mark.asyncio

@@ -6,16 +6,13 @@ group system and a group-based authorization system up and running.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Enum, Index, Integer, String
 from sqlalchemy.dialects import postgresql
 
 from gafaelfawr.models.history import AdminChange
 from gafaelfawr.schema.base import Base
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 __all__ = ["AdminHistory"]
 

@@ -5,10 +5,9 @@ from __future__ import annotations
 import os
 from importlib.metadata import metadata
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import structlog
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from safir.dependencies.http_client import http_client_dependency
@@ -34,9 +33,6 @@ from gafaelfawr.handlers import (
 )
 from gafaelfawr.middleware.state import StateMiddleware
 from gafaelfawr.models.state import State
-
-if TYPE_CHECKING:
-    from fastapi import Request
 
 __all__ = ["app"]
 

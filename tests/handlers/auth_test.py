@@ -3,24 +3,20 @@
 from __future__ import annotations
 
 import base64
-from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 import pytest
+from httpx import AsyncClient
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
+from gafaelfawr.config import Config
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.token import Token, TokenUserInfo
 from tests.support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
 )
 from tests.support.tokens import create_session_token
-
-if TYPE_CHECKING:
-    from httpx import AsyncClient
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio

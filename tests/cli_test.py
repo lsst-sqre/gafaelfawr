@@ -9,25 +9,20 @@ conflict with each other.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Any
 
+from _pytest.logging import LogCaptureFixture
 from click.testing import CliRunner
 from kubernetes_asyncio.client import ApiException
 
 from gafaelfawr.cli import main
+from gafaelfawr.config import Config
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.token import Token, TokenData
 from tests.support.kubernetes import MockKubernetesApi
 from tests.support.logging import parse_log
-
-if TYPE_CHECKING:
-    from pathlib import Path
-    from typing import Any
-
-    from _pytest.logging import LogCaptureFixture
-
-    from gafaelfawr.config import Config
 
 
 def test_generate_key() -> None:

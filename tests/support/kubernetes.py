@@ -5,14 +5,11 @@ from __future__ import annotations
 import copy
 import os
 import uuid
-from typing import TYPE_CHECKING
+from typing import Any, Callable, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import kubernetes_asyncio
 from kubernetes_asyncio.client import ApiClient, ApiException, V1Secret
-
-if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Iterator, List, Optional
 
 __all__ = [
     "MockKubernetesApi",

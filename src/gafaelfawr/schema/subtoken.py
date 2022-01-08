@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Optional
 
 from sqlalchemy import Column, ForeignKey, Index, String
 
 from gafaelfawr.schema.base import Base
-
-if TYPE_CHECKING:
-    from typing import Optional
 
 __all__ = ["Subtoken"]
 

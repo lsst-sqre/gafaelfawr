@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from functools import wraps
-from typing import TYPE_CHECKING
+from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
 
 import click
 import structlog
@@ -20,12 +20,18 @@ from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.token import Token
 from gafaelfawr.storage.kubernetes import initialize_kubernetes
 
-if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
+T = TypeVar("T")
 
-    T = TypeVar("T")
-
-__all__ = ["main", "generate_key", "help", "run"]
+__all__ = [
+    "generate_key",
+    "generate_token",
+    "help",
+    "init",
+    "kubernetes_controller",
+    "main",
+    "run",
+    "update_service_tokens",
+]
 
 
 def coroutine(f: Callable[..., Awaitable[T]]) -> Callable[..., T]:

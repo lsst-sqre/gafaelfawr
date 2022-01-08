@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import List
 
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 
 from gafaelfawr.models.token import TokenType
 from tests.pages.base import BaseElement, BaseModal, BasePage
-
-if TYPE_CHECKING:
-    from typing import List
-
-    from selenium.webdriver.remote.webelement import WebElement
 
 
 class TokensPage(BasePage):

@@ -3,24 +3,20 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
 from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
+from httpx import AsyncClient
 
+from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token
 from tests.support.constants import TEST_HOSTNAME
 from tests.support.headers import assert_unauthorized_is_correct
 from tests.support.tokens import create_session_token
-
-if TYPE_CHECKING:
-    from httpx import AsyncClient
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio

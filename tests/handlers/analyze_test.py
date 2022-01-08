@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import ANY
 from urllib.parse import urlparse
 
 import pytest
+from httpx import AsyncClient
 
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.token import Token
 from tests.support.cookies import set_session_cookie
 from tests.support.headers import query_from_url
 from tests.support.tokens import create_session_token
-
-if TYPE_CHECKING:
-    from httpx import AsyncClient
-
-    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio

@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import List, Union
 
-if TYPE_CHECKING:
-    from typing import List, Union
-
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.remote.webelement import WebElement
-    from seleniumwire import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
+from seleniumwire import webdriver
 
 
 class BaseFinder:
