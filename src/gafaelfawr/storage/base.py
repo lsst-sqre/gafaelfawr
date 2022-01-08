@@ -8,17 +8,13 @@ confined to this file.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import Generic, Optional, Type, TypeVar
 
+from aioredis import Redis
 from cryptography.fernet import Fernet, InvalidToken
+from pydantic import BaseModel  # noqa: F401
 
 from gafaelfawr.exceptions import DeserializeException
-
-if TYPE_CHECKING:
-    from typing import Optional, Type
-
-    from aioredis import Redis
-    from pydantic import BaseModel  # noqa: F401
 
 S = TypeVar("S", bound="BaseModel")
 
@@ -34,7 +30,7 @@ class RedisStorage(Generic[S]):
         The class of object being stored.
     key : `str`
         Encryption key.  Must be a `~cryptography.fernet.Fernet` key.
-    redis : `aioredis.Redis`
+    redis : ``aioredis.Redis``
         A Redis client configured to talk to the backend store.
     """
 

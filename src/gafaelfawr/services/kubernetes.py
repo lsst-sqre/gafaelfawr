@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from asyncio import Queue
 from base64 import b64decode
-from typing import TYPE_CHECKING
+from typing import Dict, Optional
+
+from kubernetes_asyncio.client import V1Secret
+from sqlalchemy.ext.asyncio import AsyncSession
+from structlog.stdlib import BoundLogger
 
 from gafaelfawr.exceptions import (
     KubernetesError,
@@ -16,22 +21,14 @@ from gafaelfawr.models.token import (
     TokenData,
     TokenType,
 )
-from gafaelfawr.storage.kubernetes import StatusReason, WatchEventType
-
-if TYPE_CHECKING:
-    from asyncio import Queue
-    from typing import Dict, Optional
-
-    from kubernetes_asyncio.client import V1Secret
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from structlog.stdlib import BoundLogger
-
-    from gafaelfawr.services.token import TokenService
-    from gafaelfawr.storage.kubernetes import (
-        GafaelfawrServiceToken,
-        KubernetesStorage,
-        WatchEvent,
-    )
+from gafaelfawr.services.token import TokenService
+from gafaelfawr.storage.kubernetes import (
+    GafaelfawrServiceToken,
+    KubernetesStorage,
+    StatusReason,
+    WatchEvent,
+    WatchEventType,
+)
 
 __all__ = ["KubernetesService"]
 
@@ -87,7 +84,7 @@ class KubernetesService:
         Storage layer for the Kubernetes cluster.
     session : `sqlalchemy.ext.asyncio.AsyncSession`
         Database session, used for transaction management.
-    logger : `structlog.stdlib.BoundLogger`
+    logger : ``structlog.stdlib.BoundLogger``
         Logger to report issues.
     """
 

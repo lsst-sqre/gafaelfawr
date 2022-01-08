@@ -9,19 +9,15 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Optional
 
 from cryptography.fernet import Fernet
+from fastapi import Request
 from safir.dependencies.logger import logger_dependency
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.middleware.state import BaseState
 from gafaelfawr.models.token import Token
-
-if TYPE_CHECKING:
-    from typing import Optional
-
-    from fastapi import Request
 
 __all__ = ["State"]
 
@@ -57,7 +53,7 @@ class State(BaseState):
             The encrypted cookie value.
         key : `bytes`
             The `~cryptography.fernet.Fernet` key used to decrypt it.
-        request : `fastapi.Request` or `None`
+        request : ``fastapi.Request`` or `None`
             The request, used for logging.  If not provided (primarily for the
             test suite), invalid state cookies will not be logged.
 

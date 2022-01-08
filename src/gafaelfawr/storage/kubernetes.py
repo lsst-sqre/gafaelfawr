@@ -10,7 +10,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar, cast
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    TypeVar,
+    cast,
+)
 
 from kubernetes_asyncio import client, config
 from kubernetes_asyncio.client import (
@@ -21,18 +30,22 @@ from kubernetes_asyncio.client import (
     V1Secret,
 )
 from kubernetes_asyncio.watch import Watch
+from structlog.stdlib import BoundLogger
 
-from gafaelfawr.exceptions import KubernetesError
+from gafaelfawr.exceptions import KubernetesError, KubernetesObjectError
 from gafaelfawr.models.token import Token
-
-if TYPE_CHECKING:
-    from typing import Dict, List, Optional
-
-    from structlog.stdlib import BoundLogger
 
 F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
-__all__ = ["KubernetesStorage"]
+__all__ = [
+    "GafaelfawrServiceToken",
+    "KubernetesStorage",
+    "KubernetesWatcher",
+    "StatusReason",
+    "WatchEvent",
+    "WatchEventType",
+    "initialize_kubernetes",
+]
 
 
 async def initialize_kubernetes(logger: BoundLogger) -> None:
@@ -47,10 +60,6 @@ async def initialize_kubernetes(logger: BoundLogger) -> None:
         config.load_incluster_config()
     else:
         await config.load_kube_config()
-
-
-class KubernetesObjectError(Exception):
-    """A Kubernetes object could not be parsed."""
 
 
 @dataclass
@@ -207,7 +216,7 @@ class KubernetesStorage:
         Parameters
         ----------
         parent : `GafaelfawrServiceToken`
-            The parent ``GafaelfawrServiceToken`` object for the secret.
+            The parent `GafaelfawrServiceToken` object for the secret.
         token : `gafaelfawr.models.token.Token`
             The token to store.
         """
@@ -250,7 +259,7 @@ class KubernetesStorage:
 
         Returns
         -------
-        secret : `kubernetes_asyncio.client.V1Secret` or `None`
+        secret : ``kubernetes_asyncio.client.V1Secret`` or `None`
             The Kubernetes secret, or `None` if that secret does not exist.
         """
         try:
@@ -307,7 +316,8 @@ class KubernetesStorage:
 
         Returns
         -------
-        objects : List[Dict[`str`, Any]]
+        objects : List[`GafaelfawrServiceToken`]
+            List of all GafaelfawrServiceToken objects in the cluster.
         """
         obj_list = await self._custom_api.list_cluster_custom_object(
             "gafaelfawr.lsst.io", "v1alpha1", "gafaelfawrservicetokens"
@@ -476,9 +486,11 @@ class KubernetesWatcher:
     ----------
     plural : `str`
         The plural for the custom resource for which to watch.
-    queue : `queue.Queue`
+    api_client : ``kubernetes_asyncio.client.ApiClient``
+        The Kubernetes client.
+    queue : `asyncio.Queue`
         The queue into which to put the events.
-    logger : `structlog.stdlib.BoundLogger`
+    logger : ``structlog.stdlib.BoundLogger``
         Logger to use for messages.
     """
 

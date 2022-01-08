@@ -3,17 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import List
 
 from gafaelfawr.exceptions import PermissionDeniedError
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.history import AdminChange, AdminHistoryEntry
-
-if TYPE_CHECKING:
-    from typing import List
-
-    from gafaelfawr.storage.admin import AdminStore
-    from gafaelfawr.storage.history import AdminHistoryStore
+from gafaelfawr.storage.admin import AdminStore
+from gafaelfawr.storage.history import AdminHistoryStore
 
 __all__ = ["AdminService"]
 

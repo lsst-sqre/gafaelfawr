@@ -161,7 +161,7 @@ class Authenticate:
 
         Returns
         -------
-        exc : `fastapi.HTTPException`
+        exc : ``fastapi.HTTPException``
             The redirect.
         """
         if not self.redirect_if_unauthenticated:

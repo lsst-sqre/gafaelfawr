@@ -8,24 +8,23 @@ every schema to ensure that SQLAlchemy has a complete view.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    create_async_engine,
+)
 from sqlalchemy.orm import sessionmaker
+from structlog.stdlib import BoundLogger
 
+from gafaelfawr.config import Config
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.schema import Admin as SQLAdmin
 from gafaelfawr.schema import drop_schema, initialize_schema
 from gafaelfawr.storage.admin import AdminStore
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncEngine
-    from structlog.stdlib import BoundLogger
-
-    from gafaelfawr.config import Config
 
 __all__ = ["check_database", "initialize_database"]
 

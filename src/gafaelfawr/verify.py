@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Optional
 from urllib.parse import urljoin
 
 import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from httpx import RequestError
+from httpx import AsyncClient, RequestError
 from jwt.exceptions import InvalidIssuerError
+from structlog.stdlib import BoundLogger
 
+from gafaelfawr.config import VerifierConfig
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.exceptions import (
     FetchKeysException,
@@ -21,17 +23,8 @@ from gafaelfawr.exceptions import (
     UnknownAlgorithmException,
     UnknownKeyIdException,
 )
-from gafaelfawr.models.oidc import OIDCVerifiedToken
+from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
 from gafaelfawr.util import base64_to_number
-
-if TYPE_CHECKING:
-    from typing import Any, Dict, List, Mapping, Optional
-
-    from httpx import AsyncClient
-    from structlog.stdlib import BoundLogger
-
-    from gafaelfawr.config import VerifierConfig
-    from gafaelfawr.tokens import OIDCToken
 
 __all__ = ["TokenVerifier"]
 
@@ -46,9 +39,9 @@ class TokenVerifier:
     ----------
     config : `gafaelfawr.config.VerifierConfig`
         The JWT Authorizer configuration.
-    http_client : `httpx.AsyncClient`
+    http_client : ``httpx.AsyncClient``
         The client to use for making requests.
-    logger : `structlog.BoundLogger`
+    logger : ``structlog.stdlib.BoundLogger``
         Logger to use to report status information.
     """
 

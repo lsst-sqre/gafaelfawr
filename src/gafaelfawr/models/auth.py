@@ -6,7 +6,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-__all__ = ["APILoginResponse"]
+__all__ = ["APIConfig", "APILoginResponse", "Scope"]
 
 
 class Scope(BaseModel):

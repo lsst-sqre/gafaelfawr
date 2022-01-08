@@ -29,6 +29,7 @@ __all__ = [
     "InvalidTokenClaimsException",
     "InvalidTokenError",
     "KubernetesError",
+    "KubernetesObjectError",
     "LDAPException",
     "MissingClaimsException",
     "NotConfiguredException",
@@ -306,6 +307,10 @@ class DeserializeException(Exception):
 
 class KubernetesError(Exception):
     """An error occurred during Kubernetes secret processing."""
+
+
+class KubernetesObjectError(Exception):
+    """A Kubernetes object could not be parsed."""
 
 
 class NotConfiguredException(Exception):
