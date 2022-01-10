@@ -166,9 +166,9 @@ cryptography==36.0.1 \
     --hash=sha256:ebc15b1c22e55c4d5566e3ca4db8689470a0ca2babef8e3a9ee057a8b82ce4b1 \
     --hash=sha256:ec63da4e7e4a5f924b90af42eddf20b698a70e58d86a72d943857c4c6045b3ee
     # via -r requirements/main.in
-fastapi==0.70.1 \
-    --hash=sha256:21d03979b5336375c66fa5d1f3126c6beca650d5d2166fbb78345a30d33c8d06 \
-    --hash=sha256:5367226c7bcd7bfb2e17edaf225fd9a983095b1372281e9a3eb661336fb93748
+fastapi==0.71.0 \
+    --hash=sha256:2b5ac0ae89c80b40d1dd4b2ea0bb1f78d7c4affd3644d080bf050f084759fff2 \
+    --hash=sha256:a78eca6b084de9667f2d5f37e2ae297270e5a119cd01c2f04815795da92fc87f
     # via
     #   -r requirements/main.in
     #   safir
@@ -269,9 +269,9 @@ httptools==0.3.0 \
     --hash=sha256:cdc3975db86c29817e6d13df14e037c931fc893a710fb71097777a4147090068 \
     --hash=sha256:eda95634027200f4b2a6d499e7c2e7fa9b8ee57e045dfda26958ea0af27c070b
     # via uvicorn
-httpx==0.21.2 \
-    --hash=sha256:6d88b1208f0996ee99c7a1e38fcfbdc66891c8fc583673337152681ac23585f6 \
-    --hash=sha256:c7c71345faa8983a094bbd24b5b5cc6f4bd274aadcb072a25b312cb209167aef
+httpx==0.21.3 \
+    --hash=sha256:7a3eb67ef0b8abbd6d9402248ef2f84a76080fa1c839f8662e6eb385640e445a \
+    --hash=sha256:df9a0fd43fa79dbab411d83eb1ea6f7a525c96ad92e60c2d7f40388971b25777
     # via
     #   -r requirements/main.in
     #   safir
@@ -547,9 +547,9 @@ sqlalchemy==1.4.29 \
     --hash=sha256:fa2bad14e1474ba649cfc969c1d2ec915dd3e79677f346bbfe08e93ef9020b39 \
     --hash=sha256:fbc6e63e481fa323036f305ada96a3362e1d60dd2bfa026cac10c3553e6880e9
     # via -r requirements/main.in
-starlette==0.16.0 \
-    --hash=sha256:38eb24bf705a2c317e15868e384c1b8a12ca396e5a3c3a003db7e667c43f939f \
-    --hash=sha256:e1904b5d0007aee24bdd3c43994be9b3b729f4f58e740200de1d623f8c3a8870
+starlette==0.17.1 \
+    --hash=sha256:26a18cbda5e6b651c964c12c88b36d9898481cd428ed6e063f5f29c418f73050 \
+    --hash=sha256:57eab3cc975a28af62f6faec94d355a410634940f10b30d68d31cb5ec1b44ae8
     # via
     #   -r requirements/main.in
     #   fastapi
@@ -566,9 +566,9 @@ typing-extensions==4.0.1 \
     # via
     #   aioredis
     #   pydantic
-urllib3==1.26.7 \
-    --hash=sha256:4987c65554f7a2dbf30c18fd48778ef124af6fab771a377103da0585e2336ece \
-    --hash=sha256:c4fdf4019605b6e5423637e01bc9fe4daef873709a7973e195ceba0a62bbc844
+urllib3==1.26.8 \
+    --hash=sha256:000ca7f471a233c2251c6c7023ee85305721bfdf18621ebff4fd17a8653427ed \
+    --hash=sha256:0e7c33d9a63e7ddfcb86780aac87befc2fbddf46c58dbb487e0855f7ceec283c
     # via
     #   kubernetes
     #   requests
@@ -654,9 +654,9 @@ websockets==10.1 \
     # via uvicorn
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==60.2.0 \
-    --hash=sha256:5c89b1a14a67ac5f0956f1cb0aeb7d1d3f4c8ba4e4e1ab7bf1af4933f9a2f0fe \
-    --hash=sha256:675fcebecb43c32eb930481abf907619137547f4336206e4d673180242e1a278
+setuptools==60.5.0 \
+    --hash=sha256:2404879cda71495fc4d5cbc445ed52fdaddf352b36e40be8dcc63147cb4edabe \
+    --hash=sha256:68eb94073fc486091447fcb0501efd6560a0e5a1839ba249e5ff3c4c93f05f90
     # via
     #   google-auth
     #   kubernetes

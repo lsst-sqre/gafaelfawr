@@ -283,9 +283,9 @@ gitdb==4.0.9 \
     --hash=sha256:8033ad4e853066ba6ca92050b9df2f89301b8fc8bf7e9324d412a63f8bf1a8fd \
     --hash=sha256:bac2fd45c0a1c9cf619e63a90d62bdc63892ef92387424b855792a6cabe789aa
     # via gitpython
-gitpython==3.1.24 \
-    --hash=sha256:dc0a7f2f697657acc8d7f89033e8b1ea94dd90356b2983bca89dc8d2ab3cc647 \
-    --hash=sha256:df83fdf5e684fef7c6ee2c02fc68a5ceb7e7e759d08b694088d0cacb4eba59e5
+gitpython==3.1.25 \
+    --hash=sha256:4f8b0e51713642b83f1eb10136d36a7f2c5278d188c5ae82b144cb1f4e848f0c \
+    --hash=sha256:b923e8952c2fe0d70b129fddd8511acc90b3070c8dddb20d86ca9911a5d0c248
     # via documenteer
 graphviz==0.16 \
     --hash=sha256:3cad5517c961090dfc679df6402a57de62d97703e2880a1a46147bb0dc1639eb \
@@ -375,9 +375,9 @@ httpcore==0.14.4 \
     # via
     #   -c requirements/main.txt
     #   httpx
-httpx==0.21.2 \
-    --hash=sha256:6d88b1208f0996ee99c7a1e38fcfbdc66891c8fc583673337152681ac23585f6 \
-    --hash=sha256:c7c71345faa8983a094bbd24b5b5cc6f4bd274aadcb072a25b312cb209167aef
+httpx==0.21.3 \
+    --hash=sha256:7a3eb67ef0b8abbd6d9402248ef2f84a76080fa1c839f8662e6eb385640e445a \
+    --hash=sha256:df9a0fd43fa79dbab411d83eb1ea6f7a525c96ad92e60c2d7f40388971b25777
     # via
     #   -c requirements/main.txt
     #   respx
@@ -387,9 +387,9 @@ hyperframe==6.0.1 \
     # via
     #   h2
     #   selenium-wire
-identify==2.4.1 \
-    --hash=sha256:0192893ff68b03d37fed553e261d4a22f94ea974093aefb33b29df2ff35fed3c \
-    --hash=sha256:64d4885e539f505dd8ffb5e93c142a1db45480452b1594cacd3e91dca9a984e9
+identify==2.4.2 \
+    --hash=sha256:67c1e66225870dce721228176637a8ef965e8dd58450bcc7592249d0dfc4da6c \
+    --hash=sha256:93e8ec965e888f2212aa5c24b2b662f4832c39acb1d7196a70ea45acb626a05e
     # via pre-commit
 idna==3.3 \
     --hash=sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff \
@@ -499,27 +499,27 @@ markupsafe==2.0.1 \
     # via
     #   -c requirements/main.txt
     #   jinja2
-mypy==0.930 \
-    --hash=sha256:0feb82e9fa849affca7edd24713dbe809dce780ced9f3feca5ed3d80e40b777f \
-    --hash=sha256:1d2296f35aae9802eeb1327058b550371ee382d71374b3e7d2804035ef0b830b \
-    --hash=sha256:1e689e92cdebd87607a041585f1dc7339aa2e8a9f9bad9ba7e6ece619431b20c \
-    --hash=sha256:1ea7199780c1d7940b82dbc0a4e37722b4e3851264dbba81e01abecc9052d8a7 \
-    --hash=sha256:221cc94dc6a801ccc2be7c0c9fd791c5e08d1fa2c5e1c12dec4eab15b2469871 \
-    --hash=sha256:2e9c5409e9cb81049bb03fa1009b573dea87976713e3898561567a86c4eaee01 \
-    --hash=sha256:45a4dc21c789cfd09b8ccafe114d6de66f0b341ad761338de717192f19397a8c \
-    --hash=sha256:51426262ae4714cc7dd5439814676e0992b55bcc0f6514eccb4cf8e0678962c2 \
-    --hash=sha256:554873e45c1ca20f31ddf873deb67fa5d2e87b76b97db50669f0468ccded8fae \
-    --hash=sha256:5feb56f8bb280468fe5fc8e6f56f48f99aa0df9eed3c507a11505ee4657b5380 \
-    --hash=sha256:601f46593f627f8a9b944f74fd387c9b5f4266b39abad77471947069c2fc7651 \
-    --hash=sha256:70b197dd8c78fc5d2daf84bd093e8466a2b2e007eedaa85e792e513a820adbf7 \
-    --hash=sha256:959319b9a3cafc33a8185f440a433ba520239c72e733bf91f9efd67b0a8e9b30 \
-    --hash=sha256:a9d8dffefba634b27d650e0de2564379a1a367e2e08d6617d8f89261a3bf63b2 \
-    --hash=sha256:b419e9721260161e70d054a15abbd50603c16f159860cfd0daeab647d828fc29 \
-    --hash=sha256:bc1a0607ea03c30225347334af66b0af12eefba018a89a88c209e02b7065ea95 \
-    --hash=sha256:bf4a44e03040206f7c058d1f5ba02ef2d1820720c88bc4285c7d9a4269f54173 \
-    --hash=sha256:db3a87376a1380f396d465bed462e76ea89f838f4c5e967d68ff6ee34b785c31 \
-    --hash=sha256:ed4e0ea066bb12f56b2812a15ff223c57c0a44eca817ceb96b214bb055c7051f \
-    --hash=sha256:f9f665d69034b1fcfdbcd4197480d26298bbfb5d2dfe206245b6498addb34999
+mypy==0.931 \
+    --hash=sha256:0038b21890867793581e4cb0d810829f5fd4441aa75796b53033af3aa30430ce \
+    --hash=sha256:1171f2e0859cfff2d366da2c7092b06130f232c636a3f7301e3feb8b41f6377d \
+    --hash=sha256:1b06268df7eb53a8feea99cbfff77a6e2b205e70bf31743e786678ef87ee8069 \
+    --hash=sha256:1b65714dc296a7991000b6ee59a35b3f550e0073411ac9d3202f6516621ba66c \
+    --hash=sha256:1bf752559797c897cdd2c65f7b60c2b6969ffe458417b8d947b8340cc9cec08d \
+    --hash=sha256:300717a07ad09525401a508ef5d105e6b56646f7942eb92715a1c8d610149714 \
+    --hash=sha256:3c5b42d0815e15518b1f0990cff7a705805961613e701db60387e6fb663fe78a \
+    --hash=sha256:4365c60266b95a3f216a3047f1d8e3f895da6c7402e9e1ddfab96393122cc58d \
+    --hash=sha256:50c7346a46dc76a4ed88f3277d4959de8a2bd0a0fa47fa87a4cde36fe247ac05 \
+    --hash=sha256:5b56154f8c09427bae082b32275a21f500b24d93c88d69a5e82f3978018a0266 \
+    --hash=sha256:74f7eccbfd436abe9c352ad9fb65872cc0f1f0a868e9d9c44db0893440f0c697 \
+    --hash=sha256:7b3f6f557ba4afc7f2ce6d3215d5db279bcf120b3cfd0add20a5d4f4abdae5bc \
+    --hash=sha256:8c11003aaeaf7cc2d0f1bc101c1cc9454ec4cc9cb825aef3cafff8a5fdf4c799 \
+    --hash=sha256:8ca7f8c4b1584d63c9a0f827c37ba7a47226c19a23a753d52e5b5eddb201afcd \
+    --hash=sha256:c89702cac5b302f0c5d33b172d2b55b5df2bede3344a2fbed99ff96bddb2cf00 \
+    --hash=sha256:d8f1ff62f7a879c9fe5917b3f9eb93a79b78aad47b533911b853a757223f72e7 \
+    --hash=sha256:d9d2b84b2007cea426e327d2483238f040c49405a6bf4074f605f0156c91a47a \
+    --hash=sha256:e839191b8da5b4e5d805f940537efcaa13ea5dd98418f06dc585d2891d228cf0 \
+    --hash=sha256:f9fe20d0872b26c4bba1c1be02c5340de1019530302cf2dcc85c7f9fc3252ae0 \
+    --hash=sha256:ff3bf387c14c805ab1388185dd22d6b210824e164d4bb324b195ff34e322d166
     # via
     #   -r requirements/dev.in
     #   sqlalchemy
@@ -613,9 +613,9 @@ pycparser==2.21 \
     # via
     #   -c requirements/main.txt
     #   cffi
-pygments==2.11.1 \
-    --hash=sha256:59b895e326f0fb0d733fd28c6839bd18ad0687ba20efc26d4277fd1d30b971f4 \
-    --hash=sha256:9135c1af61eec0f650cd1ea1ed8ce298e54d56bcd8cc2ef46edd7702c171337c
+pygments==2.11.2 \
+    --hash=sha256:44238f1b60a76d78fc8ca0528ee429702aae011c265fe6a8dd8b63049ae41c65 \
+    --hash=sha256:4e426f72023d88d03b2fa258de560726ce890ff3b630f88c21cbb8b2503b8c6a
     # via
     #   sphinx
     #   sphinx-prompt
@@ -869,25 +869,24 @@ trio-websocket==0.9.2 \
     --hash=sha256:5b558f6e83cc20a37c3b61202476c5295d1addf57bd65543364e0337e37ed2bc \
     --hash=sha256:a3d34de8fac26023eee701ed1e7bf4da9a8326b61a62934ec9e53b64970fd8fe
     # via selenium
-types-cachetools==4.2.7 \
-    --hash=sha256:2b1b42d8a888df1d058814bfb75dd21b5762d31b0777fc0d9749f26fe8f90b39 \
-    --hash=sha256:f73dcb26a0c75dc0e037e46580a8ece6c5a391a61523cc7783b04eed2834c7d7
+types-cachetools==4.2.8 \
+    --hash=sha256:75f77c312cea4b304c3f7e65567ca669d39cf790bfe4ee4877cddbf7accf3527 \
+    --hash=sha256:79173c84ac9b68961121a1936123b6f0fceaa41f118029bdf89404e7e7dbf9ac
     # via -r requirements/dev.in
-types-pyyaml==6.0.1 \
-    --hash=sha256:2e27b0118ca4248a646101c5c318dc02e4ca2866d6bc42e84045dbb851555a76 \
-    --hash=sha256:d5b318269652e809b5c30a5fe666c50159ab80bfd41cd6bafe655bf20b29fcba
+types-pyyaml==6.0.3 \
+    --hash=sha256:6ea4eefa8579e0ce022f785a62de2bcd647fad4a81df5cf946fd67e4b059920b \
+    --hash=sha256:8b50294b55a9db89498cdc5a65b1b4545112b6cd1cf4465bd693d828b0282a17
     # via -r requirements/dev.in
 typing-extensions==4.0.1 \
     --hash=sha256:4ca091dea149f945ec56afb48dae714f21e8692ef22a395223bcd328961b6a0e \
     --hash=sha256:7f001e5ac290a0c0401508864c7ec868be4e701886d5b573a9528ed3973d9d3b
     # via
     #   -c requirements/main.txt
-    #   gitpython
     #   mypy
     #   sqlalchemy2-stubs
-urllib3[secure]==1.26.7 \
-    --hash=sha256:4987c65554f7a2dbf30c18fd48778ef124af6fab771a377103da0585e2336ece \
-    --hash=sha256:c4fdf4019605b6e5423637e01bc9fe4daef873709a7973e195ceba0a62bbc844
+urllib3[secure]==1.26.8 \
+    --hash=sha256:000ca7f471a233c2251c6c7023ee85305721bfdf18621ebff4fd17a8653427ed \
+    --hash=sha256:0e7c33d9a63e7ddfcb86780aac87befc2fbddf46c58dbb487e0855f7ceec283c
     # via
     #   -c requirements/main.txt
     #   requests
@@ -954,9 +953,9 @@ zstandard==0.16.0 \
     # via selenium-wire
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==60.2.0 \
-    --hash=sha256:5c89b1a14a67ac5f0956f1cb0aeb7d1d3f4c8ba4e4e1ab7bf1af4933f9a2f0fe \
-    --hash=sha256:675fcebecb43c32eb930481abf907619137547f4336206e4d673180242e1a278
+setuptools==60.5.0 \
+    --hash=sha256:2404879cda71495fc4d5cbc445ed52fdaddf352b36e40be8dcc63147cb4edabe \
+    --hash=sha256:68eb94073fc486091447fcb0501efd6560a0e5a1839ba249e5ff3c4c93f05f90
     # via
     #   -c requirements/main.txt
     #   blockdiag
