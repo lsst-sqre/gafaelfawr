@@ -11,6 +11,7 @@ import click
 import structlog
 import uvicorn
 from kubernetes_asyncio.client import ApiClient
+from safir.kubernetes import initialize_kubernetes
 
 from .database import initialize_database
 from .dependencies.config import config_dependency
@@ -18,7 +19,6 @@ from .exceptions import KubernetesError
 from .factory import ComponentFactory
 from .keypair import RSAKeyPair
 from .models.token import Token
-from .storage.kubernetes import initialize_kubernetes
 
 T = TypeVar("T")
 
@@ -126,7 +126,7 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
     logger = structlog.get_logger(config.safir.logger_name)
     logger.debug("Starting")
     async with ComponentFactory.standalone() as factory:
-        await initialize_kubernetes(logger)
+        await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)
             logger.debug("Updating all service tokens")
@@ -153,7 +153,7 @@ async def update_service_tokens(settings: Optional[str]) -> None:
     config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     async with ComponentFactory.standalone() as factory:
-        await initialize_kubernetes(logger)
+        await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)
             try:

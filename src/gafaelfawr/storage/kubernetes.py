@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from asyncio import Queue
 from base64 import b64encode
 from dataclasses import dataclass
@@ -21,7 +20,7 @@ from typing import (
     cast,
 )
 
-from kubernetes_asyncio import client, config
+from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
     ApiClient,
     ApiException,
@@ -44,22 +43,7 @@ __all__ = [
     "StatusReason",
     "WatchEvent",
     "WatchEventType",
-    "initialize_kubernetes",
 ]
-
-
-async def initialize_kubernetes(logger: BoundLogger) -> None:
-    """Load the Kubernetes configuration.
-
-    This has to be run once per process and should be run during application
-    startup.  This function handles Kubernetes configuration independent of
-    any given Kubernetes client so that clients can be created for each
-    request.
-    """
-    if "KUBERNETES_PORT" in os.environ:
-        config.load_incluster_config()
-    else:
-        await config.load_kube_config()
 
 
 @dataclass

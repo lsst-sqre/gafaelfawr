@@ -15,6 +15,7 @@ from typing import Any
 from _pytest.logging import LogCaptureFixture
 from click.testing import CliRunner
 from kubernetes_asyncio.client import ApiException
+from safir.testing.kubernetes import MockKubernetesApi
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config
@@ -22,7 +23,6 @@ from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.token import Token, TokenData
 
-from .support.kubernetes import MockKubernetesApi
 from .support.logging import parse_log
 
 

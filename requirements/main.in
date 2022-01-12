@@ -27,6 +27,6 @@ httpx
 pydantic
 PyJWT
 pyyaml
-safir
+safir[kubernetes]
 sqlalchemy
 structlog

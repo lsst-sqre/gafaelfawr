@@ -90,9 +90,9 @@ aiosignal==1.2.0 \
     --hash=sha256:26e62109036cd181df6e6ad646f91f0dcfd05fe16d0cb924138ff2ab75d64e3a \
     --hash=sha256:78ed67db6c7b7ced4f98e495e572106d5c432a93e1ddd1bf475e1dc05f5b7df2
     # via aiohttp
-anyio==3.4.0 \
-    --hash=sha256:24adc69309fb5779bc1e06158e143e0b6d2c56b302a3ac3de3083c705a6ed39d \
-    --hash=sha256:2855a9423524abcdd652d942f8932fda1735210f77a6b392eafd9ff34d3fe020
+anyio==3.5.0 \
+    --hash=sha256:a0aeffe2fb1fdf374a8e4b471444f0f3ac4fb9f5a5b542b48824475e0042a5a6 \
+    --hash=sha256:b5fa16c5ff93fa1046f2eeb5bbff2dad4d3514d6cda61d02816dba34fa8c3c2e
     # via
     #   httpcore
     #   starlette
@@ -441,7 +441,9 @@ jinja2==2.11.3 \
     # via -r requirements/main.in
 kubernetes-asyncio==19.15.0 \
     --hash=sha256:281b24106f49d9954f24eccc628c99c2385085d6ff5fa4565f090754f2e1714a
-    # via -r requirements/main.in
+    # via
+    #   -r requirements/main.in
+    #   safir
 markupsafe==2.0.1 \
     --hash=sha256:01a9b8ea66f1658938f65b93a85ebe8bc016e6769611be228d797c9d998dd298 \
     --hash=sha256:023cb26ec21ece8dc3907c0e8320058b2e0cb3c55cf9564da612bc325bed5e64 \
@@ -690,9 +692,9 @@ rfc3986[idna2008]==1.5.0 \
     --hash=sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835 \
     --hash=sha256:a86d6e1f5b1dc238b218b012df0aa79409667bb209e58da56d0b94704e712a97
     # via httpx
-safir==2.3.0 \
-    --hash=sha256:180cd25e8c33b6e95e2879d3c3196eccbbc733b60a4d964f18be9ba77e297d2d \
-    --hash=sha256:53b17cdb7d1b99b55715fc8256cfb81f959ce28bfc5712b982be5702db2e7373
+safir[kubernetes]==2.4.0 \
+    --hash=sha256:653b855ab1a1501b66e4e5707f5742e9b983acee51fdf447d797df3a1416b6cd \
+    --hash=sha256:8d056c07c76adde698d24372d6c36f5ca0fb55f2f387b9f1afeb70e7d4432324
     # via -r requirements/main.in
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \

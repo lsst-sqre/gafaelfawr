@@ -12,6 +12,7 @@ import pytest
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from seleniumwire import webdriver
 
 from gafaelfawr import main
@@ -25,7 +26,6 @@ from gafaelfawr.models.token import TokenType
 
 from .pages.tokens import TokensPage
 from .support.constants import TEST_HOSTNAME
-from .support.kubernetes import MockKubernetesApi, patch_kubernetes
 from .support.ldap import MockLDAP
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
 from .support.settings import build_settings
@@ -111,7 +111,7 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
 
     Returns
     -------
-    mock_kubernetes : `tests.support.kubernetes.MockKubernetesApi`
+    mock_kubernetes : `safir.testing.kubernetes.MockKubernetesApi`
         The mock Kubernetes API object.
     """
     yield from patch_kubernetes()

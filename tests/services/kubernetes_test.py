@@ -16,6 +16,7 @@ from kubernetes_asyncio.client import (
     V1OwnerReference,
     V1Secret,
 )
+from safir.testing.kubernetes import MockKubernetesApi
 
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.token import (
@@ -32,10 +33,6 @@ from gafaelfawr.storage.kubernetes import (
 )
 from gafaelfawr.util import current_datetime
 
-from ..support.kubernetes import (
-    MockKubernetesApi,
-    assert_kubernetes_objects_are,
-)
 from ..support.logging import parse_log
 
 TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
@@ -135,7 +132,10 @@ async def assert_kubernetes_secrets_are_correct(
         )
         for t in service_tokens
     ]
-    assert_kubernetes_objects_are(mock, "Secret", expected)
+    expected = sorted(
+        expected, key=lambda o: (o.metadata.namespace, o.metadata.name)
+    )
+    assert mock.get_all_objects_for_test("Secret") == expected
 
     # Now check that every token in those secrets is correct.
     for service_token in service_tokens:
