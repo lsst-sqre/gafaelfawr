@@ -2,11 +2,12 @@
 Change log
 ##########
 
-3.5.0 (unreleased)
+3.5.0 (2022-01-13)
 ==================
 
 - Add support for obtaining group membership information from LDAP.
   Currently, this can only be used in conjunction with the OpenID Connect authentication provider.
+- Add Helm chart support for using a generic OpenID Connect provider for authentication.
 - Update dependencies.
 
 3.4.1 (2021-12-09)
