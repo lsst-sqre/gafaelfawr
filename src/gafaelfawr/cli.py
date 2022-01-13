@@ -5,25 +5,33 @@ from __future__ import annotations
 import asyncio
 import sys
 from functools import wraps
-from typing import TYPE_CHECKING
+from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
 
 import click
 import structlog
 import uvicorn
+from kubernetes_asyncio.client import ApiClient
+from safir.kubernetes import initialize_kubernetes
 
-from gafaelfawr.database import initialize_database
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.exceptions import KubernetesError
-from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.keypair import RSAKeyPair
-from gafaelfawr.models.token import Token
+from .database import initialize_database
+from .dependencies.config import config_dependency
+from .exceptions import KubernetesError
+from .factory import ComponentFactory
+from .keypair import RSAKeyPair
+from .models.token import Token
 
-if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
+T = TypeVar("T")
 
-    T = TypeVar("T")
-
-__all__ = ["main", "generate_key", "help", "run"]
+__all__ = [
+    "generate_key",
+    "generate_token",
+    "help",
+    "init",
+    "kubernetes_controller",
+    "main",
+    "run",
+    "update_service_tokens",
+]
 
 
 def coroutine(f: Callable[..., Awaitable[T]]) -> Callable[..., T]:
@@ -118,13 +126,15 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
     logger = structlog.get_logger(config.safir.logger_name)
     logger.debug("Starting")
     async with ComponentFactory.standalone() as factory:
-        kubernetes_service = factory.create_kubernetes_service()
-        logger.debug("Updating all service tokens")
-        await kubernetes_service.update_service_tokens()
-        logger.debug("Starting Kubernetes watcher")
-        queue = kubernetes_service.create_service_token_watcher()
-        logger.debug("Starting continuous processing")
-        await kubernetes_service.update_service_tokens_from_queue(queue)
+        await initialize_kubernetes()
+        async with ApiClient() as api_client:
+            kubernetes_service = factory.create_kubernetes_service(api_client)
+            logger.debug("Updating all service tokens")
+            await kubernetes_service.update_service_tokens()
+            logger.debug("Starting Kubernetes watcher")
+            queue = await kubernetes_service.start_watcher()
+            logger.debug("Starting continuous processing")
+            await kubernetes_service.update_service_tokens_from_queue(queue)
 
 
 @main.command()
@@ -143,11 +153,13 @@ async def update_service_tokens(settings: Optional[str]) -> None:
     config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     async with ComponentFactory.standalone() as factory:
-        kubernetes_service = factory.create_kubernetes_service()
-        try:
-            logger.debug("Updating all service tokens")
-            await kubernetes_service.update_service_tokens()
-        except KubernetesError as e:
-            msg = "Failed to update service token secrets"
-            logger.error(msg, error=str(e))
-            sys.exit(1)
+        await initialize_kubernetes()
+        async with ApiClient() as api_client:
+            kubernetes_service = factory.create_kubernetes_service(api_client)
+            try:
+                logger.debug("Updating all service tokens")
+                await kubernetes_service.update_service_tokens()
+            except KubernetesError as e:
+                msg = "Failed to update service token secrets"
+                logger.error(msg, error=str(e))
+                sys.exit(1)

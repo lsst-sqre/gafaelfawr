@@ -3,44 +3,37 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import AsyncIterator
 
 import structlog
+from aioredis import Redis
 from httpx import AsyncClient
+from kubernetes_asyncio.client import ApiClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from structlog.stdlib import BoundLogger
 
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.dependencies.token_cache import TokenCache
-from gafaelfawr.issuer import TokenIssuer
-from gafaelfawr.models.token import TokenData
-from gafaelfawr.providers.github import GitHubProvider
-from gafaelfawr.providers.oidc import OIDCProvider
-from gafaelfawr.services.admin import AdminService
-from gafaelfawr.services.kubernetes import KubernetesService
-from gafaelfawr.services.oidc import OIDCService
-from gafaelfawr.services.token import TokenService
-from gafaelfawr.services.token_cache import TokenCacheService
-from gafaelfawr.storage.admin import AdminStore
-from gafaelfawr.storage.base import RedisStorage
-from gafaelfawr.storage.history import (
-    AdminHistoryStore,
-    TokenChangeHistoryStore,
-)
-from gafaelfawr.storage.kubernetes import KubernetesStorage
-from gafaelfawr.storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
-from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
-from gafaelfawr.verify import TokenVerifier
-
-if TYPE_CHECKING:
-    from typing import AsyncIterator
-
-    from aioredis import Redis
-    from structlog.stdlib import BoundLogger
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.providers.base import Provider
+from .config import Config
+from .dependencies.config import config_dependency
+from .dependencies.redis import redis_dependency
+from .dependencies.token_cache import TokenCache
+from .issuer import TokenIssuer
+from .models.token import TokenData
+from .providers.base import Provider
+from .providers.github import GitHubProvider
+from .providers.oidc import OIDCProvider
+from .services.admin import AdminService
+from .services.kubernetes import KubernetesService
+from .services.oidc import OIDCService
+from .services.token import TokenService
+from .services.token_cache import TokenCacheService
+from .storage.admin import AdminStore
+from .storage.base import RedisStorage
+from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
+from .storage.kubernetes import KubernetesStorage
+from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
+from .storage.token import TokenDatabaseStore, TokenRedisStore
+from .verify import TokenVerifier
 
 __all__ = ["ComponentFactory"]
 
@@ -55,11 +48,11 @@ class ComponentFactory:
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelfawr configuration.
-    redis : `aioredis.Redis`
+    redis : ``aioredis.Redis``
         Redis client.
     session : `sqlalchemy.ext.asyncio.AsyncSession`
         SQLAlchemy async session.
-    http_client : `httpx.AsyncClient`
+    http_client : ``httpx.AsyncClient``
         HTTP async client.
     token_cache : `gafaelfawr.dependencies.token_cache.TokenCache`
         Shared token cache.
@@ -138,9 +131,22 @@ class ComponentFactory:
         admin_history_store = AdminHistoryStore(self.session)
         return AdminService(admin_store, admin_history_store)
 
-    def create_kubernetes_service(self) -> KubernetesService:
-        """Create a Kubernetes service."""
-        storage = KubernetesStorage(self._logger)
+    def create_kubernetes_service(
+        self, api_client: ApiClient
+    ) -> KubernetesService:
+        """Create a Kubernetes service.
+
+        Parameters
+        ----------
+        api_client : ``kubernetes_asyncio.client.ApiClient``
+            The Kubernetes client.
+
+        Returns
+        -------
+        kubernetes_service : `gafaelfawr.services.kubernetes.KubernetesService`
+            Newly-created Kubernetes service.
+        """
+        storage = KubernetesStorage(api_client, self._logger)
         token_service = self.create_token_service()
         return KubernetesService(
             token_service=token_service,

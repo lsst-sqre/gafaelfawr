@@ -6,10 +6,7 @@ import base64
 import os
 from datetime import datetime, timezone
 from ipaddress import IPv4Address, IPv6Address
-from typing import TYPE_CHECKING, overload
-
-if TYPE_CHECKING:
-    from typing import List, Optional, Union
+from typing import List, Optional, Union, overload
 
 __all__ = [
     "add_padding",
@@ -97,13 +94,14 @@ def normalize_datetime(
 
     Parameters
     ----------
-    v : `int` or `datetime` or `None`
+    v : `int` or `datetime.datetime` or `None`
         The field representing a `datetime`
 
     Returns
     -------
-    v : `datetime` or `None`
-        The timezone-aware `datetime` or `None` if the input was `None`.
+    v : `datetime.datetime` or `None`
+        The timezone-aware `datetime.datetime` or `None` if the input was
+        `None`.
     """
     if v is None:
         return v

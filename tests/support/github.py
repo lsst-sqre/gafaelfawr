@@ -5,23 +5,16 @@ from __future__ import annotations
 import base64
 import json
 import uuid
-from typing import TYPE_CHECKING
+from typing import Optional
 from unittest.mock import ANY
 from urllib.parse import parse_qs
 
-from httpx import Response
+import respx
+from httpx import Request, Response
 
+from gafaelfawr.config import GitHubConfig
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.providers.github import GitHubProvider
-
-if TYPE_CHECKING:
-    from typing import Optional
-
-    import respx
-    from httpx import Request
-
-    from gafaelfawr.config import GitHubConfig
-    from gafaelfawr.providers.github import GitHubUserInfo
+from gafaelfawr.providers.github import GitHubProvider, GitHubUserInfo
 
 __all__ = ["mock_github"]
 

@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from types import TracebackType
+from typing import Dict, List, Literal, Optional, Type
 from unittest.mock import Mock
 
 import bonsai
 
+from gafaelfawr.config import LDAPConfig
 from gafaelfawr.models.token import TokenGroup
-
-if TYPE_CHECKING:
-    from types import TracebackType
-    from typing import Dict, List, Literal, Optional, Type
-
-    from gafaelfawr.config import LDAPConfig
 
 __all__ = ["MockLDAP"]
 

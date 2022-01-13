@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from typing import Dict, List
 from urllib.parse import parse_qs, urlparse
+
+from httpx import Response
 
 from gafaelfawr.auth import (
     AuthChallenge,
@@ -12,13 +14,7 @@ from gafaelfawr.auth import (
     AuthErrorChallenge,
     AuthType,
 )
-
-if TYPE_CHECKING:
-    from typing import Dict, List
-
-    from httpx import Response
-
-    from gafaelfawr.config import Config
+from gafaelfawr.config import Config
 
 __all__ = [
     "assert_unauthorized_is_correct",

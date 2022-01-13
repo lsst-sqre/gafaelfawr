@@ -12,7 +12,8 @@ from pydantic import ValidationError
 from gafaelfawr.config import Settings
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.token import Token
-from tests.support.settings import build_settings
+
+from .support.settings import build_settings
 
 
 def parse_settings(path: Path, fix_token: bool = False) -> None:

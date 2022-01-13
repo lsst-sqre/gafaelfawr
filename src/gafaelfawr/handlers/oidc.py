@@ -18,15 +18,15 @@ from fastapi import (
 from fastapi.responses import JSONResponse, RedirectResponse
 from safir.models import ErrorModel
 
-from gafaelfawr.dependencies.auth import AuthenticateRead, verified_oidc_token
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.dependencies.return_url import parsed_redirect_uri
-from gafaelfawr.exceptions import (
+from ..dependencies.auth import AuthenticateRead, verified_oidc_token
+from ..dependencies.context import RequestContext, context_dependency
+from ..dependencies.return_url import parsed_redirect_uri
+from ..exceptions import (
     InvalidRequestError,
     OAuthError,
     UnsupportedGrantTypeError,
 )
-from gafaelfawr.models.oidc import (
+from ..models.oidc import (
     JWKS,
     OIDCAuthorizationCode,
     OIDCConfig,
@@ -34,7 +34,7 @@ from gafaelfawr.models.oidc import (
     OIDCTokenReply,
     OIDCVerifiedToken,
 )
-from gafaelfawr.models.token import TokenData
+from ..models.token import TokenData
 
 router = APIRouter()
 authenticate = AuthenticateRead(

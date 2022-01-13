@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 import jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from gafaelfawr.config import Config
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import OIDCVerifiedToken
 from gafaelfawr.models.token import (
@@ -21,14 +24,6 @@ from gafaelfawr.models.token import (
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import current_datetime
-
-if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional
-
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
 
 __all__ = [
     "add_expired_session_token",

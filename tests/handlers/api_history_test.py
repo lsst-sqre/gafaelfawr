@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
-from typing import TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import urlencode
 
 import pytest
+from httpx import AsyncClient
 from sqlalchemy.future import select
 
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.link import LinkData
 from gafaelfawr.models.token import (
@@ -21,16 +23,10 @@ from gafaelfawr.models.token import (
 )
 from gafaelfawr.schema import TokenChangeHistory
 from gafaelfawr.util import current_datetime, datetime_to_db
-from tests.support.constants import TEST_HOSTNAME
-from tests.support.cookies import set_session_cookie
-from tests.support.tokens import create_session_token
 
-if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, List, Optional, Union
-
-    from httpx import AsyncClient
-
-    from gafaelfawr.factory import ComponentFactory
+from ..support.constants import TEST_HOSTNAME
+from ..support.cookies import set_session_cookie
+from ..support.tokens import create_session_token
 
 
 async def build_history(

@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import ClassVar, Dict, List, Union
 
 from fastapi import status
-
-if TYPE_CHECKING:
-    from typing import ClassVar, Dict, List, Union
 
 __all__ = [
     "DeserializeException",
@@ -29,6 +26,7 @@ __all__ = [
     "InvalidTokenClaimsException",
     "InvalidTokenError",
     "KubernetesError",
+    "KubernetesObjectError",
     "LDAPException",
     "MissingClaimsException",
     "NotConfiguredException",
@@ -306,6 +304,10 @@ class DeserializeException(Exception):
 
 class KubernetesError(Exception):
     """An error occurred during Kubernetes secret processing."""
+
+
+class KubernetesObjectError(Exception):
+    """A Kubernetes object could not be parsed."""
 
 
 class NotConfiguredException(Exception):

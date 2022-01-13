@@ -2,31 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import List, Optional
 from urllib.parse import urlencode
 
 import bonsai
 import jwt
+from httpx import AsyncClient
 from pydantic import ValidationError
+from structlog.stdlib import BoundLogger
 
-from gafaelfawr.exceptions import (
-    LDAPException,
-    OIDCException,
-    VerifyTokenException,
-)
-from gafaelfawr.models.oidc import OIDCToken
-from gafaelfawr.models.token import TokenGroup, TokenUserInfo
-from gafaelfawr.providers.base import Provider
-
-if TYPE_CHECKING:
-    from typing import List, Optional
-
-    from httpx import AsyncClient
-    from structlog.stdlib import BoundLogger
-
-    from gafaelfawr.config import LDAPConfig, OIDCConfig
-    from gafaelfawr.models.state import State
-    from gafaelfawr.verify import TokenVerifier
+from ..config import LDAPConfig, OIDCConfig
+from ..exceptions import LDAPException, OIDCException, VerifyTokenException
+from ..models.oidc import OIDCToken
+from ..models.state import State
+from ..models.token import TokenGroup, TokenUserInfo
+from ..verify import TokenVerifier
+from .base import Provider
 
 __all__ = ["OIDCProvider"]
 
@@ -40,9 +31,9 @@ class OIDCProvider(Provider):
         Configuration for the OpenID Connect authentication provider.
     verifier : `gafaelfawr.verify.TokenVerifier`
         Token verifier to use to verify the token returned by the provider.
-    http_client : `httpx.AsyncClient`
+    http_client : ``httpx.AsyncClient``
         Session to use to make HTTP requests.
-    logger : `structlog.BoundLogger`
+    logger : ``structlog.stdlib.BoundLogger``
         Logger for any log messages.
     """
 
@@ -116,7 +107,7 @@ class OIDCProvider(Provider):
         gafaelfawr.exceptions.LDAPException
             One of the groups for the user in LDAP was not valid (missing
             cn or gidNumber attributes, or gidNumber is not an integer).
-        httpx.HTTPError
+        ``httpx.HTTPError``
             An HTTP client error occurred trying to talk to the authentication
             provider.
         jwt.exceptions.InvalidTokenError

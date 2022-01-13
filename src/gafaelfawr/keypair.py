@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Optional
 
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
@@ -15,12 +15,9 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.models.oidc import JWK, JWKS
-from gafaelfawr.util import number_to_base64
-
-if TYPE_CHECKING:
-    from typing import Optional
+from .constants import ALGORITHM
+from .models.oidc import JWK, JWKS
+from .util import number_to_base64
 
 __all__ = ["RSAKeyPair"]
 
@@ -86,7 +83,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        key : `str`
+        key : `bytes`
             Private key encoded using PKCS#8 with no encryption.
         """
         if not self._private_key_as_pem:
@@ -106,7 +103,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        key : Dict[`str`, `str`]
+        key : `gafaelfawr.models.oidc.JWKS`
             The public key in JWKS format.
         """
         public_numbers = self.public_numbers()
@@ -125,7 +122,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        public_key : `str`
+        public_key : `bytes`
             The public key in PEM encoding and SubjectPublicKeyInfo format.
         """
         if not self._public_key_as_pem:

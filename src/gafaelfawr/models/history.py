@@ -5,24 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
+from starlette.datastructures import URL
 
-from gafaelfawr.exceptions import InvalidCursorError
-from gafaelfawr.models.token import TokenType
-from gafaelfawr.util import (
+from ..exceptions import InvalidCursorError
+from ..util import (
     current_datetime,
     normalize_datetime,
     normalize_ip_address,
     normalize_scopes,
 )
-
-if TYPE_CHECKING:
-    from typing import Any, Dict
-
-    from starlette.datastructures import URL
+from .token import TokenType
 
 E = TypeVar("E", bound="BaseModel")
 

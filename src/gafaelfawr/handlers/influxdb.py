@@ -5,11 +5,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from safir.models import ErrorModel
 
-from gafaelfawr.dependencies.auth import AuthenticateRead
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.models.influxdb import InfluxDBToken
-from gafaelfawr.models.token import TokenData
+from ..dependencies.auth import AuthenticateRead
+from ..dependencies.context import RequestContext, context_dependency
+from ..exceptions import NotConfiguredException
+from ..models.influxdb import InfluxDBToken
+from ..models.token import TokenData
 
 router = APIRouter()
 

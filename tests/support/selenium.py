@@ -10,22 +10,19 @@ import subprocess
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import AsyncIterator
 
 from fastapi import FastAPI
 from seleniumwire import webdriver
 
+from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.main import app
 from gafaelfawr.models.token import Token, TokenUserInfo
-from tests.support.tokens import add_expired_session_token
 
-if TYPE_CHECKING:
-    from pathlib import Path
-    from typing import AsyncIterator
-
-    from gafelfawr.config import Config
+from .tokens import add_expired_session_token
 
 
 @dataclass

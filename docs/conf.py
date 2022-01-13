@@ -18,7 +18,6 @@ rst_epilog = """
 
 extensions = [
     "sphinx.ext.autodoc",
-    # "sphinx.ext.autodoc.typehints",
     "sphinx.ext.napoleon",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
@@ -40,7 +39,7 @@ master_doc = "index"
 # General information about the project.
 project = "Gafaelfawr"
 copyright = (
-    "2020 "
+    "2020-2022 "
     "Association of Universities for Research in Astronomy, Inc. (AURA)"
 )
 author = "LSST Data Management"
@@ -72,6 +71,42 @@ intersphinx_mapping = {
 
 intersphinx_timeout = 10.0  # seconds
 intersphinx_cache_limit = 5  # days
+
+nitpick_ignore = [
+    # Ignore missing cross-references for modules that don't provide
+    # intersphinx.  The documentation itself should use double-quotes instead
+    # of single-quotes to not generate a reference, but automatic references
+    # are generated from the type signatures and can't be avoided.
+    ("py:class", "fastapi.applications.FastAPI"),
+    ("py:class", "fastapi.exceptions.HTTPException"),
+    ("py:exc", "fastapi.HTTPException"),
+    ("py:class", "httpx.AsyncClient"),
+    ("py:exc", "httpx.HTTPError"),
+    ("py:class", "kubernetes_asyncio.client.api_client.ApiClient"),
+    ("py:class", "kubernetes_asyncio.client.models.v1_secret.V1Secret"),
+    ("py:class", "pydantic.env_settings.BaseSettings"),
+    ("py:class", "pydantic.main.BaseModel"),
+    ("py:class", "pydantic.networks.AnyHttpUrl"),
+    ("py:class", "pydantic.networks.IPvAnyNetwork"),
+    ("py:class", "pydantic.types.SecretStr"),
+    ("py:class", "pydantic.utils.Representation"),
+    ("py:class", "starlette.middleware.base.BaseHTTPMiddleware"),
+    ("py:class", "starlette.requests.Request"),
+    ("py:class", "starlette.responses.Response"),
+    # Special Pydantic magic that Sphinx doesn't understand.
+    ("py:class", "gafaelfawr.models.history.ConstrainedStrValue"),
+    ("py:class", "gafaelfawr.models.token.ConstrainedIntValue"),
+    ("py:class", "gafaelfawr.models.token.ConstrainedStrValue"),
+    # asyncio.Queue is documented, and that's what all the code references,
+    # but the combination of Sphinx extensions we're using confuse themselves
+    # and there doesn't seem to be any way to fix this.
+    ("py:class", "asyncio.queues.Queue"),
+    # TypeVar references that shouldn't be documented.
+    ("py:class", "gafaelfawr.models.history.E"),
+    ("py:obj", "gafaelfawr.models.history.E"),
+    ("py:class", "gafaelfawr.storage.base.S"),
+    ("py:obj", "gafaelfawr.storage.base.S"),
+]
 
 # Linkcheck builder ==========================================================
 
@@ -150,12 +185,12 @@ napoleon_use_rtype = True
 
 autosummary_generate = True
 
-automodapi_inheritance_diagram = False
+automodapi_inheritance_diagram = True
 automodapi_toctreedirnm = "api"
 automodsumm_inherited_members = False
 
 # Docstrings for classes and methods are inherited from parents.
-autodoc_inherit_docstrings = True
+autodoc_inherit_docstrings = False
 
 # Class documentation should only contain the class docstring and
 # ignore the __init__ docstring, account to LSST coding standards.

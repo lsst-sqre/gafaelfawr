@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends
 from safir.metadata import Metadata, get_metadata
 
-from gafaelfawr.config import Config
-from gafaelfawr.dependencies.config import config_dependency
+from ..config import Config
+from ..dependencies.config import config_dependency
 
 router = APIRouter()
 

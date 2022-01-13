@@ -2,29 +2,25 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Dict, Optional
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import respx
+from _pytest.logging import LogCaptureFixture
+from httpx import AsyncClient, Response
 
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.providers.github import (
     GitHubProvider,
     GitHubTeam,
     GitHubUserInfo,
 )
-from tests.support.github import mock_github
-from tests.support.logging import parse_log
 
-if TYPE_CHECKING:
-    from typing import Dict, Optional
-
-    import respx
-    from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient, Response
-
-    from gafaelfawr.factory import ComponentFactory
+from ..support.github import mock_github
+from ..support.logging import parse_log
 
 
 async def simulate_github_login(

@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
-from typing import TYPE_CHECKING
 
 import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
+from gafaelfawr.config import Config
 from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.exceptions import (
     InvalidExpiresError,
     InvalidScopesError,
     PermissionDeniedError,
 )
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.token import (
     AdminTokenRequest,
@@ -27,12 +28,9 @@ from gafaelfawr.models.token import (
     TokenUserInfo,
 )
 from gafaelfawr.util import current_datetime
-from tests.support.tokens import create_session_token
-from tests.support.util import assert_is_now
 
-if TYPE_CHECKING:
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
+from ..support.tokens import create_session_token
+from ..support.util import assert_is_now
 
 
 @pytest.mark.asyncio

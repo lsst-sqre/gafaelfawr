@@ -8,9 +8,9 @@ alabaster==0.7.12 \
     --hash=sha256:446438bdcca0e05bd45ea2de1668c1d9b032e1a9154c2c259092d77031ddd359 \
     --hash=sha256:a661d72d58e6ea8a57f7a86e37d86716863ee5e92788398526d58b26a4e4dc02
     # via sphinx
-anyio==3.4.0 \
-    --hash=sha256:24adc69309fb5779bc1e06158e143e0b6d2c56b302a3ac3de3083c705a6ed39d \
-    --hash=sha256:2855a9423524abcdd652d942f8932fda1735210f77a6b392eafd9ff34d3fe020
+anyio==3.5.0 \
+    --hash=sha256:a0aeffe2fb1fdf374a8e4b471444f0f3ac4fb9f5a5b542b48824475e0042a5a6 \
+    --hash=sha256:b5fa16c5ff93fa1046f2eeb5bbff2dad4d3514d6cda61d02816dba34fa8c3c2e
     # via
     #   -c requirements/main.txt
     #   httpcore
@@ -28,6 +28,7 @@ attrs==21.4.0 \
     --hash=sha256:2d27e3784d7a565d36ab851fe94887c5eccd6a463168875832a1be79c82828b4 \
     --hash=sha256:626ba8234211db98e869df76230a137c4c40a12d72445c45d5f5b716f076e2fd
     # via
+    #   -c requirements/main.txt
     #   outcome
     #   pytest
     #   trio
@@ -283,9 +284,9 @@ gitdb==4.0.9 \
     --hash=sha256:8033ad4e853066ba6ca92050b9df2f89301b8fc8bf7e9324d412a63f8bf1a8fd \
     --hash=sha256:bac2fd45c0a1c9cf619e63a90d62bdc63892ef92387424b855792a6cabe789aa
     # via gitpython
-gitpython==3.1.25 \
-    --hash=sha256:4f8b0e51713642b83f1eb10136d36a7f2c5278d188c5ae82b144cb1f4e848f0c \
-    --hash=sha256:b923e8952c2fe0d70b129fddd8511acc90b3070c8dddb20d86ca9911a5d0c248
+gitpython==3.1.26 \
+    --hash=sha256:26ac35c212d1f7b16036361ca5cff3ec66e11753a0d677fb6c48fa4e1a9dd8d6 \
+    --hash=sha256:fc8868f63a2e6d268fb25f481995ba185a85a66fcad126f039323ff6635669ee
     # via documenteer
 graphviz==0.16 \
     --hash=sha256:3cad5517c961090dfc679df6402a57de62d97703e2880a1a46147bb0dc1639eb \
@@ -387,9 +388,9 @@ hyperframe==6.0.1 \
     # via
     #   h2
     #   selenium-wire
-identify==2.4.2 \
-    --hash=sha256:67c1e66225870dce721228176637a8ef965e8dd58450bcc7592249d0dfc4da6c \
-    --hash=sha256:93e8ec965e888f2212aa5c24b2b662f4832c39acb1d7196a70ea45acb626a05e
+identify==2.4.3 \
+    --hash=sha256:8d80d877441073e7222ff272da45ca5ca1d901412790544b446e7d363ad5e9f0 \
+    --hash=sha256:ac9c919c8ac5b90d03f8e1bce6dedcbd8a3b2a59c46737c04ed852e2d307af29
     # via pre-commit
 idna==3.3 \
     --hash=sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff \
@@ -594,9 +595,7 @@ py==1.11.0 \
 pyasn1==0.4.8 \
     --hash=sha256:39c7e2ec30515947ff4e87fb6f456dfc6e84857d34be479c9d4a4ba4bf46aa5d \
     --hash=sha256:aef77c9fb94a3ac588e87841208bdec464471d9871bd5050a287cc9a475cd0ba
-    # via
-    #   -c requirements/main.txt
-    #   selenium-wire
+    # via selenium-wire
 pybtex==0.24.0 \
     --hash=sha256:818eae35b61733e5c007c3fcd2cfb75ed1bc8b4173c1f70b56cc4c0802d34755 \
     --hash=sha256:e1e0c8c69998452fea90e9179aa2a98ab103f3eed894405b7264e517cc2fcc0f
@@ -643,9 +642,9 @@ pytest==6.2.5 \
     #   -r requirements/dev.in
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==0.16.0 \
-    --hash=sha256:5f2a21273c47b331ae6aa5b36087047b4899e40f03f18397c0e65fa5cca54e9b \
-    --hash=sha256:7496c5977ce88c34379df64a66459fe395cd05543f0a2f837016e7144391fcfb
+pytest-asyncio==0.17.0 \
+    --hash=sha256:b41c3ff0ec5b5b144459aa1c53a866f67278177f6d4f3ef6874bd864fc82834d \
+    --hash=sha256:c98e0e04ae5910bbcc219f52bdf871bd1d392f624ef77c49c236613c0b6d8ee1
     # via -r requirements/dev.in
 pytest-cov==3.0.0 \
     --hash=sha256:578d5d15ac4a25e5f961c938b85a05b09fdaae9deef3bb6de9a6e766622ca7a6 \
@@ -698,12 +697,11 @@ requests==2.27.1 \
     --hash=sha256:68d7c56fd5a8999887728ef304a6d12edc7be74f1cfa47714fc8b414525c9a61 \
     --hash=sha256:f22fa1e554c9ddfd16e6e41ac79759e17be9e492b3587efa038054674760e72d
     # via
-    #   -c requirements/main.txt
     #   documenteer
     #   sphinx
-respx==0.19.0 \
-    --hash=sha256:1ac1cc99bf892ffd3e33108ae43d71d8309a58ac226965f4bd81ec055600f265 \
-    --hash=sha256:4a09e15803c7450d45303520ec528794c9fd77b05984263bc83b78aabbb39413
+respx==0.19.1 \
+    --hash=sha256:4b13ba2aa4fc619ad5523786bacb4a565fab4ba3d02582b12f23942aa5a9bdf6 \
+    --hash=sha256:df26cf743f4c48bb38f134a3b0ec7384d5350671264c1c28bbddf41658d6f01a
     # via -r requirements/dev.in
 rfc3986[idna2008]==1.5.0 \
     --hash=sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835 \
@@ -716,9 +714,9 @@ selenium==4.1.0 \
     # via
     #   -r requirements/dev.in
     #   selenium-wire
-selenium-wire==4.5.6 \
-    --hash=sha256:ee0278803ea64502a337ed40c2fac845ef90c885513649af5c795865a294aed9 \
-    --hash=sha256:efbfcf20e557792abfe96bc0f0c7ca741f907b4151069fecb5a76fcc20282389
+selenium-wire==4.6.0 \
+    --hash=sha256:ad15ea42500b85a29bed8cc65fe9c271fd9ad87a1aacc37658c4e4c8ee464673 \
+    --hash=sha256:c8b967fca6e6017d86dadb092639008440b6fae2aa7ee420dd4b3529c7dbf28f
     # via -r requirements/dev.in
 seqdiag==3.0.0 \
     --hash=sha256:8fc941a0badc992766ffb393cf46d56f087e6c58438bc20699e7cdbae202033d \
@@ -764,9 +762,9 @@ sphinx==4.3.2 \
     #   sphinx-click
     #   sphinx-prompt
     #   sphinxcontrib-bibtex
-sphinx-automodapi==0.14.0 \
-    --hash=sha256:5f89cf29b5f151c24f1e505d6eea5edeca316710907745450fe0c15d3032a612 \
-    --hash=sha256:6fadf79954920f5686da434032239296209d4598316e8548cd62b5d2098ec6d7
+sphinx-automodapi==0.14.1 \
+    --hash=sha256:4238e131d7abc47226449661bb3cfa2bb1b5b190184ffa69d9b924b984a22753 \
+    --hash=sha256:a2f9c0f9e2901875e6db75df6c01412875eb15f25e7db1206e1b69fedf75bbc9
     # via -r requirements/dev.in
 sphinx-click==3.0.2 \
     --hash=sha256:29896dd12bfaacb566a8c7af2e2b675d010d69b0c5aad3b52495d4842358b15b \
@@ -869,9 +867,9 @@ trio-websocket==0.9.2 \
     --hash=sha256:5b558f6e83cc20a37c3b61202476c5295d1addf57bd65543364e0337e37ed2bc \
     --hash=sha256:a3d34de8fac26023eee701ed1e7bf4da9a8326b61a62934ec9e53b64970fd8fe
     # via selenium
-types-cachetools==4.2.8 \
-    --hash=sha256:75f77c312cea4b304c3f7e65567ca669d39cf790bfe4ee4877cddbf7accf3527 \
-    --hash=sha256:79173c84ac9b68961121a1936123b6f0fceaa41f118029bdf89404e7e7dbf9ac
+types-cachetools==4.2.9 \
+    --hash=sha256:4ac4b7866da8d3f750413a3e91809c2bf6124aa920ef6dc32c5df2d84a53585c \
+    --hash=sha256:da18b1acbc4a03ed3ce8f6ad4d70ad8ca31f542c205cb45ceb524d2ddd544c28
     # via -r requirements/dev.in
 types-pyyaml==6.0.3 \
     --hash=sha256:6ea4eefa8579e0ce022f785a62de2bcd647fad4a81df5cf946fd67e4b059920b \

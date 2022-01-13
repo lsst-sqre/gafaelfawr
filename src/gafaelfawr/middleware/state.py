@@ -4,15 +4,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import Awaitable, Callable, Type
 
-from fastapi import Request, Response
+from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-
-if TYPE_CHECKING:
-    from typing import Awaitable, Callable, Type
-
-    from fastapi import FastAPI
 
 __all__ = ["BaseState", "StateMiddleware"]
 
@@ -35,7 +30,7 @@ class BaseState(ABC):
         ----------
         cookie : `str`
             The encrypted cookie value.
-        request : `fastapi.Request`
+        request : ``fastapi.Request``
             The request, used for logging.
 
         Returns
@@ -74,7 +69,7 @@ class StateMiddleware(BaseHTTPMiddleware):
 
     Parameters
     ----------
-    app : `fastapi.FastAPI`
+    app : ``fastapi.FastAPI``
         The ASGI application.
     cookie_name : `str`
         The name of the state cookie.
@@ -125,7 +120,7 @@ class StateMiddleware(BaseHTTPMiddleware):
 
         Parameters
         ----------
-        request : `fastapi.Request`
+        request : ``fastapi.Request``
             The incoming request.
 
         Returns

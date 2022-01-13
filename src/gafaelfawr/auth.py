@@ -10,8 +10,8 @@ from typing import Optional, Set
 
 from fastapi import HTTPException, status
 
-from gafaelfawr.dependencies.context import RequestContext
-from gafaelfawr.exceptions import (
+from .dependencies.context import RequestContext
+from .exceptions import (
     InvalidRequestError,
     InvalidTokenError,
     OAuthBearerError,
@@ -124,9 +124,9 @@ def generate_challenge(
 
     Returns
     -------
-    fastapi.HTTPException
-        A prepopulated `fastapi.HTTPException` object ready for raising.  The
-        headers will contain a ``WWW-Authenticate`` challenge.
+    ``fastapi.HTTPException``
+        A prepopulated ``fastapi.HTTPException`` object ready for raising.
+        The headers will contain a ``WWW-Authenticate`` challenge.
     """
     context.logger.warning("%s", exc.message, error=str(exc))
     challenge = AuthErrorChallenge(
@@ -176,7 +176,7 @@ def generate_unauthorized_challenge(
 
     Returns
     -------
-    exception : `fastapi.HTTPException`
+    exception : ``fastapi.HTTPException``
         The exception to raise, either a 403 (for AJAX) or a 401.
 
     Notes

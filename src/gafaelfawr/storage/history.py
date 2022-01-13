@@ -2,29 +2,23 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import and_, func, or_
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.sql import text
+from sqlalchemy.sql import Select, text
 
-from gafaelfawr.models.history import (
+from ..models.history import (
+    AdminHistoryEntry,
     HistoryCursor,
     PaginatedHistory,
     TokenChangeHistoryEntry,
 )
-from gafaelfawr.schema import AdminHistory, TokenChangeHistory
-from gafaelfawr.util import datetime_to_db, normalize_datetime
-
-if TYPE_CHECKING:
-    from datetime import datetime
-    from typing import Optional
-
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy.sql import Select
-
-    from gafaelfawr.models.history import AdminHistoryEntry
-    from gafaelfawr.models.token import TokenType
+from ..models.token import TokenType
+from ..schema import AdminHistory, TokenChangeHistory
+from ..util import datetime_to_db, normalize_datetime
 
 __all__ = ["AdminHistoryStore", "TokenChangeHistoryStore"]
 
@@ -34,7 +28,7 @@ class AdminHistoryStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.ext.AsyncSession`
+    session : `sqlalchemy.ext.asyncio.AsyncSession`
         The database session proxy.
     """
 

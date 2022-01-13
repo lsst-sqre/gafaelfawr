@@ -2,26 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import ANY
 
 import jwt
 import pytest
+from _pytest.logging import LogCaptureFixture
+from httpx import AsyncClient
 
-from tests.support.constants import TEST_HOSTNAME
-from tests.support.headers import assert_unauthorized_is_correct
-from tests.support.logging import parse_log
-from tests.support.settings import configure
-from tests.support.tokens import create_session_token
+from gafaelfawr.config import Config
+from gafaelfawr.factory import ComponentFactory
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
+from ..support.constants import TEST_HOSTNAME
+from ..support.headers import assert_unauthorized_is_correct
+from ..support.logging import parse_log
+from ..support.settings import configure
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

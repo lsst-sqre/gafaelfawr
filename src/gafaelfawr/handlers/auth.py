@@ -17,19 +17,11 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse
 
-from gafaelfawr.auth import (
-    AuthError,
-    AuthErrorChallenge,
-    AuthType,
-    generate_challenge,
-)
-from gafaelfawr.dependencies.auth import AuthenticateRead
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import (
-    InsufficientScopeError,
-    InvalidDelegateToError,
-)
-from gafaelfawr.models.token import TokenData
+from ..auth import AuthError, AuthErrorChallenge, AuthType, generate_challenge
+from ..dependencies.auth import AuthenticateRead
+from ..dependencies.context import RequestContext, context_dependency
+from ..exceptions import InsufficientScopeError, InvalidDelegateToError
+from ..models.token import TokenData
 
 router = APIRouter()
 

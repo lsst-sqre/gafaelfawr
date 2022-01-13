@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pytest
+from httpx import AsyncClient
 
-from tests.support.cookies import set_session_cookie
-from tests.support.tokens import create_session_token
+from gafaelfawr.config import Config
+from gafaelfawr.factory import ComponentFactory
 
-if TYPE_CHECKING:
-    from httpx import AsyncClient
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.factory import ComponentFactory
+from ..support.cookies import set_session_cookie
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

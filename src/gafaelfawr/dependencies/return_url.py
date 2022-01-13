@@ -13,8 +13,8 @@ from urllib.parse import ParseResult, urlparse
 
 from fastapi import Depends, Header, Query
 
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import InvalidReturnURLError
+from ..exceptions import InvalidReturnURLError
+from .context import RequestContext, context_dependency
 
 __all__ = ["parsed_redirect_uri", "return_url", "return_url_with_header"]
 

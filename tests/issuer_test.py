@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
 
-from tests.support.settings import configure
-from tests.support.tokens import create_session_token
+from gafaelfawr.factory import ComponentFactory
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from gafaelfawr.factory import ComponentFactory
+from .support.settings import configure
+from .support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

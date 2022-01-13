@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import Column, DateTime, Enum, Index, Integer, String
 from sqlalchemy.dialects import postgresql
 
-from gafaelfawr.models.token import TokenType
-from gafaelfawr.schema.base import Base
-
-if TYPE_CHECKING:
-    from datetime import datetime
-    from typing import Optional
+from ..models.token import TokenType
+from .base import Base
 
 __all__ = ["TokenAuthHistory"]
 

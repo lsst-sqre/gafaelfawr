@@ -2,22 +2,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Optional
 from urllib.parse import parse_qs, urljoin
 
-from httpx import Response
+import respx
+from httpx import Request, Response
 
+from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
-
-if TYPE_CHECKING:
-    from typing import Optional
-
-    import respx
-    from httpx import Request
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.keypair import RSAKeyPair
-    from gafaelfawr.models.oidc import OIDCToken
+from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.models.oidc import OIDCToken
 
 __all__ = ["mock_oidc_provider_config", "mock_oidc_provider_token"]
 

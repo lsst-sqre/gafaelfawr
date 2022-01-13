@@ -2,29 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Optional
 
-from gafaelfawr.exceptions import (
+from structlog.stdlib import BoundLogger
+
+from ..config import OIDCServerConfig
+from ..exceptions import (
     DeserializeException,
     InvalidClientError,
     InvalidGrantError,
     UnauthorizedClientException,
 )
-
-if TYPE_CHECKING:
-    from typing import Optional
-
-    from structlog.stdlib import BoundLogger
-
-    from gafaelfawr.config import OIDCServerConfig
-    from gafaelfawr.issuer import TokenIssuer
-    from gafaelfawr.models.oidc import OIDCVerifiedToken
-    from gafaelfawr.models.token import Token
-    from gafaelfawr.services.token import TokenService
-    from gafaelfawr.storage.oidc import (
-        OIDCAuthorizationCode,
-        OIDCAuthorizationStore,
-    )
+from ..issuer import TokenIssuer
+from ..models.oidc import OIDCVerifiedToken
+from ..models.token import Token
+from ..storage.oidc import OIDCAuthorizationCode, OIDCAuthorizationStore
+from .token import TokenService
 
 __all__ = ["OIDCService"]
 
@@ -46,7 +39,7 @@ class OIDCService:
         JWT issuer.
     token_service : `gafaelfawr.services.token.TokenService`
         Token manipulation service.
-    logger : `structlog.BoundLogger`
+    logger : ``structlog.stdlib.BoundLogger``
         Logger for diagnostics.
 
     Notes

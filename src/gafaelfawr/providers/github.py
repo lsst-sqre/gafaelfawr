@@ -5,25 +5,19 @@ from __future__ import annotations
 import base64
 import hashlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Any, Dict, List
 from urllib.parse import urlencode
 
-from httpx import HTTPError
+from httpx import AsyncClient, HTTPError
 from pydantic import ValidationError
+from structlog.stdlib import BoundLogger
 
-from gafaelfawr.exceptions import GitHubException
-from gafaelfawr.models.link import LinkData
-from gafaelfawr.models.token import TokenGroup, TokenUserInfo
-from gafaelfawr.providers.base import Provider
-
-if TYPE_CHECKING:
-    from typing import Any, Dict, List
-
-    from httpx import AsyncClient
-    from structlog.stdlib import BoundLogger
-
-    from gafaelfawr.config import GitHubConfig
-    from gafaelfawr.models.state import State
+from ..config import GitHubConfig
+from ..exceptions import GitHubException
+from ..models.link import LinkData
+from ..models.state import State
+from ..models.token import TokenGroup, TokenUserInfo
+from .base import Provider
 
 __all__ = ["GitHubProvider"]
 
@@ -92,9 +86,9 @@ class GitHubProvider(Provider):
     ----------
     config : `gafaelfawr.config.GitHubConfig`
         Configuration for the GitHub authentication provider.
-    http_client : `httpx.AsyncClient`
+    http_client : ``httpx.AsyncClient``
         Session to use to make HTTP requests.
-    logger : `structlog.BoundLogger`
+    logger : ``structlog.stdlib.BoundLogger``
         Logger for any log messages.
     """
 
@@ -175,11 +169,11 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        httpx.HTTPError
-            An HTTP client error occurred trying to talk to the authentication
-            provider.
         gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to a request.
+        ``httpx.HTTPError``
+            An HTTP client error occurred trying to talk to the authentication
+            provider.
         """
         github_token = await self._get_access_token(code, state)
         user_info = await self._get_user_info(github_token)
@@ -265,11 +259,11 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        httpx.HTTPError
-            An error occurred trying to talk to GitHub.
         gafaelfawr.exceptions.GitHubException
             GitHub responded with an error to the request for the access
             token.
+        ``httpx.HTTPError``
+            An error occurred trying to talk to GitHub.
         """
         data = {
             "client_id": self._config.client_id,
@@ -307,7 +301,7 @@ class GitHubProvider(Provider):
         ------
         gafaelfawr.exceptions.GitHubException
             User has no primary email address.
-        httpx.HTTPError
+        ``httpx.HTTPError``
             An error occurred trying to talk to GitHub.
         """
         self._logger.debug("Fetching user data from %s", self._USER_URL)
@@ -369,7 +363,7 @@ class GitHubProvider(Provider):
         ------
         gafaelfawr.exceptions.GitHubException
             The next URL from a Link header didn't point to the teams API URL.
-        httpx.HTTPError
+        ``httpx.HTTPError``
             An error occurred trying to talk to GitHub.
         """
         self._logger.debug("Fetching user team data from %s", self._TEAMS_URL)

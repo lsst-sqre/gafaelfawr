@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+__all__ = ["InfluxDBToken"]
+
 
 class InfluxDBToken(BaseModel):
     """Response to a token creation request."""

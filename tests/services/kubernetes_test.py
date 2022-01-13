@@ -2,45 +2,38 @@
 
 from __future__ import annotations
 
+from asyncio import Queue
 from base64 import b64decode, b64encode
 from datetime import timedelta
-from queue import Queue
-from typing import TYPE_CHECKING
-from unittest.mock import ANY
+from typing import Any, Dict, List
+from unittest.mock import ANY, MagicMock
 
 import pytest
-from kubernetes.client import (
+from _pytest.logging import LogCaptureFixture
+from kubernetes_asyncio.client import (
     ApiException,
     V1ObjectMeta,
     V1OwnerReference,
     V1Secret,
 )
+from safir.testing.kubernetes import MockKubernetesApi
 
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.token import (
     AdminTokenRequest,
     Token,
     TokenData,
     TokenType,
 )
+from gafaelfawr.services.token import TokenService
 from gafaelfawr.storage.kubernetes import (
     StatusReason,
     WatchEvent,
     WatchEventType,
 )
 from gafaelfawr.util import current_datetime
-from tests.support.kubernetes import (
-    MockKubernetesApi,
-    assert_kubernetes_objects_are,
-)
-from tests.support.logging import parse_log
 
-if TYPE_CHECKING:
-    from typing import Any, Dict, List
-
-    from _pytest.logging import LogCaptureFixture
-
-    from gafaelfawr.factory import ComponentFactory
-    from gafaelfawr.services.token import TokenService
+from ..support.logging import parse_log
 
 TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
     {
@@ -80,9 +73,9 @@ TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
 ]
 
 
-def create_test_service_tokens(mock: MockKubernetesApi) -> None:
+async def create_test_service_tokens(mock: MockKubernetesApi) -> None:
     for body in TEST_SERVICE_TOKENS:
-        mock.create_namespaced_custom_object(
+        await mock.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
             body["metadata"]["namespace"],
@@ -139,13 +132,16 @@ async def assert_kubernetes_secrets_are_correct(
         )
         for t in service_tokens
     ]
-    assert_kubernetes_objects_are(mock, "Secret", expected)
+    expected = sorted(
+        expected, key=lambda o: (o.metadata.namespace, o.metadata.name)
+    )
+    assert mock.get_all_objects_for_test("Secret") == expected
 
     # Now check that every token in those secrets is correct.
     for service_token in service_tokens:
         name = service_token["metadata"]["name"]
         namespace = service_token["metadata"]["namespace"]
-        secret = mock.read_namespaced_secret(name, namespace)
+        secret = await mock.read_namespaced_secret(name, namespace)
         data = await token_data_from_secret(token_service, secret)
         assert data == TokenData(
             token=data.token,
@@ -169,12 +165,12 @@ async def test_create(
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
-    create_test_service_tokens(mock_kubernetes)
-    kubernetes_service = factory.create_kubernetes_service()
+    await create_test_service_tokens(mock_kubernetes)
+    kubernetes_service = factory.create_kubernetes_service(MagicMock())
     await kubernetes_service.update_service_tokens()
     await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
 
-    service_token = mock_kubernetes.get_namespaced_custom_object(
+    service_token = await mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -191,7 +187,7 @@ async def test_create(
             "type": "SecretCreated",
         }
     ]
-    service_token = mock_kubernetes.get_namespaced_custom_object(
+    service_token = await mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "nublado2",
@@ -252,8 +248,8 @@ async def test_modify(
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
-    create_test_service_tokens(mock_kubernetes)
-    kubernetes_service = factory.create_kubernetes_service()
+    await create_test_service_tokens(mock_kubernetes)
+    kubernetes_service = factory.create_kubernetes_service(MagicMock())
     token_service = factory.create_token_service()
 
     # Valid secret but with a bogus token.
@@ -264,7 +260,7 @@ async def test_modify(
         metadata=V1ObjectMeta(name="gafaelfawr-secret", namespace="mobu"),
         type="Opaque",
     )
-    mock_kubernetes.create_namespaced_secret("mobu", secret)
+    await mock_kubernetes.create_namespaced_secret("mobu", secret)
 
     # Valid secret but with a nonexistent token.
     secret = V1Secret(
@@ -285,7 +281,7 @@ async def test_modify(
         ),
         type="Opaque",
     )
-    mock_kubernetes.create_namespaced_secret("nublado2", secret)
+    await mock_kubernetes.create_namespaced_secret("nublado2", secret)
 
     # Update the secrets.  This should replace both with fresh secrets.
     await kubernetes_service.update_service_tokens()
@@ -339,7 +335,7 @@ async def test_modify(
         metadata=V1ObjectMeta(name="gafaelfawr-secret", namespace="mobu"),
         type="Opaque",
     )
-    mock_kubernetes.replace_namespaced_secret(
+    await mock_kubernetes.replace_namespaced_secret(
         "gafaelfawr-secret", "mobu", secret
     )
 
@@ -361,12 +357,14 @@ async def test_modify(
         metadata=V1ObjectMeta(name="gafaelfawr", namespace="nublado2"),
         type="Opaque",
     )
-    mock_kubernetes.replace_namespaced_secret("gafaelfawr", "nublado2", secret)
+    await mock_kubernetes.replace_namespaced_secret(
+        "gafaelfawr", "nublado2", secret
+    )
 
     # Update the secrets.  This should create new tokens for both.
     await kubernetes_service.update_service_tokens()
     await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
-    nublado_secret = mock_kubernetes.read_namespaced_secret(
+    nublado_secret = await mock_kubernetes.read_namespaced_secret(
         "gafaelfawr", "nublado2"
     )
 
@@ -377,7 +375,7 @@ async def test_modify(
         metadata=V1ObjectMeta(name="gafaelfawr-secret", namespace="mobu"),
         type="Opaque",
     )
-    mock_kubernetes.replace_namespaced_secret(
+    await mock_kubernetes.replace_namespaced_secret(
         "gafaelfawr-secret", "mobu", secret
     )
 
@@ -387,7 +385,7 @@ async def test_modify(
     await assert_kubernetes_secrets_are_correct(
         factory, mock_kubernetes, is_fresh=False
     )
-    assert nublado_secret == mock_kubernetes.read_namespaced_secret(
+    assert nublado_secret == await mock_kubernetes.read_namespaced_secret(
         "gafaelfawr", "nublado2"
     )
 
@@ -409,16 +407,16 @@ async def test_update_from_queue(
             "scopes": ["admin:token"],
         },
     }
-    mock_kubernetes.create_namespaced_custom_object(
+    await mock_kubernetes.create_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
         "gafaelfawrservicetokens",
         service_token,
     )
-    kubernetes_service = factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service(MagicMock())
     queue: Queue[WatchEvent] = Queue()
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.ADDED,
             name="gafaelfawr-secret",
@@ -432,7 +430,7 @@ async def test_update_from_queue(
     await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
     assert queue.empty()
 
-    service_token = mock_kubernetes.get_namespaced_custom_object(
+    service_token = await mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -441,7 +439,7 @@ async def test_update_from_queue(
     )
     service_token["metadata"]["generation"] = 2
     service_token["spec"]["service"] = "other-mobu"
-    mock_kubernetes.replace_namespaced_custom_object(
+    await mock_kubernetes.replace_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -449,7 +447,7 @@ async def test_update_from_queue(
         "gafaelfawr-secret",
         service_token,
     )
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.MODIFIED,
             name="gafaelfawr-secret",
@@ -464,7 +462,7 @@ async def test_update_from_queue(
     assert queue.empty()
 
     # Deletion does nothing, but shouldn't prompt an error.
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.MODIFIED,
             name="gafaelfawr-secret",
@@ -507,16 +505,16 @@ async def test_update_generation(
             "scopes": ["admin:token"],
         },
     }
-    mock_kubernetes.create_namespaced_custom_object(
+    await mock_kubernetes.create_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
         "gafaelfawrservicetokens",
         service_token,
     )
-    kubernetes_service = factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service(MagicMock())
     queue: Queue[WatchEvent] = Queue()
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.ADDED,
             name="gafaelfawr-secret",
@@ -529,14 +527,14 @@ async def test_update_generation(
     )
     await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
     assert queue.empty()
-    secret = mock_kubernetes.read_namespaced_secret(
+    secret = await mock_kubernetes.read_namespaced_secret(
         "gafaelfawr-secret", "mobu"
     )
     assert secret
 
     # Modify the GafaelfawrServiceToken without changing the generation.  The
     # modify event should then be ignored.
-    service_token = mock_kubernetes.get_namespaced_custom_object(
+    service_token = await mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -544,7 +542,7 @@ async def test_update_generation(
         "gafaelfawr-secret",
     )
     service_token["spec"]["service"] = "other-mobu"
-    mock_kubernetes.replace_namespaced_custom_object(
+    await mock_kubernetes.replace_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -552,7 +550,7 @@ async def test_update_generation(
         "gafaelfawr-secret",
         service_token,
     )
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.ADDED,
             name="gafaelfawr-secret",
@@ -564,13 +562,13 @@ async def test_update_generation(
         queue, exit_on_empty=True
     )
     assert queue.empty()
-    assert secret == mock_kubernetes.read_namespaced_secret(
+    assert secret == await mock_kubernetes.read_namespaced_secret(
         "gafaelfawr-secret", "mobu"
     )
 
     # But if we send a delete and then an add with the same generation, it
     # should be processed.
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.DELETED,
             name="gafaelfawr-secret",
@@ -578,7 +576,7 @@ async def test_update_generation(
             generation=1,
         )
     )
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.ADDED,
             name="gafaelfawr-secret",
@@ -590,7 +588,7 @@ async def test_update_generation(
         queue, exit_on_empty=True
     )
     assert queue.empty()
-    assert secret != mock_kubernetes.read_namespaced_secret(
+    assert secret != await mock_kubernetes.read_namespaced_secret(
         "gafaelfawr-secret", "mobu"
     )
     await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
@@ -619,24 +617,24 @@ async def test_update_metadata(
             "scopes": ["admin:token"],
         },
     }
-    mock_kubernetes.create_namespaced_custom_object(
+    await mock_kubernetes.create_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
         "gafaelfawrservicetokens",
         service_token,
     )
-    kubernetes_service = factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service(MagicMock())
     await kubernetes_service.update_service_tokens()
     await assert_kubernetes_secrets_are_correct(factory, mock_kubernetes)
-    secret = mock_kubernetes.read_namespaced_secret(
+    secret = await mock_kubernetes.read_namespaced_secret(
         "gafaelfawr-secret", "mobu"
     )
     assert secret
 
     # Sending a modified event does nothing.
     queue: Queue[WatchEvent] = Queue()
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.MODIFIED,
             name="gafaelfawr-secret",
@@ -648,12 +646,12 @@ async def test_update_metadata(
         queue, exit_on_empty=True
     )
     assert queue.empty()
-    assert secret == mock_kubernetes.read_namespaced_secret(
+    assert secret == await mock_kubernetes.read_namespaced_secret(
         "gafaelfawr-secret", "mobu"
     )
 
     # Now add some labels and annotations.
-    service_token = mock_kubernetes.get_namespaced_custom_object(
+    service_token = await mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -662,7 +660,7 @@ async def test_update_metadata(
     )
     service_token["metadata"]["labels"] = {"foo": "bar"}
     service_token["metadata"]["annotations"] = {"one": "1", "two": "2"}
-    mock_kubernetes.replace_namespaced_custom_object(
+    await mock_kubernetes.replace_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -670,7 +668,7 @@ async def test_update_metadata(
         "gafaelfawr-secret",
         service_token,
     )
-    queue.put(
+    await queue.put(
         WatchEvent(
             event_type=WatchEventType.MODIFIED,
             name="gafaelfawr-secret",
@@ -689,8 +687,8 @@ async def test_update_metadata(
 async def test_errors_replace_read(
     factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
 ) -> None:
-    create_test_service_tokens(mock_kubernetes)
-    kubernetes_service = factory.create_kubernetes_service()
+    await create_test_service_tokens(mock_kubernetes)
+    kubernetes_service = factory.create_kubernetes_service(MagicMock())
     token_service = factory.create_token_service()
 
     # Create a secret that should exist but has an invalid token.
@@ -700,7 +698,7 @@ async def test_errors_replace_read(
         metadata=V1ObjectMeta(name="gafaelfawr-secret", namespace="mobu"),
         type="Opaque",
     )
-    mock_kubernetes.create_namespaced_secret("mobu", secret)
+    await mock_kubernetes.create_namespaced_secret("mobu", secret)
 
     # Simulate some errors.  The callback function takes the operation and the
     # secret name.
@@ -715,13 +713,13 @@ async def test_errors_replace_read(
     await kubernetes_service.update_service_tokens()
     objects = mock_kubernetes.get_all_objects_for_test("Secret")
     assert secret in objects
-    good_secret = mock_kubernetes.read_namespaced_secret(
+    good_secret = await mock_kubernetes.read_namespaced_secret(
         "gafaelfawr", "nublado2"
     )
     assert await token_data_from_secret(token_service, good_secret)
 
     # We should have also updated the status of the parent custom object.
-    service_token = mock_kubernetes.get_namespaced_custom_object(
+    service_token = await mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -757,7 +755,7 @@ async def test_errors_replace_read(
 async def test_errors_scope(
     factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
 ) -> None:
-    mock_kubernetes.create_namespaced_custom_object(
+    await mock_kubernetes.create_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",
@@ -776,12 +774,14 @@ async def test_errors_scope(
             },
         },
     )
-    kubernetes_service = factory.create_kubernetes_service()
+    kubernetes_service = factory.create_kubernetes_service(MagicMock())
 
     await kubernetes_service.update_service_tokens()
     with pytest.raises(ApiException):
-        mock_kubernetes.read_namespaced_secret("gafaelfawr-secret", "mobu")
-    service_token = mock_kubernetes.get_namespaced_custom_object(
+        await mock_kubernetes.read_namespaced_secret(
+            "gafaelfawr-secret", "mobu"
+        )
+    service_token = await mock_kubernetes.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
         "mobu",

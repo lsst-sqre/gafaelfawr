@@ -32,9 +32,9 @@ from pydantic import (
 from pydantic.env_settings import SettingsSourceCallable
 from safir.logging import configure_logging
 
-from gafaelfawr.constants import SCOPE_REGEX, USERNAME_REGEX
-from gafaelfawr.keypair import RSAKeyPair
-from gafaelfawr.models.token import Token
+from .constants import SCOPE_REGEX, USERNAME_REGEX
+from .keypair import RSAKeyPair
+from .models.token import Token
 
 __all__ = [
     "Config",
@@ -131,7 +131,7 @@ class OIDCSettings(BaseModel):
 
 
 class LDAPSettings(BaseModel):
-    """pydantic model of LDAP configuration"""
+    """pydantic model of LDAP configuration."""
 
     url: str
     """LDAP server URL.
@@ -353,7 +353,7 @@ class SafirConfig:
     """
 
     profile: str = os.getenv("SAFIR_PROFILE", "production")
-    """Application run profile: "development" or "production".
+    """Application run profile ("development" or "production").
 
     Set with the ``SAFIR_PROFILE`` environment variable.
     """
@@ -455,23 +455,33 @@ class GitHubConfig:
 class LDAPConfig:
     """Configuration for LDAP support.
 
-    Note: In all known implementations, it seems `gidNumber` is used
-    when finding the gid number of a group.
-
-    We assume LDAP is enabled if url is non-empty.
+    In all known implementations, ``gidNumber`` holds the numeric GID of the
+    group and ``cn`` holds its name, so these are not configurable.
     """
 
     url: str
-    """LDAP Server URL. Use with `ldaps` if using SSL."""
+    """LDAP server URL.
+
+    Use the ``ldaps`` scheme if you're using TLS.  Only anonymous binds are
+    supported.
+    """
 
     base_dn: str
     """Base DN to use when executing LDAP search."""
 
-    group_object_class: str
-    """LDAP Group Object Class. Usually `posixGroup` as in RFC2307(bis)."""
+    group_object_class: str = "posixGroup"
+    """LDAP group object class.
 
-    group_member: str
-    """LDAP group member. `memberuid` in RFC2307 and `member` in RFC2307bis."""
+    Usually ``posixGroup``, as specified in :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    group_member: str = "member"
+    """LDAP group member attribute.
+
+    ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
 
 
 @dataclass(frozen=True)

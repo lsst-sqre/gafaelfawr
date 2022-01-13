@@ -2,40 +2,48 @@
 
 from __future__ import annotations
 
-import _thread
-import os
-import time
+import asyncio
+from asyncio import Queue
 from base64 import b64encode
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    TypeVar,
+    cast,
+)
 
-import kubernetes
-from kubernetes.client import (
+from kubernetes_asyncio import client
+from kubernetes_asyncio.client import (
+    ApiClient,
     ApiException,
     V1ObjectMeta,
     V1OwnerReference,
     V1Secret,
 )
+from kubernetes_asyncio.watch import Watch
+from structlog.stdlib import BoundLogger
 
-from gafaelfawr.exceptions import KubernetesError
-from gafaelfawr.models.token import Token
+from ..exceptions import KubernetesError, KubernetesObjectError
+from ..models.token import Token
 
-if TYPE_CHECKING:
-    from queue import Queue
-    from typing import Dict, List, Optional
+F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
-    from structlog.stdlib import BoundLogger
-
-F = TypeVar("F", bound=Callable[..., Any])
-
-__all__ = ["KubernetesStorage"]
-
-
-class KubernetesObjectError(Exception):
-    """A Kubernetes object could not be parsed."""
+__all__ = [
+    "GafaelfawrServiceToken",
+    "KubernetesStorage",
+    "KubernetesWatcher",
+    "StatusReason",
+    "WatchEvent",
+    "WatchEventType",
+]
 
 
 @dataclass
@@ -159,9 +167,9 @@ def _convert_exception(f: F) -> F:
     """Convert Kubernetes ApiException to KubernetesError."""
 
     @wraps(f)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
-            return f(*args, **kwargs)
+            return await f(*args, **kwargs)
         except ApiException as e:
             raise KubernetesError(f"Kubernetes API error: {str(e)}") from e
 
@@ -173,27 +181,16 @@ class KubernetesStorage:
 
     This abstracts storage of Kubernetes objects by wrapping the underlying
     Kubernetes Python client.
-
-    Parameters
-    ----------
-    logger : `structlog.stdlib.BoundLogger`
-        Logger to use for messages.
     """
 
-    def __init__(
-        self,
-        logger: BoundLogger,
-    ) -> None:
-        if "KUBERNETES_PORT" in os.environ:
-            kubernetes.config.load_incluster_config()
-        else:
-            kubernetes.config.load_kube_config()
-        self._api = kubernetes.client.CoreV1Api()
-        self._custom_api = kubernetes.client.CustomObjectsApi()
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        self._api_client = api_client
+        self._api = client.CoreV1Api(api_client)
+        self._custom_api = client.CustomObjectsApi(api_client)
         self._logger = logger
 
     @_convert_exception
-    def create_secret_for_service_token(
+    async def create_secret_for_service_token(
         self, parent: GafaelfawrServiceToken, token: Token
     ) -> None:
         """Create a Kubernetes secret from a token.
@@ -203,21 +200,38 @@ class KubernetesStorage:
         Parameters
         ----------
         parent : `GafaelfawrServiceToken`
-            The parent ``GafaelfawrServiceToken`` object for the secret.
+            The parent `GafaelfawrServiceToken` object for the secret.
         token : `gafaelfawr.models.token.Token`
             The token to store.
         """
         secret = self._build_secret_for_service_token(parent, token)
-        self._api.create_namespaced_secret(parent.namespace, secret)
-        self.update_service_token_status(
+        await self._api.create_namespaced_secret(parent.namespace, secret)
+        await self.update_service_token_status(
             parent,
             reason=StatusReason.Created,
             message="Secret was created",
             success=True,
         )
 
+    async def create_service_token_watcher(self) -> Queue[WatchEvent]:
+        """Create a Kubernetes watcher for a custom object.
+
+        The watcher will run forever in a background thread.
+
+        Returns
+        -------
+        queue : `asyncio.Queue`
+            The queue into which the custom object events will be put.
+        """
+        queue: Queue[WatchEvent] = Queue(50)
+        watcher = KubernetesWatcher(
+            "gafaelfawrservicetokens", self._api_client, queue, self._logger
+        )
+        asyncio.create_task(watcher.run())
+        return queue
+
     @_convert_exception
-    def get_secret_for_service_token(
+    async def get_secret_for_service_token(
         self, parent: GafaelfawrServiceToken
     ) -> Optional[V1Secret]:
         """Retrieve the secret corresponding to a GafaelfawrServiceToken.
@@ -229,11 +243,11 @@ class KubernetesStorage:
 
         Returns
         -------
-        secret : `kubernetes.client.V1Secret` or `None`
+        secret : ``kubernetes_asyncio.client.V1Secret`` or `None`
             The Kubernetes secret, or `None` if that secret does not exist.
         """
         try:
-            secret = self._api.read_namespaced_secret(
+            secret = await self._api.read_namespaced_secret(
                 parent.name, parent.namespace
             )
         except ApiException as e:
@@ -244,7 +258,7 @@ class KubernetesStorage:
         return secret
 
     @_convert_exception
-    def get_service_token(
+    async def get_service_token(
         self, name: str, namespace: str
     ) -> Optional[GafaelfawrServiceToken]:
         """Retrieve a specific GafaelfawrServiceToken by name.
@@ -262,7 +276,7 @@ class KubernetesStorage:
             The token, or `None` if it does not exist.
         """
         try:
-            obj = self._custom_api.get_namespaced_custom_object(
+            obj = await self._custom_api.get_namespaced_custom_object(
                 "gafaelfawr.lsst.io",
                 "v1alpha1",
                 namespace,
@@ -281,14 +295,15 @@ class KubernetesStorage:
             return None
 
     @_convert_exception
-    def list_service_tokens(self) -> List[GafaelfawrServiceToken]:
+    async def list_service_tokens(self) -> List[GafaelfawrServiceToken]:
         """Return a list of all GafaelfawrServiceToken objects in the cluster.
 
         Returns
         -------
-        objects : List[Dict[`str`, Any]]
+        objects : List[`GafaelfawrServiceToken`]
+            List of all GafaelfawrServiceToken objects in the cluster.
         """
-        obj_list = self._custom_api.list_cluster_custom_object(
+        obj_list = await self._custom_api.list_cluster_custom_object(
             "gafaelfawr.lsst.io", "v1alpha1", "gafaelfawrservicetokens"
         )
 
@@ -306,7 +321,7 @@ class KubernetesStorage:
         return tokens
 
     @_convert_exception
-    def replace_secret_for_service_token(
+    async def replace_secret_for_service_token(
         self, parent: GafaelfawrServiceToken, token: Token
     ) -> None:
         """Replace the token in a Secret.
@@ -319,10 +334,10 @@ class KubernetesStorage:
             The token to store.
         """
         secret = self._build_secret_for_service_token(parent, token)
-        self._api.replace_namespaced_secret(
+        await self._api.replace_namespaced_secret(
             parent.name, parent.namespace, secret
         )
-        self.update_service_token_status(
+        await self.update_service_token_status(
             parent,
             reason=StatusReason.Updated,
             message="Secret was updated",
@@ -330,7 +345,7 @@ class KubernetesStorage:
         )
 
     @_convert_exception
-    def update_secret_metadata_for_service_token(
+    async def update_secret_metadata_for_service_token(
         self, parent: GafaelfawrServiceToken
     ) -> None:
         """Update the metadata for a Secret.
@@ -340,7 +355,7 @@ class KubernetesStorage:
         parent : `GafaelfawrServiceToken`
             The parent ``GafaelfawrServiceToken`` object for the Secret.
         """
-        self._api.patch_namespaced_secret(
+        await self._api.patch_namespaced_secret(
             parent.name,
             parent.namespace,
             [
@@ -358,7 +373,7 @@ class KubernetesStorage:
         )
 
     @_convert_exception
-    def update_service_token_status(
+    async def update_service_token_status(
         self,
         service_token: GafaelfawrServiceToken,
         *,
@@ -398,7 +413,7 @@ class KubernetesStorage:
                 ],
             },
         }
-        self._custom_api.patch_namespaced_custom_object_status(
+        await self._custom_api.patch_namespaced_custom_object_status(
             "gafaelfawr.lsst.io",
             "v1alpha1",
             service_token.namespace,
@@ -455,65 +470,58 @@ class KubernetesWatcher:
     ----------
     plural : `str`
         The plural for the custom resource for which to watch.
-    queue : `queue.Queue`
+    api_client : ``kubernetes_asyncio.client.ApiClient``
+        The Kubernetes client.
+    queue : `asyncio.Queue`
         The queue into which to put the events.
-    logger : `structlog.stdlib.BoundLogger`
+    logger : ``structlog.stdlib.BoundLogger``
         Logger to use for messages.
     """
 
     def __init__(
         self,
         plural: str,
+        api_client: ApiClient,
         queue: Queue[WatchEvent],
         logger: BoundLogger,
     ) -> None:
         self._plural = plural
         self._queue = queue
         self._logger = logger
-        self._api = kubernetes.client.CustomObjectsApi()
+        self._api = client.CustomObjectsApi(api_client)
 
-    def run(self) -> None:
+    async def run(self) -> None:
         """Watch for changes to the configured custom object.
 
-        This method is intended to be run in a separate thread.  It will run
-        forever, adding any custom object changes to the associated queue.
+        This method is intended to be run as a background async task.  It will
+        run forever, adding any custom object changes to the associated queue.
         """
+        self._logger.debug("Starting Kubernetes watcher")
         consecutive_failures = 0
+        watch_call = (
+            self._api.list_cluster_custom_object,
+            "gafaelfawr.lsst.io",
+            "v1alpha1",
+            self._plural,
+        )
         while True:
             try:
-                stream = kubernetes.watch.Watch().stream(
-                    self._api.list_cluster_custom_object,
-                    "gafaelfawr.lsst.io",
-                    "v1alpha1",
-                    self._plural,
-                )
-                for raw_event in stream:
-                    event = self._parse_raw_event(raw_event)
-                    if event:
-                        self._queue.put(event)
-                    consecutive_failures = 0
+                async with Watch().stream(**watch_call) as stream:
+                    async for raw_event in stream:
+                        event = self._parse_raw_event(raw_event)
+                        if event:
+                            self._queue.put(event)
+                        consecutive_failures = 0
             except ApiException as e:
                 msg = "ApiException from watch"
-                self._logger.exception(msg, error=str(e))
                 consecutive_failures += 1
                 if consecutive_failures > 10:
-                    msg = (
-                        "Kubernetes API failed 10 times consecutively,"
-                        " terminating main process"
-                    )
-                    self._logger.error(msg)
-                    _thread.interrupt_main()
+                    raise
                 else:
+                    self._logger.exception(msg, error=str(e))
                     msg = "Pausing 10s before attempting to continue"
                     self._logger.info()
-                    time.sleep(10)
-            except Exception as e:
-                msg = (
-                    f"Unexpected exception {type(e).__name__}, terminating"
-                    " main process"
-                )
-                self._logger.exception(msg, error=str(e))
-                _thread.interrupt_main()
+                    await asyncio.sleep(10)
 
     def _parse_raw_event(
         self, raw_event: Dict[str, Any]

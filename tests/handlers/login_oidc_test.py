@@ -2,29 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import pytest
-from httpx import ConnectError
+import respx
+from _pytest.logging import LogCaptureFixture
+from httpx import AsyncClient, ConnectError
 
 from gafaelfawr.dependencies.config import config_dependency
-from tests.support.ldap import MockLDAP
-from tests.support.logging import parse_log
-from tests.support.oidc import (
-    mock_oidc_provider_config,
-    mock_oidc_provider_token,
-)
-from tests.support.settings import configure
-from tests.support.tokens import create_upstream_oidc_token
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    import respx
-    from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
+from ..support.ldap import MockLDAP
+from ..support.logging import parse_log
+from ..support.oidc import mock_oidc_provider_config, mock_oidc_provider_token
+from ..support.settings import configure
+from ..support.tokens import create_upstream_oidc_token
 
 
 @pytest.mark.asyncio

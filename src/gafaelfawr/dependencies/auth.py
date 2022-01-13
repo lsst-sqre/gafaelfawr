@@ -5,21 +5,21 @@ from urllib.parse import urlencode, urlparse
 
 from fastapi import Depends, Header, HTTPException, status
 
-from gafaelfawr.auth import (
+from ..auth import (
     AuthType,
     generate_challenge,
     generate_unauthorized_challenge,
     parse_authorization,
 )
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import (
+from ..exceptions import (
     InvalidCSRFError,
     InvalidRequestError,
     InvalidTokenError,
     PermissionDeniedError,
 )
-from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
-from gafaelfawr.models.token import Token, TokenData
+from ..models.oidc import OIDCToken, OIDCVerifiedToken
+from ..models.token import Token, TokenData
+from .context import RequestContext, context_dependency
 
 __all__ = [
     "Authenticate",
@@ -161,7 +161,7 @@ class Authenticate:
 
         Returns
         -------
-        exc : `fastapi.HTTPException`
+        exc : ``fastapi.HTTPException``
             The redirect.
         """
         if not self.redirect_if_unauthenticated:

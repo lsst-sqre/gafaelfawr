@@ -26,6 +26,8 @@ API reference
 
 .. automodapi:: gafaelfawr.dependencies.return_url
 
+.. automodapi:: gafaelfawr.dependencies.token_cache
+
 .. automodapi:: gafaelfawr.exceptions
 
 .. automodapi:: gafaelfawr.factory

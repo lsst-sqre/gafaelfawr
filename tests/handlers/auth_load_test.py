@@ -8,18 +8,15 @@ other potentially expensive or coordinated action.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
 
 import pytest
+from httpx import AsyncClient
 
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.token import Token
-from tests.support.cookies import set_session_cookie
-from tests.support.tokens import create_session_token
 
-if TYPE_CHECKING:
-    from httpx import AsyncClient
-
-    from gafaelfawr.factory import ComponentFactory
+from ..support.cookies import set_session_cookie
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

@@ -4,21 +4,17 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import List, Optional, Tuple
 
-from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
-from gafaelfawr.models.token import Token, TokenData, TokenType
-from gafaelfawr.util import current_datetime
+from structlog.stdlib import BoundLogger
 
-if TYPE_CHECKING:
-    from typing import List, Optional, Tuple
-
-    from structlog.stdlib import BoundLogger
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.dependencies.token_cache import TokenCache
-    from gafaelfawr.storage.history import TokenChangeHistoryStore
-    from gafaelfawr.storage.token import TokenDatabaseStore, TokenRedisStore
+from ..config import Config
+from ..dependencies.token_cache import TokenCache
+from ..models.history import TokenChange, TokenChangeHistoryEntry
+from ..models.token import Token, TokenData, TokenType
+from ..storage.history import TokenChangeHistoryStore
+from ..storage.token import TokenDatabaseStore, TokenRedisStore
+from ..util import current_datetime
 
 __all__ = ["TokenCacheService"]
 
@@ -43,7 +39,7 @@ class TokenCacheService:
         The Redis backing store for tokens.
     token_change_store : `gafaelfawr.storage.history.TokenChangeHistoryStore`
         The backing store for history of changes to tokens.
-    logger : `structlog.BoundLogger`
+    logger : ``structlog.stdlib.BoundLogger``
         Logger to use.
 
     Notes

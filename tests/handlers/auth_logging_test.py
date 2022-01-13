@@ -3,19 +3,16 @@
 from __future__ import annotations
 
 import base64
-from typing import TYPE_CHECKING
 
 import pytest
+from _pytest.logging import LogCaptureFixture
+from httpx import AsyncClient
 
-from tests.support.constants import TEST_HOSTNAME
-from tests.support.logging import parse_log
-from tests.support.tokens import create_session_token
+from gafaelfawr.factory import ComponentFactory
 
-if TYPE_CHECKING:
-    from _pytest.logging import LogCaptureFixture
-    from httpx import AsyncClient
-
-    from gafaelfawr.factory import ComponentFactory
+from ..support.constants import TEST_HOSTNAME
+from ..support.logging import parse_log
+from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio

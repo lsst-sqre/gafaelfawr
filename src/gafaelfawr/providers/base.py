@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from gafaelfawr.models.state import State
-    from gafaelfawr.models.token import TokenUserInfo
+from ..models.state import State
+from ..models.token import TokenUserInfo
 
 __all__ = ["Provider"]
 

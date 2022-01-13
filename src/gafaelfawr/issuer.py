@@ -4,19 +4,15 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import Any, Dict
 
 import jwt
 
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.exceptions import NotConfiguredException
-from gafaelfawr.models.oidc import OIDCVerifiedToken
-
-if TYPE_CHECKING:
-    from typing import Any, Dict
-
-    from gafaelfawr.config import IssuerConfig
-    from gafaelfawr.models.token import TokenData, TokenUserInfo
+from .config import IssuerConfig
+from .constants import ALGORITHM
+from .exceptions import NotConfiguredException
+from .models.oidc import OIDCVerifiedToken
+from .models.token import TokenData, TokenUserInfo
 
 __all__ = ["TokenIssuer"]
 

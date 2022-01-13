@@ -12,8 +12,8 @@ from typing import Dict, Optional, Tuple
 
 from cachetools import LRUCache
 
-from gafaelfawr.constants import TOKEN_CACHE_SIZE
-from gafaelfawr.models.token import Token
+from ..constants import TOKEN_CACHE_SIZE
+from ..models.token import Token
 
 __all__ = ["TokenCache", "TokenCacheDependency", "token_cache_dependency"]
 

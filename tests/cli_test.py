@@ -9,25 +9,22 @@ conflict with each other.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Any
 
+from _pytest.logging import LogCaptureFixture
 from click.testing import CliRunner
-from kubernetes.client import ApiException
+from kubernetes_asyncio.client import ApiException
+from safir.testing.kubernetes import MockKubernetesApi
 
 from gafaelfawr.cli import main
+from gafaelfawr.config import Config
+from gafaelfawr.database import initialize_database
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.token import Token, TokenData
-from tests.support.kubernetes import MockKubernetesApi
-from tests.support.logging import parse_log
 
-if TYPE_CHECKING:
-    from pathlib import Path
-    from typing import Any
-
-    from _pytest.logging import LogCaptureFixture
-
-    from gafaelfawr.config import Config
+from .support.logging import parse_log
 
 
 def test_generate_key() -> None:
@@ -88,41 +85,45 @@ def test_init(config: Config) -> None:
 
 
 def test_update_service_tokens(
-    tmp_path: Path, empty_database: None, mock_kubernetes: MockKubernetesApi
+    tmp_path: Path, config: Config, mock_kubernetes: MockKubernetesApi
 ) -> None:
-    mock_kubernetes.create_namespaced_custom_object(
-        "gafaelfawr.lsst.io",
-        "v1alpha1",
-        "mobu",
-        "gafaelfawrservicetokens",
-        {
-            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
-            "kind": "GafaelfawrServiceToken",
-            "metadata": {
-                "name": "gafaelfawr-secret",
-                "namespace": "mobu",
-                "generation": 1,
+    asyncio.run(initialize_database(config, reset=True))
+    asyncio.run(
+        mock_kubernetes.create_namespaced_custom_object(
+            "gafaelfawr.lsst.io",
+            "v1alpha1",
+            "mobu",
+            "gafaelfawrservicetokens",
+            {
+                "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+                "kind": "GafaelfawrServiceToken",
+                "metadata": {
+                    "name": "gafaelfawr-secret",
+                    "namespace": "mobu",
+                    "generation": 1,
+                },
+                "spec": {
+                    "service": "mobu",
+                    "scopes": ["admin:token"],
+                },
             },
-            "spec": {
-                "service": "mobu",
-                "scopes": ["admin:token"],
-            },
-        },
+        )
     )
 
     runner = CliRunner()
     result = runner.invoke(main, ["update-service-tokens"])
 
     assert result.exit_code == 0
-    assert mock_kubernetes.read_namespaced_secret("gafaelfawr-secret", "mobu")
+    assert mock_kubernetes.get_all_objects_for_test("Secret")
 
 
 def test_update_service_tokens_error(
     tmp_path: Path,
-    empty_database: None,
+    config: Config,
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
+    asyncio.run(initialize_database(config, reset=True))
     caplog.clear()
 
     def error_callback(method: str, *args: Any) -> None:

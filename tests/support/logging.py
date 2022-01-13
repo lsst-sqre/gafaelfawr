@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import Any, Dict, List
 
-if TYPE_CHECKING:
-    from typing import Any, Dict, List
-
-    from _pytest.logging import LogCaptureFixture
+from _pytest.logging import LogCaptureFixture
 
 
 def parse_log(caplog: LogCaptureFixture) -> List[Dict[str, Any]]:

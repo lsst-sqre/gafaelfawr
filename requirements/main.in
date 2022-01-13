@@ -22,11 +22,11 @@ bonsai
 cachetools
 click
 cryptography
-kubernetes
+kubernetes_asyncio
 httpx
 pydantic
 PyJWT
 pyyaml
-safir
+safir[kubernetes]
 sqlalchemy
 structlog

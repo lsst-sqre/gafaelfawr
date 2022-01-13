@@ -4,18 +4,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import List, Optional, Union
 
 from cryptography.fernet import Fernet
 
+from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.keypair import RSAKeyPair
-from tests.support.constants import TEST_DATABASE_URL
 
-if TYPE_CHECKING:
-    from typing import List, Optional, Union
-
-    from gafaelfawr.config import Config, OIDCClient
+from .constants import TEST_DATABASE_URL
 
 __all__ = [
     "build_settings",

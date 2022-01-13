@@ -23,14 +23,14 @@ from fastapi import (
 )
 from safir.models import ErrorModel
 
-from gafaelfawr.constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
-from gafaelfawr.dependencies.auth import AuthenticateRead, AuthenticateWrite
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.exceptions import ErrorLocation, NotFoundError
-from gafaelfawr.models.admin import Admin
-from gafaelfawr.models.auth import APIConfig, APILoginResponse, Scope
-from gafaelfawr.models.history import TokenChangeHistoryEntry
-from gafaelfawr.models.token import (
+from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
+from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
+from ..dependencies.context import RequestContext, context_dependency
+from ..exceptions import ErrorLocation, NotFoundError
+from ..models.admin import Admin
+from ..models.auth import APIConfig, APILoginResponse, Scope
+from ..models.history import TokenChangeHistoryEntry
+from ..models.token import (
     AdminTokenRequest,
     NewToken,
     TokenData,
@@ -40,7 +40,7 @@ from gafaelfawr.models.token import (
     UserTokenModifyRequest,
     UserTokenRequest,
 )
-from gafaelfawr.util import random_128_bits
+from ..util import random_128_bits
 
 __all__ = ["router"]
 

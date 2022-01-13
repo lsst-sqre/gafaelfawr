@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pytest
 
 from gafaelfawr.exceptions import PermissionDeniedError
+from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.admin import Admin
-
-if TYPE_CHECKING:
-    from gafaelfawr.factory import ComponentFactory
 
 
 @pytest.mark.asyncio

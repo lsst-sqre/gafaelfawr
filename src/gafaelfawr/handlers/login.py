@@ -1,30 +1,24 @@
 """Initial authentication handlers (``/login``)."""
 
-from __future__ import annotations
-
 import base64
 import os
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse, Response
 from httpx import HTTPError
 
-from gafaelfawr.dependencies.context import RequestContext, context_dependency
-from gafaelfawr.dependencies.return_url import return_url_with_header
-from gafaelfawr.exceptions import (
+from ..config import Config
+from ..dependencies.context import RequestContext, context_dependency
+from ..dependencies.return_url import return_url_with_header
+from ..exceptions import (
     InvalidReturnURLError,
     PermissionDeniedError,
     ProviderException,
 )
-from gafaelfawr.templates import templates
-
-if TYPE_CHECKING:
-    from typing import List
-
-    from gafaelfawr.config import Config
-    from gafaelfawr.models.token import TokenGroup
+from ..models.token import TokenGroup
+from ..templates import templates
 
 router = APIRouter()
 
