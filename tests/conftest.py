@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 
 import bonsai
 import pytest
+import pytest_asyncio
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
@@ -31,7 +32,7 @@ from .support.selenium import SeleniumConfig, run_app, selenium_driver
 from .support.settings import build_settings
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def app(empty_database: None) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
@@ -42,7 +43,7 @@ async def app(empty_database: None) -> AsyncIterator[FastAPI]:
         yield main.app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
     base_url = f"https://{TEST_HOSTNAME}"
@@ -51,11 +52,19 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture
-async def config(tmp_path: Path) -> Config:
-    """Set up and return the default test configuration."""
+def config(tmp_path: Path) -> Config:
+    """Set up and return the default test configuration.
+
+    Notes
+    -----
+    This fixture must not be async so that it can be used by the cli tests,
+    which must not be async because the Click support starts its own asyncio
+    loop.
+    """
     settings_path = build_settings(tmp_path, "github")
     config_dependency.set_settings_path(str(settings_path))
-    return await config_dependency()
+    assert config_dependency._config
+    return config_dependency._config
 
 
 @pytest.fixture(scope="session")
@@ -74,7 +83,7 @@ def driver() -> Iterator[webdriver.Chrome]:
         driver.quit()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def empty_database(config: Config) -> None:
     """Initialize the database for a new test.
 
@@ -94,7 +103,7 @@ async def empty_database(config: Config) -> None:
     await initialize_database(config, reset=True)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def factory(empty_database: None) -> AsyncIterator[ComponentFactory]:
     """Return a component factory.
 
@@ -117,7 +126,7 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
     yield from patch_kubernetes()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mock_ldap(tmp_path: Path, config: Config) -> AsyncIterator[MockLDAP]:
     """Replace the bonsai LDAP API with a mock class.
 
@@ -136,7 +145,7 @@ async def mock_ldap(tmp_path: Path, config: Config) -> AsyncIterator[MockLDAP]:
         yield ldap
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def selenium_config(
     tmp_path: Path, driver: webdriver.Chrome, empty_database: None
 ) -> AsyncIterator[SeleniumConfig]:

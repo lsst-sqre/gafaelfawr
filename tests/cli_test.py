@@ -19,6 +19,7 @@ from safir.testing.kubernetes import MockKubernetesApi
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config
+from gafaelfawr.database import initialize_database
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.token import Token, TokenData
@@ -84,8 +85,9 @@ def test_init(config: Config) -> None:
 
 
 def test_update_service_tokens(
-    tmp_path: Path, empty_database: None, mock_kubernetes: MockKubernetesApi
+    tmp_path: Path, config: Config, mock_kubernetes: MockKubernetesApi
 ) -> None:
+    asyncio.run(initialize_database(config, reset=True))
     asyncio.run(
         mock_kubernetes.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
@@ -117,10 +119,11 @@ def test_update_service_tokens(
 
 def test_update_service_tokens_error(
     tmp_path: Path,
-    empty_database: None,
+    config: Config,
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
+    asyncio.run(initialize_database(config, reset=True))
     caplog.clear()
 
     def error_callback(method: str, *args: Any) -> None:
