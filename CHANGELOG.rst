@@ -2,6 +2,12 @@
 Change log
 ##########
 
+3.5.1 (2022-01-14)
+==================
+
+- Fix several bugs in Kubernetes GafaelfawrServiceToken object handling that prevented correct creation of Secrets.
+  Work around a bug in kubernetes_asyncio with patching custom objects.
+
 3.5.0 (2022-01-13)
 ==================
 

@@ -399,20 +399,24 @@ class KubernetesStorage:
         # Remove the time zone from the date.
         now = isodate.split("+")[0] + "Z"
 
-        patch = {
-            "status": {
-                "conditions": [
-                    {
-                        "lastTransitionTime": now,
-                        "message": message,
-                        "observedGeneration": service_token.generation,
-                        "reason": reason.value,
-                        "status": "True" if success else "False",
-                        "type": "SecretCreated",
-                    },
-                ],
+        patch = [
+            {
+                "op": "replace",
+                "path": "/status",
+                "value": {
+                    "conditions": [
+                        {
+                            "lastTransitionTime": now,
+                            "message": message,
+                            "observedGeneration": service_token.generation,
+                            "reason": reason.value,
+                            "status": "True" if success else "False",
+                            "type": "SecretCreated",
+                        },
+                    ],
+                },
             },
-        }
+        ]
         await self._custom_api.patch_namespaced_custom_object_status(
             "gafaelfawr.lsst.io",
             "v1alpha1",
@@ -506,11 +510,11 @@ class KubernetesWatcher:
         )
         while True:
             try:
-                async with Watch().stream(**watch_call) as stream:
+                async with Watch().stream(*watch_call) as stream:
                     async for raw_event in stream:
                         event = self._parse_raw_event(raw_event)
                         if event:
-                            self._queue.put(event)
+                            await self._queue.put(event)
                         consecutive_failures = 0
             except ApiException as e:
                 msg = "ApiException from watch"
