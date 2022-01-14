@@ -506,11 +506,11 @@ class KubernetesWatcher:
         )
         while True:
             try:
-                async with Watch().stream(**watch_call) as stream:
+                async with Watch().stream(*watch_call) as stream:
                     async for raw_event in stream:
                         event = self._parse_raw_event(raw_event)
                         if event:
-                            self._queue.put(event)
+                            await self._queue.put(event)
                         consecutive_failures = 0
             except ApiException as e:
                 msg = "ApiException from watch"
