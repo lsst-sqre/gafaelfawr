@@ -692,9 +692,9 @@ rfc3986[idna2008]==1.5.0 \
     --hash=sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835 \
     --hash=sha256:a86d6e1f5b1dc238b218b012df0aa79409667bb209e58da56d0b94704e712a97
     # via httpx
-safir[kubernetes]==2.4.0 \
-    --hash=sha256:653b855ab1a1501b66e4e5707f5742e9b983acee51fdf447d797df3a1416b6cd \
-    --hash=sha256:8d056c07c76adde698d24372d6c36f5ca0fb55f2f387b9f1afeb70e7d4432324
+safir[kubernetes]==2.4.1 \
+    --hash=sha256:36034529d87ae468b7678a8871fb6def6f4838b4d59a19ef57b01872f9d0f024 \
+    --hash=sha256:d33b02dab20a9b9bc79270242f436f32321f7dd1091a3aca063294eeefa3dfb1
     # via -r requirements/main.in
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
@@ -771,9 +771,9 @@ urllib3==1.26.8 \
     --hash=sha256:000ca7f471a233c2251c6c7023ee85305721bfdf18621ebff4fd17a8653427ed \
     --hash=sha256:0e7c33d9a63e7ddfcb86780aac87befc2fbddf46c58dbb487e0855f7ceec283c
     # via kubernetes-asyncio
-uvicorn[standard]==0.16.0 \
-    --hash=sha256:d8c839231f270adaa6d338d525e2652a0b4a5f4c2430b5c4ef6ae4d11776b0d2 \
-    --hash=sha256:eacb66afa65e0648fcbce5e746b135d09722231ffffc61883d4fac2b62fbea8d
+uvicorn[standard]==0.17.0 \
+    --hash=sha256:0b89c91bb8fe84c4bded9996af13c4b8c0de799d29bffeaa0c8ad298f2be0934 \
+    --hash=sha256:192c2422b056a3beb512c6c260bf77a7a884204a4ae41856719c1913ead63bbb
     # via -r requirements/main.in
 uvloop==0.16.0 \
     --hash=sha256:04ff57aa137230d8cc968f03481176041ae789308b4d5079118331ab01112450 \

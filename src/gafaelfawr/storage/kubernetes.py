@@ -399,20 +399,24 @@ class KubernetesStorage:
         # Remove the time zone from the date.
         now = isodate.split("+")[0] + "Z"
 
-        patch = {
-            "status": {
-                "conditions": [
-                    {
-                        "lastTransitionTime": now,
-                        "message": message,
-                        "observedGeneration": service_token.generation,
-                        "reason": reason.value,
-                        "status": "True" if success else "False",
-                        "type": "SecretCreated",
-                    },
-                ],
+        patch = [
+            {
+                "op": "replace",
+                "path": "/status",
+                "value": {
+                    "conditions": [
+                        {
+                            "lastTransitionTime": now,
+                            "message": message,
+                            "observedGeneration": service_token.generation,
+                            "reason": reason.value,
+                            "status": "True" if success else "False",
+                            "type": "SecretCreated",
+                        },
+                    ],
+                },
             },
-        }
+        ]
         await self._custom_api.patch_namespaced_custom_object_status(
             "gafaelfawr.lsst.io",
             "v1alpha1",
