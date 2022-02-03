@@ -150,8 +150,12 @@ class OIDCProvider(Provider):
 
         # Extract and verify the token.
         unverified_token = OIDCToken(encoded=result["id_token"])
+
+        # determine if we want to attempt to get uid from the token or from ldap
+        # if self._ldap_config.uid_attr is None, then assume we want the uid from the token
+        uid_from_token = True if self._ldap_config.uid_attr == None else False
         try:
-            token = await self._verifier.verify_oidc_token(unverified_token)
+            token = await self._verifier.verify_oidc_token(unverified_token, verify_uid=uid_from_token)
         except (jwt.InvalidTokenError, VerifyTokenException) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCException(msg)
