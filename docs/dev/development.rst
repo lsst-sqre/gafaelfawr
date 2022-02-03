@@ -143,7 +143,13 @@ The advantage of this method is that the running code and UI will be taken from 
 Inside Docker
 -------------
 
-Build a Docker image and start the development instance of Gafaelfawr with:
+First, build the JavaScript UI:
+
+.. code-block:: sh
+
+   make ui
+
+Then, uild a Docker image and start the development instance of Gafaelfawr with:
 
 .. code-block:: sh
 
