@@ -87,13 +87,15 @@ class TokenVerifier:
             raise InvalidTokenError(str(e))
         return self._build_token(token.encoded, payload)
 
-    async def verify_oidc_token(self, token: OIDCToken) -> OIDCVerifiedToken:
+    async def verify_oidc_token(self, token: OIDCToken, verify_uid=True) -> OIDCVerifiedToken:
         """Verifies the provided JWT from an OpenID Connect provider.
 
         Parameters
         ----------
         token : `gafaelfawr.models.oidc.OIDCToken`
             JWT to verify.
+        verify_uid : boolean
+            Whether we should attempt to parse the uid in token
 
         Returns
         -------
@@ -144,10 +146,10 @@ class TokenVerifier:
             audience=self._config.oidc_aud,
         )
 
-        return self._build_token(token.encoded, payload)
+        return self._build_token(token.encoded, payload, verify_uid=verify_uid )
 
     def _build_token(
-        self, encoded: str, claims: Mapping[str, Any]
+        self, encoded: str, claims: Mapping[str, Any], verify_uid=True
     ) -> OIDCVerifiedToken:
         """Build a VerifiedToken from an encoded token and its verified claims.
 
@@ -157,6 +159,8 @@ class TokenVerifier:
             The encoded form of the token.
         claims : Mapping[`str`, Any]
             The claims of a verified token.
+        verify_uid : boolean
+            Whether we should attempt to parse a uid value from the token.
 
         Returns
         -------
@@ -172,23 +176,27 @@ class TokenVerifier:
             msg = f"No {self._config.username_claim} claim in token"
             self._logger.warning(msg, claims=claims)
             raise MissingClaimsException(msg)
-        if self._config.uid_claim not in claims:
-            msg = f"No {self._config.uid_claim} claim in token"
-            self._logger.warning(msg, claims=claims)
-            raise MissingClaimsException(msg)
-        try:
-            uid = int(claims[self._config.uid_claim])
-        except Exception:
-            msg = f"Invalid {self._config.uid_claim} claim in token"
-            self._logger.warning(msg, claims=claims)
-            raise InvalidTokenClaimsException(msg)
+
+        kwargs = { 'uid':  None }
+        if verify_uid:
+            if self._config.uid_claim not in claims:
+                msg = f"No {self._config.uid_claim} claim in token"
+                self._logger.warning(msg, claims=claims)
+                raise MissingClaimsException(msg)
+            try:
+                uid = int(claims[self._config.uid_claim])
+            except Exception:
+                msg = f"Invalid {self._config.uid_claim} claim in token"
+                self._logger.warning(msg, claims=claims)
+                raise InvalidTokenClaimsException(msg)
+            kwargs['uid'] = uid
 
         return OIDCVerifiedToken(
             encoded=encoded,
             claims=claims,
             jti=claims.get("jti", "UNKNOWN"),
             username=claims[self._config.username_claim],
-            uid=uid,
+            **kwargs,
         )
 
     async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> str:

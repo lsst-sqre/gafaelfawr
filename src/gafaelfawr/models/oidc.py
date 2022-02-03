@@ -152,8 +152,8 @@ class OIDCVerifiedToken(OIDCToken):
 
     username: str = Field(..., title="The value of the username claim")
 
-    uid: int = Field(
-        ...,
+    uid: Optional[int] = Field(
+        None,
         title="The value of the claim named by the uid_claim config setting",
     )
 
