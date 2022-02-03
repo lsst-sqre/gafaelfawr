@@ -140,7 +140,7 @@ class LDAPSettings(BaseModel):
     supported.
     """
 
-    uid_attr: Optional[str] = None
+    uid_number_attr: Optional[str] = None
     """LDAP uid attribute.
 
     Default None to not use LDAP to determine the uid number of user and 
@@ -478,6 +478,14 @@ class LDAPConfig:
     base_dn: str
     """Base DN to use when executing LDAP search."""
 
+    uid_number_attr: str = None
+    """LDAP attribute name for userid number
+
+    If set, this will override the uid number as defined in the token.
+    Usually ``uidNumber``, as specified in :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
     group_object_class: str = "posixGroup"
     """LDAP group object class.
 
@@ -771,6 +779,7 @@ class Config:
         if settings.ldap and settings.ldap.url:
             ldap_config = LDAPConfig(
                 url=settings.ldap.url,
+                uid_number_attr=settings.ldap.uid_number_attr,
                 base_dn=settings.ldap.base_dn,
                 group_object_class=settings.ldap.group_object_class,
                 group_member=settings.ldap.group_member,

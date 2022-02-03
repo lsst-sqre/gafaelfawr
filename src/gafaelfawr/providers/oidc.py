@@ -152,8 +152,9 @@ class OIDCProvider(Provider):
         unverified_token = OIDCToken(encoded=result["id_token"])
 
         # determine if we want to attempt to get uid from the token or from ldap
-        # if self._ldap_config.uid_attr is None, then assume we want the uid from the token
-        uid_from_token = True if self._ldap_config.uid_attr == None else False
+        uidNumber = None
+        # if self._ldap_config.uid_number_attr is None, then assume we want the uid from the token
+        uid_from_token = True if self._ldap_config.uid_number_attr == None else False
         try:
             token = await self._verifier.verify_oidc_token(unverified_token, verify_uid=uid_from_token)
         except (jwt.InvalidTokenError, VerifyTokenException) as e:
@@ -163,8 +164,11 @@ class OIDCProvider(Provider):
         # If configured with LDAP support, get user group information from
         # LDAP.  Otherwise, extract it from the token.
         if self._ldap_config:
+            # if configured, extract uidNumber from LDAP
+            uidNumber = await self._get_ldap_uidNumber(token.username)
             groups = await self._get_ldap_groups(token.username)
         else:
+            uidNumber = token.uid
             groups = []
             invalid_groups = {}
             try:
@@ -187,7 +191,7 @@ class OIDCProvider(Provider):
             username=token.username,
             name=token.claims.get("name"),
             email=token.claims.get("email"),
-            uid=token.uid,
+            uid=uidNumber,
             groups=groups,
         )
 
@@ -202,6 +206,49 @@ class OIDCProvider(Provider):
             The session state, which contains the GitHub access token.
         """
         pass
+
+
+    async def _get_ldap_uidNumber(self, uid: str) -> int:
+        """Retrieve the uid number from ldap
+
+        Parameters
+        ----------
+        uid : `str`
+            Username of the user.
+
+        Returns
+        -------
+        uidNumber : `int`
+            The numeric id of the user from LDAP.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.LDAPException
+            The lookup using the uid_number_attr against the LDAP server was not
+            valid (attribute not in LDAP or resultant value not an integer).
+        """
+        assert self._ldap_config.uid_number_attr
+        attr = self._ldap_config.uid_number_attr
+        search = f"(&(Uid={uid}))"
+
+        client = bonsai.LDAPClient(self._ldap_config.url)
+        async with client.connect(is_async=True) as conn:
+            results = await conn.search(
+                self._ldap_config.base_dn,
+                bonsai.LDAPSearchScope.ONE,
+                search,
+                attrlist=[f"{attr}"],
+            )
+            # parse uidNumber
+            uidNumber = None
+            for result in results:
+                try:
+                    uidNumber = int(result[attr][0])
+                except Exception as e:
+                    msg = f"LDAP uid number using {attr} for user {uid} invalid: {str(e)}"
+                    raise LDAPException(msg)
+            return uidNumber
+         
 
     async def _get_ldap_groups(self, uid: str) -> List[TokenGroup]:
         """Get groups for a user from LDAP.
