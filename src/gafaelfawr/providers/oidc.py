@@ -245,7 +245,7 @@ class OIDCProvider(Provider):
                 self._ldap_config.base_dn,
                 bonsai.LDAPSearchScope.ONE,
                 search,
-                attrlist=[f"{attr}"],
+                attrlist=[attr],
             )
             # parse uidNumber
             uidNumber = None
