@@ -151,12 +151,17 @@ class OIDCProvider(Provider):
         # Extract and verify the token.
         unverified_token = OIDCToken(encoded=result["id_token"])
 
-        # determine if we want to attempt to get uid from the token or from ldap
+        # determine if we want to attempt to get uid from the token or 1ldap
         uidNumber = None
-        # if self._ldap_config.uid_number_attr is None, then assume we want the uid from the token
-        uid_from_token = True if self._ldap_config.uid_number_attr == None else False
+        # if self._ldap_config.uid_number_attr is None, then assume we want
+        # the uid from the token
+        uid_from_token = True
+        if self._ldap_config and self._ldap_config.uid_number_attr:
+            uid_from_token = False
         try:
-            token = await self._verifier.verify_oidc_token(unverified_token, verify_uid=uid_from_token)
+            token = await self._verifier.verify_oidc_token(
+                unverified_token, verify_uid=uid_from_token
+            )
         except (jwt.InvalidTokenError, VerifyTokenException) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCException(msg)
@@ -165,7 +170,7 @@ class OIDCProvider(Provider):
         # LDAP.  Otherwise, extract it from the token.
         if self._ldap_config:
             # if configured, extract uidNumber from LDAP
-            uidNumber = await self._get_ldap_uidNumber(token.username)
+            uidNumber = await self._get_ldap_uid_number(token.username)
             groups = await self._get_ldap_groups(token.username)
         else:
             uidNumber = token.uid
@@ -207,8 +212,7 @@ class OIDCProvider(Provider):
         """
         pass
 
-
-    async def _get_ldap_uidNumber(self, uid: str) -> int:
+    async def _get_ldap_uid_number(self, uid: str) -> int:
         """Retrieve the uid number from ldap
 
         Parameters
@@ -224,13 +228,17 @@ class OIDCProvider(Provider):
         Raises
         ------
         gafaelfawr.exceptions.LDAPException
-            The lookup using the uid_number_attr against the LDAP server was not
-            valid (attribute not in LDAP or resultant value not an integer).
+            The lookup using uid_number_attr against the LDAP server was not
+            valid (attribute not in LDAP or resultant value not an integer)
         """
-        assert self._ldap_config.uid_number_attr
+        assert self._ldap_config
         attr = self._ldap_config.uid_number_attr
         search = f"(&(Uid={uid}))"
 
+        self._logger.debug(
+            f"querying ldap {self._ldap_config.url} at "
+            f"{self._ldap_config.base_dn} for uid number with {search}"
+        )
         client = bonsai.LDAPClient(self._ldap_config.url)
         async with client.connect(is_async=True) as conn:
             results = await conn.search(
@@ -243,12 +251,15 @@ class OIDCProvider(Provider):
             uidNumber = None
             for result in results:
                 try:
+                    self._logger.debug(f"ldap result: {result}")
                     uidNumber = int(result[attr][0])
                 except Exception as e:
-                    msg = f"LDAP uid number using {attr} for user {uid} invalid: {str(e)}"
+                    msg = (
+                        f"LDAP uid number using {attr} "
+                        f"for user {uid} invalid: {str(e)}"
+                    )
                     raise LDAPException(msg)
             return uidNumber
-         
 
     async def _get_ldap_groups(self, uid: str) -> List[TokenGroup]:
         """Get groups for a user from LDAP.
@@ -274,6 +285,10 @@ class OIDCProvider(Provider):
         member_attr = self._ldap_config.group_member
         ldap_query = f"(&(objectClass={group_class})({member_attr}={uid}))"
 
+        self._logger.debug(
+            f"querying ldap {self._ldap_config.url} at "
+            f"{self._ldap_config.base_dn} for groups with {ldap_query}"
+        )
         client = bonsai.LDAPClient(self._ldap_config.url)
         async with client.connect(is_async=True) as conn:
             results = await conn.search(
@@ -288,6 +303,7 @@ class OIDCProvider(Provider):
             for result in results:
                 name = None
                 try:
+                    self._logger.debug(f"ldap result: {result}")
                     name = result["cn"][0]
                     gid = int(result["gidNumber"][0])
                     groups.append(TokenGroup(name=name, id=gid))

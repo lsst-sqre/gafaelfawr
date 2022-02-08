@@ -143,7 +143,7 @@ class LDAPSettings(BaseModel):
     uid_number_attr: Optional[str] = None
     """LDAP uid attribute.
 
-    Default None to not use LDAP to determine the uid number of user and 
+    Default None to not use LDAP to determine the uid number of user and
     instead to use the uid number from the token (if present).
     Usually ``uidNumber``, , as specified in :rfc:`2307` and `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
