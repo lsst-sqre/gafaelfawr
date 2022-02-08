@@ -252,7 +252,7 @@ class OIDCProvider(Provider):
             for result in results:
                 try:
                     self._logger.debug(f"ldap result: {result}")
-                    uidNumber = int(result[attr][0])
+                    return int(result[attr][0])
                 except Exception as e:
                     msg = (
                         f"LDAP uid number using {attr} "
