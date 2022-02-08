@@ -233,7 +233,7 @@ class OIDCProvider(Provider):
         """
         assert self._ldap_config
         attr = self._ldap_config.uid_number_attr
-        search = f"(&(Uid={uid}))"
+        search = f"(&(uid={uid}))"
 
         self._logger.debug(
             f"querying ldap {self._ldap_config.url} at "
