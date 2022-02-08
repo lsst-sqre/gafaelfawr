@@ -27,7 +27,7 @@ TOKEN_CACHE_SIZE = 10000
 CURSOR_REGEX = "^p?[0-9]+_[0-9]+$"
 """Regex matching a valid cursor."""
 
-GROUPNAME_REGEX = "^[a-z_][a-zA-Z0-9._-]*$"
+GROUPNAME_REGEX = "^[a-zA-Z][a-zA-Z0-9._-]*$"
 """Regex matching all valid group names."""
 
 SCOPE_REGEX = "^[a-zA-Z0-9:._-]+$"
