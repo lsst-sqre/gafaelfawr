@@ -29,6 +29,7 @@ apt-get -y upgrade
 # git is required by setuptools-scm.  libpq-dev is required by psycopg2.
 # libldap2-dev and libsasl2-dev are required by bonsai.
 apt-get -y install --no-install-recommends git libpq-dev libldap2-dev \
+        libldap-common libsasl2-modules \
         libsasl2-dev
 
 # Delete cached files we don't need anymore:
