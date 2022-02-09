@@ -478,7 +478,7 @@ class LDAPConfig:
     base_dn: str
     """Base DN to use when executing LDAP search."""
 
-    uid_number_attr: str = None
+    uid_number_attr: Optional[str] = None
     """LDAP attribute name for userid number
 
     If set, this will override the uid number as defined in the token.
