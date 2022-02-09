@@ -248,7 +248,6 @@ class OIDCProvider(Provider):
                 attrlist=[attr],
             )
             # parse uidNumber
-            uidNumber = None
             for result in results:
                 try:
                     self._logger.debug(f"ldap result: {result}")
@@ -259,7 +258,7 @@ class OIDCProvider(Provider):
                         f"for user {uid} invalid: {str(e)}"
                     )
                     raise LDAPException(msg)
-            return uidNumber
+            raise LDAPException(f"uid number for user {uid} not found")
 
     async def _get_ldap_groups(self, uid: str) -> List[TokenGroup]:
         """Get groups for a user from LDAP.
