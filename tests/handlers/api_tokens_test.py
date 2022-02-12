@@ -249,7 +249,7 @@ async def test_token_info(
     }
     now = datetime.now(tz=timezone.utc)
     created = datetime.fromtimestamp(data["created"], tz=timezone.utc)
-    assert now - timedelta(seconds=2) <= created <= now
+    assert now - timedelta(seconds=5) <= created <= now
     expires = created + timedelta(minutes=config.issuer.exp_minutes)
     assert datetime.fromtimestamp(data["expires"], tz=timezone.utc) == expires
 
