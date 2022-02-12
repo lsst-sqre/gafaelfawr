@@ -12,15 +12,11 @@ API reference
 .. automodapi:: gafaelfawr.constants
    :include-all-objects:
 
-.. automodapi:: gafaelfawr.database
-
 .. automodapi:: gafaelfawr.dependencies.auth
 
 .. automodapi:: gafaelfawr.dependencies.config
 
 .. automodapi:: gafaelfawr.dependencies.context
-
-.. automodapi:: gafaelfawr.dependencies.db_session
 
 .. automodapi:: gafaelfawr.dependencies.redis
 

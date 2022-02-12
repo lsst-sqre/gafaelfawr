@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
 from typing import Dict, FrozenSet, List, Mapping, Optional, Tuple
-from urllib.parse import urlparse
 
 import yaml
 from pydantic import (
@@ -646,6 +645,9 @@ class Config:
     database_url: str
     """URL for the PostgreSQL database."""
 
+    database_password: Optional[str]
+    """Password for the PostgreSQL database."""
+
     initial_admins: Tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
 
@@ -694,21 +696,6 @@ class Config:
         if settings.oidc:
             path = settings.oidc.client_secret_file
             oidc_secret = cls._load_secret(path).decode()
-
-        # The database URL may have a separate secret in database_password, in
-        # which case it needs to be added to the URL.  It also needs to be
-        # configured to use asyncpg.
-        parsed_url = urlparse(settings.database_url)
-        if parsed_url.scheme == "postgresql":
-            parsed_url = parsed_url._replace(scheme="postgresql+asyncpg")
-        if settings.database_password:
-            database_password = settings.database_password.get_secret_value()
-            database_netloc = (
-                f"{parsed_url.username}:{database_password}"
-                f"@{parsed_url.hostname}"
-            )
-            parsed_url = parsed_url._replace(netloc=database_netloc)
-        database_url = parsed_url.geturl()
 
         # If there is an OpenID Connect server configuration, load it from a
         # file in JSON format.  (It contains secrets.)
@@ -799,6 +786,10 @@ class Config:
                 uid_attr=settings.ldap.uid_attr,
             )
         log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
+        if settings.database_password:
+            database_password = settings.database_password.get_secret_value()
+        else:
+            database_password = None
         config = cls(
             realm=settings.realm,
             session_secret=session_secret.decode(),
@@ -814,7 +805,8 @@ class Config:
             ldap=ldap_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
-            database_url=database_url,
+            database_url=settings.database_url,
+            database_password=database_password,
             initial_admins=tuple(settings.initial_admins),
             token_lifetime=timedelta(minutes=settings.issuer.exp_minutes),
             safir=SafirConfig(log_level=log_level),

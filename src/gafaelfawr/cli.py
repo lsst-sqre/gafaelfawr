@@ -11,14 +11,15 @@ import click
 import structlog
 import uvicorn
 from kubernetes_asyncio.client import ApiClient
+from safir.database import initialize_database
 from safir.kubernetes import initialize_kubernetes
 
-from .database import initialize_database
 from .dependencies.config import config_dependency
 from .exceptions import KubernetesError
 from .factory import ComponentFactory
 from .keypair import RSAKeyPair
 from .models.token import Token
+from .schema import Base
 
 T = TypeVar("T")
 
@@ -107,7 +108,17 @@ async def init(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
-    await initialize_database(config)
+    logger = structlog.get_logger(config.safir.logger_name)
+    engine = await initialize_database(
+        config.database_url,
+        config.database_password,
+        logger,
+        schema=Base.metadata,
+    )
+    async with ComponentFactory.standalone(engine) as factory:
+        admin_service = factory.create_admin_service()
+        async with factory.session.begin():
+            await admin_service.add_initial_admins(config.initial_admins)
 
 
 @main.command()

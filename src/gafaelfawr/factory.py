@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 import structlog
 from aioredis import Redis
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from safir.database import create_async_session, create_database_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from .config import Config
@@ -51,7 +51,7 @@ class ComponentFactory:
         Gafaelfawr configuration.
     redis : ``aioredis.Redis``
         Redis client.
-    session : `sqlalchemy.ext.asyncio.AsyncSession`
+    session : `sqlalchemy.ext.asyncio.async_scoped_session`
         SQLAlchemy async session.
     http_client : ``httpx.AsyncClient``
         HTTP async client.
@@ -63,7 +63,9 @@ class ComponentFactory:
 
     @classmethod
     @asynccontextmanager
-    async def standalone(cls) -> AsyncIterator[ComponentFactory]:
+    async def standalone(
+        cls, engine: Optional[AsyncEngine] = None
+    ) -> AsyncIterator[ComponentFactory]:
         """Build Gafaelfawr components outside of a request.
 
         Intended for background jobs.  Uses the non-request default values for
@@ -71,6 +73,13 @@ class ComponentFactory:
         inside the web application or anywhere that may use the default
         `ComponentFactory`, since they will interfere with each other's
         Redis pools.
+
+        Parameters
+        ----------
+        engine : `sqlalchemy.ext.asyncio.AsyncEngine`, optional
+            Existing database engine, if one is already configured.
+            Otherwise, a new one will be created.  The provided engine will be
+            disposed of when the context manager exits.
 
         Yields
         ------
@@ -83,24 +92,27 @@ class ComponentFactory:
         assert logger
         logger.debug("Connecting to Redis")
         redis = await redis_dependency(config)
-        logger.debug("Connecting to PostgreSQL")
-        engine = create_async_engine(config.database_url, future=True)
-        try:
-            session_factory = sessionmaker(
-                engine, expire_on_commit=False, class_=AsyncSession
+        session = None
+        if not engine:
+            logger.debug("Connecting to PostgreSQL")
+            engine = create_database_engine(
+                config.database_url, config.database_password
             )
-            async with session_factory() as session:
-                async with AsyncClient() as client:
-                    yield cls(
-                        config=config,
-                        redis=redis,
-                        session=session,
-                        http_client=client,
-                        token_cache=token_cache,
-                        logger=logger,
-                    )
+        try:
+            session = await create_async_session(engine)
+            async with AsyncClient() as client:
+                yield cls(
+                    config=config,
+                    redis=redis,
+                    session=session,
+                    http_client=client,
+                    token_cache=token_cache,
+                    logger=logger,
+                )
         finally:
             await redis_dependency.aclose()
+            if session:
+                await session.remove()
             await engine.dispose()
 
     def __init__(
@@ -108,7 +120,7 @@ class ComponentFactory:
         *,
         config: Config,
         redis: Redis,
-        session: AsyncSession,
+        session: async_scoped_session,
         http_client: AsyncClient,
         token_cache: TokenCache,
         logger: BoundLogger,
@@ -130,7 +142,7 @@ class ComponentFactory:
         """
         admin_store = AdminStore(self.session)
         admin_history_store = AdminHistoryStore(self.session)
-        return AdminService(admin_store, admin_history_store)
+        return AdminService(admin_store, admin_history_store, self._logger)
 
     def create_kubernetes_service(
         self, api_client: ApiClient

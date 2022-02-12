@@ -224,16 +224,19 @@ async def handle_provider_return(
 
     # Construct a token.
     admin_service = context.factory.create_admin_service()
-    if await admin_service.is_admin(user_info.username):
-        scopes = sorted(scopes + ["admin:token"])
-    token_service = context.factory.create_token_service()
-    try:
-        token = await token_service.create_session_token(
-            user_info, scopes=scopes, ip_address=context.request.client.host
-        )
-    except PermissionDeniedError as e:
-        await auth_provider.logout(context.state)
-        return login_error(context, LoginError.INVALID_USERNAME, str(e))
+    async with context.session.begin():
+        if await admin_service.is_admin(user_info.username):
+            scopes = sorted(scopes + ["admin:token"])
+        token_service = context.factory.create_token_service()
+        try:
+            token = await token_service.create_session_token(
+                user_info,
+                scopes=scopes,
+                ip_address=context.request.client.host,
+            )
+        except PermissionDeniedError as e:
+            await auth_provider.logout(context.state)
+            return login_error(context, LoginError.INVALID_USERNAME, str(e))
     context.state.token = token
 
     # Successful login, so clear the login state and send the user back to

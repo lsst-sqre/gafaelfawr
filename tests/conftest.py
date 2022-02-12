@@ -10,20 +10,22 @@ from urllib.parse import urljoin
 import bonsai
 import pytest
 import pytest_asyncio
+import structlog
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from safir.database import initialize_database
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from seleniumwire import webdriver
 
 from gafaelfawr import main
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
-from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
+from gafaelfawr.schema import Base
 
 from .pages.tokens import TokensPage
 from .support.constants import TEST_HOSTNAME
@@ -100,15 +102,26 @@ async def empty_database(config: Config) -> None:
     on it if control over the configuration prior to database initialization
     is required.
     """
-    await initialize_database(config, reset=True)
+    logger = structlog.get_logger(config.safir.logger_name)
+    engine = await initialize_database(
+        config.database_url,
+        config.database_password,
+        logger,
+        schema=Base.metadata,
+        reset=True,
+    )
+    async with ComponentFactory.standalone(engine) as factory:
+        admin_service = factory.create_admin_service()
+        async with factory.session.begin():
+            await admin_service.add_initial_admins(config.initial_admins)
 
 
 @pytest_asyncio.fixture
 async def factory(empty_database: None) -> AsyncIterator[ComponentFactory]:
     """Return a component factory.
 
-    Note that this creates a separate SQLAlchemy AsyncSession from any that
-    may be created by the FastAPI app.
+    Note that this creates a separate SQLAlchemy async_scoped_session from any
+    that may be created by the FastAPI app.
     """
     async with ComponentFactory.standalone() as factory:
         yield factory

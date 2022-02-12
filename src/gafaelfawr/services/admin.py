@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List
+from typing import Iterable, List
+
+from structlog.stdlib import BoundLogger
 
 from ..exceptions import PermissionDeniedError
 from ..models.admin import Admin
@@ -23,13 +25,19 @@ class AdminService:
         The backing store for token administrators.
     admin_history_store : `gafaelfawr.storage.history.AdminHistoryStore`
         The backing store for history of changes to token administrators.
+    logger : ``structlog.stdlib.BoundLogger``
+        Logger to use for messages.
     """
 
     def __init__(
-        self, admin_store: AdminStore, admin_history_store: AdminHistoryStore
+        self,
+        admin_store: AdminStore,
+        admin_history_store: AdminHistoryStore,
+        logger: BoundLogger,
     ) -> None:
         self._admin_store = admin_store
         self._admin_history_store = admin_history_store
+        self._logger = logger
 
     async def add_admin(
         self, username: str, *, actor: str, ip_address: str
@@ -62,6 +70,23 @@ class AdminService:
         )
         await self._admin_store.add(admin)
         await self._admin_history_store.add(history_entry)
+
+    async def add_initial_admins(self, admins: Iterable[str]) -> None:
+        """Add the initial admins if the database is not initialized.
+
+        This should be called after database initialization to add the
+        configured initial admins.  The admin list will only be changed if it
+        is currently empty.
+
+        Parameters
+        ----------
+        admins : List[`str`]
+            Usernames of initial admins.
+        """
+        if not await self._admin_store.list():
+            for admin in admins:
+                self._logger.info(f"adding initial admin {admin}")
+                await self._admin_store.add(Admin(username=admin))
 
     async def delete_admin(
         self, username: str, *, actor: str, ip_address: str

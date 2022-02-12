@@ -7,7 +7,7 @@ from base64 import b64decode
 from typing import Dict, Optional
 
 from kubernetes_asyncio.client import V1Secret
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import (
@@ -77,7 +77,7 @@ class KubernetesService:
         Token management service.
     storage : `gafaelfawr.storage.kubernetes.KubernetesStorage`
         Storage layer for the Kubernetes cluster.
-    session : `sqlalchemy.ext.asyncio.AsyncSession`
+    session : `sqlalchemy.ext.asyncio.async_scoped_session`
         Database session, used for transaction management.
     logger : ``structlog.stdlib.BoundLogger``
         Logger to report issues.
@@ -88,7 +88,7 @@ class KubernetesService:
         *,
         token_service: TokenService,
         storage: KubernetesStorage,
-        session: AsyncSession,
+        session: async_scoped_session,
         logger: BoundLogger,
     ) -> None:
         self._token_service = token_service

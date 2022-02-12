@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import and_, func, or_
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.future import select
 from sqlalchemy.sql import Select, text
 
@@ -28,11 +28,11 @@ class AdminHistoryStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.ext.asyncio.AsyncSession`
+    session : `sqlalchemy.ext.asyncio.async_scoped_session`
         The database session proxy.
     """
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: async_scoped_session) -> None:
         self._session = session
 
     async def add(self, entry: AdminHistoryEntry) -> None:
@@ -47,11 +47,11 @@ class TokenChangeHistoryStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.ext.asyncio.AsyncSession`
+    session : `sqlalchemy.ext.asyncio.async_scoped_session`
         The database session proxy.
     """
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: async_scoped_session) -> None:
         self._session = session
 
     async def add(self, entry: TokenChangeHistoryEntry) -> None:

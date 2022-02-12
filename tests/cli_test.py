@@ -12,19 +12,34 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
+import structlog
 from _pytest.logging import LogCaptureFixture
 from click.testing import CliRunner
 from kubernetes_asyncio.client import ApiException
+from safir.database import initialize_database
 from safir.testing.kubernetes import MockKubernetesApi
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config
-from gafaelfawr.database import initialize_database
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.token import Token, TokenData
+from gafaelfawr.schema import Base
 
 from .support.logging import parse_log
+
+
+async def _initialize_database(config: Config) -> None:
+    """Helper function to initialize the database."""
+    logger = structlog.get_logger(config.safir.logger_name)
+    engine = await initialize_database(
+        config.database_url,
+        config.database_password,
+        logger,
+        schema=Base.metadata,
+        reset=True,
+    )
+    await engine.dispose()
 
 
 def test_generate_key() -> None:
@@ -87,7 +102,7 @@ def test_init(config: Config) -> None:
 def test_update_service_tokens(
     tmp_path: Path, config: Config, mock_kubernetes: MockKubernetesApi
 ) -> None:
-    asyncio.run(initialize_database(config, reset=True))
+    asyncio.run(_initialize_database(config))
     asyncio.run(
         mock_kubernetes.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
@@ -123,7 +138,7 @@ def test_update_service_tokens_error(
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
-    asyncio.run(initialize_database(config, reset=True))
+    asyncio.run(_initialize_database(config))
     caplog.clear()
 
     def error_callback(method: str, *args: Any) -> None:
