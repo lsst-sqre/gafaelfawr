@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional, cast
 
+from safir.database import datetime_to_db
 from sqlalchemy import delete
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import async_scoped_session
@@ -15,7 +16,6 @@ from ..exceptions import DeserializeException, DuplicateTokenNameError
 from ..models.token import Token, TokenData, TokenInfo, TokenType
 from ..schema.subtoken import Subtoken
 from ..schema.token import Token as SQLToken
-from ..util import datetime_to_db
 from .base import RedisStorage
 
 __all__ = ["TokenDatabaseStore", "TokenRedisStore"]

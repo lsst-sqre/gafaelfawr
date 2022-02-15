@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
+from safir.database import datetime_from_db, datetime_to_db
 from sqlalchemy import and_, func, or_
 from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.future import select
@@ -18,7 +19,6 @@ from ..models.history import (
 )
 from ..models.token import TokenType
 from ..schema import AdminHistory, TokenChangeHistory
-from ..util import datetime_to_db, normalize_datetime
 
 __all__ = ["AdminHistoryStore", "TokenChangeHistoryStore"]
 
@@ -258,14 +258,14 @@ class TokenChangeHistoryStore:
     @staticmethod
     def _build_next_cursor(entry: TokenChangeHistory) -> HistoryCursor:
         """Construct a next cursor for entries >= the given entry."""
-        next_time = normalize_datetime(entry.event_time)
+        next_time = datetime_from_db(entry.event_time)
         assert next_time
         return HistoryCursor(time=next_time, id=entry.id)
 
     @staticmethod
     def _build_prev_cursor(entry: TokenChangeHistory) -> HistoryCursor:
         """Construct a prev cursor for entries before the given entry."""
-        prev_time = normalize_datetime(entry.event_time)
+        prev_time = datetime_from_db(entry.event_time)
         assert prev_time
         return HistoryCursor(time=prev_time, id=entry.id, previous=True)
 
