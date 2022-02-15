@@ -22,6 +22,7 @@ issuer:
 ldap:
   url: "ldaps://ldap.example.com/"
   base_dn: "dc=example,dc=com"
+  uid_number_attr: "user"
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"
