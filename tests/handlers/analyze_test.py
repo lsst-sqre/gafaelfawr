@@ -119,14 +119,15 @@ async def test_analyze_token(
     token_data.uid = None
     token_data.groups = None
     token_service = factory.create_token_service()
-    user_token = await token_service.create_user_token(
-        token_data,
-        token_data.username,
-        token_name="foo",
-        scopes=[],
-        expires=None,
-        ip_address="127.0.0.1",
-    )
+    async with factory.session.begin():
+        user_token = await token_service.create_user_token(
+            token_data,
+            token_data.username,
+            token_name="foo",
+            scopes=[],
+            expires=None,
+            ip_address="127.0.0.1",
+        )
     user_token_data = await token_service.get_data(user_token)
     assert user_token_data
 

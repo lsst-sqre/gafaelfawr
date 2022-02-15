@@ -604,14 +604,15 @@ async def test_child_token_lifetime(
 
     # Get an internal and notebook token again.  We should get the same ones
     # as last time.
-    new_internal_token = await token_service.get_internal_token(
-        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
-    )
-    assert new_internal_token == internal_token
-    new_notebook_token = await token_service.get_notebook_token(
-        user_token_data, ip_address="127.0.0.1"
-    )
-    assert new_notebook_token == notebook_token
+    async with factory.session.begin():
+        new_internal_token = await token_service.get_internal_token(
+            user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+        )
+        assert new_internal_token == internal_token
+        new_notebook_token = await token_service.get_notebook_token(
+            user_token_data, ip_address="127.0.0.1"
+        )
+        assert new_notebook_token == notebook_token
 
 
 @pytest.mark.asyncio
