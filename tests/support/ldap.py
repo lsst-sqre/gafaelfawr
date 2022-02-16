@@ -50,9 +50,17 @@ class MockLDAP(Mock):
         attrlist: List[str],
     ) -> List[Dict[str, List[str]]]:
         assert base_dn == self.config.base_dn
-        assert scope == bonsai.LDAPSearchScope.SUB
-        assert attrlist == ["cn", "gidNumber"]
+        assert scope in (
+            bonsai.LDAPSearchScope.SUB,
+            bonsai.LDAPSearchScope.ONELEVEL,
+        )
         self.query = query
-        return [
-            {"cn": [g.name], "gidNumber": [str(g.id)]} for g in self.groups
-        ]
+        if query == "(&(uid=some-user))":
+            assert attrlist == ["user"]
+            return [{"user": [str(1000)]}]
+        elif query == "(&(objectClass=posixGroup)(member=some-user))":
+            assert attrlist == ["cn", "gidNumber"]
+            return [
+                {"cn": [g.name], "gidNumber": [str(g.id)]} for g in self.groups
+            ]
+        return [{"None": ["None"]}]
