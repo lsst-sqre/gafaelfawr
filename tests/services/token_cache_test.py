@@ -85,12 +85,13 @@ async def test_invalid(factory: ComponentFactory) -> None:
     )
     token_cache.store_notebook_token(notebook_token, token_data)
 
-    assert internal_token != await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"], "127.0.0.1"
-    )
-    assert notebook_token != await token_cache.get_notebook_token(
-        token_data, "127.0.0.1"
-    )
+    async with factory.session.begin():
+        assert internal_token != await token_cache.get_internal_token(
+            token_data, "some-service", ["read:all"], "127.0.0.1"
+        )
+        assert notebook_token != await token_cache.get_notebook_token(
+            token_data, "127.0.0.1"
+        )
 
 
 @pytest.mark.asyncio
