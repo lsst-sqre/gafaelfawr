@@ -15,14 +15,17 @@ API reference
 .. automodapi:: gafaelfawr.dependencies.auth
 
 .. automodapi:: gafaelfawr.dependencies.config
+   :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.context
 
 .. automodapi:: gafaelfawr.dependencies.redis
+   :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.return_url
 
 .. automodapi:: gafaelfawr.dependencies.token_cache
+   :include-all-objects:
 
 .. automodapi:: gafaelfawr.exceptions
 

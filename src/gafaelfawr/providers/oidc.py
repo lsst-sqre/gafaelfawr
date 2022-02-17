@@ -34,7 +34,7 @@ class OIDCProvider(Provider):
         Token verifier to use to verify the token returned by the provider.
     http_client : ``httpx.AsyncClient``
         Session to use to make HTTP requests.
-    logger : ``structlog.stdlib.BoundLogger``
+    logger : `structlog.stdlib.BoundLogger`
         Logger for any log messages.
     """
 

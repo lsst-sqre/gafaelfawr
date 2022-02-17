@@ -43,7 +43,7 @@ class TokenVerifier:
         The JWT Authorizer configuration.
     http_client : ``httpx.AsyncClient``
         The client to use for making requests.
-    logger : ``structlog.stdlib.BoundLogger``
+    logger : `structlog.stdlib.BoundLogger`
         Logger to use to report status information.
     """
 

@@ -333,7 +333,7 @@ class TokenRedisStore:
     ----------
     storage : `gafaelfawr.storage.base.RedisStorage`
         The underlying storage.
-    logger : `structlog.BoundLogger`
+    logger : `structlog.stdlib.BoundLogger`
         Logger for diagnostics.
     """
 

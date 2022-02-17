@@ -25,7 +25,7 @@ class AdminService:
         The backing store for token administrators.
     admin_history_store : `gafaelfawr.storage.history.AdminHistoryStore`
         The backing store for history of changes to token administrators.
-    logger : ``structlog.stdlib.BoundLogger``
+    logger : `structlog.stdlib.BoundLogger`
         Logger to use for messages.
     """
 

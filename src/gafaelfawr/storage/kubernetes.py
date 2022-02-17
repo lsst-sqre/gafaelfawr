@@ -478,7 +478,7 @@ class KubernetesWatcher:
         The Kubernetes client.
     queue : `asyncio.Queue`
         The queue into which to put the events.
-    logger : ``structlog.stdlib.BoundLogger``
+    logger : `structlog.stdlib.BoundLogger`
         Logger to use for messages.
     """
 

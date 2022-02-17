@@ -39,7 +39,7 @@ class OIDCService:
         JWT issuer.
     token_service : `gafaelfawr.services.token.TokenService`
         Token manipulation service.
-    logger : ``structlog.stdlib.BoundLogger``
+    logger : `structlog.stdlib.BoundLogger`
         Logger for diagnostics.
 
     Notes

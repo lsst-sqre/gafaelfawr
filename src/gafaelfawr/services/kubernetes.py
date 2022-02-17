@@ -79,7 +79,7 @@ class KubernetesService:
         Storage layer for the Kubernetes cluster.
     session : `sqlalchemy.ext.asyncio.async_scoped_session`
         Database session, used for transaction management.
-    logger : ``structlog.stdlib.BoundLogger``
+    logger : `structlog.stdlib.BoundLogger`
         Logger to report issues.
     """
 
