@@ -242,7 +242,7 @@ The client must be able to authenticate by sending a ``client_secret`` parameter
 Chronograf example
 ------------------
 
-Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com`` and Chronograf is at the URL ``/chronograf``, here are the environment variables required to configure `Chronograf <https://docs.influxdata.com/chronograf/v1.8/administration/managing-security/#configure-chronograf-to-use-any-oauth-2-0-provider>`__:
+Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com`` and Chronograf is at the URL ``/chronograf``, here are the environment variables required to configure `Chronograf <https://docs.influxdata.com/chronograf/v1.9/administration/managing-security/#configure-chronograf-to-use-any-oauth-20-provider>`__:
 
 * ``GENERIC_CLIENT_ID``: ``chronograf-client-id``
 * ``GENERIC_CLIENT_SECRET``: ``fb7518beb61d27aaf20675d62778dea9``
@@ -251,9 +251,15 @@ Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com``
 * ``USE_ID_TOKEN``: 1
 * ``JWKS_URL``: ``https://example.com/.well-known/jwks.json``
 * ``GENERIC_API_URL``: ``https://example.com/auth/openid/userinfo``
+* ``GENERIC_API_KEY``: ``sub``
 * ``GENERIC_SCOPES``: ``openid``
 * ``PUBLIC_URL``: ``https://example.com/chronograf``
 * ``TOKEN_SECRET``: ``pCY29u3qMTdWCNetOUD3OShsqwPm+pYKDNt6dqy01qw=``
+
+``GENERIC_CLIENT_ID`` and ``GENERIC_CLIENT_SECRET`` should match a client ID and secret configured in the ``oidc-server-secrets`` Vault key.
+
+Be aware that this uses the ``sub`` token claim, which corresponds to the user's username, for authentication, rather than the default of the user's email address.
+(Gafaelfawr does not always have an email address for a user.)
 
 Open Distro for Elasticsearch example
 -------------------------------------
