@@ -99,12 +99,15 @@ async def test_verify_oidc(
     expected = f"No {config.verifier.username_claim} claim in token"
     assert str(excinfo.value) == expected
 
-    # Missing UID claim.
+    # Missing UID claim.  This is only diagnosed when get_uid_from_token is
+    # called, not during the initial verification, since we do not verify the
+    # UID claim if UIDs are retrieved from LDAP instead.
     await mock_oidc_provider_config(respx_mock, keypair)
     payload[config.verifier.username_claim] = "some-user"
     token = encode_token(payload, config.issuer.keypair, kid=kid)
+    verified_token = await verifier.verify_oidc_token(token)
     with pytest.raises(MissingClaimsException) as excinfo:
-        await verifier.verify_oidc_token(token)
+        verifier.get_uid_from_token(verified_token)
     expected = f"No {config.verifier.uid_claim} claim in token"
     assert str(excinfo.value) == expected
 

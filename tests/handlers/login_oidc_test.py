@@ -80,7 +80,8 @@ async def test_login(
     expected_scopes_set = set(config.issuer.group_mapping["admin"])
     expected_scopes_set.add("user:token")
     expected_scopes = " ".join(sorted(expected_scopes_set))
-    event = f"Successfully authenticated user {token.username} ({token.uid})"
+    uid = token.claims["uidNumber"]
+    event = f"Successfully authenticated user {token.username} ({uid})"
     assert parse_log(caplog) == [
         {
             "event": f"Retrieving ID token from {config.oidc.token_url}",
@@ -115,7 +116,7 @@ async def test_login(
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == token.username
     assert r.headers["X-Auth-Request-Email"] == "person@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == str(token.uid)
+    assert r.headers["X-Auth-Request-Uid"] == token.claims["uidNumber"]
     assert r.headers["X-Auth-Request-Groups"] == "admin"
 
 
@@ -399,9 +400,7 @@ async def test_invalid_group_syntax(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(
-        isMemberOf=[{"name": "foo", "id": ["bar"]}]
-    )
+    token = await create_upstream_oidc_token(isMemberOf=47)
     await mock_oidc_provider_config(respx_mock, config.issuer.keypair)
     await mock_oidc_provider_token(respx_mock, "some-code", token)
     return_url = "https://example.com/foo"
@@ -416,7 +415,7 @@ async def test_invalid_group_syntax(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
-    assert "isMemberOf claim is invalid" in r.text
+    assert "isMemberOf claim has invalid format" in r.text
 
 
 @pytest.mark.asyncio
@@ -433,6 +432,7 @@ async def test_invalid_groups(
             {"name": "bad:group:name", "id": 5723},
             {"name": "", "id": 1482},
             {"name": "21341", "id": 41233},
+            {"name": "foo", "id": ["bar"]},
         ]
     )
     await mock_oidc_provider_config(respx_mock, config.issuer.keypair)
@@ -515,7 +515,7 @@ async def test_unicode_name(
         "username": token.username,
         "name": "名字",
         "email": token.claims["email"],
-        "uid": token.uid,
+        "uid": int(token.claims["uidNumber"]),
         "groups": [{"name": "admin", "id": 1000}],
     }
 

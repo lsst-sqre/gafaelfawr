@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from httpx import AsyncClient, RequestError
 from jwt.exceptions import InvalidIssuerError
+from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
 from .config import VerifierConfig
@@ -24,6 +25,7 @@ from .exceptions import (
     UnknownKeyIdException,
 )
 from .models.oidc import OIDCToken, OIDCVerifiedToken
+from .models.token import TokenGroup
 from .util import base64_to_number
 
 __all__ = ["TokenVerifier"]
@@ -87,17 +89,13 @@ class TokenVerifier:
             raise InvalidTokenError(str(e))
         return self._build_token(token.encoded, payload)
 
-    async def verify_oidc_token(
-        self, token: OIDCToken, verify_uid: bool = True
-    ) -> OIDCVerifiedToken:
+    async def verify_oidc_token(self, token: OIDCToken) -> OIDCVerifiedToken:
         """Verifies the provided JWT from an OpenID Connect provider.
 
         Parameters
         ----------
         token : `gafaelfawr.models.oidc.OIDCToken`
             JWT to verify.
-        verify_uid : `bool`
-            Whether we should attempt to parse the UID from the token.
 
         Returns
         -------
@@ -148,12 +146,111 @@ class TokenVerifier:
             audience=self._config.oidc_aud,
         )
 
-        return self._build_token(token.encoded, payload, verify_uid=verify_uid)
+        return self._build_token(token.encoded, payload)
+
+    def get_uid_from_token(self, token: OIDCVerifiedToken) -> int:
+        """Verify and return the numeric UID from the token.
+
+        This is separate from `verify_oidc_token` because we don't want to try
+        to parse the token claims for a numeric UID if Gafaelfawr was
+        configured to get the numeric UID from LDAP instead.  The caller of
+        `verify_oidc_token` should call this method afterwards if the numeric
+        UID from a JWT claim is required.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+            The previously verified token.
+
+        Returns
+        -------
+        uid : `int`
+            The numeric UID of the user as obtained from the token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.MissingClaimsException
+            The token is missing the required numeric UID claim.
+        gafaelfawr.exceptions.InvalidTokenClaimsException
+            The numeric UID claim contains something that is not a number.
+        """
+        if self._config.uid_claim not in token.claims:
+            msg = f"No {self._config.uid_claim} claim in token"
+            self._logger.warning(msg, claims=token.claims)
+            raise MissingClaimsException(msg)
+        try:
+            uid = int(token.claims[self._config.uid_claim])
+        except Exception:
+            msg = f"Invalid {self._config.uid_claim} claim in token"
+            self._logger.warning(msg, claims=token.claims)
+            raise InvalidTokenClaimsException(msg)
+        return uid
+
+    def get_groups_from_token(
+        self,
+        token: OIDCVerifiedToken,
+    ) -> List[TokenGroup]:
+        """Determine the user's groups from token claims.
+
+        Invalid groups are logged and ignored.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+            The previously verified token.
+
+        Returns
+        -------
+        groups : List[`gafaelfawr.models.token.TokenGroup`]
+            List of groups derived from the ``isMemberOf`` token claim.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.InvalidTokenClaimsException
+            The ``isMemberOf`` claim has an invalid syntax.
+        """
+        groups = []
+        invalid_groups = {}
+        try:
+            for oidc_group in token.claims.get("isMemberOf", []):
+                if "name" not in oidc_group:
+                    continue
+                name = oidc_group["name"]
+                if "id" not in oidc_group:
+                    invalid_groups[name] = "missing id"
+                    continue
+                try:
+                    gid = int(oidc_group["id"])
+                    groups.append(TokenGroup(name=name, id=gid))
+                except (TypeError, ValueError, ValidationError) as e:
+                    invalid_groups[name] = str(e)
+        except TypeError as e:
+            msg = f"isMemberOf claim has invalid format: {str(e)}"
+            self._logger.error(
+                "Unable to get groups from token",
+                error=msg,
+                claim=token.claims.get("isMemberOf", []),
+                user=token.username,
+            )
+            raise InvalidTokenClaimsException(msg)
+
+        if invalid_groups:
+            self._logger.warning(
+                "Ignoring invalid groups in OIDC token",
+                error="isMemberOf claim value could not be parsed",
+                invalid_groups=invalid_groups,
+            )
+
+        return groups
 
     def _build_token(
-        self, encoded: str, claims: Mapping[str, Any], verify_uid: bool = True
+        self, encoded: str, claims: Mapping[str, Any]
     ) -> OIDCVerifiedToken:
         """Build a VerifiedToken from an encoded token and its verified claims.
+
+        The resulting token will always have a ``uid`` attribute of `None`.
+        If the user's numeric UID should come from a JWT claim, the caller
+        should call `verify_oidc_token_uid`.
 
         Parameters
         ----------
@@ -161,8 +258,6 @@ class TokenVerifier:
             The encoded form of the token.
         claims : Mapping[`str`, Any]
             The claims of a verified token.
-        verify_uid : `bool`
-            Whether we should attempt to parse a uid value from the token.
 
         Returns
         -------
@@ -179,25 +274,12 @@ class TokenVerifier:
             self._logger.warning(msg, claims=claims)
             raise MissingClaimsException(msg)
 
-        uid = None
-        if verify_uid:
-            if self._config.uid_claim not in claims:
-                msg = f"No {self._config.uid_claim} claim in token"
-                self._logger.warning(msg, claims=claims)
-                raise MissingClaimsException(msg)
-            try:
-                uid = int(claims[self._config.uid_claim])
-            except Exception:
-                msg = f"Invalid {self._config.uid_claim} claim in token"
-                self._logger.warning(msg, claims=claims)
-                raise InvalidTokenClaimsException(msg)
-
         return OIDCVerifiedToken(
             encoded=encoded,
             claims=claims,
             jti=claims.get("jti", "UNKNOWN"),
             username=claims[self._config.username_claim],
-            uid=uid,
+            uid=None,
         )
 
     async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> str:

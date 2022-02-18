@@ -78,6 +78,8 @@ API reference
 
 .. automodapi:: gafaelfawr.storage.kubernetes
 
+.. automodapi:: gafaelfawr.storage.ldap
+
 .. automodapi:: gafaelfawr.storage.oidc
 
 .. automodapi:: gafaelfawr.storage.token
