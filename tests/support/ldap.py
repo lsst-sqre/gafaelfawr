@@ -56,8 +56,8 @@ class MockLDAP(Mock):
         )
         self.query = query
         if query == "(&(uid=some-user))":
-            assert attrlist == ["user"]
-            return [{"user": [str(1000)]}]
+            assert attrlist == ["uidNumber"]
+            return [{"uidNumber": [str(1000)]}]
         elif query == "(&(objectClass=posixGroup)(member=some-user))":
             assert attrlist == ["cn", "gidNumber"]
             return [

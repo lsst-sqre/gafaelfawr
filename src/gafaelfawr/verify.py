@@ -97,7 +97,7 @@ class TokenVerifier:
         token : `gafaelfawr.models.oidc.OIDCToken`
             JWT to verify.
         verify_uid : `bool`
-            Whether we should attempt to parse the uid in token
+            Whether we should attempt to parse the UID from the token.
 
         Returns
         -------
@@ -179,7 +179,6 @@ class TokenVerifier:
             self._logger.warning(msg, claims=claims)
             raise MissingClaimsException(msg)
 
-        # kwargs = {"uid": None}
         uid = None
         if verify_uid:
             if self._config.uid_claim not in claims:

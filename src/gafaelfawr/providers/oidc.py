@@ -151,29 +151,26 @@ class OIDCProvider(Provider):
         # Extract and verify the token.
         unverified_token = OIDCToken(encoded=result["id_token"])
 
-        # determine if we want to attempt to get uid from the token or 1ldap
-        uidNumber = None
-        # if self._ldap_config.uid_number_attr is None, then assume we want
-        # the uid from the token
-        uid_from_token = True
-        if self._ldap_config and self._ldap_config.uid_number_attr:
-            uid_from_token = False
+        # If self._ldap_config.uid_number_attr is None, then assume we want
+        # the uid from the token.  Otherwise, get it from LDAP.
+        uid_from_ldap = self._ldap_config and self._ldap_config.uid_number_attr
         try:
             token = await self._verifier.verify_oidc_token(
-                unverified_token, verify_uid=uid_from_token
+                unverified_token, verify_uid=not uid_from_ldap
             )
         except (jwt.InvalidTokenError, VerifyTokenException) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCException(msg)
 
         # If configured with LDAP support, get user group information from
-        # LDAP.  Otherwise, extract it from the token.
+        # LDAP, and optionally the UID number.  Otherwise, extract it from the
+        # token.
+        uid_number = token.uid
         if self._ldap_config:
-            # if configured, extract uidNumber from LDAP
-            uidNumber = await self._get_ldap_uid_number(token.username)
+            if uid_from_ldap:
+                uid_number = await self._get_ldap_uid_number(token.username)
             groups = await self._get_ldap_groups(token.username)
         else:
-            uidNumber = token.uid
             groups = []
             invalid_groups = {}
             try:
@@ -196,7 +193,7 @@ class OIDCProvider(Provider):
             username=token.username,
             name=token.claims.get("name"),
             email=token.claims.get("email"),
-            uid=uidNumber,
+            uid=uid_number,
             groups=groups,
         )
 
@@ -212,33 +209,36 @@ class OIDCProvider(Provider):
         """
         pass
 
-    async def _get_ldap_uid_number(self, uid: str) -> int:
-        """Retrieve the uid number from ldap
+    async def _get_ldap_uid_number(self, username: str) -> int:
+        """Retrieve the UID number from LDAP.
 
         Parameters
         ----------
-        uid : `str`
+        username : `str`
             Username of the user.
 
         Returns
         -------
-        uidNumber : `int`
-            The numeric id of the user from LDAP.
+        uid_number : `int`
+            The numeric UID of the user from LDAP.
 
         Raises
         ------
         gafaelfawr.exceptions.LDAPException
-            The lookup using uid_number_attr against the LDAP server was not
-            valid (attribute not in LDAP or resultant value not an integer)
+            The lookup using ``uid_number_attr`` against the LDAP server was
+            not valid (attribute not in LDAP or result value not an integer).
         """
         assert self._ldap_config
         attr = self._ldap_config.uid_number_attr
-        search = f"(&(uid={uid}))"
+        search = f"(&(uid={username}))"
 
         self._logger.debug(
-            f"querying ldap {self._ldap_config.url} at "
-            f"{self._ldap_config.base_dn} for uid number with {search}"
+            "Querying LDAP for UID number",
+            ldap_url=self._ldap_config.url,
+            ldap_base=self._ldap_config.base_dn,
+            ldap_search=search,
         )
+
         client = bonsai.LDAPClient(self._ldap_config.url)
         async with client.connect(is_async=True) as conn:
             results = await conn.search(
@@ -247,25 +247,27 @@ class OIDCProvider(Provider):
                 search,
                 attrlist=[attr],
             )
-            # parse uidNumber
             for result in results:
                 try:
-                    self._logger.debug(f"ldap result: {result}")
+                    self._logger.debug("LDAP UID found", result=result)
                     return int(result[attr][0])
                 except Exception as e:
                     msg = (
-                        f"LDAP uid number using {attr} "
-                        f"for user {uid} invalid: {str(e)}"
+                        f"LDAP UID number from {attr} "
+                        f"for user {username} invalid: {str(e)}"
                     )
                     raise LDAPException(msg)
-            raise LDAPException(f"uid number for user {uid} not found")
 
-    async def _get_ldap_groups(self, uid: str) -> List[TokenGroup]:
+        # Fell through without finding a UID.
+        msg = f"LDAP UID number from {attr} for user {username} not found"
+        raise LDAPException(msg)
+
+    async def _get_ldap_groups(self, username: str) -> List[TokenGroup]:
         """Get groups for a user from LDAP.
 
         Parameters
         ----------
-        uid : `str`
+        username : `str`
             Username of the user.
 
         Returns
@@ -277,36 +279,42 @@ class OIDCProvider(Provider):
         ------
         gafaelfawr.exceptions.LDAPException
             One of the groups for the user in LDAP was not valid (missing
-            cn or gidNumber attributes, or gidNumber is not an integer)
+            ``cn`` or ``gidNumber`` attributes, or ``gidNumber`` is not an
+            integer)
         """
         assert self._ldap_config
         group_class = self._ldap_config.group_object_class
         member_attr = self._ldap_config.group_member
-        ldap_query = f"(&(objectClass={group_class})({member_attr}={uid}))"
+        search = f"(&(objectClass={group_class})({member_attr}={username}))"
 
         self._logger.debug(
-            f"querying ldap {self._ldap_config.url} at "
-            f"{self._ldap_config.base_dn} for groups with {ldap_query}"
+            "Querying LDAP for groups",
+            ldap_url=self._ldap_config.url,
+            ldap_base=self._ldap_config.base_dn,
+            ldap_search=search,
         )
+
         client = bonsai.LDAPClient(self._ldap_config.url)
         async with client.connect(is_async=True) as conn:
             results = await conn.search(
                 self._ldap_config.base_dn,
                 bonsai.LDAPSearchScope.SUB,
-                ldap_query,
+                search,
                 attrlist=["cn", "gidNumber"],
             )
 
             # Parse the results into the group list.
             groups = []
-            for result in results:
-                name = None
-                try:
-                    self._logger.debug(f"ldap result: {result}")
+            try:
+                for result in results:
+                    name = None
+                    self._logger.debug("LDAP group found", result=result)
                     name = result["cn"][0]
                     gid = int(result["gidNumber"][0])
                     groups.append(TokenGroup(name=name, id=gid))
-                except Exception as e:
-                    msg = f"LDAP group {name} for user {uid} invalid: {str(e)}"
-                    raise LDAPException(msg)
+            except Exception as e:
+                msg = (
+                    f"LDAP group {name} for user {username} invalid: {str(e)}"
+                )
+                raise LDAPException(msg)
             return groups
