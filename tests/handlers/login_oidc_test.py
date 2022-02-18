@@ -549,10 +549,6 @@ async def test_ldap(
     assert r.json() == {
         "username": token.username,
         "email": token.claims["email"],
-        "uid": token.uid,
+        "uid": 2000,
         "groups": [{"name": g.name, "id": g.id} for g in mock_ldap.groups],
     }
-    assert mock_ldap.query == (
-        f"(&(objectClass={config.ldap.group_object_class})"
-        f"({config.ldap.group_member}={token.username}))"
-    )

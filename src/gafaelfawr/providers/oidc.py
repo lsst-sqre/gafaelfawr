@@ -153,7 +153,7 @@ class OIDCProvider(Provider):
 
         # If self._ldap_config.uid_number_attr is None, then assume we want
         # the uid from the token.  Otherwise, get it from LDAP.
-        uid_from_ldap = self._ldap_config and self._ldap_config.uid_number_attr
+        uid_from_ldap = self._ldap_config and self._ldap_config.uid_base_dn
         try:
             token = await self._verifier.verify_oidc_token(
                 unverified_token, verify_uid=not uid_from_ldap
@@ -229,13 +229,13 @@ class OIDCProvider(Provider):
             not valid (attribute not in LDAP or result value not an integer).
         """
         assert self._ldap_config
-        attr = self._ldap_config.uid_number_attr
+        attr = self._ldap_config.uid_attr
         search = f"(&(uid={username}))"
 
         self._logger.debug(
             "Querying LDAP for UID number",
             ldap_url=self._ldap_config.url,
-            ldap_base=self._ldap_config.base_dn,
+            ldap_base=self._ldap_config.uid_base_dn,
             ldap_search=search,
         )
 
@@ -284,7 +284,7 @@ class OIDCProvider(Provider):
         """
         assert self._ldap_config
         group_class = self._ldap_config.group_object_class
-        member_attr = self._ldap_config.group_member
+        member_attr = self._ldap_config.group_member_attr
         search = f"(&(objectClass={group_class})({member_attr}={username}))"
 
         self._logger.debug(

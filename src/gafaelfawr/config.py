@@ -140,17 +140,8 @@ class LDAPSettings(BaseModel):
     supported.
     """
 
-    uid_number_attr: Optional[str] = None
-    """LDAP uid attribute.
-
-    Default None to not use LDAP to determine the uid number of user and
-    instead to use the uid number from the token (if present).
-    Usually ``uidNumber``, , as specified in :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
-    """
-
     base_dn: str
-    """Base DN to use when executing LDAP search."""
+    """Base DN to use when executing an LDAP search for user groups."""
 
     group_object_class: str = "posixGroup"
     """LDAP group object class.
@@ -159,10 +150,25 @@ class LDAPSettings(BaseModel):
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
-    group_member: str = "member"
+    group_member_attr: str = "member"
     """LDAP group member attribute.
 
     ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    uid_base_dn: Optional[str] = None
+    """Base DN to use when executing an LDAP search for a UID number.
+
+    If this is not set, the UID number of the user will be taken from the
+    upstream authentication source (either the GitHub UID number or the
+    configured attribute of the OpenID Connect ID token.
+    """
+
+    uid_attr: str = "uidNumber"
+    """LDAP uid attribute, used if ``uid_base_dn`` is set.
+
+    Usually ``uidNumber``, as specified in :rfc:`2307` and `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
@@ -478,14 +484,6 @@ class LDAPConfig:
     base_dn: str
     """Base DN to use when executing LDAP search."""
 
-    uid_number_attr: Optional[str] = None
-    """LDAP attribute name for userid number
-
-    If set, this will override the uid number as defined in the token.
-    Usually ``uidNumber``, as specified in :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
-    """
-
     group_object_class: str = "posixGroup"
     """LDAP group object class.
 
@@ -493,10 +491,25 @@ class LDAPConfig:
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
-    group_member: str = "member"
+    group_member_attr: str = "member"
     """LDAP group member attribute.
 
     ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    uid_base_dn: Optional[str] = None
+    """Base DN to use when executing an LDAP search for a UID number.
+
+    If this is not set, the UID number of the user will be taken from the
+    upstream authentication source (either the GitHub UID number or the
+    configured attribute of the OpenID Connect ID token.
+    """
+
+    uid_attr: str = "uidNumber"
+    """LDAP uid attribute, used if ``uid_base_dn`` is set.
+
+    Usually ``uidNumber``, as specified in :rfc:`2307` and `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
@@ -779,10 +792,11 @@ class Config:
         if settings.ldap and settings.ldap.url:
             ldap_config = LDAPConfig(
                 url=settings.ldap.url,
-                uid_number_attr=settings.ldap.uid_number_attr,
                 base_dn=settings.ldap.base_dn,
                 group_object_class=settings.ldap.group_object_class,
-                group_member=settings.ldap.group_member,
+                group_member_attr=settings.ldap.group_member_attr,
+                uid_base_dn=settings.ldap.uid_base_dn,
+                uid_attr=settings.ldap.uid_attr,
             )
         log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
         config = cls(

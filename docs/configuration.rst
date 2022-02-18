@@ -274,8 +274,6 @@ There is one additional option under ``config.oidc`` that you may want to set:
     A mapping of additional parameters to send to the login route.
     Can be used to set additional configuration options for some OpenID Connect providers.
 
-.. _scopes:
-
 LDAP groups
 -----------
 
@@ -297,12 +295,34 @@ You may need to set the following additional options under ``config.ldap`` depen
     The object class from which group information should be looked up.
     Default: ``posixGroup``.
 
-``config.ldap.groupMember``
+``config.ldap.groupMemberAttr``
     The member attribute of that object class.
     The values must match the username returned in the token from the OpenID Connect authentication server.
     Default: ``member``.
 
 The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
+
+LDAP numeric UID
+----------------
+
+By default, Gafaelfawr takes the user's numeric UID from the upstream provider via the ``uidNumber`` claim in the ID token.
+If LDAP is used for group information, the numeric UID can also be obtained from LDAP.
+To do this, add the following configuration:
+
+.. code-block:: yaml
+
+   config:
+     ldap:
+       uidBaseDn: "<base-dn-for-search>"
+
+The user object will be located by searching for a ``uid`` attribute equal to the username returned in the token from the OpenID Connect authentication server.
+By default, the numeric UID will be the first value of the ``uidNumber`` attribute of that object.
+You can override the attribute containing the UID number with:
+
+``config.ldap.uidAttr``
+    The attribute containing the numeric UID of a user.
+
+.. _scopes:
 
 Scopes
 ------
