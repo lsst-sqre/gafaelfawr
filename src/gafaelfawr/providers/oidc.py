@@ -157,8 +157,9 @@ class OIDCProvider(Provider):
             token = await self._verifier.verify_oidc_token(unverified_token)
             uid = None
             if self._ldap_storage:
-                uid = await self._ldap_storage.get_uid(token.username)
-                groups = await self._ldap_storage.get_groups(token.username)
+                async with self._ldap_storage.connect() as conn:
+                    uid = await conn.get_uid(token.username)
+                    groups = await conn.get_groups(token.username)
             else:
                 groups = self._verifier.get_groups_from_token(token)
             if not uid:

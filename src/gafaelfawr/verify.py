@@ -279,7 +279,6 @@ class TokenVerifier:
             claims=claims,
             jti=claims.get("jti", "UNKNOWN"),
             username=claims[self._config.username_claim],
-            uid=None,
         )
 
     async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> str:

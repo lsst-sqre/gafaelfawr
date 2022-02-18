@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from contextlib import asynccontextmanager
+from typing import AsyncIterator, List, Optional
 
 import bonsai
 from structlog.stdlib import BoundLogger
@@ -11,14 +12,11 @@ from ..config import LDAPConfig
 from ..exceptions import LDAPException
 from ..models.token import TokenGroup
 
-__all__ = ["LDAPStorage"]
+__all__ = ["LDAPStorage", "LDAPStorageConnection"]
 
 
 class LDAPStorage:
     """LDAP storage layer.
-
-    This abstracts retrieving authorization information and user metadata from
-    LDAP.
 
     Parameters
     ----------
@@ -26,15 +24,6 @@ class LDAPStorage:
         Configuration for LDAP searches.
     logger : `structlog.stdlib.BoundLogger`
         Logger for debug messages and errors.
-
-    Notes
-    -----
-    Currently, a new LDAP connection is opened for each LDAP search.  This is
-    not ideal; ideally, LDAP searches should use a managed connection pool or
-    otherwise maintain open connections.  However, it's unclear how bonsai
-    handles open connections that are closed by the LDAP server due to an idle
-    timeout, and thus whether doing that would cause stability issues if the
-    LDAP search volume is low.  This will require future exploration.
     """
 
     def __init__(self, config: LDAPConfig, logger: BoundLogger) -> None:
@@ -44,6 +33,46 @@ class LDAPStorage:
             ldap_url=self._config.url,
             ldap_base=self._config.uid_base_dn,
         )
+
+    @asynccontextmanager
+    async def connect(self) -> AsyncIterator[LDAPStorageConnection]:
+        """Open a connection to the LDAP server.
+
+        Call this in an ``async with`` block to open a connection to the LDAP
+        server and perform some searches via methods on the resulting
+        `LDAPStorageConnection` class.
+        """
+        async with self._client.connect(is_async=True) as conn:
+            yield LDAPStorageConnection(conn, self._config, self._logger)
+
+
+class LDAPStorageConnection:
+    """Wrapper around a single LDAP connection.
+
+    This is returned by the `gafaelfawr.storage.ldap.LDAPStorage.connect`
+    method and provides functions to do the LDAP lookups Gafaelfawr needs.
+    Clients should never instantiate this class directly.
+
+    Examples
+    --------
+    Use this in an ``async with`` block such as:
+
+    .. code-block:: python
+
+       async with ldap_storage.connect() as conn:
+           uid = await conn.get_uid(username)
+           groups = await conn.get_groups(username)
+    """
+
+    def __init__(
+        self,
+        conn: bonsai.LDAPConnection,
+        config: LDAPConfig,
+        logger: BoundLogger,
+    ) -> None:
+        self._conn = conn
+        self._config = config
+        self._logger = logger
 
     async def get_uid(self, username: str) -> Optional[int]:
         """Get the numeric UID of a user.
@@ -55,7 +84,7 @@ class LDAPStorage:
 
         Returns
         -------
-        uid_number : `int` or `None`
+        uid : `int` or `None`
             The numeric UID of the user from LDAP, or `None` if Gafaelfawr was
             not configured to get the UID from LDAP (in which case the caller
             should fall back to other sources of the UID).
@@ -76,13 +105,12 @@ class LDAPStorage:
         )
 
         try:
-            async with self._client.connect(is_async=True) as conn:
-                results = await conn.search(
-                    self._config.uid_base_dn,
-                    bonsai.LDAPSearchScope.ONE,
-                    search,
-                    attrlist=[self._config.uid_attr],
-                )
+            results = await self._conn.search(
+                self._config.uid_base_dn,
+                bonsai.LDAPSearchScope.ONE,
+                search,
+                attrlist=[self._config.uid_attr],
+            )
         except bonsai.LDAPError as e:
             self._logger.error(
                 "Cannot query LDAP for UID number",
@@ -138,13 +166,12 @@ class LDAPStorage:
         )
 
         try:
-            async with self._client.connect(is_async=True) as conn:
-                results = await conn.search(
-                    self._config.base_dn,
-                    bonsai.LDAPSearchScope.SUB,
-                    search,
-                    attrlist=["cn", "gidNumber"],
-                )
+            results = await self._conn.search(
+                self._config.base_dn,
+                bonsai.LDAPSearchScope.SUB,
+                search,
+                attrlist=["cn", "gidNumber"],
+            )
         except bonsai.LDAPError as e:
             self._logger.error(
                 "Cannot query LDAP for groups",
