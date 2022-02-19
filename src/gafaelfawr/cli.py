@@ -10,7 +10,7 @@ import structlog
 import uvicorn
 from kubernetes_asyncio.client import ApiClient
 from safir.asyncio import run_with_asyncio
-from safir.database import initialize_database
+from safir.database import create_database_engine, initialize_database
 from safir.kubernetes import initialize_kubernetes
 
 from .dependencies.config import config_dependency
@@ -98,16 +98,15 @@ async def init(settings: Optional[str]) -> None:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
-    engine = await initialize_database(
-        config.database_url,
-        config.database_password,
-        logger,
-        schema=Base.metadata,
+    engine = create_database_engine(
+        config.database_url, config.database_password
     )
+    await initialize_database(engine, logger, schema=Base.metadata)
     async with ComponentFactory.standalone(engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
             await admin_service.add_initial_admins(config.initial_admins)
+    await engine.dispose()
 
 
 @main.command()
@@ -125,7 +124,10 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
     config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     logger.debug("Starting")
-    async with ComponentFactory.standalone() as factory:
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    async with ComponentFactory.standalone(engine) as factory:
         await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)
@@ -152,7 +154,10 @@ async def update_service_tokens(settings: Optional[str]) -> None:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
-    async with ComponentFactory.standalone() as factory:
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    async with ComponentFactory.standalone(engine) as factory:
         await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)

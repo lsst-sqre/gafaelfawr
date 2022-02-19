@@ -98,15 +98,10 @@ def build_settings(
     github_secret_file = store_secret(tmp_path, "github", b"github-secret")
     oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
 
-    if settings and "database_url" in settings:
-        database_url = settings["database_url"]
-    else:
-        database_url = TEST_DATABASE_URL
-
     settings_path = _build_settings_file(
         tmp_path,
         template,
-        database_url=database_url,
+        database_url=TEST_DATABASE_URL,
         session_secret_file=session_secret_file,
         issuer_key_file=issuer_key_file,
         github_secret_file=github_secret_file,

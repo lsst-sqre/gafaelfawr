@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 
 import structlog
 from aioredis import Redis
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
-from safir.database import create_async_session, create_database_engine
+from safir.database import create_async_session
 from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from structlog.stdlib import BoundLogger
 
@@ -64,7 +64,7 @@ class ComponentFactory:
     @classmethod
     @asynccontextmanager
     async def standalone(
-        cls, engine: Optional[AsyncEngine] = None
+        cls, engine: AsyncEngine
     ) -> AsyncIterator[ComponentFactory]:
         """Build Gafaelfawr components outside of a request.
 
@@ -76,10 +76,8 @@ class ComponentFactory:
 
         Parameters
         ----------
-        engine : `sqlalchemy.ext.asyncio.AsyncEngine`, optional
-            Existing database engine, if one is already configured.
-            Otherwise, a new one will be created.  The provided engine will be
-            disposed of when the context manager exits.
+        engine : `sqlalchemy.ext.asyncio.AsyncEngine`
+            Database engine to use for connections.
 
         Yields
         ------
@@ -92,12 +90,8 @@ class ComponentFactory:
         assert logger
         logger.debug("Connecting to Redis")
         redis = await redis_dependency(config)
+
         session = None
-        if not engine:
-            logger.debug("Connecting to PostgreSQL")
-            engine = create_database_engine(
-                config.database_url, config.database_password
-            )
         try:
             session = await create_async_session(engine)
             async with AsyncClient() as client:
@@ -113,7 +107,6 @@ class ComponentFactory:
             await redis_dependency.aclose()
             if session:
                 await session.remove()
-            await engine.dispose()
 
     def __init__(
         self,
