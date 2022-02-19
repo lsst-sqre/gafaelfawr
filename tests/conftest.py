@@ -16,6 +16,7 @@ from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
 from safir.database import create_database_engine, initialize_database
+from safir.dependencies.db_session import db_session_dependency
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from seleniumwire import webdriver
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -37,12 +38,15 @@ from .support.settings import build_settings
 
 
 @pytest_asyncio.fixture
-async def app(empty_database: None) -> AsyncIterator[FastAPI]:
+async def app(
+    engine: AsyncEngine, empty_database: None
+) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
+    db_session_dependency.override_engine(engine)
     async with LifespanManager(main.app):
         yield main.app
 
