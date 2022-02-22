@@ -70,7 +70,9 @@
       ],
       "react/no-unstable-nested-components": [
         "error",
-        { "allowAsProps": true }
+        {
+          "allowAsProps": true
+        }
       ]
     }
   }

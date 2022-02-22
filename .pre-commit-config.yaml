@@ -30,7 +30,7 @@ repos:
     rev: v1.12.1
     hooks:
       - id: blacken-docs
-        additional_dependencies: [black==21.10b0]
+        additional_dependencies: [black==22.1.0]
         args: [-l, '79', -t, py39]
 
   - repo: https://gitlab.com/pycqa/flake8
@@ -45,9 +45,9 @@ repos:
         additional_dependencies:
           - '@babel/eslint-parser@7.17.0'
           - '@babel/preset-react@7.16.7'
-          - eslint@8.8.0
+          - eslint@8.9.0
           - eslint-config-airbnb@19.0.4
-          - eslint-config-prettier@8.3.0
+          - eslint-config-prettier@8.4.0
           - eslint-config-wesbos@3.0.2
           - eslint-plugin-html@6.2.0
           - eslint-plugin-import@2.25.4
