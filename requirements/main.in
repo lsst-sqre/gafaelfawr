@@ -7,13 +7,10 @@
 
 # These dependencies are for fastapi including some optional features.
 aiofiles
-fastapi
+fastapi<0.74
 python-multipart
 starlette
 uvicorn[standard]
-
-# Temporarily constrained to match the diagrams constraint.
-jinja2<3
 
 # Other dependencies.
 aioredis
@@ -22,8 +19,9 @@ bonsai
 cachetools
 click
 cryptography
-kubernetes_asyncio
 httpx
+kubernetes_asyncio
+jinja2
 pydantic
 PyJWT
 pyyaml

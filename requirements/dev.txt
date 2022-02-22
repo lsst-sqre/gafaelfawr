@@ -397,9 +397,9 @@ hyperframe==6.0.1 \
     # via
     #   h2
     #   selenium-wire
-identify==2.4.10 \
-    --hash=sha256:7d10baf6ba6f1912a0a49f4c1c2c49fa1718765c3a37d72d13b07779567c5b85 \
-    --hash=sha256:e12b2aea3cf108de73ae055c2260783bde6601de09718f6768cf8e9f6f6322a6
+identify==2.4.11 \
+    --hash=sha256:2986942d3974c8f2e5019a190523b0b0e2a07cb8e89bf236727fb4b26f27f8fd \
+    --hash=sha256:fd906823ed1db23c7a48f9b176a1d71cb8abede1e21ebe614bac7bdd688d9213
     # via pre-commit
 idna==3.3 \
     --hash=sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff \
@@ -423,9 +423,9 @@ iniconfig==1.1.1 \
     --hash=sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3 \
     --hash=sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32
     # via pytest
-jinja2==2.11.3 \
-    --hash=sha256:03e47ad063331dd6a3f04a43eddca8a966a26ba0c5b7207a9a9e4e08f1b29419 \
-    --hash=sha256:a6d58433de0ae800347cab1fa3043cebbabe8baa9d29e668f1c768cb87a333c6
+jinja2==3.0.3 \
+    --hash=sha256:077ce6014f7b40d03b47d1f1ca4b0fc8328a692bd284016f806ed0eaca390ad8 \
+    --hash=sha256:611bb273cd68f3b993fabdc4064fc858c5b47a973cb5aa7999ec1ba405c87cd7
     # via
     #   -c requirements/main.txt
     #   diagrams
@@ -701,9 +701,9 @@ selenium==4.1.0 \
     # via
     #   -r requirements/dev.in
     #   selenium-wire
-selenium-wire==4.6.0 \
-    --hash=sha256:ad15ea42500b85a29bed8cc65fe9c271fd9ad87a1aacc37658c4e4c8ee464673 \
-    --hash=sha256:c8b967fca6e6017d86dadb092639008440b6fae2aa7ee420dd4b3529c7dbf28f
+selenium-wire==4.6.1 \
+    --hash=sha256:8af8387ddf2f94cc8d87b02c9bd19c07a58c12a9e4139f1df08cd9ed97c2141b \
+    --hash=sha256:984ee5c92ce136057672a3f6144c40fbe4ca5d1668411fbc323dba43baf7e36b
     # via -r requirements/dev.in
 seqdiag==3.0.0 \
     --hash=sha256:8fc941a0badc992766ffb393cf46d56f087e6c58438bc20699e7cdbae202033d \
@@ -842,9 +842,9 @@ tomli==2.0.1 \
     #   coverage
     #   mypy
     #   pytest
-trio==0.19.0 \
-    --hash=sha256:895e318e5ec5e8cea9f60b473b6edb95b215e82d99556a03eb2d20c5e027efe1 \
-    --hash=sha256:c27c231e66336183c484fbfe080fa6cc954149366c15dc21db8b7290081ec7b8
+trio==0.20.0 \
+    --hash=sha256:670a52d3115d0e879e1ac838a4eb999af32f858163e3a704fe4839de2a676070 \
+    --hash=sha256:fb2d48e4eab0dfb786a472cd514aaadc71e3445b203bc300bad93daa75d77c1a
     # via
     #   selenium
     #   trio-websocket
