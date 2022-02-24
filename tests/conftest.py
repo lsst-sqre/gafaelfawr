@@ -19,6 +19,7 @@ from safir.database import create_database_engine, initialize_database
 from safir.dependencies.db_session import db_session_dependency
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from seleniumwire import webdriver
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr import main
@@ -92,12 +93,13 @@ def driver() -> Iterator[webdriver.Chrome]:
 
 
 @pytest_asyncio.fixture
-async def empty_database(engine: AsyncEngine, config: Config) -> None:
-    """Initialize the database for a new test.
+async def empty_database(
+    initialize_empty_database: None, engine: AsyncEngine, config: Config
+) -> None:
+    """Empty the database before a test.
 
-    This exists as a fixture so that multiple other fixtures can depend on it
-    and avoid any duplication of work if, say, we need both a configured
-    FastAPI app and a standalone factory.
+    The tables are reset with ``TRUNCATE`` rather than dropping and recreating
+    them in the hope that this will make database initialization faster.
 
     Notes
     -----
@@ -108,11 +110,12 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     on it if control over the configuration prior to database initialization
     is required.
     """
-    logger = structlog.get_logger(config.safir.logger_name)
-    await initialize_database(engine, logger, schema=Base.metadata, reset=True)
+    tables = (t.name for t in Base.metadata.sorted_tables)
     async with ComponentFactory.standalone(engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
+            stmt = text(f'TRUNCATE TABLE {", ".join(tables)}')
+            await factory.session.execute(stmt)
             await admin_service.add_initial_admins(config.initial_admins)
 
 
@@ -153,6 +156,17 @@ def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest_asyncio.fixture(scope="session")
+async def initialize_empty_database(engine: AsyncEngine) -> None:
+    """Initialize the database for testing.
+
+    This sets up the database schema for the tests.  The database is then
+    reset between tests with the `empty_database` fixture.
+    """
+    logger = structlog.get_logger(__name__)
+    await initialize_database(engine, logger, schema=Base.metadata, reset=True)
 
 
 @pytest.fixture
