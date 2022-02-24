@@ -31,6 +31,7 @@ from .storage.admin import AdminStore
 from .storage.base import RedisStorage
 from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
 from .storage.kubernetes import KubernetesStorage
+from .storage.ldap import LDAPStorage
 from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
 from .verify import TokenVerifier
@@ -201,9 +202,12 @@ class ComponentFactory:
             )
         elif self._config.oidc:
             token_verifier = self.create_token_verifier()
+            ldap_storage = None
+            if self._config.ldap:
+                ldap_storage = LDAPStorage(self._config.ldap, self._logger)
             return OIDCProvider(
                 config=self._config.oidc,
-                ldap_config=self._config.ldap,
+                ldap_storage=ldap_storage,
                 verifier=token_verifier,
                 http_client=self._http_client,
                 logger=self._logger,

@@ -25,7 +25,6 @@ class MockLDAP(Mock):
             TokenGroup(name="group-1", id=123123),
             TokenGroup(name="group-2", id=123442),
         ]
-        self.query: Optional[str] = None
 
     async def __aenter__(self) -> MockLDAP:
         return self
@@ -54,13 +53,13 @@ class MockLDAP(Mock):
             bonsai.LDAPSearchScope.SUB,
             bonsai.LDAPSearchScope.ONELEVEL,
         )
-        self.query = query
         if query == "(&(uid=some-user))":
-            assert attrlist == ["user"]
-            return [{"user": [str(1000)]}]
+            assert attrlist == ["uidNumber"]
+            return [{"uidNumber": [str(2000)]}]
         elif query == "(&(objectClass=posixGroup)(member=some-user))":
             assert attrlist == ["cn", "gidNumber"]
             return [
                 {"cn": [g.name], "gidNumber": [str(g.id)]} for g in self.groups
             ]
-        return [{"None": ["None"]}]
+        else:
+            assert False, f"Unexpected query {query}"

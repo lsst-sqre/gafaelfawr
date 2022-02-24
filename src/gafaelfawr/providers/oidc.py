@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 from urllib.parse import urlencode
 
-import bonsai
 import jwt
 from httpx import AsyncClient
-from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
-from ..config import LDAPConfig, OIDCConfig
-from ..exceptions import LDAPException, OIDCException, VerifyTokenException
+from ..config import OIDCConfig
+from ..exceptions import OIDCException, VerifyTokenException
 from ..models.oidc import OIDCToken
 from ..models.state import State
-from ..models.token import TokenGroup, TokenUserInfo
+from ..models.token import TokenUserInfo
+from ..storage.ldap import LDAPStorage
 from ..verify import TokenVerifier
 from .base import Provider
 
@@ -29,6 +28,8 @@ class OIDCProvider(Provider):
     ----------
     config : `gafaelfawr.config.OIDCConfig`
         Configuration for the OpenID Connect authentication provider.
+    ldap_storage : `gafaelfawr.storage.ldap.LDAPStorage`
+        LDAP storage layer for retrieving user metadata.
     verifier : `gafaelfawr.verify.TokenVerifier`
         Token verifier to use to verify the token returned by the provider.
     http_client : ``httpx.AsyncClient``
@@ -41,13 +42,13 @@ class OIDCProvider(Provider):
         self,
         *,
         config: OIDCConfig,
-        ldap_config: Optional[LDAPConfig],
+        ldap_storage: Optional[LDAPStorage],
         verifier: TokenVerifier,
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._ldap_config = ldap_config
+        self._ldap_storage = ldap_storage
         self._verifier = verifier
         self._http_client = http_client
         self._logger = logger
@@ -105,8 +106,8 @@ class OIDCProvider(Provider):
             The OpenID Connect provider responded with an error to a request
             or the group membership in the resulting token was not valid.
         gafaelfawr.exceptions.LDAPException
-            One of the groups for the user in LDAP was not valid (missing
-            cn or gidNumber attributes, or gidNumber is not an integer).
+            Gafaelfawr was configured to get user groups or numeric UID from
+            LDAP, but the attempt failed due to some error.
         ``httpx.HTTPError``
             An HTTP client error occurred trying to talk to the authentication
             provider.
@@ -148,55 +149,31 @@ class OIDCProvider(Provider):
             msg = f"No id_token in token reply from {self._config.token_url}"
             raise OIDCException(msg)
 
-        # Extract and verify the token.
+        # Extract and verify the token and determine the user's UID and
+        # groups.  These may come from the token or from LDAP, depending on
+        # configuration.
         unverified_token = OIDCToken(encoded=result["id_token"])
-
-        # determine if we want to attempt to get uid from the token or 1ldap
-        uidNumber = None
-        # if self._ldap_config.uid_number_attr is None, then assume we want
-        # the uid from the token
-        uid_from_token = True
-        if self._ldap_config and self._ldap_config.uid_number_attr:
-            uid_from_token = False
         try:
-            token = await self._verifier.verify_oidc_token(
-                unverified_token, verify_uid=uid_from_token
-            )
+            token = await self._verifier.verify_oidc_token(unverified_token)
+            uid = None
+            if self._ldap_storage:
+                async with self._ldap_storage.connect() as conn:
+                    uid = await conn.get_uid(token.username)
+                    groups = await conn.get_groups(token.username)
+            else:
+                groups = self._verifier.get_groups_from_token(token)
+            if not uid:
+                uid = self._verifier.get_uid_from_token(token)
         except (jwt.InvalidTokenError, VerifyTokenException) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCException(msg)
 
-        # If configured with LDAP support, get user group information from
-        # LDAP.  Otherwise, extract it from the token.
-        if self._ldap_config:
-            # if configured, extract uidNumber from LDAP
-            uidNumber = await self._get_ldap_uid_number(token.username)
-            groups = await self._get_ldap_groups(token.username)
-        else:
-            uidNumber = token.uid
-            groups = []
-            invalid_groups = {}
-            try:
-                for oidc_group in token.claims.get("isMemberOf", []):
-                    if "name" not in oidc_group:
-                        continue
-                    name = oidc_group["name"]
-                    if "id" not in oidc_group:
-                        invalid_groups[name] = "missing id"
-                        continue
-                    gid = int(oidc_group["id"])
-                    try:
-                        groups.append(TokenGroup(name=name, id=gid))
-                    except ValidationError as e:
-                        invalid_groups[name] = str(e)
-            except Exception as e:
-                msg = f"isMemberOf claim is invalid: {str(e)}"
-                raise OIDCException(msg)
+        # Return the relevant information extracted from the token.
         return TokenUserInfo(
             username=token.username,
             name=token.claims.get("name"),
             email=token.claims.get("email"),
-            uid=uidNumber,
+            uid=uid,
             groups=groups,
         )
 
@@ -211,102 +188,3 @@ class OIDCProvider(Provider):
             The session state, which contains the GitHub access token.
         """
         pass
-
-    async def _get_ldap_uid_number(self, uid: str) -> int:
-        """Retrieve the uid number from ldap
-
-        Parameters
-        ----------
-        uid : `str`
-            Username of the user.
-
-        Returns
-        -------
-        uidNumber : `int`
-            The numeric id of the user from LDAP.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.LDAPException
-            The lookup using uid_number_attr against the LDAP server was not
-            valid (attribute not in LDAP or resultant value not an integer)
-        """
-        assert self._ldap_config
-        attr = self._ldap_config.uid_number_attr
-        search = f"(&(uid={uid}))"
-
-        self._logger.debug(
-            f"querying ldap {self._ldap_config.url} at "
-            f"{self._ldap_config.base_dn} for uid number with {search}"
-        )
-        client = bonsai.LDAPClient(self._ldap_config.url)
-        async with client.connect(is_async=True) as conn:
-            results = await conn.search(
-                self._ldap_config.base_dn,
-                bonsai.LDAPSearchScope.ONE,
-                search,
-                attrlist=[attr],
-            )
-            # parse uidNumber
-            for result in results:
-                try:
-                    self._logger.debug(f"ldap result: {result}")
-                    return int(result[attr][0])
-                except Exception as e:
-                    msg = (
-                        f"LDAP uid number using {attr} "
-                        f"for user {uid} invalid: {str(e)}"
-                    )
-                    raise LDAPException(msg)
-            raise LDAPException(f"uid number for user {uid} not found")
-
-    async def _get_ldap_groups(self, uid: str) -> List[TokenGroup]:
-        """Get groups for a user from LDAP.
-
-        Parameters
-        ----------
-        uid : `str`
-            Username of the user.
-
-        Returns
-        -------
-        groups : List[`gafaelfawr.models.token.TokenGroup`]
-            User's groups from LDAP.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.LDAPException
-            One of the groups for the user in LDAP was not valid (missing
-            cn or gidNumber attributes, or gidNumber is not an integer)
-        """
-        assert self._ldap_config
-        group_class = self._ldap_config.group_object_class
-        member_attr = self._ldap_config.group_member
-        ldap_query = f"(&(objectClass={group_class})({member_attr}={uid}))"
-
-        self._logger.debug(
-            f"querying ldap {self._ldap_config.url} at "
-            f"{self._ldap_config.base_dn} for groups with {ldap_query}"
-        )
-        client = bonsai.LDAPClient(self._ldap_config.url)
-        async with client.connect(is_async=True) as conn:
-            results = await conn.search(
-                self._ldap_config.base_dn,
-                bonsai.LDAPSearchScope.SUB,
-                ldap_query,
-                attrlist=["cn", "gidNumber"],
-            )
-
-            # Parse the results into the group list.
-            groups = []
-            for result in results:
-                name = None
-                try:
-                    self._logger.debug(f"ldap result: {result}")
-                    name = result["cn"][0]
-                    gid = int(result["gidNumber"][0])
-                    groups.append(TokenGroup(name=name, id=gid))
-                except Exception as e:
-                    msg = f"LDAP group {name} for user {uid} invalid: {str(e)}"
-                    raise LDAPException(msg)
-            return groups
