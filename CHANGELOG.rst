@@ -2,11 +2,13 @@
 Change log
 ##########
 
-3.6.0 (unreleased)
+3.6.0 (2022-02-24)
 ==================
 
 - Add support for retrieving the user's numeric UID from LDAP when authenticating with an OpenID Connect provider.
 - Add required dependency for LDAP support to the Docker image.
+- Speed up tests somewhat.
+- Improve the development documentation.
 - Update dependencies.
 
 3.5.1 (2022-01-14)

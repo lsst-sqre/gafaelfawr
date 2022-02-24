@@ -32,7 +32,7 @@ To develop Gafaelfawr, create a virtual environment with your method of choice (
 This init step does three things:
 
 1. Installs Gafaelfawr in an editable mode with its "dev" extra that includes test and documentation dependencies.
-2. Installs pre-commit and tox.
+2. Installs pre-commit, tox, and tox-docker.
 3. Installs the pre-commit hooks.
 
 On macOS hosts, you may also need to run:
@@ -61,34 +61,52 @@ Some pre-commit hooks automatically reformat code:
 ``blacken-docs``
     Automatically formats Python code in reStructuredText documentation and docstrings.
 
-``prettier``
-    Automatically reformats YAML code.
-
 When these hooks fail, your Git commit will be aborted.
 To proceed, stage the new modifications and proceed with your Git commit.
+
+Building the UI
+===============
+
+Before running tests or starting a local development server, you must build the UI.
+The Gafaelfawr UI is written in JavaScript and contained in the ``ui`` subdirectory.
+To build it, run (from the top level):
+
+.. code-block:: sh
+
+   make ui
+
+You will need to have `Node.js <https://nodejs.org/en/>`__ and npm installed.
+The easiest way to do this is generally to use `nvm <https://github.com/nvm-sh/nvm>`__.
+Gafaelfawr provides an ``.nvmrc`` file that sets the version of Node.js to what is currently used to build the UI in GitHub Actions for the official Docker image.
 
 .. _dev-run-tests:
 
 Running tests
 =============
 
-One way to test the application is by running pytest_ from the root of the source repository:
-
-.. code-block:: sh
-
-   pytest
-
-You can also run tox_, which tests the application the same way that the CI workflow does:
+To test the library, run tox_, which tests the library the same way that the CI workflow does:
 
 .. code-block:: sh
 
    tox
+
+This uses tox-docker to start PostgreSQL and Redis Docker containers for the tess to use, so Docker must be installed and the user running tox must have permission to create Docker containers.
+
+To run the Selenium tests, you will need to have ``chromedriver`` installed.
+On Debian and Ubuntu systems, you can install this with ``apt install chromium-driver``.
 
 To see a listing of test environments, run:
 
 .. code-block:: sh
 
    tox -av
+
+To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` tox environment.
+For example:
+
+.. code-block:: sh
+
+   tox -e py -- tests/handlers/api_tokens_test.py
 
 .. _dev-server:
 
@@ -114,13 +132,7 @@ Now, use one of the two methods below for running Gafaelfawr.
 Outside Docker
 --------------
 
-First, build the JavaScript UI:
-
-.. code-block:: sh
-
-   make ui
-
-Then, run:
+Run:
 
 .. code-block:: sh
 
@@ -143,13 +155,7 @@ The advantage of this method is that the running code and UI will be taken from 
 Inside Docker
 -------------
 
-First, build the JavaScript UI:
-
-.. code-block:: sh
-
-   make ui
-
-Then, uild a Docker image and start the development instance of Gafaelfawr with:
+Build a Docker image and start the development instance of Gafaelfawr with:
 
 .. code-block:: sh
 
