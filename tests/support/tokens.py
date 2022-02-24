@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import jwt
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_scoped_session
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import ALGORITHM
@@ -38,7 +38,7 @@ async def add_expired_session_token(
     *,
     scopes: List[str],
     ip_address: str,
-    session: AsyncSession,
+    session: async_scoped_session,
 ) -> None:
     """Add an expired session token to the database.
 

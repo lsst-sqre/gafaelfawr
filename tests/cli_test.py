@@ -1,9 +1,9 @@
 """Tests for the command-line interface.
 
 Be careful when writing tests in this framework because the click command
-handling code spawns its own async worker pools when needed.  You therefore
-cannot use the ``setup`` fixture here because the two thread pools will
-conflict with each other.
+handling code spawns its own async worker pools when needed.  None of these
+tests can therefore be async, and should instead run coroutines using the
+``event_loop`` fixture when needed.
 """
 
 from __future__ import annotations
@@ -12,19 +12,28 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
+import structlog
 from _pytest.logging import LogCaptureFixture
 from click.testing import CliRunner
 from kubernetes_asyncio.client import ApiException
+from safir.database import initialize_database
 from safir.testing.kubernetes import MockKubernetesApi
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config
-from gafaelfawr.database import initialize_database
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.token import Token, TokenData
+from gafaelfawr.schema import Base
 
 from .support.logging import parse_log
+
+
+async def _initialize_database(engine: AsyncEngine, config: Config) -> None:
+    """Helper function to initialize the database."""
+    logger = structlog.get_logger(config.safir.logger_name)
+    await initialize_database(engine, logger, schema=Base.metadata, reset=True)
 
 
 def test_generate_key() -> None:
@@ -64,16 +73,22 @@ def test_help() -> None:
     assert "Unknown help topic unknown-command" in result.output
 
 
-def test_init(config: Config) -> None:
+def test_init(
+    engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
+) -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["init"])
     assert result.exit_code == 0
 
-    # We can't make the test async or its loop will interfere with the one
-    # created by gafaelfawr.cli, so instead use asyncio.run to run a check
-    # that the database schema is present.
     async def check_database() -> None:
-        async with ComponentFactory.standalone() as factory:
+        # Dispose of the engine's connection pool at this point because its
+        # cache will be invalid due to the recreation of the database schema.
+        # (asyncpg will invalidate its cache automatically if it sees the
+        # schema changes, but the init CLI function will have created a new,
+        # independent engine.)
+        await engine.dispose()
+
+        async with ComponentFactory.standalone(engine) as factory:
             admin_service = factory.create_admin_service()
             expected = [Admin(username=u) for u in config.initial_admins]
             assert await admin_service.get_admins() == expected
@@ -81,14 +96,18 @@ def test_init(config: Config) -> None:
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []
 
-    asyncio.run(check_database())
+    event_loop.run_until_complete(check_database())
 
 
 def test_update_service_tokens(
-    tmp_path: Path, config: Config, mock_kubernetes: MockKubernetesApi
+    tmp_path: Path,
+    engine: AsyncEngine,
+    config: Config,
+    event_loop: asyncio.AbstractEventLoop,
+    mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    asyncio.run(initialize_database(config, reset=True))
-    asyncio.run(
+    event_loop.run_until_complete(_initialize_database(engine, config))
+    event_loop.run_until_complete(
         mock_kubernetes.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
@@ -119,11 +138,13 @@ def test_update_service_tokens(
 
 def test_update_service_tokens_error(
     tmp_path: Path,
+    engine: AsyncEngine,
     config: Config,
+    event_loop: asyncio.AbstractEventLoop,
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
-    asyncio.run(initialize_database(config, reset=True))
+    event_loop.run_until_complete(_initialize_database(engine, config))
     caplog.clear()
 
     def error_callback(method: str, *args: Any) -> None:

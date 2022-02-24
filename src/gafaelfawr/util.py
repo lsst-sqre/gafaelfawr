@@ -6,13 +6,14 @@ import base64
 import os
 from datetime import datetime, timezone
 from ipaddress import IPv4Address, IPv6Address
-from typing import List, Optional, Union, overload
+from typing import List, Optional, Union
+
+from safir.database import datetime_from_db
 
 __all__ = [
     "add_padding",
     "base64_to_number",
     "current_datetime",
-    "datetime_to_db",
     "normalize_datetime",
     "number_to_base64",
     "random_128_bits",
@@ -67,30 +68,13 @@ def current_datetime() -> datetime:
     return datetime.now(tz=timezone.utc).replace(microsecond=0)
 
 
-@overload
-def datetime_to_db(time: datetime) -> datetime:
-    ...
-
-
-@overload
-def datetime_to_db(time: None) -> None:
-    ...
-
-
-def datetime_to_db(time: Optional[datetime]) -> Optional[datetime]:
-    """Strip time zone for storing a datetime in the database."""
-    return time.replace(tzinfo=None) if time else None
-
-
 def normalize_datetime(
     v: Optional[Union[int, datetime]]
 ) -> Optional[datetime]:
     """Pydantic validator for datetime fields.
 
     This decodes fields encoded as seconds since epoch and ensures that
-    datetimes are always stored in the model as timezone-aware.  When read
-    from databases, often they come back timezone-naive, but we use UTC as the
-    timezone for every stored date.
+    datetimes are always stored in the model as timezone-aware UTC datetimes.
 
     Parameters
     ----------
@@ -108,9 +92,9 @@ def normalize_datetime(
     elif isinstance(v, int):
         return datetime.fromtimestamp(v, tz=timezone.utc)
     elif v.tzinfo and v.tzinfo.utcoffset(v) is not None:
-        return v
+        return v.astimezone(timezone.utc)
     else:
-        return v.replace(tzinfo=timezone.utc)
+        return datetime_from_db(v)
 
 
 def normalize_ip_address(

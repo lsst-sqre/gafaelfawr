@@ -696,8 +696,8 @@ rfc3986[idna2008]==1.5.0 \
     # via
     #   -c requirements/main.txt
     #   httpx
-selenium==4.1.0 \
-    --hash=sha256:27e7b64df961d609f3d57237caa0df123abbbe22d038f2ec9e332fb90ec1a939
+selenium==4.0.0 \
+    --hash=sha256:c942b166a21ce9c9065ad249b54059e926d39f9000167b5ca0fa4950d2ef9a82
     # via
     #   -r requirements/dev.in
     #   selenium-wire
@@ -787,7 +787,7 @@ sphinxcontrib-serializinghtml==1.1.5 \
     --hash=sha256:352a9a00ae864471d3a7ead8d7d79f5fc0b57e8b3f95e9867eb9eb28999b92fd \
     --hash=sha256:aa5f6de5dfdf809ef505c4895e51ef5c9eac17d0f287933eb49ec495280b6952
     # via sphinx
-sqlalchemy[mypy]==1.4.31 \
+sqlalchemy[asyncio,mypy]==1.4.31 \
     --hash=sha256:05fa14f279d43df68964ad066f653193187909950aa0163320b728edfc400167 \
     --hash=sha256:0ddc5e5ccc0160e7ad190e5c61eb57560f38559e22586955f205e537cda26034 \
     --hash=sha256:15a03261aa1e68f208e71ae3cd845b00063d242cbf8c87348a0c2c0fc6e1f2ac \

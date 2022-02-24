@@ -2,25 +2,23 @@
 
 from __future__ import annotations
 
-import asyncio
 import sys
-from functools import wraps
-from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
+from typing import Optional, Union
 
 import click
 import structlog
 import uvicorn
 from kubernetes_asyncio.client import ApiClient
+from safir.asyncio import run_with_asyncio
+from safir.database import create_database_engine, initialize_database
 from safir.kubernetes import initialize_kubernetes
 
-from .database import initialize_database
 from .dependencies.config import config_dependency
 from .exceptions import KubernetesError
 from .factory import ComponentFactory
 from .keypair import RSAKeyPair
 from .models.token import Token
-
-T = TypeVar("T")
+from .schema import Base
 
 __all__ = [
     "generate_key",
@@ -32,14 +30,6 @@ __all__ = [
     "run",
     "update_service_tokens",
 ]
-
-
-def coroutine(f: Callable[..., Awaitable[T]]) -> Callable[..., T]:
-    @wraps(f)
-    def wrapper(*args: Any, **kwargs: Any) -> T:
-        return asyncio.run(f(*args, **kwargs))
-
-    return wrapper
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -101,13 +91,22 @@ def generate_token() -> None:
     default=None,
     help="Application settings file.",
 )
-@coroutine
+@run_with_asyncio
 async def init(settings: Optional[str]) -> None:
     """Initialize the database storage."""
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
-    await initialize_database(config)
+    logger = structlog.get_logger(config.safir.logger_name)
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    await initialize_database(engine, logger, schema=Base.metadata)
+    async with ComponentFactory.standalone(engine) as factory:
+        admin_service = factory.create_admin_service()
+        async with factory.session.begin():
+            await admin_service.add_initial_admins(config.initial_admins)
+    await engine.dispose()
 
 
 @main.command()
@@ -118,14 +117,17 @@ async def init(settings: Optional[str]) -> None:
     default=None,
     help="Application settings file.",
 )
-@coroutine
+@run_with_asyncio
 async def kubernetes_controller(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
     logger.debug("Starting")
-    async with ComponentFactory.standalone() as factory:
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    async with ComponentFactory.standalone(engine) as factory:
         await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)
@@ -145,14 +147,17 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
     default=None,
     help="Application settings file.",
 )
-@coroutine
+@run_with_asyncio
 async def update_service_tokens(settings: Optional[str]) -> None:
     """Update service tokens stored in Kubernetes secrets."""
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
     logger = structlog.get_logger(config.safir.logger_name)
-    async with ComponentFactory.standalone() as factory:
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    async with ComponentFactory.standalone(engine) as factory:
         await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)

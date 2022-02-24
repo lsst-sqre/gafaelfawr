@@ -9,8 +9,8 @@ import structlog
 from aioredis import Redis
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from safir.database import create_async_session
+from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from .config import Config
@@ -51,7 +51,7 @@ class ComponentFactory:
         Gafaelfawr configuration.
     redis : ``aioredis.Redis``
         Redis client.
-    session : `sqlalchemy.ext.asyncio.AsyncSession`
+    session : `sqlalchemy.ext.asyncio.async_scoped_session`
         SQLAlchemy async session.
     http_client : ``httpx.AsyncClient``
         HTTP async client.
@@ -63,7 +63,9 @@ class ComponentFactory:
 
     @classmethod
     @asynccontextmanager
-    async def standalone(cls) -> AsyncIterator[ComponentFactory]:
+    async def standalone(
+        cls, engine: AsyncEngine
+    ) -> AsyncIterator[ComponentFactory]:
         """Build Gafaelfawr components outside of a request.
 
         Intended for background jobs.  Uses the non-request default values for
@@ -71,6 +73,11 @@ class ComponentFactory:
         inside the web application or anywhere that may use the default
         `ComponentFactory`, since they will interfere with each other's
         Redis pools.
+
+        Parameters
+        ----------
+        engine : `sqlalchemy.ext.asyncio.AsyncEngine`
+            Database engine to use for connections.
 
         Yields
         ------
@@ -83,32 +90,30 @@ class ComponentFactory:
         assert logger
         logger.debug("Connecting to Redis")
         redis = await redis_dependency(config)
-        logger.debug("Connecting to PostgreSQL")
-        engine = create_async_engine(config.database_url, future=True)
+
+        session = None
         try:
-            session_factory = sessionmaker(
-                engine, expire_on_commit=False, class_=AsyncSession
-            )
-            async with session_factory() as session:
-                async with AsyncClient() as client:
-                    yield cls(
-                        config=config,
-                        redis=redis,
-                        session=session,
-                        http_client=client,
-                        token_cache=token_cache,
-                        logger=logger,
-                    )
+            session = await create_async_session(engine)
+            async with AsyncClient() as client:
+                yield cls(
+                    config=config,
+                    redis=redis,
+                    session=session,
+                    http_client=client,
+                    token_cache=token_cache,
+                    logger=logger,
+                )
         finally:
             await redis_dependency.aclose()
-            await engine.dispose()
+            if session:
+                await session.remove()
 
     def __init__(
         self,
         *,
         config: Config,
         redis: Redis,
-        session: AsyncSession,
+        session: async_scoped_session,
         http_client: AsyncClient,
         token_cache: TokenCache,
         logger: BoundLogger,
@@ -130,7 +135,7 @@ class ComponentFactory:
         """
         admin_store = AdminStore(self.session)
         admin_history_store = AdminHistoryStore(self.session)
-        return AdminService(admin_store, admin_history_store)
+        return AdminService(admin_store, admin_history_store, self._logger)
 
     def create_kubernetes_service(
         self, api_client: ApiClient

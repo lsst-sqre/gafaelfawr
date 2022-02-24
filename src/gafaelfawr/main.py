@@ -6,18 +6,16 @@ import os
 from importlib.metadata import metadata
 from pathlib import Path
 
-import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 
 from .constants import COOKIE_NAME
-from .database import check_database
 from .dependencies.config import config_dependency
-from .dependencies.db_session import db_session_dependency
 from .dependencies.redis import redis_dependency
 from .dependencies.token_cache import token_cache_dependency
 from .exceptions import PermissionDeniedError, ValidationError
@@ -94,9 +92,9 @@ app.mount(
 @app.on_event("startup")
 async def startup_event() -> None:
     config = await config_dependency()
-    logger = structlog.get_logger(config.safir.logger_name)
-    await check_database(config.database_url, logger)
-    await db_session_dependency.initialize(config.database_url)
+    await db_session_dependency.initialize(
+        config.database_url, config.database_password
+    )
     app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
     app.add_middleware(
         StateMiddleware, cookie_name=COOKIE_NAME, state_class=State

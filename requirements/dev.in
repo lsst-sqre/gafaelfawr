@@ -19,7 +19,6 @@ pytest
 pytest-asyncio
 pytest-cov
 respx
-selenium
 selenium-wire
 seqdiag
 sphinx-automodapi
@@ -32,3 +31,6 @@ types-PyYAML
 # Temporary pin to an alpha version to pick up a fix for interoperability
 # with the latest setuptools.
 funcparserlib>=1.0.0a0
+
+# Temporary pin to fix an incompatibility with seleniumwire
+selenium<4.1.0

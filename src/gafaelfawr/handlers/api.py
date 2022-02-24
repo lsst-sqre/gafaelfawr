@@ -67,7 +67,8 @@ async def get_admins(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Admin]:
     admin_service = context.factory.create_admin_service()
-    return await admin_service.get_admins()
+    async with context.session.begin():
+        return await admin_service.get_admins()
 
 
 @router.post(
@@ -82,11 +83,12 @@ async def add_admin(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     admin_service = context.factory.create_admin_service()
-    await admin_service.add_admin(
-        admin.username,
-        actor=auth_data.username,
-        ip_address=context.request.client.host,
-    )
+    async with context.session.begin():
+        await admin_service.add_admin(
+            admin.username,
+            actor=auth_data.username,
+            ip_address=context.request.client.host,
+        )
 
 
 @router.delete(
@@ -113,11 +115,12 @@ async def delete_admin(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     admin_service = context.factory.create_admin_service()
-    success = await admin_service.delete_admin(
-        username,
-        actor=auth_data.username,
-        ip_address=context.request.client.host,
-    )
+    async with context.session.begin():
+        success = await admin_service.delete_admin(
+            username,
+            actor=auth_data.username,
+            ip_address=context.request.client.host,
+        )
     if not success:
         msg = "Specified user is not an administrator"
         raise NotFoundError(msg, ErrorLocation.path, "username")
@@ -206,18 +209,19 @@ async def get_admin_token_change_history(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
-    results = await token_service.get_change_history(
-        auth_data,
-        cursor=cursor,
-        limit=limit,
-        since=since,
-        until=until,
-        username=username,
-        actor=actor,
-        key=key,
-        token_type=token_type,
-        ip_or_cidr=ip_address,
-    )
+    async with context.session.begin():
+        results = await token_service.get_change_history(
+            auth_data,
+            cursor=cursor,
+            limit=limit,
+            since=since,
+            until=until,
+            username=username,
+            actor=actor,
+            key=key,
+            token_type=token_type,
+            ip_or_cidr=ip_address,
+        )
     if limit:
         response.headers["Link"] = results.link_header(context.request.url)
         response.headers["X-Total-Count"] = str(results.count)
@@ -267,7 +271,10 @@ async def get_token_info(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
-    info = await token_service.get_token_info_unchecked(auth_data.token.key)
+    async with context.session.begin():
+        info = await token_service.get_token_info_unchecked(
+            auth_data.token.key
+        )
     if info:
         return info
     else:
@@ -293,11 +300,12 @@ async def post_admin_tokens(
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     token_service = context.factory.create_token_service()
-    token = await token_service.create_token_from_admin_request(
-        token_request,
-        auth_data,
-        ip_address=context.request.client.host,
-    )
+    async with context.session.begin():
+        token = await token_service.create_token_from_admin_request(
+            token_request,
+            auth_data,
+            ip_address=context.request.client.host,
+        )
     response.headers["Location"] = quote(
         f"/auth/api/v1/users/{token_request.username}/tokens/{token.key}"
     )
@@ -391,17 +399,18 @@ async def get_user_token_change_history(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
-    results = await token_service.get_change_history(
-        auth_data,
-        cursor=cursor,
-        username=username,
-        limit=limit,
-        since=since,
-        until=until,
-        key=key,
-        token_type=token_type,
-        ip_or_cidr=ip_address,
-    )
+    async with context.session.begin():
+        results = await token_service.get_change_history(
+            auth_data,
+            cursor=cursor,
+            username=username,
+            limit=limit,
+            since=since,
+            until=until,
+            key=key,
+            token_type=token_type,
+            ip_or_cidr=ip_address,
+        )
     if limit:
         response.headers["Link"] = results.link_header(context.request.url)
         response.headers["X-Total-Count"] = str(results.count)
@@ -428,7 +437,8 @@ async def get_tokens(
     context: RequestContext = Depends(context_dependency),
 ) -> List[TokenInfo]:
     token_service = context.factory.create_token_service()
-    return await token_service.list_tokens(auth_data, username)
+    async with context.session.begin():
+        return await token_service.list_tokens(auth_data, username)
 
 
 @router.post(
@@ -454,12 +464,13 @@ async def post_tokens(
 ) -> NewToken:
     token_service = context.factory.create_token_service()
     token_params = token_request.dict()
-    token = await token_service.create_user_token(
-        auth_data,
-        username,
-        ip_address=context.request.client.host,
-        **token_params,
-    )
+    async with context.session.begin():
+        token = await token_service.create_user_token(
+            auth_data,
+            username,
+            ip_address=context.request.client.host,
+            **token_params,
+        )
     response.headers["Location"] = quote(
         f"/auth/api/v1/users/{username}/tokens/{token.key}"
     )
@@ -494,7 +505,8 @@ async def get_token(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
-    info = await token_service.get_token_info(key, auth_data, username)
+    async with context.session.begin():
+        info = await token_service.get_token_info(key, auth_data, username)
     if info:
         return info
     else:
@@ -528,12 +540,13 @@ async def delete_token(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     token_service = context.factory.create_token_service()
-    success = await token_service.delete_token(
-        key,
-        auth_data,
-        username,
-        ip_address=context.request.client.host,
-    )
+    async with context.session.begin():
+        success = await token_service.delete_token(
+            key,
+            auth_data,
+            username,
+            ip_address=context.request.client.host,
+        )
     if not success:
         raise NotFoundError("Token not found", ErrorLocation.path, "key")
 
@@ -571,13 +584,14 @@ async def patch_token(
     update = token_request.dict(exclude_unset=True)
     if "expires" in update and update["expires"] is None:
         update["no_expire"] = True
-    info = await token_service.modify_token(
-        key,
-        auth_data,
-        username,
-        ip_address=context.request.client.host,
-        **update,
-    )
+    async with context.session.begin():
+        info = await token_service.modify_token(
+            key,
+            auth_data,
+            username,
+            ip_address=context.request.client.host,
+            **update,
+        )
     if not info:
         raise NotFoundError("Token not found", ErrorLocation.path, "key")
     return info
@@ -611,9 +625,10 @@ async def get_token_change_history(
     context: RequestContext = Depends(context_dependency),
 ) -> List[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
-    results = await token_service.get_change_history(
-        auth_data, username=username, key=key
-    )
+    async with context.session.begin():
+        results = await token_service.get_change_history(
+            auth_data, username=username, key=key
+        )
     if not results.entries:
         raise NotFoundError("Token not found", ErrorLocation.path, "key")
     return [r.reduced_dict() for r in results.entries]

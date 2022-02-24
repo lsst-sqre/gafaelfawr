@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import AsyncIterator, Iterator
 from unittest.mock import patch
@@ -10,23 +11,26 @@ from urllib.parse import urljoin
 import bonsai
 import pytest
 import pytest_asyncio
+import structlog
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from safir.database import create_database_engine, initialize_database
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from seleniumwire import webdriver
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr import main
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
-from gafaelfawr.database import initialize_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
+from gafaelfawr.schema import Base
 
 from .pages.tokens import TokensPage
-from .support.constants import TEST_HOSTNAME
+from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
 from .support.ldap import MockLDAP
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
 from .support.settings import build_settings
@@ -84,7 +88,7 @@ def driver() -> Iterator[webdriver.Chrome]:
 
 
 @pytest_asyncio.fixture
-async def empty_database(config: Config) -> None:
+async def empty_database(engine: AsyncEngine, config: Config) -> None:
     """Initialize the database for a new test.
 
     This exists as a fixture so that multiple other fixtures can depend on it
@@ -100,18 +104,51 @@ async def empty_database(config: Config) -> None:
     on it if control over the configuration prior to database initialization
     is required.
     """
-    await initialize_database(config, reset=True)
+    logger = structlog.get_logger(config.safir.logger_name)
+    await initialize_database(engine, logger, schema=Base.metadata, reset=True)
+    async with ComponentFactory.standalone(engine) as factory:
+        admin_service = factory.create_admin_service()
+        async with factory.session.begin():
+            await admin_service.add_initial_admins(config.initial_admins)
+
+
+@pytest.fixture(scope="session")
+def engine() -> AsyncEngine:
+    """Create a database engine for testing.
+
+    Rather than allowing the `~gafaelfawr.factory.ComponentFactory` to create
+    its own database engine, create a single engine at session scope.  This
+    allows all the tests to share a single connection pool and not constantly
+    open and close connections to the database, which in turn reduces the time
+    it takes to run tests by XX%.
+    """
+    return create_database_engine(TEST_DATABASE_URL, None)
 
 
 @pytest_asyncio.fixture
-async def factory(empty_database: None) -> AsyncIterator[ComponentFactory]:
+async def factory(
+    empty_database: None, engine: AsyncEngine
+) -> AsyncIterator[ComponentFactory]:
     """Return a component factory.
 
-    Note that this creates a separate SQLAlchemy AsyncSession from any that
-    may be created by the FastAPI app.
+    Note that this creates a separate SQLAlchemy async_scoped_session from any
+    that may be created by the FastAPI app.
     """
-    async with ComponentFactory.standalone() as factory:
+    async with ComponentFactory.standalone(engine) as factory:
         yield factory
+
+
+@pytest.fixture(scope="session")
+def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
+    """Increase the scope of the event loop to the test session.
+
+    If this isn't done, an `~sqlalchemy.ext.asyncio.AsyncEngine` cannot be
+    used from more than one test because they run in different loops, which in
+    turn defeats connection pooling to speed up test execution.
+    """
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest.fixture

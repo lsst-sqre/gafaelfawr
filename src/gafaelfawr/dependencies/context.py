@@ -12,16 +12,16 @@ from typing import Optional
 from aioredis import Redis
 from fastapi import Depends, Request
 from httpx import AsyncClient
+from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..factory import ComponentFactory
 from ..models.state import State
 from .config import config_dependency
-from .db_session import db_session_dependency
 from .redis import redis_dependency
 from .token_cache import TokenCache, token_cache_dependency
 
@@ -50,7 +50,7 @@ class RequestContext:
     redis: Redis
     """Connection pool to use to talk to Redis."""
 
-    session: AsyncSession
+    session: async_scoped_session
     """The database session."""
 
     http_client: AsyncClient
@@ -104,7 +104,7 @@ async def context_dependency(
     config: Config = Depends(config_dependency),
     logger: BoundLogger = Depends(logger_dependency),
     redis: Redis = Depends(redis_dependency),
-    session: AsyncSession = Depends(db_session_dependency),
+    session: async_scoped_session = Depends(db_session_dependency),
     http_client: AsyncClient = Depends(http_client_dependency),
     token_cache: TokenCache = Depends(token_cache_dependency),
 ) -> RequestContext:

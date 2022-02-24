@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI
+from safir.database import create_database_engine
 from seleniumwire import webdriver
 
 from gafaelfawr.config import Config
@@ -115,7 +116,10 @@ async def _selenium_startup(token_path: str) -> None:
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = list(config.known_scopes.keys())
 
-    async with ComponentFactory.standalone() as factory:
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    async with ComponentFactory.standalone(engine) as factory:
         async with factory.session.begin():
             # Add an expired token so that we can test display of expired
             # tokens.
@@ -131,6 +135,7 @@ async def _selenium_startup(token_path: str) -> None:
             token = await token_service.create_session_token(
                 user_info, scopes=scopes, ip_address="127.0.0.1"
             )
+    await engine.dispose()
 
     with open(token_path, "w") as f:
         f.write(str(token))
