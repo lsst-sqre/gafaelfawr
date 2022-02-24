@@ -119,7 +119,7 @@ jobs:
             tox-${{ matrix.python }}-${{ hashFiles('requirements/*.txt') }}-
 
       - name: Run tox
-        run: tox -e py,coverage-report,typing
+        run: tox -e typing,py-coverage,coverage-report
 
   docs:
     runs-on: ubuntu-latest
