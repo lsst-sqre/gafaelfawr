@@ -188,10 +188,13 @@ autosummary_generate = True
 
 automodapi_inheritance_diagram = True
 automodapi_toctreedirnm = "api"
+
+# Inheriting docstrings from parents by default creates huge amounts of noise
+# in Pydantic.  Use the :inherited-members: flag when this is needed.
 automodsumm_inherited_members = False
 
 # Docstrings for classes and methods are inherited from parents.
-autodoc_inherit_docstrings = False
+autodoc_inherit_docstrings = True
 
 # Class documentation should only contain the class docstring and
 # ignore the __init__ docstring, account to LSST coding standards.

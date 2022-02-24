@@ -40,9 +40,9 @@ async def build_history(
     build enough history that we can make interesting paginated queries of it.
     """
     token_service = factory.create_token_service()
-
-    user_info_one = TokenUserInfo(username="one")
     async with factory.session.begin():
+
+        user_info_one = TokenUserInfo(username="one")
         token_one = await token_service.create_session_token(
             user_info_one,
             scopes=["exec:test", "read:all", "user:token"],
@@ -83,8 +83,7 @@ async def build_history(
             ip_address="10.10.10.20",
         )
 
-    user_info_two = TokenUserInfo(username="two")
-    async with factory.session.begin():
+        user_info_two = TokenUserInfo(username="two")
         token_two = await token_service.create_session_token(
             user_info_two,
             scopes=["read:some", "user:token"],
@@ -115,7 +114,6 @@ async def build_history(
             token_name="happy token",
         )
 
-    async with factory.session.begin():
         request = AdminTokenRequest(
             username="service",
             token_type=TokenType.service,
@@ -149,10 +147,9 @@ async def build_history(
             ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
         )
 
-    # Spread out the timestamps so that we can test date range queries.  Every
-    # other entry has the same timestamp as the previous entry to test that
-    # queries handle entries with the same timestamp.
-    async with factory.session.begin():
+        # Spread out the timestamps so that we can test date range queries.
+        # Every other entry has the same timestamp as the previous entry to
+        # test that queries handle entries with the same timestamp.
         stmt = select(TokenChangeHistory).order_by(TokenChangeHistory.id)
         result = await factory.session.execute(stmt)
         entries = [e[0] for e in result.all()]
@@ -162,8 +159,8 @@ async def build_history(
             if i % 2 != 0:
                 event_time += timedelta(seconds=5)
 
-    async with factory.session.begin():
         history = await token_service.get_change_history(service_token_data)
+
     assert history.count == 20
     assert len(history.entries) == 20
     return history.entries

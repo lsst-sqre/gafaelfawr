@@ -55,7 +55,7 @@ class TokenService:
         The Redis backing store for tokens.
     token_change_store : `gafaelfawr.storage.history.TokenChangeHistoryStore`
         The backing store for history of changes to tokens.
-    logger : ``structlog.stdlib.BoundLogger``
+    logger : `structlog.stdlib.BoundLogger`
         Logger to use.
     """
 

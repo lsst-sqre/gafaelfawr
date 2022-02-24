@@ -14,6 +14,14 @@ from gafaelfawr.keypair import RSAKeyPair
 
 from .constants import TEST_DATABASE_URL
 
+_ISSUER_KEY = RSAKeyPair.generate()
+"""RSA key pair for JWT issuance and verification.
+
+Generating this takes a surprisingly long time when summed across every test,
+so generate one statically at import time for each test run and use it for
+every settings file.
+"""
+
 __all__ = [
     "build_settings",
     "configure",
@@ -92,7 +100,7 @@ def build_settings(
     """
     session_secret = Fernet.generate_key()
     session_secret_file = store_secret(tmp_path, "session", session_secret)
-    issuer_key = RSAKeyPair.generate().private_key_as_pem()
+    issuer_key = _ISSUER_KEY.private_key_as_pem()
     issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
     influxdb_secret_file = store_secret(tmp_path, "influxdb", b"influx-secret")
     github_secret_file = store_secret(tmp_path, "github", b"github-secret")
