@@ -22,16 +22,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Read .nvmrc
-        id: node_version
-        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
-
       - name: Set up Node
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ steps.node_version.outputs.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: ui/package-lock.json
+
+      - name: Read .nvmrc
+        id: node_version
+        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
 
       # First try to restore the fully-installed node modules.  If that
       # works (no changes to the JavaScript layer), skip npm i and
