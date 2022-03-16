@@ -517,6 +517,10 @@ class KubernetesWatcher:
                             await self._queue.put(event)
                         consecutive_failures = 0
             except ApiException as e:
+                # 410 status code just means our watch expired, and the
+                # correct thing to do is quietly restart it.
+                if e.status == 410:
+                    continue
                 msg = "ApiException from watch"
                 consecutive_failures += 1
                 if consecutive_failures > 10:
