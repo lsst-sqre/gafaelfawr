@@ -11,6 +11,7 @@ from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from safir.database import create_async_session
 from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
+from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
 from .config import Config
@@ -22,6 +23,7 @@ from .models.token import TokenData
 from .providers.base import Provider
 from .providers.github import GitHubProvider
 from .providers.oidc import OIDCProvider
+from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
 from .services.kubernetes import KubernetesService
 from .services.oidc import OIDCService
@@ -64,7 +66,7 @@ class ComponentFactory:
     @classmethod
     @asynccontextmanager
     async def standalone(
-        cls, engine: AsyncEngine
+        cls, engine: AsyncEngine, check_db: bool = False
     ) -> AsyncIterator[ComponentFactory]:
         """Build Gafaelfawr components outside of a request.
 
@@ -78,6 +80,9 @@ class ComponentFactory:
         ----------
         engine : `sqlalchemy.ext.asyncio.AsyncEngine`
             Database engine to use for connections.
+        check_db : `bool`, optional
+            If set to `True`, check database connectivity before returning by
+            doing a simple query.
 
         Yields
         ------
@@ -90,10 +95,14 @@ class ComponentFactory:
         assert logger
         logger.debug("Connecting to Redis")
         redis = await redis_dependency(config)
+        if check_db:
+            statement = select(SQLAdmin)
+        else:
+            statement = None
 
         session = None
         try:
-            session = await create_async_session(engine)
+            session = await create_async_session(engine, statement=statement)
             async with AsyncClient() as client:
                 yield cls(
                     config=config,
