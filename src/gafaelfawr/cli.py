@@ -127,7 +127,7 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
     engine = create_database_engine(
         config.database_url, config.database_password
     )
-    async with ComponentFactory.standalone(engine) as factory:
+    async with ComponentFactory.standalone(engine, check_db=True) as factory:
         await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)
@@ -157,7 +157,7 @@ async def update_service_tokens(settings: Optional[str]) -> None:
     engine = create_database_engine(
         config.database_url, config.database_password
     )
-    async with ComponentFactory.standalone(engine) as factory:
+    async with ComponentFactory.standalone(engine, check_db=True) as factory:
         await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)
