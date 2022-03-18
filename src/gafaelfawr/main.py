@@ -18,7 +18,11 @@ from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.redis import redis_dependency
 from .dependencies.token_cache import token_cache_dependency
-from .exceptions import PermissionDeniedError, ValidationError
+from .exceptions import (
+    NotConfiguredException,
+    PermissionDeniedError,
+    ValidationError,
+)
 from .handlers import analyze, api, auth, index, influxdb, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
@@ -107,6 +111,16 @@ async def shutdown_event() -> None:
     await db_session_dependency.aclose()
     await redis_dependency.aclose()
     await token_cache_dependency.aclose()
+
+
+@app.exception_handler(NotConfiguredException)
+async def not_configured_exception_handler(
+    request: Request, exc: NotConfiguredException
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": [{"type": "not_supported", "msg": str(exc)}]},
+    )
 
 
 @app.exception_handler(PermissionDeniedError)

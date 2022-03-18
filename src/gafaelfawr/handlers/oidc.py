@@ -36,7 +36,14 @@ from ..models.oidc import (
 )
 from ..models.token import TokenData
 
-router = APIRouter()
+router = APIRouter(
+    responses={
+        404: {
+            "description": "OpenID Connect server not configured",
+            "model": ErrorModel,
+        },
+    }
+)
 authenticate = AuthenticateRead(
     require_session=True, redirect_if_unauthenticated=True
 )
