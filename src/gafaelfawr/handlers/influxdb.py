@@ -34,18 +34,15 @@ async def get_influxdb(
     context: RequestContext = Depends(context_dependency),
 ) -> InfluxDBToken:
     """Return an InfluxDB-compatible JWT."""
-    token_issuer = context.factory.create_token_issuer()
+    influxdb_service = context.factory.create_influxdb_service()
     try:
-        influxdb_token = token_issuer.issue_influxdb_token(token_data)
+        influxdb_token = influxdb_service.issue_token(token_data)
     except NotConfiguredException as e:
         context.logger.warning("Not configured", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"type": "not_supported", "msg": str(e)},
         )
-    if context.config.issuer.influxdb_username:
-        username = context.config.issuer.influxdb_username
-    else:
-        username = token_data.username
+    username = influxdb_service.username_for_token(token_data)
     context.logger.info("Issued InfluxDB token", influxdb_username=username)
     return InfluxDBToken(token=influxdb_token)

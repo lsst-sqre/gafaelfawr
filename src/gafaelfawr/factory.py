@@ -25,6 +25,7 @@ from .providers.github import GitHubProvider
 from .providers.oidc import OIDCProvider
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
+from .services.influxdb import InfluxDBService
 from .services.kubernetes import KubernetesService
 from .services.oidc import OIDCService
 from .services.token import TokenService
@@ -145,6 +146,16 @@ class ComponentFactory:
         admin_store = AdminStore(self.session)
         admin_history_store = AdminHistoryStore(self.session)
         return AdminService(admin_store, admin_history_store, self._logger)
+
+    def create_influxdb_service(self) -> InfluxDBService:
+        """Create an InfluxDB token issuer service.
+
+        Returns
+        -------
+        influxdb_service : `gafaelfawr.services.influxdb.InfluxDBService`
+            Newly-created InfluxDB token issuer.
+        """
+        return InfluxDBService(self._config.issuer)
 
     def create_kubernetes_service(
         self, api_client: ApiClient
