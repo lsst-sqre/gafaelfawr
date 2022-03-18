@@ -825,9 +825,9 @@ sqlalchemy[asyncio,mypy]==1.4.32 \
     # via
     #   -c requirements/main.txt
     #   -r requirements/dev.in
-sqlalchemy2-stubs==0.0.2a20 \
-    --hash=sha256:3e96a5bb7d46a368c780ba57dcf2afbe2d3efdd75f7724ae7a859df0b0625f38 \
-    --hash=sha256:da31d0e30a2af2e5ad83dbce5738543a9f488089774f506de5ec7d28d425a202
+sqlalchemy2-stubs==0.0.2a21 \
+    --hash=sha256:207e3d8a36fc032d325f4eec89e0c6760efe81d07e978513d8c9b14f108dcd0c \
+    --hash=sha256:bd4a3d5ca7ff9d01b2245e1b26304d6b2ec4daf43a01faf40db9e09245679433
     # via sqlalchemy
 toml==0.10.2 \
     --hash=sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b \
