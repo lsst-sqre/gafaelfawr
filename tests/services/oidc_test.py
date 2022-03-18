@@ -137,3 +137,35 @@ async def test_redeem_code_errors(
         await oidc_service.redeem_code(
             "client-2", "client-2-secret", "https://foo.example.com/", code
         )
+
+
+@pytest.mark.asyncio
+async def test_issue_token(tmp_path: Path, factory: ComponentFactory) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    config = await configure(tmp_path, "github", oidc_clients=clients)
+    factory.reconfigure(config)
+    oidc_service = factory.create_oidc_service()
+
+    token_data = await create_session_token(factory)
+    oidc_token = oidc_service.issue_token(
+        token_data, jti="new-jti", scope="openid"
+    )
+
+    assert oidc_token.claims == {
+        "aud": config.issuer.aud,
+        "exp": ANY,
+        "iat": ANY,
+        "iss": config.issuer.iss,
+        "jti": "new-jti",
+        "name": token_data.name,
+        "preferred_username": token_data.username,
+        "scope": "openid",
+        "sub": token_data.username,
+        config.issuer.username_claim: token_data.username,
+        config.issuer.uid_claim: token_data.uid,
+    }
+
+    now = time.time()
+    assert now - 5 <= oidc_token.claims["iat"] <= now + 5
+    expected_exp = now + config.issuer.exp_minutes * 60
+    assert expected_exp - 5 <= oidc_token.claims["exp"] <= expected_exp + 5

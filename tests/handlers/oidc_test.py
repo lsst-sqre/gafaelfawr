@@ -118,8 +118,8 @@ async def test_login(
     assert exp_seconds - 5 <= data["expires_in"] <= exp_seconds
 
     assert data["access_token"] == data["id_token"]
-    verifier = factory.create_token_verifier()
-    token = verifier.verify_internal_token(OIDCToken(encoded=data["id_token"]))
+    oidc_service = factory.create_oidc_service()
+    token = oidc_service.verify_token(OIDCToken(encoded=data["id_token"]))
     assert token.claims == {
         "aud": config.issuer.aud,
         "exp": ANY,
@@ -152,6 +152,14 @@ async def test_login(
             "user": username,
         }
     ]
+
+    r = await client.get(
+        "/auth/userinfo",
+        headers={"Authorization": f"Bearer {token.encoded}"},
+    )
+
+    assert r.status_code == 200
+    assert r.json() == token.claims
 
 
 @pytest.mark.asyncio
@@ -496,23 +504,6 @@ async def test_token_errors(
 
 
 @pytest.mark.asyncio
-async def test_userinfo(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
-    token_data = await create_session_token(factory)
-    issuer = factory.create_token_issuer()
-    oidc_token = issuer.issue_token(token_data, jti="some-jti")
-
-    r = await client.get(
-        "/auth/userinfo",
-        headers={"Authorization": f"Bearer {oidc_token.encoded}"},
-    )
-
-    assert r.status_code == 200
-    assert r.json() == oidc_token.claims
-
-
-@pytest.mark.asyncio
 async def test_no_auth(client: AsyncClient, config: Config) -> None:
     r = await client.get("/auth/userinfo")
     assert_unauthorized_is_correct(r, config)
@@ -520,14 +511,17 @@ async def test_no_auth(client: AsyncClient, config: Config) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid(
+    tmp_path: Path,
     client: AsyncClient,
-    config: Config,
     factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    config = await configure(tmp_path, "github", oidc_clients=clients)
+    factory.reconfigure(config)
     token_data = await create_session_token(factory)
-    issuer = factory.create_token_issuer()
-    oidc_token = issuer.issue_token(token_data, jti="some-jti")
+    oidc_service = factory.create_oidc_service()
+    oidc_token = oidc_service.issue_token(token_data, jti="some-jti")
 
     caplog.clear()
     r = await client.get(

@@ -31,8 +31,6 @@ API reference
 
 .. automodapi:: gafaelfawr.factory
 
-.. automodapi:: gafaelfawr.issuer
-
 .. automodapi:: gafaelfawr.keypair
 
 .. automodapi:: gafaelfawr.middleware.state
@@ -89,5 +87,3 @@ API reference
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.util
-
-.. automodapi:: gafaelfawr.verify

@@ -18,7 +18,6 @@ from .config import Config
 from .dependencies.config import config_dependency
 from .dependencies.redis import redis_dependency
 from .dependencies.token_cache import TokenCache
-from .issuer import TokenIssuer
 from .models.token import TokenData
 from .providers.base import Provider
 from .providers.github import GitHubProvider
@@ -37,7 +36,6 @@ from .storage.kubernetes import KubernetesStorage
 from .storage.ldap import LDAPStorage
 from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
-from .verify import TokenVerifier
 
 __all__ = ["ComponentFactory"]
 
@@ -193,12 +191,10 @@ class ComponentFactory:
         key = self._config.session_secret
         storage = RedisStorage(OIDCAuthorization, key, self._redis)
         authorization_store = OIDCAuthorizationStore(storage)
-        issuer = self.create_token_issuer()
         token_service = self.create_token_service()
         return OIDCService(
-            config=self._config.oidc_server,
+            config=self._config,
             authorization_store=authorization_store,
-            issuer=issuer,
             token_service=token_service,
             logger=self._logger,
         )
@@ -226,14 +222,12 @@ class ComponentFactory:
                 logger=self._logger,
             )
         elif self._config.oidc:
-            token_verifier = self.create_token_verifier()
             ldap_storage = None
             if self._config.ldap:
                 ldap_storage = LDAPStorage(self._config.ldap, self._logger)
             return OIDCProvider(
-                config=self._config.oidc,
+                config=self._config,
                 ldap_storage=ldap_storage,
-                verifier=token_verifier,
                 http_client=self._http_client,
                 logger=self._logger,
             )
@@ -263,16 +257,6 @@ class ComponentFactory:
             logger=self._logger,
         )
 
-    def create_token_issuer(self) -> TokenIssuer:
-        """Create a TokenIssuer.
-
-        Returns
-        -------
-        issuer : `gafaelfawr.issuer.TokenIssuer`
-            A new TokenIssuer.
-        """
-        return TokenIssuer(self._config.issuer)
-
     def create_token_service(self) -> TokenService:
         """Create a TokenService.
 
@@ -301,18 +285,6 @@ class ComponentFactory:
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
             logger=self._logger,
-        )
-
-    def create_token_verifier(self) -> TokenVerifier:
-        """Create a TokenVerifier from a web request.
-
-        Returns
-        -------
-        token_verifier : `gafaelfawr.verify.TokenVerifier`
-            A new TokenVerifier.
-        """
-        return TokenVerifier(
-            self._config.verifier, self._http_client, self._logger
         )
 
     def reconfigure(self, config: Config) -> None:

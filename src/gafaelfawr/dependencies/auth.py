@@ -245,8 +245,8 @@ async def verified_oidc_token(
         raise generate_unauthorized_challenge(context, AuthType.Bearer)
     try:
         unverified_token = OIDCToken(encoded=encoded_token)
-        token_verifier = context.factory.create_token_verifier()
-        token = token_verifier.verify_internal_token(unverified_token)
+        oidc_service = context.factory.create_oidc_service()
+        token = oidc_service.verify_token(unverified_token)
     except InvalidTokenError as e:
         raise generate_challenge(context, AuthType.Bearer, e)
 
