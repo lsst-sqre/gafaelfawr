@@ -18,10 +18,11 @@ from .config import Config
 from .dependencies.config import config_dependency
 from .dependencies.redis import redis_dependency
 from .dependencies.token_cache import TokenCache
+from .exceptions import NotConfiguredException
 from .models.token import TokenData
 from .providers.base import Provider
 from .providers.github import GitHubProvider
-from .providers.oidc import OIDCProvider
+from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
 from .services.influxdb import InfluxDBService
@@ -187,7 +188,9 @@ class ComponentFactory:
         oidc_service : `gafaelfawr.services.oidc.OIDCService`
             A new OpenID Connect server.
         """
-        assert self._config.oidc_server
+        if not self._config.oidc_server:
+            msg = "OpenID Connect server not configured"
+            raise NotConfiguredException(msg)
         key = self._config.session_secret
         storage = RedisStorage(OIDCAuthorization, key, self._redis)
         authorization_store = OIDCAuthorizationStore(storage)
@@ -196,6 +199,28 @@ class ComponentFactory:
             config=self._config,
             authorization_store=authorization_store,
             token_service=token_service,
+            logger=self._logger,
+        )
+
+    def create_oidc_token_verifier(self) -> OIDCTokenVerifier:
+        """Create a JWT token verifier for OpenID Connect tokens.
+
+        This is normally used only as an implementation detail of the OpenID
+        Connect authentication provider, but can be created directly to
+        facilitate testing.
+
+        Returns
+        -------
+        verifier : `gafaelfawr.providers.oidc.OIDCTokenVerifier`
+            A new JWT token verifier.
+        """
+        if not self._config.oidc:
+            msg = "OpenID Connect provider not configured"
+            raise NotConfiguredException(msg)
+        assert self._config.oidc
+        return OIDCTokenVerifier(
+            config=self._config,
+            http_client=self._http_client,
             logger=self._logger,
         )
 
@@ -222,11 +247,13 @@ class ComponentFactory:
                 logger=self._logger,
             )
         elif self._config.oidc:
+            verifier = self.create_oidc_token_verifier()
             ldap_storage = None
             if self._config.ldap:
                 ldap_storage = LDAPStorage(self._config.ldap, self._logger)
             return OIDCProvider(
                 config=self._config,
+                verifier=verifier,
                 ldap_storage=ldap_storage,
                 http_client=self._http_client,
                 logger=self._logger,

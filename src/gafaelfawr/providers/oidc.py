@@ -31,7 +31,7 @@ from ..storage.ldap import LDAPStorage
 from ..util import base64_to_number
 from .base import Provider
 
-__all__ = ["OIDCProvider"]
+__all__ = ["OIDCProvider", "OIDCTokenVerifier"]
 
 
 class OIDCProvider(Provider):
@@ -41,6 +41,8 @@ class OIDCProvider(Provider):
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelafwr configuration.
+    verifier : `OIDCTokenVerifier`
+        JWT token verifier for OpenID Connect tokens.
     ldap_storage : `gafaelfawr.storage.ldap.LDAPStorage`
         LDAP storage layer for retrieving user metadata.
     http_client : ``httpx.AsyncClient``
@@ -53,11 +55,13 @@ class OIDCProvider(Provider):
         self,
         *,
         config: Config,
+        verifier: OIDCTokenVerifier,
         ldap_storage: Optional[LDAPStorage],
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
+        self._verifier = verifier
         self._ldap_storage = ldap_storage
         self._http_client = http_client
         self._logger = logger
@@ -167,16 +171,16 @@ class OIDCProvider(Provider):
         # configuration.
         unverified_token = OIDCToken(encoded=result["id_token"])
         try:
-            token = await self.verify_token(unverified_token)
+            token = await self._verifier.verify_token(unverified_token)
             uid = None
             if self._ldap_storage:
                 async with self._ldap_storage.connect() as conn:
                     uid = await conn.get_uid(token.username)
                     groups = await conn.get_groups(token.username)
             else:
-                groups = self.get_groups_from_token(token)
+                groups = self._verifier.get_groups_from_token(token)
             if not uid:
-                uid = self.get_uid_from_token(token)
+                uid = self._verifier.get_uid_from_token(token)
         except (jwt.InvalidTokenError, VerifyTokenException) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCException(msg)
@@ -201,6 +205,27 @@ class OIDCProvider(Provider):
             The session state, which contains the GitHub access token.
         """
         pass
+
+
+class OIDCTokenVerifier:
+    """Verify a JWT issued by an OpenID Connect provider.
+
+    Parameters
+    ----------
+    config : `gafaelfawr.config.Config`
+        Gafaelafwr configuration.
+    http_client : ``httpx.AsyncClient``
+        Session to use to make HTTP requests.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger for any log messages.
+    """
+
+    def __init__(
+        self, config: Config, http_client: AsyncClient, logger: BoundLogger
+    ) -> None:
+        self._config = config
+        self._http_client = http_client
+        self._logger = logger
 
     async def verify_token(self, token: OIDCToken) -> OIDCVerifiedToken:
         """Verifies the provided JWT from an OpenID Connect provider.
