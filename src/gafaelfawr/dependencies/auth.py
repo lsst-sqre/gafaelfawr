@@ -126,7 +126,7 @@ class Authenticate:
                 context.rebind_logger(
                     token="<bootstrap>",
                     user="<bootstrap>",
-                    scope=" ".join(sorted(bootstrap_data.scopes)),
+                    scopes=sorted(bootstrap_data.scopes),
                 )
                 context.logger.info("Authenticated with bootstrap token")
                 return bootstrap_data
@@ -143,7 +143,7 @@ class Authenticate:
         context.rebind_logger(
             token=token.key,
             user=data.username,
-            scope=" ".join(sorted(data.scopes)),
+            scopes=sorted(data.scopes),
         )
 
         if self.require_scope and self.require_scope not in data.scopes:

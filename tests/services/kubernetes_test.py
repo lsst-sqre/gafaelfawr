@@ -210,7 +210,7 @@ async def test_create(
             "event": "Created new service token",
             "key": ANY,
             "severity": "info",
-            "token_scope": "admin:token",
+            "token_scopes": ["admin:token"],
             "token_username": "mobu",
         },
         {
@@ -223,7 +223,7 @@ async def test_create(
             "event": "Created new service token",
             "key": ANY,
             "severity": "info",
-            "token_scope": "",
+            "token_scopes": [],
             "token_username": "nublado-hub",
         },
         {
@@ -293,7 +293,7 @@ async def test_modify(
             "event": "Created new service token",
             "key": ANY,
             "severity": "info",
-            "token_scope": "admin:token",
+            "token_scopes": ["admin:token"],
             "token_username": "mobu",
         },
         {
@@ -306,7 +306,7 @@ async def test_modify(
             "event": "Created new service token",
             "key": ANY,
             "severity": "info",
-            "token_scope": "",
+            "token_scopes": [],
             "token_username": "nublado-hub",
         },
         {

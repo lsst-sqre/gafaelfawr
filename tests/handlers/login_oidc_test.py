@@ -77,9 +77,8 @@ async def test_login(
     assert r.headers["Location"] == return_url
 
     # Verify the logging.
-    expected_scopes_set = set(config.issuer.group_mapping["admin"])
-    expected_scopes_set.add("user:token")
-    expected_scopes = " ".join(sorted(expected_scopes_set))
+    expected_scopes = set(config.issuer.group_mapping["admin"])
+    expected_scopes.add("user:token")
     uid = token.claims["uidNumber"]
     event = f"Successfully authenticated user {token.username} ({uid})"
     assert parse_log(caplog) == [
@@ -101,7 +100,7 @@ async def test_login(
                 "remoteIp": "127.0.0.1",
             },
             "return_url": return_url,
-            "scope": expected_scopes,
+            "scopes": sorted(expected_scopes),
             "severity": "info",
             "token": ANY,
             "user": token.username,
@@ -111,7 +110,9 @@ async def test_login(
     # Check that the /auth route works and finds our token.
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
+    assert r.headers["X-Auth-Request-Token-Scopes"] == " ".join(
+        sorted(expected_scopes)
+    )
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == token.username

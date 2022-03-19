@@ -145,7 +145,7 @@ async def test_login(
                 "remoteIp": "127.0.0.1",
             },
             "return_url": return_url,
-            "scope": "read:all user:token",
+            "scopes": ["read:all", "user:token"],
             "severity": "info",
             "token": ANY,
             "user": "githubuser",

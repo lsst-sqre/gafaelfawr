@@ -225,7 +225,7 @@ class TokenService:
             "Created new user token",
             key=token.key,
             token_name=token_name,
-            token_scope=",".join(data.scopes),
+            token_scopes=sorted(data.scopes),
         )
 
         return token
@@ -302,14 +302,14 @@ class TokenService:
                 "Created new user token",
                 key=token.key,
                 token_name=request.token_name,
-                token_scope=",".join(data.scopes),
+                token_scopes=sorted(data.scopes),
                 token_username=data.username,
             )
         else:
             self._logger.info(
                 "Created new service token",
                 key=token.key,
-                token_scope=",".join(data.scopes),
+                token_scopes=sorted(data.scopes),
                 token_username=data.username,
             )
         return token
@@ -713,7 +713,7 @@ class TokenService:
                 "Modified token",
                 key=key,
                 token_name=info.token_name,
-                token_scope=",".join(info.scopes),
+                token_scopes=sorted(info.scopes),
                 expires=timestamp,
             )
         return info

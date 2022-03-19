@@ -249,7 +249,7 @@ async def handle_provider_return(
         user_info.uid,
         user=user_info.username,
         token=token.key,
-        scope=" ".join(scopes),
+        scopes=sorted(scopes),
     )
     return RedirectResponse(return_url)
 
