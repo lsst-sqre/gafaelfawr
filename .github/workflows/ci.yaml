@@ -39,7 +39,7 @@ jobs:
       # the cache of the downloaded modules and then run npm
       # clean-install.
       - name: Cache installed Node modules
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: node-cache
         with:
           path: ./ui/node_modules
@@ -108,7 +108,7 @@ jobs:
 
       - name: Cache tox environments
         id: cache-tox
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .tox
           # requirements/*.txt and tox.ini have versioning or dependency
