@@ -222,7 +222,7 @@ async def create_upstream_oidc_token(
     config : `gafaelfawr.config.Config`
         The configuration.
     kid : `str`, optional
-        Key ID for the token header.
+        Key ID for the token header.  Default is ``orig-kid``.
     groups : List[`str`], optional
         Group memberships the generated token should have.
     **claims : `str`, optional
@@ -236,7 +236,7 @@ async def create_upstream_oidc_token(
     config = await config_dependency()
     assert config.oidc
     if not kid:
-        kid = config.oidc.key_ids[0]
+        kid = "orig-kid"
     payload = {
         "aud": config.oidc.audience,
         "iss": config.oidc.issuer,

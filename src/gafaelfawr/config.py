@@ -125,9 +125,6 @@ class OIDCSettings(BaseModel):
     audience: str
     """Expected audience of the ID token."""
 
-    key_ids: List[str] = []
-    """List of acceptable kids that may be used to sign the ID token."""
-
 
 class LDAPSettings(BaseModel):
     """pydantic model of LDAP configuration."""
@@ -439,9 +436,6 @@ class VerifierConfig:
     oidc_aud: Optional[str]
     """Expected audience of the ID token an OpenID Connect provider."""
 
-    oidc_kids: Tuple[str, ...]
-    """List of acceptable kids that may be used to sign the ID token."""
-
 
 @dataclass(frozen=True)
 class GitHubConfig:
@@ -550,9 +544,6 @@ class OIDCConfig:
 
     audience: str
     """Expected audience of the ID token."""
-
-    key_ids: Tuple[str, ...]
-    """List of acceptable kids that may be used to sign the ID token."""
 
 
 @dataclass(frozen=True)
@@ -751,7 +742,6 @@ class Config:
             uid_claim=settings.uid_claim,
             oidc_iss=settings.oidc.issuer if settings.oidc else None,
             oidc_aud=settings.oidc.audience if settings.oidc else None,
-            oidc_kids=tuple(settings.oidc.key_ids if settings.oidc else []),
         )
         github_config = None
         if settings.github:
@@ -773,7 +763,6 @@ class Config:
                 scopes=tuple(settings.oidc.scopes),
                 issuer=settings.oidc.issuer,
                 audience=settings.oidc.audience,
-                key_ids=tuple(settings.oidc.key_ids),
             )
         ldap_config = None
         if settings.ldap and settings.ldap.url:

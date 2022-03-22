@@ -271,10 +271,6 @@ class OIDCTokenVerifier:
 
         if issuer_url != self._config.verifier.oidc_iss:
             raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
-        if self._config.verifier.oidc_kids:
-            if key_id not in self._config.verifier.oidc_kids:
-                msg = f"kid {key_id} not allowed for {issuer_url}"
-                raise UnknownKeyIdException(msg)
 
         key = await self._get_key_as_pem(issuer_url, key_id)
         payload = jwt.decode(

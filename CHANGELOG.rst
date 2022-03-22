@@ -2,9 +2,11 @@
 Change log
 ##########
 
-3.6.1 (unreleased)
+3.7.0 (unreleased)
 ==================
 
+- Drop support for restricting the upstream OpenID Connect provider to specific key IDs.
+  This prevents upstream key rotation for dubious security benefit given that Gafaelfawr still verifies the issuer URL and then reaches out to its ``.well-known`` endpoints to retrieve the public key and verify the key signature.
 - Drop support for Python 3.9.
 
 3.6.0 (2022-02-24)

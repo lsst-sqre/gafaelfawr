@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from urllib.parse import parse_qs, urljoin
 
 import respx
@@ -26,23 +25,17 @@ class MockOIDCConfig:
     ----------
     config : `gafaelfawr.config.Config`
         Configuration for Gafaelfawr.
-    keypair : `gafaelfawr.keypair.RSAKeyPair`, optional
-        The keypair to use.  Defaults to the configured issuer keypair.
-    kid : `str`, optional
-        The key ID to return.  Defaults to the first key ID in the
-        configuration.
+    keypair : `gafaelfawr.keypair.RSAKeyPair`
+        The keypair to use.
+    kid : `str`
+        The key ID to return.
     """
 
-    def __init__(
-        self,
-        config: Config,
-        keypair: Optional[RSAKeyPair] = None,
-        kid: Optional[str] = None,
-    ) -> None:
+    def __init__(self, config: Config, keypair: RSAKeyPair, kid: str) -> None:
         assert config.oidc
         self.config = config
-        self.keypair = keypair if keypair else config.issuer.keypair
-        self.kid = kid if kid else config.oidc.key_ids[0]
+        self.keypair = keypair
+        self.kid = kid
 
     def get_config(self, request: Request) -> Response:
         assert self.config.oidc
@@ -92,9 +85,7 @@ class MockOIDCToken:
 
 
 async def mock_oidc_provider_config(
-    respx_mock: respx.Router,
-    keypair: Optional[RSAKeyPair] = None,
-    kid: Optional[str] = None,
+    respx_mock: respx.Router, keypair: RSAKeyPair, kid: str
 ) -> None:
     """Mock out the API for the upstream OpenID Connect provider.
 
@@ -102,11 +93,10 @@ async def mock_oidc_provider_config(
     ----------
     respx_mock : `respx.Router`
         The mock router.
-    keypair : `gafaelfawr.keypair.RSAKeyPair`, optional
-        The keypair to use.  Defaults to the configured issuer keypair.
-    kid : `str`, optional
-        The key ID to return.  Defaults to the first key ID in the
-        configuration.
+    keypair : `gafaelfawr.keypair.RSAKeyPair`
+        The keypair to use.
+    kid : `str`
+        The key ID to return.
     """
     config = await config_dependency()
     assert config.oidc

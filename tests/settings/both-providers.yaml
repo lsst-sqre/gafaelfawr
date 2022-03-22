@@ -35,5 +35,3 @@ oidc:
     - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
-  key_ids:
-    - "orig-kid"

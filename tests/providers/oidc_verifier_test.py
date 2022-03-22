@@ -82,18 +82,10 @@ async def test_verify_token(
         await verifier.verify_token(token)
     assert str(excinfo.value) == "Unknown issuer: https://bogus.example.com/"
 
-    # Unknown kid.
-    payload["iss"] = config.verifier.oidc_iss
-    token = encode_token(payload, keypair, kid="a-kid")
-    with pytest.raises(UnknownKeyIdException) as excinfo:
-        await verifier.verify_token(token)
-    expected = f"kid a-kid not allowed for {config.verifier.oidc_iss}"
-    assert str(excinfo.value) == expected
-
     # Missing username claim.
-    await mock_oidc_provider_config(respx_mock, keypair)
-    kid = config.verifier.oidc_kids[0]
-    token = encode_token(payload, config.issuer.keypair, kid=kid)
+    payload["iss"] = config.verifier.oidc_iss
+    await mock_oidc_provider_config(respx_mock, keypair, "orig-kid")
+    token = encode_token(payload, config.issuer.keypair, kid="orig-kid")
     with pytest.raises(MissingClaimsException) as excinfo:
         await verifier.verify_token(token)
     expected = f"No {config.verifier.username_claim} claim in token"
@@ -102,9 +94,9 @@ async def test_verify_token(
     # Missing UID claim.  This is only diagnosed when get_uid_from_token is
     # called, not during the initial verification, since we do not verify the
     # UID claim if UIDs are retrieved from LDAP instead.
-    await mock_oidc_provider_config(respx_mock, keypair)
+    await mock_oidc_provider_config(respx_mock, keypair, "orig-kid")
     payload[config.verifier.username_claim] = "some-user"
-    token = encode_token(payload, config.issuer.keypair, kid=kid)
+    token = encode_token(payload, config.issuer.keypair, kid="orig-kid")
     verified_token = await verifier.verify_token(token)
     with pytest.raises(MissingClaimsException) as excinfo:
         verifier.get_uid_from_token(verified_token)
