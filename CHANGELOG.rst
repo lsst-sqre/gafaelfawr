@@ -7,6 +7,8 @@ Change log
 
 - Drop support for restricting the upstream OpenID Connect provider to specific key IDs.
   This prevents upstream key rotation for dubious security benefit given that Gafaelfawr still verifies the issuer URL and then reaches out to its ``.well-known`` endpoints to retrieve the public key and verify the key signature.
+- Log token scopes as proper lists instead of space- or comma-separated strings.
+- Return 404 with a proper error if the OpenID Connect server routes are accessed when Gafaelfawr is not configured to act as an OpenID Connect server.
 - Drop support for Python 3.9.
 
 3.6.0 (2022-02-24)
