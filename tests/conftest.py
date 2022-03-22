@@ -51,6 +51,12 @@ async def app(
     async with LifespanManager(main.app):
         yield main.app
 
+    # Clear the middleware stack, since otherwise we accumulate multiple
+    # copies of XForwardedMiddleware during test execution, which eventually
+    # starts making things slow and making the Python stack far too deep.
+    main.app.user_middleware.clear()
+    main.app.middleware_stack = main.app.build_middleware_stack()
+
 
 @pytest_asyncio.fixture
 async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:

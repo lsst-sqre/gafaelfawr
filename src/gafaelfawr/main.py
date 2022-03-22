@@ -84,6 +84,7 @@ app.include_router(login.router)
 app.include_router(logout.router)
 app.include_router(oidc.router)
 
+# Add static path serving to support the JavaScript UI.
 static_path = os.getenv(
     "GAFAELFAWR_UI_PATH", Path(__file__).parent.parent.parent / "ui" / "public"
 )
@@ -99,10 +100,20 @@ async def startup_event() -> None:
     await db_session_dependency.initialize(
         config.database_url, config.database_password
     )
-    app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
+
+    # This middleware unfortunately depends on the configuration, which is not
+    # available until application start.  This means that any tests need to
+    # clear the middleware stack during shutdown or multiple copies of this
+    # middleware will stack up and make the tests unnecessarily slow.
+    #
+    # That in turn means that we have to add the StateMiddleware here as well,
+    # even though it could be added unconditionally during import, since
+    # otherwise it is cleared along with XForwardedMiddleware and then not
+    # reinstated.
     app.add_middleware(
         StateMiddleware, cookie_name=COOKIE_NAME, state_class=State
     )
+    app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
 
 
 @app.on_event("shutdown")
