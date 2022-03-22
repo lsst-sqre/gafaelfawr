@@ -2,9 +2,14 @@
 Change log
 ##########
 
-3.7.0 (unreleased)
+Versioning follows `semver <https://semver.org/>`__.
+Versioning assumes that Gafaelfawr is installed and configured via `Phalanx <https://phalanx.lsst.io/>`__, so only changes to configuration changes exposed in the Helm values file are considered breaking changes.
+The internal configuration format may change in minor releases.
+
+4.0.0 (unreleased)
 ==================
 
+- InfluxDB 1.x token generation is now configured with ``config.influxdb.enabled`` and ``config.influxdb.username`` without the ``issuer`` component.
 - Drop support for restricting the upstream OpenID Connect provider to specific key IDs.
   This prevents upstream key rotation for dubious security benefit given that Gafaelfawr still verifies the issuer URL and then reaches out to its ``.well-known`` endpoints to retrieve the public key and verify the key signature.
 - Log token scopes as proper lists instead of space- or comma-separated strings.
