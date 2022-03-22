@@ -24,6 +24,7 @@ from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
 
+from ..support.constants import TEST_KEYPAIR
 from ..support.oidc import mock_oidc_provider_config
 from ..support.settings import configure
 from ..support.tokens import create_upstream_oidc_token
@@ -60,8 +61,7 @@ async def test_verify_token(
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
     }
-    keypair = config.issuer.keypair
-    token = encode_token(payload, keypair)
+    token = encode_token(payload, TEST_KEYPAIR)
     excinfo: ExceptionInfo[Exception]
 
     # Missing iss.
@@ -71,21 +71,21 @@ async def test_verify_token(
 
     # Missing kid.
     payload["iss"] = "https://bogus.example.com/"
-    token = encode_token(payload, keypair)
+    token = encode_token(payload, TEST_KEYPAIR)
     with pytest.raises(UnknownKeyIdException) as excinfo:
         await verifier.verify_token(token)
     assert str(excinfo.value) == "No kid in token header"
 
     # Unknown issuer.
-    token = encode_token(payload, keypair, kid="a-kid")
+    token = encode_token(payload, TEST_KEYPAIR, kid="a-kid")
     with pytest.raises(InvalidIssuerError) as excinfo:
         await verifier.verify_token(token)
     assert str(excinfo.value) == "Unknown issuer: https://bogus.example.com/"
 
     # Missing username claim.
     payload["iss"] = config.verifier.oidc_iss
-    await mock_oidc_provider_config(respx_mock, keypair, "orig-kid")
-    token = encode_token(payload, config.issuer.keypair, kid="orig-kid")
+    await mock_oidc_provider_config(respx_mock, "orig-kid")
+    token = encode_token(payload, TEST_KEYPAIR, kid="orig-kid")
     with pytest.raises(MissingClaimsException) as excinfo:
         await verifier.verify_token(token)
     expected = f"No {config.verifier.username_claim} claim in token"
@@ -94,9 +94,9 @@ async def test_verify_token(
     # Missing UID claim.  This is only diagnosed when get_uid_from_token is
     # called, not during the initial verification, since we do not verify the
     # UID claim if UIDs are retrieved from LDAP instead.
-    await mock_oidc_provider_config(respx_mock, keypair, "orig-kid")
+    await mock_oidc_provider_config(respx_mock, "orig-kid")
     payload[config.verifier.username_claim] = "some-user"
-    token = encode_token(payload, config.issuer.keypair, kid="orig-kid")
+    token = encode_token(payload, TEST_KEYPAIR, kid="orig-kid")
     verified_token = await verifier.verify_token(token)
     with pytest.raises(MissingClaimsException) as excinfo:
         verifier.get_uid_from_token(verified_token)
@@ -110,9 +110,8 @@ async def test_verify_oidc_no_kids(
 ) -> None:
     config = await configure(tmp_path, "oidc-no-kids")
     factory.reconfigure(config)
-    keypair = config.issuer.keypair
     verifier = factory.create_oidc_token_verifier()
-    await mock_oidc_provider_config(respx_mock, keypair, "kid")
+    await mock_oidc_provider_config(respx_mock, "kid")
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
@@ -122,7 +121,7 @@ async def test_verify_oidc_no_kids(
         "iss": config.verifier.oidc_iss,
         "exp": int(exp.timestamp()),
     }
-    token = encode_token(payload, keypair, kid="a-kid")
+    token = encode_token(payload, TEST_KEYPAIR, kid="a-kid")
     with pytest.raises(UnknownKeyIdException) as excinfo:
         await verifier.verify_token(token)
     expected = f"Issuer {config.verifier.oidc_iss} has no kid a-kid"
@@ -139,7 +138,7 @@ async def test_key_retrieval(
     verifier = factory.create_oidc_token_verifier()
 
     # Initial working JWKS configuration.
-    jwks = config.issuer.keypair.public_key_as_jwks("some-kid")
+    jwks = TEST_KEYPAIR.public_key_as_jwks("some-kid")
 
     # Register that handler at the well-known JWKS endpoint.  This will return
     # a connection refused from the OpenID Connect endpoint.

@@ -12,6 +12,7 @@ from gafaelfawr.config import Config
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import OIDCVerifiedToken
 from gafaelfawr.models.token import (
@@ -24,6 +25,8 @@ from gafaelfawr.models.token import (
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import current_datetime
+
+from .constants import TEST_KEYPAIR
 
 __all__ = [
     "add_expired_session_token",
@@ -145,6 +148,7 @@ def create_test_token(
     config: Config,
     groups: Optional[List[str]] = None,
     *,
+    keypair: Optional[RSAKeyPair] = None,
     kid: str = "some-kid",
     **claims: Any,
 ) -> OIDCVerifiedToken:
@@ -159,6 +163,8 @@ def create_test_token(
         The configuration.
     groups : List[`str`], optional
         Group memberships the generated token should have.
+    keypair : `gafaelfawr.keypair.RSAKeyPair`, optional
+        Key to use to sign the token.  Default is the internal issuer key.
     kid : str, optional
         The kid to set in the envelope.  Defaults to ``some-kid``.
     **claims : Union[`str`, `int`], optional
@@ -169,6 +175,8 @@ def create_test_token(
     token : `gafaelfawr.tokens.VerifiedToken`
         The generated token.
     """
+    if not keypair:
+        keypair = config.issuer.keypair
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
     payload: Dict[str, Any] = {
@@ -190,7 +198,7 @@ def create_test_token(
 
     encoded = jwt.encode(
         payload,
-        config.issuer.keypair.private_key_as_pem().decode(),
+        keypair.private_key_as_pem().decode(),
         algorithm=ALGORITHM,
         headers={"kid": kid},
     )
@@ -243,4 +251,6 @@ async def create_upstream_oidc_token(
         "jti": "some-upstream-id",
     }
     payload.update(claims)
-    return create_test_token(config, groups=groups, kid=kid, **payload)
+    return create_test_token(
+        config, groups=groups, keypair=TEST_KEYPAIR, kid=kid, **payload
+    )
