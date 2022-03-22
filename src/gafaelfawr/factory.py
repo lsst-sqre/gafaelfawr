@@ -154,7 +154,9 @@ class ComponentFactory:
         influxdb_service : `gafaelfawr.services.influxdb.InfluxDBService`
             Newly-created InfluxDB token issuer.
         """
-        return InfluxDBService(self._config.issuer)
+        if not self._config.influxdb:
+            raise NotConfiguredException("No InfluxDB issuer configuration")
+        return InfluxDBService(self._config.influxdb)
 
     def create_kubernetes_service(
         self, api_client: ApiClient

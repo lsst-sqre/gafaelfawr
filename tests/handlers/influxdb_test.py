@@ -29,8 +29,8 @@ async def test_influxdb(
 ) -> None:
     token_data = await create_session_token(factory)
     assert token_data.expires
-    influxdb_secret = config.issuer.influxdb_secret
-    assert influxdb_secret
+    assert config.influxdb
+    influxdb_secret = config.influxdb.secret
 
     caplog.clear()
     r = await client.get(
@@ -106,8 +106,8 @@ async def test_influxdb_force_username(
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
     assert token_data.expires
-    influxdb_secret = config.issuer.influxdb_secret
-    assert influxdb_secret
+    assert config.influxdb
+    influxdb_secret = config.influxdb.secret
 
     caplog.clear()
     r = await client.get(

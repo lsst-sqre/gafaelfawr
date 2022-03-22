@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import jwt
 
-from ..config import IssuerConfig
-from ..exceptions import NotConfiguredException
+from ..config import InfluxDBConfig
 from ..models.token import TokenData
 
 __all__ = ["InfluxDBService"]
@@ -19,11 +17,11 @@ class InfluxDBService:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.IssuerConfig`
+    config : `gafaelfawr.config.InfluxDBConfig`
         Configuration parameters.
     """
 
-    def __init__(self, config: IssuerConfig) -> None:
+    def __init__(self, config: InfluxDBConfig) -> None:
         self._config = config
 
     def issue_token(self, token_data: TokenData) -> str:
@@ -43,21 +41,18 @@ class InfluxDBService:
         influxdb_token : `str`
             The encoded form of an InfluxDB-compatible token.
         """
-        secret = self._config.influxdb_secret
-        if not secret:
-            raise NotConfiguredException("No InfluxDB issuer configuration")
         username = self.username_for_token(token_data)
+        now = datetime.now(timezone.utc)
         if token_data.expires:
             expires = token_data.expires
         else:
-            now = datetime.now(timezone.utc)
-            expires = now + timedelta(minutes=self._config.exp_minutes)
+            expires = now + self._config.lifetime
         payload = {
             "exp": int(expires.timestamp()),
-            "iat": int(time.time()),
+            "iat": int(now.timestamp()),
             "username": username,
         }
-        return jwt.encode(payload, secret, algorithm="HS256")
+        return jwt.encode(payload, self._config.secret, algorithm="HS256")
 
     def username_for_token(self, token_data: TokenData) -> str:
         """Determine the InfluxDB username for a given user.
@@ -77,7 +72,7 @@ class InfluxDBService:
         username : `str`
             The InfluxDB username.
         """
-        if self._config.influxdb_username:
-            return self._config.influxdb_username
+        if self._config.username:
+            return self._config.username
         else:
             return token_data.username

@@ -39,6 +39,8 @@ __all__ = [
     "Config",
     "GitHubConfig",
     "GitHubSettings",
+    "InfluxDBConfig",
+    "InfluxDBSettings",
     "IssuerConfig",
     "IssuerSettings",
     "LDAPConfig",
@@ -51,6 +53,16 @@ __all__ = [
     "Settings",
     "VerifierConfig",
 ]
+
+
+class InfluxDBSettings(BaseModel):
+    """pydantic model of InfluxDB token issuer configuration."""
+
+    secret_file: str
+    """File containing shared secret for issuing InfluxDB tokens."""
+
+    username: Optional[str] = None
+    """The username to set in all InfluxDB tokens."""
 
 
 class IssuerSettings(BaseModel):
@@ -70,12 +82,6 @@ class IssuerSettings(BaseModel):
 
     exp_minutes: int = 1440  # 1 day
     """Number of minutes into the future that a token should expire."""
-
-    influxdb_secret_file: Optional[str] = None
-    """File containing shared secret for issuing InfluxDB tokens."""
-
-    influxdb_username: Optional[str] = None
-    """The username to set in all InfluxDB tokens."""
 
 
 class GitHubSettings(BaseModel):
@@ -227,17 +233,17 @@ class Settings(BaseSettings):
     uid_claim: str = "uidNumber"
     """Name of claim to use as the UID."""
 
-    issuer: IssuerSettings
-    """Settings for the internal token issuer."""
-
     database_url: str
     """URL for the PostgreSQL database."""
 
     database_password: Optional[SecretStr] = None
     """Password for the PostgreSQL database."""
 
-    initial_admins: List[str]
-    """Initial token administrators to configure when initializing database."""
+    issuer: IssuerSettings
+    """Settings for the internal token issuer."""
+
+    influxdb: Optional[InfluxDBSettings] = None
+    """Settings for the InfluxDB token issuer."""
 
     github: Optional[GitHubSettings] = None
     """Settings for the GitHub authentication provider."""
@@ -250,6 +256,9 @@ class Settings(BaseSettings):
 
     oidc_server_secrets_file: Optional[str] = None
     """Path to file containing OpenID Connect client secrets in JSON."""
+
+    initial_admins: List[str]
+    """Initial token administrators to configure when initializing database."""
 
     known_scopes: Dict[str, str] = {}
     """Known scopes (the keys) and their descriptions (the values)."""
@@ -377,6 +386,20 @@ class SafirConfig:
 
 
 @dataclass(frozen=True)
+class InfluxDBConfig:
+    """Configuration for how to issue InfluxDB tokens."""
+
+    lifetime: timedelta
+    """Lifetime of issued tokens."""
+
+    secret: str
+    """Shared secret for issuing authentication tokens."""
+
+    username: Optional[str]
+    """The username to set in all InfluxDB tokens."""
+
+
+@dataclass(frozen=True)
 class IssuerConfig:
     """Configuration for how to issue tokens."""
 
@@ -403,12 +426,6 @@ class IssuerConfig:
 
     uid_claim: str
     """Token claim from which to take the UID."""
-
-    influxdb_secret: Optional[str]
-    """Shared secret for issuing InfluxDB authentication tokens."""
-
-    influxdb_username: Optional[str]
-    """The username to set in all InfluxDB tokens."""
 
 
 @dataclass(frozen=True)
@@ -612,8 +629,17 @@ class Config:
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
 
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    database_password: Optional[str]
+    """Password for the PostgreSQL database."""
+
     issuer: IssuerConfig
     """Configuration for internally-issued tokens."""
+
+    influxdb: Optional[InfluxDBConfig]
+    """Configuration for the InfluxDB token issuer."""
 
     verifier: VerifierConfig
     """Configuration for the token verifier."""
@@ -632,12 +658,6 @@ class Config:
 
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
-
-    database_url: str
-    """URL for the PostgreSQL database."""
-
-    database_password: Optional[str]
-    """Password for the PostgreSQL database."""
 
     initial_admins: Tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
@@ -677,9 +697,8 @@ class Config:
         if settings.redis_password_file:
             path = settings.redis_password_file
             redis_password = cls._load_secret(path).decode()
-        influxdb_secret = None
-        if settings.issuer.influxdb_secret_file:
-            path = settings.issuer.influxdb_secret_file
+        if settings.influxdb:
+            path = settings.influxdb.secret_file
             influxdb_secret = cls._load_secret(path).decode()
         if settings.github:
             path = settings.github.client_secret_file
@@ -731,9 +750,14 @@ class Config:
             group_mapping=group_mapping_frozen,
             username_claim=settings.username_claim,
             uid_claim=settings.uid_claim,
-            influxdb_secret=influxdb_secret,
-            influxdb_username=settings.issuer.influxdb_username,
         )
+        influxdb_config = None
+        if settings.influxdb:
+            influxdb_config = InfluxDBConfig(
+                lifetime=timedelta(minutes=settings.issuer.exp_minutes),
+                secret=influxdb_secret,
+                username=settings.influxdb.username,
+            )
         verifier_config = VerifierConfig(
             iss=settings.issuer.iss,
             aud=settings.issuer.aud,
@@ -788,6 +812,7 @@ class Config:
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
             issuer=issuer_config,
+            influxdb=influxdb_config,
             verifier=verifier_config,
             github=github_config,
             oidc=oidc_config,

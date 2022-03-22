@@ -20,9 +20,10 @@ issuer:
   iss: "https://test.example.com/"
   key_id: "some-kid"
   key_file: "{issuer_key_file}"
-  influxdb_secret_file: "{influxdb_secret_file}"
-  influxdb_username: "influxdb-user"
   aud: "https://example.com/"
+influxdb:
+  secret_file: "{influxdb_secret_file}"
+  username: "influxdb-user"
 github:
   client_id: "some-github-client-id"
   client_secret_file: "{github_secret_file}"
