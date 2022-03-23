@@ -68,7 +68,7 @@ async def test_session_token(
         ],
     )
     assert_is_now(data.created)
-    expires = data.created + timedelta(minutes=config.issuer.exp_minutes)
+    expires = data.created + config.token_lifetime
     assert data.expires == expires
 
     async with factory.session.begin():
@@ -323,7 +323,7 @@ async def test_notebook_token(
         assert new_token != token
         info = await token_service.get_token_info_unchecked(new_token.key)
     assert info
-    expires = info.created + timedelta(minutes=config.issuer.exp_minutes)
+    expires = info.created + config.token_lifetime
     assert info.expires == expires
 
 
@@ -496,7 +496,7 @@ async def test_internal_token(
             new_internal_token.key
         )
     assert info and info.scopes == []
-    expires = info.created + timedelta(minutes=config.issuer.exp_minutes)
+    expires = info.created + config.token_lifetime
     assert info.expires == expires
 
 
@@ -512,7 +512,8 @@ async def test_child_token_lifetime(
     # lifetime for an internal token.  This will get us a short-lived internal
     # token that should be ineligible for handing out for a user token that
     # doesn't expire.
-    delta = timedelta(minutes=(config.issuer.exp_minutes / 2) - 5)
+    token_lifetime_minutes = config.token_lifetime.total_seconds() / 60
+    delta = timedelta(minutes=(token_lifetime_minutes / 2) - 5)
     expires = current_datetime() + delta
     async with factory.session.begin():
         user_token = await token_service.create_user_token(
@@ -554,7 +555,7 @@ async def test_child_token_lifetime(
 
     # Change the expiration of the user token to longer than the maximum
     # internal token lifetime.
-    new_delta = timedelta(minutes=config.issuer.exp_minutes * 2)
+    new_delta = timedelta(minutes=token_lifetime_minutes * 2)
     expires = current_datetime() + new_delta
     async with factory.session.begin():
         assert await token_service.modify_token(
@@ -577,7 +578,7 @@ async def test_child_token_lifetime(
     internal_token = new_internal_token
     internal_token_data = await token_service.get_data(internal_token)
     assert internal_token_data
-    delta = timedelta(minutes=config.issuer.exp_minutes)
+    delta = config.token_lifetime
     assert internal_token_data.expires == internal_token_data.created + delta
     async with factory.session.begin():
         new_notebook_token = await token_service.get_notebook_token(
@@ -1170,7 +1171,7 @@ async def test_modify_expires(
 
     # Check the expiration of all of those tokens matches the default
     # expiration for generated tokens.
-    delta = timedelta(minutes=config.issuer.exp_minutes)
+    delta = config.token_lifetime
     assert notebook_token_data.expires == notebook_token_data.created + delta
     assert internal_token_data.expires == internal_token_data.created + delta
     assert nested_token_data.expires == notebook_token_data.expires
@@ -1182,7 +1183,7 @@ async def test_modify_expires(
         assert ttl - 5 <= await redis.ttl(f"token:{token.key}") <= ttl
 
     # Change the expiration of the user token.
-    new_delta = timedelta(minutes=config.issuer.exp_minutes / 2)
+    new_delta = timedelta(seconds=config.token_lifetime.total_seconds() / 2)
     new_expires = user_token_data.created + new_delta
     async with factory.session.begin():
         await token_service.modify_token(

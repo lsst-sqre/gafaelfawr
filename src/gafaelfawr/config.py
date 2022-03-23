@@ -80,9 +80,6 @@ class IssuerSettings(BaseModel):
     key_file: str
     """File containing RSA private key for signing issued tokens."""
 
-    exp_minutes: int = 1440  # 1 day
-    """Number of minutes into the future that a token should expire."""
-
 
 class GitHubSettings(BaseModel):
     """pydantic model of GitHub configuration."""
@@ -211,6 +208,9 @@ class Settings(BaseSettings):
     This token can be used with specific routes in the admin API to change the
     list of admins and create service and user tokens.
     """
+
+    token_lifetime_minutes: int = 1440  # 1 day
+    """Number of minutes into the future that a token should expire."""
 
     proxies: Optional[List[IPvAnyNetwork]]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
@@ -415,8 +415,8 @@ class IssuerConfig:
     keypair: RSAKeyPair
     """RSA key pair for signing and verifying issued tokens."""
 
-    exp_minutes: int
-    """Number of minutes into the future that a token should expire."""
+    lifetime: timedelta
+    """Lifetime of issued tokens."""
 
     group_mapping: Mapping[str, FrozenSet[str]]
     """Mapping of group names to the set of scopes that group grants."""
@@ -601,6 +601,12 @@ class Config:
     session_secret: str
     """Secret used to encrypt the session cookie and session store."""
 
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    database_password: Optional[str]
+    """Password for the PostgreSQL database."""
+
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
@@ -613,6 +619,9 @@ class Config:
     This token can be used with specific routes in the admin API to change the
     list of admins and create service and user tokens.
     """
+
+    token_lifetime: timedelta
+    """Maximum lifetime of session, notebook, and internal tokens."""
 
     proxies: Tuple[_BaseNetwork, ...]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
@@ -628,12 +637,6 @@ class Config:
 
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
-
-    database_url: str
-    """URL for the PostgreSQL database."""
-
-    database_password: Optional[str]
-    """Password for the PostgreSQL database."""
 
     issuer: IssuerConfig
     """Configuration for internally-issued tokens."""
@@ -661,9 +664,6 @@ class Config:
 
     initial_admins: Tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
-
-    token_lifetime: timedelta
-    """Maximum lifetime of session, notebook, and internal tokens."""
 
     safir: SafirConfig
     """Configuration for the Safir middleware."""
@@ -746,7 +746,7 @@ class Config:
             kid=settings.issuer.key_id,
             aud=settings.issuer.aud,
             keypair=keypair,
-            exp_minutes=settings.issuer.exp_minutes,
+            lifetime=timedelta(minutes=settings.token_lifetime_minutes),
             group_mapping=group_mapping_frozen,
             username_claim=settings.username_claim,
             uid_claim=settings.uid_claim,
@@ -754,7 +754,7 @@ class Config:
         influxdb_config = None
         if settings.influxdb:
             influxdb_config = InfluxDBConfig(
-                lifetime=timedelta(minutes=settings.issuer.exp_minutes),
+                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
                 secret=influxdb_secret,
                 username=settings.influxdb.username,
             )
@@ -806,9 +806,12 @@ class Config:
         config = cls(
             realm=settings.realm,
             session_secret=session_secret.decode(),
+            database_url=settings.database_url,
+            database_password=database_password,
             redis_url=settings.redis_url,
             redis_password=redis_password,
             bootstrap_token=bootstrap_token,
+            token_lifetime=timedelta(minutes=settings.token_lifetime_minutes),
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
             issuer=issuer_config,
@@ -819,10 +822,7 @@ class Config:
             ldap=ldap_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
-            database_url=settings.database_url,
-            database_password=database_password,
             initial_admins=tuple(settings.initial_admins),
-            token_lifetime=timedelta(minutes=settings.issuer.exp_minutes),
             safir=SafirConfig(log_level=log_level),
             error_footer=settings.error_footer,
         )

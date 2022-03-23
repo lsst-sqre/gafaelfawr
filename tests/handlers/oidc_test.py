@@ -114,7 +114,7 @@ async def test_login(
         "id_token": ANY,
     }
     assert isinstance(data["expires_in"], int)
-    exp_seconds = config.issuer.exp_minutes * 60
+    exp_seconds = config.issuer.lifetime.total_seconds()
     assert exp_seconds - 5 <= data["expires_in"] <= exp_seconds
 
     assert data["access_token"] == data["id_token"]
@@ -134,7 +134,7 @@ async def test_login(
         config.issuer.uid_claim: token_data.uid,
     }
     now = time.time()
-    expected_exp = now + config.issuer.exp_minutes * 60
+    expected_exp = now + config.issuer.lifetime.total_seconds()
     assert expected_exp - 5 <= token.claims["exp"] <= expected_exp
     assert now - 5 <= token.claims["iat"] <= now
 

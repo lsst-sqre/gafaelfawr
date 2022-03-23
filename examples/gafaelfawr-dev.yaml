@@ -20,14 +20,13 @@ database_url: "postgresql://gafaelfawr:INSECURE@localhost/gafaelfawr"
 # development not accessible to the Internet.
 bootstrap_token: "gt-OwYUKbFrIRfcTnKcX9bEGA.9SPTVsVv3fxUzXqogQpCXg"
 
-# Replace this user with your GitHub username.
-initial_admins:
-  - example
-
 # This Redis will be started by the docker-compose.yaml file at the top
 # level of the repository.
 redis_url: "redis://localhost:6379/0"
 redis_password_file: "examples/secrets/redis-password"
+
+# How long Gafaelfawr-issued tokens should live by default.
+token_lifetime_minutes: 1440 # 1 day
 
 # Where to send the user after logging out.
 after_logout_url: "http://localhost:8080"
@@ -38,7 +37,6 @@ issuer:
   key_id: "localhost-key-id"
   aud: "http://localhost"
   key_file: "examples/secrets/issuer-key"
-  exp_minutes: 1440 # 1 day
 
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
@@ -47,6 +45,10 @@ issuer:
 github:
   client_id: "<github-client-id>"
   client_secret_file: "examples/secrets/github-client-secret"
+
+# Replace this user with your GitHub username.
+initial_admins:
+  - "example"
 
 # Sample values.  You can replace these with anything you want to use
 # for a scope.

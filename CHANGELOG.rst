@@ -9,6 +9,7 @@ The internal configuration format may change in minor releases.
 4.0.0 (unreleased)
 ==================
 
+- The Gafaelfawr token lifetime is now configured with ``config.tokenLifetimeMinutes`` instead of ``config.issuer.expMinutes``.
 - InfluxDB 1.x token generation is now configured with ``config.influxdb.enabled`` and ``config.influxdb.username`` without the ``issuer`` component.
 - Drop support for restricting the upstream OpenID Connect provider to specific key IDs.
   This prevents upstream key rotation for dubious security benefit given that Gafaelfawr still verifies the issuer URL and then reaches out to its ``.well-known`` endpoints to retrieve the public key and verify the key signature.

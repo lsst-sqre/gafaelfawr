@@ -167,5 +167,5 @@ async def test_issue_token(tmp_path: Path, factory: ComponentFactory) -> None:
 
     now = time.time()
     assert now - 5 <= oidc_token.claims["iat"] <= now + 5
-    expected_exp = now + config.issuer.exp_minutes * 60
+    expected_exp = now + config.issuer.lifetime.total_seconds()
     assert expected_exp - 5 <= oidc_token.claims["exp"] <= expected_exp + 5

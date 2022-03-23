@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 import jwt
@@ -131,7 +131,7 @@ class OIDCService:
             The new token.
         """
         now = datetime.now(timezone.utc)
-        expires = now + timedelta(minutes=self._config.issuer.exp_minutes)
+        expires = now + self._config.issuer.lifetime
         payload = {
             "aud": self._config.issuer.aud,
             "iat": int(now.timestamp()),
