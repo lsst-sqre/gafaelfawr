@@ -51,7 +51,6 @@ __all__ = [
     "OIDCSettings",
     "SafirConfig",
     "Settings",
-    "VerifierConfig",
 ]
 
 
@@ -127,6 +126,12 @@ class OIDCSettings(BaseModel):
 
     audience: str
     """Expected audience of the ID token."""
+
+    username_claim: str = "uid"
+    """Name of claim to use as the username."""
+
+    uid_claim: str = "uidNumber"
+    """Name of claim to use as the UID."""
 
 
 class LDAPSettings(BaseModel):
@@ -226,12 +231,6 @@ class Settings(BaseSettings):
 
     after_logout_url: AnyHttpUrl
     """Default URL to which to send the user after logging out."""
-
-    username_claim: str = "uid"
-    """Name of claim to use as the username."""
-
-    uid_claim: str = "uidNumber"
-    """Name of claim to use as the UID."""
 
     database_url: str
     """URL for the PostgreSQL database."""
@@ -421,38 +420,6 @@ class IssuerConfig:
     group_mapping: Mapping[str, FrozenSet[str]]
     """Mapping of group names to the set of scopes that group grants."""
 
-    username_claim: str
-    """Token claim from which to take the username."""
-
-    uid_claim: str
-    """Token claim from which to take the UID."""
-
-
-@dataclass(frozen=True)
-class VerifierConfig:
-    """Configuration for how to verify tokens."""
-
-    iss: str
-    """iss (issuer) field in issued tokens."""
-
-    aud: str
-    """aud (audience) field in issued tokens."""
-
-    keypair: RSAKeyPair
-    """RSA key pair for signing and verifying issued tokens."""
-
-    username_claim: str
-    """Token claim from which to take the username."""
-
-    uid_claim: str
-    """Token claim from which to take the UID."""
-
-    oidc_iss: Optional[str]
-    """Expected issuer of the ID token from an OpenID Connect provider."""
-
-    oidc_aud: Optional[str]
-    """Expected audience of the ID token an OpenID Connect provider."""
-
 
 @dataclass(frozen=True)
 class GitHubConfig:
@@ -469,11 +436,50 @@ class GitHubConfig:
     client_secret: str
     """Secret for the GitHub App."""
 
+
+@dataclass(frozen=True)
+class OIDCConfig:
+    """Configuration for OpenID Connect authentication."""
+
+    client_id: str
+    """Client ID for talking to the OpenID Connect provider."""
+
+    client_secret: str
+    """Secret for talking to the OpenID Connect provider."""
+
+    login_url: str
+    """URL to which to send the user to initiate authentication."""
+
+    login_params: Mapping[str, str]
+    """Additional parameters to the login URL."""
+
+    redirect_url: str
+    """Return URL to which the authentication provider should send the user.
+
+    This should be the full URL of the /login route of Gafaelfawr.
+    """
+
+    token_url: str
+    """URL at which to redeem the authentication code for a token."""
+
+    scopes: Tuple[str, ...]
+    """Scopes to request from the authentication provider.
+
+    The ``openid`` scope will always be added and does not need to be
+    specified.
+    """
+
+    issuer: str
+    """Expected issuer of the ID token."""
+
+    audience: str
+    """Expected audience of the ID token."""
+
     username_claim: str
-    """Name of claim in which to store the username."""
+    """Token claim from which to take the username."""
 
     uid_claim: str
-    """Name of claim in which to store the UID."""
+    """Token claim from which to take the UID."""
 
 
 @dataclass(frozen=True)
@@ -522,45 +528,6 @@ class LDAPConfig:
     Usually ``uidNumber``, as specified in :rfc:`2307` and `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
-
-
-@dataclass(frozen=True)
-class OIDCConfig:
-    """Configuration for OpenID Connect authentication."""
-
-    client_id: str
-    """Client ID for talking to the OpenID Connect provider."""
-
-    client_secret: str
-    """Secret for talking to the OpenID Connect provider."""
-
-    login_url: str
-    """URL to which to send the user to initiate authentication."""
-
-    login_params: Mapping[str, str]
-    """Additional parameters to the login URL."""
-
-    redirect_url: str
-    """Return URL to which the authentication provider should send the user.
-
-    This should be the full URL of the /login route of Gafaelfawr.
-    """
-
-    token_url: str
-    """URL at which to redeem the authentication code for a token."""
-
-    scopes: Tuple[str, ...]
-    """Scopes to request from the authentication provider.
-
-    The ``openid`` scope will always be added and does not need to be
-    specified.
-    """
-
-    issuer: str
-    """Expected issuer of the ID token."""
-
-    audience: str
-    """Expected audience of the ID token."""
 
 
 @dataclass(frozen=True)
@@ -643,9 +610,6 @@ class Config:
 
     influxdb: Optional[InfluxDBConfig]
     """Configuration for the InfluxDB token issuer."""
-
-    verifier: VerifierConfig
-    """Configuration for the token verifier."""
 
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
@@ -748,8 +712,6 @@ class Config:
             keypair=keypair,
             lifetime=timedelta(minutes=settings.token_lifetime_minutes),
             group_mapping=group_mapping_frozen,
-            username_claim=settings.username_claim,
-            uid_claim=settings.uid_claim,
         )
         influxdb_config = None
         if settings.influxdb:
@@ -758,22 +720,11 @@ class Config:
                 secret=influxdb_secret,
                 username=settings.influxdb.username,
             )
-        verifier_config = VerifierConfig(
-            iss=settings.issuer.iss,
-            aud=settings.issuer.aud,
-            keypair=keypair,
-            username_claim=settings.username_claim,
-            uid_claim=settings.uid_claim,
-            oidc_iss=settings.oidc.issuer if settings.oidc else None,
-            oidc_aud=settings.oidc.audience if settings.oidc else None,
-        )
         github_config = None
         if settings.github:
             github_config = GitHubConfig(
                 client_id=settings.github.client_id,
                 client_secret=github_secret,
-                username_claim=settings.username_claim,
-                uid_claim=settings.uid_claim,
             )
         oidc_config = None
         if settings.oidc:
@@ -787,6 +738,8 @@ class Config:
                 scopes=tuple(settings.oidc.scopes),
                 issuer=settings.oidc.issuer,
                 audience=settings.oidc.audience,
+                username_claim=settings.oidc.username_claim,
+                uid_claim=settings.oidc.uid_claim,
             )
         ldap_config = None
         if settings.ldap and settings.ldap.url:
@@ -816,7 +769,6 @@ class Config:
             after_logout_url=str(settings.after_logout_url),
             issuer=issuer_config,
             influxdb=influxdb_config,
-            verifier=verifier_config,
             github=github_config,
             oidc=oidc_config,
             ldap=ldap_config,

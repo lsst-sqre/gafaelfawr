@@ -90,8 +90,7 @@ async def test_redeem_code(tmp_path: Path, factory: ComponentFactory) -> None:
         "preferred_username": token_data.username,
         "scope": "openid",
         "sub": token_data.username,
-        config.issuer.username_claim: token_data.username,
-        config.issuer.uid_claim: token_data.uid,
+        "uid_number": token_data.uid,
     }
 
     redis = await redis_dependency()
@@ -161,8 +160,7 @@ async def test_issue_token(tmp_path: Path, factory: ComponentFactory) -> None:
         "preferred_username": token_data.username,
         "scope": "openid",
         "sub": token_data.username,
-        config.issuer.username_claim: token_data.username,
-        config.issuer.uid_claim: token_data.uid,
+        "uid_number": token_data.uid,
     }
 
     now = time.time()

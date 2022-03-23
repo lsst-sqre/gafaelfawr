@@ -179,12 +179,14 @@ async def test_claim_names(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    config = await configure(
-        tmp_path, "oidc", username_claim="username", uid_claim="numeric_uid"
-    )
+    config = await configure(tmp_path, "oidc-claims")
     assert config.oidc
+    claims = {
+        config.oidc.username_claim: "alt-username",
+        config.oidc.uid_claim: 7890,
+    }
     token = await create_upstream_oidc_token(
-        groups=["admin"], username="alt-username", numeric_uid=7890
+        kid="orig-kid", groups=["admin"], **claims
     )
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)

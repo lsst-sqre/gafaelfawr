@@ -239,6 +239,8 @@ The OpenID Connect client should be configured to request only the ``openid`` sc
 No other scope is supported.
 The client must be able to authenticate by sending a ``client_secret`` parameter in the request to the token endpoint.
 
+The JWT returned by the Gafaelfawr OpenID Connect server will include the authenticated username in the ``sub`` and ``preferred_username`` claims, and the numeric UID in the ``uid_number`` claim.
+
 Chronograf example
 ------------------
 

@@ -51,13 +51,14 @@ async def test_verify_token(
     tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
     config = await configure(tmp_path, "oidc")
+    assert config.oidc
     factory.reconfigure(config)
     verifier = factory.create_oidc_token_verifier()
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
     payload: Dict[str, Any] = {
-        "aud": config.verifier.oidc_aud,
+        "aud": config.oidc.audience,
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
     }
@@ -83,24 +84,24 @@ async def test_verify_token(
     assert str(excinfo.value) == "Unknown issuer: https://bogus.example.com/"
 
     # Missing username claim.
-    payload["iss"] = config.verifier.oidc_iss
+    payload["iss"] = config.oidc.issuer
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     token = encode_token(payload, TEST_KEYPAIR, kid="orig-kid")
     with pytest.raises(MissingClaimsException) as excinfo:
         await verifier.verify_token(token)
-    expected = f"No {config.verifier.username_claim} claim in token"
+    expected = f"No {config.oidc.username_claim} claim in token"
     assert str(excinfo.value) == expected
 
     # Missing UID claim.  This is only diagnosed when get_uid_from_token is
     # called, not during the initial verification, since we do not verify the
     # UID claim if UIDs are retrieved from LDAP instead.
     await mock_oidc_provider_config(respx_mock, "orig-kid")
-    payload[config.verifier.username_claim] = "some-user"
+    payload[config.oidc.username_claim] = "some-user"
     token = encode_token(payload, TEST_KEYPAIR, kid="orig-kid")
     verified_token = await verifier.verify_token(token)
     with pytest.raises(MissingClaimsException) as excinfo:
         verifier.get_uid_from_token(verified_token)
-    expected = f"No {config.verifier.uid_claim} claim in token"
+    expected = f"No {config.oidc.uid_claim} claim in token"
     assert str(excinfo.value) == expected
 
 
@@ -109,6 +110,7 @@ async def test_verify_oidc_no_kids(
     tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
     config = await configure(tmp_path, "oidc-no-kids")
+    assert config.oidc
     factory.reconfigure(config)
     verifier = factory.create_oidc_token_verifier()
     await mock_oidc_provider_config(respx_mock, "kid")
@@ -116,15 +118,15 @@ async def test_verify_oidc_no_kids(
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
     payload: Dict[str, Any] = {
-        "aud": config.verifier.oidc_aud,
+        "aud": config.oidc.audience,
         "iat": int(now.timestamp()),
-        "iss": config.verifier.oidc_iss,
+        "iss": config.oidc.issuer,
         "exp": int(exp.timestamp()),
     }
     token = encode_token(payload, TEST_KEYPAIR, kid="a-kid")
     with pytest.raises(UnknownKeyIdException) as excinfo:
         await verifier.verify_token(token)
-    expected = f"Issuer {config.verifier.oidc_iss} has no kid a-kid"
+    expected = f"Issuer {config.oidc.issuer} has no kid a-kid"
     assert str(excinfo.value) == expected
 
 

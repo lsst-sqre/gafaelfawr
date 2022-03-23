@@ -10,6 +10,7 @@ The internal configuration format may change in minor releases.
 ==================
 
 - The Gafaelfawr token lifetime is now configured with ``config.tokenLifetimeMinutes`` instead of ``config.issuer.expMinutes``.
+- The internal OpenID Connect server now puts the numeric UID in a ``uid_number`` claim rather than ``uidNumber`` for consistency with the naming scheme of other claims.
 - InfluxDB 1.x token generation is now configured with ``config.influxdb.enabled`` and ``config.influxdb.username`` without the ``issuer`` component.
 - Drop support for restricting the upstream OpenID Connect provider to specific key IDs.
   This prevents upstream key rotation for dubious security benefit given that Gafaelfawr still verifies the issuer URL and then reaches out to its ``.well-known`` endpoints to retrieve the public key and verify the key signature.

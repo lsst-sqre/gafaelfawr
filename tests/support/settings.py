@@ -77,6 +77,7 @@ def _build_settings_file(
 def build_settings(
     tmp_path: Path,
     template: str,
+    *,
     oidc_clients: Optional[List[OIDCClient]] = None,
     **settings: str,
 ) -> Path:
@@ -166,7 +167,7 @@ async def configure(
     settings_path = build_settings(
         tmp_path,
         template,
-        oidc_clients,
+        oidc_clients=oidc_clients,
         **settings,
     )
     config_dependency.set_settings_path(str(settings_path))

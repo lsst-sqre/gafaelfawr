@@ -130,8 +130,7 @@ async def test_login(
         "preferred_username": token_data.username,
         "scope": "openid",
         "sub": token_data.username,
-        config.issuer.username_claim: token_data.username,
-        config.issuer.uid_claim: token_data.uid,
+        "uid_number": token_data.uid,
     }
     now = time.time()
     expected_exp = now + config.issuer.lifetime.total_seconds()

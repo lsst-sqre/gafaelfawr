@@ -219,9 +219,8 @@ class ComponentFactory:
         if not self._config.oidc:
             msg = "OpenID Connect provider not configured"
             raise NotConfiguredException(msg)
-        assert self._config.oidc
         return OIDCTokenVerifier(
-            config=self._config,
+            config=self._config.oidc,
             http_client=self._http_client,
             logger=self._logger,
         )
@@ -254,7 +253,7 @@ class ComponentFactory:
             if self._config.ldap:
                 ldap_storage = LDAPStorage(self._config.ldap, self._logger)
             return OIDCProvider(
-                config=self._config,
+                config=self._config.oidc,
                 verifier=verifier,
                 ldap_storage=ldap_storage,
                 http_client=self._http_client,

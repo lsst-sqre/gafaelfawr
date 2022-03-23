@@ -13,7 +13,7 @@ from httpx import AsyncClient, RequestError
 from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
-from ..config import Config
+from ..config import OIDCConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
     FetchKeysException,
@@ -39,8 +39,8 @@ class OIDCProvider(Provider):
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
-        Gafaelafwr configuration.
+    config : `gafaelfawr.config.OIDCConfig`
+        OpenID Connect authentication provider configuration.
     verifier : `OIDCTokenVerifier`
         JWT token verifier for OpenID Connect tokens.
     ldap_storage : `gafaelfawr.storage.ldap.LDAPStorage`
@@ -54,7 +54,7 @@ class OIDCProvider(Provider):
     def __init__(
         self,
         *,
-        config: Config,
+        config: OIDCConfig,
         verifier: OIDCTokenVerifier,
         ldap_storage: Optional[LDAPStorage],
         http_client: AsyncClient,
@@ -79,23 +79,21 @@ class OIDCProvider(Provider):
         url : `str`
             The encoded URL to which to redirect the user.
         """
-        if not self._config.oidc:
-            raise RuntimeError("config.oidc not set in OIDCProvider")
         scopes = ["openid"]
-        scopes.extend(self._config.oidc.scopes)
+        scopes.extend(self._config.scopes)
         params = {
             "response_type": "code",
-            "client_id": self._config.oidc.client_id,
-            "redirect_uri": self._config.oidc.redirect_url,
+            "client_id": self._config.client_id,
+            "redirect_uri": self._config.redirect_url,
             "scope": " ".join(scopes),
             "state": state,
         }
-        params.update(self._config.oidc.login_params)
+        params.update(self._config.login_params)
         self._logger.info(
             "Redirecting user to %s for authentication",
-            self._config.oidc.login_url,
+            self._config.login_url,
         )
-        return f"{self._config.oidc.login_url}?{urlencode(params)}"
+        return f"{self._config.login_url}?{urlencode(params)}"
 
     async def create_user_info(
         self, code: str, state: str, session: State
@@ -130,15 +128,13 @@ class OIDCProvider(Provider):
         jwt.exceptions.InvalidTokenError
             The token returned by the OpenID Connect provider was invalid.
         """
-        if not self._config.oidc:
-            raise RuntimeError("config.oidc not set in OIDCProvider")
-        token_url = self._config.oidc.token_url
+        token_url = self._config.token_url
         data = {
             "grant_type": "authorization_code",
-            "client_id": self._config.oidc.client_id,
-            "client_secret": self._config.oidc.client_secret,
+            "client_id": self._config.client_id,
+            "client_secret": self._config.client_secret,
             "code": code,
-            "redirect_uri": self._config.oidc.redirect_url,
+            "redirect_uri": self._config.redirect_url,
         }
         self._logger.info("Retrieving ID token from %s", token_url)
         r = await self._http_client.post(
@@ -212,8 +208,8 @@ class OIDCTokenVerifier:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
-        Gafaelafwr configuration.
+    config : `gafaelfawr.config.OIDCConfig`
+        OpenID Connect authentication provider configuration.
     http_client : ``httpx.AsyncClient``
         Session to use to make HTTP requests.
     logger : `structlog.stdlib.BoundLogger`
@@ -221,7 +217,7 @@ class OIDCTokenVerifier:
     """
 
     def __init__(
-        self, config: Config, http_client: AsyncClient, logger: BoundLogger
+        self, config: OIDCConfig, http_client: AsyncClient, logger: BoundLogger
     ) -> None:
         self._config = config
         self._http_client = http_client
@@ -269,7 +265,7 @@ class OIDCTokenVerifier:
         else:
             self._logger.debug("Verifying token from issuer %s", issuer_url)
 
-        if issuer_url != self._config.verifier.oidc_iss:
+        if issuer_url != self._config.issuer:
             raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
 
         key = await self._get_key_as_pem(issuer_url, key_id)
@@ -277,11 +273,11 @@ class OIDCTokenVerifier:
             token.encoded,
             key,
             algorithms=[ALGORITHM],
-            audience=self._config.verifier.oidc_aud,
+            audience=self._config.audience,
         )
 
-        if self._config.verifier.username_claim not in payload:
-            msg = f"No {self._config.verifier.username_claim} claim in token"
+        if self._config.username_claim not in payload:
+            msg = f"No {self._config.username_claim} claim in token"
             self._logger.warning(msg, claims=payload)
             raise MissingClaimsException(msg)
 
@@ -289,7 +285,7 @@ class OIDCTokenVerifier:
             encoded=token.encoded,
             claims=payload,
             jti=payload.get("jti", "UNKNOWN"),
-            username=payload[self._config.verifier.username_claim],
+            username=payload[self._config.username_claim],
         )
 
     def get_uid_from_token(self, token: OIDCVerifiedToken) -> int:
@@ -318,14 +314,14 @@ class OIDCTokenVerifier:
         gafaelfawr.exceptions.InvalidTokenClaimsException
             The numeric UID claim contains something that is not a number.
         """
-        if self._config.verifier.uid_claim not in token.claims:
-            msg = f"No {self._config.verifier.uid_claim} claim in token"
+        if self._config.uid_claim not in token.claims:
+            msg = f"No {self._config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims)
             raise MissingClaimsException(msg)
         try:
-            uid = int(token.claims[self._config.verifier.uid_claim])
+            uid = int(token.claims[self._config.uid_claim])
         except Exception:
-            msg = f"Invalid {self._config.verifier.uid_claim} claim in token"
+            msg = f"Invalid {self._config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims)
             raise InvalidTokenClaimsException(msg)
         return uid
@@ -413,8 +409,8 @@ class OIDCTokenVerifier:
         gafaelfawr.exceptions.MissingClaimsException
             The token is missing required claims.
         """
-        if self._config.verifier.username_claim not in claims:
-            msg = f"No {self._config.verifier.username_claim} claim in token"
+        if self._config.username_claim not in claims:
+            msg = f"No {self._config.username_claim} claim in token"
             self._logger.warning(msg, claims=claims)
             raise MissingClaimsException(msg)
 
@@ -422,7 +418,7 @@ class OIDCTokenVerifier:
             encoded=encoded,
             claims=claims,
             jti=claims.get("jti", "UNKNOWN"),
-            username=claims[self._config.verifier.username_claim],
+            username=claims[self._config.username_claim],
         )
 
     async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> str:

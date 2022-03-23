@@ -140,8 +140,7 @@ class OIDCService:
             "name": user_info.name,
             "preferred_username": user_info.username,
             "sub": user_info.username,
-            self._config.issuer.username_claim: user_info.username,
-            self._config.issuer.uid_claim: user_info.uid,
+            "uid_number": user_info.uid,
             **claims,
         }
         encoded_token = jwt.encode(
@@ -153,8 +152,8 @@ class OIDCService:
         return OIDCVerifiedToken(
             encoded=encoded_token,
             claims=payload,
-            username=payload[self._config.issuer.username_claim],
-            uid=payload[self._config.issuer.uid_claim],
+            username=payload["sub"],
+            uid=payload["uid_number"],
             jti=payload.get("jti"),
         )
 
@@ -253,9 +252,9 @@ class OIDCService:
         try:
             payload = jwt.decode(
                 token.encoded,
-                self._config.verifier.keypair.public_key_as_pem().decode(),
+                self._config.issuer.keypair.public_key_as_pem().decode(),
                 algorithms=[ALGORITHM],
-                audience=self._config.verifier.aud,
+                audience=self._config.issuer.aud,
             )
             return OIDCVerifiedToken(
                 encoded=token.encoded,
