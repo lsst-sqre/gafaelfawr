@@ -130,6 +130,7 @@ If you are using it, create a Vault secret with the following keys:
     Generate with :py:meth:`cryptography.fernet.Fernet.generate_key`.
 
 ``signing-key``
+    Only used if the Helm chart parameter ``oidcServer.enabled`` is set to true.
     The PEM-encoded RSA private key used to sign internally-issued JWTs.
     Generate with ``gafaelfawr generate-key``.
 

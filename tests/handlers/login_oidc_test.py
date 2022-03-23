@@ -77,7 +77,7 @@ async def test_login(
     assert r.headers["Location"] == return_url
 
     # Verify the logging.
-    expected_scopes = set(config.issuer.group_mapping["admin"])
+    expected_scopes = set(config.group_mapping["admin"])
     expected_scopes.add("user:token")
     uid = token.claims["uidNumber"]
     event = f"Successfully authenticated user {token.username} ({uid})"

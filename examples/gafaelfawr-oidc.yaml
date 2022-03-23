@@ -40,15 +40,6 @@ proxies:
 # Where to send the user after logging out.
 after_logout_url: "https://example.com/"
 
-# Configuration for the internal issuer.  This controls the JWTs that are
-# generated internally by Gafaelfawr and passed to the protected
-# applications.
-issuer:
-  iss: "https://example.com"
-  key_id: "example-key-id"
-  aud: "https://example.com"
-  key_file: "/path/to/issuer-key"
-
 # To get these values, register with an OpenID Connect provider and use
 # the values that they provide.  This example is for CILogon; many of the
 # values will need to be different for another provider.

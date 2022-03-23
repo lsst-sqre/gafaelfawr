@@ -107,6 +107,14 @@ def build_settings(
     github_secret_file = store_secret(tmp_path, "github", b"github-secret")
     oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
 
+    oidc_path = tmp_path / "oidc.json"
+    if oidc_clients:
+        clients_data = [
+            {"id": c.client_id, "secret": c.client_secret}
+            for c in oidc_clients
+        ]
+        oidc_path.write_text(json.dumps(clients_data))
+
     settings_path = _build_settings_file(
         tmp_path,
         template,
@@ -116,16 +124,8 @@ def build_settings(
         github_secret_file=github_secret_file,
         oidc_secret_file=oidc_secret_file,
         influxdb_secret_file=influxdb_secret_file,
+        oidc_server_secrets_file=oidc_path if oidc_clients else "",
     )
-
-    if oidc_clients:
-        oidc_path = tmp_path / "oidc.json"
-        clients_data = [
-            {"id": c.client_id, "secret": c.client_secret}
-            for c in oidc_clients
-        ]
-        oidc_path.write_text(json.dumps(clients_data))
-        settings["oidc_server_secrets_file"] = str(oidc_path)
 
     if settings:
         with settings_path.open("a") as f:

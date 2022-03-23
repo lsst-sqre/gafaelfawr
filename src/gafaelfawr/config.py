@@ -41,43 +41,16 @@ __all__ = [
     "GitHubSettings",
     "InfluxDBConfig",
     "InfluxDBSettings",
-    "IssuerConfig",
-    "IssuerSettings",
     "LDAPConfig",
     "LDAPSettings",
     "OIDCConfig",
     "OIDCClient",
     "OIDCServerConfig",
+    "OIDCServerSettings",
     "OIDCSettings",
     "SafirConfig",
     "Settings",
 ]
-
-
-class InfluxDBSettings(BaseModel):
-    """pydantic model of InfluxDB token issuer configuration."""
-
-    secret_file: str
-    """File containing shared secret for issuing InfluxDB tokens."""
-
-    username: Optional[str] = None
-    """The username to set in all InfluxDB tokens."""
-
-
-class IssuerSettings(BaseModel):
-    """pydantic model of issuer configuration."""
-
-    iss: str
-    """iss (issuer) field in issued tokens."""
-
-    key_id: str
-    """kid (key ID) header field in issued tokens."""
-
-    aud: str
-    """aud (audience) field in issued tokens."""
-
-    key_file: str
-    """File containing RSA private key for signing issued tokens."""
 
 
 class GitHubSettings(BaseModel):
@@ -177,6 +150,35 @@ class LDAPSettings(BaseModel):
     """
 
 
+class InfluxDBSettings(BaseModel):
+    """pydantic model of InfluxDB token issuer configuration."""
+
+    secret_file: str
+    """File containing shared secret for issuing InfluxDB tokens."""
+
+    username: Optional[str] = None
+    """The username to set in all InfluxDB tokens."""
+
+
+class OIDCServerSettings(BaseModel):
+    """pydantic model of issuer configuration."""
+
+    issuer: str
+    """iss (issuer) field in issued tokens."""
+
+    key_id: str
+    """kid (key ID) header field in issued tokens."""
+
+    audience: str
+    """aud (audience) field in issued tokens."""
+
+    key_file: str
+    """File containing RSA private key for signing issued tokens."""
+
+    secrets_file: str
+    """Path to file containing OpenID Connect client secrets in JSON."""
+
+
 class Settings(BaseSettings):
     """pydantic model of Gafaelfawr settings file.
 
@@ -238,12 +240,6 @@ class Settings(BaseSettings):
     database_password: Optional[SecretStr] = None
     """Password for the PostgreSQL database."""
 
-    issuer: IssuerSettings
-    """Settings for the internal token issuer."""
-
-    influxdb: Optional[InfluxDBSettings] = None
-    """Settings for the InfluxDB token issuer."""
-
     github: Optional[GitHubSettings] = None
     """Settings for the GitHub authentication provider."""
 
@@ -253,8 +249,11 @@ class Settings(BaseSettings):
     ldap: Optional[LDAPSettings] = None
     """Settings for the LDAP-based group lookups with OIDC provider."""
 
-    oidc_server_secrets_file: Optional[str] = None
-    """Path to file containing OpenID Connect client secrets in JSON."""
+    influxdb: Optional[InfluxDBSettings] = None
+    """Settings for the InfluxDB token issuer."""
+
+    oidc_server: Optional[OIDCServerSettings] = None
+    """Settings for the internal OpenID Connect server."""
 
     initial_admins: List[str]
     """Initial token administrators to configure when initializing database."""
@@ -399,29 +398,6 @@ class InfluxDBConfig:
 
 
 @dataclass(frozen=True)
-class IssuerConfig:
-    """Configuration for how to issue tokens."""
-
-    iss: str
-    """iss (issuer) field in issued tokens."""
-
-    kid: str
-    """kid (key ID) header field in issued tokens."""
-
-    aud: str
-    """aud (audience) field in issued tokens."""
-
-    keypair: RSAKeyPair
-    """RSA key pair for signing and verifying issued tokens."""
-
-    lifetime: timedelta
-    """Lifetime of issued tokens."""
-
-    group_mapping: Mapping[str, FrozenSet[str]]
-    """Mapping of group names to the set of scopes that group grants."""
-
-
-@dataclass(frozen=True)
 class GitHubConfig:
     """Metadata for GitHub authentication.
 
@@ -545,6 +521,21 @@ class OIDCClient:
 class OIDCServerConfig:
     """Configuration for the OpenID Connect server."""
 
+    issuer: str
+    """iss (issuer) field in issued tokens."""
+
+    key_id: str
+    """kid (key ID) header field in issued tokens."""
+
+    audience: str
+    """aud (audience) field in issued tokens."""
+
+    keypair: RSAKeyPair
+    """RSA key pair for signing and verifying issued tokens."""
+
+    lifetime: timedelta
+    """Lifetime of issued tokens."""
+
     clients: Tuple[OIDCClient, ...]
     """Supported OpenID Connect clients."""
 
@@ -605,9 +596,6 @@ class Config:
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
 
-    issuer: IssuerConfig
-    """Configuration for internally-issued tokens."""
-
     influxdb: Optional[InfluxDBConfig]
     """Configuration for the InfluxDB token issuer."""
 
@@ -625,6 +613,9 @@ class Config:
 
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
+
+    group_mapping: Mapping[str, FrozenSet[str]]
+    """Mapping of group names to the set of scopes that group grants."""
 
     initial_admins: Tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
@@ -654,28 +645,24 @@ class Config:
         settings = Settings.parse_obj(raw_settings)
 
         # Load the secrets from disk.
-        key = cls._load_secret(settings.issuer.key_file)
-        keypair = RSAKeyPair.from_pem(key)
         session_secret = cls._load_secret(settings.session_secret_file)
         redis_password = None
         if settings.redis_password_file:
             path = settings.redis_password_file
             redis_password = cls._load_secret(path).decode()
-        if settings.influxdb:
-            path = settings.influxdb.secret_file
-            influxdb_secret = cls._load_secret(path).decode()
         if settings.github:
             path = settings.github.client_secret_file
             github_secret = cls._load_secret(path).decode()
         if settings.oidc:
             path = settings.oidc.client_secret_file
             oidc_secret = cls._load_secret(path).decode()
-
-        # If there is an OpenID Connect server configuration, load it from a
-        # file in JSON format.  (It contains secrets.)
-        oidc_server_config = None
-        if settings.oidc_server_secrets_file:
-            path = settings.oidc_server_secrets_file
+        if settings.influxdb:
+            path = settings.influxdb.secret_file
+            influxdb_secret = cls._load_secret(path).decode()
+        if settings.oidc_server:
+            oidc_key = cls._load_secret(settings.oidc_server.key_file)
+            oidc_keypair = RSAKeyPair.from_pem(oidc_key)
+            path = settings.oidc_server.secrets_file
             oidc_secrets_json = cls._load_secret(path).decode()
             oidc_secrets = json.loads(oidc_secrets_json)
             oidc_clients = tuple(
@@ -684,7 +671,6 @@ class Config:
                     for c in oidc_secrets
                 )
             )
-            oidc_server_config = OIDCServerConfig(clients=oidc_clients)
 
         # The group mapping in the settings maps a scope to a list of groups
         # that provide that scope.  This may be conceptually easier for the
@@ -705,21 +691,6 @@ class Config:
         bootstrap_token = None
         if settings.bootstrap_token:
             bootstrap_token = Token.from_str(settings.bootstrap_token)
-        issuer_config = IssuerConfig(
-            iss=settings.issuer.iss,
-            kid=settings.issuer.key_id,
-            aud=settings.issuer.aud,
-            keypair=keypair,
-            lifetime=timedelta(minutes=settings.token_lifetime_minutes),
-            group_mapping=group_mapping_frozen,
-        )
-        influxdb_config = None
-        if settings.influxdb:
-            influxdb_config = InfluxDBConfig(
-                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
-                secret=influxdb_secret,
-                username=settings.influxdb.username,
-            )
         github_config = None
         if settings.github:
             github_config = GitHubConfig(
@@ -751,6 +722,23 @@ class Config:
                 uid_base_dn=settings.ldap.uid_base_dn,
                 uid_attr=settings.ldap.uid_attr,
             )
+        influxdb_config = None
+        if settings.influxdb:
+            influxdb_config = InfluxDBConfig(
+                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
+                secret=influxdb_secret,
+                username=settings.influxdb.username,
+            )
+        oidc_server_config = None
+        if settings.oidc_server:
+            oidc_server_config = OIDCServerConfig(
+                issuer=settings.oidc_server.issuer,
+                key_id=settings.oidc_server.key_id,
+                audience=settings.oidc_server.audience,
+                keypair=oidc_keypair,
+                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
+                clients=oidc_clients,
+            )
         log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
         if settings.database_password:
             database_password = settings.database_password.get_secret_value()
@@ -767,13 +755,13 @@ class Config:
             token_lifetime=timedelta(minutes=settings.token_lifetime_minutes),
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
-            issuer=issuer_config,
             influxdb=influxdb_config,
             github=github_config,
             oidc=oidc_config,
             ldap=ldap_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
+            group_mapping=group_mapping_frozen,
             initial_admins=tuple(settings.initial_admins),
             safir=SafirConfig(log_level=log_level),
             error_footer=settings.error_footer,

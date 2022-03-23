@@ -295,8 +295,8 @@ async def get_userinfo(
 async def get_well_known_jwks(
     context: RequestContext = Depends(context_dependency),
 ) -> JWKS:
-    kid = context.config.issuer.kid
-    return context.config.issuer.keypair.public_key_as_jwks(kid=kid)
+    oidc_server = context.factory.create_oidc_service()
+    return oidc_server.get_jwks()
 
 
 @router.get(
@@ -312,11 +312,5 @@ async def get_well_known_jwks(
 async def get_well_known_openid(
     context: RequestContext = Depends(context_dependency),
 ) -> OIDCConfig:
-    base_url = context.config.issuer.iss
-    return OIDCConfig(
-        issuer=context.config.issuer.iss,
-        authorization_endpoint=base_url + "/auth/openid/login",
-        token_endpoint=base_url + "/auth/openid/token",
-        userinfo_endpoint=base_url + "/auth/openid/userinfo",
-        jwks_uri=base_url + "/.well-known/jwks.json",
-    )
+    oidc_server = context.factory.create_oidc_service()
+    return oidc_server.get_openid_configuration()

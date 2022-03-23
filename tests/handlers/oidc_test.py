@@ -41,7 +41,10 @@ async def test_login(
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = await configure(tmp_path, "github", oidc_clients=clients)
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
+    assert config.oidc_server
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
@@ -114,17 +117,17 @@ async def test_login(
         "id_token": ANY,
     }
     assert isinstance(data["expires_in"], int)
-    exp_seconds = config.issuer.lifetime.total_seconds()
+    exp_seconds = config.oidc_server.lifetime.total_seconds()
     assert exp_seconds - 5 <= data["expires_in"] <= exp_seconds
 
     assert data["access_token"] == data["id_token"]
     oidc_service = factory.create_oidc_service()
     token = oidc_service.verify_token(OIDCToken(encoded=data["id_token"]))
     assert token.claims == {
-        "aud": config.issuer.aud,
+        "aud": config.oidc_server.audience,
         "exp": ANY,
         "iat": ANY,
-        "iss": config.issuer.iss,
+        "iss": config.oidc_server.issuer,
         "jti": OIDCAuthorizationCode.from_str(code).key,
         "name": token_data.name,
         "preferred_username": token_data.username,
@@ -133,7 +136,7 @@ async def test_login(
         "uid_number": token_data.uid,
     }
     now = time.time()
-    expected_exp = now + config.issuer.lifetime.total_seconds()
+    expected_exp = now + config.oidc_server.lifetime.total_seconds()
     assert expected_exp - 5 <= token.claims["exp"] <= expected_exp
     assert now - 5 <= token.claims["iat"] <= now
 
@@ -166,7 +169,7 @@ async def test_unauthenticated(
     tmp_path: Path, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    await configure(tmp_path, "github", oidc_clients=clients)
+    await configure(tmp_path, "github-oidc-server", oidc_clients=clients)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     login_params = {
         "response_type": "code",
@@ -210,7 +213,9 @@ async def test_login_errors(
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = await configure(tmp_path, "github", oidc_clients=clients)
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
@@ -334,7 +339,9 @@ async def test_token_errors(
         OIDCClient(client_id="some-id", client_secret="some-secret"),
         OIDCClient(client_id="other-id", client_secret="other-secret"),
     ]
-    config = await configure(tmp_path, "github", oidc_clients=clients)
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -516,7 +523,9 @@ async def test_invalid(
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = await configure(tmp_path, "github", oidc_clients=clients)
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
     oidc_service = factory.create_oidc_service()
@@ -592,12 +601,19 @@ async def test_invalid(
 
 
 @pytest.mark.asyncio
-async def test_well_known_jwks(client: AsyncClient, config: Config) -> None:
+async def test_well_known_jwks(
+    tmp_path: Path, client: AsyncClient, config: Config
+) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
+    assert config.oidc_server
     r = await client.get("/.well-known/jwks.json")
     assert r.status_code == 200
     result = r.json()
 
-    keypair = config.issuer.keypair
+    keypair = config.oidc_server.keypair
     assert result == {
         "keys": [
             {
@@ -618,13 +634,20 @@ async def test_well_known_jwks(client: AsyncClient, config: Config) -> None:
 
 
 @pytest.mark.asyncio
-async def test_well_known_oidc(client: AsyncClient, config: Config) -> None:
+async def test_well_known_oidc(
+    tmp_path: Path, client: AsyncClient, config: Config
+) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
+    assert config.oidc_server
     r = await client.get("/.well-known/openid-configuration")
     assert r.status_code == 200
 
-    base_url = config.issuer.iss
+    base_url = config.oidc_server.issuer
     assert r.json() == {
-        "issuer": config.issuer.iss,
+        "issuer": base_url,
         "authorization_endpoint": base_url + "/auth/openid/login",
         "token_endpoint": base_url + "/auth/openid/token",
         "userinfo_endpoint": base_url + "/auth/openid/userinfo",

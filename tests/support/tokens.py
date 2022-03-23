@@ -176,7 +176,8 @@ def create_test_token(
         The generated token.
     """
     if not keypair:
-        keypair = config.issuer.keypair
+        assert config.oidc_server
+        keypair = config.oidc_server.keypair
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
     payload: Dict[str, Any] = {
@@ -184,12 +185,13 @@ def create_test_token(
         "email": "some-user@example.com",
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
-        "iss": config.issuer.iss,
         "jti": "some-unique-id",
         "sub": "some-user",
         "uid": "some-user",
         "uidNumber": "1000",
     }
+    if config.oidc_server:
+        payload["iss"] = config.oidc_server.issuer
     if groups:
         payload["isMemberOf"] = [
             {"name": g, "id": 1000 + n} for n, g in enumerate(groups)

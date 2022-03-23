@@ -40,15 +40,6 @@ proxies:
 # Where to send the user after logging out.
 after_logout_url: "https://example.com/"
 
-# Configuration for the internal issuer.  This controls the JWTs that are
-# generated internally by Gafaelfawr and passed to the protected
-# applications.
-issuer:
-  iss: "https://example.com"
-  key_id: "example-key-id"
-  aud: "https://example.com"
-  key_file: "/path/to/issuer-key"
-
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
 # application.

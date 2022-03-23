@@ -198,7 +198,7 @@ class ComponentFactory:
         authorization_store = OIDCAuthorizationStore(storage)
         token_service = self.create_token_service()
         return OIDCService(
-            config=self._config,
+            config=self._config.oidc_server,
             authorization_store=authorization_store,
             token_service=token_service,
             logger=self._logger,

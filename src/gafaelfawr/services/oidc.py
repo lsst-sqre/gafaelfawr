@@ -8,7 +8,7 @@ from typing import Optional
 import jwt
 from structlog.stdlib import BoundLogger
 
-from ..config import Config
+from ..config import OIDCServerConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
     DeserializeException,
@@ -17,7 +17,7 @@ from ..exceptions import (
     InvalidTokenError,
     UnauthorizedClientException,
 )
-from ..models.oidc import OIDCToken, OIDCVerifiedToken
+from ..models.oidc import JWKS, OIDCConfig, OIDCToken, OIDCVerifiedToken
 from ..models.token import Token, TokenUserInfo
 from ..storage.oidc import OIDCAuthorizationCode, OIDCAuthorizationStore
 from .token import TokenService
@@ -34,8 +34,8 @@ class OIDCService:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
-        Gafaelfawr configuration.
+    config : `gafaelfawr.config.OIDCServerConfig`
+        OpenID Connect server configuration.
     authorization_store : `gafaelfawr.storage.oidc.OIDCAuthorizationStore`
         The underlying storage for OpenID Connect authorizations.
     token_service : `gafaelfawr.services.token.TokenService`
@@ -61,7 +61,7 @@ class OIDCService:
     def __init__(
         self,
         *,
-        config: Config,
+        config: OIDCServerConfig,
         authorization_store: OIDCAuthorizationStore,
         token_service: TokenService,
         logger: BoundLogger,
@@ -71,13 +71,25 @@ class OIDCService:
         self._token_service = token_service
         self._logger = logger
 
+    def get_jwks(self) -> JWKS:
+        """Return the key set for the OpenID Connect server."""
+        key_id = self._config.key_id
+        return self._config.keypair.public_key_as_jwks(kid=key_id)
+
+    def get_openid_configuration(self) -> OIDCConfig:
+        """Return the OpenID Connect configuration for the internal server."""
+        base_url = self._config.issuer
+        return OIDCConfig(
+            issuer=base_url,
+            authorization_endpoint=base_url + "/auth/openid/login",
+            token_endpoint=base_url + "/auth/openid/token",
+            userinfo_endpoint=base_url + "/auth/openid/userinfo",
+            jwks_uri=base_url + "/.well-known/jwks.json",
+        )
+
     def is_valid_client(self, client_id: str) -> bool:
         """Whether a client_id is a valid registered client."""
-        if not self._config.oidc_server:
-            raise RuntimeError("config.oidc_server not set in OIDCService")
-        return any(
-            c.client_id == client_id for c in self._config.oidc_server.clients
-        )
+        return any(c.client_id == client_id for c in self._config.clients)
 
     async def issue_code(
         self, client_id: str, redirect_uri: str, token: Token
@@ -131,11 +143,11 @@ class OIDCService:
             The new token.
         """
         now = datetime.now(timezone.utc)
-        expires = now + self._config.issuer.lifetime
+        expires = now + self._config.lifetime
         payload = {
-            "aud": self._config.issuer.aud,
+            "aud": self._config.audience,
             "iat": int(now.timestamp()),
-            "iss": self._config.issuer.iss,
+            "iss": self._config.issuer,
             "exp": int(expires.timestamp()),
             "name": user_info.name,
             "preferred_username": user_info.username,
@@ -145,9 +157,9 @@ class OIDCService:
         }
         encoded_token = jwt.encode(
             payload,
-            self._config.issuer.keypair.private_key_as_pem().decode(),
+            self._config.keypair.private_key_as_pem().decode(),
             algorithm=ALGORITHM,
-            headers={"kid": self._config.issuer.kid},
+            headers={"kid": self._config.key_id},
         )
         return OIDCVerifiedToken(
             encoded=encoded_token,
@@ -252,9 +264,9 @@ class OIDCService:
         try:
             payload = jwt.decode(
                 token.encoded,
-                self._config.issuer.keypair.public_key_as_pem().decode(),
+                self._config.keypair.public_key_as_pem().decode(),
                 algorithms=[ALGORITHM],
-                audience=self._config.issuer.aud,
+                audience=self._config.audience,
             )
             return OIDCVerifiedToken(
                 encoded=token.encoded,
@@ -284,11 +296,9 @@ class OIDCService:
         gafaelfawr.exceptions.InvalidClientError
             If the client ID isn't known or the secret doesn't match.
         """
-        if not self._config.oidc_server:
-            raise RuntimeError("config.oidc_server not set in OIDCService")
         if not client_secret:
             raise InvalidClientError("No client_secret provided")
-        for client in self._config.oidc_server.clients:
+        for client in self._config.clients:
             if client.client_id == client_id:
                 if client.client_secret == client_secret:
                     return

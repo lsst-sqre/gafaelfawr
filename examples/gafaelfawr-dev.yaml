@@ -31,13 +31,6 @@ token_lifetime_minutes: 1440 # 1 day
 # Where to send the user after logging out.
 after_logout_url: "http://localhost:8080"
 
-# Configuration for the JWTs issued by Gafaelfawr.
-issuer:
-  iss: "http://localhost:8080"
-  key_id: "localhost-key-id"
-  aud: "http://localhost"
-  key_file: "examples/secrets/issuer-key"
-
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
 # application.  Set the homepage URL to http://localhost:8080/ and the
@@ -45,6 +38,14 @@ issuer:
 github:
   client_id: "<github-client-id>"
   client_secret_file: "examples/secrets/github-client-secret"
+
+# Configuration for the Gafaelfawr OpenID Connect server.
+oidc_server:
+  issuer: "http://localhost:8080"
+  key_id: "localhost-key-id"
+  audience: "http://localhost"
+  key_file: "examples/secrets/issuer-key"
+  secrets_file: "examples/secrets/oidc-clients.json"
 
 # Replace this user with your GitHub username.
 initial_admins:
