@@ -22,11 +22,11 @@ from seleniumwire import webdriver
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from gafaelfawr import main
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.main import create_app
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
 from gafaelfawr.schema import Base
@@ -48,14 +48,9 @@ async def app(
     events are sent during test execution.
     """
     db_session_dependency.override_engine(engine)
-    async with LifespanManager(main.app):
-        yield main.app
-
-    # Clear the middleware stack, since otherwise we accumulate multiple
-    # copies of XForwardedMiddleware during test execution, which eventually
-    # starts making things slow and making the Python stack far too deep.
-    main.app.user_middleware.clear()
-    main.app.middleware_stack = main.app.build_middleware_stack()
+    app = create_app()
+    async with LifespanManager(app):
+        yield app
 
 
 @pytest_asyncio.fixture

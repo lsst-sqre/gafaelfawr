@@ -30,9 +30,16 @@ class ConfigDependency:
 
     async def __call__(self) -> Config:
         """Load the configuration if necessary and return it."""
+        return self.config()
+
+    def config(self) -> Config:
+        """Load the configuration if necessary and return it.
+
+        This is equivalent to using the dependency as a callable except that
+        it's not async and can therefore be used from non-async functions.
+        """
         if not self._config:
-            self._load_config()
-        assert self._config
+            self._config = Config.from_file(self._settings_path)
         return self._config
 
     def set_settings_path(self, path: str) -> None:
@@ -44,11 +51,7 @@ class ConfigDependency:
             The new configuration path.
         """
         self._settings_path = path
-        self._load_config()
-
-    def _load_config(self) -> None:
-        """Load the configuration from the currently-configured path."""
-        self._config = Config.from_file(self._settings_path)
+        self._config = Config.from_file(path)
 
 
 config_dependency = ConfigDependency()

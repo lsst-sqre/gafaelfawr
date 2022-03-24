@@ -27,96 +27,107 @@ from .handlers import analyze, api, auth, index, influxdb, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
 
-__all__ = ["app"]
+__all__ = ["create_app"]
 
 
-app = FastAPI(
-    title="Gafaelfawr",
-    description=(
-        "Gafaelfawr is a FastAPI application for the authorization and"
-        " management of tokens, including their issuance and revocation."
-    ),
-    version=metadata("gafaelfawr").get("Version", "0.0.0"),
-    tags_metadata=[
-        {
-            "name": "user",
-            "description": "APIs that can be used by regular users.",
-        },
-        {
-            "name": "admin",
-            "description": "APIs that can only be used by administrators.",
-        },
-        {
-            "name": "oidc",
-            "description": (
-                "OpenID Connect routes used by protected applications."
-            ),
-        },
-        {
-            "name": "browser",
-            "description": "Routes intended only for use from a web browser.",
-        },
-        {
-            "name": "internal",
-            "description": (
-                "Internal routes used only by the ingress or by health checks."
-            ),
-        },
-    ],
-    openapi_url="/auth/openapi.json",
-    docs_url="/auth/docs",
-    redoc_url="/auth/redoc",
-)
+def create_app() -> FastAPI:
+    """Create the FastAPI application.
 
-app.include_router(analyze.router)
-app.include_router(
-    api.router,
-    prefix="/auth/api/v1",
-    responses={
-        401: {"description": "Unauthenticated"},
-        403: {"description": "Permission denied", "model": ErrorModel},
-    },
-)
-app.include_router(auth.router)
-app.include_router(index.router)
-app.include_router(influxdb.router)
-app.include_router(login.router)
-app.include_router(logout.router)
-app.include_router(oidc.router)
-
-# Add static path serving to support the JavaScript UI.
-static_path = os.getenv(
-    "GAFAELFAWR_UI_PATH", Path(__file__).parent.parent.parent / "ui" / "public"
-)
-app.mount(
-    "/auth/tokens",
-    StaticFiles(directory=str(static_path), html=True, check_dir=False),
-)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    config = await config_dependency()
-    await db_session_dependency.initialize(
-        config.database_url, config.database_password
+    This is in a function rather than using a global variable (as is more
+    typical for FastAPI) because some middleware depends on configuration
+    settings and we therefore want to recreate the application between tests.
+    """
+    app = FastAPI(
+        title="Gafaelfawr",
+        description=(
+            "Gafaelfawr is a FastAPI application for the authorization and"
+            " management of tokens, including their issuance and revocation."
+        ),
+        version=metadata("gafaelfawr").get("Version", "0.0.0"),
+        tags_metadata=[
+            {
+                "name": "user",
+                "description": "APIs that can be used by regular users.",
+            },
+            {
+                "name": "admin",
+                "description": "APIs that can only be used by administrators.",
+            },
+            {
+                "name": "oidc",
+                "description": (
+                    "OpenID Connect routes used by protected applications."
+                ),
+            },
+            {
+                "name": "browser",
+                "description": "Routes intended for use from a web browser.",
+            },
+            {
+                "name": "internal",
+                "description": (
+                    "Internal routes used by the ingress and health checks."
+                ),
+            },
+        ],
+        openapi_url="/auth/openapi.json",
+        docs_url="/auth/docs",
+        redoc_url="/auth/redoc",
     )
 
-    # This middleware unfortunately depends on the configuration, which is not
-    # available until application start.  This means that any tests need to
-    # clear the middleware stack during shutdown or multiple copies of this
-    # middleware will stack up and make the tests unnecessarily slow.
-    #
-    # That in turn means that we have to add the StateMiddleware here as well,
-    # even though it could be added unconditionally during import, since
-    # otherwise it is cleared along with XForwardedMiddleware and then not
-    # reinstated.
+    # Add all of the routes.
+    app.include_router(analyze.router)
+    app.include_router(
+        api.router,
+        prefix="/auth/api/v1",
+        responses={
+            401: {"description": "Unauthenticated"},
+            403: {"description": "Permission denied", "model": ErrorModel},
+        },
+    )
+    app.include_router(auth.router)
+    app.include_router(index.router)
+    app.include_router(influxdb.router)
+    app.include_router(login.router)
+    app.include_router(logout.router)
+    app.include_router(oidc.router)
+
+    # Add static path serving to support the JavaScript UI.
+    static_path = os.getenv(
+        "GAFAELFAWR_UI_PATH",
+        Path(__file__).parent.parent.parent / "ui" / "public",
+    )
+    app.mount(
+        "/auth/tokens",
+        StaticFiles(directory=str(static_path), html=True, check_dir=False),
+    )
+
+    # Install the middleware.
+    config = config_dependency.config()
     app.add_middleware(
         StateMiddleware, cookie_name=COOKIE_NAME, state_class=State
     )
     app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
 
+    # Register lifecycle handlers.
+    app.on_event("startup")(startup_event)
+    app.on_event("shutdown")(shutdown_event)
 
-@app.on_event("shutdown")
+    # Register exception handlers.
+    app.exception_handler(NotConfiguredException)(not_configured_handler)
+    app.exception_handler(PermissionDeniedError)(permission_handler)
+    app.exception_handler(ValidationError)(validation_handler)
+
+    return app
+
+
+async def startup_event() -> None:
+    config = config_dependency.config()
+    await db_session_dependency.initialize(
+        config.database_url, config.database_password
+    )
+
+
 async def shutdown_event() -> None:
     await http_client_dependency.aclose()
     await db_session_dependency.aclose()
@@ -124,8 +135,7 @@ async def shutdown_event() -> None:
     await token_cache_dependency.aclose()
 
 
-@app.exception_handler(NotConfiguredException)
-async def not_configured_exception_handler(
+async def not_configured_handler(
     request: Request, exc: NotConfiguredException
 ) -> JSONResponse:
     return JSONResponse(
@@ -134,8 +144,7 @@ async def not_configured_exception_handler(
     )
 
 
-@app.exception_handler(PermissionDeniedError)
-async def permission_exception_handler(
+async def permission_handler(
     request: Request, exc: PermissionDeniedError
 ) -> JSONResponse:
     return JSONResponse(
@@ -144,8 +153,7 @@ async def permission_exception_handler(
     )
 
 
-@app.exception_handler(ValidationError)
-async def validation_exception_handler(
+async def validation_handler(
     request: Request, exc: ValidationError
 ) -> JSONResponse:
     return JSONResponse(

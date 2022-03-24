@@ -20,7 +20,7 @@ from seleniumwire import webdriver
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.main import app
+from gafaelfawr.main import create_app
 from gafaelfawr.models.token import Token, TokenUserInfo
 
 from .tokens import add_expired_session_token
@@ -141,7 +141,7 @@ async def _selenium_startup(token_path: str) -> None:
         f.write(str(token))
 
 
-def create_app() -> FastAPI:
+def selenium_create_app() -> FastAPI:
     """Create the FastAPI app that Selenium should run.
 
     This is the same as the main Gafaelfawr app but with an additional startup
@@ -155,6 +155,7 @@ def create_app() -> FastAPI:
     be called by uvicorn in the separate process spawned by run_app.  If it is
     run in the main pytest process, it will break other tests.
     """
+    app = create_app()
     token_path = os.environ["GAFAELFAWR_TEST_TOKEN_PATH"]
 
     @app.on_event("startup")
@@ -192,7 +193,7 @@ async def run_app(
         "--fd",
         "0",
         "--factory",
-        "tests.support.selenium:create_app",
+        "tests.support.selenium:selenium_create_app",
     ]
     logging.info("Starting server with command %s", " ".join(cmd))
     p = subprocess.Popen(
