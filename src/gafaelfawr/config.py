@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -48,7 +47,6 @@ __all__ = [
     "OIDCServerConfig",
     "OIDCServerSettings",
     "OIDCSettings",
-    "SafirConfig",
     "Settings",
 ]
 
@@ -348,42 +346,6 @@ class Settings(BaseSettings):
 
 
 @dataclass(frozen=True)
-class SafirConfig:
-    """Safir configuration for Gafaelfawr.
-
-    These configuration settings are used by the Safir middleware.
-    """
-
-    log_level: str
-    """The log level of the application's logger.
-
-    Takes the first value of the following that is set:
-
-    - The ``SAFIR_LOG_LEVEL`` environment variable.
-    - The ``loglevel`` Gafaelfawr configuration setting.
-    - ``INFO``
-    """
-
-    name: str = os.getenv("SAFIR_NAME", "gafaelfawr")
-    """The application's name, which doubles as the root HTTP endpoint path.
-
-    Set with the ``SAFIR_NAME`` environment variable.
-    """
-
-    profile: str = os.getenv("SAFIR_PROFILE", "production")
-    """Application run profile ("development" or "production").
-
-    Set with the ``SAFIR_PROFILE`` environment variable.
-    """
-
-    logger_name: str = os.getenv("SAFIR_LOGGER", "gafaelfawr")
-    """The root name of the application's logger.
-
-    Set with the ``SAFIR_LOGGER`` environment variable.
-    """
-
-
-@dataclass(frozen=True)
 class InfluxDBConfig:
     """Configuration for how to issue InfluxDB tokens."""
 
@@ -620,9 +582,6 @@ class Config:
     initial_admins: Tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
 
-    safir: SafirConfig
-    """Configuration for the Safir middleware."""
-
     error_footer: Optional[str] = None
     """HTML to add (inside ``<p>``) to login error pages."""
 
@@ -739,7 +698,6 @@ class Config:
                 lifetime=timedelta(minutes=settings.token_lifetime_minutes),
                 clients=oidc_clients,
             )
-        log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
         if settings.database_password:
             database_password = settings.database_password.get_secret_value()
         else:
@@ -763,15 +721,16 @@ class Config:
             known_scopes=settings.known_scopes or {},
             group_mapping=group_mapping_frozen,
             initial_admins=tuple(settings.initial_admins),
-            safir=SafirConfig(log_level=log_level),
             error_footer=settings.error_footer,
         )
 
-        # Configure logging.
+        # Configure logging.  Some Safir applications allow customization of
+        # these parameters, but Gafaelfawr only allows customizing the log
+        # level.
         configure_logging(
-            profile=config.safir.profile,
-            log_level=config.safir.log_level,
-            name=config.safir.logger_name,
+            profile="production",
+            log_level=settings.loglevel,
+            name="gafaelfawr",
             add_timestamp=True,
         )
 

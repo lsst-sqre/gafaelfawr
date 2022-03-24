@@ -91,8 +91,7 @@ class ComponentFactory:
         """
         config = await config_dependency()
         token_cache = TokenCache()
-        logger = structlog.get_logger(config.safir.logger_name)
-        assert logger
+        logger = structlog.get_logger("gafaelfawr")
         logger.debug("Connecting to Redis")
         redis = await redis_dependency(config)
         if check_db:

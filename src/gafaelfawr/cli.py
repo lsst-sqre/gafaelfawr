@@ -97,7 +97,7 @@ async def init(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
-    logger = structlog.get_logger(config.safir.logger_name)
+    logger = structlog.get_logger("gafaelfawr")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
@@ -122,7 +122,7 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
-    logger = structlog.get_logger(config.safir.logger_name)
+    logger = structlog.get_logger("gafaelfawr")
     logger.debug("Starting")
     engine = create_database_engine(
         config.database_url, config.database_password
@@ -153,7 +153,7 @@ async def update_service_tokens(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
-    logger = structlog.get_logger(config.safir.logger_name)
+    logger = structlog.get_logger("gafaelfawr")
     engine = create_database_engine(
         config.database_url, config.database_password
     )

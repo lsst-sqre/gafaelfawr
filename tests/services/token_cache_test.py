@@ -101,7 +101,7 @@ async def test_expiration(config: Config, factory: ComponentFactory) -> None:
     lifetime = config.token_lifetime
     now = current_datetime()
     redis = await redis_dependency()
-    logger = structlog.get_logger(config.safir.logger_name)
+    logger = structlog.get_logger("gafaelfawr")
     storage = RedisStorage(TokenData, config.session_secret, redis)
     token_store = TokenRedisStore(storage, logger)
     token_cache = factory.create_token_cache_service()
