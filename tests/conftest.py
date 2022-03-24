@@ -73,8 +73,7 @@ def config(tmp_path: Path) -> Config:
     """
     settings_path = build_settings(tmp_path, "github")
     config_dependency.set_settings_path(str(settings_path))
-    assert config_dependency._config
-    return config_dependency._config
+    return config_dependency.config()
 
 
 @pytest.fixture(scope="session")
