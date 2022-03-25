@@ -239,6 +239,8 @@ The OpenID Connect client should be configured to request only the ``openid`` sc
 No other scope is supported.
 The client must be able to authenticate by sending a ``client_secret`` parameter in the request to the token endpoint.
 
+The JWT returned by the Gafaelfawr OpenID Connect server will include the authenticated username in the ``sub`` and ``preferred_username`` claims, and the numeric UID in the ``uid_number`` claim.
+
 Chronograf example
 ------------------
 
@@ -284,7 +286,7 @@ Authenticating to InfluxDB
    These tokens will only work with InfluxDB 1.x.
 
 Gafaelfawr optionally supports issuing tokens for InfluxDB 1.x authentication.
-To enable this support, set ``issuer.influxdb.enabled`` to true in :ref:`helm-settings`.
+To enable this support, set ``config.influxdb.enabled`` to true in :ref:`helm-settings`.
 Then, create an ``influxdb-secret`` Vault secret key with the shared key that InfluxDB uses to verify the token.
 This can be any string of characters, such as the results of ``os.urandom(32).hex()``.
 The same secret must be configured in the `InfluxDB configuration file <https://docs.influxdata.com/influxdb/v1.8/administration/authentication_and_authorization/>`__.
@@ -295,4 +297,4 @@ The result is a JSON object containing a ``token`` key, the contents of which ar
 
 The token will contain a ``username`` claim matching the user's Gafaelfawr username and will expire at the same time as the token or session used to authenticate to this route.
 
-If you want all InfluxDB tokens to contain the same ``username`` field so that you can use a single generic InfluxDB account, set ``issuer.influxdb.username`` to that value in :ref:`helm-settings`.
+If you want all InfluxDB tokens to contain the same ``username`` field so that you can use a single generic InfluxDB account, set ``config.influxdb.username`` to that value in :ref:`helm-settings`.

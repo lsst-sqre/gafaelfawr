@@ -32,7 +32,7 @@ from .support.logging import parse_log
 
 async def _initialize_database(engine: AsyncEngine, config: Config) -> None:
     """Helper function to initialize the database."""
-    logger = structlog.get_logger(config.safir.logger_name)
+    logger = structlog.get_logger("gafaelfawr")
     await initialize_database(engine, logger, schema=Base.metadata, reset=True)
 
 

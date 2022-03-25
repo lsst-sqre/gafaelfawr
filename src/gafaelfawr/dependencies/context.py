@@ -7,7 +7,7 @@ including from dependencies.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any
 
 from aioredis import Redis
 from fastapi import Depends, Request
@@ -85,7 +85,7 @@ class RequestContext:
         """Convenience property to set the cookie state."""
         self.request.state.cookie = state
 
-    def rebind_logger(self, **values: Optional[str]) -> None:
+    def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context.
 
         Also updates the logging context stored in the request object in case
@@ -93,7 +93,7 @@ class RequestContext:
 
         Parameters
         ----------
-        **values : `str` or `None`
+        **values : `typing.Any`
             Additional values that should be added to the logging context.
         """
         self.logger = self.logger.bind(**values)

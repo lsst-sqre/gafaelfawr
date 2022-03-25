@@ -126,7 +126,7 @@ class Authenticate:
                 context.rebind_logger(
                     token="<bootstrap>",
                     user="<bootstrap>",
-                    scope=" ".join(sorted(bootstrap_data.scopes)),
+                    scopes=sorted(bootstrap_data.scopes),
                 )
                 context.logger.info("Authenticated with bootstrap token")
                 return bootstrap_data
@@ -143,7 +143,7 @@ class Authenticate:
         context.rebind_logger(
             token=token.key,
             user=data.username,
-            scope=" ".join(sorted(data.scopes)),
+            scopes=sorted(data.scopes),
         )
 
         if self.require_scope and self.require_scope not in data.scopes:
@@ -243,10 +243,10 @@ async def verified_oidc_token(
         raise generate_challenge(context, AuthType.Bearer, e)
     if not encoded_token:
         raise generate_unauthorized_challenge(context, AuthType.Bearer)
+    unverified_token = OIDCToken(encoded=encoded_token)
+    oidc_service = context.factory.create_oidc_service()
     try:
-        unverified_token = OIDCToken(encoded=encoded_token)
-        token_verifier = context.factory.create_token_verifier()
-        token = token_verifier.verify_internal_token(unverified_token)
+        token = oidc_service.verify_token(unverified_token)
     except InvalidTokenError as e:
         raise generate_challenge(context, AuthType.Bearer, e)
 

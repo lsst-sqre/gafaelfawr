@@ -25,14 +25,12 @@ database_url: "postgresql://gafaelfawr:<password>@example.com/gafaelfawr"
 # Replace <token> with a token generated via gafaelfawr generate-token.
 bootstrap_token: "<token>"
 
-# Replace this with a list of users who should have admin rights when
-# bootstrapping a fresh database.
-initial_admins:
-  - example
-
 # The URL of and password for a Redis instance used for storing sessions.
 redis_url: "redis://redis.example.com:6379/0"
 redis_password_file: "/path/to/redis-password"
+
+# How long Gafaelfawr-issued tokens should live by default.
+token_lifetime_minutes: 1440 # 1 day
 
 # The IP address ranges used internally in the Kubernetes cluster.  Used
 # to determine the external IP address for logging purposes.
@@ -41,16 +39,6 @@ proxies:
 
 # Where to send the user after logging out.
 after_logout_url: "https://example.com/"
-
-# Configuration for the internal issuer.  This controls the JWTs that are
-# generated internally by Gafaelfawr and passed to the protected
-# applications.
-issuer:
-  iss: "https://example.com"
-  key_id: "example-key-id"
-  aud: "https://example.com"
-  key_file: "/path/to/issuer-key"
-  exp_minutes: 1440 # 1 day
 
 # To get these values, register with an OpenID Connect provider and use
 # the values that they provide.  This example is for CILogon; many of the
@@ -66,8 +54,11 @@ oidc:
     - "org.cilogon.userinfo"
   issuer: "https://cilogon.org"
   audience: "cilogon:/client_id/..."
-  key_ids:
-    - "244B235F6B28E34108D101EAC7362C4E"
+
+# Replace this with a list of users who should have admin rights when
+# bootstrapping a fresh database.
+initial_admins:
+  - "example"
 
 # Sample values for scopes.  You can replace these with anything you want
 # to use for a scope.  Used to populate the new token creation page.

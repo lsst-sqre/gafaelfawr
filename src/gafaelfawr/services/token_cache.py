@@ -315,7 +315,7 @@ class TokenCacheService:
             "Created new internal token",
             key=token.key,
             service=service,
-            token_scope=",".join(data.scopes),
+            token_scopes=sorted(data.scopes),
         )
 
         return token

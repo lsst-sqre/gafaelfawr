@@ -5,13 +5,32 @@ There are two, mostly-parallel models defined here.  The ones ending in
 the root of which is `Settings`.  This is then processed and broken up into
 configuration dataclasses for various components and then exposed to the rest
 of Gafaelfawr as the `Config` object.
+
+Notes
+-----
+It would be ideal if Pydantic could be used directly for settings without
+rewriting the Pydantic Settings classes into dataclasses.  However, there are
+two missing features in the Pydantic system that interfere with this:
+
+#. Loading secrets from disk directly in the Pydantic model is difficult.
+   Pydantic does support a mechanism for loading configuration keys from disk
+   files, but it doesn't support nested structure, which we want so that the
+   configurations for different internal Gafaelfawr components are kept
+   separate (which in turn simplifies a lot of code that otherwise would have
+   to check for `None` repeatedly).
+#. Pydantic provides poor support for loading a YAML file whose file name is
+   not known statically.  We have to use ``parse_obj``, which in turn makes
+   some other Pydantic Settings constructor arguments accessible only via
+   static configuration.
+
+After a couple of tries at using Pydantic directly, the current approach,
+while somewhat repetitive, seems easier to support.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -39,43 +58,17 @@ __all__ = [
     "Config",
     "GitHubConfig",
     "GitHubSettings",
-    "IssuerConfig",
-    "IssuerSettings",
+    "InfluxDBConfig",
+    "InfluxDBSettings",
     "LDAPConfig",
     "LDAPSettings",
     "OIDCConfig",
     "OIDCClient",
     "OIDCServerConfig",
+    "OIDCServerSettings",
     "OIDCSettings",
-    "SafirConfig",
     "Settings",
-    "VerifierConfig",
 ]
-
-
-class IssuerSettings(BaseModel):
-    """pydantic model of issuer configuration."""
-
-    iss: str
-    """iss (issuer) field in issued tokens."""
-
-    key_id: str
-    """kid (key ID) header field in issued tokens."""
-
-    aud: str
-    """aud (audience) field in issued tokens."""
-
-    key_file: str
-    """File containing RSA private key for signing issued tokens."""
-
-    exp_minutes: int = 1440  # 1 day
-    """Number of minutes into the future that a token should expire."""
-
-    influxdb_secret_file: Optional[str] = None
-    """File containing shared secret for issuing InfluxDB tokens."""
-
-    influxdb_username: Optional[str] = None
-    """The username to set in all InfluxDB tokens."""
 
 
 class GitHubSettings(BaseModel):
@@ -125,8 +118,11 @@ class OIDCSettings(BaseModel):
     audience: str
     """Expected audience of the ID token."""
 
-    key_ids: List[str] = []
-    """List of acceptable kids that may be used to sign the ID token."""
+    username_claim: str = "uid"
+    """Name of claim to use as the username."""
+
+    uid_claim: str = "uidNumber"
+    """Name of claim to use as the UID."""
 
 
 class LDAPSettings(BaseModel):
@@ -172,6 +168,35 @@ class LDAPSettings(BaseModel):
     """
 
 
+class InfluxDBSettings(BaseModel):
+    """pydantic model of InfluxDB token issuer configuration."""
+
+    secret_file: str
+    """File containing shared secret for issuing InfluxDB tokens."""
+
+    username: Optional[str] = None
+    """The username to set in all InfluxDB tokens."""
+
+
+class OIDCServerSettings(BaseModel):
+    """pydantic model of issuer configuration."""
+
+    issuer: str
+    """iss (issuer) field in issued tokens."""
+
+    key_id: str
+    """kid (key ID) header field in issued tokens."""
+
+    audience: str
+    """aud (audience) field in issued tokens."""
+
+    key_file: str
+    """File containing RSA private key for signing issued tokens."""
+
+    secrets_file: str
+    """Path to file containing OpenID Connect client secrets in JSON."""
+
+
 class Settings(BaseSettings):
     """pydantic model of Gafaelfawr settings file.
 
@@ -209,6 +234,9 @@ class Settings(BaseSettings):
     list of admins and create service and user tokens.
     """
 
+    token_lifetime_minutes: int = 1380  # 23 hours
+    """Number of minutes into the future that a token should expire."""
+
     proxies: Optional[List[IPvAnyNetwork]]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
@@ -224,23 +252,11 @@ class Settings(BaseSettings):
     after_logout_url: AnyHttpUrl
     """Default URL to which to send the user after logging out."""
 
-    username_claim: str = "uid"
-    """Name of claim to use as the username."""
-
-    uid_claim: str = "uidNumber"
-    """Name of claim to use as the UID."""
-
-    issuer: IssuerSettings
-    """Settings for the internal token issuer."""
-
     database_url: str
     """URL for the PostgreSQL database."""
 
     database_password: Optional[SecretStr] = None
     """Password for the PostgreSQL database."""
-
-    initial_admins: List[str]
-    """Initial token administrators to configure when initializing database."""
 
     github: Optional[GitHubSettings] = None
     """Settings for the GitHub authentication provider."""
@@ -251,8 +267,14 @@ class Settings(BaseSettings):
     ldap: Optional[LDAPSettings] = None
     """Settings for the LDAP-based group lookups with OIDC provider."""
 
-    oidc_server_secrets_file: Optional[str] = None
-    """Path to file containing OpenID Connect client secrets in JSON."""
+    influxdb: Optional[InfluxDBSettings] = None
+    """Settings for the InfluxDB token issuer."""
+
+    oidc_server: Optional[OIDCServerSettings] = None
+    """Settings for the internal OpenID Connect server."""
+
+    initial_admins: List[str]
+    """Initial token administrators to configure when initializing database."""
 
     known_scopes: Dict[str, str] = {}
     """Known scopes (the keys) and their descriptions (the values)."""
@@ -344,103 +366,17 @@ class Settings(BaseSettings):
 
 
 @dataclass(frozen=True)
-class SafirConfig:
-    """Safir configuration for Gafaelfawr.
+class InfluxDBConfig:
+    """Configuration for how to issue InfluxDB tokens."""
 
-    These configuration settings are used by the Safir middleware.
-    """
+    lifetime: timedelta
+    """Lifetime of issued tokens."""
 
-    log_level: str
-    """The log level of the application's logger.
+    secret: str
+    """Shared secret for issuing authentication tokens."""
 
-    Takes the first value of the following that is set:
-
-    - The ``SAFIR_LOG_LEVEL`` environment variable.
-    - The ``loglevel`` Gafaelfawr configuration setting.
-    - ``INFO``
-    """
-
-    name: str = os.getenv("SAFIR_NAME", "gafaelfawr")
-    """The application's name, which doubles as the root HTTP endpoint path.
-
-    Set with the ``SAFIR_NAME`` environment variable.
-    """
-
-    profile: str = os.getenv("SAFIR_PROFILE", "production")
-    """Application run profile ("development" or "production").
-
-    Set with the ``SAFIR_PROFILE`` environment variable.
-    """
-
-    logger_name: str = os.getenv("SAFIR_LOGGER", "gafaelfawr")
-    """The root name of the application's logger.
-
-    Set with the ``SAFIR_LOGGER`` environment variable.
-    """
-
-
-@dataclass(frozen=True)
-class IssuerConfig:
-    """Configuration for how to issue tokens."""
-
-    iss: str
-    """iss (issuer) field in issued tokens."""
-
-    kid: str
-    """kid (key ID) header field in issued tokens."""
-
-    aud: str
-    """aud (audience) field in issued tokens."""
-
-    keypair: RSAKeyPair
-    """RSA key pair for signing and verifying issued tokens."""
-
-    exp_minutes: int
-    """Number of minutes into the future that a token should expire."""
-
-    group_mapping: Mapping[str, FrozenSet[str]]
-    """Mapping of group names to the set of scopes that group grants."""
-
-    username_claim: str
-    """Token claim from which to take the username."""
-
-    uid_claim: str
-    """Token claim from which to take the UID."""
-
-    influxdb_secret: Optional[str]
-    """Shared secret for issuing InfluxDB authentication tokens."""
-
-    influxdb_username: Optional[str]
+    username: Optional[str]
     """The username to set in all InfluxDB tokens."""
-
-
-@dataclass(frozen=True)
-class VerifierConfig:
-    """Configuration for how to verify tokens."""
-
-    iss: str
-    """iss (issuer) field in issued tokens."""
-
-    aud: str
-    """aud (audience) field in issued tokens."""
-
-    keypair: RSAKeyPair
-    """RSA key pair for signing and verifying issued tokens."""
-
-    username_claim: str
-    """Token claim from which to take the username."""
-
-    uid_claim: str
-    """Token claim from which to take the UID."""
-
-    oidc_iss: Optional[str]
-    """Expected issuer of the ID token from an OpenID Connect provider."""
-
-    oidc_aud: Optional[str]
-    """Expected audience of the ID token an OpenID Connect provider."""
-
-    oidc_kids: Tuple[str, ...]
-    """List of acceptable kids that may be used to sign the ID token."""
 
 
 @dataclass(frozen=True)
@@ -458,11 +394,50 @@ class GitHubConfig:
     client_secret: str
     """Secret for the GitHub App."""
 
+
+@dataclass(frozen=True)
+class OIDCConfig:
+    """Configuration for OpenID Connect authentication."""
+
+    client_id: str
+    """Client ID for talking to the OpenID Connect provider."""
+
+    client_secret: str
+    """Secret for talking to the OpenID Connect provider."""
+
+    login_url: str
+    """URL to which to send the user to initiate authentication."""
+
+    login_params: Mapping[str, str]
+    """Additional parameters to the login URL."""
+
+    redirect_url: str
+    """Return URL to which the authentication provider should send the user.
+
+    This should be the full URL of the /login route of Gafaelfawr.
+    """
+
+    token_url: str
+    """URL at which to redeem the authentication code for a token."""
+
+    scopes: Tuple[str, ...]
+    """Scopes to request from the authentication provider.
+
+    The ``openid`` scope will always be added and does not need to be
+    specified.
+    """
+
+    issuer: str
+    """Expected issuer of the ID token."""
+
+    audience: str
+    """Expected audience of the ID token."""
+
     username_claim: str
-    """Name of claim in which to store the username."""
+    """Token claim from which to take the username."""
 
     uid_claim: str
-    """Name of claim in which to store the UID."""
+    """Token claim from which to take the UID."""
 
 
 @dataclass(frozen=True)
@@ -514,48 +489,6 @@ class LDAPConfig:
 
 
 @dataclass(frozen=True)
-class OIDCConfig:
-    """Configuration for OpenID Connect authentication."""
-
-    client_id: str
-    """Client ID for talking to the OpenID Connect provider."""
-
-    client_secret: str
-    """Secret for talking to the OpenID Connect provider."""
-
-    login_url: str
-    """URL to which to send the user to initiate authentication."""
-
-    login_params: Mapping[str, str]
-    """Additional parameters to the login URL."""
-
-    redirect_url: str
-    """Return URL to which the authentication provider should send the user.
-
-    This should be the full URL of the /login route of Gafaelfawr.
-    """
-
-    token_url: str
-    """URL at which to redeem the authentication code for a token."""
-
-    scopes: Tuple[str, ...]
-    """Scopes to request from the authentication provider.
-
-    The ``openid`` scope will always be added and does not need to be
-    specified.
-    """
-
-    issuer: str
-    """Expected issuer of the ID token."""
-
-    audience: str
-    """Expected audience of the ID token."""
-
-    key_ids: Tuple[str, ...]
-    """List of acceptable kids that may be used to sign the ID token."""
-
-
-@dataclass(frozen=True)
 class OIDCClient:
     """Configuration for a single OpenID Connect client of our server."""
 
@@ -569,6 +502,21 @@ class OIDCClient:
 @dataclass(frozen=True)
 class OIDCServerConfig:
     """Configuration for the OpenID Connect server."""
+
+    issuer: str
+    """iss (issuer) field in issued tokens."""
+
+    key_id: str
+    """kid (key ID) header field in issued tokens."""
+
+    audience: str
+    """aud (audience) field in issued tokens."""
+
+    keypair: RSAKeyPair
+    """RSA key pair for signing and verifying issued tokens."""
+
+    lifetime: timedelta
+    """Lifetime of issued tokens."""
 
     clients: Tuple[OIDCClient, ...]
     """Supported OpenID Connect clients."""
@@ -593,6 +541,12 @@ class Config:
     session_secret: str
     """Secret used to encrypt the session cookie and session store."""
 
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    database_password: Optional[str]
+    """Password for the PostgreSQL database."""
+
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
@@ -605,6 +559,9 @@ class Config:
     This token can be used with specific routes in the admin API to change the
     list of admins and create service and user tokens.
     """
+
+    token_lifetime: timedelta
+    """Maximum lifetime of session, notebook, and internal tokens."""
 
     proxies: Tuple[_BaseNetwork, ...]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
@@ -621,11 +578,8 @@ class Config:
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
 
-    issuer: IssuerConfig
-    """Configuration for internally-issued tokens."""
-
-    verifier: VerifierConfig
-    """Configuration for the token verifier."""
+    influxdb: Optional[InfluxDBConfig]
+    """Configuration for the InfluxDB token issuer."""
 
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
@@ -642,20 +596,11 @@ class Config:
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    database_url: str
-    """URL for the PostgreSQL database."""
-
-    database_password: Optional[str]
-    """Password for the PostgreSQL database."""
+    group_mapping: Mapping[str, FrozenSet[str]]
+    """Mapping of group names to the set of scopes that group grants."""
 
     initial_admins: Tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
-
-    token_lifetime: timedelta
-    """Maximum lifetime of session, notebook, and internal tokens."""
-
-    safir: SafirConfig
-    """Configuration for the Safir middleware."""
 
     error_footer: Optional[str] = None
     """HTML to add (inside ``<p>``) to login error pages."""
@@ -679,29 +624,24 @@ class Config:
         settings = Settings.parse_obj(raw_settings)
 
         # Load the secrets from disk.
-        key = cls._load_secret(settings.issuer.key_file)
-        keypair = RSAKeyPair.from_pem(key)
         session_secret = cls._load_secret(settings.session_secret_file)
         redis_password = None
         if settings.redis_password_file:
             path = settings.redis_password_file
             redis_password = cls._load_secret(path).decode()
-        influxdb_secret = None
-        if settings.issuer.influxdb_secret_file:
-            path = settings.issuer.influxdb_secret_file
-            influxdb_secret = cls._load_secret(path).decode()
         if settings.github:
             path = settings.github.client_secret_file
             github_secret = cls._load_secret(path).decode()
         if settings.oidc:
             path = settings.oidc.client_secret_file
             oidc_secret = cls._load_secret(path).decode()
-
-        # If there is an OpenID Connect server configuration, load it from a
-        # file in JSON format.  (It contains secrets.)
-        oidc_server_config = None
-        if settings.oidc_server_secrets_file:
-            path = settings.oidc_server_secrets_file
+        if settings.influxdb:
+            path = settings.influxdb.secret_file
+            influxdb_secret = cls._load_secret(path).decode()
+        if settings.oidc_server:
+            oidc_key = cls._load_secret(settings.oidc_server.key_file)
+            oidc_keypair = RSAKeyPair.from_pem(oidc_key)
+            path = settings.oidc_server.secrets_file
             oidc_secrets_json = cls._load_secret(path).decode()
             oidc_secrets = json.loads(oidc_secrets_json)
             oidc_clients = tuple(
@@ -710,7 +650,6 @@ class Config:
                     for c in oidc_secrets
                 )
             )
-            oidc_server_config = OIDCServerConfig(clients=oidc_clients)
 
         # The group mapping in the settings maps a scope to a list of groups
         # that provide that scope.  This may be conceptually easier for the
@@ -731,35 +670,11 @@ class Config:
         bootstrap_token = None
         if settings.bootstrap_token:
             bootstrap_token = Token.from_str(settings.bootstrap_token)
-        issuer_config = IssuerConfig(
-            iss=settings.issuer.iss,
-            kid=settings.issuer.key_id,
-            aud=settings.issuer.aud,
-            keypair=keypair,
-            exp_minutes=settings.issuer.exp_minutes,
-            group_mapping=group_mapping_frozen,
-            username_claim=settings.username_claim,
-            uid_claim=settings.uid_claim,
-            influxdb_secret=influxdb_secret,
-            influxdb_username=settings.issuer.influxdb_username,
-        )
-        verifier_config = VerifierConfig(
-            iss=settings.issuer.iss,
-            aud=settings.issuer.aud,
-            keypair=keypair,
-            username_claim=settings.username_claim,
-            uid_claim=settings.uid_claim,
-            oidc_iss=settings.oidc.issuer if settings.oidc else None,
-            oidc_aud=settings.oidc.audience if settings.oidc else None,
-            oidc_kids=tuple(settings.oidc.key_ids if settings.oidc else []),
-        )
         github_config = None
         if settings.github:
             github_config = GitHubConfig(
                 client_id=settings.github.client_id,
                 client_secret=github_secret,
-                username_claim=settings.username_claim,
-                uid_claim=settings.uid_claim,
             )
         oidc_config = None
         if settings.oidc:
@@ -773,7 +688,8 @@ class Config:
                 scopes=tuple(settings.oidc.scopes),
                 issuer=settings.oidc.issuer,
                 audience=settings.oidc.audience,
-                key_ids=tuple(settings.oidc.key_ids),
+                username_claim=settings.oidc.username_claim,
+                uid_claim=settings.oidc.uid_claim,
             )
         ldap_config = None
         if settings.ldap and settings.ldap.url:
@@ -785,7 +701,23 @@ class Config:
                 uid_base_dn=settings.ldap.uid_base_dn,
                 uid_attr=settings.ldap.uid_attr,
             )
-        log_level = os.getenv("SAFIR_LOG_LEVEL", settings.loglevel)
+        influxdb_config = None
+        if settings.influxdb:
+            influxdb_config = InfluxDBConfig(
+                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
+                secret=influxdb_secret,
+                username=settings.influxdb.username,
+            )
+        oidc_server_config = None
+        if settings.oidc_server:
+            oidc_server_config = OIDCServerConfig(
+                issuer=settings.oidc_server.issuer,
+                key_id=settings.oidc_server.key_id,
+                audience=settings.oidc_server.audience,
+                keypair=oidc_keypair,
+                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
+                clients=oidc_clients,
+            )
         if settings.database_password:
             database_password = settings.database_password.get_secret_value()
         else:
@@ -793,31 +725,32 @@ class Config:
         config = cls(
             realm=settings.realm,
             session_secret=session_secret.decode(),
+            database_url=settings.database_url,
+            database_password=database_password,
             redis_url=settings.redis_url,
             redis_password=redis_password,
             bootstrap_token=bootstrap_token,
+            token_lifetime=timedelta(minutes=settings.token_lifetime_minutes),
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
-            issuer=issuer_config,
-            verifier=verifier_config,
+            influxdb=influxdb_config,
             github=github_config,
             oidc=oidc_config,
             ldap=ldap_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
-            database_url=settings.database_url,
-            database_password=database_password,
+            group_mapping=group_mapping_frozen,
             initial_admins=tuple(settings.initial_admins),
-            token_lifetime=timedelta(minutes=settings.issuer.exp_minutes),
-            safir=SafirConfig(log_level=log_level),
             error_footer=settings.error_footer,
         )
 
-        # Configure logging.
+        # Configure logging.  Some Safir applications allow customization of
+        # these parameters, but Gafaelfawr only allows customizing the log
+        # level.
         configure_logging(
-            profile=config.safir.profile,
-            log_level=config.safir.log_level,
-            name=config.safir.logger_name,
+            profile="production",
+            log_level=settings.loglevel,
+            name="gafaelfawr",
             add_timestamp=True,
         )
 

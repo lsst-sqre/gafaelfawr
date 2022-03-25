@@ -139,7 +139,7 @@ def auth_config(
     """
     context.rebind_logger(
         auth_uri=auth_uri,
-        required_scope=" ".join(sorted(scope)),
+        required_scopes=sorted(scope),
         satisfy=satisfy.name.lower(),
     )
     if notebook and delegate_to:

@@ -143,11 +143,11 @@ async def test_create_delete_modify(
                 "remoteIp": "127.0.0.1",
             },
             "key": user_token.key,
-            "scope": "exec:admin read:all user:token",
+            "scopes": ["exec:admin", "read:all", "user:token"],
             "severity": "info",
             "token": session_token.key,
             "token_name": "happy token",
-            "token_scope": "exec:admin",
+            "token_scopes": ["exec:admin"],
             "token_source": "cookie",
             "user": "example",
         }
@@ -250,7 +250,7 @@ async def test_token_info(
     now = datetime.now(tz=timezone.utc)
     created = datetime.fromtimestamp(data["created"], tz=timezone.utc)
     assert now - timedelta(seconds=5) <= created <= now
-    expires = created + timedelta(minutes=config.issuer.exp_minutes)
+    expires = created + config.token_lifetime
     assert datetime.fromtimestamp(data["expires"], tz=timezone.utc) == expires
 
     r = await client.get(

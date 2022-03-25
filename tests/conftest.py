@@ -22,11 +22,11 @@ from seleniumwire import webdriver
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from gafaelfawr import main
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.main import create_app
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
 from gafaelfawr.schema import Base
@@ -48,8 +48,9 @@ async def app(
     events are sent during test execution.
     """
     db_session_dependency.override_engine(engine)
-    async with LifespanManager(main.app):
-        yield main.app
+    app = create_app()
+    async with LifespanManager(app):
+        yield app
 
 
 @pytest_asyncio.fixture
@@ -72,8 +73,7 @@ def config(tmp_path: Path) -> Config:
     """
     settings_path = build_settings(tmp_path, "github")
     config_dependency.set_settings_path(str(settings_path))
-    assert config_dependency._config
-    return config_dependency._config
+    return config_dependency.config()
 
 
 @pytest.fixture(scope="session")

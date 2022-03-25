@@ -27,7 +27,9 @@ from ..support.tokens import create_session_token
 @pytest.mark.asyncio
 async def test_issue_code(tmp_path: Path, factory: ComponentFactory) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = await configure(tmp_path, "github", oidc_clients=clients)
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
     factory.reconfigure(config)
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
@@ -69,7 +71,10 @@ async def test_redeem_code(tmp_path: Path, factory: ComponentFactory) -> None:
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    config = await configure(tmp_path, "github", oidc_clients=clients)
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
+    assert config.oidc_server
     factory.reconfigure(config)
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
@@ -81,17 +86,16 @@ async def test_redeem_code(tmp_path: Path, factory: ComponentFactory) -> None:
         "client-2", "client-2-secret", redirect_uri, code
     )
     assert oidc_token.claims == {
-        "aud": config.issuer.aud,
+        "aud": config.oidc_server.audience,
         "iat": ANY,
         "exp": ANY,
-        "iss": config.issuer.iss,
+        "iss": config.oidc_server.issuer,
         "jti": code.key,
         "name": token_data.name,
         "preferred_username": token_data.username,
         "scope": "openid",
         "sub": token_data.username,
-        config.issuer.username_claim: token_data.username,
-        config.issuer.uid_claim: token_data.uid,
+        "uid_number": token_data.uid,
     }
 
     redis = await redis_dependency()
@@ -106,7 +110,9 @@ async def test_redeem_code_errors(
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    config = await configure(tmp_path, "github", oidc_clients=clients)
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
     factory.reconfigure(config)
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
@@ -137,3 +143,37 @@ async def test_redeem_code_errors(
         await oidc_service.redeem_code(
             "client-2", "client-2-secret", "https://foo.example.com/", code
         )
+
+
+@pytest.mark.asyncio
+async def test_issue_token(tmp_path: Path, factory: ComponentFactory) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    config = await configure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
+    assert config.oidc_server
+    factory.reconfigure(config)
+    oidc_service = factory.create_oidc_service()
+
+    token_data = await create_session_token(factory)
+    oidc_token = oidc_service.issue_token(
+        token_data, jti="new-jti", scope="openid"
+    )
+
+    assert oidc_token.claims == {
+        "aud": config.oidc_server.audience,
+        "exp": ANY,
+        "iat": ANY,
+        "iss": config.oidc_server.issuer,
+        "jti": "new-jti",
+        "name": token_data.name,
+        "preferred_username": token_data.username,
+        "scope": "openid",
+        "sub": token_data.username,
+        "uid_number": token_data.uid,
+    }
+
+    now = time.time()
+    assert now - 5 <= oidc_token.claims["iat"] <= now + 5
+    expected_exp = now + config.oidc_server.lifetime.total_seconds()
+    assert expected_exp - 5 <= oidc_token.claims["exp"] <= expected_exp + 5

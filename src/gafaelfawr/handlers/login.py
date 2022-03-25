@@ -249,7 +249,7 @@ async def handle_provider_return(
         user_info.uid,
         user=user_info.username,
         token=token.key,
-        scope=" ".join(scopes),
+        scopes=sorted(scopes),
     )
     return RedirectResponse(return_url)
 
@@ -282,9 +282,9 @@ def get_scopes_from_groups(
     scopes = set(["user:token"])
     found = False
     for group in [g.name for g in groups]:
-        if group in config.issuer.group_mapping:
+        if group in config.group_mapping:
             found = True
-            scopes.update(config.issuer.group_mapping[group])
+            scopes.update(config.group_mapping[group])
 
     return sorted(scopes) if found else None
 

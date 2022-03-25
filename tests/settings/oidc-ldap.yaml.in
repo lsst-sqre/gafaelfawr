@@ -14,11 +14,6 @@ known_scopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
-issuer:
-  iss: "https://test.example.com/"
-  key_id: "some-kid"
-  key_file: "{issuer_key_file}"
-  aud: "https://example.com/"
 ldap:
   url: "ldaps://ldap.example.com/"
   base_dn: "dc=example,dc=com"
@@ -36,7 +31,5 @@ oidc:
     - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
-  key_ids:
-    - "orig-kid"
 error_footer: |
   Some <strong>error instructions</strong> with HTML.

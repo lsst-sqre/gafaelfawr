@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional
 
+import jwt
 from structlog.stdlib import BoundLogger
 
 from ..config import OIDCServerConfig
+from ..constants import ALGORITHM
 from ..exceptions import (
     DeserializeException,
     InvalidClientError,
     InvalidGrantError,
+    InvalidTokenError,
     UnauthorizedClientException,
 )
-from ..issuer import TokenIssuer
-from ..models.oidc import OIDCVerifiedToken
-from ..models.token import Token
+from ..models.oidc import JWKS, OIDCConfig, OIDCToken, OIDCVerifiedToken
+from ..models.token import Token, TokenUserInfo
 from ..storage.oidc import OIDCAuthorizationCode, OIDCAuthorizationStore
 from .token import TokenService
 
@@ -32,11 +35,9 @@ class OIDCService:
     Parameters
     ----------
     config : `gafaelfawr.config.OIDCServerConfig`
-        Configuration for the OpenID Connect server.
+        OpenID Connect server configuration.
     authorization_store : `gafaelfawr.storage.oidc.OIDCAuthorizationStore`
         The underlying storage for OpenID Connect authorizations.
-    issuer : `gafaelfawr.issuer.TokenIssuer`
-        JWT issuer.
     token_service : `gafaelfawr.services.token.TokenService`
         Token manipulation service.
     logger : `structlog.stdlib.BoundLogger`
@@ -62,19 +63,33 @@ class OIDCService:
         *,
         config: OIDCServerConfig,
         authorization_store: OIDCAuthorizationStore,
-        issuer: TokenIssuer,
         token_service: TokenService,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._authorization_store = authorization_store
-        self._issuer = issuer
         self._token_service = token_service
         self._logger = logger
 
+    def get_jwks(self) -> JWKS:
+        """Return the key set for the OpenID Connect server."""
+        key_id = self._config.key_id
+        return self._config.keypair.public_key_as_jwks(kid=key_id)
+
+    def get_openid_configuration(self) -> OIDCConfig:
+        """Return the OpenID Connect configuration for the internal server."""
+        base_url = self._config.issuer
+        return OIDCConfig(
+            issuer=base_url,
+            authorization_endpoint=base_url + "/auth/openid/login",
+            token_endpoint=base_url + "/auth/openid/token",
+            userinfo_endpoint=base_url + "/auth/openid/userinfo",
+            jwks_uri=base_url + "/.well-known/jwks.json",
+        )
+
     def is_valid_client(self, client_id: str) -> bool:
         """Whether a client_id is a valid registered client."""
-        return any((c.client_id == client_id for c in self._config.clients))
+        return any(c.client_id == client_id for c in self._config.clients)
 
     async def issue_code(
         self, client_id: str, redirect_uri: str, token: Token
@@ -105,6 +120,53 @@ class OIDCService:
             raise UnauthorizedClientException(f"Unknown client ID {client_id}")
         return await self._authorization_store.create(
             client_id, redirect_uri, token
+        )
+
+    def issue_token(
+        self, user_info: TokenUserInfo, **claims: str
+    ) -> OIDCVerifiedToken:
+        """Issue an OpenID Connect token.
+
+        This creates a new OpenID Connect token with data taken from the
+        internal Gafaelfawr token.
+
+        Parameters
+        ----------
+        user_info : `gafaelfawr.models.token.TokenData`
+            The token data on which to base the token.
+        **claims : `str`
+            Additional claims to add to the token.
+
+        Returns
+        -------
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+            The new token.
+        """
+        now = datetime.now(timezone.utc)
+        expires = now + self._config.lifetime
+        payload = {
+            "aud": self._config.audience,
+            "iat": int(now.timestamp()),
+            "iss": self._config.issuer,
+            "exp": int(expires.timestamp()),
+            "name": user_info.name,
+            "preferred_username": user_info.username,
+            "sub": user_info.username,
+            "uid_number": user_info.uid,
+            **claims,
+        }
+        encoded_token = jwt.encode(
+            payload,
+            self._config.keypair.private_key_as_pem().decode(),
+            algorithm=ALGORITHM,
+            headers={"kid": self._config.key_id},
+        )
+        return OIDCVerifiedToken(
+            encoded=encoded_token,
+            claims=payload,
+            username=payload["sub"],
+            uid=payload["uid_number"],
+            jti=payload.get("jti"),
         )
 
     async def redeem_code(
@@ -171,14 +233,51 @@ class OIDCService:
         if not user_info:
             msg = f"Invalid underlying token for authorization {code.key}"
             raise InvalidGrantError(msg)
-        token = self._issuer.issue_token(
-            user_info, jti=code.key, scope="openid"
-        )
+        token = self.issue_token(user_info, jti=code.key, scope="openid")
 
         # The code is valid and we're going to return success, so delete it
         # from Redis so that it cannot be reused.
         await self._authorization_store.delete(code)
         return token
+
+    def verify_token(self, token: OIDCToken) -> OIDCVerifiedToken:
+        """Verify a token issued by the internal OpenID Connect server.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.models.oidc.OIDCToken`
+            An encoded token.
+
+        Returns
+        -------
+        verified_token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+            The verified token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.InvalidTokenError
+            The issuer of this token is unknown and therefore the token cannot
+            be verified.
+        gafaelfawr.exceptions.MissingClaimsException
+            The token is missing required claims.
+        """
+        try:
+            payload = jwt.decode(
+                token.encoded,
+                self._config.keypair.public_key_as_pem().decode(),
+                algorithms=[ALGORITHM],
+                audience=self._config.audience,
+            )
+            return OIDCVerifiedToken(
+                encoded=token.encoded,
+                claims=payload,
+                jti=payload["jti"],
+                username=payload["sub"],
+            )
+        except jwt.InvalidTokenError as e:
+            raise InvalidTokenError(str(e))
+        except KeyError as e:
+            raise InvalidTokenError(f"missing claim {str(e)}")
 
     def _check_client_secret(
         self, client_id: str, client_secret: Optional[str]

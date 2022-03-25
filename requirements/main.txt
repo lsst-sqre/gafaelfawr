@@ -438,12 +438,12 @@ idna==3.3 \
     #   anyio
     #   rfc3986
     #   yarl
-jinja2==3.0.3 \
-    --hash=sha256:077ce6014f7b40d03b47d1f1ca4b0fc8328a692bd284016f806ed0eaca390ad8 \
-    --hash=sha256:611bb273cd68f3b993fabdc4064fc858c5b47a973cb5aa7999ec1ba405c87cd7
+jinja2==3.1.0 \
+    --hash=sha256:a2f09a92f358b96b5f6ca6ecb4502669c4acb55d8733bbb2b2c9c4af5564c605 \
+    --hash=sha256:da424924c069a4013730d8dd010cbecac7e7bb752be388db3741688bffb48dc6
     # via -r requirements/main.in
-kubernetes-asyncio==22.6.0 \
-    --hash=sha256:fb6a29af3e37c8f10124b78e3e586e7586087e5fe39f7ecd588956ff85a0225e
+kubernetes-asyncio==22.6.1 \
+    --hash=sha256:91a2f4c1cfc0cd1fe5ef8a5f3f24da20b4e8a93e28d6ce9b985df2b686c1edb5
     # via
     #   -r requirements/main.in
     #   safir
@@ -604,9 +604,9 @@ python-dateutil==2.8.2 \
     --hash=sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86 \
     --hash=sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9
     # via kubernetes-asyncio
-python-dotenv==0.19.2 \
-    --hash=sha256:32b2bdc1873fd3a3c346da1c6db83d0053c3c62f28f1f38516070c4c8971b1d3 \
-    --hash=sha256:a5de49a31e953b45ff2d2fd434bbc2670e8db5273606c1e737cc6b93eff3655f
+python-dotenv==0.20.0 \
+    --hash=sha256:b7e3b04a59693c42c36f9ab1cc2acc46fa5df8c78e178fc33a8d4cd05c8d498f \
+    --hash=sha256:d92a187be61fe482e4fd675b6d52200e7be63a12b724abbf931a40ce4fa92938
     # via uvicorn
 python-multipart==0.0.5 \
     --hash=sha256:f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c83fa43
@@ -653,9 +653,9 @@ rfc3986[idna2008]==1.5.0 \
     --hash=sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835 \
     --hash=sha256:a86d6e1f5b1dc238b218b012df0aa79409667bb209e58da56d0b94704e712a97
     # via httpx
-safir[db,kubernetes]==3.0.1 \
-    --hash=sha256:0c416e17bee4d78457c75d022a7dd73148d93a91607a610cdad96b213cd61558 \
-    --hash=sha256:31e19fe6d1f7a74ccf7072a14ec22d12f3a80cb67be538dd3183b298effe2672
+safir[db,kubernetes]==3.0.2 \
+    --hash=sha256:6041e5b8ac236de654bf1edf2f086c8889eba28453e5262cb68f0ffe3561a3f5 \
+    --hash=sha256:89b1503f27126ef651233e076ad2a2bbf12c472a467349f45c37f5d9cfbf05cb
     # via -r requirements/main.in
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
@@ -755,9 +755,9 @@ uvloop==0.16.0 \
     --hash=sha256:e814ac2c6f9daf4c36eb8e85266859f42174a4ff0d71b99405ed559257750382 \
     --hash=sha256:f74bc20c7b67d1c27c72601c78cf95be99d5c2cdd4514502b4f3eb0933ff1228
     # via uvicorn
-watchgod==0.8 \
-    --hash=sha256:29a1d8f25e1721ddb73981652ca318c47387ffb12ec4171ddd7b9d01540033b1 \
-    --hash=sha256:339c2cfede1ccc1e277bbf5e82e42886f3c80801b01f45ab10d9461c4118b5eb
+watchgod==0.8.1 \
+    --hash=sha256:4ba20c2fa3e63df706ab50e694b9453b05395fadb7cbbfd984d71fb1547d485d \
+    --hash=sha256:c12d15f3df7d11e740704e45398277f75f1d78f46ad59ca9d7505bfd8b8d3086
     # via uvicorn
 websockets==10.2 \
     --hash=sha256:038afef2a05893578d10dadbdbb5f112bd115c46347e1efe99f6a356ff062138 \
@@ -885,7 +885,7 @@ yarl==1.7.2 \
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==60.10.0 \
-    --hash=sha256:6599055eeb23bfef457d5605d33a4d68804266e6cb430b0fb12417c5efeae36c \
-    --hash=sha256:782ef48d58982ddb49920c11a0c5c9c0b02e7d7d1c2ad0aa44e1a1e133051c96
+setuptools==61.1.0 \
+    --hash=sha256:63b73d83c4d419d9dd992978cf369af5b6efa06236a4a1397b9bdf3ecadb0453 \
+    --hash=sha256:9bc2671450c57d9e4885e7dcdc552e3b107b80a5a8f8b1a1df7d06f52db194be
     # via kubernetes-asyncio

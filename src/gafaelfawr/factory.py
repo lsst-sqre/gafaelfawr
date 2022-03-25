@@ -18,13 +18,14 @@ from .config import Config
 from .dependencies.config import config_dependency
 from .dependencies.redis import redis_dependency
 from .dependencies.token_cache import TokenCache
-from .issuer import TokenIssuer
+from .exceptions import NotConfiguredException
 from .models.token import TokenData
 from .providers.base import Provider
 from .providers.github import GitHubProvider
-from .providers.oidc import OIDCProvider
+from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
+from .services.influxdb import InfluxDBService
 from .services.kubernetes import KubernetesService
 from .services.oidc import OIDCService
 from .services.token import TokenService
@@ -36,7 +37,6 @@ from .storage.kubernetes import KubernetesStorage
 from .storage.ldap import LDAPStorage
 from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
-from .verify import TokenVerifier
 
 __all__ = ["ComponentFactory"]
 
@@ -91,8 +91,7 @@ class ComponentFactory:
         """
         config = await config_dependency()
         token_cache = TokenCache()
-        logger = structlog.get_logger(config.safir.logger_name)
-        assert logger
+        logger = structlog.get_logger("gafaelfawr")
         logger.debug("Connecting to Redis")
         redis = await redis_dependency(config)
         if check_db:
@@ -146,6 +145,18 @@ class ComponentFactory:
         admin_history_store = AdminHistoryStore(self.session)
         return AdminService(admin_store, admin_history_store, self._logger)
 
+    def create_influxdb_service(self) -> InfluxDBService:
+        """Create an InfluxDB token issuer service.
+
+        Returns
+        -------
+        influxdb_service : `gafaelfawr.services.influxdb.InfluxDBService`
+            Newly-created InfluxDB token issuer.
+        """
+        if not self._config.influxdb:
+            raise NotConfiguredException("No InfluxDB issuer configuration")
+        return InfluxDBService(self._config.influxdb)
+
     def create_kubernetes_service(
         self, api_client: ApiClient
     ) -> KubernetesService:
@@ -178,17 +189,38 @@ class ComponentFactory:
         oidc_service : `gafaelfawr.services.oidc.OIDCService`
             A new OpenID Connect server.
         """
-        assert self._config.oidc_server
+        if not self._config.oidc_server:
+            msg = "OpenID Connect server not configured"
+            raise NotConfiguredException(msg)
         key = self._config.session_secret
         storage = RedisStorage(OIDCAuthorization, key, self._redis)
         authorization_store = OIDCAuthorizationStore(storage)
-        issuer = self.create_token_issuer()
         token_service = self.create_token_service()
         return OIDCService(
             config=self._config.oidc_server,
             authorization_store=authorization_store,
-            issuer=issuer,
             token_service=token_service,
+            logger=self._logger,
+        )
+
+    def create_oidc_token_verifier(self) -> OIDCTokenVerifier:
+        """Create a JWT token verifier for OpenID Connect tokens.
+
+        This is normally used only as an implementation detail of the OpenID
+        Connect authentication provider, but can be created directly to
+        facilitate testing.
+
+        Returns
+        -------
+        verifier : `gafaelfawr.providers.oidc.OIDCTokenVerifier`
+            A new JWT token verifier.
+        """
+        if not self._config.oidc:
+            msg = "OpenID Connect provider not configured"
+            raise NotConfiguredException(msg)
+        return OIDCTokenVerifier(
+            config=self._config.oidc,
+            http_client=self._http_client,
             logger=self._logger,
         )
 
@@ -215,14 +247,14 @@ class ComponentFactory:
                 logger=self._logger,
             )
         elif self._config.oidc:
-            token_verifier = self.create_token_verifier()
+            verifier = self.create_oidc_token_verifier()
             ldap_storage = None
             if self._config.ldap:
                 ldap_storage = LDAPStorage(self._config.ldap, self._logger)
             return OIDCProvider(
                 config=self._config.oidc,
+                verifier=verifier,
                 ldap_storage=ldap_storage,
-                verifier=token_verifier,
                 http_client=self._http_client,
                 logger=self._logger,
             )
@@ -252,16 +284,6 @@ class ComponentFactory:
             logger=self._logger,
         )
 
-    def create_token_issuer(self) -> TokenIssuer:
-        """Create a TokenIssuer.
-
-        Returns
-        -------
-        issuer : `gafaelfawr.issuer.TokenIssuer`
-            A new TokenIssuer.
-        """
-        return TokenIssuer(self._config.issuer)
-
     def create_token_service(self) -> TokenService:
         """Create a TokenService.
 
@@ -290,18 +312,6 @@ class ComponentFactory:
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
             logger=self._logger,
-        )
-
-    def create_token_verifier(self) -> TokenVerifier:
-        """Create a TokenVerifier from a web request.
-
-        Returns
-        -------
-        token_verifier : `gafaelfawr.verify.TokenVerifier`
-            A new TokenVerifier.
-        """
-        return TokenVerifier(
-            self._config.verifier, self._http_client, self._logger
         )
 
     def reconfigure(self, config: Config) -> None:

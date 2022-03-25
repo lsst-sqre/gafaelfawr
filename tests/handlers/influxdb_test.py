@@ -29,8 +29,8 @@ async def test_influxdb(
 ) -> None:
     token_data = await create_session_token(factory)
     assert token_data.expires
-    influxdb_secret = config.issuer.influxdb_secret
-    assert influxdb_secret
+    assert config.influxdb
+    influxdb_secret = config.influxdb.secret
 
     caplog.clear()
     r = await client.get(
@@ -63,7 +63,7 @@ async def test_influxdb(
                 ),
                 "remoteIp": "127.0.0.1",
             },
-            "scope": "user:token",
+            "scopes": ["user:token"],
             "severity": "info",
             "token": token_data.token.key,
             "token_source": "bearer",
@@ -80,42 +80,19 @@ async def test_no_auth(client: AsyncClient, config: Config) -> None:
 
 @pytest.mark.asyncio
 async def test_not_configured(
-    tmp_path: Path,
-    client: AsyncClient,
-    factory: ComponentFactory,
-    caplog: LogCaptureFixture,
+    tmp_path: Path, client: AsyncClient, factory: ComponentFactory
 ) -> None:
     config = await configure(tmp_path, "oidc")
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
 
-    caplog.clear()
     r = await client.get(
         "/auth/tokens/influxdb/new",
         headers={"Authorization": f"bearer {token_data.token}"},
     )
 
     assert r.status_code == 404
-    assert r.json()["detail"]["type"] == "not_supported"
-
-    assert parse_log(caplog) == [
-        {
-            "error": "No InfluxDB issuer configuration",
-            "event": "Not configured",
-            "httpRequest": {
-                "requestMethod": "GET",
-                "requestUrl": (
-                    f"https://{TEST_HOSTNAME}/auth/tokens/influxdb/new"
-                ),
-                "remoteIp": "127.0.0.1",
-            },
-            "scope": "user:token",
-            "severity": "warning",
-            "token": token_data.token.key,
-            "token_source": "bearer",
-            "user": token_data.username,
-        }
-    ]
+    assert r.json()["detail"][0]["type"] == "not_supported"
 
 
 @pytest.mark.asyncio
@@ -129,8 +106,8 @@ async def test_influxdb_force_username(
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
     assert token_data.expires
-    influxdb_secret = config.issuer.influxdb_secret
-    assert influxdb_secret
+    assert config.influxdb
+    influxdb_secret = config.influxdb.secret
 
     caplog.clear()
     r = await client.get(
@@ -158,7 +135,7 @@ async def test_influxdb_force_username(
                 ),
                 "remoteIp": "127.0.0.1",
             },
-            "scope": "user:token",
+            "scopes": ["user:token"],
             "severity": "info",
             "token": token_data.token.key,
             "token_source": "bearer",

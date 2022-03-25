@@ -25,14 +25,12 @@ database_url: "postgresql://gafaelfawr:<password>@example.com/gafaelfawr"
 # Replace <token> with a token generated via gafaelfawr generate-token.
 bootstrap_token: "<token>"
 
-# Replace this with a list of users who should have admin rights when
-# bootstrapping a fresh database.
-initial_admins:
-  - example
-
 # The URL of and password for a Redis instance used for storing sessions.
 redis_url: "redis://redis.example.com:6379/0"
 redis_password_file: "/path/to/redis-password"
+
+# How long Gafaelfawr-issued tokens should live by default.
+token_lifetime_minutes: 1440 # 1 day
 
 # The IP address ranges used internally in the Kubernetes cluster.  Used
 # to determine the external IP address for logging purposes.
@@ -42,22 +40,17 @@ proxies:
 # Where to send the user after logging out.
 after_logout_url: "https://example.com/"
 
-# Configuration for the internal issuer.  This controls the JWTs that are
-# generated internally by Gafaelfawr and passed to the protected
-# applications.
-issuer:
-  iss: "https://example.com"
-  key_id: "example-key-id"
-  aud: "https://example.com"
-  key_file: "/path/to/issuer-key"
-  exp_minutes: 1440 # 1 day
-
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
 # application.
 github:
   client_id: "<github-client-id>"
   client_secret_file: "/path/to/github-client-secret"
+
+# Replace this with a list of users who should have admin rights when
+# bootstrapping a fresh database.
+initial_admins:
+  - "example"
 
 # Sample values for scopes.  You can replace these with anything you want
 # to use for a scope.  Used to populate the new token creation page.

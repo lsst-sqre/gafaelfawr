@@ -31,8 +31,6 @@ API reference
 
 .. automodapi:: gafaelfawr.factory
 
-.. automodapi:: gafaelfawr.issuer
-
 .. automodapi:: gafaelfawr.keypair
 
 .. automodapi:: gafaelfawr.middleware.state
@@ -61,6 +59,8 @@ API reference
 
 .. automodapi:: gafaelfawr.services.admin
 
+.. automodapi:: gafaelfawr.services.influxdb
+
 .. automodapi:: gafaelfawr.services.kubernetes
 
 .. automodapi:: gafaelfawr.services.oidc
@@ -87,5 +87,3 @@ API reference
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.util
-
-.. automodapi:: gafaelfawr.verify

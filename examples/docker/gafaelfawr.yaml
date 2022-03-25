@@ -20,25 +20,16 @@ database_url: "postgresql://gafaelfawr:INSECURE@postgresql/gafaelfawr"
 # development not accessible to the Internet.
 bootstrap_token: "gt-OwYUKbFrIRfcTnKcX9bEGA.9SPTVsVv3fxUzXqogQpCXg"
 
-# Replace this user with your GitHub username.
-initial_admins:
-  - "example"
-
 # This Redis will be started by the docker-compose.yaml file at the top
 # level of the repository.
 redis_url: "redis://redis:6379/0"
 redis_password_file: "/run/secrets/redis-password"
 
+# How long Gafaelfawr-issued tokens should live by default.
+token_lifetime_minutes: 1440 # 1 day
+
 # Where to send the user after logging out.
 after_logout_url: "http://localhost:8080"
-
-# Configuration for the JWTs issued by Gafaelfawr.
-issuer:
-  iss: "http://localhost:8080"
-  key_id: "localhost-key-id"
-  aud: "http://localhost"
-  key_file: "/run/secrets/issuer-key"
-  exp_minutes: 1440 # 1 day
 
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
@@ -47,6 +38,18 @@ issuer:
 github:
   client_id: "<github-client-id>"
   client_secret_file: "/run/secrets/github-client-secret"
+
+# Configuration for the Gafaelfawr OpenID Connect server.
+oidc_server:
+  issuer: "http://localhost:8080"
+  key_id: "localhost-key-id"
+  audience: "http://localhost"
+  key_file: "/run/secrets/issuer-key"
+  secrets_file: "/run/secrets/oidc-clients.json"
+
+# Replace this user with your GitHub username.
+initial_admins:
+  - "example"
 
 # Sample values.  You can replace these with anything you want to use
 # for a scope.

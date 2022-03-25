@@ -1,10 +1,7 @@
 """Handlers for the app's root, ``/``."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from safir.metadata import Metadata, get_metadata
-
-from ..config import Config
-from ..dependencies.config import config_dependency
 
 router = APIRouter()
 
@@ -23,11 +20,11 @@ __all__ = ["get_index"]
     summary="Application metadata",
     tags=["internal"],
 )
-async def get_index(config: Config = Depends(config_dependency)) -> Metadata:
+async def get_index() -> Metadata:
     """GET ``/`` (the app's internal root).
 
     By convention, this endpoint returns only the application's metadata.
     """
     return get_metadata(
-        package_name="gafaelfawr", application_name=config.safir.name
+        package_name="gafaelfawr", application_name="gafaelfawr"
     )
