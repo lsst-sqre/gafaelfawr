@@ -6,8 +6,10 @@ Versioning follows `semver <https://semver.org/>`__.
 Versioning assumes that Gafaelfawr is installed and configured via `Phalanx <https://phalanx.lsst.io/>`__, so only changes to configuration changes exposed in the Helm values file are considered breaking changes.
 The internal configuration format may change in minor releases.
 
-4.0.0 (unreleased)
+4.0.0 (2022-03-25)
 ==================
+
+As of this release, the only supported mechanism for installing Gafaelfawr is as part of the Vera C. Rubin Science Platform, using `Phalanx <https://github.com/lsst-sqre/phalanx/>`__.
 
 - The Gafaelfawr token lifetime is now configured with ``config.tokenLifetimeMinutes`` instead of ``config.issuer.expMinutes``.
 - The internal OpenID Connect server now puts the numeric UID in a ``uid_number`` claim rather than ``uidNumber`` for consistency with the naming scheme of other claims.
@@ -17,6 +19,7 @@ The internal configuration format may change in minor releases.
 - Log token scopes as proper lists instead of space- or comma-separated strings.
 - Return 404 with a proper error if the OpenID Connect server routes are accessed when Gafaelfawr is not configured to act as an OpenID Connect server.
 - Drop support for Python 3.9.
+- Update dependencies.
 
 3.6.0 (2022-02-24)
 ==================
