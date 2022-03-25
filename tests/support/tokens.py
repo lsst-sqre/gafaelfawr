@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import timedelta
+from typing import List, Optional
 
-import jwt
 from sqlalchemy.ext.asyncio import async_scoped_session
 
-from gafaelfawr.config import Config
-from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
-from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
-from gafaelfawr.models.oidc import OIDCVerifiedToken
 from gafaelfawr.models.token import (
     Token,
     TokenData,
@@ -26,13 +20,9 @@ from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import current_datetime
 
-from .constants import TEST_KEYPAIR
-
 __all__ = [
     "add_expired_session_token",
     "create_session_token",
-    "create_test_token",
-    "create_upstream_oidc_token",
 ]
 
 
@@ -142,117 +132,3 @@ async def create_session_token(
     data = await token_service.get_data(token)
     assert data
     return data
-
-
-def create_test_token(
-    config: Config,
-    groups: Optional[List[str]] = None,
-    *,
-    keypair: Optional[RSAKeyPair] = None,
-    kid: str = "some-kid",
-    **claims: Any,
-) -> OIDCVerifiedToken:
-    """Create a signed token using the configured test issuer.
-
-    This will match the issuer and audience of the default JWT Authorizer
-    issuer, so JWT Authorizer will not attempt to reissue it.
-
-    Parameters
-    ----------
-    config : `gafaelfawr.config.Config`
-        The configuration.
-    groups : List[`str`], optional
-        Group memberships the generated token should have.
-    keypair : `gafaelfawr.keypair.RSAKeyPair`, optional
-        Key to use to sign the token.  Default is the internal issuer key.
-    kid : str, optional
-        The kid to set in the envelope.  Defaults to ``some-kid``.
-    **claims : Union[`str`, `int`], optional
-        Other claims to set or override in the token.
-
-    Returns
-    -------
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The generated token.
-    """
-    if not keypair:
-        assert config.oidc_server
-        keypair = config.oidc_server.keypair
-    now = datetime.now(timezone.utc)
-    exp = now + timedelta(days=24)
-    payload: Dict[str, Any] = {
-        "aud": "https://example.com/",
-        "email": "some-user@example.com",
-        "iat": int(now.timestamp()),
-        "exp": int(exp.timestamp()),
-        "jti": "some-unique-id",
-        "sub": "some-user",
-        "uid": "some-user",
-        "uidNumber": "1000",
-    }
-    if config.oidc_server:
-        payload["iss"] = config.oidc_server.issuer
-    if groups:
-        payload["isMemberOf"] = [
-            {"name": g, "id": 1000 + n} for n, g in enumerate(groups)
-        ]
-    payload.update(claims)
-
-    encoded = jwt.encode(
-        payload,
-        keypair.private_key_as_pem().decode(),
-        algorithm=ALGORITHM,
-        headers={"kid": kid},
-    )
-
-    return OIDCVerifiedToken(
-        encoded=encoded,
-        claims=payload,
-        jti=payload["jti"],
-        username=payload["uid"],
-        uid=payload["uidNumber"],
-        email=payload["email"],
-        scope=set(payload.get("scope", "").split()),
-    )
-
-
-async def create_upstream_oidc_token(
-    *,
-    kid: Optional[str] = None,
-    groups: Optional[List[str]] = None,
-    **claims: Any,
-) -> OIDCVerifiedToken:
-    """Create a signed token using the OpenID Connect issuer.
-
-    This will match the issuer and audience of the issuer for an OpenID
-    Connect authentication.
-
-    Parameters
-    ----------
-    config : `gafaelfawr.config.Config`
-        The configuration.
-    kid : `str`, optional
-        Key ID for the token header.  Default is ``orig-kid``.
-    groups : List[`str`], optional
-        Group memberships the generated token should have.
-    **claims : `str`, optional
-        Other claims to set or override in the token.
-
-    Returns
-    -------
-    token : `gafaelfawr.tokens.VerifiedToken`
-        The new token.
-    """
-    config = await config_dependency()
-    assert config.oidc
-    if not kid:
-        kid = "orig-kid"
-    payload = {
-        "aud": config.oidc.audience,
-        "iss": config.oidc.issuer,
-        "jti": "some-upstream-id",
-    }
-    payload.update(claims)
-    return create_test_token(
-        config, groups=groups, keypair=TEST_KEYPAIR, kid=kid, **payload
-    )

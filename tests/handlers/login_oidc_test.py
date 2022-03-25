@@ -13,11 +13,11 @@ from httpx import AsyncClient, ConnectError
 
 from gafaelfawr.dependencies.config import config_dependency
 
+from ..support.jwt import create_upstream_oidc_jwt
 from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
 from ..support.oidc import mock_oidc_provider_config, mock_oidc_provider_token
 from ..support.settings import configure
-from ..support.tokens import create_upstream_oidc_token
 
 
 @pytest.mark.asyncio
@@ -28,7 +28,7 @@ async def test_login(
     caplog: LogCaptureFixture,
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(
+    token = create_upstream_oidc_jwt(
         groups=["admin"], name="Some Person", email="person@example.com"
     )
     await mock_oidc_provider_config(respx_mock, "orig-kid")
@@ -127,7 +127,7 @@ async def test_login_redirect_header(
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(groups=["admin"])
+    token = create_upstream_oidc_jwt(groups=["admin"])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
     return_url = "https://example.com/foo?a=bar&b=baz"
@@ -153,7 +153,7 @@ async def test_oauth2_callback(
 ) -> None:
     """Test the compatibility /oauth2/callback route."""
     config = await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(groups=["admin"])
+    token = create_upstream_oidc_jwt(groups=["admin"])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
     assert config.oidc
@@ -185,7 +185,7 @@ async def test_claim_names(
         config.oidc.username_claim: "alt-username",
         config.oidc.uid_claim: 7890,
     }
-    token = await create_upstream_oidc_token(
+    token = create_upstream_oidc_jwt(
         kid="orig-kid", groups=["admin"], **claims
     )
     await mock_oidc_provider_config(respx_mock, "orig-kid")
@@ -348,7 +348,7 @@ async def test_verify_error(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     config = await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(groups=["admin"])
+    token = create_upstream_oidc_jwt(groups=["admin"])
     assert config.oidc
     issuer = config.oidc.issuer
     config_url = urljoin(issuer, "/.well-known/openid-configuration")
@@ -378,7 +378,7 @@ async def test_invalid_username(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(
+    token = create_upstream_oidc_jwt(
         groups=["admin"], sub="invalid@user", uid="invalid@user"
     )
     await mock_oidc_provider_config(respx_mock, "orig-kid")
@@ -403,7 +403,7 @@ async def test_invalid_group_syntax(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(isMemberOf=47)
+    token = create_upstream_oidc_jwt(isMemberOf=47)
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
     return_url = "https://example.com/foo"
@@ -426,7 +426,7 @@ async def test_invalid_groups(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(
+    token = create_upstream_oidc_jwt(
         isMemberOf=[
             {"name": "foo"},
             {"group": "bar", "id": 4567},
@@ -464,7 +464,7 @@ async def test_no_valid_groups(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(groups=[])
+    token = create_upstream_oidc_jwt(groups=[])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
     return_url = "https://example.com/foo?a=bar&b=baz"
@@ -494,7 +494,7 @@ async def test_unicode_name(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     await configure(tmp_path, "oidc")
-    token = await create_upstream_oidc_token(name="名字", groups=["admin"])
+    token = create_upstream_oidc_jwt(name="名字", groups=["admin"])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
     return_url = "https://example.com/foo"
@@ -529,7 +529,7 @@ async def test_ldap(
 ) -> None:
     config = await config_dependency()
     assert config.ldap
-    token = await create_upstream_oidc_token(groups=["admin"])
+    token = create_upstream_oidc_jwt(groups=["admin"])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
     return_url = "https://example.com/foo"

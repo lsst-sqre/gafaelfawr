@@ -25,9 +25,9 @@ from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
 
 from ..support.constants import TEST_KEYPAIR
+from ..support.jwt import create_upstream_oidc_jwt
 from ..support.oidc import mock_oidc_provider_config
 from ..support.settings import configure
-from ..support.tokens import create_upstream_oidc_token
 
 
 def encode_token(
@@ -150,7 +150,7 @@ async def test_key_retrieval(
     respx_mock.get(oidc_url).respond(404)
 
     # Check token verification with this configuration.
-    token = await create_upstream_oidc_token(kid="some-kid")
+    token = create_upstream_oidc_jwt(kid="some-kid")
     assert await verifier.verify_token(token)
 
     # Wrong algorithm for the key.
@@ -170,7 +170,7 @@ async def test_key_retrieval(
 
     # Try with a new key ID and return a malformed reponse.
     respx_mock.get(jwks_url).respond(json=["foo"])
-    token = await create_upstream_oidc_token(kid="malformed")
+    token = create_upstream_oidc_jwt(kid="malformed")
     with pytest.raises(FetchKeysException):
         await verifier.verify_token(token)
 
@@ -184,7 +184,7 @@ async def test_key_retrieval(
     jwks.keys[1].kid = "another-kid"
     respx_mock.get(jwks_url).respond(json=jwks.dict())
     respx_mock.get(oidc_url).respond(json=["foo"])
-    token = await create_upstream_oidc_token(kid="another-kid")
+    token = create_upstream_oidc_jwt(kid="another-kid")
     with pytest.raises(FetchKeysException):
         await verifier.verify_token(token)
 
