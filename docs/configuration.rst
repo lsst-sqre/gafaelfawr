@@ -2,8 +2,8 @@
 Installation guide
 ##################
 
-Gafaelfawr was written to run inside a Kubernetes environment.
-While there is nothing intrinsic in Gafaelfawr that would prevent it from working in some other environment, only installation on Kubernetes has been documented or tested.
+Gafaelfawr was written to run within the Vera C. Rubin Science Platform.
+While there is nothing intrinsic in Gafaelfawr that would prevent it from working in some other environment, only installation via `Phalanx <https://github.com/lsst-sqre/phalanx>`__ is supported or has been tested.
 
 Prerequisites
 =============
@@ -86,8 +86,8 @@ You will need the following information from the OpenID Connect provider:
 Vault secrets
 =============
 
-The standard Helm chart for Gafaelfawr (described below) assumes that you will use `Vault`_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets in Kubernetes.
-If you are using it, create a Vault secret with the following keys:
+Gafaelfawr uses secrets stored in `Vault`_ and uses `Vault Secrets Operator`_ to materialize those secrets in Kubernetes.
+The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevant Science Platform environment containing the following keys:
 
 ``bootstrap-token``
     A Gafaelfawr token created with ``gafaelfawr generate-token``.
@@ -107,16 +107,16 @@ If you are using it, create a Vault secret with the following keys:
     This is only required if you're using GitHub for authentication.
 
 ``influxdb-secret`` (optional)
+    Only used if the Helm chart parameter ``config.influxdb.enabled`` is set to true.
     The shared secret to use for issuing InfluxDB tokens.
     See :ref:`influxdb` for more information.
-    You can omit this if you don't need InfluxDB token support.
 
 ``oidc-client-secret``
     The secret for an OpenID Connect authentication provider.
     This is only required if you're using generic OpenID Connect for authentication.
 
 ``oidc-server-secrets`` (optional)
-    Only used if the Helm chart parameter ``oidcServer.enabled`` is set to true.
+    Only used if the Helm chart parameter ``config.oidcServer.enabled`` is set to true.
     The JSON representation of the OpenID Connect clients.
     Must be a JSON list of objects, each of which must have ``id`` and ``secret`` keys corresponding to the ``client_id`` and ``client_secret`` parameters sent by OpenID Connect clients.
     See :ref:`openid-connect` for more information.
@@ -130,25 +130,20 @@ If you are using it, create a Vault secret with the following keys:
     Generate with :py:meth:`cryptography.fernet.Fernet.generate_key`.
 
 ``signing-key``
-    Only used if the Helm chart parameter ``oidcServer.enabled`` is set to true.
+    Only used if the Helm chart parameter ``config.oidcServer.enabled`` is set to true.
     The PEM-encoded RSA private key used to sign internally-issued JWTs.
     Generate with ``gafaelfawr generate-key``.
 
-You will reference the path to this secret in Vault when configuring the Helm chart later.
-
 .. _helm-settings:
 
-Helm deployment
-===============
+Helm configuration
+==================
 
-The supported way of deploying Gafaelfawr is to use the Helm chart in the `Rubin Observatory charts repository <https://lsst-sqre.github.io/charts/>`__.
-The Helm chart only supports GitHub or CILogon as identity providers.
-
-To use that chart, you will need to provide a ``values.yaml`` file or otherwise set various Helm values.
+The supported way of deploying Gafaelfawr is as a Phalanx service, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr/>`__.
+You will need to provide a ``values-<environment>.yaml`` file for your Phalanx environment.
 Below are the most-commonly-used settings.
-For a complete reference, see `the Helm chart documentation <https://github.com/lsst-sqre/charts/tree/master/charts/gafaelfawr>`__.
-
-For examples, see `the configuration for the LSST Science Platform deployments <https://github.com/lsst-sqre/lsp-deploy/blob/master/services/gafaelfawr>`__.
+For a complete reference, see `the Helm chart documentation <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr>`__.
+For examples, see the other ``values-<environment>.yaml`` files in that directory.
 
 In the below examples, the full key hierarchy is shown for each setting.
 For example:
@@ -167,12 +162,6 @@ For example, there should be one top-level ``config:`` key and all parameters th
 Basic settings
 --------------
 
-Set the path in Vault where the Gafaelfawr secret is stored:
-
-.. code-block:: yaml
-
-   vaultSecretsPath: "secret/path/in/vault"
-
 Set the URL to the PostgreSQL database that Gafaelfawr will use:
 
 .. code-block:: yaml
@@ -182,22 +171,6 @@ Set the URL to the PostgreSQL database that Gafaelfawr will use:
 
 Do not include the password in the URL; instead, put the password in the ``database-password`` key in the Vault secret.
 If you are using Cloud SQL with the Cloud SQL Auth Proxy (see :ref:`cloudsql`), use ``localhost`` for the hostname portion.
-
-Set the hostname that Gafaelfawr will be protecting:
-
-.. code-block:: yaml
-
-   config:
-     host: "hostname.example.com"
-   ingress:
-     host: "hostname.example.com"
-
-You can omit ``ingress.host`` if you aren't using named virtual hosts and want all routes to be registered for ``*``.
-The ``/auth``, ``/login``, ``/logout``, ``/oauth2/callback``, and ``/.well-known/jwks.json`` routes will be claimed under this host (or under ``*`` if it is not given) by the Gafaelfawr ingress configuration.
-If ``config.oidcServer.enabled`` is set to true, the ``/.well-known/openid-configuration`` route will also be claimed.
-
-If you need to configure TLS options or annotations for the ingress, use ``ingress.annotations`` and ``ingress.tls``.
-The syntax is the same as the ``metadata.annotations`` and ``spec.tls`` attributes of a Kubernetes ``Ingress`` resource.
 
 To add additional information to the error page from a failed login, set ``config.errorFooter`` to a string.
 This string will be embedded verbatim, inside a ``<p>`` tag, in all login error messages.
@@ -365,7 +338,7 @@ The default includes:
        "user:token": "Can create and modify user tokens"
 
 which are used internally by Gafaelfawr, plus the scopes that are used by the Rubin Science Platform.
-You can add additional scopes by adding more key/value pairs to the ``config.knownScopes`` object in ``values.yaml``.
+You can add additional scopes by adding more key/value pairs to the ``config.knownScopes`` object in ``values-<environment>.yaml``.
 
 Once the scopes are configured, you will need to set up a mapping from groups to scope names.
 
@@ -508,23 +481,22 @@ OpenID Connect server
 
 Gafaelfawr can act as an OpenID Connect identity provider for relying parties inside the Kubernetes cluster.
 To enable this, set ``config.oidcServer.enabled`` to true.
-If this is set, ``oidc-server-secrets`` must be set in the Gafaelfawr Vault secret.
+If this is set, ``oidc-server-secrets`` and ``signing-key`` must be set in the Gafaelfawr Vault secret.
 See :ref:`openid-connect` for more information.
 
 InfluxDB tokens
 ---------------
 
-To enable issuing of InfluxDB tokens, set ``config.issuer.influxdb.enabled``.
-To force all InfluxDB tokens to be issued with the same username, instead of the username requesting the token, set ``config.issuer.influxdb.username``.
+To enable issuing of InfluxDB tokens, set ``config.influxdb.enabled``.
+To force all InfluxDB tokens to be issued with the same username, instead of the username requesting the token, set ``config.influxdb.username``.
 For example:
 
 .. code-block:: yaml
 
    config:
-     issuer:
-       influxdb:
-         enabled: true
-         username: "influxdbuser"
+     influxdb:
+       enabled: true
+       username: "influxdbuser"
 
 If this is set, ``influxdb-secret`` must be set in the Vault secret.
 See :ref:`influxdb` for more information.
