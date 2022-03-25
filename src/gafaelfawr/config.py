@@ -5,6 +5,26 @@ There are two, mostly-parallel models defined here.  The ones ending in
 the root of which is `Settings`.  This is then processed and broken up into
 configuration dataclasses for various components and then exposed to the rest
 of Gafaelfawr as the `Config` object.
+
+Notes
+-----
+It would be ideal if Pydantic could be used directly for settings without
+rewriting the Pydantic Settings classes into dataclasses.  However, there are
+two missing features in the Pydantic system that interfere with this:
+
+#. Loading secrets from disk directly in the Pydantic model is difficult.
+   Pydantic does support a mechanism for loading configuration keys from disk
+   files, but it doesn't support nested structure, which we want so that the
+   configurations for different internal Gafaelfawr components are kept
+   separate (which in turn simplifies a lot of code that otherwise would have
+   to check for `None` repeatedly).
+#. Pydantic provides poor support for loading a YAML file whose file name is
+   not known statically.  We have to use ``parse_obj``, which in turn makes
+   some other Pydantic Settings constructor arguments accessible only via
+   static configuration.
+
+After a couple of tries at using Pydantic directly, the current approach,
+while somewhat repetitive, seems easier to support.
 """
 
 from __future__ import annotations
