@@ -214,7 +214,7 @@ class Settings(BaseSettings):
     list of admins and create service and user tokens.
     """
 
-    token_lifetime_minutes: int = 1440  # 1 day
+    token_lifetime_minutes: int = 1380  # 23 hours
     """Number of minutes into the future that a token should expire."""
 
     proxies: Optional[List[IPvAnyNetwork]]

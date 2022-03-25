@@ -150,6 +150,18 @@ For a complete reference, see `the Helm chart documentation <https://github.com/
 
 For examples, see `the configuration for the LSST Science Platform deployments <https://github.com/lsst-sqre/lsp-deploy/blob/master/services/gafaelfawr>`__.
 
+In the below examples, the full key hierarchy is shown for each setting.
+For example:
+
+.. code-block::
+
+   config:
+     cilogon:
+       test: true
+
+When writing a ``values-<environment>.yaml`` chart, you should coalesce all settings so that each level of the hierarchy appears only once.
+For example, there should be one top-level ``config:`` key and all parameters that start with ``config.`` should go under that key.
+
 .. _basic-settings:
 
 Basic settings
@@ -199,6 +211,16 @@ Production deployments should use at least two replicas.
 .. code-block:: yaml
 
    replicaCount: 2
+
+Change the token lifetime by setting ``config.tokenLifetimeMinutes``.
+The default is 1380 (23 hours).
+
+.. code-block:: yaml
+
+   config:
+     tokenLifetimeMinutes: 43200  # 30 days
+
+This setting will also affect the lifetime of tokens issued by the OpenID Connect server and the InfluxDB token issuer, if enabled.
 
 Finally, you may want to define the initial set of administrators:
 
