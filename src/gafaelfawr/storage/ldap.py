@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator, List, Optional
 
 import bonsai
+from bonsai.utils import escape_filter_exp
 from structlog.stdlib import BoundLogger
 
 from ..config import LDAPConfig
@@ -29,6 +30,12 @@ class LDAPStorage:
     def __init__(self, config: LDAPConfig, logger: BoundLogger) -> None:
         self._config = config
         self._client = bonsai.LDAPClient(config.url)
+        if self._config.user_dn and self._config.password:
+            self._client.set_credentials(
+                "SIMPLE",
+                user=self._config.user_dn,
+                password=self._config.password,
+            )
         self._logger = logger.bind(
             ldap_url=self._config.url,
             ldap_base=self._config.uid_base_dn,
@@ -74,6 +81,71 @@ class LDAPStorageConnection:
         self._config = config
         self._logger = logger
 
+    async def get_username(self, sub: str) -> Optional[str]:
+        """Get the username of a user.
+
+        Parameters
+        ----------
+        sub : `str`
+            The ``sub`` claim from a JWT.
+
+        Returns
+        -------
+        username : `str` or `None`
+            The corresponding username from LDAP, or `None` if Gafaelfawr was
+            not configured to get the username from LDAP (in which case the
+            caller should fall back to other sources of the username).
+
+        Raises
+        ------
+        gafaelfawr.exceptions.LDAPException
+            The lookup by ``username_search_attr`` in the LDAP server was not
+            valid (connection to the LDAP server failed, attribute not found
+            in LDAP, result value not an integer).
+        """
+        if not self._config.username_base_dn:
+            return None
+
+        sub_escaped = escape_filter_exp(sub)
+        search = f"(&({self._config.username_search_attr}={sub_escaped}))"
+        self._logger.debug(
+            "Querying LDAP for username", ldap_search=search, sub=sub
+        )
+
+        try:
+            results = await self._conn.search(
+                self._config.username_base_dn,
+                bonsai.LDAPSearchScope.ONE,
+                search,
+                attrlist=["uid"],
+            )
+        except bonsai.LDAPError as e:
+            self._logger.error(
+                "Cannot query LDAP for username",
+                error=str(e),
+                ldap_search=search,
+                sub=sub,
+            )
+            raise LDAPException("Error querying LDAP for username")
+
+        for result in results:
+            try:
+                return result["uid"][0]
+            except Exception as e:
+                self._logger.error(
+                    "LDAP username is invalid",
+                    error=str(e),
+                    ldap_search=search,
+                    sub=sub,
+                )
+                raise LDAPException("Username in LDAP is invalid")
+
+        # Fell through without finding a UID.
+        self._logger.error(
+            "No username found in LDAP", ldap_search=search, sub=sub
+        )
+        raise LDAPException("No username found in LDAP")
+
     async def get_uid(self, username: str) -> Optional[int]:
         """Get the numeric UID of a user.
 
@@ -92,7 +164,7 @@ class LDAPStorageConnection:
         Raises
         ------
         gafaelfawr.exceptions.LDAPException
-            The lookup of ``uid_number_attr`` in the LDAP server was not valid
+            The lookup of ``uid_attr`` in the LDAP server was not valid
             (connection to the LDAP server failed, attribute not found in
             LDAP, result value not an integer).
         """

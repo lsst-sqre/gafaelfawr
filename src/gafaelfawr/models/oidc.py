@@ -150,8 +150,6 @@ class OIDCVerifiedToken(OIDCToken):
         ..., title="The claims contained in the token"
     )
 
-    username: str = Field(..., title="The value of the username claim")
-
     jti: Optional[str] = Field(
         None, title="The jti (JWT ID) claim from the token"
     )

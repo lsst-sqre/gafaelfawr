@@ -17,6 +17,7 @@ known_scopes:
 ldap:
   url: "ldaps://ldap.example.com/"
   base_dn: "dc=example,dc=com"
+  username_base_dn: "dc=example,dc=com"
   uid_base_dn: "dc=example,dc=com"
 oidc:
   client_id: "some-oidc-client-id"

@@ -251,6 +251,6 @@ async def verified_oidc_token(
         raise generate_challenge(context, AuthType.Bearer, e)
 
     # Add user information to the logger.
-    context.rebind_logger(token=token.jti, user=token.username)
+    context.rebind_logger(token=token.jti, user=token.claims["sub"])
 
     return token

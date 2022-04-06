@@ -79,8 +79,9 @@ async def test_login(
     # Verify the logging.
     expected_scopes = set(config.group_mapping["admin"])
     expected_scopes.add("user:token")
-    uid = token.claims["uidNumber"]
-    event = f"Successfully authenticated user {token.username} ({uid})"
+    username = token.claims[config.oidc.username_claim]
+    uid = token.claims[config.oidc.uid_claim]
+    event = f"Successfully authenticated user {username} ({uid})"
     assert parse_log(caplog) == [
         {
             "event": f"Retrieving ID token from {config.oidc.token_url}",
@@ -103,7 +104,7 @@ async def test_login(
             "scopes": sorted(expected_scopes),
             "severity": "info",
             "token": ANY,
-            "user": token.username,
+            "user": username,
         },
     ]
 
@@ -115,9 +116,9 @@ async def test_login(
     )
     assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
-    assert r.headers["X-Auth-Request-User"] == token.username
+    assert r.headers["X-Auth-Request-User"] == username
     assert r.headers["X-Auth-Request-Email"] == "person@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == token.claims["uidNumber"]
+    assert r.headers["X-Auth-Request-Uid"] == uid
     assert r.headers["X-Auth-Request-Groups"] == "admin"
 
 
@@ -463,7 +464,8 @@ async def test_invalid_groups(
 async def test_no_valid_groups(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    await configure(tmp_path, "oidc")
+    config = await configure(tmp_path, "oidc")
+    assert config.oidc
     token = create_upstream_oidc_jwt(groups=[])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
@@ -480,7 +482,8 @@ async def test_no_valid_groups(
     )
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    expected = f"{token.username} is not a member of any authorized groups"
+    username = token.claims[config.oidc.username_claim]
+    expected = f"{username} is not a member of any authorized groups"
     assert expected in r.text
     assert "Some <strong>error instructions</strong> with HTML." in r.text
 
@@ -493,7 +496,8 @@ async def test_no_valid_groups(
 async def test_unicode_name(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    await configure(tmp_path, "oidc")
+    config = await configure(tmp_path, "oidc")
+    assert config.oidc
     token = create_upstream_oidc_jwt(name="名字", groups=["admin"])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
@@ -515,10 +519,10 @@ async def test_unicode_name(
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
     assert r.json() == {
-        "username": token.username,
+        "username": token.claims[config.oidc.username_claim],
         "name": "名字",
         "email": token.claims["email"],
-        "uid": int(token.claims["uidNumber"]),
+        "uid": int(token.claims[config.oidc.uid_claim]),
         "groups": [{"name": "admin", "id": 1000}],
     }
 
@@ -529,7 +533,7 @@ async def test_ldap(
 ) -> None:
     config = await config_dependency()
     assert config.ldap
-    token = create_upstream_oidc_jwt(groups=["admin"])
+    token = create_upstream_oidc_jwt(sub=mock_ldap.source_id, groups=["admin"])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
     return_url = "https://example.com/foo"
@@ -550,7 +554,7 @@ async def test_ldap(
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
     assert r.json() == {
-        "username": token.username,
+        "username": "ldap-user",
         "email": token.claims["email"],
         "uid": 2000,
         "groups": [{"name": g.name, "id": g.id} for g in mock_ldap.groups],
