@@ -102,7 +102,7 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     The password to use for the PostgreSQL database.
     This should be set to a long, randomly-generated alphanumeric string.
 
-``github-client-secret``
+``github-client-secret`` (optional)
     The GitHub secret, obtained when creating the OAuth App as described above.
     This is only required if you're using GitHub for authentication.
 
@@ -111,7 +111,12 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     The shared secret to use for issuing InfluxDB tokens.
     See :ref:`influxdb` for more information.
 
-``oidc-client-secret``
+``ldap-secret`` (optional)
+    The password used for simple binds to the LDAP server used as a source of data about users.
+    Only used if LDAP lookups are enabled.
+    See :ref:`ldap-groups` for more information.
+
+``oidc-client-secret`` (optional)
     The secret for an OpenID Connect authentication provider.
     This is only required if you're using generic OpenID Connect for authentication.
 
@@ -129,7 +134,7 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     Encryption key for the Gafaelfawr session cookie.
     Generate with :py:meth:`cryptography.fernet.Fernet.generate_key`.
 
-``signing-key``
+``signing-key`` (optional)
     Only used if the Helm chart parameter ``config.oidcServer.enabled`` is set to true.
     The PEM-encoded RSA private key used to sign internally-issued JWTs.
     Generate with ``gafaelfawr generate-key``.
@@ -270,11 +275,12 @@ There is one additional option under ``config.oidc`` that you may want to set:
     A mapping of additional parameters to send to the login route.
     Can be used to set additional configuration options for some OpenID Connect providers.
 
+.. _ldap-groups:
+
 LDAP groups
 -----------
 
 When using either CILogon or generic OpenID Connect as an authentication provider, you can choose to obtain group information from an LDAP server rather than an ``isMemberOf`` attribute inside the token.
-Currently, Gafaelfawr only supports anonymous LDAP binds.
 
 To do this, add the following configuration:
 
@@ -287,6 +293,11 @@ To do this, add the following configuration:
 
 You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
 
+``config.ldap.userDn``
+    The DN of the user to bind as.
+    Gafaelfawr currently only supports simple binds.
+    If this is set, ``ldap-secret`` must be set in the Gafaelfawr Vault secret to the password to use with the simple bind.
+
 ``config.ldap.groupObjectClass``
     The object class from which group information should be looked up.
     Default: ``posixGroup``.
@@ -297,6 +308,22 @@ You may need to set the following additional options under ``config.ldap`` depen
     Default: ``member``.
 
 The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
+
+LDAP username
+-------------
+
+By default, Gafaelfawr gets the username from the ``uid`` claim in the ID token.
+If LDAP is used for group information, the username can instead be obtained from LDAP.
+To do this, add the following configuration:
+
+.. code-block:: yaml
+
+   config:
+     ldap:
+       usernameBaseDn: "<base-dn-for-search>"
+
+The user object will be located by searching for a ``voPersonSoRID`` attribute equal to the ``sub`` claim of the ID token returned by the OpenID Connect authentication server.
+The username will be the value of the ``uid`` attribute of the corresponding record.
 
 LDAP numeric UID
 ----------------

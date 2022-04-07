@@ -7,6 +7,7 @@ from typing import Dict, List, Literal, Optional, Type
 from unittest.mock import Mock
 
 import bonsai
+from bonsai.utils import escape_filter_exp
 
 from gafaelfawr.config import LDAPConfig
 from gafaelfawr.models.token import TokenGroup
@@ -25,6 +26,7 @@ class MockLDAP(Mock):
             TokenGroup(name="group-1", id=123123),
             TokenGroup(name="group-2", id=123442),
         ]
+        self.source_id = "http://cilogon.org/serverA/users/1234"
 
     async def __aenter__(self) -> MockLDAP:
         return self
@@ -53,10 +55,14 @@ class MockLDAP(Mock):
             bonsai.LDAPSearchScope.SUB,
             bonsai.LDAPSearchScope.ONELEVEL,
         )
-        if query == "(&(uid=some-user))":
+        source_id_escaped = escape_filter_exp(self.source_id)
+        if query == f"(&(voPersonSoRID={source_id_escaped}))":
+            assert attrlist == ["uid"]
+            return [{"uid": ["ldap-user"]}]
+        elif query == "(&(uid=ldap-user))":
             assert attrlist == ["uidNumber"]
             return [{"uidNumber": [str(2000)]}]
-        elif query == "(&(objectClass=posixGroup)(member=some-user))":
+        elif query == "(&(objectClass=posixGroup)(member=ldap-user))":
             assert attrlist == ["cn", "gidNumber"]
             return [
                 {"cn": [g.name], "gidNumber": [str(g.id)]} for g in self.groups

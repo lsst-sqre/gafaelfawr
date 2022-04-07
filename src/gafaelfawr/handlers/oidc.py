@@ -227,10 +227,10 @@ async def post_token(
         )
 
     # Log the token redemption.
+    username = token.claims["sub"]
     context.logger.info(
-        "Retrieved token for user %s via OpenID Connect",
-        token.username,
-        user=token.username,
+        f"Retrieved token for user {username} via OpenID Connect",
+        user=username,
         token=token.jti,
     )
 

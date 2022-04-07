@@ -120,13 +120,11 @@ class OIDCProvider(Provider):
             The OpenID Connect provider responded with an error to a request
             or the group membership in the resulting token was not valid.
         gafaelfawr.exceptions.LDAPException
-            Gafaelfawr was configured to get user groups or numeric UID from
-            LDAP, but the attempt failed due to some error.
+            Gafaelfawr was configured to get user groups, username, or numeric
+            UID from LDAP, but the attempt failed due to some error.
         ``httpx.HTTPError``
             An HTTP client error occurred trying to talk to the authentication
             provider.
-        jwt.exceptions.InvalidTokenError
-            The token returned by the OpenID Connect provider was invalid.
         """
         token_url = self._config.token_url
         data = {
@@ -162,33 +160,15 @@ class OIDCProvider(Provider):
             msg = f"No id_token in token reply from {token_url}"
             raise OIDCException(msg)
 
-        # Extract and verify the token and determine the user's UID and
-        # groups.  These may come from the token or from LDAP, depending on
-        # configuration.
+        # Extract and verify the token and determine the user's username,
+        # numeric UID, and groups.  These may come from the token or from
+        # LDAP, depending on configuration.
         unverified_token = OIDCToken(encoded=result["id_token"])
         try:
-            token = await self._verifier.verify_token(unverified_token)
-            uid = None
-            if self._ldap_storage:
-                async with self._ldap_storage.connect() as conn:
-                    uid = await conn.get_uid(token.username)
-                    groups = await conn.get_groups(token.username)
-            else:
-                groups = self._verifier.get_groups_from_token(token)
-            if not uid:
-                uid = self._verifier.get_uid_from_token(token)
+            return await self._user_info_from_token(unverified_token)
         except (jwt.InvalidTokenError, VerifyTokenException) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCException(msg)
-
-        # Return the relevant information extracted from the token.
-        return TokenUserInfo(
-            username=token.username,
-            name=token.claims.get("name"),
-            email=token.claims.get("email"),
-            uid=uid,
-            groups=groups,
-        )
 
     async def logout(self, session: State) -> None:
         """User logout callback.
@@ -201,6 +181,63 @@ class OIDCProvider(Provider):
             The session state, which contains the GitHub access token.
         """
         pass
+
+    async def _user_info_from_token(
+        self, unverified_token: OIDCToken
+    ) -> TokenUserInfo:
+        """Verify an OpenID Connect ID token and derive user info from it.
+
+        Verify the token and determine the user's username, numeric UID, and
+        groups.  These may come from the token or from LDAP, depending on
+        configuration.
+
+        Parameters
+        ----------
+        unverified_token : `gafaelfawr.models.oidc.OIDCToken`
+            The unverified ID token from the OpenID Connect provider.
+
+        Returns
+        -------
+        usern_info : `gafaelfawr.models.token.TokenUserInfo`
+            User information derived from that token and possibly from LDAP.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.LDAPException
+            Gafaelfawr was configured to get user groups, username, or numeric
+            UID from LDAP, but the attempt failed due to some error.
+        gafaelfawr.exceptions.VerifyTokenException
+            The ID token failed verification.
+        ``httpx.HTTPError``
+            An HTTP client error occurred trying to talk to the authentication
+            provider.
+        jwt.exceptions.InvalidTokenError
+            The token returned by the OpenID Connect provider was invalid.
+        """
+        token = await self._verifier.verify_token(unverified_token)
+        username = None
+        uid = None
+        if self._ldap_storage:
+            async with self._ldap_storage.connect() as conn:
+                if "sub" in token.claims:
+                    username = await conn.get_username(token.claims["sub"])
+                if username is None:
+                    username = self._verifier.get_username_from_token(token)
+                uid = await conn.get_uid(username)
+                groups = await conn.get_groups(username)
+        else:
+            username = self._verifier.get_username_from_token(token)
+            groups = self._verifier.get_groups_from_token(token, username)
+        if not uid:
+            uid = self._verifier.get_uid_from_token(token, username)
+
+        return TokenUserInfo(
+            username=username,
+            name=token.claims.get("name"),
+            email=token.claims.get("email"),
+            uid=uid,
+            groups=groups,
+        )
 
 
 class OIDCTokenVerifier:
@@ -276,19 +313,45 @@ class OIDCTokenVerifier:
             audience=self._config.audience,
         )
 
-        if self._config.username_claim not in payload:
-            msg = f"No {self._config.username_claim} claim in token"
-            self._logger.warning(msg, claims=payload)
-            raise MissingClaimsException(msg)
-
         return OIDCVerifiedToken(
             encoded=token.encoded,
             claims=payload,
             jti=payload.get("jti", "UNKNOWN"),
-            username=payload[self._config.username_claim],
         )
 
-    def get_uid_from_token(self, token: OIDCVerifiedToken) -> int:
+    def get_username_from_token(self, token: OIDCVerifiedToken) -> str:
+        """Verify and return the username from the token.
+
+        This is separate from `verify_token` because we don't want to try to
+        parse the token claims for a username if Gafaelfawr was configured to
+        get the username from LDAP instead.  The caller of `verify_token`
+        should call this method afterwards if the username from a JWT claim is
+        required.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+            The previously verified token.
+
+        Returns
+        -------
+        username : `str`
+            The username of the user as obtained from the token.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.MissingClaimsException
+            The token is missing the required username claim.
+        """
+        if self._config.username_claim not in token.claims:
+            msg = f"No {self._config.username_claim} claim in token"
+            self._logger.warning(msg, claims=token.claims)
+            raise MissingClaimsException(msg)
+        return token.claims[self._config.username_claim]
+
+    def get_uid_from_token(
+        self, token: OIDCVerifiedToken, username: str
+    ) -> int:
         """Verify and return the numeric UID from the token.
 
         This is separate from `verify_token` because we don't want to try to
@@ -301,6 +364,8 @@ class OIDCTokenVerifier:
         ----------
         token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The previously verified token.
+        username : `str`
+            Authenticated username (for error reporting).
 
         Returns
         -------
@@ -316,19 +381,18 @@ class OIDCTokenVerifier:
         """
         if self._config.uid_claim not in token.claims:
             msg = f"No {self._config.uid_claim} claim in token"
-            self._logger.warning(msg, claims=token.claims)
+            self._logger.warning(msg, claims=token.claims, user=username)
             raise MissingClaimsException(msg)
         try:
             uid = int(token.claims[self._config.uid_claim])
         except Exception:
             msg = f"Invalid {self._config.uid_claim} claim in token"
-            self._logger.warning(msg, claims=token.claims)
+            self._logger.warning(msg, claims=token.claims, user=username)
             raise InvalidTokenClaimsException(msg)
         return uid
 
     def get_groups_from_token(
-        self,
-        token: OIDCVerifiedToken,
+        self, token: OIDCVerifiedToken, username: str
     ) -> List[TokenGroup]:
         """Determine the user's groups from token claims.
 
@@ -338,6 +402,8 @@ class OIDCTokenVerifier:
         ----------
         token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
             The previously verified token.
+        username : `str`
+            Authenticated username (for error reporting).
 
         Returns
         -------
@@ -370,7 +436,7 @@ class OIDCTokenVerifier:
                 "Unable to get groups from token",
                 error=msg,
                 claim=token.claims.get("isMemberOf", []),
-                user=token.username,
+                user=username,
             )
             raise InvalidTokenClaimsException(msg)
 
@@ -379,6 +445,7 @@ class OIDCTokenVerifier:
                 "Ignoring invalid groups in OIDC token",
                 error="isMemberOf claim value could not be parsed",
                 invalid_groups=invalid_groups,
+                user=username,
             )
 
         return groups

@@ -135,6 +135,15 @@ class LDAPSettings(BaseModel):
     supported.
     """
 
+    user_dn: Optional[str] = None
+    """Simple bind user DN for the LDAP server.
+
+    The password lives in the top-level `Settings` object as ``ldap_password``
+    because Pydantic doesn't really support use of environment variables to
+    initialize nested models.  This is cleaned up when building the `Config`
+    object.
+    """
+
     base_dn: str
     """Base DN to use when executing an LDAP search for user groups."""
 
@@ -150,6 +159,26 @@ class LDAPSettings(BaseModel):
 
     ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    username_base_dn: Optional[str] = None
+    """Base DN to use to resolve a token identity to a username.
+
+    If set, the identifier in the ``sub`` claim in the token will be used as
+    the value of the ``username_search_attr`` attribute in LDAP in a search
+    rooted at this DN, and the ``uid`` attribute of a matching record will be
+    taken to be the username.  If this is not set, the token claim specified
+    by the ``username_claim`` setting (``uid`` by default) is used as the
+    username.
+    """
+
+    username_search_attr: str = "voPersonSoRID"
+    """LDAP attribute to search to find the username.
+
+    Used if ``username_base_dn`` is set.  The default is ``voPersonSoRID``,
+    which is the correct choice when using CILogon as the upstream identity
+    provider and an LDAP server provisioned by COmanage as the repository for
+    identity information.
     """
 
     uid_base_dn: Optional[str] = None
@@ -266,6 +295,13 @@ class Settings(BaseSettings):
 
     ldap: Optional[LDAPSettings] = None
     """Settings for the LDAP-based group lookups with OIDC provider."""
+
+    ldap_password: Optional[SecretStr] = None
+    """Simple bind password for the LDAP server.
+
+    This is set in the top-level `Settings` object so that it can get its
+    value from an environment variable.
+    """
 
     influxdb: Optional[InfluxDBSettings] = None
     """Settings for the InfluxDB token issuer."""
@@ -455,6 +491,12 @@ class LDAPConfig:
     supported.
     """
 
+    user_dn: Optional[str]
+    """User DN for simple bind authentication to the LDAP server."""
+
+    password: Optional[str]
+    """Password for simple bind authentication to the LDAP server."""
+
     base_dn: str
     """Base DN to use when executing LDAP search."""
 
@@ -470,6 +512,26 @@ class LDAPConfig:
 
     ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    username_base_dn: Optional[str] = None
+    """Base DN to use to resolve a token identity to a username.
+
+    If set, the identifier in the ``sub`` claim in the token will be used as
+    the value of the ``username_search_attr`` attribute in LDAP in a search
+    rooted at this DN, and the ``uid`` attribute of a matching record will be
+    taken to be the username.  If this is not set, the token claim specified
+    by the ``username_claim`` setting (``uid`` by default) is used as the
+    username.
+    """
+
+    username_search_attr: str = "voPersonSoRID"
+    """LDAP attribute to search to find the username.
+
+    Used if ``username_base_dn`` is set.  The default is ``voPersonSoRID``,
+    which is the correct choice when using CILogon as the upstream identity
+    provider and an LDAP server provisioned by COmanage as the repository for
+    identity information.
     """
 
     uid_base_dn: Optional[str] = None
@@ -693,11 +755,19 @@ class Config:
             )
         ldap_config = None
         if settings.ldap and settings.ldap.url:
+            if settings.ldap_password:
+                ldap_password = settings.ldap_password.get_secret_value()
+            else:
+                ldap_password = None
             ldap_config = LDAPConfig(
                 url=settings.ldap.url,
+                user_dn=settings.ldap.user_dn,
+                password=ldap_password,
                 base_dn=settings.ldap.base_dn,
                 group_object_class=settings.ldap.group_object_class,
                 group_member_attr=settings.ldap.group_member_attr,
+                username_base_dn=settings.ldap.username_base_dn,
+                username_search_attr=settings.ldap.username_search_attr,
                 uid_base_dn=settings.ldap.uid_base_dn,
                 uid_attr=settings.ldap.uid_attr,
             )
