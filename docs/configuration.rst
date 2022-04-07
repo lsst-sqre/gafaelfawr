@@ -114,7 +114,7 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
 ``ldap-secret`` (optional)
     The password used for simple binds to the LDAP server used as a source of data about users.
     Only used if LDAP lookups are enabled.
-    SEe :ref:`ldap-groups` for more information.
+    See :ref:`ldap-groups` for more information.
 
 ``oidc-client-secret`` (optional)
     The secret for an OpenID Connect authentication provider.
