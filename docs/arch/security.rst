@@ -36,11 +36,10 @@ Gafaelfawr does not attempt to protect against the following threats:
   An attacker who is able to steal the cookie is able to impersonate the user from whom they stole the cookie.
   Similarly, Gafaelfawr issues bearer tokens on user request, and those tokens are sufficient for authentication.
   Gafaelfawr does not protect against token mishandling or theft.
+  This is not ideal (see `Bearer tokens are just awful <https://mjg59.dreamwidth.org/59353.html>`__), but doing something better requires security infrastructure for clients of the Rubin Science Platform that isn't realistically available.
 - Compromise of Gafaelfawr's secrets.
   If an attacker gains access to the Kubernetes secrets or the Gafaelfawr pod, that attacker will be able to impersonate any user.
 - Manipulation of the Redis store.
-  Gafaelfawr assumes the Redis store does not require authentication.
-  An attacker with access to the Kubernetes network likely will be able to gain access to anything in Redis.
   The important information is encrypted and integrity-protected, but an attacker with Redis access could trivially cause a denial of service by deleting user sessions.
 
 Future work
@@ -52,7 +51,6 @@ Future work
   The credentials to authenticate to Gafaelfawr itself would then only be available to the Gafaelfawr domain, which should be distinct from any protected application's domain.
 - Register the ``redirect_uri`` along with the client for OpenID Connect clients and validate that the requested ``redirect_uri`` matches.
   This would allow using the OpenID Connect support to authenticate sites on other hosts, including chaining Gafaelfawr instances, since it would allow safely removing the restriction that ``redirect_uri`` must be on the same host as Gafaelfawr.
-
 
 Mitigation details
 ==================
