@@ -8,8 +8,11 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from gafaelfawr.config import Settings
+from gafaelfawr.config import Config, Settings
+from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.models.token import Token
+
+from .support.settings import build_settings
 
 
 def parse_settings(path: Path, fix_token: bool = False) -> None:
@@ -71,13 +74,17 @@ def test_config_invalid_scope() -> None:
         parse_settings(settings_path)
 
 
-def test_config_invalid_token() -> None:
-    settings_path = Path(__file__).parent / "settings" / "bad-token.yaml"
-    with pytest.raises(ValidationError):
-        parse_settings(settings_path)
-
-
 def test_config_missing_scope() -> None:
     settings_path = Path(__file__).parent / "settings" / "missing-scope.yaml"
     with pytest.raises(ValidationError):
         parse_settings(settings_path)
+
+
+def test_config_invalid_token(tmp_path: Path) -> None:
+    bootstrap_token_file = tmp_path / "bootstrap-bad"
+    bootstrap_token_file.write_bytes(b"bad-token")
+    settings_path = build_settings(
+        tmp_path, "bad-token", bootstrap_token_file=str(bootstrap_token_file)
+    )
+    with pytest.raises(InvalidTokenError):
+        Config.from_file(str(settings_path))
