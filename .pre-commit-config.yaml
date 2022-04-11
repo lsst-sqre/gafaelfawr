@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+    rev: v4.2.0
     hooks:
       - id: check-toml
       - id: check-yaml
@@ -39,7 +39,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.12.0
+    rev: v8.13.0
     hooks:
       - id: eslint
         additional_dependencies:
