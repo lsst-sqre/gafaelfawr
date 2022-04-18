@@ -26,7 +26,6 @@ from pydantic import (
     IPvAnyNetwork,
     validator,
 )
-from pydantic.env_settings import SettingsSourceCallable
 from safir.logging import configure_logging
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -289,24 +288,6 @@ class Settings(BaseSettings):
 
     error_footer: Optional[str] = None
     """HTML to add (inside ``<p>``) to login error pages."""
-
-    class Config:
-        @classmethod
-        def customise_sources(
-            cls,
-            init_settings: SettingsSourceCallable,
-            env_settings: SettingsSourceCallable,
-            file_secret_settings: SettingsSourceCallable,
-        ) -> Tuple[SettingsSourceCallable, ...]:
-            """Allow environment variables to override init settings.
-
-            Normally, pydantic prefers parameters passed via its ``__init__``
-            method to environment variables.  However, in our case, those
-            parameters come from a parsed YAML file, and we want environment
-            variables to override that file.  This hook reverses the order of
-            precedence so that environment variables are first.
-            """
-            return env_settings, init_settings, file_secret_settings
 
     @validator("initial_admins", each_item=True)
     def _validate_initial_admins(cls, v: str) -> str:
