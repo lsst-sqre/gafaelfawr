@@ -70,7 +70,7 @@ jobs:
       # artifact internally in this workflow, so only keep it for a day,
       # not the full 90 day default.
       - name: Cache UI artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ui
           path: ui/public
