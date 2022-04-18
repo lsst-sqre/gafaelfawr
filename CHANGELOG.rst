@@ -6,6 +6,16 @@ Versioning follows `semver <https://semver.org/>`__.
 Versioning assumes that Gafaelfawr is installed and configured via `Phalanx <https://phalanx.lsst.io/>`__, so only changes to configuration changes exposed in the Helm values file are considered breaking changes.
 The internal configuration format may change in minor releases.
 
+4.1.0 (unreleased)
+==================
+
+- Support authenticated simple binds to an LDAP server.
+  This requires setting the Helm ``config.ldap.userDn`` parameter and adding a new ``ldap-password`` secret.
+- Support retrieving the username from LDAP when using an upstream OpenID Connect provider.
+  This is configured with the new ``config.ldap.usernameBaseDn`` and ``config.ldap.usernameSearchAttr`` Helm parameters.
+- Use the image from the GitHub Container Registry instead of Docker Hub.
+- Update dependencies.
+
 4.0.0 (2022-03-25)
 ==================
 
