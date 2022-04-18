@@ -16,14 +16,14 @@ loglevel: "DEBUG"
 session_secret_file: "examples/secrets/session-secret"
 database_url: "postgresql://gafaelfawr:INSECURE@localhost/gafaelfawr"
 
-# WARNING: This is public and entirely insecure.  Use only for local
-# development not accessible to the Internet.
-bootstrap_token: "gt-OwYUKbFrIRfcTnKcX9bEGA.9SPTVsVv3fxUzXqogQpCXg"
-
 # This Redis will be started by the docker-compose.yaml file at the top
 # level of the repository.
 redis_url: "redis://localhost:6379/0"
 redis_password_file: "examples/secrets/redis-password"
+
+# WARNING: This is public and entirely insecure.  Use only for local
+# development not accessible to the Internet.
+bootstrap_token_file: "examples/secrets/bootstrap-token"
 
 # How long Gafaelfawr-issued tokens should live by default.
 token_lifetime_minutes: 1440 # 1 day

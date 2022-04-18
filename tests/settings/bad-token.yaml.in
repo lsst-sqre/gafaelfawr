@@ -1,10 +1,9 @@
-# Bad configuration file with invalid bootstrap_token setting.
+# Configuration file supporting invalid bootstrap_token_file contents.
 
 realm: "testing"
 loglevel: "INFO"
 session_secret_file: "{session_secret_file}"
 database_url: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
-bootstrap_token: "bootstrap-token"
 initial_admins: ["admin"]
 redis_url: "dummy"
 after_logout_url: "https://example.com/landing"

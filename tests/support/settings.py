@@ -11,6 +11,7 @@ from cryptography.fernet import Fernet
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.keypair import RSAKeyPair
+from gafaelfawr.models.token import Token
 
 from .constants import TEST_DATABASE_URL
 
@@ -99,6 +100,8 @@ def build_settings(
     settings_path : `pathlib.Path`
         The path of the settings file.
     """
+    bootstrap_token = str(Token()).encode()
+    bootstrap_token_file = store_secret(tmp_path, "bootstrap", bootstrap_token)
     session_secret = Fernet.generate_key()
     session_secret_file = store_secret(tmp_path, "session", session_secret)
     issuer_key = _ISSUER_KEY.private_key_as_pem()
@@ -119,6 +122,7 @@ def build_settings(
         tmp_path,
         template,
         database_url=TEST_DATABASE_URL,
+        bootstrap_token_file=bootstrap_token_file,
         session_secret_file=session_secret_file,
         issuer_key_file=issuer_key_file,
         github_secret_file=github_secret_file,

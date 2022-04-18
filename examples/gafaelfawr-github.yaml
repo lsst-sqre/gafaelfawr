@@ -14,6 +14,10 @@ realm: "example.com"
 # Generate this with cryptography.fernet.Fernet.generate_key().
 session_secret_file: "/path/to/session-secret"
 
+# The URL of and password for a Redis instance used for storing sessions.
+redis_url: "redis://redis.example.com:6379/0"
+redis_password_file: "/path/to/redis-password"
+
 # Replace <password> with the database password and example.com with the
 # hostname of the PostgreSQL database.  In environments where the
 # configuration file is not private (such as when it's taken from a
@@ -22,12 +26,8 @@ session_secret_file: "/path/to/session-secret"
 # file.
 database_url: "postgresql://gafaelfawr:<password>@example.com/gafaelfawr"
 
-# Replace <token> with a token generated via gafaelfawr generate-token.
-bootstrap_token: "<token>"
-
-# The URL of and password for a Redis instance used for storing sessions.
-redis_url: "redis://redis.example.com:6379/0"
-redis_password_file: "/path/to/redis-password"
+# File contents should be a token generated via gafaelfawr generate-token.
+bootstrap_token_file: "/path/to/bootstrap-token"
 
 # How long Gafaelfawr-issued tokens should live by default.
 token_lifetime_minutes: 1440 # 1 day

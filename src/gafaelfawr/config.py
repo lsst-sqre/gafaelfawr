@@ -5,26 +5,6 @@ There are two, mostly-parallel models defined here.  The ones ending in
 the root of which is `Settings`.  This is then processed and broken up into
 configuration dataclasses for various components and then exposed to the rest
 of Gafaelfawr as the `Config` object.
-
-Notes
------
-It would be ideal if Pydantic could be used directly for settings without
-rewriting the Pydantic Settings classes into dataclasses.  However, there are
-two missing features in the Pydantic system that interfere with this:
-
-#. Loading secrets from disk directly in the Pydantic model is difficult.
-   Pydantic does support a mechanism for loading configuration keys from disk
-   files, but it doesn't support nested structure, which we want so that the
-   configurations for different internal Gafaelfawr components are kept
-   separate (which in turn simplifies a lot of code that otherwise would have
-   to check for `None` repeatedly).
-#. Pydantic provides poor support for loading a YAML file whose file name is
-   not known statically.  We have to use ``parse_obj``, which in turn makes
-   some other Pydantic Settings constructor arguments accessible only via
-   static configuration.
-
-After a couple of tries at using Pydantic directly, the current approach,
-while somewhat repetitive, seems easier to support.
 """
 
 from __future__ import annotations
@@ -44,10 +24,8 @@ from pydantic import (
     BaseModel,
     BaseSettings,
     IPvAnyNetwork,
-    SecretStr,
     validator,
 )
-from pydantic.env_settings import SettingsSourceCallable
 from safir.logging import configure_logging
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -136,16 +114,13 @@ class LDAPSettings(BaseModel):
     """
 
     user_dn: Optional[str] = None
-    """Simple bind user DN for the LDAP server.
-
-    The password lives in the top-level `Settings` object as ``ldap_password``
-    because Pydantic doesn't really support use of environment variables to
-    initialize nested models.  This is cleaned up when building the `Config`
-    object.
-    """
+    """Simple bind user DN for the LDAP server."""
 
     base_dn: str
     """Base DN to use when executing an LDAP search for user groups."""
+
+    password_file: Optional[str] = None
+    """File containing simple bind password for the LDAP server."""
 
     group_object_class: str = "posixGroup"
     """LDAP group object class.
@@ -256,8 +231,14 @@ class Settings(BaseSettings):
     redis_password_file: Optional[str] = None
     """File containing the password to use when connecting to Redis."""
 
-    bootstrap_token: Optional[str] = None
-    """Bootstrap authentication token.
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    database_password_file: Optional[str] = None
+    """File containing the password for the PostgreSQL database."""
+
+    bootstrap_token_file: Optional[str] = None
+    """File containing the bootstrap authentication token.
 
     This token can be used with specific routes in the admin API to change the
     list of admins and create service and user tokens.
@@ -281,12 +262,6 @@ class Settings(BaseSettings):
     after_logout_url: AnyHttpUrl
     """Default URL to which to send the user after logging out."""
 
-    database_url: str
-    """URL for the PostgreSQL database."""
-
-    database_password: Optional[SecretStr] = None
-    """Password for the PostgreSQL database."""
-
     github: Optional[GitHubSettings] = None
     """Settings for the GitHub authentication provider."""
 
@@ -295,13 +270,6 @@ class Settings(BaseSettings):
 
     ldap: Optional[LDAPSettings] = None
     """Settings for the LDAP-based group lookups with OIDC provider."""
-
-    ldap_password: Optional[SecretStr] = None
-    """Simple bind password for the LDAP server.
-
-    This is set in the top-level `Settings` object so that it can get its
-    value from an environment variable.
-    """
 
     influxdb: Optional[InfluxDBSettings] = None
     """Settings for the InfluxDB token issuer."""
@@ -320,26 +288,6 @@ class Settings(BaseSettings):
 
     error_footer: Optional[str] = None
     """HTML to add (inside ``<p>``) to login error pages."""
-
-    class Config:
-        env_prefix = "GAFAELFAWR_"
-
-        @classmethod
-        def customise_sources(
-            cls,
-            init_settings: SettingsSourceCallable,
-            env_settings: SettingsSourceCallable,
-            file_secret_settings: SettingsSourceCallable,
-        ) -> Tuple[SettingsSourceCallable, ...]:
-            """Allow environment variables to override init settings.
-
-            Normally, pydantic prefers parameters passed via its ``__init__``
-            method to environment variables.  However, in our case, those
-            parameters come from a parsed YAML file, and we want environment
-            variables to override that file.  This hook reverses the order of
-            precedence so that environment variables are first.
-            """
-            return env_settings, init_settings, file_secret_settings
 
     @validator("initial_admins", each_item=True)
     def _validate_initial_admins(cls, v: str) -> str:
@@ -364,16 +312,6 @@ class Settings(BaseSettings):
             raise ValueError("invalid logging level")
         return v
 
-    @validator("bootstrap_token", pre=True)
-    def _valid_bootstrap_token(cls, v: Optional[str]) -> Optional[str]:
-        if not v:
-            return None
-        try:
-            Token.from_str(v)
-            return v
-        except Exception as e:
-            raise ValueError(f"bootstrap_token not a valid token: {str(e)}")
-
     @validator("oidc", always=True)
     def _exactly_one_provider(
         cls, v: Optional[OIDCSettings], values: Dict[str, object]
@@ -392,6 +330,8 @@ class Settings(BaseSettings):
         """Ensure all fields are non-empty if url is non-empty."""
         if v and v.url and not v.base_dn:
             raise ValueError("not all required ldap fields are present")
+        if v and v.user_dn and not v.password_file:
+            raise ValueError("ldap.password_file required if ldap.user_dn set")
         return v
 
     @validator("initial_admins", pre=True)
@@ -685,21 +625,68 @@ class Config:
             raw_settings = yaml.safe_load(f)
         settings = Settings.parse_obj(raw_settings)
 
-        # Load the secrets from disk.
-        session_secret = cls._load_secret(settings.session_secret_file)
-        redis_password = None
-        if settings.redis_password_file:
-            path = settings.redis_password_file
-            redis_password = cls._load_secret(path).decode()
+        # Build the GitHub configuration if needed.
+        github_config = None
         if settings.github:
             path = settings.github.client_secret_file
             github_secret = cls._load_secret(path).decode()
+            github_config = GitHubConfig(
+                client_id=settings.github.client_id,
+                client_secret=github_secret,
+            )
+
+        # Build the OpenID Connect configuration if needed.
+        oidc_config = None
         if settings.oidc:
             path = settings.oidc.client_secret_file
             oidc_secret = cls._load_secret(path).decode()
+            oidc_config = OIDCConfig(
+                client_id=settings.oidc.client_id,
+                client_secret=oidc_secret,
+                login_url=str(settings.oidc.login_url),
+                login_params=settings.oidc.login_params,
+                redirect_url=str(settings.oidc.redirect_url),
+                token_url=str(settings.oidc.token_url),
+                scopes=tuple(settings.oidc.scopes),
+                issuer=settings.oidc.issuer,
+                audience=settings.oidc.audience,
+                username_claim=settings.oidc.username_claim,
+                uid_claim=settings.oidc.uid_claim,
+            )
+
+        # Build LDAP configuration if needed.
+        ldap_config = None
+        if settings.ldap and settings.ldap.url:
+            ldap_password = None
+            if settings.ldap.password_file:
+                path = settings.ldap.password_file
+                ldap_password = cls._load_secret(path).decode()
+            ldap_config = LDAPConfig(
+                url=settings.ldap.url,
+                user_dn=settings.ldap.user_dn,
+                password=ldap_password,
+                base_dn=settings.ldap.base_dn,
+                group_object_class=settings.ldap.group_object_class,
+                group_member_attr=settings.ldap.group_member_attr,
+                username_base_dn=settings.ldap.username_base_dn,
+                username_search_attr=settings.ldap.username_search_attr,
+                uid_base_dn=settings.ldap.uid_base_dn,
+                uid_attr=settings.ldap.uid_attr,
+            )
+
+        # Build InfluxDB token issuer configuration if needed.
+        influxdb_config = None
         if settings.influxdb:
             path = settings.influxdb.secret_file
             influxdb_secret = cls._load_secret(path).decode()
+            influxdb_config = InfluxDBConfig(
+                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
+                secret=influxdb_secret,
+                username=settings.influxdb.username,
+            )
+
+        # Build the OpenID Connect server configuration if needed.
+        oidc_server_config = None
         if settings.oidc_server:
             oidc_key = cls._load_secret(settings.oidc_server.key_file)
             oidc_keypair = RSAKeyPair.from_pem(oidc_key)
@@ -711,6 +698,14 @@ class Config:
                     OIDCClient(client_id=c["id"], client_secret=c["secret"])
                     for c in oidc_secrets
                 )
+            )
+            oidc_server_config = OIDCServerConfig(
+                issuer=settings.oidc_server.issuer,
+                key_id=settings.oidc_server.key_id,
+                audience=settings.oidc_server.audience,
+                keypair=oidc_keypair,
+                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
+                clients=oidc_clients,
             )
 
         # The group mapping in the settings maps a scope to a list of groups
@@ -728,70 +723,21 @@ class Config:
             k: frozenset(v) for k, v in group_mapping.items()
         }
 
-        # Build the Config object.
+        # Build the top-level configuration.
+        session_secret = cls._load_secret(settings.session_secret_file)
         bootstrap_token = None
-        if settings.bootstrap_token:
-            bootstrap_token = Token.from_str(settings.bootstrap_token)
-        github_config = None
-        if settings.github:
-            github_config = GitHubConfig(
-                client_id=settings.github.client_id,
-                client_secret=github_secret,
-            )
-        oidc_config = None
-        if settings.oidc:
-            oidc_config = OIDCConfig(
-                client_id=settings.oidc.client_id,
-                client_secret=oidc_secret,
-                login_url=str(settings.oidc.login_url),
-                login_params=settings.oidc.login_params,
-                redirect_url=str(settings.oidc.redirect_url),
-                token_url=str(settings.oidc.token_url),
-                scopes=tuple(settings.oidc.scopes),
-                issuer=settings.oidc.issuer,
-                audience=settings.oidc.audience,
-                username_claim=settings.oidc.username_claim,
-                uid_claim=settings.oidc.uid_claim,
-            )
-        ldap_config = None
-        if settings.ldap and settings.ldap.url:
-            if settings.ldap_password:
-                ldap_password = settings.ldap_password.get_secret_value()
-            else:
-                ldap_password = None
-            ldap_config = LDAPConfig(
-                url=settings.ldap.url,
-                user_dn=settings.ldap.user_dn,
-                password=ldap_password,
-                base_dn=settings.ldap.base_dn,
-                group_object_class=settings.ldap.group_object_class,
-                group_member_attr=settings.ldap.group_member_attr,
-                username_base_dn=settings.ldap.username_base_dn,
-                username_search_attr=settings.ldap.username_search_attr,
-                uid_base_dn=settings.ldap.uid_base_dn,
-                uid_attr=settings.ldap.uid_attr,
-            )
-        influxdb_config = None
-        if settings.influxdb:
-            influxdb_config = InfluxDBConfig(
-                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
-                secret=influxdb_secret,
-                username=settings.influxdb.username,
-            )
-        oidc_server_config = None
-        if settings.oidc_server:
-            oidc_server_config = OIDCServerConfig(
-                issuer=settings.oidc_server.issuer,
-                key_id=settings.oidc_server.key_id,
-                audience=settings.oidc_server.audience,
-                keypair=oidc_keypair,
-                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
-                clients=oidc_clients,
-            )
-        if settings.database_password:
-            database_password = settings.database_password.get_secret_value()
-        else:
-            database_password = None
+        if settings.bootstrap_token_file:
+            path = settings.bootstrap_token_file
+            bootstrap_token_str = cls._load_secret(path).decode()
+            bootstrap_token = Token.from_str(bootstrap_token_str)
+        redis_password = None
+        if settings.redis_password_file:
+            path = settings.redis_password_file
+            redis_password = cls._load_secret(path).decode()
+        database_password = None
+        if settings.database_password_file:
+            path = settings.database_password_file
+            database_password = cls._load_secret(path).decode()
         config = cls(
             realm=settings.realm,
             session_secret=session_secret.decode(),
