@@ -19,6 +19,7 @@ bonsai
 cachetools
 click
 cryptography
+google-cloud-firestore
 httpx
 kubernetes_asyncio
 jinja2

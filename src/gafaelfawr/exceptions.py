@@ -12,6 +12,8 @@ __all__ = [
     "DuplicateTokenNameError",
     "ErrorLocation",
     "FetchKeysException",
+    "FirestoreError",
+    "FirestoreNotInitializedError",
     "GitHubException",
     "InsufficientScopeError",
     "InvalidClientError",
@@ -29,6 +31,8 @@ __all__ = [
     "KubernetesObjectError",
     "LDAPException",
     "MissingClaimsException",
+    "NoAvailableGidError",
+    "NoAvailableUidError",
     "NotConfiguredException",
     "OAuthError",
     "OAuthBearerError",
@@ -302,11 +306,27 @@ class DeserializeException(Exception):
     """
 
 
+class FirestoreError(Exception):
+    """An error occurred while reading or updating Firestore data."""
+
+
+class FirestoreNotInitializedError(FirestoreError):
+    """Firestore has not been initialized."""
+
+
+class NoAvailableGidError(FirestoreError):
+    """The assigned UID space has been exhausted."""
+
+
+class NoAvailableUidError(FirestoreError):
+    """The assigned UID space has been exhausted."""
+
+
 class KubernetesError(Exception):
     """An error occurred during Kubernetes secret processing."""
 
 
-class KubernetesObjectError(Exception):
+class KubernetesObjectError(KubernetesError):
     """A Kubernetes object could not be parsed."""
 
 

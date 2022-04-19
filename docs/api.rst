@@ -14,6 +14,9 @@ API reference
 
 .. automodapi:: gafaelfawr.dependencies.auth
 
+.. automodapi:: gafaelfawr.dependencies.cache
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.dependencies.config
    :include-all-objects:
 
@@ -23,9 +26,6 @@ API reference
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.return_url
-
-.. automodapi:: gafaelfawr.dependencies.token_cache
-   :include-all-objects:
 
 .. automodapi:: gafaelfawr.exceptions
 
@@ -69,9 +69,13 @@ API reference
 
 .. automodapi:: gafaelfawr.services.token_cache
 
+.. automodapi:: gafaelfawr.services.userinfo
+
 .. automodapi:: gafaelfawr.storage.admin
 
 .. automodapi:: gafaelfawr.storage.base
+
+.. automodapi:: gafaelfawr.storage.firestore
 
 .. automodapi:: gafaelfawr.storage.history
 

@@ -72,11 +72,5 @@ def create_upstream_oidc_jwt(
     )
 
     return OIDCVerifiedToken(
-        encoded=encoded,
-        claims=payload,
-        jti=payload["jti"],
-        username=payload["uid"],
-        uid=payload["uidNumber"],
-        email=payload["email"],
-        scope=set(payload.get("scope", "").split()),
+        encoded=encoded, claims=payload, jti=payload["jti"]
     )

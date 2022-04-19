@@ -33,6 +33,7 @@ from gafaelfawr.schema import Base
 
 from .pages.tokens import TokensPage
 from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
+from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
 from .support.settings import build_settings
@@ -170,6 +171,19 @@ async def initialize_empty_database(engine: AsyncEngine) -> None:
 
 
 @pytest.fixture
+def mock_firestore(tmp_path: Path) -> Iterator[MockFirestore]:
+    """Configure for Firestore UID/GID assignment and mock the Firestore API.
+
+    Returns
+    -------
+    mock_firestore : `tests.support.firestore.MockFirestore`
+        The mocked Firestore API.
+    """
+    with patch_firestore() as firestore:
+        yield firestore
+
+
+@pytest.fixture
 def mock_kubernetes() -> Iterator[MockKubernetesApi]:
     """Replace the Kubernetes API with a mock class.
 
@@ -182,7 +196,7 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
 
 
 @pytest_asyncio.fixture
-async def mock_ldap(tmp_path: Path, config: Config) -> AsyncIterator[MockLDAP]:
+async def mock_ldap(tmp_path: Path) -> AsyncIterator[MockLDAP]:
     """Replace the bonsai LDAP API with a mock class.
 
     Returns

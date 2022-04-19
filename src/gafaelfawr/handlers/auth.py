@@ -347,12 +347,14 @@ async def build_success_headers(
         "X-Auth-Request-Token-Scopes": " ".join(sorted(token_data.scopes)),
         "X-Auth-Request-User": token_data.username,
     }
-    if token_data.email:
+    user_info_service = context.factory.create_user_info_service()
+    user_info = await user_info_service.get_user_info_from_token(token_data)
+    if user_info.email:
         headers["X-Auth-Request-Email"] = token_data.email
-    if token_data.uid:
+    if user_info.uid:
         headers["X-Auth-Request-Uid"] = str(token_data.uid)
-    if token_data.groups:
-        groups = ",".join([g.name for g in token_data.groups])
+    if user_info.groups:
+        groups = ",".join([g.name for g in user_info.groups])
         headers["X-Auth-Request-Groups"] = groups
 
     if auth_config.notebook:

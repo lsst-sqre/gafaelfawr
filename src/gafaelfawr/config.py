@@ -34,6 +34,8 @@ from .models.token import Token
 
 __all__ = [
     "Config",
+    "FirestoreConfig",
+    "FirestoreSettings",
     "GitHubConfig",
     "GitHubSettings",
     "InfluxDBConfig",
@@ -172,6 +174,13 @@ class LDAPSettings(BaseModel):
     """
 
 
+class FirestoreSettings(BaseModel):
+    """pydantic model of Firestore configuration."""
+
+    project: str
+    """Project containing the Firestore collections."""
+
+
 class InfluxDBSettings(BaseModel):
     """pydantic model of InfluxDB token issuer configuration."""
 
@@ -270,6 +279,9 @@ class Settings(BaseSettings):
 
     ldap: Optional[LDAPSettings] = None
     """Settings for the LDAP-based group lookups with OIDC provider."""
+
+    firestore: Optional[FirestoreSettings] = None
+    """Settings for Firestore-based UID/GID assignment."""
 
     influxdb: Optional[InfluxDBSettings] = None
     """Settings for the InfluxDB token issuer."""
@@ -491,6 +503,14 @@ class LDAPConfig:
 
 
 @dataclass(frozen=True)
+class FirestoreConfig:
+    """Configuration for Firestore-based UID/GID assignment."""
+
+    project: str
+    """Project containing the Firestore collections."""
+
+
+@dataclass(frozen=True)
 class OIDCClient:
     """Configuration for a single OpenID Connect client of our server."""
 
@@ -589,6 +609,9 @@ class Config:
     ldap: Optional[LDAPConfig]
     """Configuration for LDAP."""
 
+    firestore: Optional[FirestoreConfig]
+    """Settings for Firestore-based UID/GID assignment."""
+
     oidc: Optional[OIDCConfig]
     """Configuration for OpenID Connect authentication."""
 
@@ -674,6 +697,13 @@ class Config:
                 uid_attr=settings.ldap.uid_attr,
             )
 
+        # Build Firestore configuration if needed.
+        firestore_config = None
+        if settings.firestore:
+            firestore_config = FirestoreConfig(
+                project=settings.firestore.project
+            )
+
         # Build InfluxDB token issuer configuration if needed.
         influxdb_config = None
         if settings.influxdb:
@@ -753,6 +783,7 @@ class Config:
             github=github_config,
             oidc=oidc_config,
             ldap=ldap_config,
+            firestore=firestore_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
             group_mapping=group_mapping_frozen,

@@ -322,8 +322,10 @@ async def post_admin_tokens(
 )
 async def get_user_info(
     auth_data: TokenData = Depends(authenticate_read),
+    context: RequestContext = Depends(context_dependency),
 ) -> TokenUserInfo:
-    return auth_data
+    user_info_service = context.factory.create_user_info_service()
+    return await user_info_service.get_user_info_from_token(auth_data)
 
 
 @router.get(

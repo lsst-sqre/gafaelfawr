@@ -15,9 +15,9 @@ from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
 from .config import Config
+from .dependencies.cache import IdCache, TokenCache
 from .dependencies.config import config_dependency
 from .dependencies.redis import redis_dependency
-from .dependencies.token_cache import TokenCache
 from .exceptions import NotConfiguredException
 from .models.token import TokenData
 from .providers.base import Provider
@@ -30,8 +30,10 @@ from .services.kubernetes import KubernetesService
 from .services.oidc import OIDCService
 from .services.token import TokenService
 from .services.token_cache import TokenCacheService
+from .services.userinfo import OIDCUserInfoService, UserInfoService
 from .storage.admin import AdminStore
 from .storage.base import RedisStorage
+from .storage.firestore import FirestoreStorage
 from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
 from .storage.kubernetes import KubernetesStorage
 from .storage.ldap import LDAPStorage
@@ -57,7 +59,9 @@ class ComponentFactory:
         SQLAlchemy async session.
     http_client : ``httpx.AsyncClient``
         HTTP async client.
-    token_cache : `gafaelfawr.dependencies.token_cache.TokenCache`
+    id_cache : `gafaelfawr.dependencies.cache.IdCache`
+        Shared UID/GID cache.
+    token_cache : `gafaelfawr.dependencies.cache.TokenCache`
         Shared token cache.
     logger : `structlog.stdlib.BoundLogger`
         Logger to use for errors.
@@ -90,6 +94,7 @@ class ComponentFactory:
             The factory.  Must be used as a context manager.
         """
         config = await config_dependency()
+        id_cache = IdCache()
         token_cache = TokenCache()
         logger = structlog.get_logger("gafaelfawr")
         logger.debug("Connecting to Redis")
@@ -108,6 +113,7 @@ class ComponentFactory:
                     redis=redis,
                     session=session,
                     http_client=client,
+                    id_cache=id_cache,
                     token_cache=token_cache,
                     logger=logger,
                 )
@@ -123,6 +129,7 @@ class ComponentFactory:
         redis: Redis,
         session: async_scoped_session,
         http_client: AsyncClient,
+        id_cache: IdCache,
         token_cache: TokenCache,
         logger: BoundLogger,
     ) -> None:
@@ -130,6 +137,7 @@ class ComponentFactory:
         self._config = config
         self._redis = redis
         self._http_client = http_client
+        self._id_cache = id_cache
         self._token_cache = token_cache
         self._logger = logger
 
@@ -144,6 +152,20 @@ class ComponentFactory:
         admin_store = AdminStore(self.session)
         admin_history_store = AdminHistoryStore(self.session)
         return AdminService(admin_store, admin_history_store, self._logger)
+
+    def create_firestore_storage(self) -> FirestoreStorage:
+        """Create the Firestore storage layer.
+
+        Primarily for use internally and in tests.
+
+        Returns
+        -------
+        firestore : `gafaelfawr.storage.firestore.FirestoreStorage`
+            Newly-created Firestore storage.
+        """
+        if not self._config.firestore:
+            raise NotConfiguredException("Firestore is not configured")
+        return FirestoreStorage(self._config.firestore, self._logger)
 
     def create_influxdb_service(self) -> InfluxDBService:
         """Create an InfluxDB token issuer service.
@@ -203,6 +225,39 @@ class ComponentFactory:
             logger=self._logger,
         )
 
+    def create_oidc_user_info_service(self) -> OIDCUserInfoService:
+        """Create a user information service for OpenID Connect providers.
+
+        This is a user information service specialized for using an OpenID
+        Connect authentication provider.  It understands how to parse
+        information out of the token claims.
+
+        Returns
+        -------
+        user_info_service : `gafaelfawr.services.userinfo.OIDCUserInfoService`
+            A new user information service.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.NotConfiguredException
+            The configured authentication provider is not OpenID Connect.
+        """
+        if not self._config.oidc:
+            raise NotConfiguredException("OpenID Connect is not configured")
+        firestore = None
+        if self._config.firestore:
+            firestore = self.create_firestore_storage()
+        ldap_storage = None
+        if self._config.ldap:
+            ldap_storage = LDAPStorage(self._config.ldap, self._logger)
+        return OIDCUserInfoService(
+            config=self._config.oidc,
+            cache=self._id_cache,
+            ldap_storage=ldap_storage,
+            firestore=firestore,
+            logger=self._logger,
+        )
+
     def create_oidc_token_verifier(self) -> OIDCTokenVerifier:
         """Create a JWT token verifier for OpenID Connect tokens.
 
@@ -248,19 +303,43 @@ class ComponentFactory:
             )
         elif self._config.oidc:
             verifier = self.create_oidc_token_verifier()
-            ldap_storage = None
-            if self._config.ldap:
-                ldap_storage = LDAPStorage(self._config.ldap, self._logger)
+            user_info_service = self.create_oidc_user_info_service()
             return OIDCProvider(
                 config=self._config.oidc,
                 verifier=verifier,
-                ldap_storage=ldap_storage,
+                user_info_service=user_info_service,
                 http_client=self._http_client,
                 logger=self._logger,
             )
         else:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
+
+    def create_user_info_service(self) -> UserInfoService:
+        """Create a user information service.
+
+        This service retrieves metadata about the user, such as their UID,
+        groups, and GIDs.  This is the generic service that acts on Gafaelfawr
+        tokens, without support for the additional authentication-time methods
+        used by authentication providers.
+
+        Returns
+        -------
+        info_service : `gafaelfawr.services.userinfo.UserInfoService`
+            Newly created service.
+        """
+        firestore = None
+        if self._config.firestore:
+            firestore = self.create_firestore_storage()
+        ldap_storage = None
+        if self._config.ldap:
+            ldap_storage = LDAPStorage(self._config.ldap, self._logger)
+        return UserInfoService(
+            cache=self._id_cache,
+            ldap_storage=ldap_storage,
+            firestore=firestore,
+            logger=self._logger,
+        )
 
     def create_token_cache_service(self) -> TokenCacheService:
         """Create a token cache.

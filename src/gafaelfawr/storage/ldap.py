@@ -210,13 +210,17 @@ class LDAPStorageConnection:
         )
         raise LDAPException("No UID found in LDAP")
 
-    async def get_groups(self, username: str) -> List[TokenGroup]:
+    async def get_groups(
+        self, username: str, *, add_gids: bool
+    ) -> List[TokenGroup]:
         """Get groups for a user from LDAP.
 
         Parameters
         ----------
         username : `str`
             Username of the user.
+        add_gids : `bool`
+            Whether to attempt to retrieve GIDs from LDAP.
 
         Returns
         -------
@@ -227,8 +231,8 @@ class LDAPStorageConnection:
         ------
         gafaelfawr.exceptions.LDAPException
             One of the groups for the user in LDAP was not valid (missing
-            ``cn`` or ``gidNumber`` attributes, or ``gidNumber`` is not an
-            integer)
+            ``cn`` or, if ``add_gids`` was `True`, ``gidNumber`` attributes,
+            or ``gidNumber`` is not an integer)
         """
         group_class = self._config.group_object_class
         member_attr = self._config.group_member_attr
@@ -262,7 +266,10 @@ class LDAPStorageConnection:
                     "LDAP group found", result=result, user=username
                 )
                 name = result["cn"][0]
-                gid = int(result["gidNumber"][0])
+                if add_gids:
+                    gid = int(result["gidNumber"][0])
+                else:
+                    gid = None
                 groups.append(TokenGroup(name=name, id=gid))
             except Exception as e:
                 self._logger.warning(

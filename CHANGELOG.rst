@@ -9,6 +9,12 @@ The internal configuration format may change in minor releases.
 4.1.0 (unreleased)
 ==================
 
+- Support assigning UIDs and GIDs using Google Firestore.
+  When this is enabled, UID and GID information from the upstream OpenID Connect provider or from LDAP is ignored, and instead Gafaelfawr assigns UIDs and GIDs to usernames and group names on first use.
+  UIDs and GIDs for usernames and group names will be retrieved from Firestore on initial authentication if already assigned.
+  Currently, OpenID Connect (via CILogon or a generic server) must be used as the authentication provider to use Google Firestore UID and GID assignment.
+- Group information from LDAP is now retrieved dynamically when needed instead of stored with an authentication token, so it will change dynamically if the user's groups change in LDAP.
+  This does not affect the token's scopes, only the group information retrieved by a user-info API request.
 - Support authenticated simple binds to an LDAP server.
   This requires setting the Helm ``config.ldap.userDn`` parameter and adding a new ``ldap-password`` secret.
 - Support retrieving the username from LDAP when using an upstream OpenID Connect provider.
