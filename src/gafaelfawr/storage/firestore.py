@@ -78,7 +78,13 @@ class FirestoreStorage:
         transaction = self._db.transaction()
         group_ref = self._db.collection("groups").document(group)
         counter_ref = self._db.collection("counters").document("gid")
-        return await _get_or_assign_gid(transaction, group_ref, counter_ref)
+        return await _get_or_assign_gid(
+            transaction,
+            group_name=group,
+            group_ref=group_ref,
+            counter_ref=counter_ref,
+            logger=self._logger,
+        )
 
     async def get_uid(self, username: str, bot: bool = False) -> int:
         """Get the UID for a user.
@@ -112,7 +118,12 @@ class FirestoreStorage:
         counter_name = "bot-uid" if bot else "uid"
         counter_ref = self._db.collection("counters").document(counter_name)
         return await _get_or_assign_uid(
-            transaction, user_ref, counter_ref, bot
+            transaction,
+            username=username,
+            user_ref=user_ref,
+            counter_ref=counter_ref,
+            bot=bot,
+            logger=self._logger,
         )
 
     async def initialize(self) -> None:
@@ -126,7 +137,9 @@ class FirestoreStorage:
             for n in _INITIAL_COUNTERS
         }
         transaction = self._db.transaction()
-        await _initialize_in_transaction(transaction, counter_refs)
+        await _initialize_in_transaction(
+            transaction, counter_refs, self._logger
+        )
 
 
 # firestore.async_transactional cannot annotate class methods because it
@@ -137,8 +150,11 @@ class FirestoreStorage:
 @firestore.async_transactional
 async def _get_or_assign_gid(
     transaction: firestore.AsyncTransaction,
+    *,
+    group_name: str,
     group_ref: firestore.AsyncDocumentReference,
     counter_ref: firestore.AsyncDocumentReference,
+    logger: BoundLogger,
 ) -> int:
     """Get or assign a GID for a group within a transaction.
 
@@ -146,10 +162,14 @@ async def _get_or_assign_gid(
     ----------
     transaction : `google.cloud.firestore.Transaction`
         The open transaction.
-    user_ref : `google.cloud.firestore.AsyncDocumentReference`
+    group_name : `str`
+        Name of the group, for logging.
+    group_ref : `google.cloud.firestore.AsyncDocumentReference`
         Reference to the group's (possibly nonexistent) GID document.
     counter_ref : `google.cloud.firestore.AsyncDocumentReference`
         Reference to the document holding the GID counter.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger for messages.
 
     Returns
     -------
@@ -168,22 +188,28 @@ async def _get_or_assign_gid(
         return group["gid"]
     counter = await counter_ref.get(transaction=transaction)
     if not counter.exists:
+        logger.error("Firestore GID counter not found")
         raise FirestoreNotInitializedError("Firestore GID counter not found")
     next_gid = counter["next"]
     if next_gid >= GID_MAX:
-        msg = f"Next GID {next_gid} out of range (>= {GID_MAX}"
+        msg = f"Next GID {next_gid} out of range (>= {GID_MAX})"
+        logger.error(msg, group=group_name)
         raise NoAvailableGidError(msg)
     transaction.create(group_ref, {"gid": next_gid})
     transaction.update(counter_ref, {"next": next_gid + 1})
+    logger.info("Assigned new GID", group=group_name, gid=next_gid)
     return next_gid
 
 
 @firestore.async_transactional
 async def _get_or_assign_uid(
     transaction: firestore.Transaction,
+    *,
+    username: str,
     user_ref: firestore.AsyncDocumentReference,
     counter_ref: firestore.AsyncDocumentReference,
-    bot: bool = False,
+    bot: bool,
+    logger: BoundLogger,
 ) -> int:
     """Get or assign a UID for a user within a transaction.
 
@@ -191,6 +217,8 @@ async def _get_or_assign_uid(
     ----------
     transaction : `google.cloud.firestore.Transaction`
         The open transaction.
+    username : `str`
+        Username of user, for logging.
     user_ref : `google.cloud.firestore.AsyncDocumentReference`
         Reference to the user's (possibly nonexistent) UID document.
     counter_ref : `google.cloud.firestore.AsyncDocumentReference`
@@ -199,6 +227,8 @@ async def _get_or_assign_uid(
         If set to true, this is a bot user and should use the bot user
         range instead of the regular user range if a UID hasn't already
         been assigned.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger for messages.
 
     Returns
     -------
@@ -217,13 +247,16 @@ async def _get_or_assign_uid(
         return user["uid"]
     counter = await counter_ref.get(transaction=transaction)
     if not counter.exists:
+        logger.error("Firestore UID counter not found")
         raise FirestoreNotInitializedError("Firestore UID counter not found")
     next_uid = counter["next"]
     if bot and next_uid >= UID_BOT_MAX:
-        msg = f"Next bot UID {next_uid} out of range (>= {UID_BOT_MAX}"
+        msg = f"Next bot UID {next_uid} out of range (>= {UID_BOT_MAX})"
+        logger.error(msg, user=username)
         raise NoAvailableUidError(msg)
     transaction.create(user_ref, {"uid": next_uid})
     transaction.update(counter_ref, {"next": next_uid + 1})
+    logger.info("Assigned new UID", user=username, uid=next_uid)
     return next_uid
 
 
@@ -231,6 +264,7 @@ async def _get_or_assign_uid(
 async def _initialize_in_transaction(
     transaction: firestore.Transaction,
     counter_refs: Dict[str, firestore.AsyncDocumentReference],
+    logger: BoundLogger,
 ) -> None:
     """Initialize Firestore for UID/GID assignment.
 
@@ -243,6 +277,8 @@ async def _initialize_in_transaction(
         The open transaction.
     counter_refs : Dict[str, `google.cloud.firestore.AsyncDocumentReference`]
         References to the documents holding the counters.
+    logger : `structlog.stdlib.BoundLogger`
+        Logger for messages.
     """
     # We have to do this in two passes since the Firestore transaction
     # model requires all reads happen before any writes.
@@ -254,3 +290,4 @@ async def _initialize_in_transaction(
             to_create.append((name, counter_ref))
     for name, counter_ref in to_create:
         transaction.create(counter_ref, {"next": _INITIAL_COUNTERS[name]})
+        logger.info(f"Initialized Firestore counter for {name}")
