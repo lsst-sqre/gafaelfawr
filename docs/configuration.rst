@@ -478,7 +478,7 @@ If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL data
 
 First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
 You do not need to create the Kubernetes service account; two service accounts will be created by the Gafaelfawr Helm chart.
-The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-tokens``, both in whatever namespace Gafaelfawr is installed into (by default, ``gafaelfawr``).
+The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-tokens``, both in Gafaelfawr's Kubernetes namespace (by default, ``gafaelfawr``).
 
 Then, once you have the name of the Google service account for the Cloud SQL Auth Proxy (created in the above instructions), enable the Cloud SQL Auth Proxy sidecar in the Gafaelfawr Helm chart.
 An example configuration:
