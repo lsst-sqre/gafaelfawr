@@ -354,9 +354,9 @@ Gafaelfawr can manage UID and GID assignment internally, using `Google Firestore
 This only works with Open ID Connect authentication, and :ref:`Cloud SQL <cloudsql>` must also be enabled.
 The same service account used for Cloud SQL must have read/write permissions to Firestore.
 
-When this support is enabled, Gafaelfawr will ignore any UID and GID information from the tokens issued by the upstream OpenID Connect provider and from LDAP, and will instead assign UIDs and GIDs to users and groups by name the first time that a given username or group name is seen.
-UIDs and GIDs will never be reused.
-They will be assigned from the ranges documented in `DMTN-225 <https://dmtn-225.lsst.io/>`__.
+When this support is enabled, Gafaelfawr ignores any UID and GID information from the tokens issued by the upstream OpenID Connect provider and from LDAP, and instead assigns UIDs and GIDs to users and groups by name the first time that a given username or group name is seen.
+UIDs and GIDs are never reused.
+They are assigned from the ranges documented in `DMTN-225 <https://dmtn-225.lsst.io/>`__.
 
 To enable use of Firestore for UID/GID assignment, add the following configuration:
 
