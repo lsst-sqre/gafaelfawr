@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..dependencies.token_cache import TokenCache
+from ..dependencies.cache import TokenCache
 from ..models.history import TokenChange, TokenChangeHistoryEntry
 from ..models.token import Token, TokenData, TokenType
 from ..storage.history import TokenChangeHistoryStore
@@ -29,7 +29,7 @@ class TokenCacheService:
 
     Parameters
     ----------
-    cache : `gafaelfawr.dependencies.token_cache.TokenCache`
+    cache : `gafaelfawr.dependencies.cache.TokenCache`
         The underlying cache and locks.
     config : `gafaelfawr.config.Config`
         The Gafaelfawr configuration.

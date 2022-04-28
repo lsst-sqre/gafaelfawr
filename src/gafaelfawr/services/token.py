@@ -557,7 +557,19 @@ class TokenService:
         return info
 
     async def get_user_info(self, token: Token) -> Optional[TokenUserInfo]:
-        """Get user information associated with a token."""
+        """Get user information associated with a token.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.models.token.Token`
+            Data from the authentication token.
+
+        Returns
+        -------
+        user_info : `gafaelfawr.models.token.TokenUserInfo` or `None`
+            User information for the holder of that token, or `None` if the
+            user's token is not valid.
+        """
         data = await self.get_data(token)
         if not data:
             return None

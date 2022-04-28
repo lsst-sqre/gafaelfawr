@@ -21,7 +21,7 @@ init:
 	rm -rf .tox
 	pip install --upgrade tox tox-docker
 	pre-commit install
-	cd ui && npm install
+	cd ui && npm install --legacy-peer-deps
 
 .PHONY: update
 update: update-deps init

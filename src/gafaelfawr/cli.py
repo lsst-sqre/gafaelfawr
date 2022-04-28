@@ -106,6 +106,9 @@ async def init(settings: Optional[str]) -> None:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
             await admin_service.add_initial_admins(config.initial_admins)
+        if config.firestore:
+            firestore = factory.create_firestore_storage()
+            await firestore.initialize()
     await engine.dispose()
 
 

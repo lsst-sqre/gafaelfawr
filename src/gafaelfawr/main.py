@@ -15,9 +15,9 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 
 from .constants import COOKIE_NAME
+from .dependencies.cache import id_cache_dependency, token_cache_dependency
 from .dependencies.config import config_dependency
 from .dependencies.redis import redis_dependency
-from .dependencies.token_cache import token_cache_dependency
 from .exceptions import (
     NotConfiguredException,
     PermissionDeniedError,
@@ -132,6 +132,7 @@ async def shutdown_event() -> None:
     await http_client_dependency.aclose()
     await db_session_dependency.aclose()
     await redis_dependency.aclose()
+    await id_cache_dependency.aclose()
     await token_cache_dependency.aclose()
 
 

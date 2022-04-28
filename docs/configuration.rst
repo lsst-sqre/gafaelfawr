@@ -347,6 +347,28 @@ You can override the attribute containing the UID number with:
 
 .. _scopes:
 
+Firestore UID/GID assignment
+----------------------------
+
+Gafaelfawr can manage UID and GID assignment internally, using `Google Firestore <https://cloud.google.com/firestore>`__ as the storage mechanism.
+This only works with Open ID Connect authentication, and :ref:`Cloud SQL <cloudsql>` must also be enabled.
+The same service account used for Cloud SQL must have read/write permissions to Firestore.
+
+When this support is enabled, Gafaelfawr ignores any UID and GID information from the tokens issued by the upstream OpenID Connect provider and from LDAP, and instead assigns UIDs and GIDs to users and groups by name the first time that a given username or group name is seen.
+UIDs and GIDs are never reused.
+They are assigned from the ranges documented in `DMTN-225 <https://dmtn-225.lsst.io/>`__.
+
+To enable use of Firestore for UID/GID assignment, add the following configuration:
+
+.. code-block:: yaml
+
+   config:
+     firestore:
+       project: "<google-project-id>"
+
+Set ``<google-project-id>`` to the name of the Google project for the Firestore data store.
+(Best practice is to make a dedicated project solely for Firestore, since there can only be one Firestore instance per Google project.)
+
 Scopes
 ------
 
@@ -456,8 +478,7 @@ If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL data
 
 First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
 You do not need to create the Kubernetes service account; two service accounts will be created by the Gafaelfawr Helm chart.
-The default names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-tokens``, both in the ``gafaelfawr`` namespace.
-These names can be overridden with the ``serviceAccount.name`` and ``tokens.serviceAccount.name`` Helm values.
+The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-tokens``, both in Gafaelfawr's Kubernetes namespace (by default, ``gafaelfawr``).
 
 Then, once you have the name of the Google service account for the Cloud SQL Auth Proxy (created in the above instructions), enable the Cloud SQL Auth Proxy sidecar in the Gafaelfawr Helm chart.
 An example configuration:

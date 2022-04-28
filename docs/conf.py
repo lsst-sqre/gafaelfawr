@@ -63,6 +63,10 @@ intersphinx_mapping = {
     "aioredis": ("https://aioredis.readthedocs.io/en/stable/", None),
     "bonsai": ("https://bonsai.readthedocs.io/en/latest/", None),
     "cryptography": ("https://cryptography.io/en/latest/", None),
+    "google-cloud-firestore": (
+        "https://googleapis.dev/python/firestore/latest/",
+        None,
+    ),
     "jwt": ("https://pyjwt.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
     "safir": ("https://safir.lsst.io/", None),
@@ -103,6 +107,8 @@ nitpick_ignore = [
     # and there doesn't seem to be any way to fix this.
     ("py:class", "asyncio.queues.Queue"),
     # TypeVar references that shouldn't be documented.
+    ("py:class", "gafaelfawr.dependencies.cache.S"),
+    ("py:obj", "gafaelfawr.dependencies.cache.S"),
     ("py:class", "gafaelfawr.models.history.E"),
     ("py:obj", "gafaelfawr.models.history.E"),
     ("py:class", "gafaelfawr.storage.base.S"),

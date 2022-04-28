@@ -213,10 +213,21 @@ async def handle_provider_return(
     except HTTPError as e:
         return login_error(context, LoginError.PROVIDER_NETWORK, str(e))
 
+    # If we normally get group information from LDAP, the groups returned by
+    # the authentication provider will be empty, but we still want to
+    # determine the user's scopes.
+    groups: Optional[List[TokenGroup]]
+    if context.config.ldap:
+        user_info_service = context.factory.create_user_info_service()
+        username = user_info.username
+        groups = await user_info_service.get_groups_from_ldap(username)
+    else:
+        groups = user_info.groups
+
     # Get the user's scopes.  If this returns None, the user isn't in any
     # recognized groups, which means that we should abort the login and
     # display an error message.
-    scopes = get_scopes_from_groups(context.config, user_info.groups)
+    scopes = get_scopes_from_groups(context.config, groups)
     if scopes is None:
         await auth_provider.logout(context.state)
         msg = f"{user_info.username} is not a member of any authorized groups"

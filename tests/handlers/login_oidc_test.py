@@ -11,8 +11,11 @@ import respx
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, ConnectError
 
+from gafaelfawr.constants import GID_MIN, UID_BOT_MIN, UID_USER_MIN
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.factory import ComponentFactory
 
+from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
@@ -550,7 +553,7 @@ async def test_ldap(
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
 
-    # Check that the name as returned from the user-info API is correct.
+    # Check that the data returned from the user-info API is correct.
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
     assert r.json() == {
@@ -558,4 +561,136 @@ async def test_ldap(
         "email": token.claims["email"],
         "uid": 2000,
         "groups": [{"name": g.name, "id": g.id} for g in mock_ldap.groups],
+    }
+
+    # Check that the headers returned by the auth endpoint are also correct.
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == "ldap-user"
+    assert r.headers["X-Auth-Request-Email"] == token.claims["email"]
+    assert r.headers["X-Auth-Request-Uid"] == "2000"
+    assert r.headers["X-Auth-Request-Groups"] == ",".join(
+        [g.name for g in mock_ldap.groups]
+    )
+
+
+@pytest.mark.asyncio
+async def test_firestore(
+    tmp_path: Path,
+    factory: ComponentFactory,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_firestore: MockFirestore,
+) -> None:
+    config = await configure(tmp_path, "oidc-firestore")
+    assert config.oidc
+    factory.reconfigure(config)
+    firestore_storage = factory.create_firestore_storage()
+    await firestore_storage.initialize()
+    token = create_upstream_oidc_jwt(groups=["admin", "foo"])
+    await mock_oidc_provider_config(respx_mock, "orig-kid")
+    await mock_oidc_provider_token(respx_mock, "some-code", token)
+    return_url = "https://example.com/foo"
+
+    r = await client.get("/login", params={"rd": return_url})
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == return_url
+
+    # Check the allocated UID and GIDs.
+    username = token.claims[config.oidc.username_claim]
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": username,
+        "email": token.claims["email"],
+        "uid": UID_USER_MIN,
+        "groups": [
+            {"name": "admin", "id": GID_MIN},
+            {"name": "foo", "id": GID_MIN + 1},
+        ],
+    }
+
+    # Delete the user document and reauthenticate.  We should still get the
+    # same UID due to the internal cache.  The below is not a valid use of the
+    # Firestore API; it only works with our mock implementation.
+    transaction = mock_firestore.transaction()
+    transaction.delete(mock_firestore.collection("users").document(username))
+    await mock_oidc_provider_config(respx_mock, "orig-kid")
+    await mock_oidc_provider_token(respx_mock, "some-code", token)
+    r = await client.get("/login", params={"rd": return_url})
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 307
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": username,
+        "email": token.claims["email"],
+        "uid": UID_USER_MIN,
+        "groups": [
+            {"name": "admin", "id": GID_MIN},
+            {"name": "foo", "id": GID_MIN + 1},
+        ],
+    }
+
+    # Authenticate as a different user.
+    claims = {config.oidc.username_claim: "other-user", "sub": "other-user"}
+    token = create_upstream_oidc_jwt(groups=["foo", "group-1"], **claims)
+    await mock_oidc_provider_config(respx_mock, "orig-kid")
+    await mock_oidc_provider_token(respx_mock, "some-code", token)
+    r = await client.get("/login", params={"rd": return_url})
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 307
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "other-user",
+        "email": token.claims["email"],
+        "uid": UID_USER_MIN + 1,
+        "groups": [
+            {"name": "foo", "id": GID_MIN + 1},
+            {"name": "group-1", "id": GID_MIN + 2},
+        ],
+    }
+
+    # Authenticate as a bot user, which should use a different UID space.
+    claims = {config.oidc.username_claim: "bot-foo", "sub": "bot-foo"}
+    token = create_upstream_oidc_jwt(groups=["foo", "group-2"], **claims)
+    await mock_oidc_provider_config(respx_mock, "orig-kid")
+    await mock_oidc_provider_token(respx_mock, "some-code", token)
+    r = await client.get("/login", params={"rd": return_url})
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 307
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "bot-foo",
+        "email": token.claims["email"],
+        "uid": UID_BOT_MIN,
+        "groups": [
+            {"name": "foo", "id": GID_MIN + 1},
+            {"name": "group-2", "id": GID_MIN + 3},
+        ],
     }

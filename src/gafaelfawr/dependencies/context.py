@@ -21,9 +21,14 @@ from structlog.stdlib import BoundLogger
 from ..config import Config
 from ..factory import ComponentFactory
 from ..models.state import State
+from .cache import (
+    IdCache,
+    TokenCache,
+    id_cache_dependency,
+    token_cache_dependency,
+)
 from .config import config_dependency
 from .redis import redis_dependency
-from .token_cache import TokenCache, token_cache_dependency
 
 __all__ = ["RequestContext", "context_dependency"]
 
@@ -56,6 +61,9 @@ class RequestContext:
     http_client: AsyncClient
     """Shared HTTP client."""
 
+    id_cache: IdCache
+    """Shared UID/GID cache."""
+
     token_cache: TokenCache
     """Shared token cache."""
 
@@ -71,6 +79,7 @@ class RequestContext:
             redis=self.redis,
             session=self.session,
             http_client=self.http_client,
+            id_cache=self.id_cache,
             token_cache=self.token_cache,
             logger=self.logger,
         )
@@ -106,6 +115,7 @@ async def context_dependency(
     redis: Redis = Depends(redis_dependency),
     session: async_scoped_session = Depends(db_session_dependency),
     http_client: AsyncClient = Depends(http_client_dependency),
+    id_cache: IdCache = Depends(id_cache_dependency),
     token_cache: TokenCache = Depends(token_cache_dependency),
 ) -> RequestContext:
     """Provides a RequestContext as a dependency."""
@@ -116,5 +126,6 @@ async def context_dependency(
         redis=redis,
         session=session,
         http_client=http_client,
+        id_cache=id_cache,
         token_cache=token_cache,
     )

@@ -16,7 +16,6 @@ from jwt.exceptions import InvalidIssuerError
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.exceptions import (
     FetchKeysException,
-    MissingClaimsException,
     UnknownAlgorithmException,
     UnknownKeyIdException,
 )
@@ -82,31 +81,6 @@ async def test_verify_token(
     with pytest.raises(InvalidIssuerError) as excinfo:
         await verifier.verify_token(token)
     assert str(excinfo.value) == "Unknown issuer: https://bogus.example.com/"
-
-    # Missing username claim.  This is only diagnosed when
-    # get_username_from_token is called, not during the initial verification,
-    # since we do not verify the username claim if usernames are retrieved
-    # from LDAP instead.
-    payload["iss"] = config.oidc.issuer
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    token = encode_token(payload, TEST_KEYPAIR, kid="orig-kid")
-    verified_token = await verifier.verify_token(token)
-    with pytest.raises(MissingClaimsException) as excinfo:
-        verifier.get_username_from_token(verified_token)
-    expected = f"No {config.oidc.username_claim} claim in token"
-    assert str(excinfo.value) == expected
-
-    # Missing UID claim.  This is only diagnosed when get_uid_from_token is
-    # called, not during the initial verification, since we do not verify the
-    # UID claim if UIDs are retrieved from LDAP instead.
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    payload[config.oidc.username_claim] = "some-user"
-    token = encode_token(payload, TEST_KEYPAIR, kid="orig-kid")
-    verified_token = await verifier.verify_token(token)
-    with pytest.raises(MissingClaimsException) as excinfo:
-        verifier.get_uid_from_token(verified_token, "some-user")
-    expected = f"No {config.oidc.uid_claim} claim in token"
-    assert str(excinfo.value) == expected
 
 
 @pytest.mark.asyncio

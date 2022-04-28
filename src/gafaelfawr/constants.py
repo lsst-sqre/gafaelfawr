@@ -18,11 +18,40 @@ OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 SETTINGS_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 """Default configuration path."""
 
+# The following constants define per-process cache sizes.
+
+GID_CACHE_SIZE = 10000
+"""How many GID values to cache in memory."""
+
+UID_CACHE_SIZE = 10000
+"""How many UID values to cache in memory."""
+
 TOKEN_CACHE_SIZE = 10000
 """How many internal and notebook tokens to cache in memory."""
 
+# The following constants define the limits of UID and GID ranges when
+# Gafaelfawr is doing UID and GID assignment.
+
+UID_BOT_MIN = 100000
+"""Minimum UID for bot users."""
+
+UID_BOT_MAX = 199999
+"""Maximum UID for bot users."""
+
+UID_USER_MIN = 3000000
+"""Minimum UID for users."""
+
+GID_MIN = 2000000
+"""Minimum GID for groups."""
+
+GID_MAX = 2999999
+"""Maximum gid for groups."""
+
 # The following constants are used for field validation.  Minimum and maximum
 # length are handled separately.
+
+BOT_USERNAME_REGEX = "^bot-.*$"
+"""Regex matching a valid username that is also a bot user."""
 
 CURSOR_REGEX = "^p?[0-9]+_[0-9]+$"
 """Regex matching a valid cursor."""
