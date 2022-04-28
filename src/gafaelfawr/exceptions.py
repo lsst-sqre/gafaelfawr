@@ -33,6 +33,7 @@ __all__ = [
     "MissingClaimsException",
     "NoAvailableGidError",
     "NoAvailableUidError",
+    "NoUsernameMappingError",
     "NotConfiguredException",
     "OAuthError",
     "OAuthBearerError",
@@ -352,6 +353,10 @@ class OIDCException(ProviderException):
 
 class LDAPException(ProviderException):
     """Group information for the user in LDAP was invalid."""
+
+
+class NoUsernameMappingError(LDAPException):
+    """No mapping from identifier to username was found in LDAP."""
 
 
 class UnauthorizedClientException(Exception):

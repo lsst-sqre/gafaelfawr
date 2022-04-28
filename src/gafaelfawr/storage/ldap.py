@@ -10,7 +10,7 @@ from bonsai.utils import escape_filter_exp
 from structlog.stdlib import BoundLogger
 
 from ..config import LDAPConfig
-from ..exceptions import LDAPException
+from ..exceptions import LDAPException, NoUsernameMappingError
 from ..models.token import TokenGroup
 
 __all__ = ["LDAPStorage", "LDAPStorageConnection"]
@@ -102,6 +102,9 @@ class LDAPStorageConnection:
             The lookup by ``username_search_attr`` in the LDAP server was not
             valid (connection to the LDAP server failed, attribute not found
             in LDAP, result value not an integer).
+        gafaelfawr.exceptions.NoUsernameMappingError
+            The opaque authentication identity could not be mapped to a
+            username, probably because the user is not enrolled.
         """
         if not self._config.username_base_dn:
             return None
@@ -141,10 +144,10 @@ class LDAPStorageConnection:
                 raise LDAPException("Username in LDAP is invalid")
 
         # Fell through without finding a UID.
-        self._logger.error(
+        self._logger.info(
             "No username found in LDAP", ldap_search=search, sub=sub
         )
-        raise LDAPException("No username found in LDAP")
+        raise NoUsernameMappingError("No username found in LDAP")
 
     async def get_uid(self, username: str) -> Optional[int]:
         """Get the numeric UID of a user.

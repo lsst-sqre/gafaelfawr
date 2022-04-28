@@ -313,6 +313,9 @@ class OIDCUserInfoService(UserInfoService):
         gafaelfawr.exceptions.LDAPException
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
+        gafaelfawr.exceptions.NoUsernameMappingError
+            The opaque authentication identity could not be mapped to a
+            username, probably because the user is not enrolled.
         gafaelfawr.exceptions.VerifyTokenException
             The token is missing required claims.
         """
