@@ -575,6 +575,29 @@ async def test_ldap(
 
 
 @pytest.mark.asyncio
+async def test_enrollment_url(
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
+) -> None:
+    config = await config_dependency()
+    assert config.oidc
+    assert config.ldap
+    token = create_upstream_oidc_jwt(sub="unknown-sub", groups=["admin"])
+    await mock_oidc_provider_config(respx_mock, "orig-kid")
+    await mock_oidc_provider_token(respx_mock, "some-code", token)
+
+    r = await client.get("/login", params={"rd": "https://example.com/"})
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == config.oidc.enrollment_url
+
+
+@pytest.mark.asyncio
 async def test_firestore(
     tmp_path: Path,
     factory: ComponentFactory,

@@ -27,6 +27,7 @@ oidc:
     skin: "test"
   redirect_url: "https://upstream.example.com/login"
   token_url: "https://upstream.example.com/token"
+  enrollment_url: "https://upstream.example.com/enroll"
   scopes:
     - "email"
     - "voPerson"

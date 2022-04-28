@@ -68,4 +68,4 @@ class MockLDAP(Mock):
                 {"cn": [g.name], "gidNumber": [str(g.id)]} for g in self.groups
             ]
         else:
-            assert False, f"Unexpected query {query}"
+            return []

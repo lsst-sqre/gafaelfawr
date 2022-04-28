@@ -253,6 +253,12 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     Can be used to set parameters like ``skin`` or ``selected_idp``.
     See the `CILogon OIDC documentation <https://www.cilogon.org/oidc>`__ for more information.
 
+``config.cilogon.enrollmentUrl``
+    Used only when LDAP lookups of usernames are configured (see :ref:`ldap-username`).
+    If a username was not found for the CILogon unique identifier, redirect the user to this URL.
+    This is intended for deployments using CILogon with COmanage for identity management.
+    The enrollment URL will normally be the initial URL for a COmanage user-initiated enrollment flow.
+
 Generic OpenID Connect
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -269,11 +275,16 @@ Generic OpenID Connect
          - "<scope-to-request>"
          - "<scope-to-request>"
 
-There is one additional option under ``config.oidc`` that you may want to set:
+There are two additional options under ``config.oidc`` that you may want to set:
 
 ``config.oidc.loginParams``
     A mapping of additional parameters to send to the login route.
     Can be used to set additional configuration options for some OpenID Connect providers.
+
+``config.oidc.enrollmentUrl``
+    Used only when LDAP lookups of usernames are configured (see :ref:`ldap-username`).
+    If a username was not found for the unique identifier in the ``sub`` claim of the OpenID Connect ID token, redirect the user to this URL.
+    This could, for example, be a form where the user can register for access to the deployment, or a page explaining how a user can get access.
 
 .. _ldap-groups:
 
@@ -308,6 +319,8 @@ You may need to set the following additional options under ``config.ldap`` depen
     Default: ``member``.
 
 The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
+
+.. _ldap-username:
 
 LDAP username
 -------------

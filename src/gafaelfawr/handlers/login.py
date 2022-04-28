@@ -14,6 +14,7 @@ from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import return_url_with_header
 from ..exceptions import (
     InvalidReturnURLError,
+    NoUsernameMappingError,
     PermissionDeniedError,
     ProviderException,
 )
@@ -30,6 +31,7 @@ class LoginError(Enum):
 
     GROUPS_MISSING = "User unauthorized"
     INVALID_USERNAME = "Cannot authenticate"
+    NOT_ENROLLED = "User is not enrolled"
     PROVIDER_FAILED = "Authentication provider failed"
     PROVIDER_NETWORK = "Cannot contact authentication provider"
     RETURN_URL_MISSING = "Invalid state: return_url not present in cookie"
@@ -208,6 +210,13 @@ async def handle_provider_return(
         user_info = await auth_provider.create_user_info(
             code, state, context.state
         )
+    except NoUsernameMappingError as e:
+        if context.config.oidc and context.config.oidc.enrollment_url:
+            url = context.config.oidc.enrollment_url
+            context.logger.info("Redirecting user to enrollment URL", url=url)
+            return RedirectResponse(url)
+        else:
+            return login_error(context, LoginError.NOT_ENROLLED, str(e))
     except ProviderException as e:
         return login_error(context, LoginError.PROVIDER_FAILED, str(e))
     except HTTPError as e:

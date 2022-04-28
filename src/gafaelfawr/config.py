@@ -85,6 +85,14 @@ class OIDCSettings(BaseModel):
     token_url: AnyHttpUrl
     """URL at which to redeem the authentication code for a token."""
 
+    enrollment_url: Optional[AnyHttpUrl] = None
+    """URL to which the user should be redirected if not enrolled.
+
+    If LDAP username lookup is configured (using ``ldap.username_base_dn``)
+    and the user could not be found, redirect the user, after login, to this
+    URL so that they can register.
+    """
+
     scopes: List[str] = []
     """Scopes to request from the authentication provider.
 
@@ -408,6 +416,14 @@ class OIDCConfig:
     token_url: str
     """URL at which to redeem the authentication code for a token."""
 
+    enrollment_url: Optional[str]
+    """URL to which the user should be redirected if not enrolled.
+
+    If LDAP username lookup is configured (using ``ldap.username_base_dn``)
+    and the user could not be found, redirect the user, after login, to this
+    URL so that they can register.
+    """
+
     scopes: Tuple[str, ...]
     """Scopes to request from the authentication provider.
 
@@ -662,6 +678,9 @@ class Config:
         oidc_config = None
         if settings.oidc:
             path = settings.oidc.client_secret_file
+            enrollment_url = None
+            if settings.oidc.enrollment_url:
+                enrollment_url = str(settings.oidc.enrollment_url)
             oidc_secret = cls._load_secret(path).decode()
             oidc_config = OIDCConfig(
                 client_id=settings.oidc.client_id,
@@ -670,6 +689,7 @@ class Config:
                 login_params=settings.oidc.login_params,
                 redirect_url=str(settings.oidc.redirect_url),
                 token_url=str(settings.oidc.token_url),
+                enrollment_url=enrollment_url,
                 scopes=tuple(settings.oidc.scopes),
                 issuer=settings.oidc.issuer,
                 audience=settings.oidc.audience,

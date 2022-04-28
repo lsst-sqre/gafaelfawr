@@ -13,6 +13,8 @@ The internal configuration format may change in minor releases.
   When this is enabled, UID and GID information from the upstream OpenID Connect provider or from LDAP is ignored, and instead Gafaelfawr assigns UIDs and GIDs to usernames and group names on first use.
   UIDs and GIDs for usernames and group names will be retrieved from Firestore on initial authentication if already assigned.
   Currently, OpenID Connect (via CILogon or a generic server) must be used as the authentication provider to use Google Firestore UID and GID assignment.
+- Add an optional enrollment URL configuration when CILogon or generic OpenID Connect is used with LDAP lookups of the username.
+  If this is set and the ``sub`` claim in the ID token does not resolve to a user entry in LDAP, the user will be redirected to this URL instead of an error page.
 - Group information from LDAP is now retrieved dynamically when needed instead of stored with an authentication token, so it will change dynamically if the user's groups change in LDAP.
   This does not affect the token's scopes, only the group information retrieved by a user-info API request.
 - Support authenticated simple binds to an LDAP server.
