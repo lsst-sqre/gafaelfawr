@@ -6,7 +6,7 @@ Versioning follows `semver <https://semver.org/>`__.
 Versioning assumes that Gafaelfawr is installed and configured via `Phalanx <https://phalanx.lsst.io/>`__, so only changes to configuration changes exposed in the Helm values file are considered breaking changes.
 The internal configuration format may change in minor releases.
 
-4.1.0 (unreleased)
+4.1.0 (2022-04-29)
 ==================
 
 - Support assigning UIDs and GIDs using Google Firestore.
