@@ -331,12 +331,12 @@ async def test_admin_change_history(
         client,
         {"ip_address": "192.0.2.0/24"},
         history,
-        lambda e: ip_address(e.ip_address) in cidr_block,
+        lambda e: ip_address(e.ip_address or "") in cidr_block,
     )
 
     def ipv6_filter(e: TokenChangeHistoryEntry) -> bool:
         expected = ip_address("2001:db8:034a:ea78:4278:4562:6578:9876")
-        return ip_address(e.ip_address) == expected
+        return ip_address(e.ip_address or "") == expected
 
     await check_history_request(
         client,
@@ -349,7 +349,7 @@ async def test_admin_change_history(
         client,
         {"ip_address": "2001:db8::/32"},
         history,
-        lambda e: ip_address(e.ip_address) in cidr_block,
+        lambda e: ip_address(e.ip_address or "") in cidr_block,
     )
     await check_history_request(
         client,
@@ -427,7 +427,7 @@ async def test_user_change_history(
 
     def ipv6_filter(e: TokenChangeHistoryEntry) -> bool:
         expected = ip_address("2001:db8:034a:ea78:4278:4562:6578:9876")
-        return ip_address(e.ip_address) == expected
+        return ip_address(e.ip_address or "") == expected
 
     await check_history_request(
         client,
@@ -441,7 +441,7 @@ async def test_user_change_history(
         client,
         {"ip_address": "192.0.2.0/24"},
         history,
-        lambda e: ip_address(e.ip_address) in cidr_block,
+        lambda e: ip_address(e.ip_address or "") in cidr_block,
         username="one",
     )
     await check_history_request(
