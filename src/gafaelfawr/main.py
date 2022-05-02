@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from importlib.metadata import metadata
+from importlib.metadata import version
 from pathlib import Path
 
 from fastapi import FastAPI, Request, status
@@ -37,16 +37,13 @@ def create_app() -> FastAPI:
     typical for FastAPI) because some middleware depends on configuration
     settings and we therefore want to recreate the application between tests.
     """
-    version = metadata("gafaelfawr").get(  # type: ignore[attr-defined]
-        "Version", "0.0.0"
-    )
     app = FastAPI(
         title="Gafaelfawr",
         description=(
             "Gafaelfawr is a FastAPI application for the authorization and"
             " management of tokens, including their issuance and revocation."
         ),
-        version=version,
+        version=version("gafaelfawr"),
         tags_metadata=[
             {
                 "name": "user",
