@@ -50,7 +50,7 @@ GID_MAX = 2999999
 # The following constants are used for field validation.  Minimum and maximum
 # length are handled separately.
 
-BOT_USERNAME_REGEX = "^bot-.*$"
+BOT_USERNAME_REGEX = "^bot-[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 """Regex matching a valid username that is also a bot user."""
 
 CURSOR_REGEX = "^p?[0-9]+_[0-9]+$"
