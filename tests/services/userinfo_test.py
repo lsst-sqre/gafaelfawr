@@ -17,7 +17,7 @@ from tests.support.settings import configure
 async def test_missing_token_data(
     tmp_path: Path, factory: ComponentFactory
 ) -> None:
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     assert config.oidc
     factory.reconfigure(config)
     user_info = factory.create_oidc_user_info_service()

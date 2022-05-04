@@ -49,7 +49,7 @@ def encode_token(
 async def test_verify_token(
     tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     assert config.oidc
     factory.reconfigure(config)
     verifier = factory.create_oidc_token_verifier()
@@ -87,7 +87,7 @@ async def test_verify_token(
 async def test_verify_oidc_no_kids(
     tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
-    config = await configure(tmp_path, "oidc-no-kids")
+    config = configure(tmp_path, "oidc-no-kids")
     assert config.oidc
     factory.reconfigure(config)
     verifier = factory.create_oidc_token_verifier()
@@ -112,7 +112,7 @@ async def test_verify_oidc_no_kids(
 async def test_key_retrieval(
     tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
 ) -> None:
-    config = await configure(tmp_path, "oidc-no-kids")
+    config = configure(tmp_path, "oidc-no-kids")
     factory.reconfigure(config)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()

@@ -82,7 +82,7 @@ async def test_no_auth(client: AsyncClient, config: Config) -> None:
 async def test_not_configured(
     tmp_path: Path, client: AsyncClient, factory: ComponentFactory
 ) -> None:
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
 
@@ -102,7 +102,7 @@ async def test_influxdb_force_username(
     factory: ComponentFactory,
     caplog: LogCaptureFixture,
 ) -> None:
-    config = await configure(tmp_path, "influxdb-username")
+    config = configure(tmp_path, "influxdb-username")
     factory.reconfigure(config)
     token_data = await create_session_token(factory)
     assert token_data.expires
