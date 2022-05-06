@@ -25,8 +25,10 @@ from .providers.github import GitHubProvider
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
+from .services.firestore import FirestoreService
 from .services.influxdb import InfluxDBService
 from .services.kubernetes import KubernetesService
+from .services.ldap import LDAPService
 from .services.oidc import OIDCService
 from .services.token import TokenService
 from .services.token_cache import TokenCacheService
@@ -246,14 +248,17 @@ class ComponentFactory:
             raise NotConfiguredError("OpenID Connect is not configured")
         firestore = None
         if self._config.firestore:
-            firestore = self.create_firestore_storage()
-        ldap_storage = None
+            firestore_storage = self.create_firestore_storage()
+            firestore = FirestoreService(
+                self._id_cache, firestore_storage, self._logger
+            )
+        ldap = None
         if self._config.ldap:
             ldap_storage = LDAPStorage(self._config.ldap, self._logger)
+            ldap = LDAPService(ldap_storage, self._logger)
         return OIDCUserInfoService(
             config=self._config.oidc,
-            cache=self._id_cache,
-            ldap_storage=ldap_storage,
+            ldap=ldap,
             firestore=firestore,
             logger=self._logger,
         )
@@ -330,13 +335,16 @@ class ComponentFactory:
         """
         firestore = None
         if self._config.firestore:
-            firestore = self.create_firestore_storage()
-        ldap_storage = None
+            firestore_storage = self.create_firestore_storage()
+            firestore = FirestoreService(
+                self._id_cache, firestore_storage, self._logger
+            )
+        ldap = None
         if self._config.ldap:
             ldap_storage = LDAPStorage(self._config.ldap, self._logger)
+            ldap = LDAPService(ldap_storage, self._logger)
         return UserInfoService(
-            cache=self._id_cache,
-            ldap_storage=ldap_storage,
+            ldap=ldap,
             firestore=firestore,
             logger=self._logger,
         )

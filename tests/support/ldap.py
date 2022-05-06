@@ -64,9 +64,14 @@ class MockLDAP(Mock):
             assert attrlist == ["uidNumber"]
             return [{"uidNumber": [str(2000)]}]
         elif query == "(&(objectClass=posixGroup)(member=ldap-user))":
-            assert attrlist == ["cn", "gidNumber"]
-            return [
-                {"cn": [g.name], "gidNumber": [str(g.id)]} for g in self.groups
-            ]
+            if attrlist == ["cn", "gidNumber"]:
+                return [
+                    {"cn": [g.name], "gidNumber": [str(g.id)]}
+                    for g in self.groups
+                ]
+            elif attrlist == ["cn"]:
+                return [{"cn": [g.name]} for g in self.groups]
+            else:
+                assert False, f"Invalid attribute list {attrlist}"
         else:
             return []

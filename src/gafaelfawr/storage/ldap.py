@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, List, Optional
 
@@ -10,6 +11,7 @@ from bonsai.utils import escape_filter_exp
 from structlog.stdlib import BoundLogger
 
 from ..config import LDAPConfig
+from ..constants import GROUPNAME_REGEX
 from ..exceptions import LDAPError, NoUsernameMappingError
 from ..models.token import TokenGroup
 
@@ -213,17 +215,13 @@ class LDAPStorageConnection:
         )
         raise LDAPError("No UID found in LDAP")
 
-    async def get_groups(
-        self, username: str, *, add_gids: bool
-    ) -> List[TokenGroup]:
+    async def get_groups(self, username: str) -> List[TokenGroup]:
         """Get groups for a user from LDAP.
 
         Parameters
         ----------
         username : `str`
             Username of the user.
-        add_gids : `bool`
-            Whether to attempt to retrieve GIDs from LDAP.
 
         Returns
         -------
@@ -233,9 +231,7 @@ class LDAPStorageConnection:
         Raises
         ------
         gafaelfawr.exceptions.LDAPError
-            One of the groups for the user in LDAP was not valid (missing
-            ``cn`` or, if ``add_gids`` was `True`, ``gidNumber`` attributes,
-            or ``gidNumber`` is not an integer)
+            Some error occurred when searching LDAP.
         """
         group_class = self._config.group_object_class
         member_attr = self._config.group_member_attr
@@ -269,15 +265,79 @@ class LDAPStorageConnection:
                     "LDAP group found", result=result, user=username
                 )
                 name = result["cn"][0]
-                if add_gids:
-                    gid = int(result["gidNumber"][0])
-                else:
-                    gid = None
+                gid = int(result["gidNumber"][0])
                 groups.append(TokenGroup(name=name, id=gid))
             except Exception as e:
                 self._logger.warning(
                     f"LDAP group {name} invalid, ignoring",
                     error=str(e),
+                    ldap_search=search,
+                    user=username,
+                )
+        return groups
+
+    async def get_group_names(self, username: str) -> List[str]:
+        """Get names of groups for a user from LDAP.
+
+        Parameters
+        ----------
+        username : `str`
+            Username of the user.
+
+        Returns
+        -------
+        groups : List[`str`]
+            User's group names from LDAP.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.LDAPError
+            Some error occurred while doing the LDAP search.
+        """
+        group_class = self._config.group_object_class
+        member_attr = self._config.group_member_attr
+        search = f"(&(objectClass={group_class})({member_attr}={username}))"
+        self._logger.debug(
+            "Querying LDAP for group names", ldap_search=search, user=username
+        )
+
+        try:
+            results = await self._conn.search(
+                self._config.base_dn,
+                bonsai.LDAPSearchScope.SUB,
+                search,
+                attrlist=["cn"],
+            )
+        except bonsai.LDAPError as e:
+            self._logger.error(
+                "Cannot query LDAP for groups",
+                error=str(e),
+                ldap_search=search,
+                user=username,
+            )
+            raise LDAPError("Error querying LDAP for groups")
+
+        # Parse the results into the group list.
+        groups = []
+        valid_group_regex = re.compile(GROUPNAME_REGEX)
+        for result in results:
+            self._logger.debug(
+                "LDAP group found", result=result, user=username
+            )
+            try:
+                name = result["cn"][0]
+            except Exception as e:
+                self._logger.warning(
+                    "Invalid LDAP group result, ignoring",
+                    error=str(e),
+                    ldap_search=search,
+                    user=username,
+                )
+            if valid_group_regex.match(name):
+                groups.append(name)
+            else:
+                self._logger.warning(
+                    f"LDAP group {name} invalid, ignoring",
                     ldap_search=search,
                     user=username,
                 )

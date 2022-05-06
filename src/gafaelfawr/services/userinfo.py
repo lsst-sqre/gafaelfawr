@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from typing import List, Optional
 
 from structlog.stdlib import BoundLogger
 
 from ..config import OIDCConfig
-from ..constants import BOT_USERNAME_REGEX
-from ..dependencies.cache import IdCache
 from ..exceptions import (
     InvalidTokenClaimsError,
     MissingClaimsError,
@@ -17,8 +14,8 @@ from ..exceptions import (
 )
 from ..models.oidc import OIDCVerifiedToken
 from ..models.token import TokenData, TokenGroup, TokenUserInfo
-from ..storage.firestore import FirestoreStorage
-from ..storage.ldap import LDAPStorage
+from ..services.firestore import FirestoreService
+from ..services.ldap import LDAPService
 
 __all__ = ["OIDCUserInfoService", "UserInfoService"]
 
@@ -43,14 +40,10 @@ class UserInfoService:
 
     Parameters
     ----------
-    cache : `gafaelfawr.dependencies.cache.IdCache`
-        The underlying UID and GID cache and locks.
-    ldap_storage : `gafaelfawr.storage.ldap.LDAPStorage`, optional
-        The underlying LDAP storage for user metadata, if LDAP was
-        configured.
-    firestore : `gafaelfawr.storage.firestore.FirestoreStorage`, optional
-        The underlying Firestore storage for UID and GID assignment, if
-        Firestore was configured.
+    ldap : `gafaelfawr.services.ldap.LDAPService`, optional
+        LDAP service for user metadata, if LDAP was configured.
+    firestore : `gafaelfawr.services.firestore.FirestoreService`, optional
+        Service for Firestore UID/GID lookups, if Firestore was configured.
     logger : `structlog.stdlib.BoundLogger`
         Logger to use.
     """
@@ -58,13 +51,11 @@ class UserInfoService:
     def __init__(
         self,
         *,
-        cache: IdCache,
-        ldap_storage: Optional[LDAPStorage],
-        firestore: Optional[FirestoreStorage],
+        ldap: Optional[LDAPService],
+        firestore: Optional[FirestoreService],
         logger: BoundLogger,
     ) -> None:
-        self._cache = cache
-        self._ldap = ldap_storage
+        self._ldap = ldap
         self._firestore = firestore
         self._logger = logger
 
@@ -73,14 +64,16 @@ class UserInfoService:
 
         Used primarily for testing.
         """
-        await self._cache.clear()
+        if self._firestore:
+            await self._firestore.clear_cache()
 
-    async def get_groups_from_ldap(self, username: str) -> List[TokenGroup]:
+    async def get_groups_from_ldap(self, username: str) -> List[str]:
         """Get the user's groups from LDAP.
 
         This duplicates some of the code that generates user information from
-        LDAP, but retrieves only the user's groups.  It's used after login to
-        verify that the user is a member of a group that grants access.
+        LDAP, but retrieves only the user's group names.  It's used after
+        login to verify that the user is a member of a group that grants
+        access.
 
         Parameters
         ----------
@@ -89,13 +82,12 @@ class UserInfoService:
 
         Returns
         -------
-        groups : List[`gafaelfawr.models.token.TokenGroup`]
-            The user's groups according to LDAP, without GIDs.
+        groups : List[`str`]
+            The user's group names according to LDAP.
         """
         if not self._ldap:
             raise RuntimeError("LDAP requested but not configured")
-        async with self._ldap.connect() as conn:
-            return await conn.get_groups(username, add_gids=False)
+        return await self._ldap.get_group_names(username)
 
     async def get_user_info_from_token(
         self, token_data: TokenData
@@ -127,13 +119,20 @@ class UserInfoService:
         """
         username = token_data.username
         if self._ldap:
-            ldap_user_info = await self._get_user_info_from_ldap(username)
+            if self._firestore:
+                group_names = await self._ldap.get_group_names(username)
+                groups = []
+                for group_name in group_names:
+                    gid = await self._firestore.get_gid(group_name)
+                    groups.append(TokenGroup(name=group_name, id=gid))
+            else:
+                groups = await self._ldap.get_groups(username)
             return TokenUserInfo(
                 username=username,
-                name=ldap_user_info.name or token_data.name,
+                name=token_data.name,
                 uid=token_data.uid,
-                email=ldap_user_info.email or token_data.email,
-                groups=ldap_user_info.groups,
+                email=token_data.email,
+                groups=groups,
             )
         else:
             return TokenUserInfo(
@@ -143,103 +142,6 @@ class UserInfoService:
                 email=token_data.email,
                 groups=token_data.groups,
             )
-
-    async def _get_gid_from_firestore(self, group: str) -> int:
-        """Get the GID for a given user from Firestore.
-
-        Parameters
-        ----------
-        group : `str`
-            Group of the user.
-
-        Returns
-        -------
-        gid : `int`
-            GID of the user.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.NoAvailableGidError
-            No more GIDs are available in that range.
-        """
-        if not self._firestore:
-            raise RuntimeError("Firestore requested but not configured")
-        gid = self._cache.get_gid(group)
-        if gid:
-            return gid
-        async with self._cache.gid_lock:
-            gid = self._cache.get_gid(group)
-            if gid:
-                return gid
-            gid = await self._firestore.get_gid(group)
-            self._cache.store_gid(group, gid)
-            return gid
-
-    async def _get_uid_from_firestore(self, username: str) -> int:
-        """Get the UID for a given user.
-
-        Parameters
-        ----------
-        username : `str`
-            Username of the user.
-
-        Returns
-        -------
-        uid : `int`
-            UID of the user.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.NoAvailableUidError
-            No more UIDs are available in that range.
-        """
-        if not self._firestore:
-            raise RuntimeError("Firestore requested but not configured")
-        uid = self._cache.get_uid(username)
-        if uid:
-            return uid
-        async with self._cache.uid_lock:
-            uid = self._cache.get_uid(username)
-            if uid:
-                return uid
-            bot = re.search(BOT_USERNAME_REGEX, username) is not None
-            uid = await self._firestore.get_uid(username, bot=bot)
-            self._cache.store_uid(username, uid)
-            return uid
-
-    async def _get_user_info_from_ldap(self, username: str) -> TokenUserInfo:
-        """Get user information from LDAP.
-
-        Currently, this only obtains the group information.  It will be
-        expanded to obtain the user's full name and email address.  This is
-        merged with the user information stored with the token.  GIDs are
-        optionally retrieved from Firestore rather than LDAP.
-
-        Parameters
-        ----------
-        username : `str`
-            Username for which to get information.
-
-        Returns
-        -------
-        user_info : `gafaelfawr.models.token.TokenUserInfo`
-            Information about that user from LDAP.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.LDAPError
-            An error occurred when retrieving user information from LDAP.
-        """
-        if not self._ldap:
-            raise RuntimeError("LDAP requested but not configured")
-        add_gids = self._firestore is None
-        async with self._ldap.connect() as conn:
-            info = TokenUserInfo(username=username)
-            info.groups = await conn.get_groups(username, add_gids=add_gids)
-            if self._firestore:
-                for group in info.groups:
-                    group.id = await self._get_gid_from_firestore(group.name)
-            return info
 
 
 class OIDCUserInfoService(UserInfoService):
@@ -253,14 +155,10 @@ class OIDCUserInfoService(UserInfoService):
     ----------
     config : `gafaelfawr.config.OIDCConfig`
         Configuration for the OpenID Connect authentication provider.
-    cache : `gafaelfawr.dependencies.cache.IdCache`
-        The underlying UID and GID cache and locks.
-    ldap_storage : `gafaelfawr.storage.ldap.LDAPStorage`, optional
-        The underlying LDAP storage for user metadata, if LDAP was
-        configured.
-    firestore : `gafaelfawr.storage.firestore.FirestoreStorage`, optional
-        The underlying Firestore storage for UID and GID assignment, if
-        Firestore was configured.
+    ldap : `gafaelfawr.services.ldap.LDAPService`, optional
+        LDAP service for user metadata, if LDAP was configured.
+    firestore : `gafaelfawr.services.firestore.FirestoreService`, optional
+        Service for Firestore UID/GID lookups, if Firestore was configured.
     logger : `structlog.stdlib.BoundLogger`
         Logger to use.
     """
@@ -269,14 +167,12 @@ class OIDCUserInfoService(UserInfoService):
         self,
         *,
         config: OIDCConfig,
-        cache: IdCache,
-        ldap_storage: Optional[LDAPStorage],
-        firestore: Optional[FirestoreStorage],
+        ldap: Optional[LDAPService],
+        firestore: Optional[FirestoreService],
         logger: BoundLogger,
     ) -> None:
         super().__init__(
-            cache=cache,
-            ldap_storage=ldap_storage,
+            ldap=ldap,
             firestore=firestore,
             logger=logger,
         )
@@ -323,18 +219,17 @@ class OIDCUserInfoService(UserInfoService):
         uid = None
         groups = None
         if self._ldap:
-            async with self._ldap.connect() as conn:
-                if "sub" in token.claims:
-                    username = await conn.get_username(token.claims["sub"])
-                if username is None:
-                    username = self._get_username_from_oidc_token(token)
-                if not self._firestore:
-                    uid = await conn.get_uid(username)
+            if "sub" in token.claims:
+                username = await self._ldap.get_username(token.claims["sub"])
+            if username is None:
+                username = self._get_username_from_oidc_token(token)
+            if not self._firestore:
+                uid = await self._ldap.get_uid(username)
         else:
             username = self._get_username_from_oidc_token(token)
             groups = await self._get_groups_from_oidc_token(token, username)
         if self._firestore:
-            uid = await self._get_uid_from_firestore(username)
+            uid = await self._firestore.get_uid(username)
         elif not uid:
             uid = self._get_uid_from_oidc_token(token, username)
 
@@ -383,7 +278,7 @@ class OIDCUserInfoService(UserInfoService):
                 name = oidc_group["name"]
                 try:
                     if self._firestore:
-                        gid = await self._get_gid_from_firestore(name)
+                        gid = await self._firestore.get_gid(name)
                     else:
                         if "id" not in oidc_group:
                             invalid_groups[name] = "missing id"

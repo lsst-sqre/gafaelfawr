@@ -59,9 +59,13 @@ API reference
 
 .. automodapi:: gafaelfawr.services.admin
 
+.. automodapi:: gafaelfawr.services.firestore
+
 .. automodapi:: gafaelfawr.services.influxdb
 
 .. automodapi:: gafaelfawr.services.kubernetes
+
+.. automodapi:: gafaelfawr.services.ldap
 
 .. automodapi:: gafaelfawr.services.oidc
 

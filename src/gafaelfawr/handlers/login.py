@@ -20,7 +20,6 @@ from ..exceptions import (
     PermissionDeniedError,
     ProviderError,
 )
-from ..models.token import TokenGroup
 from ..templates import templates
 
 router = APIRouter()
@@ -233,13 +232,14 @@ async def handle_provider_return(
     # If we normally get group information from LDAP, the groups returned by
     # the authentication provider will be empty, but we still want to
     # determine the user's scopes.
-    groups: Optional[List[TokenGroup]]
     if context.config.ldap:
         user_info_service = context.factory.create_user_info_service()
         username = user_info.username
         groups = await user_info_service.get_groups_from_ldap(username)
+    elif user_info.groups:
+        groups = [g.name for g in user_info.groups]
     else:
-        groups = user_info.groups
+        groups = []
 
     # Get the user's scopes.  If this returns None, the user isn't in any
     # recognized groups, which means that we should abort the login and
@@ -281,9 +281,9 @@ async def handle_provider_return(
 
 
 def get_scopes_from_groups(
-    config: Config, groups: Optional[List[TokenGroup]]
+    config: Config, groups: List[str]
 ) -> Optional[List[str]]:
-    """Get scopes from a list of groups.
+    """Get scopes from a list of group names.
 
     Used to determine the scope claim of a token issued based on an OpenID
     Connect authentication.
@@ -292,7 +292,7 @@ def get_scopes_from_groups(
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelfawr configuration.
-    groups : List[`gafaelfawr.models.token.TokenGroup`]
+    groups : List[`str`]
         The groups of a token.
 
     Returns
@@ -307,7 +307,7 @@ def get_scopes_from_groups(
 
     scopes = set(["user:token"])
     found = False
-    for group in [g.name for g in groups]:
+    for group in groups:
         if group in config.group_mapping:
             found = True
             scopes.update(config.group_mapping[group])
