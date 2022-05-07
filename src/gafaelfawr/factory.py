@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 import structlog
 from aioredis import Redis
+from bonsai.asyncio import AIOConnectionPool
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from safir.database import create_async_session
@@ -17,6 +18,7 @@ from structlog.stdlib import BoundLogger
 from .config import Config
 from .dependencies.cache import IdCache, TokenCache
 from .dependencies.config import config_dependency
+from .dependencies.ldap import ldap_pool_dependency
 from .dependencies.redis import redis_dependency
 from .exceptions import NotConfiguredError
 from .models.token import TokenData
@@ -55,6 +57,8 @@ class ComponentFactory:
     ----------
     config : `gafaelfawr.config.Config`
         Gafaelfawr configuration.
+    ldap_pool : `bonsai.asyncio.AIOConnectionPool`
+        LDAP connection pool.
     redis : ``aioredis.Redis``
         Redis client.
     session : `sqlalchemy.ext.asyncio.async_scoped_session`
@@ -100,6 +104,7 @@ class ComponentFactory:
         token_cache = TokenCache()
         logger = structlog.get_logger("gafaelfawr")
         logger.debug("Connecting to Redis")
+        ldap_pool = await ldap_pool_dependency(config)
         redis = await redis_dependency(config)
         if check_db:
             statement = select(SQLAdmin)
@@ -112,6 +117,7 @@ class ComponentFactory:
             async with AsyncClient() as client:
                 yield cls(
                     config=config,
+                    ldap_pool=ldap_pool,
                     redis=redis,
                     session=session,
                     http_client=client,
@@ -128,6 +134,7 @@ class ComponentFactory:
         self,
         *,
         config: Config,
+        ldap_pool: Optional[AIOConnectionPool],
         redis: Redis,
         session: async_scoped_session,
         http_client: AsyncClient,
@@ -137,6 +144,7 @@ class ComponentFactory:
     ) -> None:
         self.session = session
         self._config = config
+        self._ldap_pool = ldap_pool
         self._redis = redis
         self._http_client = http_client
         self._id_cache = id_cache
@@ -253,8 +261,10 @@ class ComponentFactory:
                 self._id_cache, firestore_storage, self._logger
             )
         ldap = None
-        if self._config.ldap:
-            ldap_storage = LDAPStorage(self._config.ldap, self._logger)
+        if self._config.ldap and self._ldap_pool:
+            ldap_storage = LDAPStorage(
+                self._config.ldap, self._ldap_pool, self._logger
+            )
             ldap = LDAPService(ldap_storage, self._logger)
         return OIDCUserInfoService(
             config=self._config.oidc,
@@ -340,8 +350,10 @@ class ComponentFactory:
                 self._id_cache, firestore_storage, self._logger
             )
         ldap = None
-        if self._config.ldap:
-            ldap_storage = LDAPStorage(self._config.ldap, self._logger)
+        if self._config.ldap and self._ldap_pool:
+            ldap_storage = LDAPStorage(
+                self._config.ldap, self._ldap_pool, self._logger
+            )
             ldap = LDAPService(ldap_storage, self._logger)
         return UserInfoService(
             ldap=ldap,

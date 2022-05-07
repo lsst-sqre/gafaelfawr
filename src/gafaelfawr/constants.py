@@ -9,6 +9,9 @@ COOKIE_NAME = "gafaelfawr"
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
 
+LDAP_TIMEOUT = 5.0
+"""Timeout (in seconds) for LDAP queries."""
+
 MINIMUM_LIFETIME = 5 * 60
 """Minimum expiration lifetime for a token in seconds."""
 

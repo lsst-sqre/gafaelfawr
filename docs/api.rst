@@ -22,6 +22,9 @@ API reference
 
 .. automodapi:: gafaelfawr.dependencies.context
 
+.. automodapi:: gafaelfawr.dependencies.ldap
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.dependencies.redis
    :include-all-objects:
 

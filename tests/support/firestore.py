@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 from unittest.mock import MagicMock, Mock, patch
 
@@ -93,7 +92,6 @@ class MockFirestore(Mock):
         return MockTransaction()
 
 
-@contextmanager
 def patch_firestore() -> Iterator[MockFirestore]:
     """Mock the Firestore API for testing.
 

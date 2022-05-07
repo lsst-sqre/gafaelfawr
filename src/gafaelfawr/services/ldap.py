@@ -43,8 +43,7 @@ class LDAPService:
         groups : List[`str`]
             The names of the user's groups according to LDAP.
         """
-        async with self._ldap.connect() as conn:
-            return await conn.get_group_names(username)
+        return await self._ldap.get_group_names(username)
 
     async def get_groups(self, username: str) -> List[TokenGroup]:
         """Get user group membership and GIDs from LDAP.
@@ -64,8 +63,7 @@ class LDAPService:
         gafaelfawr.exceptions.LDAPError
             An error occurred when retrieving user information from LDAP.
         """
-        async with self._ldap.connect() as conn:
-            return await conn.get_groups(username)
+        return await self._ldap.get_groups(username)
 
     async def get_uid(self, username: str) -> Optional[int]:
         """Determine a user's numeric UID from LDAP.
@@ -81,8 +79,7 @@ class LDAPService:
             Corresponding numeric UID from LDAP, or `None` if LDAP was not
             configured to get UIDs.
         """
-        async with self._ldap.connect() as conn:
-            return await conn.get_uid(username)
+        return await self._ldap.get_uid(username)
 
     async def get_username(self, sub: str) -> Optional[str]:
         """Determine a user's username from LDAP.
@@ -98,5 +95,4 @@ class LDAPService:
             Corresponding username from LDAP, or `None` if LDAP was not
             configured to get usernames.
         """
-        async with self._ldap.connect() as conn:
-            return await conn.get_username(sub)
+        return await self._ldap.get_username(sub)

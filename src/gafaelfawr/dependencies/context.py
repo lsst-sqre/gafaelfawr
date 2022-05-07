@@ -7,9 +7,10 @@ including from dependencies.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from aioredis import Redis
+from bonsai.asyncio import AIOConnectionPool
 from fastapi import Depends, HTTPException, Request
 from httpx import AsyncClient
 from safir.dependencies.db_session import db_session_dependency
@@ -28,6 +29,7 @@ from .cache import (
     token_cache_dependency,
 )
 from .config import config_dependency
+from .ldap import ldap_pool_dependency
 from .redis import redis_dependency
 
 __all__ = ["RequestContext", "context_dependency"]
@@ -55,6 +57,9 @@ class RequestContext:
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
 
+    ldap_pool: Optional[AIOConnectionPool]
+    """Connection pool to talk to LDAP."""
+
     redis: Redis
     """Connection pool to use to talk to Redis."""
 
@@ -79,6 +84,7 @@ class RequestContext:
         """
         return ComponentFactory(
             config=self.config,
+            ldap_pool=self.ldap_pool,
             redis=self.redis,
             session=self.session,
             http_client=self.http_client,
@@ -115,6 +121,7 @@ async def context_dependency(
     request: Request,
     config: Config = Depends(config_dependency),
     logger: BoundLogger = Depends(logger_dependency),
+    ldap_pool: Optional[AIOConnectionPool] = Depends(ldap_pool_dependency),
     redis: Redis = Depends(redis_dependency),
     session: async_scoped_session = Depends(db_session_dependency),
     http_client: AsyncClient = Depends(http_client_dependency),
@@ -137,6 +144,7 @@ async def context_dependency(
         ip_address=ip_address,
         config=config,
         logger=logger,
+        ldap_pool=ldap_pool,
         redis=redis,
         session=session,
         http_client=http_client,

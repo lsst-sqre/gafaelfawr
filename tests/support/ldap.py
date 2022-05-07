@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from types import TracebackType
-from typing import Dict, List, Literal, Optional, Type
-from unittest.mock import Mock
+from typing import Any, Dict, Iterator, List, Literal, Optional, Type
+from unittest.mock import Mock, patch
 
 import bonsai
 from bonsai.utils import escape_filter_exp
 
+from gafaelfawr import storage
+from gafaelfawr.constants import LDAP_TIMEOUT
+from gafaelfawr.dependencies import ldap
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.token import TokenGroup
 
@@ -18,8 +21,8 @@ __all__ = ["MockLDAP"]
 class MockLDAP(Mock):
     """Mock bonsai LDAP api for testing."""
 
-    def __init__(self) -> None:
-        super().__init__(spec=bonsai.LDAPClient)
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(spec=bonsai.LDAPConnection, **kwargs)
         self.groups = [
             TokenGroup(name="foo", id=1222),
             TokenGroup(name="group-1", id=123123),
@@ -38,32 +41,33 @@ class MockLDAP(Mock):
     ) -> Literal[False]:
         return False
 
-    def connect(self, is_async: bool) -> MockLDAP:
-        assert is_async
-        return self
+    async def close(self) -> None:
+        pass
 
     async def search(
         self,
-        base_dn: str,
+        base: str,
         scope: bonsai.LDAPSearchScope,
-        query: str,
+        filter_exp: str,
         attrlist: List[str],
+        timeout: float,
     ) -> List[Dict[str, List[str]]]:
         config = config_dependency.config()
         assert config.ldap
-        assert base_dn == config.ldap.base_dn
+        assert base == config.ldap.base_dn
         assert scope in (
             bonsai.LDAPSearchScope.SUB,
             bonsai.LDAPSearchScope.ONELEVEL,
         )
+        assert timeout == LDAP_TIMEOUT
         source_id_escaped = escape_filter_exp(self.source_id)
-        if query == f"(&(voPersonSoRID={source_id_escaped}))":
+        if filter_exp == f"(voPersonSoRID={source_id_escaped})":
             assert attrlist == ["uid"]
             return [{"uid": ["ldap-user"]}]
-        elif query == "(&(uid=ldap-user))":
+        elif filter_exp == "(uid=ldap-user)":
             assert attrlist == ["uidNumber"]
             return [{"uidNumber": [str(2000)]}]
-        elif query == "(&(objectClass=posixGroup)(member=ldap-user))":
+        elif filter_exp == "(&(objectClass=posixGroup)(member=ldap-user))":
             if attrlist == ["cn", "gidNumber"]:
                 return [
                     {"cn": [g.name], "gidNumber": [str(g.id)]}
@@ -75,3 +79,19 @@ class MockLDAP(Mock):
                 assert False, f"Invalid attribute list {attrlist}"
         else:
             return []
+
+
+def patch_ldap() -> Iterator[MockLDAP]:
+    """Mock the bonsai API for testing.
+
+    Returns
+    -------
+    mock : `MockLDAP`
+        The mock LDAP API.
+    """
+    mock_ldap = MockLDAP()
+    with patch.object(storage.ldap, "AIOPoolContextManager") as mock_manager:
+        mock_manager.return_value = mock_ldap
+        with patch.object(ldap, "AIOConnectionPool") as mock_pool:
+            mock_pool.return_value = mock_ldap
+            yield mock_ldap
