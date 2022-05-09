@@ -139,7 +139,7 @@ def build_settings(
     return settings_path
 
 
-async def configure(
+def configure(
     tmp_path: Path,
     template: str,
     *,
@@ -150,6 +150,10 @@ async def configure(
 
     This cannot be used to change the database URL because sessions will not
     be recreated or the database reinitialized.
+
+    Notes
+    -----
+    This is used for tests that cannot be async, so itself must not be async.
 
     Parameters
     ----------
@@ -175,4 +179,4 @@ async def configure(
         **settings,
     )
     config_dependency.set_settings_path(str(settings_path))
-    return await config_dependency()
+    return config_dependency.config()

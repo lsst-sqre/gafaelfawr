@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
 from ..config import GitHubConfig
-from ..exceptions import GitHubException
+from ..exceptions import GitHubError
 from ..models.link import LinkData
 from ..models.state import State
 from ..models.token import TokenGroup, TokenUserInfo
@@ -169,7 +169,7 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        gafaelfawr.exceptions.GitHubException
+        gafaelfawr.exceptions.GitHubError
             GitHub responded with an error to a request.
         ``httpx.HTTPError``
             An HTTP client error occurred trying to talk to the authentication
@@ -259,7 +259,7 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        gafaelfawr.exceptions.GitHubException
+        gafaelfawr.exceptions.GitHubError
             GitHub responded with an error to the request for the access
             token.
         ``httpx.HTTPError``
@@ -281,7 +281,7 @@ class GitHubProvider(Provider):
         result = r.json()
         if "error" in result:
             msg = result["error"] + ": " + result["error_description"]
-            raise GitHubException(msg)
+            raise GitHubError(msg)
         return result["access_token"]
 
     async def _get_user_info(self, token: str) -> GitHubUserInfo:
@@ -299,7 +299,7 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        gafaelfawr.exceptions.GitHubException
+        gafaelfawr.exceptions.GitHubError
             User has no primary email address.
         ``httpx.HTTPError``
             An error occurred trying to talk to GitHub.
@@ -335,7 +335,7 @@ class GitHubProvider(Provider):
                 email = email_data["email"]
         if not email:
             msg = f"{user_data['login']} has no primary email address"
-            raise GitHubException(msg)
+            raise GitHubError(msg)
 
         return GitHubUserInfo(
             name=user_data["name"],
@@ -361,7 +361,7 @@ class GitHubProvider(Provider):
 
         Raises
         ------
-        gafaelfawr.exceptions.GitHubException
+        gafaelfawr.exceptions.GitHubError
             The next URL from a Link header didn't point to the teams API URL.
         ``httpx.HTTPError``
             An error occurred trying to talk to GitHub.
@@ -383,7 +383,7 @@ class GitHubProvider(Provider):
                     "Invalid next URL for team data from GitHub: "
                     + link_data.next_url
                 )
-                raise GitHubException(msg)
+                raise GitHubError(msg)
             self._logger.debug(
                 "Fetching user team data from %s", link_data.next_url
             )

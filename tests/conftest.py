@@ -36,7 +36,7 @@ from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
-from .support.settings import build_settings
+from .support.settings import build_settings, configure
 
 
 @pytest_asyncio.fixture
@@ -72,9 +72,7 @@ def config(tmp_path: Path) -> Config:
     which must not be async because the Click support starts its own asyncio
     loop.
     """
-    settings_path = build_settings(tmp_path, "github")
-    config_dependency.set_settings_path(str(settings_path))
-    return config_dependency.config()
+    return configure(tmp_path, "github")
 
 
 @pytest.fixture(scope="session")
@@ -196,7 +194,7 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
 
 
 @pytest_asyncio.fixture
-async def mock_ldap(tmp_path: Path) -> AsyncIterator[MockLDAP]:
+async def mock_ldap() -> AsyncIterator[MockLDAP]:
     """Replace the bonsai LDAP API with a mock class.
 
     Returns
@@ -204,11 +202,7 @@ async def mock_ldap(tmp_path: Path) -> AsyncIterator[MockLDAP]:
     mock_ldap : `tests.support.ldap.MockLDAP`
         The mock LDAP API object.
     """
-    settings_path = build_settings(tmp_path, "oidc-ldap")
-    config_dependency.set_settings_path(str(settings_path))
-    config = await config_dependency()
-    assert config.ldap
-    ldap = MockLDAP(config.ldap)
+    ldap = MockLDAP()
     with patch.object(bonsai, "LDAPClient") as mock:
         mock.return_value = ldap
         yield ldap

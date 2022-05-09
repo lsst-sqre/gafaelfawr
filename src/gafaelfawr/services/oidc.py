@@ -11,11 +11,11 @@ from structlog.stdlib import BoundLogger
 from ..config import OIDCServerConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
-    DeserializeException,
+    DeserializeError,
     InvalidClientError,
     InvalidGrantError,
     InvalidTokenError,
-    UnauthorizedClientException,
+    UnauthorizedClientError,
 )
 from ..models.oidc import JWKS, OIDCConfig, OIDCToken, OIDCVerifiedToken
 from ..models.token import Token, TokenUserInfo
@@ -112,12 +112,12 @@ class OIDCService:
 
         Raises
         ------
-        gafaelfawr.exceptions.UnauthorizedClientException
+        gafaelfawr.exceptions.UnauthorizedClientError
             The provided client ID is not registered as an OpenID Connect
             client.
         """
         if not self.is_valid_client(client_id):
-            raise UnauthorizedClientException(f"Unknown client ID {client_id}")
+            raise UnauthorizedClientError(f"Unknown client ID {client_id}")
         return await self._authorization_store.create(
             client_id, redirect_uri, token
         )
@@ -207,7 +207,7 @@ class OIDCService:
         self._check_client_secret(client_id, client_secret)
         try:
             authorization = await self._authorization_store.get(code)
-        except DeserializeException as e:
+        except DeserializeError as e:
             msg = f"Cannot get authorization for {code.key}: {str(e)}"
             raise InvalidGrantError(msg)
         if not authorization:
@@ -258,8 +258,6 @@ class OIDCService:
         gafaelfawr.exceptions.InvalidTokenError
             The issuer of this token is unknown and therefore the token cannot
             be verified.
-        gafaelfawr.exceptions.MissingClaimsException
-            The token is missing required claims.
         """
         try:
             payload = jwt.decode(
@@ -277,7 +275,7 @@ class OIDCService:
         except jwt.InvalidTokenError as e:
             raise InvalidTokenError(str(e))
         except KeyError as e:
-            raise InvalidTokenError(f"missing claim {str(e)}")
+            raise InvalidTokenError(f"Missing claim {str(e)}")
 
     def _check_client_secret(
         self, client_id: str, client_secret: Optional[str]

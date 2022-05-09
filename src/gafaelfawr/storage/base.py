@@ -14,7 +14,7 @@ from aioredis import Redis
 from cryptography.fernet import Fernet, InvalidToken
 from pydantic import BaseModel  # noqa: F401
 
-from ..exceptions import DeserializeException
+from ..exceptions import DeserializeError
 
 S = TypeVar("S", bound="BaseModel")
 
@@ -71,7 +71,7 @@ class RedisStorage(Generic[S]):
 
         Raises
         ------
-        gafaelfawr.exceptions.DeserializeException
+        gafaelfawr.exceptions.DeserializeError
             The stored object could not be decrypted or deserialized.
         """
         encrypted_data = await self._redis.get(key)
@@ -83,14 +83,14 @@ class RedisStorage(Generic[S]):
             data = self._fernet.decrypt(encrypted_data)
         except InvalidToken as e:
             msg = f"Cannot decrypt data for {key}: {str(e)}"
-            raise DeserializeException(msg)
+            raise DeserializeError(msg)
 
         # Deserialize the data.
         try:
             return self._content.parse_raw(data.decode())
         except Exception as e:
             msg = f"Cannot deserialize data for {key}: {str(e)}"
-            raise DeserializeException(msg)
+            raise DeserializeError(msg)
 
     async def store(self, key: str, obj: S, lifetime: Optional[int]) -> None:
         """Store an object.

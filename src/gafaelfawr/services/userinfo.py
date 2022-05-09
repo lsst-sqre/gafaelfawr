@@ -11,8 +11,8 @@ from ..config import OIDCConfig
 from ..constants import BOT_USERNAME_REGEX
 from ..dependencies.cache import IdCache
 from ..exceptions import (
-    InvalidTokenClaimsException,
-    MissingClaimsException,
+    InvalidTokenClaimsError,
+    MissingClaimsError,
     ValidationError,
 )
 from ..models.oidc import OIDCVerifiedToken
@@ -121,7 +121,7 @@ class UserInfoService:
         gafaelfawr.exceptions.FirestoreError
             UID/GID allocation using Firestore failed, probably because the UID
             or GID space has been exhausted.
-        gafaelfawr.exceptions.LDAPException
+        gafaelfawr.exceptions.LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
         """
@@ -227,7 +227,7 @@ class UserInfoService:
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPException
+        gafaelfawr.exceptions.LDAPError
             An error occurred when retrieving user information from LDAP.
         """
         if not self._ldap:
@@ -310,13 +310,13 @@ class OIDCUserInfoService(UserInfoService):
         gafaelfawr.exceptions.FirestoreError
             UID/GID allocation using Firestore failed, probably because the UID
             or GID space has been exhausted.
-        gafaelfawr.exceptions.LDAPException
+        gafaelfawr.exceptions.LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
         gafaelfawr.exceptions.NoUsernameMappingError
             The opaque authentication identity could not be mapped to a
             username, probably because the user is not enrolled.
-        gafaelfawr.exceptions.VerifyTokenException
+        gafaelfawr.exceptions.VerifyTokenError
             The token is missing required claims.
         """
         username = None
@@ -371,7 +371,7 @@ class OIDCUserInfoService(UserInfoService):
         ------
         gafaelfawr.exceptions.FirestoreError
             An error occured obtaining the GID from Firestore.
-        gafaelfawr.exceptions.InvalidTokenClaimsException
+        gafaelfawr.exceptions.InvalidTokenClaimsError
             The ``isMemberOf`` claim has an invalid syntax.
         """
         groups = []
@@ -400,7 +400,7 @@ class OIDCUserInfoService(UserInfoService):
                 claim=token.claims.get("isMemberOf", []),
                 user=username,
             )
-            raise InvalidTokenClaimsException(msg)
+            raise InvalidTokenClaimsError(msg)
 
         if invalid_groups:
             self._logger.warning(
@@ -431,21 +431,21 @@ class OIDCUserInfoService(UserInfoService):
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingClaimsException
+        gafaelfawr.exceptions.MissingClaimsError
             The token is missing the required numeric UID claim.
-        gafaelfawr.exceptions.InvalidTokenClaimsException
+        gafaelfawr.exceptions.InvalidTokenClaimsError
             The numeric UID claim contains something that is not a number.
         """
         if self._config.uid_claim not in token.claims:
             msg = f"No {self._config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise MissingClaimsException(msg)
+            raise MissingClaimsError(msg)
         try:
             uid = int(token.claims[self._config.uid_claim])
         except Exception:
             msg = f"Invalid {self._config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise InvalidTokenClaimsException(msg)
+            raise InvalidTokenClaimsError(msg)
         return uid
 
     def _get_username_from_oidc_token(self, token: OIDCVerifiedToken) -> str:
@@ -463,11 +463,11 @@ class OIDCUserInfoService(UserInfoService):
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingClaimsException
+        gafaelfawr.exceptions.MissingClaimsError
             The token is missing the required username claim.
         """
         if self._config.username_claim not in token.claims:
             msg = f"No {self._config.username_claim} claim in token"
             self._logger.warning(msg, claims=token.claims)
-            raise MissingClaimsException(msg)
+            raise MissingClaimsError(msg)
         return token.claims[self._config.username_claim]

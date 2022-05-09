@@ -286,6 +286,16 @@ There are two additional options under ``config.oidc`` that you may want to set:
     If a username was not found for the unique identifier in the ``sub`` claim of the OpenID Connect ID token, redirect the user to this URL.
     This could, for example, be a form where the user can register for access to the deployment, or a page explaining how a user can get access.
 
+``config.oidc.usernameClaim``
+    The claim of the OpenID Connect ID token from which to take the username.
+    Only used if :ref:`username lookup in LDAP <ldap-username>` is not configured.
+    The default is ``sub``.
+
+``config.oidc.uidClaim``
+    The claim of the OpenID Connect ID token from which to take the numeric UID.
+    Only used if :ref:`UID lookup in LDAP <ldap-uid>` is not configured.
+    The default is ``uidNumber``.
+
 .. _ldap-groups:
 
 LDAP groups
@@ -337,6 +347,8 @@ To do this, add the following configuration:
 
 The user object will be located by searching for a ``voPersonSoRID`` attribute equal to the ``sub`` claim of the ID token returned by the OpenID Connect authentication server.
 The username will be the value of the ``uid`` attribute of the corresponding record.
+
+.. _ldap-uid:
 
 LDAP numeric UID
 ----------------

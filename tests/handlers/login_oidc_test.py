@@ -9,11 +9,12 @@ from urllib.parse import parse_qs, urljoin, urlparse
 import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
-from httpx import AsyncClient, ConnectError
+from httpx import AsyncClient, ConnectError, Response
 
 from gafaelfawr.constants import GID_MIN, UID_BOT_MIN, UID_USER_MIN
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.models.oidc import OIDCVerifiedToken
 
 from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
@@ -23,24 +24,57 @@ from ..support.oidc import mock_oidc_provider_config, mock_oidc_provider_token
 from ..support.settings import configure
 
 
-@pytest.mark.asyncio
-async def test_login(
-    tmp_path: Path,
+async def simulate_oidc_login(
     client: AsyncClient,
     respx_mock: respx.Router,
-    caplog: LogCaptureFixture,
-) -> None:
-    config = await configure(tmp_path, "oidc")
-    token = create_upstream_oidc_jwt(
-        groups=["admin"], name="Some Person", email="person@example.com"
-    )
+    token: OIDCVerifiedToken,
+    *,
+    return_url: str = "https://example.com/foo",
+    use_redirect_header: bool = False,
+    callback_route: str = "/login",
+    expect_enrollment: bool = False,
+) -> Response:
+    """Simulate an OpenID Connect login and return the final response.
+
+    Parameters
+    ----------
+    client : `httpx.AsyncClient`
+        Client to use to make calls to the application.
+    respx_mock : `respx.Router`
+        Mock for httpx calls.
+    token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        Authentication token the upstream OpenID Connect provider should
+        return.
+    return_url : `str`, optional
+        The return URL to pass to the login process.  If not provided, a
+        simple one will be used.
+    use_redirect_header : `bool`, optional
+        If set to `True`, pass the return URL in a header instead of as a
+        parameter to the ``/login`` route.
+    callback_route : `str`, optional
+        Override the callback route to which the upstream OpenID Connect
+        provider is expected to send the redirect.
+    expect_enrollment : `bool`, optional
+        If set to `True`, expect a redirect to the enrollment URL after login
+        rather than to the return URL.
+
+    Returns
+    -------
+    response : ``httpx.Response``
+        The response from the return to the ``/login`` handler.
+    """
+    config = await config_dependency()
+    assert config.oidc
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
-    assert config.oidc
-    return_url = "https://example.com:4444/foo?a=bar&b=baz"
 
-    caplog.clear()
-    r = await client.get("/login", params={"rd": return_url})
+    # Simulate the redirect to the OpenID Connect provider.
+    if use_redirect_header:
+        r = await client.get(
+            "/login", headers={"X-Auth-Request-Redirect": return_url}
+        )
+    else:
+        r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     assert r.headers["Location"].startswith(config.oidc.login_url)
     url = urlparse(r.headers["Location"])
@@ -56,8 +90,48 @@ async def test_login(
         **login_params,
     }
 
+    # Simulate the return from the OpenID Connect provider.
+    r = await client.get(
+        callback_route,
+        params={"code": "some-code", "state": query["state"][0]},
+    )
+    if r.status_code == 307:
+        if expect_enrollment:
+            assert r.headers["Location"] == config.oidc.enrollment_url
+        else:
+            assert r.headers["Location"] == return_url
+
+    return r
+
+
+@pytest.mark.asyncio
+async def test_login(
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    caplog: LogCaptureFixture,
+) -> None:
+    config = configure(tmp_path, "oidc")
+    assert config.oidc
+    token = create_upstream_oidc_jwt(
+        groups=["admin"], name="Some Person", email="person@example.com"
+    )
+    return_url = "https://example.com:4444/foo?a=bar&b=baz"
+
+    # Perform a successful login.
+    caplog.clear()
+    r = await simulate_oidc_login(
+        client, respx_mock, token, return_url=return_url
+    )
+    assert r.status_code == 307
+
     # Verify the logging.
     login_url = config.oidc.login_url
+    expected_scopes = set(config.group_mapping["admin"])
+    expected_scopes.add("user:token")
+    username = token.claims[config.oidc.username_claim]
+    uid = token.claims[config.oidc.uid_claim]
+    event = f"Successfully authenticated user {username} ({uid})"
     assert parse_log(caplog) == [
         {
             "event": f"Redirecting user to {login_url} for authentication",
@@ -68,24 +142,7 @@ async def test_login(
             },
             "return_url": return_url,
             "severity": "info",
-        }
-    ]
-
-    # Simulate the return from the provider.
-    caplog.clear()
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
-    assert r.status_code == 307
-    assert r.headers["Location"] == return_url
-
-    # Verify the logging.
-    expected_scopes = set(config.group_mapping["admin"])
-    expected_scopes.add("user:token")
-    username = token.claims[config.oidc.username_claim]
-    uid = token.claims[config.oidc.uid_claim]
-    event = f"Successfully authenticated user {username} ({uid})"
-    assert parse_log(caplog) == [
+        },
         {
             "event": f"Retrieving ID token from {config.oidc.token_url}",
             "httpRequest": {
@@ -130,25 +187,18 @@ async def test_login_redirect_header(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    await configure(tmp_path, "oidc")
+    configure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
     return_url = "https://example.com/foo?a=bar&b=baz"
 
-    r = await client.get(
-        "/login", headers={"X-Auth-Request-Redirect": return_url}
+    r = await simulate_oidc_login(
+        client,
+        respx_mock,
+        token,
+        return_url=return_url,
+        use_redirect_header=True,
     )
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
-    assert r.status_code == 307
-    assert r.headers["Location"] == return_url
 
 
 @pytest.mark.asyncio
@@ -156,26 +206,14 @@ async def test_oauth2_callback(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Test the compatibility /oauth2/callback route."""
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
     assert config.oidc
-    return_url = "https://example.com/foo"
 
-    r = await client.get("/login", params={"rd": return_url})
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-    assert query["redirect_uri"][0] == config.oidc.redirect_url
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+    r = await simulate_oidc_login(
+        client, respx_mock, token, callback_route="/oauth2/callback"
     )
     assert r.status_code == 307
-    assert r.headers["Location"] == return_url
 
 
 @pytest.mark.asyncio
@@ -183,7 +221,7 @@ async def test_claim_names(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    config = await configure(tmp_path, "oidc-claims")
+    config = configure(tmp_path, "oidc-claims")
     assert config.oidc
     claims = {
         config.oidc.username_claim: "alt-username",
@@ -192,22 +230,9 @@ async def test_claim_names(
     token = create_upstream_oidc_jwt(
         kid="orig-kid", groups=["admin"], **claims
     )
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    return_url = "https://example.com/foo"
 
-    r = await client.get("/login", params={"rd": return_url})
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-    assert query["redirect_uri"][0] == config.oidc.redirect_url
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
-    assert r.status_code == 307
-    assert r.headers["Location"] == return_url
 
     # Check that the /auth route works and sets the headers correctly.  uid
     # will be set to some-user and uidNumber will be set to 1000, so we'll
@@ -226,7 +251,7 @@ async def test_callback_error(
     caplog: LogCaptureFixture,
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     assert config.oidc
     return_url = "https://example.com/foo"
 
@@ -288,8 +313,7 @@ async def test_callback_error(
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
 
-    # Now try a reply that returns 200 but doesn't have the field we
-    # need.
+    # Now try a reply that returns 200 but doesn't have the field we need.
     respx_mock.post(config.oidc.token_url).respond(json={"foo": "bar"})
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
@@ -327,7 +351,7 @@ async def test_callback_error(
 async def test_connection_error(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     assert config.oidc
     return_url = "https://example.com/foo"
 
@@ -351,7 +375,7 @@ async def test_connection_error(
 async def test_verify_error(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
     assert config.oidc
     issuer = config.oidc.issuer
@@ -381,23 +405,12 @@ async def test_verify_error(
 async def test_invalid_username(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    await configure(tmp_path, "oidc")
+    configure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
         groups=["admin"], sub="invalid@user", uid="invalid@user"
     )
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    return_url = "https://example.com/foo"
 
-    r = await client.get("/login", params={"rd": return_url})
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
     assert "Invalid username: invalid@user" in r.text
 
@@ -406,21 +419,10 @@ async def test_invalid_username(
 async def test_invalid_group_syntax(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    await configure(tmp_path, "oidc")
+    configure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(isMemberOf=47)
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    return_url = "https://example.com/foo"
 
-    r = await client.get("/login", params={"rd": return_url})
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
     assert "isMemberOf claim has invalid format" in r.text
 
@@ -429,7 +431,7 @@ async def test_invalid_group_syntax(
 async def test_invalid_groups(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    await configure(tmp_path, "oidc")
+    configure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
         isMemberOf=[
             {"name": "foo"},
@@ -442,21 +444,9 @@ async def test_invalid_groups(
             {"name": "foo", "id": ["bar"]},
         ]
     )
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    return_url = "https://example.com/foo"
 
-    r = await client.get("/login", params={"rd": return_url})
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
-    assert r.status_code == 307
-    assert r.headers["Location"] == return_url
 
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
@@ -467,22 +457,11 @@ async def test_invalid_groups(
 async def test_no_valid_groups(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     assert config.oidc
     token = create_upstream_oidc_jwt(groups=[])
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    return_url = "https://example.com/foo?a=bar&b=baz"
 
-    r = await client.get("/login", params={"rd": return_url})
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     username = token.claims[config.oidc.username_claim]
@@ -499,24 +478,12 @@ async def test_no_valid_groups(
 async def test_unicode_name(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    config = await configure(tmp_path, "oidc")
+    config = configure(tmp_path, "oidc")
     assert config.oidc
     token = create_upstream_oidc_jwt(name="名字", groups=["admin"])
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    return_url = "https://example.com/foo"
 
-    r = await client.get("/login", params={"rd": return_url})
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
-    assert r.status_code == 307
-    assert r.headers["Location"] == return_url
 
     # Check that the name as returned from the user-info API is correct.
     r = await client.get("/auth/api/v1/user-info")
@@ -532,26 +499,17 @@ async def test_unicode_name(
 
 @pytest.mark.asyncio
 async def test_ldap(
-    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_ldap: MockLDAP,
 ) -> None:
-    config = await config_dependency()
+    config = configure(tmp_path, "oidc-ldap")
     assert config.ldap
     token = create_upstream_oidc_jwt(sub=mock_ldap.source_id, groups=["admin"])
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    return_url = "https://example.com/foo"
 
-    r = await client.get("/login", params={"rd": return_url})
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
-    assert r.status_code == 307
-    assert r.headers["Location"] == return_url
 
     # Check that the data returned from the user-info API is correct.
     r = await client.get("/auth/api/v1/user-info")
@@ -576,25 +534,22 @@ async def test_ldap(
 
 @pytest.mark.asyncio
 async def test_enrollment_url(
-    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_ldap: MockLDAP,
 ) -> None:
-    config = await config_dependency()
+    config = configure(tmp_path, "oidc-ldap")
     assert config.oidc
     assert config.ldap
     token = create_upstream_oidc_jwt(sub="unknown-sub", groups=["admin"])
     await mock_oidc_provider_config(respx_mock, "orig-kid")
     await mock_oidc_provider_token(respx_mock, "some-code", token)
 
-    r = await client.get("/login", params={"rd": "https://example.com/"})
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
+    r = await simulate_oidc_login(
+        client, respx_mock, token, expect_enrollment=True
     )
     assert r.status_code == 307
-    assert r.headers["Location"] == config.oidc.enrollment_url
 
 
 @pytest.mark.asyncio
@@ -605,27 +560,15 @@ async def test_firestore(
     respx_mock: respx.Router,
     mock_firestore: MockFirestore,
 ) -> None:
-    config = await configure(tmp_path, "oidc-firestore")
+    config = configure(tmp_path, "oidc-firestore")
     assert config.oidc
     factory.reconfigure(config)
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
     token = create_upstream_oidc_jwt(groups=["admin", "foo"])
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    return_url = "https://example.com/foo"
 
-    r = await client.get("/login", params={"rd": return_url})
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
-    assert r.status_code == 307
-    assert r.headers["Location"] == return_url
 
     # Check the allocated UID and GIDs.
     username = token.claims[config.oidc.username_claim]
@@ -646,15 +589,7 @@ async def test_firestore(
     # Firestore API; it only works with our mock implementation.
     transaction = mock_firestore.transaction()
     transaction.delete(mock_firestore.collection("users").document(username))
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    r = await client.get("/login", params={"rd": return_url})
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
@@ -671,15 +606,7 @@ async def test_firestore(
     # Authenticate as a different user.
     claims = {config.oidc.username_claim: "other-user", "sub": "other-user"}
     token = create_upstream_oidc_jwt(groups=["foo", "group-1"], **claims)
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    r = await client.get("/login", params={"rd": return_url})
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
@@ -696,15 +623,7 @@ async def test_firestore(
     # Authenticate as a bot user, which should use a different UID space.
     claims = {config.oidc.username_claim: "bot-foo", "sub": "bot-foo"}
     token = create_upstream_oidc_jwt(groups=["foo", "group-2"], **claims)
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-    r = await client.get("/login", params={"rd": return_url})
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    query = parse_qs(url.query)
-    r = await client.get(
-        "/login", params={"code": "some-code", "state": query["state"][0]}
-    )
+    r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200

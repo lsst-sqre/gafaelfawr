@@ -10,7 +10,7 @@ from bonsai.utils import escape_filter_exp
 from structlog.stdlib import BoundLogger
 
 from ..config import LDAPConfig
-from ..exceptions import LDAPException, NoUsernameMappingError
+from ..exceptions import LDAPError, NoUsernameMappingError
 from ..models.token import TokenGroup
 
 __all__ = ["LDAPStorage", "LDAPStorageConnection"]
@@ -98,7 +98,7 @@ class LDAPStorageConnection:
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPException
+        gafaelfawr.exceptions.LDAPError
             The lookup by ``username_search_attr`` in the LDAP server was not
             valid (connection to the LDAP server failed, attribute not found
             in LDAP, result value not an integer).
@@ -129,7 +129,7 @@ class LDAPStorageConnection:
                 ldap_search=search,
                 sub=sub,
             )
-            raise LDAPException("Error querying LDAP for username")
+            raise LDAPError("Error querying LDAP for username")
 
         for result in results:
             try:
@@ -141,7 +141,7 @@ class LDAPStorageConnection:
                     ldap_search=search,
                     sub=sub,
                 )
-                raise LDAPException("Username in LDAP is invalid")
+                raise LDAPError("Username in LDAP is invalid")
 
         # Fell through without finding a UID.
         self._logger.info(
@@ -166,7 +166,7 @@ class LDAPStorageConnection:
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPException
+        gafaelfawr.exceptions.LDAPError
             The lookup of ``uid_attr`` in the LDAP server was not valid
             (connection to the LDAP server failed, attribute not found in
             LDAP, result value not an integer).
@@ -193,7 +193,7 @@ class LDAPStorageConnection:
                 ldap_search=search,
                 user=username,
             )
-            raise LDAPException("Error querying LDAP for UID number")
+            raise LDAPError("Error querying LDAP for UID number")
 
         for result in results:
             try:
@@ -205,13 +205,13 @@ class LDAPStorageConnection:
                     ldap_search=search,
                     user=username,
                 )
-                raise LDAPException("UID number in LDAP is invalid")
+                raise LDAPError("UID number in LDAP is invalid")
 
         # Fell through without finding a UID.
         self._logger.error(
             "No UID found in LDAP", ldap_search=search, user=username
         )
-        raise LDAPException("No UID found in LDAP")
+        raise LDAPError("No UID found in LDAP")
 
     async def get_groups(
         self, username: str, *, add_gids: bool
@@ -232,7 +232,7 @@ class LDAPStorageConnection:
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPException
+        gafaelfawr.exceptions.LDAPError
             One of the groups for the user in LDAP was not valid (missing
             ``cn`` or, if ``add_gids`` was `True`, ``gidNumber`` attributes,
             or ``gidNumber`` is not an integer)
@@ -258,7 +258,7 @@ class LDAPStorageConnection:
                 ldap_search=search,
                 user=username,
             )
-            raise LDAPException("Error querying LDAP for groups")
+            raise LDAPError("Error querying LDAP for groups")
 
         # Parse the results into the group list.
         groups = []

@@ -15,7 +15,7 @@ from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.exceptions import (
     InvalidClientError,
     InvalidGrantError,
-    UnauthorizedClientException,
+    UnauthorizedClientError,
 )
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.oidc import OIDCAuthorizationCode
@@ -27,9 +27,7 @@ from ..support.tokens import create_session_token
 @pytest.mark.asyncio
 async def test_issue_code(tmp_path: Path, factory: ComponentFactory) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = await configure(
-        tmp_path, "github-oidc-server", oidc_clients=clients
-    )
+    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
     factory.reconfigure(config)
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
@@ -39,7 +37,7 @@ async def test_issue_code(tmp_path: Path, factory: ComponentFactory) -> None:
     assert config.oidc_server
     assert list(config.oidc_server.clients) == clients
 
-    with pytest.raises(UnauthorizedClientException):
+    with pytest.raises(UnauthorizedClientError):
         await oidc_service.issue_code("unknown-client", redirect_uri, token)
 
     code = await oidc_service.issue_code("some-id", redirect_uri, token)
@@ -71,9 +69,7 @@ async def test_redeem_code(tmp_path: Path, factory: ComponentFactory) -> None:
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    config = await configure(
-        tmp_path, "github-oidc-server", oidc_clients=clients
-    )
+    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
     assert config.oidc_server
     factory.reconfigure(config)
     oidc_service = factory.create_oidc_service()
@@ -110,9 +106,7 @@ async def test_redeem_code_errors(
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    config = await configure(
-        tmp_path, "github-oidc-server", oidc_clients=clients
-    )
+    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
     factory.reconfigure(config)
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
@@ -148,9 +142,7 @@ async def test_redeem_code_errors(
 @pytest.mark.asyncio
 async def test_issue_token(tmp_path: Path, factory: ComponentFactory) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = await configure(
-        tmp_path, "github-oidc-server", oidc_clients=clients
-    )
+    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
     assert config.oidc_server
     factory.reconfigure(config)
     oidc_service = factory.create_oidc_service()

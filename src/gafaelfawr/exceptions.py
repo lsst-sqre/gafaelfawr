@@ -8,13 +8,13 @@ from typing import ClassVar, Dict, List, Union
 from fastapi import status
 
 __all__ = [
-    "DeserializeException",
+    "DeserializeError",
     "DuplicateTokenNameError",
     "ErrorLocation",
-    "FetchKeysException",
+    "FetchKeysError",
     "FirestoreError",
     "FirestoreNotInitializedError",
-    "GitHubException",
+    "GitHubError",
     "InsufficientScopeError",
     "InvalidClientError",
     "InvalidCSRFError",
@@ -25,26 +25,26 @@ __all__ = [
     "InvalidRequestError",
     "InvalidReturnURLError",
     "InvalidScopesError",
-    "InvalidTokenClaimsException",
+    "InvalidTokenClaimsError",
     "InvalidTokenError",
     "KubernetesError",
     "KubernetesObjectError",
-    "LDAPException",
-    "MissingClaimsException",
+    "LDAPError",
+    "MissingClaimsError",
     "NoAvailableGidError",
     "NoAvailableUidError",
     "NoUsernameMappingError",
-    "NotConfiguredException",
+    "NotConfiguredError",
     "OAuthError",
     "OAuthBearerError",
-    "OIDCException",
+    "OIDCError",
     "PermissionDeniedError",
-    "ProviderException",
-    "UnauthorizedClientException",
-    "UnknownAlgorithmException",
-    "UnknownKeyIdException",
+    "ProviderError",
+    "UnauthorizedClientError",
+    "UnknownAlgorithmError",
+    "UnknownKeyIdError",
     "ValidationError",
-    "VerifyTokenException",
+    "VerifyTokenError",
 ]
 
 
@@ -298,7 +298,7 @@ class InsufficientScopeError(OAuthBearerError):
     status_code = status.HTTP_403_FORBIDDEN
 
 
-class DeserializeException(Exception):
+class DeserializeError(Exception):
     """A stored object could not be decrypted or deserialized.
 
     Used for data stored in the backing store, such as sessions or user
@@ -331,7 +331,15 @@ class KubernetesObjectError(KubernetesError):
     """A Kubernetes object could not be parsed."""
 
 
-class NotConfiguredException(Exception):
+class LDAPError(Exception):
+    """Group information for the user in LDAP was invalid."""
+
+
+class NoUsernameMappingError(LDAPError):
+    """No mapping from identifier to username was found in LDAP."""
+
+
+class NotConfiguredError(Exception):
     """The requested operation was not configured."""
 
 
@@ -339,52 +347,44 @@ class PermissionDeniedError(Exception):
     """The user does not have permission to perform this operation."""
 
 
-class ProviderException(Exception):
+class ProviderError(Exception):
     """An authentication provider returned an error from an API call."""
 
 
-class GitHubException(ProviderException):
+class GitHubError(ProviderError):
     """GitHub returned an error from an API call."""
 
 
-class OIDCException(ProviderException):
+class OIDCError(ProviderError):
     """The OpenID Connect provider returned an error from an API call."""
 
 
-class LDAPException(ProviderException):
-    """Group information for the user in LDAP was invalid."""
-
-
-class NoUsernameMappingError(LDAPException):
-    """No mapping from identifier to username was found in LDAP."""
-
-
-class UnauthorizedClientException(Exception):
+class UnauthorizedClientError(Exception):
     """The client is not authorized to request an authorization code.
 
     This corresponds to the ``unauthorized_client`` error in RFC 6749.
     """
 
 
-class VerifyTokenException(Exception):
+class VerifyTokenError(Exception):
     """Base exception class for failure in verifying a token."""
 
 
-class FetchKeysException(VerifyTokenException):
+class FetchKeysError(VerifyTokenError):
     """Cannot retrieve the keys from an issuer."""
 
 
-class InvalidTokenClaimsException(VerifyTokenException):
+class InvalidTokenClaimsError(VerifyTokenError):
     """One of the claims in the token is of an invalid format."""
 
 
-class MissingClaimsException(VerifyTokenException):
+class MissingClaimsError(VerifyTokenError):
     """The token is missing required claims."""
 
 
-class UnknownAlgorithmException(VerifyTokenException):
+class UnknownAlgorithmError(VerifyTokenError):
     """The issuer key was for an unsupported algorithm."""
 
 
-class UnknownKeyIdException(VerifyTokenException):
+class UnknownKeyIdError(VerifyTokenError):
     """The reqeusted key ID was not found for an issuer."""

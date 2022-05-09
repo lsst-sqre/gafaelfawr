@@ -6,6 +6,13 @@ Versioning follows `semver <https://semver.org/>`__.
 Versioning assumes that Gafaelfawr is installed and configured via `Phalanx <https://phalanx.lsst.io/>`__, so only changes to configuration changes exposed in the Helm values file are considered breaking changes.
 The internal configuration format may change in minor releases.
 
+4.2.0 (unreleased)
+==================
+
+- Report better errors to the user if Firestore or LDAP fail during login.
+- Add ``config.oidc.usernameClaim`` and ``config.oidc.uidClaim`` Helm configuration options to customize which claims from the upstream OpenID Connect ID token are used to get the username and UID.
+- Update dependencies.
+
 4.1.0 (2022-04-29)
 ==================
 

@@ -13,10 +13,12 @@ from ..config import Config
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import return_url_with_header
 from ..exceptions import (
+    FirestoreError,
     InvalidReturnURLError,
+    LDAPError,
     NoUsernameMappingError,
     PermissionDeniedError,
-    ProviderException,
+    ProviderError,
 )
 from ..models.token import TokenGroup
 from ..templates import templates
@@ -32,6 +34,8 @@ class LoginError(Enum):
     GROUPS_MISSING = "User unauthorized"
     INVALID_USERNAME = "Cannot authenticate"
     NOT_ENROLLED = "User is not enrolled"
+    FIRESTORE_FAILED = "Retrieving UID/GID from Firestore failed"
+    LDAP_FAILED = "Retrieving data from LDAP failed"
     PROVIDER_FAILED = "Authentication provider failed"
     PROVIDER_NETWORK = "Cannot contact authentication provider"
     RETURN_URL_MISSING = "Invalid state: return_url not present in cookie"
@@ -217,10 +221,14 @@ async def handle_provider_return(
             return RedirectResponse(url)
         else:
             return login_error(context, LoginError.NOT_ENROLLED, str(e))
-    except ProviderException as e:
-        return login_error(context, LoginError.PROVIDER_FAILED, str(e))
+    except FirestoreError as e:
+        return login_error(context, LoginError.FIRESTORE_FAILED, str(e))
     except HTTPError as e:
         return login_error(context, LoginError.PROVIDER_NETWORK, str(e))
+    except LDAPError as e:
+        return login_error(context, LoginError.LDAP_FAILED, str(e))
+    except ProviderError as e:
+        return login_error(context, LoginError.PROVIDER_FAILED, str(e))
 
     # If we normally get group information from LDAP, the groups returned by
     # the authentication provider will be empty, but we still want to

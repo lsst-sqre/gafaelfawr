@@ -59,6 +59,7 @@ __all__ = ["get_login", "get_userinfo", "post_token"]
         " invalid OpenID client ID are reported via a redirect back to the"
         " OpenID client application with error and error_description set."
     ),
+    response_class=RedirectResponse,
     responses={
         307: {"description": "Redirect for authentication or back to client"},
         400: {"description": "Invalid OpenID client ID", "model": ErrorModel},
@@ -95,7 +96,7 @@ async def get_login(
     ),
     token_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
-) -> RedirectResponse:
+) -> str:
     oidc_service = context.factory.create_oidc_service()
 
     # Check the client_id first, since if it's not valid, we cannot continue
@@ -127,7 +128,7 @@ async def get_login(
             error=e.error,
             error_description=str(e),
         )
-        return RedirectResponse(return_url)
+        return return_url
 
     # Get an authorization code and return it.
     code = await oidc_service.issue_code(
@@ -137,7 +138,7 @@ async def get_login(
         parsed_redirect_uri, state=state, code=str(code)
     )
     context.logger.info("Returned OpenID Connect authorization code")
-    return RedirectResponse(return_url)
+    return return_url
 
 
 def build_return_url(

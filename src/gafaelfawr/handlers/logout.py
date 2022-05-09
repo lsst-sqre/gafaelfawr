@@ -18,6 +18,7 @@ __all__ = ["get_logout"]
 
 @router.get(
     "/logout",
+    response_class=RedirectResponse,
     responses={307: {"description": "Redirect to landing page"}},
     status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     summary="Log out",
@@ -26,7 +27,7 @@ __all__ = ["get_logout"]
 async def get_logout(
     return_url: Optional[str] = Depends(return_url),
     context: RequestContext = Depends(context_dependency),
-) -> RedirectResponse:
+) -> str:
     """Log out and redirect the user.
 
     The user is redirected to the URL given in the rd parameter, if any, and
@@ -45,4 +46,4 @@ async def get_logout(
 
     if not return_url:
         return_url = context.config.after_logout_url
-    return RedirectResponse(return_url)
+    return return_url

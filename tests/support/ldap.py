@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import bonsai
 from bonsai.utils import escape_filter_exp
 
-from gafaelfawr.config import LDAPConfig
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.token import TokenGroup
 
 __all__ = ["MockLDAP"]
@@ -18,9 +18,8 @@ __all__ = ["MockLDAP"]
 class MockLDAP(Mock):
     """Mock bonsai LDAP api for testing."""
 
-    def __init__(self, config: LDAPConfig) -> None:
+    def __init__(self) -> None:
         super().__init__(spec=bonsai.LDAPClient)
-        self.config = config
         self.groups = [
             TokenGroup(name="foo", id=1222),
             TokenGroup(name="group-1", id=123123),
@@ -50,7 +49,9 @@ class MockLDAP(Mock):
         query: str,
         attrlist: List[str],
     ) -> List[Dict[str, List[str]]]:
-        assert base_dn == self.config.base_dn
+        config = config_dependency.config()
+        assert config.ldap
+        assert base_dn == config.ldap.base_dn
         assert scope in (
             bonsai.LDAPSearchScope.SUB,
             bonsai.LDAPSearchScope.ONELEVEL,
