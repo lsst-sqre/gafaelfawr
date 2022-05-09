@@ -18,7 +18,7 @@ from .config import Config
 from .dependencies.cache import IdCache, TokenCache
 from .dependencies.config import config_dependency
 from .dependencies.redis import redis_dependency
-from .exceptions import NotConfiguredException
+from .exceptions import NotConfiguredError
 from .models.token import TokenData
 from .providers.base import Provider
 from .providers.github import GitHubProvider
@@ -164,7 +164,7 @@ class ComponentFactory:
             Newly-created Firestore storage.
         """
         if not self._config.firestore:
-            raise NotConfiguredException("Firestore is not configured")
+            raise NotConfiguredError("Firestore is not configured")
         return FirestoreStorage(self._config.firestore, self._logger)
 
     def create_influxdb_service(self) -> InfluxDBService:
@@ -176,7 +176,7 @@ class ComponentFactory:
             Newly-created InfluxDB token issuer.
         """
         if not self._config.influxdb:
-            raise NotConfiguredException("No InfluxDB issuer configuration")
+            raise NotConfiguredError("No InfluxDB issuer configuration")
         return InfluxDBService(self._config.influxdb)
 
     def create_kubernetes_service(
@@ -213,7 +213,7 @@ class ComponentFactory:
         """
         if not self._config.oidc_server:
             msg = "OpenID Connect server not configured"
-            raise NotConfiguredException(msg)
+            raise NotConfiguredError(msg)
         key = self._config.session_secret
         storage = RedisStorage(OIDCAuthorization, key, self._redis)
         authorization_store = OIDCAuthorizationStore(storage)
@@ -239,11 +239,11 @@ class ComponentFactory:
 
         Raises
         ------
-        gafaelfawr.exceptions.NotConfiguredException
+        gafaelfawr.exceptions.NotConfiguredError
             The configured authentication provider is not OpenID Connect.
         """
         if not self._config.oidc:
-            raise NotConfiguredException("OpenID Connect is not configured")
+            raise NotConfiguredError("OpenID Connect is not configured")
         firestore = None
         if self._config.firestore:
             firestore = self.create_firestore_storage()
@@ -272,7 +272,7 @@ class ComponentFactory:
         """
         if not self._config.oidc:
             msg = "OpenID Connect provider not configured"
-            raise NotConfiguredException(msg)
+            raise NotConfiguredError(msg)
         return OIDCTokenVerifier(
             config=self._config.oidc,
             http_client=self._http_client,

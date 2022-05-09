@@ -54,7 +54,7 @@ class Provider(metaclass=ABCMeta):
         httpx.HTTPError
             An HTTP client error occurred trying to talk to the authentication
             provider.
-        gafaelfawr.exceptions.ProviderException
+        gafaelfawr.exceptions.ProviderError
             The provider responded with an error to a request.
         """
 

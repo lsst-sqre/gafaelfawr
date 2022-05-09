@@ -16,7 +16,7 @@ from ..exceptions import (
     InvalidReturnURLError,
     NoUsernameMappingError,
     PermissionDeniedError,
-    ProviderException,
+    ProviderError,
 )
 from ..models.token import TokenGroup
 from ..templates import templates
@@ -217,7 +217,7 @@ async def handle_provider_return(
             return RedirectResponse(url)
         else:
             return login_error(context, LoginError.NOT_ENROLLED, str(e))
-    except ProviderException as e:
+    except ProviderError as e:
         return login_error(context, LoginError.PROVIDER_FAILED, str(e))
     except HTTPError as e:
         return login_error(context, LoginError.PROVIDER_NETWORK, str(e))

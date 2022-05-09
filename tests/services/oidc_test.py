@@ -15,7 +15,7 @@ from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.exceptions import (
     InvalidClientError,
     InvalidGrantError,
-    UnauthorizedClientException,
+    UnauthorizedClientError,
 )
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.models.oidc import OIDCAuthorizationCode
@@ -37,7 +37,7 @@ async def test_issue_code(tmp_path: Path, factory: ComponentFactory) -> None:
     assert config.oidc_server
     assert list(config.oidc_server.clients) == clients
 
-    with pytest.raises(UnauthorizedClientException):
+    with pytest.raises(UnauthorizedClientError):
         await oidc_service.issue_code("unknown-client", redirect_uri, token)
 
     code = await oidc_service.issue_code("some-id", redirect_uri, token)

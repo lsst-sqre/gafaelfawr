@@ -19,7 +19,7 @@ from .dependencies.cache import id_cache_dependency, token_cache_dependency
 from .dependencies.config import config_dependency
 from .dependencies.redis import redis_dependency
 from .exceptions import (
-    NotConfiguredException,
+    NotConfiguredError,
     PermissionDeniedError,
     ValidationError,
 )
@@ -114,7 +114,7 @@ def create_app() -> FastAPI:
     app.on_event("shutdown")(shutdown_event)
 
     # Register exception handlers.
-    app.exception_handler(NotConfiguredException)(not_configured_handler)
+    app.exception_handler(NotConfiguredError)(not_configured_handler)
     app.exception_handler(PermissionDeniedError)(permission_handler)
     app.exception_handler(ValidationError)(validation_handler)
 
@@ -137,7 +137,7 @@ async def shutdown_event() -> None:
 
 
 async def not_configured_handler(
-    request: Request, exc: NotConfiguredException
+    request: Request, exc: NotConfiguredError
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,

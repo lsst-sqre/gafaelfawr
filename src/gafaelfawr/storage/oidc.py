@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from ..constants import OIDC_AUTHORIZATION_LIFETIME
-from ..exceptions import DeserializeException
+from ..exceptions import DeserializeError
 from ..models.oidc import OIDCAuthorization, OIDCAuthorizationCode
 from ..models.token import Token
 from .base import RedisStorage
@@ -82,7 +82,7 @@ class OIDCAuthorizationStore:
 
         Raises
         ------
-        gafaelfawr.exceptions.DeserializeException
+        gafaelfawr.exceptions.DeserializeError
             If the authorization exists but cannot be deserialized.
         """
         authorization = await self._storage.get(f"oidc:{code.key}")
@@ -90,5 +90,5 @@ class OIDCAuthorizationStore:
             return None
         if authorization.code != code:
             msg = "Secret does not match stored authorization"
-            raise DeserializeException(msg)
+            raise DeserializeError(msg)
         return authorization

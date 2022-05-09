@@ -15,12 +15,12 @@ from structlog.stdlib import BoundLogger
 from ..config import OIDCConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
-    FetchKeysException,
-    MissingClaimsException,
-    OIDCException,
-    UnknownAlgorithmException,
-    UnknownKeyIdException,
-    VerifyTokenException,
+    FetchKeysError,
+    MissingClaimsError,
+    OIDCError,
+    UnknownAlgorithmError,
+    UnknownKeyIdError,
+    VerifyTokenError,
 )
 from ..models.oidc import OIDCToken, OIDCVerifiedToken
 from ..models.state import State
@@ -114,10 +114,10 @@ class OIDCProvider(Provider):
 
         Raises
         ------
-        gafaelfawr.exceptions.OIDCException
+        gafaelfawr.exceptions.OIDCError
             The OpenID Connect provider responded with an error to a request
             or the group membership in the resulting token was not valid.
-        gafaelfawr.exceptions.LDAPException
+        gafaelfawr.exceptions.LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
         gafaelfawr.exceptions.NoUsernameMappingError
@@ -151,15 +151,15 @@ class OIDCProvider(Provider):
                 r.raise_for_status()
             else:
                 msg = "Response from {token_url} not valid JSON"
-                raise OIDCException(msg)
+                raise OIDCError(msg)
         if r.status_code != 200 and "error" in result:
             msg = result["error"] + ": " + result["error_description"]
-            raise OIDCException(msg)
+            raise OIDCError(msg)
         elif r.status_code != 200:
             r.raise_for_status()
         if "id_token" not in result:
             msg = f"No id_token in token reply from {token_url}"
-            raise OIDCException(msg)
+            raise OIDCError(msg)
 
         # Extract and verify the token and determine the user's username,
         # numeric UID, and groups.  These may come from the token or from
@@ -168,9 +168,9 @@ class OIDCProvider(Provider):
         try:
             token = await self._verifier.verify_token(unverified_token)
             return await self._user_info.get_user_info_from_oidc_token(token)
-        except (jwt.InvalidTokenError, VerifyTokenException) as e:
+        except (jwt.InvalidTokenError, VerifyTokenError) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
-            raise OIDCException(msg)
+            raise OIDCError(msg)
 
     async def logout(self, session: State) -> None:
         """User logout callback.
@@ -222,7 +222,7 @@ class OIDCTokenVerifier:
         ------
         jwt.exceptions.InvalidTokenError
             The token is invalid.
-        gafaelfawr.exceptions.VerifyTokenException
+        gafaelfawr.exceptions.VerifyTokenError
             The token failed to verify or was invalid in some way.
         """
         unverified_header = jwt.get_unverified_header(token.encoded)
@@ -235,7 +235,7 @@ class OIDCTokenVerifier:
             raise jwt.InvalidIssuerError("No iss claim in token")
         issuer_url = unverified_token["iss"]
         if "kid" not in unverified_header:
-            raise UnknownKeyIdException("No kid in token header")
+            raise UnknownKeyIdError("No kid in token header")
         key_id = unverified_header["kid"]
 
         if "jti" in unverified_token:
@@ -287,13 +287,13 @@ class OIDCTokenVerifier:
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingClaimsException
+        gafaelfawr.exceptions.MissingClaimsError
             The token is missing required claims.
         """
         if self._config.username_claim not in claims:
             msg = f"No {self._config.username_claim} claim in token"
             self._logger.warning(msg, claims=claims)
-            raise MissingClaimsException(msg)
+            raise MissingClaimsError(msg)
 
         return OIDCVerifiedToken(
             encoded=encoded,
@@ -321,12 +321,12 @@ class OIDCTokenVerifier:
 
         Raises
         ------
-        gafaelfawr.exceptions.FetchKeysException
+        gafaelfawr.exceptions.FetchKeysError
             Unable to retrieve the key set for the specified issuer.
-        gafaelfawr.exceptions.UnknownAlgorithException
+        gafaelfawr.exceptions.UnknownAlgorithError
             The requested key ID was found, but is for an unsupported
             algorithm.
-        gafaelfawr.exceptions.UnknownKeyIdException
+        gafaelfawr.exceptions.UnknownKeyIdError
             The requested key ID was not present in the issuer configuration
             or was not found in that issuer's JWKS.
         """
@@ -342,13 +342,13 @@ class OIDCTokenVerifier:
                 key = k
         if not key:
             msg = f"Issuer {issuer_url} has no kid {key_id}"
-            raise UnknownKeyIdException(msg)
+            raise UnknownKeyIdError(msg)
         if key["alg"] != ALGORITHM:
             msg = (
                 f"Issuer {issuer_url} kid {key_id} had algorithm"
                 f" {key['alg']} not {ALGORITHM}"
             )
-            raise UnknownAlgorithmException(msg)
+            raise UnknownAlgorithmError(msg)
 
         # Convert and return the key.
         e = base64_to_number(key["e"])
@@ -380,7 +380,7 @@ class OIDCTokenVerifier:
 
         Raises
         ------
-        gafaelfawr.exceptions.FetchKeysException
+        gafaelfawr.exceptions.FetchKeysError
             On failure to retrieve a set of keys from the issuer.
         """
         url = await self._get_jwks_uri(issuer_url)
@@ -392,16 +392,16 @@ class OIDCTokenVerifier:
             if r.status_code != 200:
                 reason = f"{r.status_code} {r.reason_phrase}"
                 msg = f"Cannot retrieve keys from {url}: {reason}"
-                raise FetchKeysException(msg)
+                raise FetchKeysError(msg)
         except RequestError:
-            raise FetchKeysException(f"Cannot retrieve keys from {url}")
+            raise FetchKeysError(f"Cannot retrieve keys from {url}")
 
         try:
             body = r.json()
             return body["keys"]
         except Exception:
             msg = f"No keys property in JWKS metadata for {url}"
-            raise FetchKeysException(msg)
+            raise FetchKeysError(msg)
 
     async def _get_jwks_uri(self, issuer_url: str) -> Optional[str]:
         """Retrieve the JWKS URI for a given issuer.
@@ -422,7 +422,7 @@ class OIDCTokenVerifier:
 
         Raises
         ------
-        gafaelfawr.exceptions.FetchKeysException
+        gafaelfawr.exceptions.FetchKeysError
             If the OpenID Connect metadata doesn't contain the expected
             parameter.
         """
@@ -439,4 +439,4 @@ class OIDCTokenVerifier:
             return body["jwks_uri"]
         except Exception:
             msg = f"No jwks_uri property in OIDC metadata for {issuer_url}"
-            raise FetchKeysException(msg)
+            raise FetchKeysError(msg)

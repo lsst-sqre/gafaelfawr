@@ -15,9 +15,9 @@ from jwt.exceptions import InvalidIssuerError
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.exceptions import (
-    FetchKeysException,
-    UnknownAlgorithmException,
-    UnknownKeyIdException,
+    FetchKeysError,
+    UnknownAlgorithmError,
+    UnknownKeyIdError,
 )
 from gafaelfawr.factory import ComponentFactory
 from gafaelfawr.keypair import RSAKeyPair
@@ -72,7 +72,7 @@ async def test_verify_token(
     # Missing kid.
     payload["iss"] = "https://bogus.example.com/"
     token = encode_token(payload, TEST_KEYPAIR)
-    with pytest.raises(UnknownKeyIdException) as excinfo:
+    with pytest.raises(UnknownKeyIdError) as excinfo:
         await verifier.verify_token(token)
     assert str(excinfo.value) == "No kid in token header"
 
@@ -102,7 +102,7 @@ async def test_verify_oidc_no_kids(
         "exp": int(exp.timestamp()),
     }
     token = encode_token(payload, TEST_KEYPAIR, kid="a-kid")
-    with pytest.raises(UnknownKeyIdException) as excinfo:
+    with pytest.raises(UnknownKeyIdError) as excinfo:
         await verifier.verify_token(token)
     expected = f"Issuer {config.oidc.issuer} has no kid a-kid"
     assert str(excinfo.value) == expected
@@ -134,7 +134,7 @@ async def test_key_retrieval(
     # Wrong algorithm for the key.
     jwks.keys[0].alg = "ES256"
     respx_mock.get(jwks_url).respond(json=jwks.dict())
-    with pytest.raises(UnknownAlgorithmException):
+    with pytest.raises(UnknownAlgorithmError):
         await verifier.verify_token(token)
 
     # Should go back to working if we fix the algorithm and add more keys.
@@ -149,12 +149,12 @@ async def test_key_retrieval(
     # Try with a new key ID and return a malformed reponse.
     respx_mock.get(jwks_url).respond(json=["foo"])
     token = create_upstream_oidc_jwt(kid="malformed")
-    with pytest.raises(FetchKeysException):
+    with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
     # Return a 404 error.
     respx_mock.get(jwks_url).respond(404)
-    with pytest.raises(FetchKeysException):
+    with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
     # Fix the JWKS handler but register a malformed URL as the OpenID Connect
@@ -163,7 +163,7 @@ async def test_key_retrieval(
     respx_mock.get(jwks_url).respond(json=jwks.dict())
     respx_mock.get(oidc_url).respond(json=["foo"])
     token = create_upstream_oidc_jwt(kid="another-kid")
-    with pytest.raises(FetchKeysException):
+    with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
     # Try again with a working OpenID Connect configuration.

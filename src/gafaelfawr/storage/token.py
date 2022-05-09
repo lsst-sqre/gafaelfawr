@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
-from ..exceptions import DeserializeException, DuplicateTokenNameError
+from ..exceptions import DeserializeError, DuplicateTokenNameError
 from ..models.token import Token, TokenData, TokenInfo, TokenType
 from ..schema.subtoken import Subtoken
 from ..schema.token import Token as SQLToken
@@ -411,7 +411,7 @@ class TokenRedisStore:
         """
         try:
             data = await self._storage.get(f"token:{key}")
-        except DeserializeException as e:
+        except DeserializeError as e:
             self._logger.error("Cannot retrieve token", error=str(e))
             return None
         return data
