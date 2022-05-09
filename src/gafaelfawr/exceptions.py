@@ -331,6 +331,14 @@ class KubernetesObjectError(KubernetesError):
     """A Kubernetes object could not be parsed."""
 
 
+class LDAPError(Exception):
+    """Group information for the user in LDAP was invalid."""
+
+
+class NoUsernameMappingError(LDAPError):
+    """No mapping from identifier to username was found in LDAP."""
+
+
 class NotConfiguredError(Exception):
     """The requested operation was not configured."""
 
@@ -349,14 +357,6 @@ class GitHubError(ProviderError):
 
 class OIDCError(ProviderError):
     """The OpenID Connect provider returned an error from an API call."""
-
-
-class LDAPError(ProviderError):
-    """Group information for the user in LDAP was invalid."""
-
-
-class NoUsernameMappingError(LDAPError):
-    """No mapping from identifier to username was found in LDAP."""
 
 
 class UnauthorizedClientError(Exception):

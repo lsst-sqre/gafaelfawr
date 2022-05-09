@@ -114,6 +114,8 @@ class OIDCProvider(Provider):
 
         Raises
         ------
+        gafaelfawr.exceptions.FirestoreError
+            Retrieving or assigning a UID from Firestore failed.
         gafaelfawr.exceptions.OIDCError
             The OpenID Connect provider responded with an error to a request
             or the group membership in the resulting token was not valid.
