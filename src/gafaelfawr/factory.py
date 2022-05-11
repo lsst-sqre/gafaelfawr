@@ -15,8 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
+from .cache import IdCache, InternalTokenCache, NotebookTokenCache
 from .config import Config
-from .dependencies.cache import IdCache, TokenCache
 from .dependencies.config import config_dependency
 from .dependencies.ldap import ldap_pool_dependency
 from .dependencies.redis import redis_dependency
@@ -65,10 +65,14 @@ class ComponentFactory:
         SQLAlchemy async session.
     http_client : ``httpx.AsyncClient``
         HTTP async client.
-    id_cache : `gafaelfawr.dependencies.cache.IdCache`
-        Shared UID/GID cache.
-    token_cache : `gafaelfawr.dependencies.cache.TokenCache`
-        Shared token cache.
+    uid_cache : `gafaelfawr.cache.IdCache`
+        Shared UID cache.
+    gid_cache : `gafaelfawr.cache.IdCache`
+        Shared GID cache.
+    internal_token_cache : `gafaelfawr.cache.InternalTokenCache`
+        Shared internal token cache.
+    notebook_token_cache : `gafaelfawr.cache.NotebookTokenCache`
+        Shared notebook token cache.
     logger : `structlog.stdlib.BoundLogger`
         Logger to use for errors.
     """
@@ -100,8 +104,10 @@ class ComponentFactory:
             The factory.  Must be used as a context manager.
         """
         config = await config_dependency()
-        id_cache = IdCache()
-        token_cache = TokenCache()
+        uid_cache = IdCache()
+        gid_cache = IdCache()
+        internal_token_cache = InternalTokenCache()
+        notebook_token_cache = NotebookTokenCache()
         logger = structlog.get_logger("gafaelfawr")
         logger.debug("Connecting to Redis")
         ldap_pool = await ldap_pool_dependency(config)
@@ -121,8 +127,10 @@ class ComponentFactory:
                     redis=redis,
                     session=session,
                     http_client=client,
-                    id_cache=id_cache,
-                    token_cache=token_cache,
+                    uid_cache=uid_cache,
+                    gid_cache=gid_cache,
+                    internal_token_cache=internal_token_cache,
+                    notebook_token_cache=notebook_token_cache,
                     logger=logger,
                 )
         finally:
@@ -138,8 +146,10 @@ class ComponentFactory:
         redis: Redis,
         session: async_scoped_session,
         http_client: AsyncClient,
-        id_cache: IdCache,
-        token_cache: TokenCache,
+        uid_cache: IdCache,
+        gid_cache: IdCache,
+        internal_token_cache: InternalTokenCache,
+        notebook_token_cache: NotebookTokenCache,
         logger: BoundLogger,
     ) -> None:
         self.session = session
@@ -147,8 +157,10 @@ class ComponentFactory:
         self._ldap_pool = ldap_pool
         self._redis = redis
         self._http_client = http_client
-        self._id_cache = id_cache
-        self._token_cache = token_cache
+        self._uid_cache = uid_cache
+        self._gid_cache = gid_cache
+        self._internal_token_cache = internal_token_cache
+        self._notebook_token_cache = notebook_token_cache
         self._logger = logger
 
     def create_admin_service(self) -> AdminService:
@@ -258,7 +270,10 @@ class ComponentFactory:
         if self._config.firestore:
             firestore_storage = self.create_firestore_storage()
             firestore = FirestoreService(
-                self._id_cache, firestore_storage, self._logger
+                uid_cache=self._uid_cache,
+                gid_cache=self._gid_cache,
+                storage=firestore_storage,
+                logger=self._logger,
             )
         ldap = None
         if self._config.ldap and self._ldap_pool:
@@ -347,7 +362,10 @@ class ComponentFactory:
         if self._config.firestore:
             firestore_storage = self.create_firestore_storage()
             firestore = FirestoreService(
-                self._id_cache, firestore_storage, self._logger
+                uid_cache=self._uid_cache,
+                gid_cache=self._gid_cache,
+                storage=firestore_storage,
+                logger=self._logger,
             )
         ldap = None
         if self._config.ldap and self._ldap_pool:
@@ -376,8 +394,9 @@ class ComponentFactory:
         token_db_store = TokenDatabaseStore(self.session)
         token_change_store = TokenChangeHistoryStore(self.session)
         return TokenCacheService(
-            cache=self._token_cache,
             config=self._config,
+            internal_cache=self._internal_token_cache,
+            notebook_cache=self._notebook_token_cache,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
@@ -398,8 +417,9 @@ class ComponentFactory:
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_change_store = TokenChangeHistoryStore(self.session)
         token_cache_service = TokenCacheService(
-            cache=self._token_cache,
             config=self._config,
+            internal_cache=self._internal_token_cache,
+            notebook_cache=self._notebook_token_cache,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,

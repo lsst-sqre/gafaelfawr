@@ -19,14 +19,15 @@ from safir.dependencies.logger import logger_dependency
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
+from ..cache import IdCache, InternalTokenCache, NotebookTokenCache
 from ..config import Config
 from ..factory import ComponentFactory
 from ..models.state import State
 from .cache import (
-    IdCache,
-    TokenCache,
-    id_cache_dependency,
-    token_cache_dependency,
+    gid_cache_dependency,
+    internal_token_cache_dependency,
+    notebook_token_cache_dependency,
+    uid_cache_dependency,
 )
 from .config import config_dependency
 from .ldap import ldap_pool_dependency
@@ -69,11 +70,17 @@ class RequestContext:
     http_client: AsyncClient
     """Shared HTTP client."""
 
-    id_cache: IdCache
-    """Shared UID/GID cache."""
+    uid_cache: IdCache
+    """Shared UID cache."""
 
-    token_cache: TokenCache
-    """Shared token cache."""
+    gid_cache: IdCache
+    """Shared GID cache."""
+
+    internal_token_cache: InternalTokenCache
+    """Shared internal token cache."""
+
+    notebook_token_cache: NotebookTokenCache
+    """Shared notebook token cache."""
 
     @property
     def factory(self) -> ComponentFactory:
@@ -88,8 +95,10 @@ class RequestContext:
             redis=self.redis,
             session=self.session,
             http_client=self.http_client,
-            id_cache=self.id_cache,
-            token_cache=self.token_cache,
+            uid_cache=self.uid_cache,
+            gid_cache=self.gid_cache,
+            internal_token_cache=self.internal_token_cache,
+            notebook_token_cache=self.notebook_token_cache,
             logger=self.logger,
         )
 
@@ -125,8 +134,14 @@ async def context_dependency(
     redis: Redis = Depends(redis_dependency),
     session: async_scoped_session = Depends(db_session_dependency),
     http_client: AsyncClient = Depends(http_client_dependency),
-    id_cache: IdCache = Depends(id_cache_dependency),
-    token_cache: TokenCache = Depends(token_cache_dependency),
+    uid_cache: IdCache = Depends(uid_cache_dependency),
+    gid_cache: IdCache = Depends(gid_cache_dependency),
+    internal_token_cache: InternalTokenCache = Depends(
+        internal_token_cache_dependency
+    ),
+    notebook_token_cache: NotebookTokenCache = Depends(
+        notebook_token_cache_dependency
+    ),
 ) -> RequestContext:
     """Provides a RequestContext as a dependency."""
     if request.client and request.client.host:
@@ -148,6 +163,8 @@ async def context_dependency(
         redis=redis,
         session=session,
         http_client=http_client,
-        id_cache=id_cache,
-        token_cache=token_cache,
+        uid_cache=uid_cache,
+        gid_cache=gid_cache,
+        internal_token_cache=internal_token_cache,
+        notebook_token_cache=notebook_token_cache,
     )

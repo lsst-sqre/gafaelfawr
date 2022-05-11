@@ -7,6 +7,8 @@ API reference
 
 .. automodapi:: gafaelfawr.auth
 
+.. automodapi:: gafaelfawr.cache
+
 .. automodapi:: gafaelfawr.config
 
 .. automodapi:: gafaelfawr.constants

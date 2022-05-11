@@ -102,9 +102,10 @@ nitpick_ignore = [
     ("py:class", "gafaelfawr.models.history.ConstrainedStrValue"),
     ("py:class", "gafaelfawr.models.token.ConstrainedIntValue"),
     ("py:class", "gafaelfawr.models.token.ConstrainedStrValue"),
-    # asyncio.Queue is documented, and that's what all the code references,
-    # but the combination of Sphinx extensions we're using confuse themselves
-    # and there doesn't seem to be any way to fix this.
+    # asyncio.Lock and asyncio.Queue are documented, and that's what all the
+    # code references, but the combination of Sphinx extensions we're using
+    # confuse themselves and there doesn't seem to be any way to fix this.
+    ("py:class", "asyncio.locks.Lock"),
     ("py:class", "asyncio.queues.Queue"),
     # TypeVar references that shouldn't be documented.
     ("py:class", "gafaelfawr.dependencies.cache.S"),

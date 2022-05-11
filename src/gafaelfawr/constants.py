@@ -23,14 +23,11 @@ SETTINGS_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 
 # The following constants define per-process cache sizes.
 
-GID_CACHE_SIZE = 10000
-"""How many GID values to cache in memory."""
+ID_CACHE_SIZE = 10000
+"""How many UID or GID values to cache in memory."""
 
-UID_CACHE_SIZE = 10000
-"""How many UID values to cache in memory."""
-
-TOKEN_CACHE_SIZE = 10000
-"""How many internal and notebook tokens to cache in memory."""
+TOKEN_CACHE_SIZE = 5000
+"""How many internal or notebook tokens to cache in memory."""
 
 # The following constants define the limits of UID and GID ranges when
 # Gafaelfawr is doing UID and GID assignment.

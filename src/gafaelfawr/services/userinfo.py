@@ -64,14 +64,6 @@ class UserInfoService:
         self._firestore = firestore
         self._logger = logger
 
-    async def clear(self) -> None:
-        """Invalidate all of the caches.
-
-        Used primarily for testing.
-        """
-        if self._firestore:
-            await self._firestore.clear_cache()
-
     async def get_user_info_from_token(
         self, token_data: TokenData
     ) -> TokenUserInfo:
