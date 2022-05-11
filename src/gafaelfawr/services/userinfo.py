@@ -6,10 +6,11 @@ from typing import List, Optional
 
 from structlog.stdlib import BoundLogger
 
-from ..config import OIDCConfig
+from ..config import Config
 from ..exceptions import (
     InvalidTokenClaimsError,
     MissingClaimsError,
+    NotConfiguredError,
     ValidationError,
 )
 from ..models.oidc import OIDCVerifiedToken
@@ -40,6 +41,8 @@ class UserInfoService:
 
     Parameters
     ----------
+    config : `gafaelfawr.config.Config`
+        Gafaelfawr configuration.
     ldap : `gafaelfawr.services.ldap.LDAPService`, optional
         LDAP service for user metadata, if LDAP was configured.
     firestore : `gafaelfawr.services.firestore.FirestoreService`, optional
@@ -51,10 +54,12 @@ class UserInfoService:
     def __init__(
         self,
         *,
+        config: Config,
         ldap: Optional[LDAPService],
         firestore: Optional[FirestoreService],
         logger: BoundLogger,
     ) -> None:
+        self._config = config
         self._ldap = ldap
         self._firestore = firestore
         self._logger = logger
@@ -66,28 +71,6 @@ class UserInfoService:
         """
         if self._firestore:
             await self._firestore.clear_cache()
-
-    async def get_groups_from_ldap(self, username: str) -> List[str]:
-        """Get the user's groups from LDAP.
-
-        This duplicates some of the code that generates user information from
-        LDAP, but retrieves only the user's group names.  It's used after
-        login to verify that the user is a member of a group that grants
-        access.
-
-        Parameters
-        ----------
-        username : `str`
-            Username of the user.
-
-        Returns
-        -------
-        groups : List[`str`]
-            The user's group names according to LDAP.
-        """
-        if not self._ldap:
-            raise RuntimeError("LDAP requested but not configured")
-        return await self._ldap.get_group_names(username)
 
     async def get_user_info_from_token(
         self, token_data: TokenData
@@ -143,6 +126,42 @@ class UserInfoService:
                 groups=token_data.groups,
             )
 
+    async def get_scopes(
+        self, user_info: TokenUserInfo
+    ) -> Optional[List[str]]:
+        """Get scopes from user information.
+
+        Used to determine the scope claim of a token issued based on an OpenID
+        Connect authentication.
+
+        Parameters
+        ----------
+        user_info : `gafaelfawr.models.token.TokenUserInfo`
+            User information for a user.
+
+        Returns
+        -------
+        scopes : List[`str`] or `None`
+            The scopes generated from the group membership based on the
+            ``group_mapping`` configuration parameter, or `None` if the user
+            was not a member of any known group.
+        """
+        if self._ldap:
+            groups = await self._ldap.get_group_names(user_info.username)
+        elif user_info.groups:
+            groups = [g.name for g in user_info.groups]
+        else:
+            groups = []
+
+        scopes = set(["user:token"])
+        found = False
+        for group in groups:
+            if group in self._config.group_mapping:
+                found = True
+                scopes.update(self._config.group_mapping[group])
+
+        return sorted(scopes) if found else None
+
 
 class OIDCUserInfoService(UserInfoService):
     """Retrieve user metadata from external systems for OIDC authentication.
@@ -153,8 +172,8 @@ class OIDCUserInfoService(UserInfoService):
 
     Parameters
     ----------
-    config : `gafaelfawr.config.OIDCConfig`
-        Configuration for the OpenID Connect authentication provider.
+    config : `gafaelfawr.config.Config`
+        Gafaelfawr configuration.
     ldap : `gafaelfawr.services.ldap.LDAPService`, optional
         LDAP service for user metadata, if LDAP was configured.
     firestore : `gafaelfawr.services.firestore.FirestoreService`, optional
@@ -166,17 +185,20 @@ class OIDCUserInfoService(UserInfoService):
     def __init__(
         self,
         *,
-        config: OIDCConfig,
+        config: Config,
         ldap: Optional[LDAPService],
         firestore: Optional[FirestoreService],
         logger: BoundLogger,
     ) -> None:
         super().__init__(
+            config=config,
             ldap=ldap,
             firestore=firestore,
             logger=logger,
         )
-        self._config = config
+        if not config.oidc:
+            raise NotConfiguredError("OpenID Connect not configured")
+        self._oidc_config = config.oidc
 
     async def get_user_info_from_oidc_token(
         self, token: OIDCVerifiedToken
@@ -331,14 +353,14 @@ class OIDCUserInfoService(UserInfoService):
         gafaelfawr.exceptions.InvalidTokenClaimsError
             The numeric UID claim contains something that is not a number.
         """
-        if self._config.uid_claim not in token.claims:
-            msg = f"No {self._config.uid_claim} claim in token"
+        if self._oidc_config.uid_claim not in token.claims:
+            msg = f"No {self._oidc_config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
             raise MissingClaimsError(msg)
         try:
-            uid = int(token.claims[self._config.uid_claim])
+            uid = int(token.claims[self._oidc_config.uid_claim])
         except Exception:
-            msg = f"Invalid {self._config.uid_claim} claim in token"
+            msg = f"Invalid {self._oidc_config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
             raise InvalidTokenClaimsError(msg)
         return uid
@@ -361,8 +383,8 @@ class OIDCUserInfoService(UserInfoService):
         gafaelfawr.exceptions.MissingClaimsError
             The token is missing the required username claim.
         """
-        if self._config.username_claim not in token.claims:
-            msg = f"No {self._config.username_claim} claim in token"
+        if self._oidc_config.username_claim not in token.claims:
+            msg = f"No {self._oidc_config.username_claim} claim in token"
             self._logger.warning(msg, claims=token.claims)
             raise MissingClaimsError(msg)
-        return token.claims[self._config.username_claim]
+        return token.claims[self._oidc_config.username_claim]

@@ -267,7 +267,7 @@ class ComponentFactory:
             )
             ldap = LDAPService(ldap_storage, self._logger)
         return OIDCUserInfoService(
-            config=self._config.oidc,
+            config=self._config,
             ldap=ldap,
             firestore=firestore,
             logger=self._logger,
@@ -356,6 +356,7 @@ class ComponentFactory:
             )
             ldap = LDAPService(ldap_storage, self._logger)
         return UserInfoService(
+            config=self._config,
             ldap=ldap,
             firestore=firestore,
             logger=self._logger,
