@@ -11,7 +11,7 @@ from httpx import AsyncClient
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token
 
@@ -22,7 +22,7 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_login(
-    client: AsyncClient, config: Config, factory: ComponentFactory
+    client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     token_data = await create_session_token(
         factory, username="example", scopes=["read:all", "exec:admin"]
@@ -51,7 +51,7 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_login_no_auth(
-    client: AsyncClient, config: Config, factory: ComponentFactory
+    client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     r = await client.get("/auth/api/v1/login")
     assert_unauthorized_is_correct(r, config)

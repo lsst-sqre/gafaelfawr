@@ -12,7 +12,7 @@ import asyncio
 import pytest
 from httpx import AsyncClient
 
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token
 
 from ..support.cookies import set_session_cookie
@@ -20,9 +20,7 @@ from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio
-async def test_notebook(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_notebook(client: AsyncClient, factory: Factory) -> None:
     data = await create_session_token(
         factory, scopes=["exec:test", "read:all"]
     )
@@ -44,9 +42,7 @@ async def test_notebook(
 
 
 @pytest.mark.asyncio
-async def test_internal(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_internal(client: AsyncClient, factory: Factory) -> None:
     data = await create_session_token(
         factory, scopes=["exec:test", "read:all"]
     )

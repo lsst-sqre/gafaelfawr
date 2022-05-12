@@ -12,7 +12,7 @@ from httpx import AsyncClient
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
 from gafaelfawr.util import current_datetime
@@ -25,7 +25,7 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_create_delete_modify(
-    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
 ) -> None:
     user_info = TokenUserInfo(
         username="example",
@@ -216,7 +216,7 @@ async def test_create_delete_modify(
 
 @pytest.mark.asyncio
 async def test_token_info(
-    client: AsyncClient, config: Config, factory: ComponentFactory
+    client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     user_info = TokenUserInfo(
         username="example",
@@ -318,9 +318,7 @@ async def test_token_info(
 
 
 @pytest.mark.asyncio
-async def test_auth_required(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_auth_required(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
     csrf = await set_session_cookie(client, token)
@@ -370,9 +368,7 @@ async def test_auth_required(
 
 
 @pytest.mark.asyncio
-async def test_csrf_required(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_csrf_required(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
     token_service = factory.create_token_service()
@@ -436,7 +432,7 @@ async def test_csrf_required(
 
 @pytest.mark.asyncio
 async def test_no_bootstrap(
-    client: AsyncClient, config: Config, factory: ComponentFactory
+    client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -476,9 +472,7 @@ async def test_no_bootstrap(
 
 
 @pytest.mark.asyncio
-async def test_no_scope(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_no_scope(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -524,9 +518,7 @@ async def test_no_scope(
 
 
 @pytest.mark.asyncio
-async def test_modify_nonuser(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_modify_nonuser(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
     csrf = await set_session_cookie(client, token)
@@ -541,9 +533,7 @@ async def test_modify_nonuser(
 
 
 @pytest.mark.asyncio
-async def test_wrong_user(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_wrong_user(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     csrf = await set_session_cookie(client, token_data.token)
     token_service = factory.create_token_service()
@@ -637,9 +627,7 @@ async def test_wrong_user(
 
 
 @pytest.mark.asyncio
-async def test_no_expires(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
     """Test creating a user token that doesn't expire."""
     token_data = await create_session_token(factory)
     csrf = await set_session_cookie(client, token_data.token)
@@ -691,7 +679,7 @@ async def test_no_expires(
 
 @pytest.mark.asyncio
 async def test_duplicate_token_name(
-    client: AsyncClient, factory: ComponentFactory
+    client: AsyncClient, factory: Factory
 ) -> None:
     """Test duplicate token names."""
     token_data = await create_session_token(factory)
@@ -730,9 +718,7 @@ async def test_duplicate_token_name(
 
 
 @pytest.mark.asyncio
-async def test_bad_expires(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_bad_expires(client: AsyncClient, factory: Factory) -> None:
     """Test creating or modifying a token with bogus expirations."""
     token_data = await create_session_token(factory)
     csrf = await set_session_cookie(client, token_data.token)
@@ -774,7 +760,7 @@ async def test_bad_expires(
 
 @pytest.mark.asyncio
 async def test_bad_scopes(
-    client: AsyncClient, config: Config, factory: ComponentFactory
+    client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     """Test creating or modifying a token with bogus scopes."""
     known_scopes = list(config.known_scopes.keys())
@@ -821,7 +807,7 @@ async def test_bad_scopes(
 
 @pytest.mark.asyncio
 async def test_create_admin(
-    client: AsyncClient, config: Config, factory: ComponentFactory
+    client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     """Test creating a token through the admin interface."""
     token_data = await create_session_token(factory, scopes=["exec:admin"])

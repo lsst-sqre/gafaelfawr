@@ -13,7 +13,7 @@ from httpx import AsyncClient
 from safir.database import datetime_to_db
 from sqlalchemy.future import select
 
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.link import LinkData
 from gafaelfawr.models.token import (
@@ -31,7 +31,7 @@ from ..support.tokens import create_session_token
 
 
 async def build_history(
-    factory: ComponentFactory,
+    factory: Factory,
 ) -> List[TokenChangeHistoryEntry]:
     """Perform a bunch of token manipulations and return the history entries.
 
@@ -270,7 +270,7 @@ async def check_pagination(
 
 @pytest.mark.asyncio
 async def test_admin_change_history(
-    client: AsyncClient, factory: ComponentFactory
+    client: AsyncClient, factory: Factory
 ) -> None:
     token_data = await create_session_token(factory, scopes=["admin:token"])
     await set_session_cookie(client, token_data.token)
@@ -376,7 +376,7 @@ async def test_admin_change_history(
 
 @pytest.mark.asyncio
 async def test_user_change_history(
-    client: AsyncClient, factory: ComponentFactory
+    client: AsyncClient, factory: Factory
 ) -> None:
     token_data = await create_session_token(factory, username="one")
     await set_session_cookie(client, token_data.token)
@@ -471,9 +471,7 @@ async def test_user_change_history(
 
 
 @pytest.mark.asyncio
-async def test_auth_required(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_auth_required(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     username = token_data.username
     key = token_data.token.key
@@ -491,9 +489,7 @@ async def test_auth_required(
 
 
 @pytest.mark.asyncio
-async def test_admin_required(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_admin_required(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
 
@@ -502,9 +498,7 @@ async def test_admin_required(
 
 
 @pytest.mark.asyncio
-async def test_no_scope(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_no_scope(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     username = token_data.username
     token_service = factory.create_token_service()

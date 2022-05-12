@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import pytest
 from httpx import AsyncClient
 
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token
 
 from ..support.cookies import set_session_cookie
@@ -30,9 +30,7 @@ async def test_analyze_no_auth(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_session(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_analyze_session(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
         factory, group_names=["foo", "bar"], scopes=["read:all"]
     )
@@ -72,9 +70,7 @@ async def test_invalid_token(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_token(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_analyze_token(client: AsyncClient, factory: Factory) -> None:
     token = Token()
 
     # Handle with no session.

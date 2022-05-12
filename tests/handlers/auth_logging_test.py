@@ -8,7 +8,7 @@ import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.logging import parse_log
@@ -17,7 +17,7 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_success(
-    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:admin"])
 
@@ -88,7 +88,7 @@ async def test_success(
 
 @pytest.mark.asyncio
 async def test_authorization_failed(
-    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:admin"])
 
@@ -129,7 +129,7 @@ async def test_authorization_failed(
 
 @pytest.mark.asyncio
 async def test_original_url(
-    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory)
 
@@ -181,7 +181,7 @@ async def test_original_url(
 
 @pytest.mark.asyncio
 async def test_chained_x_forwarded(
-    client: AsyncClient, factory: ComponentFactory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory)
 

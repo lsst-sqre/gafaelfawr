@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import async_scoped_session
 
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.token import (
     Token,
@@ -85,7 +85,7 @@ async def add_expired_session_token(
 
 
 async def create_session_token(
-    factory: ComponentFactory,
+    factory: Factory,
     *,
     username: Optional[str] = None,
     group_names: Optional[List[str]] = None,
@@ -95,7 +95,7 @@ async def create_session_token(
 
     Parameters
     ----------
-    factory : `gafaelfawr.factory.ComponentFactory`
+    factory : `gafaelfawr.factory.Factory`
         Factory used to create services to add the token.
     username : `str`, optional
         Override the username of the generated token.

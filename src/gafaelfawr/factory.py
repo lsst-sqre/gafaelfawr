@@ -2,24 +2,24 @@
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
+from dataclasses import dataclass
 from typing import AsyncIterator, Optional
 
 import structlog
 from aioredis import Redis
+from bonsai import LDAPClient
 from bonsai.asyncio import AIOConnectionPool
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from safir.database import create_async_session
+from safir.dependencies.http_client import http_client_dependency
 from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
 from .cache import IdCache, InternalTokenCache, NotebookTokenCache
 from .config import Config
-from .dependencies.config import config_dependency
-from .dependencies.ldap import ldap_pool_dependency
-from .dependencies.redis import redis_dependency
 from .exceptions import NotConfiguredError
 from .models.token import TokenData
 from .providers.base import Provider
@@ -44,35 +44,110 @@ from .storage.ldap import LDAPStorage
 from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
 
-__all__ = ["ComponentFactory"]
+__all__ = ["Factory", "ProcessContext"]
 
 
-class ComponentFactory:
+@dataclass(frozen=True, slots=True)
+class ProcessContext:
+    """Per-process application context.
+
+    This object caches all of the per-process singletons that can be reused
+    for every request and only need to be recreated if the application
+    configuration changes.  This does not include the database session; each
+    request creates a new scoped session that's removed at the end of the
+    session to ensure that all transactions are committed or abandoned.
+    """
+
+    config: Config
+    """Gafaelfawr's configuration."""
+
+    http_client: AsyncClient
+    """Shared HTTP client."""
+
+    ldap_pool: Optional[AIOConnectionPool]
+    """Connection pool to talk to LDAP, if configured."""
+
+    redis: Redis
+    """Connection pool to use to talk to Redis."""
+
+    uid_cache: IdCache
+    """Shared UID cache."""
+
+    gid_cache: IdCache
+    """Shared GID cache."""
+
+    internal_token_cache: InternalTokenCache
+    """Shared internal token cache."""
+
+    notebook_token_cache: NotebookTokenCache
+    """Shared notebook token cache."""
+
+    @classmethod
+    async def from_config(cls, config: Config) -> ProcessContext:
+        """Create a new process context from the Gafaelfawr configuration.
+
+        Parameters
+        ----------
+        config : `gafaelfawr.config.Config`
+            The Gafaelfawr configuration.
+
+        Returns
+        -------
+        context : `ProcessContext`
+            Shared context for a Gafaelfawr process.
+        """
+        ldap_pool = None
+        if config.ldap:
+            client = LDAPClient(config.ldap.url)
+            if config.ldap.user_dn and config.ldap.password:
+                client.set_credentials(
+                    "SIMPLE",
+                    user=config.ldap.user_dn,
+                    password=config.ldap.password,
+                )
+            ldap_pool = AIOConnectionPool(client)
+
+        return cls(
+            config=config,
+            http_client=await http_client_dependency(),
+            ldap_pool=ldap_pool,
+            redis=Redis.from_url(
+                config.redis_url, password=config.redis_password
+            ),
+            uid_cache=IdCache(),
+            gid_cache=IdCache(),
+            internal_token_cache=InternalTokenCache(),
+            notebook_token_cache=NotebookTokenCache(),
+        )
+
+    async def aclose(self) -> None:
+        """Clean up a process context.
+
+        Called during shutdown, or before recreating the process context using
+        a different configuration.
+        """
+        await self.redis.close()
+        await self.redis.connection_pool.disconnect()
+        if self.ldap_pool:
+            await self.ldap_pool.close()
+        await self.uid_cache.clear()
+        await self.gid_cache.clear()
+        await self.internal_token_cache.clear()
+        await self.notebook_token_cache.clear()
+
+
+class Factory:
     """Build Gafaelfawr components.
 
-    Given the application configuration, construct the components of the
+    Uses the contents of a `ProcessContext` to construct the components of the
     application on demand.
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
-        Gafaelfawr configuration.
-    ldap_pool : `bonsai.asyncio.AIOConnectionPool`
-        LDAP connection pool.
-    redis : ``aioredis.Redis``
-        Redis client.
+    context : `ProcessContext`
+        Shared process context.
     session : `sqlalchemy.ext.asyncio.async_scoped_session`
-        SQLAlchemy async session.
-    http_client : ``httpx.AsyncClient``
-        HTTP async client.
-    uid_cache : `gafaelfawr.cache.IdCache`
-        Shared UID cache.
-    gid_cache : `gafaelfawr.cache.IdCache`
-        Shared GID cache.
-    internal_token_cache : `gafaelfawr.cache.InternalTokenCache`
-        Shared internal token cache.
-    notebook_token_cache : `gafaelfawr.cache.NotebookTokenCache`
-        Shared notebook token cache.
+        Database session.
     logger : `structlog.stdlib.BoundLogger`
         Logger to use for errors.
     """
@@ -80,18 +155,19 @@ class ComponentFactory:
     @classmethod
     @asynccontextmanager
     async def standalone(
-        cls, engine: AsyncEngine, check_db: bool = False
-    ) -> AsyncIterator[ComponentFactory]:
+        cls, config: Config, engine: AsyncEngine, check_db: bool = False
+    ) -> AsyncIterator[Factory]:
         """Build Gafaelfawr components outside of a request.
 
         Intended for background jobs.  Uses the non-request default values for
-        the dependencies of `ComponentFactory`.  Do not use this factory
-        inside the web application or anywhere that may use the default
-        `ComponentFactory`, since they will interfere with each other's
-        Redis pools.
+        the dependencies of `Factory`.  Do not use this factory inside the web
+        application or anywhere that may use the default `Factory`, since they
+        will interfere with each other's Redis pools.
 
         Parameters
         ----------
+        config : `gafaelfawr.config.Config`
+            Gafaelfawr configuration.
         engine : `sqlalchemy.ext.asyncio.AsyncEngine`
             Database engine to use for connections.
         check_db : `bool`, optional
@@ -100,68 +176,33 @@ class ComponentFactory:
 
         Yields
         ------
-        factory : `ComponentFactory`
+        factory : `Factory`
             The factory.  Must be used as a context manager.
         """
-        config = await config_dependency()
-        uid_cache = IdCache()
-        gid_cache = IdCache()
-        internal_token_cache = InternalTokenCache()
-        notebook_token_cache = NotebookTokenCache()
         logger = structlog.get_logger("gafaelfawr")
-        logger.debug("Connecting to Redis")
-        ldap_pool = await ldap_pool_dependency(config)
-        redis = await redis_dependency(config)
-        if check_db:
-            statement = select(SQLAdmin)
-        else:
-            statement = None
-
-        session = None
+        statement = select(SQLAdmin) if check_db else None
+        session = await create_async_session(engine, statement=statement)
         try:
-            session = await create_async_session(engine, statement=statement)
-            async with AsyncClient() as client:
-                yield cls(
-                    config=config,
-                    ldap_pool=ldap_pool,
-                    redis=redis,
-                    session=session,
-                    http_client=client,
-                    uid_cache=uid_cache,
-                    gid_cache=gid_cache,
-                    internal_token_cache=internal_token_cache,
-                    notebook_token_cache=notebook_token_cache,
-                    logger=logger,
-                )
+            context = await ProcessContext.from_config(config)
+            async with aclosing(context):
+                yield cls(context, session, logger)
         finally:
-            await redis_dependency.aclose()
-            if session:
-                await session.remove()
+            await session.remove()
 
     def __init__(
         self,
-        *,
-        config: Config,
-        ldap_pool: Optional[AIOConnectionPool],
-        redis: Redis,
+        context: ProcessContext,
         session: async_scoped_session,
-        http_client: AsyncClient,
-        uid_cache: IdCache,
-        gid_cache: IdCache,
-        internal_token_cache: InternalTokenCache,
-        notebook_token_cache: NotebookTokenCache,
         logger: BoundLogger,
     ) -> None:
         self.session = session
-        self._config = config
-        self._ldap_pool = ldap_pool
-        self._redis = redis
-        self._http_client = http_client
-        self._uid_cache = uid_cache
-        self._gid_cache = gid_cache
-        self._internal_token_cache = internal_token_cache
-        self._notebook_token_cache = notebook_token_cache
+        self._context = context
         self._logger = logger
+
+    @property
+    def redis(self) -> Redis:
+        """Underlying Redis connection pool, mainly for tests."""
+        return self._context.redis
 
     def create_admin_service(self) -> AdminService:
         """Create a new manager object for token administrators.
@@ -185,9 +226,9 @@ class ComponentFactory:
         firestore : `gafaelfawr.storage.firestore.FirestoreStorage`
             Newly-created Firestore storage.
         """
-        if not self._config.firestore:
+        if not self._context.config.firestore:
             raise NotConfiguredError("Firestore is not configured")
-        return FirestoreStorage(self._config.firestore, self._logger)
+        return FirestoreStorage(self._context.config.firestore, self._logger)
 
     def create_influxdb_service(self) -> InfluxDBService:
         """Create an InfluxDB token issuer service.
@@ -197,9 +238,9 @@ class ComponentFactory:
         influxdb_service : `gafaelfawr.services.influxdb.InfluxDBService`
             Newly-created InfluxDB token issuer.
         """
-        if not self._config.influxdb:
+        if not self._context.config.influxdb:
             raise NotConfiguredError("No InfluxDB issuer configuration")
-        return InfluxDBService(self._config.influxdb)
+        return InfluxDBService(self._context.config.influxdb)
 
     def create_kubernetes_service(
         self, api_client: ApiClient
@@ -233,15 +274,15 @@ class ComponentFactory:
         oidc_service : `gafaelfawr.services.oidc.OIDCService`
             A new OpenID Connect server.
         """
-        if not self._config.oidc_server:
+        if not self._context.config.oidc_server:
             msg = "OpenID Connect server not configured"
             raise NotConfiguredError(msg)
-        key = self._config.session_secret
-        storage = RedisStorage(OIDCAuthorization, key, self._redis)
+        key = self._context.config.session_secret
+        storage = RedisStorage(OIDCAuthorization, key, self._context.redis)
         authorization_store = OIDCAuthorizationStore(storage)
         token_service = self.create_token_service()
         return OIDCService(
-            config=self._config.oidc_server,
+            config=self._context.config.oidc_server,
             authorization_store=authorization_store,
             token_service=token_service,
             logger=self._logger,
@@ -264,25 +305,27 @@ class ComponentFactory:
         gafaelfawr.exceptions.NotConfiguredError
             The configured authentication provider is not OpenID Connect.
         """
-        if not self._config.oidc:
+        if not self._context.config.oidc:
             raise NotConfiguredError("OpenID Connect is not configured")
         firestore = None
-        if self._config.firestore:
+        if self._context.config.firestore:
             firestore_storage = self.create_firestore_storage()
             firestore = FirestoreService(
-                uid_cache=self._uid_cache,
-                gid_cache=self._gid_cache,
+                uid_cache=self._context.uid_cache,
+                gid_cache=self._context.gid_cache,
                 storage=firestore_storage,
                 logger=self._logger,
             )
         ldap = None
-        if self._config.ldap and self._ldap_pool:
+        if self._context.config.ldap and self._context.ldap_pool:
             ldap_storage = LDAPStorage(
-                self._config.ldap, self._ldap_pool, self._logger
+                self._context.config.ldap,
+                self._context.ldap_pool,
+                self._logger,
             )
             ldap = LDAPService(ldap_storage, self._logger)
         return OIDCUserInfoService(
-            config=self._config,
+            config=self._context.config,
             ldap=ldap,
             firestore=firestore,
             logger=self._logger,
@@ -300,12 +343,12 @@ class ComponentFactory:
         verifier : `gafaelfawr.providers.oidc.OIDCTokenVerifier`
             A new JWT token verifier.
         """
-        if not self._config.oidc:
+        if not self._context.config.oidc:
             msg = "OpenID Connect provider not configured"
             raise NotConfiguredError(msg)
         return OIDCTokenVerifier(
-            config=self._config.oidc,
-            http_client=self._http_client,
+            config=self._context.config.oidc,
+            http_client=self._context.http_client,
             logger=self._logger,
         )
 
@@ -325,20 +368,20 @@ class ComponentFactory:
         NotImplementedError
             None of the authentication providers are configured.
         """
-        if self._config.github:
+        if self._context.config.github:
             return GitHubProvider(
-                config=self._config.github,
-                http_client=self._http_client,
+                config=self._context.config.github,
+                http_client=self._context.http_client,
                 logger=self._logger,
             )
-        elif self._config.oidc:
+        elif self._context.config.oidc:
             verifier = self.create_oidc_token_verifier()
             user_info_service = self.create_oidc_user_info_service()
             return OIDCProvider(
-                config=self._config.oidc,
+                config=self._context.config.oidc,
                 verifier=verifier,
                 user_info_service=user_info_service,
-                http_client=self._http_client,
+                http_client=self._context.http_client,
                 logger=self._logger,
             )
         else:
@@ -359,22 +402,24 @@ class ComponentFactory:
             Newly created service.
         """
         firestore = None
-        if self._config.firestore:
+        if self._context.config.firestore:
             firestore_storage = self.create_firestore_storage()
             firestore = FirestoreService(
-                uid_cache=self._uid_cache,
-                gid_cache=self._gid_cache,
+                uid_cache=self._context.uid_cache,
+                gid_cache=self._context.gid_cache,
                 storage=firestore_storage,
                 logger=self._logger,
             )
         ldap = None
-        if self._config.ldap and self._ldap_pool:
+        if self._context.config.ldap and self._context.ldap_pool:
             ldap_storage = LDAPStorage(
-                self._config.ldap, self._ldap_pool, self._logger
+                self._context.config.ldap,
+                self._context.ldap_pool,
+                self._logger,
             )
             ldap = LDAPService(ldap_storage, self._logger)
         return UserInfoService(
-            config=self._config,
+            config=self._context.config,
             ldap=ldap,
             firestore=firestore,
             logger=self._logger,
@@ -388,15 +433,15 @@ class ComponentFactory:
         cache : `gafaelfawr.services.token_cache.TokenCacheService`
             A new token cache.
         """
-        key = self._config.session_secret
-        storage = RedisStorage(TokenData, key, self._redis)
+        key = self._context.config.session_secret
+        storage = RedisStorage(TokenData, key, self._context.redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_db_store = TokenDatabaseStore(self.session)
         token_change_store = TokenChangeHistoryStore(self.session)
         return TokenCacheService(
-            config=self._config,
-            internal_cache=self._internal_token_cache,
-            notebook_cache=self._notebook_token_cache,
+            config=self._context.config,
+            internal_cache=self._context.internal_token_cache,
+            notebook_cache=self._context.notebook_token_cache,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
@@ -412,21 +457,21 @@ class ComponentFactory:
             The new token manager.
         """
         token_db_store = TokenDatabaseStore(self.session)
-        key = self._config.session_secret
-        storage = RedisStorage(TokenData, key, self._redis)
+        key = self._context.config.session_secret
+        storage = RedisStorage(TokenData, key, self._context.redis)
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_change_store = TokenChangeHistoryStore(self.session)
         token_cache_service = TokenCacheService(
-            config=self._config,
-            internal_cache=self._internal_token_cache,
-            notebook_cache=self._notebook_token_cache,
+            config=self._context.config,
+            internal_cache=self._context.internal_token_cache,
+            notebook_cache=self._context.notebook_token_cache,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
             logger=self._logger,
         )
         return TokenService(
-            config=self._config,
+            config=self._context.config,
             token_cache=token_cache_service,
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
@@ -434,15 +479,28 @@ class ComponentFactory:
             logger=self._logger,
         )
 
-    def reconfigure(self, config: Config) -> None:
-        """Change the internal configuration.
+    def set_context(self, context: ProcessContext) -> None:
+        """Replace the process context.
 
-        Intended for the test suite, which may have to reconfigure the
-        component factory after creating it.
+        Used by the test suite when it reconfigures Gafaelfawr on the fly
+        after a factory was already created.
 
         Parameters
         ----------
-        config : `gafaelfawr.config.Config`
-            New configuration.
+        context : `ProcessContext`
+            New process context.
         """
-        self._config = config
+        self._context = context
+
+    def set_logger(self, logger: BoundLogger) -> None:
+        """Replace the internal logger.
+
+        Used by the context dependency to update the logger for all
+        newly-created components when it's rebound with additional context.
+
+        Parameters
+        ----------
+        logger : `structlog.stdlib.BoundLogger`
+            New logger.
+        """
+        self._logger = logger

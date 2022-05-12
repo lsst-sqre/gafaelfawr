@@ -9,34 +9,20 @@ including from dependencies.
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from aioredis import Redis
-from bonsai.asyncio import AIOConnectionPool
 from fastapi import Depends, HTTPException, Request
-from httpx import AsyncClient
 from safir.dependencies.db_session import db_session_dependency
-from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
-from ..cache import IdCache, InternalTokenCache, NotebookTokenCache
 from ..config import Config
-from ..factory import ComponentFactory
+from ..factory import Factory, ProcessContext
 from ..models.state import State
-from .cache import (
-    gid_cache_dependency,
-    internal_token_cache_dependency,
-    notebook_token_cache_dependency,
-    uid_cache_dependency,
-)
-from .config import config_dependency
-from .ldap import ldap_pool_dependency
-from .redis import redis_dependency
 
 __all__ = ["RequestContext", "context_dependency"]
 
 
-@dataclass
+@dataclass(slots=True)
 class RequestContext:
     """Holds the incoming request and its surrounding context.
 
@@ -58,49 +44,11 @@ class RequestContext:
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
 
-    ldap_pool: Optional[AIOConnectionPool]
-    """Connection pool to talk to LDAP."""
-
-    redis: Redis
-    """Connection pool to use to talk to Redis."""
-
     session: async_scoped_session
     """The database session."""
 
-    http_client: AsyncClient
-    """Shared HTTP client."""
-
-    uid_cache: IdCache
-    """Shared UID cache."""
-
-    gid_cache: IdCache
-    """Shared GID cache."""
-
-    internal_token_cache: InternalTokenCache
-    """Shared internal token cache."""
-
-    notebook_token_cache: NotebookTokenCache
-    """Shared notebook token cache."""
-
-    @property
-    def factory(self) -> ComponentFactory:
-        """A factory for constructing Gafaelfawr components.
-
-        This is constructed on the fly at each reference to ensure that we get
-        the latest logger, which may have additional bound context.
-        """
-        return ComponentFactory(
-            config=self.config,
-            ldap_pool=self.ldap_pool,
-            redis=self.redis,
-            session=self.session,
-            http_client=self.http_client,
-            uid_cache=self.uid_cache,
-            gid_cache=self.gid_cache,
-            internal_token_cache=self.internal_token_cache,
-            notebook_token_cache=self.notebook_token_cache,
-            logger=self.logger,
-        )
+    factory: Factory
+    """The component factory."""
 
     @property
     def state(self) -> State:
@@ -115,56 +63,83 @@ class RequestContext:
     def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context.
 
-        Also updates the logging context stored in the request object in case
-        the request context later needs to be recreated from the request.
-
         Parameters
         ----------
         **values : `typing.Any`
             Additional values that should be added to the logging context.
         """
         self.logger = self.logger.bind(**values)
+        self.factory.set_logger(self.logger)
 
 
-async def context_dependency(
-    request: Request,
-    config: Config = Depends(config_dependency),
-    logger: BoundLogger = Depends(logger_dependency),
-    ldap_pool: Optional[AIOConnectionPool] = Depends(ldap_pool_dependency),
-    redis: Redis = Depends(redis_dependency),
-    session: async_scoped_session = Depends(db_session_dependency),
-    http_client: AsyncClient = Depends(http_client_dependency),
-    uid_cache: IdCache = Depends(uid_cache_dependency),
-    gid_cache: IdCache = Depends(gid_cache_dependency),
-    internal_token_cache: InternalTokenCache = Depends(
-        internal_token_cache_dependency
-    ),
-    notebook_token_cache: NotebookTokenCache = Depends(
-        notebook_token_cache_dependency
-    ),
-) -> RequestContext:
-    """Provides a RequestContext as a dependency."""
-    if request.client and request.client.host:
-        ip_address = request.client.host
-    else:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "msg": "No client IP address",
-                "type": "missing_client_ip",
-            },
+class ContextDependency:
+    """Provide a per-request context as a FastAPI dependency.
+
+    Each request gets a `RequestContext`.  To save overhead, the portions of
+    the context that are shared by all requests are collected into the single
+    process-global `~gafaelfawr.factory.ProcessContext` and reused with each
+    request.
+    """
+
+    def __init__(self) -> None:
+        self._config: Optional[Config] = None
+        self._process_context: Optional[ProcessContext] = None
+
+    async def __call__(
+        self,
+        request: Request,
+        session: async_scoped_session = Depends(db_session_dependency),
+        logger: BoundLogger = Depends(logger_dependency),
+    ) -> RequestContext:
+        """Creates a per-request context and returns it."""
+        if not self._config or not self._process_context:
+            raise RuntimeError("ContextDependency not initialized")
+        if request.client and request.client.host:
+            ip_address = request.client.host
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "msg": "No client IP address",
+                    "type": "missing_client_ip",
+                },
+            )
+        return RequestContext(
+            request=request,
+            ip_address=ip_address,
+            config=self._config,
+            logger=logger,
+            session=session,
+            factory=Factory(self._process_context, session, logger),
         )
-    return RequestContext(
-        request=request,
-        ip_address=ip_address,
-        config=config,
-        logger=logger,
-        ldap_pool=ldap_pool,
-        redis=redis,
-        session=session,
-        http_client=http_client,
-        uid_cache=uid_cache,
-        gid_cache=gid_cache,
-        internal_token_cache=internal_token_cache,
-        notebook_token_cache=notebook_token_cache,
-    )
+
+    @property
+    def process_context(self) -> ProcessContext:
+        """The underlying process context, primarily for use in tests."""
+        if not self._process_context:
+            raise RuntimeError("ContextDependency not initialized")
+        return self._process_context
+
+    async def initialize(self, config: Config) -> None:
+        """Initialize the process-wide shared context.
+
+        Parameters
+        ----------
+        config : `gafaelfawr.config.Config`
+            Gafaelfawr configuration.
+        """
+        if self._process_context:
+            await self._process_context.aclose()
+        self._config = config
+        self._process_context = await ProcessContext.from_config(config)
+
+    async def aclose(self) -> None:
+        """Clean up the per-process configuration."""
+        if self._process_context:
+            await self._process_context.aclose()
+        self._config = None
+        self._process_context = None
+
+
+context_dependency = ContextDependency()
+"""The dependency that will return the per-request context."""

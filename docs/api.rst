@@ -16,19 +16,10 @@ API reference
 
 .. automodapi:: gafaelfawr.dependencies.auth
 
-.. automodapi:: gafaelfawr.dependencies.cache
-   :include-all-objects:
-
 .. automodapi:: gafaelfawr.dependencies.config
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.context
-
-.. automodapi:: gafaelfawr.dependencies.ldap
-   :include-all-objects:
-
-.. automodapi:: gafaelfawr.dependencies.redis
-   :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.return_url
 

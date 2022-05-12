@@ -10,7 +10,7 @@ from httpx import AsyncClient
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import Config
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token, TokenUserInfo
 
 from ..support.headers import (
@@ -42,7 +42,7 @@ async def test_no_auth(client: AsyncClient, config: Config) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid(client: AsyncClient, factory: ComponentFactory) -> None:
+async def test_invalid(client: AsyncClient, factory: Factory) -> None:
     token = await create_session_token(factory)
 
     r = await client.get(
@@ -125,7 +125,7 @@ async def test_invalid_auth(client: AsyncClient, config: Config) -> None:
 
 @pytest.mark.asyncio
 async def test_access_denied(
-    client: AsyncClient, config: Config, factory: ComponentFactory
+    client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     token_data = await create_session_token(factory)
 
@@ -175,7 +175,7 @@ async def test_auth_forbidden(client: AsyncClient, config: Config) -> None:
 
 @pytest.mark.asyncio
 async def test_satisfy_all(
-    client: AsyncClient, config: Config, factory: ComponentFactory
+    client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:test"])
 
@@ -196,7 +196,7 @@ async def test_satisfy_all(
 
 
 @pytest.mark.asyncio
-async def test_success(client: AsyncClient, factory: ComponentFactory) -> None:
+async def test_success(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
         factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
@@ -221,9 +221,7 @@ async def test_success(client: AsyncClient, factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_success_minimal(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_success_minimal(client: AsyncClient, factory: Factory) -> None:
     user_info = TokenUserInfo(username="user", uid=1234)
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -247,9 +245,7 @@ async def test_success_minimal(
 
 
 @pytest.mark.asyncio
-async def test_notebook(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_notebook(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
         factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
@@ -290,9 +286,7 @@ async def test_notebook(
 
 
 @pytest.mark.asyncio
-async def test_internal(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_internal(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
         factory,
         group_names=["admin"],
@@ -344,9 +338,7 @@ async def test_internal(
 
 
 @pytest.mark.asyncio
-async def test_internal_errors(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_internal_errors(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory, scopes=["read:some"])
 
     # Delegating a token with a scope the original doesn't have will fail.
@@ -381,9 +373,7 @@ async def test_internal_errors(
 
 
 @pytest.mark.asyncio
-async def test_success_any(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_success_any(client: AsyncClient, factory: Factory) -> None:
     """Test ``satisfy=any`` as an ``/auth`` parameter.
 
     Ask for either ``exec:admin`` or ``exec:test`` and pass in credentials
@@ -412,7 +402,7 @@ async def test_success_any(
 
 
 @pytest.mark.asyncio
-async def test_basic(client: AsyncClient, factory: ComponentFactory) -> None:
+async def test_basic(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
         factory, group_names=["test"], scopes=["exec:admin"]
     )
@@ -492,7 +482,7 @@ async def test_ajax_unauthorized(client: AsyncClient, config: Config) -> None:
 
 @pytest.mark.asyncio
 async def test_success_unicode_name(
-    client: AsyncClient, factory: ComponentFactory
+    client: AsyncClient, factory: Factory
 ) -> None:
     user_info = TokenUserInfo(username="user", uid=1234, name="名字")
     token_service = factory.create_token_service()

@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.token import Token, TokenData
 from gafaelfawr.schema import Base
@@ -88,7 +88,7 @@ def test_init(
         # independent engine.)
         await engine.dispose()
 
-        async with ComponentFactory.standalone(engine) as factory:
+        async with Factory.standalone(config, engine) as factory:
             admin_service = factory.create_admin_service()
             expected = [Admin(username=u) for u in config.initial_admins]
             assert await admin_service.get_admins() == expected

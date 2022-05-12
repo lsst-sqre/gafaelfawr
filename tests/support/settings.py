@@ -10,6 +10,8 @@ from cryptography.fernet import Fernet
 
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.context import context_dependency
+from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.token import Token
 
@@ -26,6 +28,7 @@ every settings file.
 __all__ = [
     "build_settings",
     "configure",
+    "reconfigure",
     "store_secret",
 ]
 
@@ -180,3 +183,44 @@ def configure(
     )
     config_dependency.set_settings_path(str(settings_path))
     return config_dependency.config()
+
+
+async def reconfigure(
+    tmp_path: Path,
+    template: str,
+    factory: Optional[Factory] = None,
+    *,
+    oidc_clients: Optional[List[OIDCClient]] = None,
+    **settings: str,
+) -> Config:
+    """Change the test application configuration.
+
+    This cannot be used to change the database URL because sessions will not
+    be recreated or the database reinitialized.
+
+    Parameters
+    ----------
+    tmp_path : `pathlib.Path`
+        Root of the test temporary directory, used to write the settings
+        file.
+    template : `str`
+        Settings template to use.
+    factory : `gafaelfawr.factory.Factory`, optional
+        The factory to reconfigure.
+    oidc_clients : List[`gafaelfawr.config.OIDCClient`], optional
+        Configuration information for clients of the OpenID Connect server.
+    **settings : str, optional
+        Any additional settings to add to the settings file.
+
+    Returns
+    -------
+    config : `gafaelfawr.config.Config`
+        The new configuration.
+    """
+    config = configure(
+        tmp_path, template, oidc_clients=oidc_clients, **settings
+    )
+    await context_dependency.initialize(config)
+    if factory:
+        factory.set_context(context_dependency.process_context)
+    return config

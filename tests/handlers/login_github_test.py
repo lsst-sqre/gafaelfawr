@@ -12,7 +12,7 @@ from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, Response
 
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.providers.github import (
     GitHubProvider,
     GitHubTeam,
@@ -329,7 +329,7 @@ async def test_github_uppercase(
 
 @pytest.mark.asyncio
 async def test_github_admin(
-    client: AsyncClient, respx_mock: respx.Router, factory: ComponentFactory
+    client: AsyncClient, respx_mock: respx.Router, factory: Factory
 ) -> None:
     """Test that a token administrator gets the admin:token scope."""
     admin_service = factory.create_admin_service()

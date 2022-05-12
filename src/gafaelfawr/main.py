@@ -15,15 +15,8 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 
 from .constants import COOKIE_NAME
-from .dependencies.cache import (
-    gid_cache_dependency,
-    internal_token_cache_dependency,
-    notebook_token_cache_dependency,
-    uid_cache_dependency,
-)
 from .dependencies.config import config_dependency
-from .dependencies.ldap import ldap_pool_dependency
-from .dependencies.redis import redis_dependency
+from .dependencies.context import context_dependency
 from .exceptions import (
     NotConfiguredError,
     PermissionDeniedError,
@@ -129,6 +122,7 @@ def create_app() -> FastAPI:
 
 async def startup_event() -> None:
     config = config_dependency.config()
+    await context_dependency.initialize(config)
     await db_session_dependency.initialize(
         config.database_url, config.database_password
     )
@@ -137,13 +131,7 @@ async def startup_event() -> None:
 async def shutdown_event() -> None:
     await http_client_dependency.aclose()
     await db_session_dependency.aclose()
-    await ldap_pool_dependency.aclose()
-    await redis_dependency.aclose()
-
-    await uid_cache_dependency.aclose()
-    await gid_cache_dependency.aclose()
-    await internal_token_cache_dependency.aclose()
-    await notebook_token_cache_dependency.aclose()
+    await context_dependency.aclose()
 
 
 async def not_configured_handler(

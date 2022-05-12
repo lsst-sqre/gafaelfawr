@@ -15,7 +15,7 @@ from safir.kubernetes import initialize_kubernetes
 
 from .dependencies.config import config_dependency
 from .exceptions import KubernetesError
-from .factory import ComponentFactory
+from .factory import Factory
 from .keypair import RSAKeyPair
 from .models.token import Token
 from .schema import Base
@@ -102,7 +102,7 @@ async def init(settings: Optional[str]) -> None:
         config.database_url, config.database_password
     )
     await initialize_database(engine, logger, schema=Base.metadata)
-    async with ComponentFactory.standalone(engine) as factory:
+    async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
             await admin_service.add_initial_admins(config.initial_admins)
@@ -130,7 +130,7 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
     engine = create_database_engine(
         config.database_url, config.database_password
     )
-    async with ComponentFactory.standalone(engine, check_db=True) as factory:
+    async with Factory.standalone(config, engine, check_db=True) as factory:
         await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)
@@ -160,7 +160,7 @@ async def update_service_tokens(settings: Optional[str]) -> None:
     engine = create_database_engine(
         config.database_url, config.database_password
     )
-    async with ComponentFactory.standalone(engine, check_db=True) as factory:
+    async with Factory.standalone(config, engine, check_db=True) as factory:
         await initialize_kubernetes()
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)

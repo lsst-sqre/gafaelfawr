@@ -13,7 +13,7 @@ from httpx import AsyncClient, ConnectError, Response
 
 from gafaelfawr.constants import GID_MIN, UID_BOT_MIN, UID_USER_MIN
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.oidc import OIDCVerifiedToken
 
 from ..support.firestore import MockFirestore
@@ -21,7 +21,7 @@ from ..support.jwt import create_upstream_oidc_jwt
 from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
 from ..support.oidc import mock_oidc_provider_config, mock_oidc_provider_token
-from ..support.settings import configure
+from ..support.settings import reconfigure
 
 
 async def simulate_oidc_login(
@@ -111,7 +111,7 @@ async def test_login(
     respx_mock: respx.Router,
     caplog: LogCaptureFixture,
 ) -> None:
-    config = configure(tmp_path, "oidc")
+    config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
     token = create_upstream_oidc_jwt(
         groups=["admin"], name="Some Person", email="person@example.com"
@@ -187,7 +187,7 @@ async def test_login_redirect_header(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    configure(tmp_path, "oidc")
+    await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
     return_url = "https://example.com/foo?a=bar&b=baz"
 
@@ -206,7 +206,7 @@ async def test_oauth2_callback(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Test the compatibility /oauth2/callback route."""
-    config = configure(tmp_path, "oidc")
+    config = await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
     assert config.oidc
 
@@ -221,7 +221,7 @@ async def test_claim_names(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Uses an alternate settings environment with non-default claims."""
-    config = configure(tmp_path, "oidc-claims")
+    config = await reconfigure(tmp_path, "oidc-claims")
     assert config.oidc
     claims = {
         config.oidc.username_claim: "alt-username",
@@ -251,7 +251,7 @@ async def test_callback_error(
     caplog: LogCaptureFixture,
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
-    config = configure(tmp_path, "oidc")
+    config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
     return_url = "https://example.com/foo"
 
@@ -351,7 +351,7 @@ async def test_callback_error(
 async def test_connection_error(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    config = configure(tmp_path, "oidc")
+    config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
     return_url = "https://example.com/foo"
 
@@ -375,7 +375,7 @@ async def test_connection_error(
 async def test_verify_error(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    config = configure(tmp_path, "oidc")
+    config = await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
     assert config.oidc
     issuer = config.oidc.issuer
@@ -405,7 +405,7 @@ async def test_verify_error(
 async def test_invalid_username(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    configure(tmp_path, "oidc")
+    await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
         groups=["admin"], sub="invalid@user", uid="invalid@user"
     )
@@ -419,7 +419,7 @@ async def test_invalid_username(
 async def test_invalid_group_syntax(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    configure(tmp_path, "oidc")
+    await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(isMemberOf=47)
 
     r = await simulate_oidc_login(client, respx_mock, token)
@@ -431,7 +431,7 @@ async def test_invalid_group_syntax(
 async def test_invalid_groups(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    configure(tmp_path, "oidc")
+    await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
         isMemberOf=[
             {"name": "foo"},
@@ -457,7 +457,7 @@ async def test_invalid_groups(
 async def test_no_valid_groups(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    config = configure(tmp_path, "oidc")
+    config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
     token = create_upstream_oidc_jwt(groups=[])
 
@@ -478,7 +478,7 @@ async def test_no_valid_groups(
 async def test_unicode_name(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    config = configure(tmp_path, "oidc")
+    config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
     token = create_upstream_oidc_jwt(name="名字", groups=["admin"])
 
@@ -504,7 +504,7 @@ async def test_ldap(
     respx_mock: respx.Router,
     mock_ldap: MockLDAP,
 ) -> None:
-    config = configure(tmp_path, "oidc-ldap")
+    config = await reconfigure(tmp_path, "oidc-ldap")
     assert config.ldap
     token = create_upstream_oidc_jwt(sub=mock_ldap.source_id, groups=["admin"])
 
@@ -539,7 +539,7 @@ async def test_enrollment_url(
     respx_mock: respx.Router,
     mock_ldap: MockLDAP,
 ) -> None:
-    config = configure(tmp_path, "oidc-ldap")
+    config = await reconfigure(tmp_path, "oidc-ldap")
     assert config.oidc
     assert config.ldap
     token = create_upstream_oidc_jwt(sub="unknown-sub", groups=["admin"])
@@ -555,14 +555,13 @@ async def test_enrollment_url(
 @pytest.mark.asyncio
 async def test_firestore(
     tmp_path: Path,
-    factory: ComponentFactory,
+    factory: Factory,
     client: AsyncClient,
     respx_mock: respx.Router,
     mock_firestore: MockFirestore,
 ) -> None:
-    config = configure(tmp_path, "oidc-firestore")
+    config = await reconfigure(tmp_path, "oidc-firestore", factory)
     assert config.oidc
-    factory.reconfigure(config)
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
     token = create_upstream_oidc_jwt(groups=["admin", "foo"])

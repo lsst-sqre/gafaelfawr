@@ -1,10 +1,10 @@
 """Shared caches.
 
 These caches are process-global, managed by
-`~gafaelfawr.dependencies.cache.CacheDependency` and its instantiations.
-The common theme is some storage wrapped in an `asyncio.Lock`, possibly with
-some complex structure to allow per-user locking.  These services sit below
-the main service layer and are only intended for use via their service layer
+`~gafaelfawr.factory.ProcessContext`.  The common theme is some storage
+wrapped in an `asyncio.Lock`, possibly with some complex structure to allow
+per-user locking.  These services sit below the main service layer and are
+only intended for use via their service layer
 (`~gafaelfawr.services.token_cache.TokenCacheService`,
 `~gafaelfawr.services.ldap.LDAPService`, and
 `~gafaelfawr.services.firestore.FirestoreService`).

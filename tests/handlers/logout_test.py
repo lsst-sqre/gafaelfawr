@@ -8,7 +8,7 @@ from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 
 from gafaelfawr.config import Config
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
 
 from ..support.constants import TEST_HOSTNAME
@@ -23,7 +23,7 @@ from ..support.tokens import create_session_token
 async def test_logout(
     client: AsyncClient,
     config: Config,
-    factory: ComponentFactory,
+    factory: Factory,
     caplog: LogCaptureFixture,
 ) -> None:
     token_data = await create_session_token(factory, scopes=["read:all"])
@@ -58,9 +58,7 @@ async def test_logout(
 
 
 @pytest.mark.asyncio
-async def test_logout_with_url(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_logout_with_url(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory, scopes=["read:all"])
     await set_session_cookie(client, token_data.token)
 
