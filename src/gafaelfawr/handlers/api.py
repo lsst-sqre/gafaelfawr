@@ -87,7 +87,7 @@ async def add_admin(
         await admin_service.add_admin(
             admin.username,
             actor=auth_data.username,
-            ip_address=context.request.client.host,
+            ip_address=context.ip_address,
         )
 
 
@@ -117,9 +117,7 @@ async def delete_admin(
     admin_service = context.factory.create_admin_service()
     async with context.session.begin():
         success = await admin_service.delete_admin(
-            username,
-            actor=auth_data.username,
-            ip_address=context.request.client.host,
+            username, actor=auth_data.username, ip_address=context.ip_address
         )
     if not success:
         msg = "Specified user is not an administrator"
@@ -302,9 +300,7 @@ async def post_admin_tokens(
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         token = await token_service.create_token_from_admin_request(
-            token_request,
-            auth_data,
-            ip_address=context.request.client.host,
+            token_request, auth_data, ip_address=context.ip_address
         )
     response.headers["Location"] = quote(
         f"/auth/api/v1/users/{token_request.username}/tokens/{token.key}"
@@ -470,7 +466,7 @@ async def post_tokens(
         token = await token_service.create_user_token(
             auth_data,
             username,
-            ip_address=context.request.client.host,
+            ip_address=context.ip_address,
             **token_params,
         )
     response.headers["Location"] = quote(
@@ -544,10 +540,7 @@ async def delete_token(
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         success = await token_service.delete_token(
-            key,
-            auth_data,
-            username,
-            ip_address=context.request.client.host,
+            key, auth_data, username, ip_address=context.ip_address
         )
     if not success:
         raise NotFoundError("Token not found", ErrorLocation.path, "key")
@@ -591,7 +584,7 @@ async def patch_token(
             key,
             auth_data,
             username,
-            ip_address=context.request.client.host,
+            ip_address=context.ip_address,
             **update,
         )
     if not info:

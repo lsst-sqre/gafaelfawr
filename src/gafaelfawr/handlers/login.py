@@ -258,9 +258,7 @@ async def handle_provider_return(
         token_service = context.factory.create_token_service()
         try:
             token = await token_service.create_session_token(
-                user_info,
-                scopes=scopes,
-                ip_address=context.request.client.host,
+                user_info, scopes=scopes, ip_address=context.ip_address
             )
         except PermissionDeniedError as e:
             await auth_provider.logout(context.state)

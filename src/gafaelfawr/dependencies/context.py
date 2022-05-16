@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from aioredis import Redis
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from httpx import AsyncClient
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
@@ -45,6 +45,9 @@ class RequestContext:
 
     request: Request
     """The incoming request."""
+
+    ip_address: str
+    """IP address of client."""
 
     config: Config
     """Gafaelfawr's configuration."""
@@ -119,8 +122,19 @@ async def context_dependency(
     token_cache: TokenCache = Depends(token_cache_dependency),
 ) -> RequestContext:
     """Provides a RequestContext as a dependency."""
+    if request.client and request.client.host:
+        ip_address = request.client.host
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "msg": "No client IP address",
+                "type": "missing_client_ip",
+            },
+        )
     return RequestContext(
         request=request,
+        ip_address=ip_address,
         config=config,
         logger=logger,
         redis=redis,

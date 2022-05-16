@@ -341,7 +341,7 @@ async def build_success_headers(
         Headers to include in the response.
     """
     headers = {
-        "X-Auth-Request-Client-Ip": context.request.client.host,
+        "X-Auth-Request-Client-Ip": context.ip_address,
         "X-Auth-Request-Scopes-Accepted": " ".join(sorted(auth_config.scopes)),
         "X-Auth-Request-Scopes-Satisfy": auth_config.satisfy.name.lower(),
         "X-Auth-Request-Token-Scopes": " ".join(sorted(token_data.scopes)),
@@ -361,7 +361,7 @@ async def build_success_headers(
         token_service = context.factory.create_token_service()
         async with context.session.begin():
             token = await token_service.get_notebook_token(
-                token_data, ip_address=context.request.client.host
+                token_data, ip_address=context.ip_address
             )
         headers["X-Auth-Request-Token"] = str(token)
     elif auth_config.delegate_to:
@@ -371,7 +371,7 @@ async def build_success_headers(
                 token_data,
                 service=auth_config.delegate_to,
                 scopes=auth_config.delegate_scopes,
-                ip_address=context.request.client.host,
+                ip_address=context.ip_address,
             )
         headers["X-Auth-Request-Token"] = str(token)
 
