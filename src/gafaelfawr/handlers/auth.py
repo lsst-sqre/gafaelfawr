@@ -350,9 +350,9 @@ async def build_success_headers(
     user_info_service = context.factory.create_user_info_service()
     user_info = await user_info_service.get_user_info_from_token(token_data)
     if user_info.email:
-        headers["X-Auth-Request-Email"] = token_data.email
+        headers["X-Auth-Request-Email"] = user_info.email
     if user_info.uid:
-        headers["X-Auth-Request-Uid"] = str(token_data.uid)
+        headers["X-Auth-Request-Uid"] = str(user_info.uid)
     if user_info.groups:
         groups = ",".join([g.name for g in user_info.groups])
         headers["X-Auth-Request-Groups"] = groups
