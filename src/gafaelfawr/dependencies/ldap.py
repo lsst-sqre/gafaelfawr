@@ -1,4 +1,4 @@
-"""LDAP connection pool dependency for FastSPI."""
+"""LDAP connection pool dependency for FastAPI."""
 
 from typing import Optional
 
