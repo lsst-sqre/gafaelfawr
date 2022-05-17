@@ -3,13 +3,12 @@
 import base64
 import os
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse, Response
 from httpx import HTTPError
 
-from ..config import Config
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import return_url_with_header
 from ..exceptions import (
@@ -20,7 +19,6 @@ from ..exceptions import (
     PermissionDeniedError,
     ProviderError,
 )
-from ..models.token import TokenGroup
 from ..templates import templates
 
 router = APIRouter()
@@ -230,21 +228,9 @@ async def handle_provider_return(
     except ProviderError as e:
         return login_error(context, LoginError.PROVIDER_FAILED, str(e))
 
-    # If we normally get group information from LDAP, the groups returned by
-    # the authentication provider will be empty, but we still want to
-    # determine the user's scopes.
-    groups: Optional[List[TokenGroup]]
-    if context.config.ldap:
-        user_info_service = context.factory.create_user_info_service()
-        username = user_info.username
-        groups = await user_info_service.get_groups_from_ldap(username)
-    else:
-        groups = user_info.groups
-
-    # Get the user's scopes.  If this returns None, the user isn't in any
-    # recognized groups, which means that we should abort the login and
-    # display an error message.
-    scopes = get_scopes_from_groups(context.config, groups)
+    # Get the scopes for this user.
+    user_info_service = context.factory.create_user_info_service()
+    scopes = await user_info_service.get_scopes(user_info)
     if scopes is None:
         await auth_provider.logout(context.state)
         msg = f"{user_info.username} is not a member of any authorized groups"
@@ -278,41 +264,6 @@ async def handle_provider_return(
         scopes=sorted(scopes),
     )
     return RedirectResponse(return_url)
-
-
-def get_scopes_from_groups(
-    config: Config, groups: Optional[List[TokenGroup]]
-) -> Optional[List[str]]:
-    """Get scopes from a list of groups.
-
-    Used to determine the scope claim of a token issued based on an OpenID
-    Connect authentication.
-
-    Parameters
-    ----------
-    config : `gafaelfawr.config.Config`
-        Gafaelfawr configuration.
-    groups : List[`gafaelfawr.models.token.TokenGroup`]
-        The groups of a token.
-
-    Returns
-    -------
-    scopes : List[`str`] or `None`
-        The scopes generated from the group membership based on the
-        ``group_mapping`` configuration parameter, or `None` if the user was
-        not a member of any known group.
-    """
-    if not groups:
-        return None
-
-    scopes = set(["user:token"])
-    found = False
-    for group in [g.name for g in groups]:
-        if group in config.group_mapping:
-            found = True
-            scopes.update(config.group_mapping[group])
-
-    return sorted(scopes) if found else None
 
 
 def login_error(

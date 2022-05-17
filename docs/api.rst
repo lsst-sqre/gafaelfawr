@@ -7,6 +7,8 @@ API reference
 
 .. automodapi:: gafaelfawr.auth
 
+.. automodapi:: gafaelfawr.cache
+
 .. automodapi:: gafaelfawr.config
 
 .. automodapi:: gafaelfawr.constants
@@ -21,6 +23,9 @@ API reference
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.context
+
+.. automodapi:: gafaelfawr.dependencies.ldap
+   :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.redis
    :include-all-objects:
@@ -59,9 +64,13 @@ API reference
 
 .. automodapi:: gafaelfawr.services.admin
 
+.. automodapi:: gafaelfawr.services.firestore
+
 .. automodapi:: gafaelfawr.services.influxdb
 
 .. automodapi:: gafaelfawr.services.kubernetes
+
+.. automodapi:: gafaelfawr.services.ldap
 
 .. automodapi:: gafaelfawr.services.oidc
 

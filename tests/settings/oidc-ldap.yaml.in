@@ -1,4 +1,5 @@
 realm: "example.com"
+loglevel: "DEBUG"
 session_secret_file: "{session_secret_file}"
 database_url: "{database_url}"
 redis_url: "redis://localhost:6379/0"

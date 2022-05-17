@@ -5,10 +5,8 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from typing import AsyncIterator, Iterator
-from unittest.mock import patch
 from urllib.parse import urljoin
 
-import bonsai
 import pytest
 import pytest_asyncio
 import structlog
@@ -34,7 +32,7 @@ from gafaelfawr.schema import Base
 from .pages.tokens import TokensPage
 from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
-from .support.ldap import MockLDAP
+from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
 from .support.settings import build_settings, configure
 
@@ -177,8 +175,7 @@ def mock_firestore(tmp_path: Path) -> Iterator[MockFirestore]:
     mock_firestore : `tests.support.firestore.MockFirestore`
         The mocked Firestore API.
     """
-    with patch_firestore() as firestore:
-        yield firestore
+    yield from patch_firestore()
 
 
 @pytest.fixture
@@ -193,8 +190,8 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
     yield from patch_kubernetes()
 
 
-@pytest_asyncio.fixture
-async def mock_ldap() -> AsyncIterator[MockLDAP]:
+@pytest.fixture
+def mock_ldap() -> Iterator[MockLDAP]:
     """Replace the bonsai LDAP API with a mock class.
 
     Returns
@@ -202,10 +199,7 @@ async def mock_ldap() -> AsyncIterator[MockLDAP]:
     mock_ldap : `tests.support.ldap.MockLDAP`
         The mock LDAP API object.
     """
-    ldap = MockLDAP()
-    with patch.object(bonsai, "LDAPClient") as mock:
-        mock.return_value = ldap
-        yield ldap
+    yield from patch_ldap()
 
 
 @pytest_asyncio.fixture

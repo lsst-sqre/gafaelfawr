@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
-from typing import AsyncIterator, List, Optional
+import asyncio
+import re
+from typing import Dict, List, Optional
 
 import bonsai
+from bonsai import LDAPSearchScope
+from bonsai.asyncio import AIOConnectionPool
+from bonsai.asyncio.aiopool import AIOPoolContextManager
 from bonsai.utils import escape_filter_exp
 from structlog.stdlib import BoundLogger
 
 from ..config import LDAPConfig
+from ..constants import GROUPNAME_REGEX, LDAP_TIMEOUT
 from ..exceptions import LDAPError, NoUsernameMappingError
 from ..models.token import TokenGroup
 
-__all__ = ["LDAPStorage", "LDAPStorageConnection"]
+__all__ = ["LDAPStorage"]
 
 
 class LDAPStorage:
@@ -23,63 +28,153 @@ class LDAPStorage:
     ----------
     config : `gafaelfawr.config.LDAPConfig`
         Configuration for LDAP searches.
+    pool : `bonsai.asyncio.AIOConnectionPool`
+        Connection pool for LDAP searches.
     logger : `structlog.stdlib.BoundLogger`
         Logger for debug messages and errors.
     """
 
-    def __init__(self, config: LDAPConfig, logger: BoundLogger) -> None:
-        self._config = config
-        self._client = bonsai.LDAPClient(config.url)
-        if self._config.user_dn and self._config.password:
-            self._client.set_credentials(
-                "SIMPLE",
-                user=self._config.user_dn,
-                password=self._config.password,
-            )
-        self._logger = logger.bind(
-            ldap_url=self._config.url,
-            ldap_base=self._config.uid_base_dn,
-        )
-
-    @asynccontextmanager
-    async def connect(self) -> AsyncIterator[LDAPStorageConnection]:
-        """Open a connection to the LDAP server.
-
-        Call this in an ``async with`` block to open a connection to the LDAP
-        server and perform some searches via methods on the resulting
-        `LDAPStorageConnection` class.
-        """
-        async with self._client.connect(is_async=True) as conn:
-            yield LDAPStorageConnection(conn, self._config, self._logger)
-
-
-class LDAPStorageConnection:
-    """Wrapper around a single LDAP connection.
-
-    This is returned by the `gafaelfawr.storage.ldap.LDAPStorage.connect`
-    method and provides functions to do the LDAP lookups Gafaelfawr needs.
-    Clients should never instantiate this class directly.
-
-    Examples
-    --------
-    Use this in an ``async with`` block such as:
-
-    .. code-block:: python
-
-       async with ldap_storage.connect() as conn:
-           uid = await conn.get_uid(username)
-           groups = await conn.get_groups(username)
-    """
-
     def __init__(
-        self,
-        conn: bonsai.LDAPConnection,
-        config: LDAPConfig,
-        logger: BoundLogger,
+        self, config: LDAPConfig, pool: AIOConnectionPool, logger: BoundLogger
     ) -> None:
-        self._conn = conn
         self._config = config
-        self._logger = logger
+        self._pool = pool
+        self._logger = logger.bind(ldap_url=self._config.url)
+
+    async def get_group_names(self, username: str) -> List[str]:
+        """Get names of groups for a user from LDAP.
+
+        Parameters
+        ----------
+        username : `str`
+            Username of the user.
+
+        Returns
+        -------
+        groups : List[`str`]
+            User's group names from LDAP.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.LDAPError
+            Some error occurred while doing the LDAP search.
+        """
+        group_class = self._config.group_object_class
+        member_attr = self._config.group_member_attr
+        search = f"(&(objectClass={group_class})({member_attr}={username}))"
+        logger = self._logger.bind(ldap_search=search, user=username)
+        results = await self._query(
+            self._config.base_dn, bonsai.LDAPSearchScope.SUB, search, ["cn"]
+        )
+        logger.debug("LDAP groups found", ldap_results=results)
+
+        # Parse the results into the group list.
+        groups = []
+        valid_group_regex = re.compile(GROUPNAME_REGEX)
+        for result in results:
+            try:
+                name = result["cn"][0]
+            except Exception as e:
+                logger.warning(
+                    "Invalid LDAP group result, ignoring",
+                    error=str(e),
+                    ldap_result=result,
+                )
+            if valid_group_regex.match(name):
+                groups.append(name)
+            else:
+                logger.warning(f"LDAP group {name} invalid, ignoring")
+        return groups
+
+    async def get_groups(self, username: str) -> List[TokenGroup]:
+        """Get groups for a user from LDAP.
+
+        Parameters
+        ----------
+        username : `str`
+            Username of the user.
+
+        Returns
+        -------
+        groups : List[`gafaelfawr.models.token.TokenGroup`]
+            User's groups from LDAP.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.LDAPError
+            Some error occurred when searching LDAP.
+        """
+        group_class = self._config.group_object_class
+        member_attr = self._config.group_member_attr
+        search = f"(&(objectClass={group_class})({member_attr}={username}))"
+        logger = self._logger.bind(ldap_search=search, user=username)
+        results = await self._query(
+            self._config.base_dn,
+            bonsai.LDAPSearchScope.SUB,
+            search,
+            ["cn", "gidNumber"],
+        )
+        logger.debug("LDAP groups found", ldap_results=results)
+
+        # Parse the results into the group list.
+        groups = []
+        for result in results:
+            name = None
+            try:
+                name = result["cn"][0]
+                gid = int(result["gidNumber"][0])
+                groups.append(TokenGroup(name=name, id=gid))
+            except Exception as e:
+                logger.warning(
+                    f"LDAP group {name} invalid, ignoring", error=str(e)
+                )
+        return groups
+
+    async def get_uid(self, username: str) -> Optional[int]:
+        """Get the numeric UID of a user.
+
+        Parameters
+        ----------
+        username : `str`
+            Username of the user.
+
+        Returns
+        -------
+        uid : `int` or `None`
+            The numeric UID of the user from LDAP, or `None` if Gafaelfawr was
+            not configured to get the UID from LDAP (in which case the caller
+            should fall back to other sources of the UID).
+
+        Raises
+        ------
+        gafaelfawr.exceptions.LDAPError
+            The lookup of ``uid_attr`` in the LDAP server was not valid
+            (connection to the LDAP server failed, attribute not found in
+            LDAP, result value not an integer).
+        """
+        if not self._config.uid_base_dn:
+            return None
+
+        search = f"(uid={username})"
+        logger = self._logger.bind(ldap_search=search, user=username)
+        results = await self._query(
+            self._config.uid_base_dn,
+            bonsai.LDAPSearchScope.ONE,
+            search,
+            [self._config.uid_attr],
+        )
+        logger.debug("LDAP entries for UID", ldap_results=results)
+
+        for result in results:
+            try:
+                return int(result[self._config.uid_attr][0])
+            except Exception as e:
+                logger.error("LDAP UID number is invalid", error=str(e))
+                raise LDAPError("UID number in LDAP is invalid")
+
+        # Fell through without finding a UID.
+        logger.error("No UID found in LDAP")
+        raise LDAPError("No UID found in LDAP")
 
     async def get_username(self, sub: str) -> Optional[str]:
         """Get the username of a user.
@@ -110,175 +205,99 @@ class LDAPStorageConnection:
             return None
 
         sub_escaped = escape_filter_exp(sub)
-        search = f"(&({self._config.username_search_attr}={sub_escaped}))"
-        self._logger.debug(
-            "Querying LDAP for username", ldap_search=search, sub=sub
+        search = f"({self._config.username_search_attr}={sub_escaped})"
+        logger = self._logger.bind(ldap_search=search, sub=sub)
+        results = await self._query(
+            self._config.username_base_dn,
+            bonsai.LDAPSearchScope.ONE,
+            search,
+            ["uid"],
         )
-
-        try:
-            results = await self._conn.search(
-                self._config.username_base_dn,
-                bonsai.LDAPSearchScope.ONE,
-                search,
-                attrlist=["uid"],
-            )
-        except bonsai.LDAPError as e:
-            self._logger.error(
-                "Cannot query LDAP for username",
-                error=str(e),
-                ldap_search=search,
-                sub=sub,
-            )
-            raise LDAPError("Error querying LDAP for username")
+        logger.debug("LDAP entries for username", ldap_results=results)
 
         for result in results:
             try:
                 return result["uid"][0]
             except Exception as e:
-                self._logger.error(
-                    "LDAP username is invalid",
-                    error=str(e),
-                    ldap_search=search,
-                    sub=sub,
-                )
+                self._logger.error("LDAP username is invalid", error=str(e))
                 raise LDAPError("Username in LDAP is invalid")
 
         # Fell through without finding a UID.
-        self._logger.info(
-            "No username found in LDAP", ldap_search=search, sub=sub
-        )
+        self._logger.info("No username found in LDAP")
         raise NoUsernameMappingError("No username found in LDAP")
 
-    async def get_uid(self, username: str) -> Optional[int]:
-        """Get the numeric UID of a user.
+    async def _query(
+        self,
+        base: str,
+        scope: LDAPSearchScope,
+        filter_exp: str,
+        attrlist: List[str],
+    ) -> List[Dict[str, List[str]]]:
+        """Perform an LDAP query using the connection pool.
+
+        Notes
+        -----
+        The current bonsai connection pool does not keep track of failed
+        connections and will keep returning the same connection even if the
+        LDAP server has stopped responding (due to a firewall timeout, for
+        example).  Working around this requires setting a timeout, catching
+        the timeout exception, and explicitly closing and reopening the
+        connection.  A search is attempted at most twice.
+
+        As of bonsai 1.4.0, be aware that bonsai appears to go into an
+        infinite CPU loop when waiting for results when run in an asyncio loop
+        without other active coroutines.  It's not clear whether that's true
+        if there are other active coroutines.
 
         Parameters
         ----------
-        username : `str`
-            Username of the user.
+        base : `str`
+            Base DN of the search.
+        scope : `bonsai.LDAPSearchScope`
+            Scope of the search.
+        filter_exp : `str`
+            Search filter.
+        attrlist : List[`str`]
+            List of attributes to retrieve.
 
         Returns
         -------
-        uid : `int` or `None`
-            The numeric UID of the user from LDAP, or `None` if Gafaelfawr was
-            not configured to get the UID from LDAP (in which case the caller
-            should fall back to other sources of the UID).
+        results : List[Dict[`str`, List[`str`]]]
+            List of result entries, each of which is a dictionary of the
+            requested attributes (plus possibly other attributes) to a list
+            of their values.
 
         Raises
         ------
         gafaelfawr.exceptions.LDAPError
-            The lookup of ``uid_attr`` in the LDAP server was not valid
-            (connection to the LDAP server failed, attribute not found in
-            LDAP, result value not an integer).
+            Failed to run the search.
         """
-        if not self._config.uid_base_dn:
-            return None
-
-        search = f"(&(uid={username}))"
-        self._logger.debug(
-            "Querying LDAP for UID number", ldap_search=search, user=username
+        logger = self._logger.bind(
+            ldap_attrs=attrlist, ldap_base=base, ldap_search=filter_exp
         )
 
-        try:
-            results = await self._conn.search(
-                self._config.uid_base_dn,
-                bonsai.LDAPSearchScope.ONE,
-                search,
-                attrlist=[self._config.uid_attr],
-            )
-        except bonsai.LDAPError as e:
-            self._logger.error(
-                "Cannot query LDAP for UID number",
-                error=str(e),
-                ldap_search=search,
-                user=username,
-            )
-            raise LDAPError("Error querying LDAP for UID number")
-
-        for result in results:
+        attempts = 0
+        while attempts < 2:
+            attempts += 1
             try:
-                return int(result[self._config.uid_attr][0])
-            except Exception as e:
-                self._logger.error(
-                    "LDAP UID number is invalid",
-                    error=str(e),
-                    ldap_search=search,
-                    user=username,
-                )
-                raise LDAPError("UID number in LDAP is invalid")
+                async with AIOPoolContextManager(self._pool) as conn:
+                    logger.debug("Querying LDAP")
+                    return await conn.search(
+                        base=base,
+                        scope=scope,
+                        filter_exp=filter_exp,
+                        attrlist=attrlist,
+                        timeout=LDAP_TIMEOUT,
+                    )
+            except asyncio.TimeoutError:
+                logger.debug("Reopening LDAP connection after timeout")
+                conn.close()
+                await conn.open(timeout=LDAP_TIMEOUT)
+            except bonsai.LDAPError as e:
+                logger.error("Cannot query LDAP", error=str(e))
+                raise LDAPError("Error querying LDAP")
 
-        # Fell through without finding a UID.
-        self._logger.error(
-            "No UID found in LDAP", ldap_search=search, user=username
-        )
-        raise LDAPError("No UID found in LDAP")
-
-    async def get_groups(
-        self, username: str, *, add_gids: bool
-    ) -> List[TokenGroup]:
-        """Get groups for a user from LDAP.
-
-        Parameters
-        ----------
-        username : `str`
-            Username of the user.
-        add_gids : `bool`
-            Whether to attempt to retrieve GIDs from LDAP.
-
-        Returns
-        -------
-        groups : List[`gafaelfawr.models.token.TokenGroup`]
-            User's groups from LDAP.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.LDAPError
-            One of the groups for the user in LDAP was not valid (missing
-            ``cn`` or, if ``add_gids`` was `True`, ``gidNumber`` attributes,
-            or ``gidNumber`` is not an integer)
-        """
-        group_class = self._config.group_object_class
-        member_attr = self._config.group_member_attr
-        search = f"(&(objectClass={group_class})({member_attr}={username}))"
-        self._logger.debug(
-            "Querying LDAP for groups", ldap_search=search, user=username
-        )
-
-        try:
-            results = await self._conn.search(
-                self._config.base_dn,
-                bonsai.LDAPSearchScope.SUB,
-                search,
-                attrlist=["cn", "gidNumber"],
-            )
-        except bonsai.LDAPError as e:
-            self._logger.error(
-                "Cannot query LDAP for groups",
-                error=str(e),
-                ldap_search=search,
-                user=username,
-            )
-            raise LDAPError("Error querying LDAP for groups")
-
-        # Parse the results into the group list.
-        groups = []
-        for result in results:
-            try:
-                name = None
-                self._logger.debug(
-                    "LDAP group found", result=result, user=username
-                )
-                name = result["cn"][0]
-                if add_gids:
-                    gid = int(result["gidNumber"][0])
-                else:
-                    gid = None
-                groups.append(TokenGroup(name=name, id=gid))
-            except Exception as e:
-                self._logger.warning(
-                    f"LDAP group {name} invalid, ignoring",
-                    error=str(e),
-                    ldap_search=search,
-                    user=username,
-                )
-        return groups
+        # Failed twice with a timeout.
+        msg = f"LDAP query timed out after {LDAP_TIMEOUT}s"
+        logger.error("Cannot query LDAP", error=msg)
+        raise LDAPError(msg)

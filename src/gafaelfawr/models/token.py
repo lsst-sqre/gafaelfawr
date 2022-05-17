@@ -124,9 +124,7 @@ class TokenGroup(BaseModel):
         regex=GROUPNAME_REGEX,
     )
 
-    id: Optional[int] = Field(
-        None, title="The numeric GID of the group", example=123181
-    )
+    id: int = Field(..., title="The numeric GID of the group", example=123181)
 
 
 class TokenBase(BaseModel):

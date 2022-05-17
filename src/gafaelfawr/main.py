@@ -15,8 +15,14 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 
 from .constants import COOKIE_NAME
-from .dependencies.cache import id_cache_dependency, token_cache_dependency
+from .dependencies.cache import (
+    gid_cache_dependency,
+    internal_token_cache_dependency,
+    notebook_token_cache_dependency,
+    uid_cache_dependency,
+)
 from .dependencies.config import config_dependency
+from .dependencies.ldap import ldap_pool_dependency
 from .dependencies.redis import redis_dependency
 from .exceptions import (
     NotConfiguredError,
@@ -131,9 +137,13 @@ async def startup_event() -> None:
 async def shutdown_event() -> None:
     await http_client_dependency.aclose()
     await db_session_dependency.aclose()
+    await ldap_pool_dependency.aclose()
     await redis_dependency.aclose()
-    await id_cache_dependency.aclose()
-    await token_cache_dependency.aclose()
+
+    await uid_cache_dependency.aclose()
+    await gid_cache_dependency.aclose()
+    await internal_token_cache_dependency.aclose()
+    await notebook_token_cache_dependency.aclose()
 
 
 async def not_configured_handler(

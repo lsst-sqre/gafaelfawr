@@ -80,10 +80,10 @@ async def test_invalid(factory: ComponentFactory) -> None:
     internal_token = Token()
     notebook_token = Token()
 
-    token_cache.store_internal_token(
-        internal_token, token_data, "some-service", ["read:all"]
+    token_cache._internal_cache.store(
+        token_data, "some-service", ["read:all"], internal_token
     )
-    token_cache.store_notebook_token(notebook_token, token_data)
+    token_cache._notebook_cache.store(token_data, notebook_token)
 
     async with factory.session.begin():
         assert internal_token != await token_cache.get_internal_token(
@@ -120,8 +120,8 @@ async def test_expiration(config: Config, factory: ComponentFactory) -> None:
         expires=expires,
     )
     await token_store.store_data(internal_token_data)
-    token_cache.store_internal_token(
-        internal_token_data.token, token_data, "some-service", ["read:all"]
+    token_cache._internal_cache.store(
+        token_data, "some-service", ["read:all"], internal_token_data.token
     )
 
     # The cache should return this token.
@@ -152,7 +152,7 @@ async def test_expiration(config: Config, factory: ComponentFactory) -> None:
         expires=expires,
     )
     await token_store.store_data(notebook_token_data)
-    token_cache.store_notebook_token(notebook_token_data.token, token_data)
+    token_cache._notebook_cache.store(token_data, notebook_token_data.token)
     assert notebook_token_data.token == await token_cache.get_notebook_token(
         token_data, "127.0.0.1"
     )
