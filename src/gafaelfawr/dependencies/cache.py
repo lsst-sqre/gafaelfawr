@@ -16,12 +16,12 @@ __all__ = [
 
 
 class CacheDependency(Generic[S]):
-    """Manage a single global token cache.
+    """Manage a global cache.
 
-    We have to defer creation of the token cache until application startup,
-    since the asyncio locks must be created in the same event loop as the rest
-    of the application.  This dependency creates the token cache lazily on
-    first request and then maintains it as a singleton.
+    We have to defer creation of the cache until application startup, since
+    the asyncio locks must be created in the same event loop as the rest of
+    the application.  This dependency creates the cache lazily on first
+    request and then maintains it as a singleton.
     """
 
     def __init__(self, cache_type: Type[S]) -> None:
