@@ -19,7 +19,7 @@ from seleniumwire import webdriver
 
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.main import create_app
 from gafaelfawr.models.token import Token, TokenUserInfo
 
@@ -119,7 +119,7 @@ async def _selenium_startup(token_path: str) -> None:
     engine = create_database_engine(
         config.database_url, config.database_password
     )
-    async with ComponentFactory.standalone(engine) as factory:
+    async with Factory.standalone(config, engine) as factory:
         async with factory.session.begin():
             # Add an expired token so that we can test display of expired
             # tokens.

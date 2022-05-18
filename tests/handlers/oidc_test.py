@@ -16,8 +16,7 @@ from httpx import AsyncClient
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import ALGORITHM
-from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
 
@@ -29,7 +28,7 @@ from ..support.headers import (
     query_from_url,
 )
 from ..support.logging import parse_log
-from ..support.settings import configure
+from ..support.settings import reconfigure
 from ..support.tokens import create_session_token
 
 
@@ -37,13 +36,14 @@ from ..support.tokens import create_session_token
 async def test_login(
     tmp_path: Path,
     client: AsyncClient,
-    factory: ComponentFactory,
+    factory: Factory,
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
+    config = await reconfigure(
+        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+    )
     assert config.oidc_server
-    factory.reconfigure(config)
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
@@ -167,7 +167,7 @@ async def test_unauthenticated(
     tmp_path: Path, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    configure(tmp_path, "github-oidc-server", oidc_clients=clients)
+    await reconfigure(tmp_path, "github-oidc-server", oidc_clients=clients)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     login_params = {
         "response_type": "code",
@@ -207,12 +207,13 @@ async def test_unauthenticated(
 async def test_login_errors(
     tmp_path: Path,
     client: AsyncClient,
-    factory: ComponentFactory,
+    factory: Factory,
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
-    factory.reconfigure(config)
+    await reconfigure(
+        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+    )
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
 
@@ -328,15 +329,16 @@ async def test_login_errors(
 async def test_token_errors(
     tmp_path: Path,
     client: AsyncClient,
-    factory: ComponentFactory,
+    factory: Factory,
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [
         OIDCClient(client_id="some-id", client_secret="some-secret"),
         OIDCClient(client_id="other-id", client_secret="other-secret"),
     ]
-    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
-    factory.reconfigure(config)
+    await reconfigure(
+        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+    )
     token_data = await create_session_token(factory)
     token = token_data.token
     oidc_service = factory.create_oidc_service()
@@ -460,8 +462,7 @@ async def test_token_errors(
     assert log["error"] == f"Unknown authorization code {bogus_code.key}"
 
     # Corrupt stored data.
-    redis = await redis_dependency()
-    await redis.set(bogus_code.key, "XXXXXXX")
+    await factory.redis.set(bogus_code.key, "XXXXXXX")
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
     assert r.json() == {
@@ -513,12 +514,13 @@ async def test_no_auth(client: AsyncClient, config: Config) -> None:
 async def test_invalid(
     tmp_path: Path,
     client: AsyncClient,
-    factory: ComponentFactory,
+    factory: Factory,
     caplog: LogCaptureFixture,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
-    factory.reconfigure(config)
+    config = await reconfigure(
+        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+    )
     token_data = await create_session_token(factory)
     oidc_service = factory.create_oidc_service()
     oidc_token = oidc_service.issue_token(token_data, jti="some-jti")
@@ -597,7 +599,9 @@ async def test_well_known_jwks(
     tmp_path: Path, client: AsyncClient, config: Config
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
+    config = await reconfigure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
     assert config.oidc_server
     r = await client.get("/.well-known/jwks.json")
     assert r.status_code == 200
@@ -628,7 +632,9 @@ async def test_well_known_oidc(
     tmp_path: Path, client: AsyncClient, config: Config
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
+    config = await reconfigure(
+        tmp_path, "github-oidc-server", oidc_clients=clients
+    )
     assert config.oidc_server
     r = await client.get("/.well-known/openid-configuration")
     assert r.status_code == 200

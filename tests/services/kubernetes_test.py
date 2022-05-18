@@ -18,7 +18,7 @@ from kubernetes_asyncio.client import (
 )
 from safir.testing.kubernetes import MockKubernetesApi
 
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import (
     AdminTokenRequest,
     Token,
@@ -99,7 +99,7 @@ async def token_data_from_secret(
 
 
 async def assert_kubernetes_secrets_are_correct(
-    factory: ComponentFactory, mock: MockKubernetesApi, is_fresh: bool = True
+    factory: Factory, mock: MockKubernetesApi, is_fresh: bool = True
 ) -> None:
     token_service = factory.create_token_service()
 
@@ -161,7 +161,7 @@ async def assert_kubernetes_secrets_are_correct(
 
 @pytest.mark.asyncio
 async def test_create(
-    factory: ComponentFactory,
+    factory: Factory,
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
@@ -244,7 +244,7 @@ async def test_create(
 
 @pytest.mark.asyncio
 async def test_modify(
-    factory: ComponentFactory,
+    factory: Factory,
     mock_kubernetes: MockKubernetesApi,
     caplog: LogCaptureFixture,
 ) -> None:
@@ -392,7 +392,7 @@ async def test_modify(
 
 @pytest.mark.asyncio
 async def test_update_from_queue(
-    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
+    factory: Factory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     service_token: Dict[str, Any] = {
         "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
@@ -479,7 +479,7 @@ async def test_update_from_queue(
 
 @pytest.mark.asyncio
 async def test_update_generation(
-    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
+    factory: Factory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test that GafaelfawrServiceToken status changes don't trigger updates.
 
@@ -596,7 +596,7 @@ async def test_update_generation(
 
 @pytest.mark.asyncio
 async def test_update_metadata(
-    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
+    factory: Factory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test that Secret metadata is updated even if generation doesn't change.
 
@@ -685,7 +685,7 @@ async def test_update_metadata(
 
 @pytest.mark.asyncio
 async def test_errors_replace_read(
-    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
+    factory: Factory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     await create_test_service_tokens(mock_kubernetes)
     kubernetes_service = factory.create_kubernetes_service(MagicMock())
@@ -753,7 +753,7 @@ async def test_errors_replace_read(
 
 @pytest.mark.asyncio
 async def test_errors_scope(
-    factory: ComponentFactory, mock_kubernetes: MockKubernetesApi
+    factory: Factory, mock_kubernetes: MockKubernetesApi
 ) -> None:
     await mock_kubernetes.create_namespaced_custom_object(
         "gafaelfawr.lsst.io",

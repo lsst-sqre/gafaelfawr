@@ -9,9 +9,8 @@ from unittest.mock import Mock, patch
 import bonsai
 from bonsai.utils import escape_filter_exp
 
-from gafaelfawr import storage
+from gafaelfawr import factory, storage
 from gafaelfawr.constants import LDAP_TIMEOUT
-from gafaelfawr.dependencies import ldap
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.token import TokenGroup
 
@@ -92,6 +91,6 @@ def patch_ldap() -> Iterator[MockLDAP]:
     mock_ldap = MockLDAP()
     with patch.object(storage.ldap, "AIOPoolContextManager") as mock_manager:
         mock_manager.return_value = mock_ldap
-        with patch.object(ldap, "AIOConnectionPool") as mock_pool:
+        with patch.object(factory, "AIOConnectionPool") as mock_pool:
             mock_pool.return_value = mock_ldap
             yield mock_ldap

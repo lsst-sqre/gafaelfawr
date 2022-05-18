@@ -6,14 +6,14 @@ import pytest
 from httpx import AsyncClient
 
 from gafaelfawr.config import Config
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 
 from ..support.cookies import set_session_cookie
 from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio
-async def test_admins(client: AsyncClient, factory: ComponentFactory) -> None:
+async def test_admins(client: AsyncClient, factory: Factory) -> None:
     r = await client.get("/auth/api/v1/admins")
     assert r.status_code == 401
 
@@ -51,9 +51,7 @@ async def test_admins(client: AsyncClient, factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_add_delete(
-    client: AsyncClient, factory: ComponentFactory
-) -> None:
+async def test_add_delete(client: AsyncClient, factory: Factory) -> None:
     r = await client.post(
         "/auth/api/v1/admins", json={"username": "some-user"}
     )

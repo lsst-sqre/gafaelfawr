@@ -8,8 +8,7 @@ import pytest
 import structlog
 
 from gafaelfawr.config import Config
-from gafaelfawr.dependencies.redis import redis_dependency
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token, TokenData, TokenType
 from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.token import TokenRedisStore
@@ -19,7 +18,7 @@ from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio
-async def test_basic(factory: ComponentFactory) -> None:
+async def test_basic(factory: Factory) -> None:
     token_data = await create_session_token(factory, scopes=["read:all"])
     token_service = factory.create_token_service()
     token_cache = factory.create_token_cache_service()
@@ -73,7 +72,7 @@ async def test_basic(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid(factory: ComponentFactory) -> None:
+async def test_invalid(factory: Factory) -> None:
     """Invalid tokens should not be returned even if cached."""
     token_data = await create_session_token(factory, scopes=["read:all"])
     token_cache = factory.create_token_cache_service()
@@ -95,14 +94,13 @@ async def test_invalid(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_expiration(config: Config, factory: ComponentFactory) -> None:
+async def test_expiration(config: Config, factory: Factory) -> None:
     """The cache is valid until half the lifetime of the child token."""
     token_data = await create_session_token(factory, scopes=["read:all"])
     lifetime = config.token_lifetime
     now = current_datetime()
-    redis = await redis_dependency()
     logger = structlog.get_logger("gafaelfawr")
-    storage = RedisStorage(TokenData, config.session_secret, redis)
+    storage = RedisStorage(TokenData, config.session_secret, factory.redis)
     token_store = TokenRedisStore(storage, logger)
     token_cache = factory.create_token_cache_service()
 

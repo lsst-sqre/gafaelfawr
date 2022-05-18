@@ -8,18 +8,16 @@ from pathlib import Path
 import pytest
 
 from gafaelfawr.exceptions import MissingClaimsError
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.oidc import OIDCVerifiedToken
-from tests.support.settings import configure
+
+from ..support.settings import reconfigure
 
 
 @pytest.mark.asyncio
-async def test_missing_token_data(
-    tmp_path: Path, factory: ComponentFactory
-) -> None:
-    config = configure(tmp_path, "oidc")
+async def test_missing_token_data(tmp_path: Path, factory: Factory) -> None:
+    config = await reconfigure(tmp_path, "oidc", factory)
     assert config.oidc
-    factory.reconfigure(config)
     user_info = factory.create_oidc_user_info_service()
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)

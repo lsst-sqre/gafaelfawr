@@ -10,13 +10,12 @@ from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
 from gafaelfawr.config import Config
-from gafaelfawr.dependencies.redis import redis_dependency
 from gafaelfawr.exceptions import (
     InvalidExpiresError,
     InvalidScopesError,
     PermissionDeniedError,
 )
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.token import (
     AdminTokenRequest,
@@ -34,9 +33,7 @@ from ..support.util import assert_is_now
 
 
 @pytest.mark.asyncio
-async def test_session_token(
-    config: Config, factory: ComponentFactory
-) -> None:
+async def test_session_token(config: Config, factory: Factory) -> None:
     token_service = factory.create_token_service()
     user_info = TokenUserInfo(
         username="example",
@@ -118,7 +115,7 @@ async def test_session_token(
 
 
 @pytest.mark.asyncio
-async def test_user_token(factory: ComponentFactory) -> None:
+async def test_user_token(factory: Factory) -> None:
     user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
@@ -190,9 +187,7 @@ async def test_user_token(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_notebook_token(
-    config: Config, factory: ComponentFactory
-) -> None:
+async def test_notebook_token(config: Config, factory: Factory) -> None:
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -328,9 +323,7 @@ async def test_notebook_token(
 
 
 @pytest.mark.asyncio
-async def test_internal_token(
-    config: Config, factory: ComponentFactory
-) -> None:
+async def test_internal_token(config: Config, factory: Factory) -> None:
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -501,9 +494,7 @@ async def test_internal_token(
 
 
 @pytest.mark.asyncio
-async def test_child_token_lifetime(
-    config: Config, factory: ComponentFactory
-) -> None:
+async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     """Test that a new internal token is generated at half its lifetime."""
     session_token_data = await create_session_token(factory)
     token_service = factory.create_token_service()
@@ -617,7 +608,7 @@ async def test_child_token_lifetime(
 
 
 @pytest.mark.asyncio
-async def test_token_from_admin_request(factory: ComponentFactory) -> None:
+async def test_token_from_admin_request(factory: Factory) -> None:
     user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
@@ -739,7 +730,7 @@ async def test_token_from_admin_request(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_list(factory: ComponentFactory) -> None:
+async def test_list(factory: Factory) -> None:
     user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
@@ -800,7 +791,7 @@ async def test_list(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_modify(factory: ComponentFactory) -> None:
+async def test_modify(factory: Factory) -> None:
     user_info = TokenUserInfo(
         username="example", name="Example Person", uid=4137
     )
@@ -919,7 +910,7 @@ async def test_modify(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_delete(factory: ComponentFactory) -> None:
+async def test_delete(factory: Factory) -> None:
     data = await create_session_token(factory)
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -1006,7 +997,7 @@ async def test_delete(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_delete_cascade(factory: ComponentFactory) -> None:
+async def test_delete_cascade(factory: Factory) -> None:
     """Test that deleting a token cascades to child tokens."""
     token_service = factory.create_token_service()
     session_token_data = await create_session_token(
@@ -1132,9 +1123,7 @@ async def test_delete_cascade(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_modify_expires(
-    config: Config, factory: ComponentFactory
-) -> None:
+async def test_modify_expires(config: Config, factory: Factory) -> None:
     """Test that expiration changes cascade to subtokens."""
     token_service = factory.create_token_service()
     session_token_data = await create_session_token(
@@ -1177,10 +1166,9 @@ async def test_modify_expires(
     assert nested_token_data.expires == notebook_token_data.expires
 
     # Check that Redis also has an appropriate TTL.
-    redis = await redis_dependency()
     ttl = delta.total_seconds()
     for token in (notebook_token, internal_token, nested_token):
-        assert ttl - 5 <= await redis.ttl(f"token:{token.key}") <= ttl
+        assert ttl - 5 <= await factory.redis.ttl(f"token:{token.key}") <= ttl
 
     # Change the expiration of the user token.
     new_delta = timedelta(seconds=config.token_lifetime.total_seconds() / 2)
@@ -1207,12 +1195,11 @@ async def test_modify_expires(
     # Check that the Redis TTL has also been updated.
     ttl = new_delta.total_seconds()
     for token in (notebook_token, internal_token, nested_token):
-        assert ttl - 5 <= await redis.ttl(f"token:{token.key}") <= ttl
+        assert ttl - 5 <= await factory.redis.ttl(f"token:{token.key}") <= ttl
 
 
 @pytest.mark.asyncio
-async def test_invalid(config: Config, factory: ComponentFactory) -> None:
-    redis = await redis_dependency()
+async def test_invalid(config: Config, factory: Factory) -> None:
     token_service = factory.create_token_service()
     expires = int(timedelta(days=1).total_seconds())
 
@@ -1221,13 +1208,13 @@ async def test_invalid(config: Config, factory: ComponentFactory) -> None:
     assert await token_service.get_data(token) is None
 
     # Invalid encrypted blob.
-    await redis.set(f"token:{token.key}", "foo", ex=expires)
+    await factory.redis.set(f"token:{token.key}", "foo", ex=expires)
     assert await token_service.get_data(token) is None
 
     # Malformed session.
     fernet = Fernet(config.session_secret.encode())
     raw_data = fernet.encrypt(b"malformed json")
-    await redis.set(f"token:{token.key}", raw_data, ex=expires)
+    await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
     assert await token_service.get_data(token) is None
 
     # Mismatched token.
@@ -1241,7 +1228,7 @@ async def test_invalid(config: Config, factory: ComponentFactory) -> None:
         uid=12345,
     )
     session = fernet.encrypt(data.json().encode())
-    await redis.set(f"token:{token.key}", session, ex=expires)
+    await factory.redis.set(f"token:{token.key}", session, ex=expires)
     assert await token_service.get_data(token) is None
 
     # Missing required fields.
@@ -1256,20 +1243,20 @@ async def test_invalid(config: Config, factory: ComponentFactory) -> None:
         "name": "Some User",
     }
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
-    await redis.set(f"token:{token.key}", raw_data, ex=expires)
+    await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
     assert await token_service.get_data(token) is None
 
     # Fix the session store and confirm we can retrieve the manually-stored
     # session.
     json_data["username"] = "example"
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
-    await redis.set(f"token:{token.key}", raw_data, ex=expires)
+    await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
     new_data = await token_service.get_data(token)
     assert new_data == TokenData.parse_obj(json_data)
 
 
 @pytest.mark.asyncio
-async def test_invalid_username(factory: ComponentFactory) -> None:
+async def test_invalid_username(factory: Factory) -> None:
     user_info = TokenUserInfo(
         username="ex-am-pl-e",
         name="Example Person",

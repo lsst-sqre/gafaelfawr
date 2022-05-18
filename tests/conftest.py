@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.main import create_app
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import TokenType
@@ -108,7 +108,7 @@ async def empty_database(
     is required.
     """
     tables = (t.name for t in Base.metadata.sorted_tables)
-    async with ComponentFactory.standalone(engine) as factory:
+    async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
             stmt = text(f'TRUNCATE TABLE {", ".join(tables)}')
@@ -120,7 +120,7 @@ async def empty_database(
 def engine() -> AsyncEngine:
     """Create a database engine for testing.
 
-    Rather than allowing the `~gafaelfawr.factory.ComponentFactory` to create
+    Rather than allowing the `~gafaelfawr.factory.Factory` to create
     its own database engine, create a single engine at session scope.  This
     allows all the tests to share a single connection pool and not constantly
     open and close connections to the database, which in turn reduces the time
@@ -131,14 +131,14 @@ def engine() -> AsyncEngine:
 
 @pytest_asyncio.fixture
 async def factory(
-    empty_database: None, engine: AsyncEngine
-) -> AsyncIterator[ComponentFactory]:
+    empty_database: None, config: Config, engine: AsyncEngine
+) -> AsyncIterator[Factory]:
     """Return a component factory.
 
     Note that this creates a separate SQLAlchemy async_scoped_session from any
     that may be created by the FastAPI app.
     """
-    async with ComponentFactory.standalone(engine) as factory:
+    async with Factory.standalone(config, engine) as factory:
         yield factory
 
 

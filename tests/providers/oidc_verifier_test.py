@@ -19,14 +19,14 @@ from gafaelfawr.exceptions import (
     UnknownAlgorithmError,
     UnknownKeyIdError,
 )
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
 
 from ..support.constants import TEST_KEYPAIR
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.oidc import mock_oidc_provider_config
-from ..support.settings import configure
+from ..support.settings import reconfigure
 
 
 def encode_token(
@@ -47,11 +47,10 @@ def encode_token(
 
 @pytest.mark.asyncio
 async def test_verify_token(
-    tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
+    tmp_path: Path, respx_mock: respx.Router, factory: Factory
 ) -> None:
-    config = configure(tmp_path, "oidc")
+    config = await reconfigure(tmp_path, "oidc", factory)
     assert config.oidc
-    factory.reconfigure(config)
     verifier = factory.create_oidc_token_verifier()
 
     now = datetime.now(timezone.utc)
@@ -85,11 +84,10 @@ async def test_verify_token(
 
 @pytest.mark.asyncio
 async def test_verify_oidc_no_kids(
-    tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
+    tmp_path: Path, respx_mock: respx.Router, factory: Factory
 ) -> None:
-    config = configure(tmp_path, "oidc-no-kids")
+    config = await reconfigure(tmp_path, "oidc-no-kids", factory)
     assert config.oidc
-    factory.reconfigure(config)
     verifier = factory.create_oidc_token_verifier()
     await mock_oidc_provider_config(respx_mock, "kid")
 
@@ -110,10 +108,9 @@ async def test_verify_oidc_no_kids(
 
 @pytest.mark.asyncio
 async def test_key_retrieval(
-    tmp_path: Path, respx_mock: respx.Router, factory: ComponentFactory
+    tmp_path: Path, respx_mock: respx.Router, factory: Factory
 ) -> None:
-    config = configure(tmp_path, "oidc-no-kids")
-    factory.reconfigure(config)
+    config = await reconfigure(tmp_path, "oidc-no-kids", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
 

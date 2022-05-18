@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 
 from gafaelfawr.exceptions import PermissionDeniedError
-from gafaelfawr.factory import ComponentFactory
+from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
 
 
 @pytest.mark.asyncio
-async def test_add(factory: ComponentFactory) -> None:
+async def test_add(factory: Factory) -> None:
     admin_service = factory.create_admin_service()
 
     async with factory.session.begin():
@@ -44,7 +44,7 @@ async def test_add(factory: ComponentFactory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_delete(factory: ComponentFactory) -> None:
+async def test_delete(factory: Factory) -> None:
     admin_service = factory.create_admin_service()
 
     async with factory.session.begin():
