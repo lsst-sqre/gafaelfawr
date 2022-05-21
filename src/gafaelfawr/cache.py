@@ -13,12 +13,19 @@ only intended for use via their service layer
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Dict, List, Literal, Optional, Tuple, Type
+from typing import Dict, Generic, List, Literal, Optional, Tuple, Type, TypeVar
 
-from cachetools import LRUCache
+from cachetools import LRUCache, TTLCache
 
-from .constants import ID_CACHE_SIZE, TOKEN_CACHE_SIZE
+from .constants import (
+    ID_CACHE_SIZE,
+    LDAP_CACHE_LIFETIME,
+    LDAP_CACHE_SIZE,
+    TOKEN_CACHE_SIZE,
+)
 from .models.token import Token, TokenData
+
+S = TypeVar("S")
 
 LRUTokenCache = LRUCache[Tuple[str, ...], Token]
 """Type for the underlying token cache."""
@@ -27,9 +34,11 @@ __all__ = [
     "BaseCache",
     "IdCache",
     "InternalTokenCache",
+    "PerUserCache",
+    "LDAPCache",
     "NotebookTokenCache",
     "TokenCache",
-    "TokenLockManager",
+    "UserLockManager",
 ]
 
 
@@ -128,11 +137,11 @@ class IdCache(BaseCache):
         self._cache[name] = id
 
 
-class TokenLockManager:
+class UserLockManager:
     """Helper class for managing per-user locks.
 
-    This should only be created by `TokenCache`.  It is returned by the
-    `TokenCache.lock` method and implements the async context manager
+    This should only be created by `PerUserCache`.  It is returned by the
+    `PerUserCache.lock` method and implements the async context manager
     protocol.
 
     Parameters
@@ -164,18 +173,17 @@ class TokenLockManager:
         return False
 
 
-class TokenCache(BaseCache):
-    """Base class for a cache of internal or notebook tokens.
+class PerUserCache(BaseCache):
+    """Base class for a cache with per-user locking.
 
     Notes
     -----
     There is a moderately complex locking structure at play here.  When
-    there's a cache miss for an internal or notebook token for a specific
-    user, the goal is to block the expensive database lookups or token
-    creation for that user until the first requester either finds a token in
-    the database or creates a new one, either way adding it to the cache.
-    Hopefully then subsequent requests that were blocked on the lock can be
-    answered from the cache.
+    there's a cache miss for data for a specific user, the goal is to block
+    the expensive lookups or token creation for that user until the first
+    requester either looks up the data or creates a new token, either way
+    adding it to the cache.  Hopefully then subsequent requests that were
+    blocked on the lock can be answered from the cache.
 
     There is therefore a dictionary of per-user locks, but since we don't know
     the list of users in advance, we have to populate those locks on the fly.
@@ -193,26 +201,34 @@ class TokenCache(BaseCache):
     valid.  It may then take that per-user lock, but a third code path could
     also try to lock the same user and get a new per-user lock from the
     post-clearing cache.  Both the first and third code paths will think they
-    have a lock and may conflict.  `TokenLockManager` is used to handle this.
+    have a lock and may conflict.  `UserLockManager` is used to handle this.
     """
 
     def __init__(self) -> None:
-        self._cache: LRUTokenCache = LRUCache(TOKEN_CACHE_SIZE)
         self._lock = asyncio.Lock()
         self._user_locks: Dict[str, asyncio.Lock] = {}
 
     async def clear(self) -> None:
         """Invalidate the cache.
 
-        Used primarily for testing.
+        Used primarily for testing.  Calls the `initialize` method provided by
+        derivative classes, with proper locking, to reinitialize the cache.
         """
         async with self._lock:
             for user, lock in list(self._user_locks.items()):
                 async with lock:
                     del self._user_locks[user]
-            self._cache = LRUCache(TOKEN_CACHE_SIZE)
+            self.initialize()
 
-    async def lock(self, username: str) -> TokenLockManager:
+    @abstractmethod
+    def initialize(self) -> None:
+        """Initialize the cache.
+
+        This will be called by `clear` and should also be called by the
+        derived class's ``__init__`` method.
+        """
+
+    async def lock(self, username: str) -> UserLockManager:
         """Return the per-user lock for locking.
 
         The return value should be used with ``async with`` to hold a lock
@@ -226,14 +242,75 @@ class TokenCache(BaseCache):
 
         Returns
         -------
-        lock : `TokenLockManager`
+        lock : `UserLockManager`
             Async context manager that will take the user lock.
         """
         async with self._lock:
             if username not in self._user_locks:
                 lock = asyncio.Lock()
                 self._user_locks[username] = lock
-            return TokenLockManager(self._lock, self._user_locks[username])
+            return UserLockManager(self._lock, self._user_locks[username])
+
+
+class LDAPCache(PerUserCache, Generic[S]):
+    """A cache of LDAP data.
+
+    Parameters
+    ----------
+    content : `typing.Type`
+        The type of object being stored.
+    """
+
+    def __init__(self, content: Type[S]) -> None:
+        super().__init__()
+        self._cache: TTLCache[str, S]
+        self.initialize()
+
+    def get(self, username: str) -> Optional[S]:
+        """Retrieve data from the cache.
+
+        Parameters
+        ----------
+        username : `str`
+            Username for which to retrieve data.
+
+        Returns
+        -------
+        data : `typing.Any` or `None`
+            The cached data or `None` if there is no data in the cache.
+        """
+        return self._cache.get(username)
+
+    def initialize(self) -> None:
+        """Initialize the cache."""
+        self._cache = TTLCache(LDAP_CACHE_SIZE, LDAP_CACHE_LIFETIME)
+
+    def store(self, username: str, data: S) -> None:
+        """Store data in the cache.
+
+        Should only be called with the lock held.
+
+        Parameters
+        ----------
+        username : `str`
+            Username for which to store data.
+        data : `typing.Any`
+            Data to store.
+        """
+        self._cache[username] = data
+
+
+class TokenCache(PerUserCache):
+    """Base class for a cache of internal or notebook tokens."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._cache: LRUTokenCache
+        self.initialize()
+
+    def initialize(self) -> None:
+        """Initialize the cache."""
+        self._cache = LRUCache(TOKEN_CACHE_SIZE)
 
 
 class InternalTokenCache(TokenCache):
@@ -243,8 +320,6 @@ class InternalTokenCache(TokenCache):
         self, token_data: TokenData, service: str, scopes: List[str]
     ) -> Optional[Token]:
         """Retrieve an internal token from the cache.
-
-        Should only be called while holding the lock.
 
         Parameters
         ----------
@@ -319,8 +394,6 @@ class NotebookTokenCache(TokenCache):
 
     def get(self, token_data: TokenData) -> Optional[Token]:
         """Retrieve a notebook token from the cache.
-
-        Should only be called while holding the lock.
 
         Parameters
         ----------

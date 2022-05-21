@@ -16,6 +16,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LDAPConfig
 from ..constants import GROUPNAME_REGEX, LDAP_TIMEOUT
 from ..exceptions import LDAPError, NoUsernameMappingError
+from ..models.ldap import LDAPUserData
 from ..models.token import TokenGroup
 
 __all__ = ["LDAPStorage"]
@@ -64,7 +65,10 @@ class LDAPStorage:
         search = f"(&(objectClass={group_class})({member_attr}={username}))"
         logger = self._logger.bind(ldap_search=search, user=username)
         results = await self._query(
-            self._config.base_dn, bonsai.LDAPSearchScope.SUB, search, ["cn"]
+            self._config.group_base_dn,
+            bonsai.LDAPSearchScope.SUB,
+            search,
+            ["cn"],
         )
         logger.debug("LDAP groups found", ldap_results=results)
 
@@ -109,7 +113,7 @@ class LDAPStorage:
         search = f"(&(objectClass={group_class})({member_attr}={username}))"
         logger = self._logger.bind(ldap_search=search, user=username)
         results = await self._query(
-            self._config.base_dn,
+            self._config.group_base_dn,
             bonsai.LDAPSearchScope.SUB,
             search,
             ["cn", "gidNumber"],
@@ -130,8 +134,8 @@ class LDAPStorage:
                 )
         return groups
 
-    async def get_uid(self, username: str) -> Optional[int]:
-        """Get the numeric UID of a user.
+    async def get_data(self, username: str) -> LDAPUserData:
+        """Get the data for an LDAP user.
 
         Parameters
         ----------
@@ -140,41 +144,56 @@ class LDAPStorage:
 
         Returns
         -------
-        uid : `int` or `None`
-            The numeric UID of the user from LDAP, or `None` if Gafaelfawr was
-            not configured to get the UID from LDAP (in which case the caller
-            should fall back to other sources of the UID).
+        data : `gafaelfawr.models.ldap.LDAPUserData`
+            The data for an LDAP user.  Which fields are filled in will be
+            determined by the configuration.
 
         Raises
         ------
         gafaelfawr.exceptions.LDAPError
-            The lookup of ``uid_attr`` in the LDAP server was not valid
-            (connection to the LDAP server failed, attribute not found in
-            LDAP, result value not an integer).
+            The lookup of ``user_search_attr`` at ``user_base_dn`` in the LDAP
+            server was not valid (connection to the LDAP server failed,
+            attribute not found in LDAP, UID result value not an integer).
         """
-        if not self._config.uid_base_dn:
-            return None
+        if not self._config.user_base_dn:
+            return LDAPUserData(uid=None, name=None, email=None)
 
-        search = f"(uid={username})"
+        search = f"({self._config.user_search_attr}={username})"
         logger = self._logger.bind(ldap_search=search, user=username)
+        attrs = []
+        if self._config.uid_attr:
+            attrs.append(self._config.uid_attr)
+        if self._config.name_attr:
+            attrs.append(self._config.name_attr)
+        if self._config.email_attr:
+            attrs.append(self._config.email_attr)
         results = await self._query(
-            self._config.uid_base_dn,
+            self._config.user_base_dn,
             bonsai.LDAPSearchScope.ONE,
             search,
-            [self._config.uid_attr],
+            attrs,
         )
         logger.debug("LDAP entries for UID", ldap_results=results)
 
         for result in results:
             try:
-                return int(result[self._config.uid_attr][0])
+                uid = None
+                name = None
+                email = None
+                if self._config.uid_attr:
+                    uid = int(result[self._config.uid_attr][0])
+                if self._config.name_attr:
+                    name = result[self._config.name_attr][0]
+                if self._config.email_attr:
+                    email = result[self._config.email_attr][0]
+                return LDAPUserData(uid=uid, name=name, email=email)
             except Exception as e:
-                logger.error("LDAP UID number is invalid", error=str(e))
-                raise LDAPError("UID number in LDAP is invalid")
+                logger.error("LDAP user entry invalid", error=str(e))
+                raise LDAPError("LDAP user entry invalid")
 
         # Fell through without finding a UID.
-        logger.error("No UID found in LDAP")
-        raise LDAPError("No UID found in LDAP")
+        logger.error("User not found in LDAP")
+        raise LDAPError("User not found in LDAP")
 
     async def get_username(self, sub: str) -> Optional[str]:
         """Get the username of a user.

@@ -516,7 +516,8 @@ async def test_ldap(
     assert r.status_code == 200
     assert r.json() == {
         "username": "ldap-user",
-        "email": token.claims["email"],
+        "name": "LDAP User",
+        "email": "ldap-user@example.com",
         "uid": 2000,
         "groups": [{"name": g.name, "id": g.id} for g in mock_ldap.groups],
     }
@@ -525,7 +526,7 @@ async def test_ldap(
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
-    assert r.headers["X-Auth-Request-Email"] == token.claims["email"]
+    assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
     assert r.headers["X-Auth-Request-Uid"] == "2000"
     assert r.headers["X-Auth-Request-Groups"] == ",".join(
         [g.name for g in mock_ldap.groups]

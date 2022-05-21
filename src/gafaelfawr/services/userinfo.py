@@ -13,6 +13,7 @@ from ..exceptions import (
     NotConfiguredError,
     ValidationError,
 )
+from ..models.ldap import LDAPUserData
 from ..models.oidc import OIDCVerifiedToken
 from ..models.token import TokenData, TokenGroup, TokenUserInfo
 from ..services.firestore import FirestoreService
@@ -230,28 +231,28 @@ class OIDCUserInfoService(UserInfoService):
             The token is missing required claims.
         """
         username = None
-        uid = None
         groups = None
+        uid = None
+        ldap_data = LDAPUserData(uid=None, name=None, email=None)
         if self._ldap:
             if "sub" in token.claims:
                 username = await self._ldap.get_username(token.claims["sub"])
             if username is None:
                 username = self._get_username_from_oidc_token(token)
-            if not self._firestore:
-                uid = await self._ldap.get_uid(username)
+            ldap_data = await self._ldap.get_data(username)
         else:
             username = self._get_username_from_oidc_token(token)
             groups = await self._get_groups_from_oidc_token(token, username)
         if self._firestore:
             uid = await self._firestore.get_uid(username)
-        elif not uid:
+        elif not ldap_data.uid:
             uid = self._get_uid_from_oidc_token(token, username)
 
         return TokenUserInfo(
             username=username,
-            name=token.claims.get("name"),
-            email=token.claims.get("email"),
-            uid=uid,
+            name=ldap_data.name or token.claims.get("name"),
+            email=ldap_data.email or token.claims.get("email"),
+            uid=uid or ldap_data.uid,
             groups=groups,
         )
 

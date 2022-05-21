@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, List, Optional
 
 import structlog
 from aioredis import Redis
@@ -18,10 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
-from .cache import IdCache, InternalTokenCache, NotebookTokenCache
+from .cache import IdCache, InternalTokenCache, LDAPCache, NotebookTokenCache
 from .config import Config
 from .exceptions import NotConfiguredError
-from .models.token import TokenData
+from .models.ldap import LDAPUserData
+from .models.token import TokenData, TokenGroup
 from .providers.base import Provider
 from .providers.github import GitHubProvider
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
@@ -76,6 +77,15 @@ class ProcessContext:
     gid_cache: IdCache
     """Shared GID cache."""
 
+    ldap_group_cache: LDAPCache[List[TokenGroup]]
+    """Cache of LDAP group information."""
+
+    ldap_group_name_cache: LDAPCache[List[str]]
+    """Cache of LDAP group names."""
+
+    ldap_user_cache: LDAPCache[LDAPUserData]
+    """Cache of LDAP user data."""
+
     internal_token_cache: InternalTokenCache
     """Shared internal token cache."""
 
@@ -116,6 +126,9 @@ class ProcessContext:
             ),
             uid_cache=IdCache(),
             gid_cache=IdCache(),
+            ldap_group_cache=LDAPCache(List[TokenGroup]),
+            ldap_group_name_cache=LDAPCache(List[str]),
+            ldap_user_cache=LDAPCache(LDAPUserData),
             internal_token_cache=InternalTokenCache(),
             notebook_token_cache=NotebookTokenCache(),
         )
@@ -132,6 +145,9 @@ class ProcessContext:
             await self.ldap_pool.close()
         await self.uid_cache.clear()
         await self.gid_cache.clear()
+        await self.ldap_group_cache.clear()
+        await self.ldap_group_name_cache.clear()
+        await self.ldap_user_cache.clear()
         await self.internal_token_cache.clear()
         await self.notebook_token_cache.clear()
 
@@ -323,7 +339,13 @@ class Factory:
                 self._context.ldap_pool,
                 self._logger,
             )
-            ldap = LDAPService(ldap_storage, self._logger)
+            ldap = LDAPService(
+                ldap=ldap_storage,
+                group_cache=self._context.ldap_group_cache,
+                group_name_cache=self._context.ldap_group_name_cache,
+                user_cache=self._context.ldap_user_cache,
+                logger=self._logger,
+            )
         return OIDCUserInfoService(
             config=self._context.config,
             ldap=ldap,
@@ -417,7 +439,13 @@ class Factory:
                 self._context.ldap_pool,
                 self._logger,
             )
-            ldap = LDAPService(ldap_storage, self._logger)
+            ldap = LDAPService(
+                ldap=ldap_storage,
+                group_cache=self._context.ldap_group_cache,
+                group_name_cache=self._context.ldap_group_name_cache,
+                user_cache=self._context.ldap_user_cache,
+                logger=self._logger,
+            )
         return UserInfoService(
             config=self._context.config,
             ldap=ldap,
