@@ -100,8 +100,11 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Update package lists
+        run: sudo apt-get update
+
       - name: Install extra packages
-        run: sudo apt install libpq-dev libldap2-dev libsasl2-dev
+        run: sudo apt install -y libpq-dev libldap2-dev libsasl2-dev
 
       - name: Install tox
         run: pip install tox tox-docker
@@ -131,8 +134,11 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Update package lists
+        run: sudo apt-get update
+
       - name: Install extra packages
-        run: sudo apt install libpq-dev libldap2-dev libsasl2-dev
+        run: sudo apt-get install -y libpq-dev libldap2-dev libsasl2-dev
 
       - name: Install tox and LTD Conveyor
         run: pip install tox ltd-conveyor
