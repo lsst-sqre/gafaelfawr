@@ -343,9 +343,9 @@ google-cloud-core==2.3.0 \
     --hash=sha256:35900f614045a33d5208e1d50f0d7945df98ce088388ce7237e7a2db12d5656e \
     --hash=sha256:fdaa629e6174b4177c2d56eb8ab1ddd87661064d0a3e9bb06b62e4d7e2344669
     # via google-cloud-firestore
-google-cloud-firestore==2.5.0 \
-    --hash=sha256:83f2201a55561e392a24a0c5be49a9fd354d0344e037e5dfeb9335d3ec777fea \
-    --hash=sha256:ce0aaddea04f9eb69f0640623a7fd74543f1860e293376bc95431b50901e23ac
+google-cloud-firestore==2.5.1 \
+    --hash=sha256:93d0a91340ae7e7d1a9812852dc3c033360e203add20215d8538496c16750bc2 \
+    --hash=sha256:e505dc73ac31f9cff10b6ce4fb34b9989d267b3c770e63fa03bec08216a9c139
     # via -r requirements/main.in
 googleapis-common-protos==1.56.2 \
     --hash=sha256:023eaea9d8c1cceccd9587c6af6c20f33eeeb05d4148670f2b0322dc1511700c \
