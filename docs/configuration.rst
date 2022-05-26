@@ -358,7 +358,7 @@ You may need to set the following additional options under ``config.ldap`` depen
 LDAP user information
 ---------------------
 
-By default, Gafaelfawr takes the user's name, email, and numeric UID from the upstream provider via the ``name``, ``email``, and ``uidNumber`` claims in the ID token.
+By default, Gafaelfawr takes the user's name, email, and numeric UID from the upstream provider via the ``name``, ``mail``, and ``uidNumber`` claims in the ID token.
 If LDAP is used for group information, this data can instead be obtained from LDAP.
 To do this, add the following configuration:
 
@@ -368,7 +368,7 @@ To do this, add the following configuration:
      ldap:
        userBaseDn: "<base-dn-for-search>"
 
-By default, this will get the name (from the ``displayName`` attribute) and the email (from the ``email`` attribute) from LDAP instead of the ID token.
+By default, this will get the name (from the ``displayName`` attribute) and the email (from the ``mail`` attribute) from LDAP instead of the ID token.
 If either have multiple values, the first one will be used.
 
 To also obtain the numeric UID from LDAP, add ``uidAttr: "uidNumber"`` to the LDAP configuration.
@@ -379,7 +379,7 @@ You may need to set the following additional options under ``config.ldap`` depen
 
 ``config.ldap.emailAttr``
     The attribute from which to get the user's email address.
-    Default: ``email``.
+    Default: ``mail``.
 
 ``config.ldap.nameAttr``
     The attribute from which to get the user's full name.

@@ -182,12 +182,12 @@ class LDAPSettings(BaseModel):
     concepts anyway).
     """
 
-    email_attr: Optional[str] = "email"
+    email_attr: Optional[str] = "mail"
     """LDAP email attribute.
 
     The attribute from which the user's email address should be taken, or
     `None` to not look up email addresses.  This should normally be
-    ``email``.
+    ``mail``.
     """
 
     username_base_dn: Optional[str] = None
@@ -547,12 +547,12 @@ class LDAPConfig:
     concepts anyway).
     """
 
-    email_attr: Optional[str] = "email"
+    email_attr: Optional[str] = "mail"
     """LDAP email attribute.
 
     The attribute from which the user's email address should be taken, or
     `None` to not look up email addresses.  This should normally be
-    ``email``.
+    ``mail``.
     """
 
     username_base_dn: Optional[str] = None

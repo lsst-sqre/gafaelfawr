@@ -64,11 +64,11 @@ class MockLDAP(Mock):
             assert attrlist == ["uid"]
             return [{"uid": ["ldap-user"]}]
         elif filter_exp == "(uid=ldap-user)":
-            assert sorted(attrlist) == ["displayName", "email", "uidNumber"]
+            assert sorted(attrlist) == ["displayName", "mail", "uidNumber"]
             return [
                 {
                     "displayName": ["LDAP User"],
-                    "email": ["ldap-user@example.com", "foo@example.org"],
+                    "mail": ["ldap-user@example.com", "foo@example.org"],
                     "uidNumber": [str(2000)],
                 }
             ]
