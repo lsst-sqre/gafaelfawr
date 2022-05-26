@@ -14,6 +14,8 @@ The internal configuration format may change in minor releases.
   Enabling numeric UID lookups now requires setting ``config.ldap.uidAttr`` plus ``config.ldap.userBaseDn``, and ``config.ldap.uidBaseDn`` is no longer a valid configuration setting.
 - LDAP data is cached for up to five minutes to reduce latency and load on the LDAP server.
 - Rename ``config.ldap.baseDn`` to ``config.ldap.groupBaseDn`` to make it clearer that it is only used for group membership searches.
+- Add ``gafaelfawr fix-home-ownership`` command-line invocation that assigns UIDs via Firestore for all users found in a home directory tree and then recursively changes ownership of their files to their newly-allocated UIDs.
+  This is intended as a one-time migration tool for environments that are switching to Firestore for UID assignment
 - Use a connection pool for LDAP queries instead of opening a new connection for each query.
 - Report better errors to the user if Firestore or LDAP fail during login.
 - Add ``config.oidc.usernameClaim`` and ``config.oidc.uidClaim`` Helm configuration options to customize which claims from the upstream OpenID Connect ID token are used to get the username and UID.

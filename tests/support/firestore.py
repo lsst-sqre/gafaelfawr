@@ -34,6 +34,14 @@ class MockDocumentRef(Mock):
         assert isinstance(transaction, MockTransaction)
         return MockDocument(self.document)
 
+    def get_for_testing(self) -> MockDocument:
+        """Get the document without a transaction.
+
+        Used for testing, particularly where the test is not async and can't
+        make an async call easily.
+        """
+        return MockDocument(self.document)
+
 
 class MockCollection(Mock):
     """Mock Firestore collection object."""
