@@ -232,6 +232,22 @@ class Factory:
         admin_history_store = AdminHistoryStore(self.session)
         return AdminService(admin_store, admin_history_store, self._logger)
 
+    def create_firestore_service(self) -> FirestoreService:
+        """Create the Firestore service layer.
+
+        Returns
+        -------
+        firestore : `gafaelfawr.services.firestore.FirestoreService`
+            Newly-created Firestore service.
+        """
+        storage = self.create_firestore_storage()
+        return FirestoreService(
+            uid_cache=self._context.uid_cache,
+            gid_cache=self._context.gid_cache,
+            storage=storage,
+            logger=self._logger,
+        )
+
     def create_firestore_storage(self) -> FirestoreStorage:
         """Create the Firestore storage layer.
 
@@ -325,13 +341,7 @@ class Factory:
             raise NotConfiguredError("OpenID Connect is not configured")
         firestore = None
         if self._context.config.firestore:
-            firestore_storage = self.create_firestore_storage()
-            firestore = FirestoreService(
-                uid_cache=self._context.uid_cache,
-                gid_cache=self._context.gid_cache,
-                storage=firestore_storage,
-                logger=self._logger,
-            )
+            firestore = self.create_firestore_service()
         ldap = None
         if self._context.config.ldap and self._context.ldap_pool:
             ldap_storage = LDAPStorage(
@@ -425,13 +435,7 @@ class Factory:
         """
         firestore = None
         if self._context.config.firestore:
-            firestore_storage = self.create_firestore_storage()
-            firestore = FirestoreService(
-                uid_cache=self._context.uid_cache,
-                gid_cache=self._context.gid_cache,
-                storage=firestore_storage,
-                logger=self._logger,
-            )
+            firestore = self.create_firestore_service()
         ldap = None
         if self._context.config.ldap and self._context.ldap_pool:
             ldap_storage = LDAPStorage(

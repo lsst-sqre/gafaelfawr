@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Optional, Union
 
 import click
@@ -14,13 +15,14 @@ from safir.database import create_database_engine, initialize_database
 from safir.kubernetes import initialize_kubernetes
 
 from .dependencies.config import config_dependency
-from .exceptions import KubernetesError
+from .exceptions import KubernetesError, NotConfiguredError
 from .factory import Factory
 from .keypair import RSAKeyPair
 from .models.token import Token
 from .schema import Base
 
 __all__ = [
+    "fix_home_ownership",
     "generate_key",
     "generate_token",
     "help",
@@ -61,13 +63,45 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
 
 @main.command()
 @click.option(
-    "--port", default=8080, type=int, help="Port to run the application on."
+    "--settings",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
+    type=str,
+    default=None,
+    help="Application settings file.",
 )
-def run(port: int) -> None:
-    """Run the application (for testing only)."""
-    uvicorn.run(
-        "gafaelfawr.main:app", port=port, reload=True, reload_dirs=["src"]
+@click.argument(
+    "path",
+    required=True,
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+        path_type=Path,
+    ),
+)
+@run_with_asyncio
+async def fix_home_ownership(settings: Optional[str], path: Path) -> None:
+    """Fix ownership of home directories.
+
+    For each directory under the provided path, assume the name of the
+    directory is the username of a user.  Look up (and create if necessary) a
+    UID for that user in Firestore, and then change the ownership of that
+    directory and everything under it (with ``chown -R``) to that UID.  The
+    GID will be set to match the UID.
+    """
+    if settings:
+        config_dependency.set_settings_path(settings)
+    config = await config_dependency()
+    engine = create_database_engine(
+        config.database_url, config.database_password
     )
+    async with Factory.standalone(config, engine) as factory:
+        try:
+            firestore = factory.create_firestore_service()
+        except NotConfiguredError:
+            raise click.UsageError("Firestore is not configured")
+        await firestore.fix_home_ownership(path)
 
 
 @main.command()
@@ -122,6 +156,7 @@ async def init(settings: Optional[str]) -> None:
 )
 @run_with_asyncio
 async def kubernetes_controller(settings: Optional[str]) -> None:
+    """Run forever, watching service token objects and creating secrets."""
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
@@ -140,6 +175,17 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
             queue = await kubernetes_service.start_watcher()
             logger.debug("Starting continuous processing")
             await kubernetes_service.update_service_tokens_from_queue(queue)
+
+
+@main.command()
+@click.option(
+    "--port", default=8080, type=int, help="Port to run the application on."
+)
+def run(port: int) -> None:
+    """Run the application (for testing only)."""
+    uvicorn.run(
+        "gafaelfawr.main:app", port=port, reload=True, reload_dirs=["src"]
+    )
 
 
 @main.command()
