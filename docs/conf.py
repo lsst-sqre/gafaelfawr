@@ -108,8 +108,8 @@ nitpick_ignore = [
     ("py:class", "asyncio.locks.Lock"),
     ("py:class", "asyncio.queues.Queue"),
     # TypeVar references that shouldn't be documented.
-    ("py:class", "gafaelfawr.dependencies.cache.S"),
-    ("py:obj", "gafaelfawr.dependencies.cache.S"),
+    ("py:class", "gafaelfawr.cache.S"),
+    ("py:obj", "gafaelfawr.cache.S"),
     ("py:class", "gafaelfawr.models.history.E"),
     ("py:obj", "gafaelfawr.models.history.E"),
     ("py:class", "gafaelfawr.storage.base.S"),

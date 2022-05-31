@@ -126,11 +126,11 @@ class LDAPSettings(BaseModel):
     user_dn: Optional[str] = None
     """Simple bind user DN for the LDAP server."""
 
-    base_dn: str
-    """Base DN to use when executing an LDAP search for user groups."""
-
     password_file: Optional[str] = None
     """File containing simple bind password for the LDAP server."""
+
+    group_base_dn: str
+    """Base DN to use when executing an LDAP search for user groups."""
 
     group_object_class: str = "posixGroup"
     """LDAP group object class.
@@ -144,6 +144,50 @@ class LDAPSettings(BaseModel):
 
     ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    user_base_dn: Optional[str] = None
+    """Base DN to use to search for user information.
+
+    If set, the base DN used to search for the user record, from which other
+    information such as full name, email, and (if configured) numeric UID will
+    be retrieved.
+    """
+
+    user_search_attr: str = "uid"
+    """Search attribute for finding the user record.
+
+    This attribute must hold the username of the user that Gafaelfawr knows
+    them by.  Used if ``user_base_dn`` is set.  The default is ``uid``, which
+    is the LDAP convention for the attribute holding the username.
+    """
+
+    uid_attr: Optional[str] = None
+    """LDAP UID attribute.
+
+    If set, the user's UID will be taken from this sttribute.  If UID lookups
+    are desired, this should usually be ``uidNumber``, as specified in
+    :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    name_attr: Optional[str] = "displayName"
+    """LDAP full name attribute.
+
+    The attribute from which the user's full name will be taken, or `None` to
+    not look up full names.  This should normally be ``displayName``, but
+    sometimes it may be desirable to use a different name attribute.  This
+    should hold the whole name that should be used by the Science Platform,
+    not just a surname or family name (which are not universally valid
+    concepts anyway).
+    """
+
+    email_attr: Optional[str] = "mail"
+    """LDAP email attribute.
+
+    The attribute from which the user's email address should be taken, or
+    `None` to not look up email addresses.  This should normally be
+    ``mail``.
     """
 
     username_base_dn: Optional[str] = None
@@ -164,21 +208,6 @@ class LDAPSettings(BaseModel):
     which is the correct choice when using CILogon as the upstream identity
     provider and an LDAP server provisioned by COmanage as the repository for
     identity information.
-    """
-
-    uid_base_dn: Optional[str] = None
-    """Base DN to use when executing an LDAP search for a UID number.
-
-    If this is not set, the UID number of the user will be taken from the
-    upstream authentication source (either the GitHub UID number or the
-    configured attribute of the OpenID Connect ID token.
-    """
-
-    uid_attr: str = "uidNumber"
-    """LDAP uid attribute, used if ``uid_base_dn`` is set.
-
-    Usually ``uidNumber``, as specified in :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
 
@@ -348,7 +377,7 @@ class Settings(BaseSettings):
         cls, v: Optional[LDAPSettings], values: Dict[str, object]
     ) -> Optional[LDAPSettings]:
         """Ensure all fields are non-empty if url is non-empty."""
-        if v and v.url and not v.base_dn:
+        if v and v.url and not v.group_base_dn:
             raise ValueError("not all required ldap fields are present")
         if v and v.user_dn and not v.password_file:
             raise ValueError("ldap.password_file required if ldap.user_dn set")
@@ -465,8 +494,8 @@ class LDAPConfig:
     password: Optional[str]
     """Password for simple bind authentication to the LDAP server."""
 
-    base_dn: str
-    """Base DN to use when executing LDAP search."""
+    group_base_dn: str
+    """Base DN to use when executing LDAP search for group membership."""
 
     group_object_class: str = "posixGroup"
     """LDAP group object class.
@@ -480,6 +509,50 @@ class LDAPConfig:
 
     ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    user_base_dn: Optional[str] = None
+    """Base DN to use to search for user information.
+
+    If set, the base DN used to search for the user record, from which other
+    information such as full name, email, and (if configured) numeric UID will
+    be retrieved.
+    """
+
+    user_search_attr: str = "uid"
+    """Search attribute for finding the user record.
+
+    This attribute must hold the username of the user that Gafaelfawr knows
+    them by.  Used if ``user_base_dn`` is set.  The default is ``uid``, which
+    is the LDAP convention for the attribute holding the username.
+    """
+
+    uid_attr: Optional[str] = None
+    """LDAP UID attribute.
+
+    If set, the user's UID will be taken from this sttribute.  If UID lookups
+    are desired, this should usually be ``uidNumber``, as specified in
+    :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    name_attr: Optional[str] = "displayName"
+    """LDAP full name attribute.
+
+    The attribute from which the user's full name will be taken, or `None` to
+    not look up full names.  This should normally be ``displayName``, but
+    sometimes it may be desirable to use a different name attribute.  This
+    should hold the whole name that should be used by the Science Platform,
+    not just a surname or family name (which are not universally valid
+    concepts anyway).
+    """
+
+    email_attr: Optional[str] = "mail"
+    """LDAP email attribute.
+
+    The attribute from which the user's email address should be taken, or
+    `None` to not look up email addresses.  This should normally be
+    ``mail``.
     """
 
     username_base_dn: Optional[str] = None
@@ -500,21 +573,6 @@ class LDAPConfig:
     which is the correct choice when using CILogon as the upstream identity
     provider and an LDAP server provisioned by COmanage as the repository for
     identity information.
-    """
-
-    uid_base_dn: Optional[str] = None
-    """Base DN to use when executing an LDAP search for a UID number.
-
-    If this is not set, the UID number of the user will be taken from the
-    upstream authentication source (either the GitHub UID number or the
-    configured attribute of the OpenID Connect ID token.
-    """
-
-    uid_attr: str = "uidNumber"
-    """LDAP uid attribute, used if ``uid_base_dn`` is set.
-
-    Usually ``uidNumber``, as specified in :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
 
@@ -708,13 +766,16 @@ class Config:
                 url=settings.ldap.url,
                 user_dn=settings.ldap.user_dn,
                 password=ldap_password,
-                base_dn=settings.ldap.base_dn,
+                group_base_dn=settings.ldap.group_base_dn,
                 group_object_class=settings.ldap.group_object_class,
                 group_member_attr=settings.ldap.group_member_attr,
+                user_base_dn=settings.ldap.user_base_dn,
+                user_search_attr=settings.ldap.user_search_attr,
+                name_attr=settings.ldap.name_attr,
+                email_attr=settings.ldap.email_attr,
+                uid_attr=settings.ldap.uid_attr,
                 username_base_dn=settings.ldap.username_base_dn,
                 username_search_attr=settings.ldap.username_search_attr,
-                uid_base_dn=settings.ldap.uid_base_dn,
-                uid_attr=settings.ldap.uid_attr,
             )
 
         # Build Firestore configuration if needed.

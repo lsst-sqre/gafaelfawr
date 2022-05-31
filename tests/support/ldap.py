@@ -53,7 +53,7 @@ class MockLDAP(Mock):
     ) -> List[Dict[str, List[str]]]:
         config = config_dependency.config()
         assert config.ldap
-        assert base == config.ldap.base_dn
+        assert base == config.ldap.group_base_dn
         assert scope in (
             bonsai.LDAPSearchScope.SUB,
             bonsai.LDAPSearchScope.ONELEVEL,
@@ -64,8 +64,14 @@ class MockLDAP(Mock):
             assert attrlist == ["uid"]
             return [{"uid": ["ldap-user"]}]
         elif filter_exp == "(uid=ldap-user)":
-            assert attrlist == ["uidNumber"]
-            return [{"uidNumber": [str(2000)]}]
+            assert sorted(attrlist) == ["displayName", "mail", "uidNumber"]
+            return [
+                {
+                    "displayName": ["LDAP User"],
+                    "mail": ["ldap-user@example.com", "foo@example.org"],
+                    "uidNumber": [str(2000)],
+                }
+            ]
         elif filter_exp == "(&(objectClass=posixGroup)(member=ldap-user))":
             if attrlist == ["cn", "gidNumber"]:
                 return [

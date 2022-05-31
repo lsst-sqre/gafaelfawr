@@ -29,6 +29,12 @@ ID_CACHE_SIZE = 10000
 TOKEN_CACHE_SIZE = 5000
 """How many internal or notebook tokens to cache in memory."""
 
+LDAP_CACHE_SIZE = 1000
+"""Maximum numbr of entries in LDAP caches."""
+
+LDAP_CACHE_LIFETIME = 5 * 60
+"""Lifetime of the LDAP caches in seconds."""
+
 # The following constants define the limits of UID and GID ranges when
 # Gafaelfawr is doing UID and GID assignment.
 

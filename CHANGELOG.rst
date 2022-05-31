@@ -6,9 +6,14 @@ Versioning follows `semver <https://semver.org/>`__.
 Versioning assumes that Gafaelfawr is installed and configured via `Phalanx <https://phalanx.lsst.io/>`__, so only changes to configuration changes exposed in the Helm values file are considered breaking changes.
 The internal configuration format may change in minor releases.
 
-4.2.0 (unreleased)
+5.0.0 (unreleased)
 ==================
 
+- Add support for getting the full name and email address from LDAP as well.
+  Those plus numeric UID (if configured) now all use ``config.ldap.userBaseDn`` and ``config.ldap.userSearchAttr`` to configure how the user's LDAP directory entry is found.
+  Enabling numeric UID lookups now requires setting ``config.ldap.uidAttr`` plus ``config.ldap.userBaseDn``, and ``config.ldap.uidBaseDn`` is no longer a valid configuration setting.
+- LDAP data is cached for up to five minutes to reduce latency and load on the LDAP server.
+- Rename ``config.ldap.baseDn`` to ``config.ldap.groupBaseDn`` to make it clearer that it is only used for group membership searches.
 - Use a connection pool for LDAP queries instead of opening a new connection for each query.
 - Report better errors to the user if Firestore or LDAP fail during login.
 - Add ``config.oidc.usernameClaim`` and ``config.oidc.uidClaim`` Helm configuration options to customize which claims from the upstream OpenID Connect ID token are used to get the username and UID.

@@ -759,9 +759,9 @@ sphinx-automodapi==0.14.1 \
     --hash=sha256:4238e131d7abc47226449661bb3cfa2bb1b5b190184ffa69d9b924b984a22753 \
     --hash=sha256:a2f9c0f9e2901875e6db75df6c01412875eb15f25e7db1206e1b69fedf75bbc9
     # via -r requirements/dev.in
-sphinx-click==4.0.3 \
-    --hash=sha256:4c4b43386ff6304e47ae0467da9c980786eb3c1317cd6f488524c18931627c04 \
-    --hash=sha256:a1aacf00cfe11550a2211014617c426a94af8638f1ce735b5d9998cccf1a1edb
+sphinx-click==4.1.0 \
+    --hash=sha256:60d6507bf623e20e9cbab732d19fc4890cc36a394c82ba8e2320f9f9fdc4571e \
+    --hash=sha256:fedebd39991243ec5cfa1c9e483db7ea2621b3df2012315c89c6f1f3722f192b
     # via -r requirements/dev.in
 sphinx-prompt==1.5.0 \
     --hash=sha256:fa4e90d8088b5a996c76087d701fc7e31175f8b9dc4aab03a507e45051067162

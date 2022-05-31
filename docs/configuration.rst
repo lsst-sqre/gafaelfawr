@@ -293,7 +293,7 @@ There are two additional options under ``config.oidc`` that you may want to set:
 
 ``config.oidc.uidClaim``
     The claim of the OpenID Connect ID token from which to take the numeric UID.
-    Only used if :ref:`UID lookup in LDAP <ldap-uid>` is not configured.
+    Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
     The default is ``uidNumber``.
 
 .. _ldap-groups:
@@ -310,7 +310,7 @@ To do this, add the following configuration:
    config:
      ldap:
        url: "ldaps://<ldap-server>"
-       baseDn: "<base-dn-for-search>"
+       groupBaseDn: "<base-dn-for-search>"
 
 You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
 
@@ -345,30 +345,50 @@ To do this, add the following configuration:
      ldap:
        usernameBaseDn: "<base-dn-for-search>"
 
-The user object will be located by searching for a ``voPersonSoRID`` attribute equal to the ``sub`` claim of the ID token returned by the OpenID Connect authentication server.
 The username will be the value of the ``uid`` attribute of the corresponding record.
 
-.. _ldap-uid:
+You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
 
-LDAP numeric UID
-----------------
+``config.ldap.usernameSearchAttr``
+    The attribute that holds the value of the ``sub`` claim of the ID token returned by the OpenID Connect authentication server.
+    Default: ``voPersonSoRID``.
 
-By default, Gafaelfawr takes the user's numeric UID from the upstream provider via the ``uidNumber`` claim in the ID token.
-If LDAP is used for group information, the numeric UID can also be obtained from LDAP.
+.. _ldap-user:
+
+LDAP user information
+---------------------
+
+By default, Gafaelfawr takes the user's name, email, and numeric UID from the upstream provider via the ``name``, ``mail``, and ``uidNumber`` claims in the ID token.
+If LDAP is used for group information, this data can instead be obtained from LDAP.
 To do this, add the following configuration:
 
 .. code-block:: yaml
 
    config:
      ldap:
-       uidBaseDn: "<base-dn-for-search>"
+       userBaseDn: "<base-dn-for-search>"
 
-The user object will be located by searching for a ``uid`` attribute equal to the username returned in the token from the OpenID Connect authentication server.
-By default, the numeric UID will be the first value of the ``uidNumber`` attribute of that object.
-You can override the attribute containing the UID number with:
+By default, this will get the name (from the ``displayName`` attribute) and the email (from the ``mail`` attribute) from LDAP instead of the ID token.
+If either have multiple values, the first one will be used.
 
-``config.ldap.uidAttr``
-    The attribute containing the numeric UID of a user.
+To also obtain the numeric UID from LDAP, add ``uidAttr: "uidNumber"`` to the LDAP configuration.
+(Replace ``uidNumber`` with some other attribute if your LDAP directory stores the numeric UID elsewhere.)
+As with the other attributes, if this attribute has multiple values, the first one will be used.
+
+You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
+
+``config.ldap.emailAttr``
+    The attribute from which to get the user's email address.
+    Default: ``mail``.
+
+``config.ldap.nameAttr``
+    The attribute from which to get the user's full name.
+    This attribute should hold the whole name that should be used, not just a surname or family name (which are not universally valid concepts anyway).
+    Default: ``displayName``.
+
+``config.ldap.userSearchAttr``
+    The attribute holding the username, used to find the user's entry.
+    Default: ``uid``.
 
 .. _scopes:
 
