@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Mapping, Optional
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode
 
 import jwt
 from cryptography.hazmat.backends import default_backend
@@ -387,7 +387,7 @@ class OIDCTokenVerifier:
         """
         url = await self._get_jwks_uri(issuer_url)
         if not url:
-            url = urljoin(issuer_url, ".well-known/jwks.json")
+            url = issuer_url.rstrip("/") + "/.well-known/jwks.json"
 
         try:
             r = await self._http_client.get(url)
@@ -428,7 +428,7 @@ class OIDCTokenVerifier:
             If the OpenID Connect metadata doesn't contain the expected
             parameter.
         """
-        url = urljoin(issuer_url, ".well-known/openid-configuration")
+        url = issuer_url.rstrip("/") + "/.well-known/openid-configuration"
         try:
             r = await self._http_client.get(url)
             if r.status_code != 200:
