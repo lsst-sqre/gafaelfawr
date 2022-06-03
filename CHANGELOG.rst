@@ -17,6 +17,8 @@ The internal configuration format may change in minor releases.
 - Add ``gafaelfawr fix-home-ownership`` command-line invocation that assigns UIDs via Firestore for all users found in a home directory tree and then recursively changes ownership of their files to their newly-allocated UIDs.
   This is intended as a one-time migration tool for environments that are switching to Firestore for UID assignment
 - Use a connection pool for LDAP queries instead of opening a new connection for each query.
+- Fix verification of OpenID Connect ID tokens when the upstream issuer URL has a path component.
+  Previous versions of Gafaelfawr would incorrectly look for standard metadata URLs one path level too high.
 - Report better errors to the user if Firestore or LDAP fail during login.
 - Add ``config.oidc.usernameClaim`` and ``config.oidc.uidClaim`` Helm configuration options to customize which claims from the upstream OpenID Connect ID token are used to get the username and UID.
 - Update dependencies.
