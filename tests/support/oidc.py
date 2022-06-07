@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
-from urllib.parse import parse_qs, urljoin
+from unittest.mock import ANY
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import respx
-from httpx import Request, Response
+from httpx import AsyncClient, Request, Response
 
 from gafaelfawr.config import OIDCConfig
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.models.oidc import OIDCToken
+from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
 
 from .constants import TEST_KEYPAIR
 
-__all__ = ["mock_oidc_provider_config", "mock_oidc_provider_token"]
+__all__ = [
+    "mock_oidc_provider_config",
+    "mock_oidc_provider_token",
+    "simulate_oidc_login",
+]
 
 
 class MockOIDCConfig:
@@ -120,3 +125,83 @@ async def mock_oidc_provider_token(
     assert config.oidc
     mock = MockOIDCToken(config.oidc, code, token)
     respx_mock.post(config.oidc.token_url).mock(side_effect=mock.post_token)
+
+
+async def simulate_oidc_login(
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    token: OIDCVerifiedToken,
+    *,
+    return_url: str = "https://example.com/foo",
+    use_redirect_header: bool = False,
+    callback_route: str = "/login",
+    expect_enrollment: bool = False,
+) -> Response:
+    """Simulate an OpenID Connect login and return the final response.
+
+    Parameters
+    ----------
+    client : `httpx.AsyncClient`
+        Client to use to make calls to the application.
+    respx_mock : `respx.Router`
+        Mock for httpx calls.
+    token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        Authentication token the upstream OpenID Connect provider should
+        return.
+    return_url : `str`, optional
+        The return URL to pass to the login process.  If not provided, a
+        simple one will be used.
+    use_redirect_header : `bool`, optional
+        If set to `True`, pass the return URL in a header instead of as a
+        parameter to the ``/login`` route.
+    callback_route : `str`, optional
+        Override the callback route to which the upstream OpenID Connect
+        provider is expected to send the redirect.
+    expect_enrollment : `bool`, optional
+        If set to `True`, expect a redirect to the enrollment URL after login
+        rather than to the return URL.
+
+    Returns
+    -------
+    response : ``httpx.Response``
+        The response from the return to the ``/login`` handler.
+    """
+    config = await config_dependency()
+    assert config.oidc
+    await mock_oidc_provider_config(respx_mock, "orig-kid")
+    await mock_oidc_provider_token(respx_mock, "some-code", token)
+
+    # Simulate the redirect to the OpenID Connect provider.
+    if use_redirect_header:
+        r = await client.get(
+            "/login", headers={"X-Auth-Request-Redirect": return_url}
+        )
+    else:
+        r = await client.get("/login", params={"rd": return_url})
+    assert r.status_code == 307
+    assert r.headers["Location"].startswith(config.oidc.login_url)
+    url = urlparse(r.headers["Location"])
+    assert url.query
+    query = parse_qs(url.query)
+    login_params = {p: [v] for p, v in config.oidc.login_params.items()}
+    assert query == {
+        "client_id": [config.oidc.client_id],
+        "redirect_uri": [config.oidc.redirect_url],
+        "response_type": ["code"],
+        "scope": ["openid " + " ".join(config.oidc.scopes)],
+        "state": [ANY],
+        **login_params,
+    }
+
+    # Simulate the return from the OpenID Connect provider.
+    r = await client.get(
+        callback_route,
+        params={"code": "some-code", "state": query["state"][0]},
+    )
+    if r.status_code == 307:
+        if expect_enrollment:
+            assert r.headers["Location"] == config.oidc.enrollment_url
+        else:
+            assert r.headers["Location"] == return_url
+
+    return r
