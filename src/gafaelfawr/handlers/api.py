@@ -297,11 +297,6 @@ async def post_admin_tokens(
     auth_data: TokenData = Depends(authenticate_admin_write),
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
-    if not token_request.uid:
-        user_info_service = context.factory.create_user_info_service()
-        uid = await user_info_service.get_uid(token_request.username)
-        if uid is not None:
-            token_request.uid = uid
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         token = await token_service.create_token_from_admin_request(
