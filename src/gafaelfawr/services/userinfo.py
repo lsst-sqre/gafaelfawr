@@ -65,14 +65,52 @@ class UserInfoService:
         self._firestore = firestore
         self._logger = logger
 
+    async def get_uid(self, username: str) -> Optional[int]:
+        """Get the UID for a user.
+
+        Used when creating new tokens via an admin request.  In that case, we
+        don't care about name and email (they should be left as `None` so that
+        they're retrieved from LDAP), but we still need to know the UID.
+
+        Parameters
+        ----------
+        username : `str`
+            Username of user.
+
+        Returns
+        -------
+        uid : `int` or `None`
+            UID of user, or `None` if neither LDAP nor Firestore are
+            configured.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.FirestoreError
+            UID/GID allocation using Firestore failed, probably because the UID
+            or GID space has been exhausted.
+        gafaelfawr.exceptions.LDAPError
+            Gafaelfawr was configured to get user groups, username, or numeric
+            UID from LDAP, but the attempt failed due to some error.
+        """
+        if self._firestore:
+            return await self._firestore.get_uid(username)
+        elif self._ldap:
+            ldap_data = await self._ldap.get_data(username)
+            return ldap_data.uid
+        else:
+            return None
+
     async def get_user_info_from_token(
         self, token_data: TokenData
     ) -> TokenUserInfo:
         """Get the user information from a token.
 
-        This returns the information stored in the token.  If group
-        information is not present in the token and LDAP is configured, it
-        will be obtained dynamically from LDAP.
+        Information stored with the token takes precedence over information
+        from LDAP.  If the token information is `None` and LDAP is configured,
+        retrieve it dynamically from LDAP.  The exception is UID, which is
+        always set during token creation and then never dynamically looked up
+        after that, ensuring that a token, once created, always has the same
+        UID.
 
         Parameters
         ----------
@@ -95,19 +133,23 @@ class UserInfoService:
         """
         username = token_data.username
         if self._ldap:
-            if self._firestore:
-                group_names = await self._ldap.get_group_names(username)
-                groups = []
-                for group_name in group_names:
-                    gid = await self._firestore.get_gid(group_name)
-                    groups.append(TokenGroup(name=group_name, id=gid))
-            else:
-                groups = await self._ldap.get_groups(username)
+            groups = token_data.groups
+            if groups is None:
+                if self._firestore:
+                    group_names = await self._ldap.get_group_names(username)
+                    groups = []
+                    for group_name in group_names:
+                        gid = await self._firestore.get_gid(group_name)
+                        groups.append(TokenGroup(name=group_name, id=gid))
+                else:
+                    groups = await self._ldap.get_groups(username)
+            if not token_data.name or not token_data.email:
+                ldap_data = await self._ldap.get_data(username)
             return TokenUserInfo(
                 username=username,
-                name=token_data.name,
+                name=token_data.name or ldap_data.name,
                 uid=token_data.uid,
-                email=token_data.email,
+                email=token_data.email or ldap_data.email,
                 groups=groups,
             )
         else:
@@ -248,10 +290,12 @@ class OIDCUserInfoService(UserInfoService):
         elif not ldap_data.uid:
             uid = self._get_uid_from_oidc_token(token, username)
 
+        # If LDAP is configured and provides a name or email, set those to
+        # None to ensure that LDAP will be used for that data going forward.
         return TokenUserInfo(
             username=username,
-            name=ldap_data.name or token.claims.get("name"),
-            email=ldap_data.email or token.claims.get("email"),
+            name=None if ldap_data.name else token.claims.get("name"),
+            email=None if ldap_data.email else token.claims.get("email"),
             uid=uid or ldap_data.uid,
             groups=groups,
         )
