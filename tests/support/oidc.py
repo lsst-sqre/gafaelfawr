@@ -184,11 +184,14 @@ async def simulate_oidc_login(
     assert url.query
     query = parse_qs(url.query)
     login_params = {p: [v] for p, v in config.oidc.login_params.items()}
+    scope = "openid"
+    if config.oidc.scopes:
+        scope += " " + " ".join(config.oidc.scopes)
     assert query == {
         "client_id": [config.oidc.client_id],
         "redirect_uri": [config.oidc.redirect_url],
         "response_type": ["code"],
-        "scope": ["openid " + " ".join(config.oidc.scopes)],
+        "scope": [scope],
         "state": [ANY],
         **login_params,
     }
