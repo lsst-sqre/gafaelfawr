@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from gafaelfawr.keypair import RSAKeyPair
-from gafaelfawr.util import add_padding, base64_to_number, number_to_base64
+from gafaelfawr.util import (
+    add_padding,
+    base64_to_number,
+    is_bot_user,
+    number_to_base64,
+)
 
 
 def test_add_padding() -> None:
@@ -31,6 +36,14 @@ def test_base64_to_number() -> None:
         assert base64_to_number(n_b64) == n
 
     assert base64_to_number("AQAB") == 65537
+
+
+def test_is_bot_user() -> None:
+    assert is_bot_user("bot-user")
+    assert not is_bot_user("some-user")
+    assert not is_bot_user("bot")
+    assert not is_bot_user("botuser")
+    assert not is_bot_user("bot-in!valid")
 
 
 def test_number_to_base64() -> None:
