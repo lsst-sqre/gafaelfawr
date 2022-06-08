@@ -9,99 +9,16 @@ from urllib.parse import parse_qs, urljoin, urlparse
 import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
-from httpx import AsyncClient, ConnectError, Response
+from httpx import AsyncClient, ConnectError
 
 from gafaelfawr.constants import GID_MIN, UID_BOT_MIN, UID_USER_MIN
-from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
-from gafaelfawr.models.oidc import OIDCVerifiedToken
 
 from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
-from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
-from ..support.oidc import mock_oidc_provider_config, mock_oidc_provider_token
+from ..support.oidc import mock_oidc_provider_token, simulate_oidc_login
 from ..support.settings import reconfigure
-
-
-async def simulate_oidc_login(
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    token: OIDCVerifiedToken,
-    *,
-    return_url: str = "https://example.com/foo",
-    use_redirect_header: bool = False,
-    callback_route: str = "/login",
-    expect_enrollment: bool = False,
-) -> Response:
-    """Simulate an OpenID Connect login and return the final response.
-
-    Parameters
-    ----------
-    client : `httpx.AsyncClient`
-        Client to use to make calls to the application.
-    respx_mock : `respx.Router`
-        Mock for httpx calls.
-    token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
-        Authentication token the upstream OpenID Connect provider should
-        return.
-    return_url : `str`, optional
-        The return URL to pass to the login process.  If not provided, a
-        simple one will be used.
-    use_redirect_header : `bool`, optional
-        If set to `True`, pass the return URL in a header instead of as a
-        parameter to the ``/login`` route.
-    callback_route : `str`, optional
-        Override the callback route to which the upstream OpenID Connect
-        provider is expected to send the redirect.
-    expect_enrollment : `bool`, optional
-        If set to `True`, expect a redirect to the enrollment URL after login
-        rather than to the return URL.
-
-    Returns
-    -------
-    response : ``httpx.Response``
-        The response from the return to the ``/login`` handler.
-    """
-    config = await config_dependency()
-    assert config.oidc
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-
-    # Simulate the redirect to the OpenID Connect provider.
-    if use_redirect_header:
-        r = await client.get(
-            "/login", headers={"X-Auth-Request-Redirect": return_url}
-        )
-    else:
-        r = await client.get("/login", params={"rd": return_url})
-    assert r.status_code == 307
-    assert r.headers["Location"].startswith(config.oidc.login_url)
-    url = urlparse(r.headers["Location"])
-    assert url.query
-    query = parse_qs(url.query)
-    login_params = {p: [v] for p, v in config.oidc.login_params.items()}
-    assert query == {
-        "client_id": [config.oidc.client_id],
-        "redirect_uri": [config.oidc.redirect_url],
-        "response_type": ["code"],
-        "scope": ["openid " + " ".join(config.oidc.scopes)],
-        "state": [ANY],
-        **login_params,
-    }
-
-    # Simulate the return from the OpenID Connect provider.
-    r = await client.get(
-        callback_route,
-        params={"code": "some-code", "state": query["state"][0]},
-    )
-    if r.status_code == 307:
-        if expect_enrollment:
-            assert r.headers["Location"] == config.oidc.enrollment_url
-        else:
-            assert r.headers["Location"] == return_url
-
-    return r
 
 
 @pytest.mark.asyncio
@@ -495,62 +412,6 @@ async def test_unicode_name(
         "uid": int(token.claims[config.oidc.uid_claim]),
         "groups": [{"name": "admin", "id": 1000}],
     }
-
-
-@pytest.mark.asyncio
-async def test_ldap(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
-) -> None:
-    config = await reconfigure(tmp_path, "oidc-ldap")
-    assert config.ldap
-    token = create_upstream_oidc_jwt(sub=mock_ldap.source_id, groups=["admin"])
-
-    r = await simulate_oidc_login(client, respx_mock, token)
-    assert r.status_code == 307
-
-    # Check that the data returned from the user-info API is correct.
-    r = await client.get("/auth/api/v1/user-info")
-    assert r.status_code == 200
-    assert r.json() == {
-        "username": "ldap-user",
-        "name": "LDAP User",
-        "email": "ldap-user@example.com",
-        "uid": 2000,
-        "groups": [{"name": g.name, "id": g.id} for g in mock_ldap.groups],
-    }
-
-    # Check that the headers returned by the auth endpoint are also correct.
-    r = await client.get("/auth", params={"scope": "read:all"})
-    assert r.status_code == 200
-    assert r.headers["X-Auth-Request-User"] == "ldap-user"
-    assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == "2000"
-    assert r.headers["X-Auth-Request-Groups"] == ",".join(
-        [g.name for g in mock_ldap.groups]
-    )
-
-
-@pytest.mark.asyncio
-async def test_enrollment_url(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
-) -> None:
-    config = await reconfigure(tmp_path, "oidc-ldap")
-    assert config.oidc
-    assert config.ldap
-    token = create_upstream_oidc_jwt(sub="unknown-sub", groups=["admin"])
-    await mock_oidc_provider_config(respx_mock, "orig-kid")
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
-
-    r = await simulate_oidc_login(
-        client, respx_mock, token, expect_enrollment=True
-    )
-    assert r.status_code == 307
 
 
 @pytest.mark.asyncio

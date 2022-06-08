@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
+from collections import defaultdict
 from types import TracebackType
-from typing import Any, Dict, Iterator, List, Literal, Optional, Type
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Type
 from unittest.mock import Mock, patch
 
 import bonsai
@@ -11,10 +13,11 @@ from bonsai.utils import escape_filter_exp
 
 from gafaelfawr import factory, storage
 from gafaelfawr.constants import LDAP_TIMEOUT
-from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.models.token import TokenGroup
 
-__all__ = ["MockLDAP"]
+_SearchResults = List[Dict[str, List[str]]]
+_MockData = Dict[str, Dict[Tuple[str, str], _SearchResults]]
+
+__all__ = ["MockLDAP", "patch_ldap"]
 
 
 class MockLDAP(Mock):
@@ -22,12 +25,7 @@ class MockLDAP(Mock):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(spec=bonsai.LDAPConnection, **kwargs)
-        self.groups = [
-            TokenGroup(name="foo", id=1222),
-            TokenGroup(name="group-1", id=123123),
-            TokenGroup(name="group-2", id=123442),
-        ]
-        self.source_id = "http://cilogon.org/serverA/users/1234"
+        self._entries: _MockData = defaultdict(dict)
 
     async def __aenter__(self) -> MockLDAP:
         return self
@@ -40,6 +38,26 @@ class MockLDAP(Mock):
     ) -> Literal[False]:
         return False
 
+    def add_entries_for_test(
+        self, base_dn: str, attr: str, value: str, entries: _SearchResults
+    ) -> None:
+        """Add LDAP entries for testing.
+
+        Parameters
+        ----------
+        base_dn : `str`
+            The base DN of a search that should return this entry.
+        attr : `str`
+            The search attribute that will be used to retrieve this entry.
+        value : `str`
+            The value of that search attribute.
+        entries : List[Dict[`str`, List[`str`]]]
+            The entries returned by that search, which will be filtered by the
+            attribute list.
+        """
+        key = (attr, escape_filter_exp(value))
+        self._entries[base_dn][key] = entries
+
     async def close(self) -> None:
         pass
 
@@ -51,39 +69,27 @@ class MockLDAP(Mock):
         attrlist: List[str],
         timeout: float,
     ) -> List[Dict[str, List[str]]]:
-        config = config_dependency.config()
-        assert config.ldap
-        assert base == config.ldap.group_base_dn
         assert scope in (
             bonsai.LDAPSearchScope.SUB,
             bonsai.LDAPSearchScope.ONELEVEL,
         )
         assert timeout == LDAP_TIMEOUT
-        source_id_escaped = escape_filter_exp(self.source_id)
-        if filter_exp == f"(voPersonSoRID={source_id_escaped})":
-            assert attrlist == ["uid"]
-            return [{"uid": ["ldap-user"]}]
-        elif filter_exp == "(uid=ldap-user)":
-            assert sorted(attrlist) == ["displayName", "mail", "uidNumber"]
-            return [
-                {
-                    "displayName": ["LDAP User"],
-                    "mail": ["ldap-user@example.com", "foo@example.org"],
-                    "uidNumber": [str(2000)],
-                }
-            ]
-        elif filter_exp == "(&(objectClass=posixGroup)(member=ldap-user))":
-            if attrlist == ["cn", "gidNumber"]:
-                return [
-                    {"cn": [g.name], "gidNumber": [str(g.id)]}
-                    for g in self.groups
-                ]
-            elif attrlist == ["cn"]:
-                return [{"cn": [g.name]} for g in self.groups]
-            else:
-                assert False, f"Invalid attribute list {attrlist}"
-        else:
+
+        match = re.match(
+            r"\((?:&\(objectClass=posixGroup\))?\(?([^=]+)=([^\)]+)\)?\)$",
+            filter_exp,
+        )
+        assert match, f"{filter_exp} does not match regex of searches"
+        key = (match.group(1), match.group(2))
+        if key not in self._entries[base]:
             return []
+        entries = self._entries[base][key]
+        results = []
+        for entry in entries:
+            for attr in attrlist:
+                assert attr in entry, f"Invalid attribute {attr}"
+            results.append({a: entry[a] for a in attrlist})
+        return results
 
 
 def patch_ldap() -> Iterator[MockLDAP]:

@@ -20,19 +20,13 @@ ldap:
   group_base_dn: "dc=example,dc=com"
   user_base_dn: "ou=people,dc=example,dc=com"
   uid_attr: "uidNumber"
+  name_attr: null
+  email_attr: null
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"
   login_url: "https://upstream.example.com/oidc/login"
-  login_params:
-    skin: "test"
   redirect_url: "https://upstream.example.com/login"
   token_url: "https://upstream.example.com/token"
-  enrollment_url: "https://upstream.example.com/enroll"
-  scopes:
-    - "email"
-    - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
-error_footer: |
-  Some <strong>error instructions</strong> with HTML.

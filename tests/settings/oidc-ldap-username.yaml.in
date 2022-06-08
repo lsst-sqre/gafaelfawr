@@ -18,8 +18,8 @@ known_scopes:
 ldap:
   url: "ldaps://ldap.example.com/"
   group_base_dn: "dc=example,dc=com"
-  user_base_dn: "ou=people,dc=example,dc=com"
-  uid_attr: "uidNumber"
+  user_base_dn: "dc=example,dc=com"
+  username_base_dn: "dc=example,dc=com"
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"
