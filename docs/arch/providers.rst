@@ -3,12 +3,8 @@ Authentication providers
 ########################
 
 Gafaelfawr supports two choices of authentication provider: GitHub and OpenID Connect.
-The authentication provider is chosen based on whether the ``config.github.clientId`` or ``config.cilogon.clientId`` settings are present.
+The authentication provider is chosen based on whether the ``config.github.clientId``, ``config.cilogon.clientId``, or ``config.oidc.clientId`` settings are present.
 See :ref:`providers` for more information.
-
-Gafaelfawr uses the authentication provider to determine the numeric UID of the user.
-Be aware that changing from one authentication provider to another will likely result in UID changes for all users.
-Gafaelfawr itself does not care and will pass along the new values, but protected applications that use those values may be surprised by a change.
 
 The username obtained from the authentication provider must meet the following requirements:
 
@@ -24,12 +20,13 @@ OpenID Connect
 When configured to use an OpenID Connect provider, Gafaelfawr obtains the ID token from the provider after authentication and then stores key pieces of data from it as the underlying data of a token.
 
 - Username is taken from the claim identified by the ``username_claim`` setting.
-- UID is taken from the claim identified by the ``uid_claim`` setting and is converted to a number.
-- Name is taken from the ``name`` claim if it exists.
-- Email address is taken from the ``email`` claim if it exists.
-- Groups are taken from the ``isMemberOf`` claim if it exists.
-- The scope of the token will be based on the group membership from ``isMemberOf`` and the ``config.groupMapping`` Helm chart value.
-  See :ref:`scopes` for more details.
+- UID (unless LDAP or Firestore are used for UIDs) is taken from the claim identified by the ``uid_claim`` setting and is converted to a number.
+- Name (unless LDAP is used) is taken from the ``name`` claim if it exists.
+- Email address (unless LDAP is used) is taken from the ``email`` claim if it exists.
+- Groups (unless LDAP is used) are taken from the ``isMemberOf`` claim if it exists.
+
+The scope of the token will be based on the group membership and the ``config.groupMapping`` Helm chart value.
+See :ref:`scopes` for more details.
 
 Registration with the OpenID Connect provider must be done in advance, outside of Gafaelfawr.
 Refresh tokens are not used.
@@ -45,6 +42,8 @@ The email address will be taken from the address tagged primary in the addresses
 The group membership will be taken from the user's team membership.
 See :ref:`github-groups` for more details.
 The scope of the token will be based on the group membership and the ``group_mapping`` configuration setting.
+
+LDAP and Firestore are not supported as sources of user metadata when GitHub is used as an authentication provider.
 
 .. _github-groups:
 
