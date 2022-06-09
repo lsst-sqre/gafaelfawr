@@ -159,7 +159,7 @@ def test_update_service_tokens(
                     "generation": 1,
                 },
                 "spec": {
-                    "service": "mobu",
+                    "service": "bot-mobu",
                     "scopes": ["admin:token"],
                 },
             },

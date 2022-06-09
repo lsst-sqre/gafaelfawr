@@ -335,7 +335,7 @@ async def test_auth_required(client: AsyncClient, factory: Factory) -> None:
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": csrf},
-        json={"username": "foo", "token_type": "service"},
+        json={"username": "bot-foo", "token_type": "service"},
     )
     assert r.status_code == 401
 
@@ -387,13 +387,13 @@ async def test_csrf_required(client: AsyncClient, factory: Factory) -> None:
 
     r = await client.post(
         "/auth/api/v1/tokens",
-        json={"username": "foo", "token_type": "service"},
+        json={"username": "bot-foo", "token_type": "service"},
     )
     assert r.status_code == 403
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": f"XXX{csrf}"},
-        json={"username": "foo", "token_type": "service"},
+        json={"username": "bot-foo", "token_type": "service"},
     )
     assert r.status_code == 403
 
@@ -820,7 +820,7 @@ async def test_create_admin(
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": csrf},
-        json={"username": "a-service", "token_type": "service"},
+        json={"username": "bot-a-service", "token_type": "service"},
     )
     assert r.status_code == 403
 
@@ -833,7 +833,7 @@ async def test_create_admin(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": csrf},
         json={
-            "username": "a-service",
+            "username": "bot-a-service",
             "token_type": "service",
             "scopes": ["admin:token"],
             "expires": expires,
@@ -846,7 +846,7 @@ async def test_create_admin(
     assert r.status_code == 201
     assert r.json() == {"token": ANY}
     service_token = Token.from_str(r.json()["token"])
-    token_url = f"/auth/api/v1/users/a-service/tokens/{service_token.key}"
+    token_url = f"/auth/api/v1/users/bot-a-service/tokens/{service_token.key}"
     assert r.headers["Location"] == token_url
 
     clear_session_cookie(client)
@@ -857,7 +857,7 @@ async def test_create_admin(
     assert r.status_code == 200
     assert r.json() == {
         "token": service_token.key,
-        "username": "a-service",
+        "username": "bot-a-service",
         "token_type": "service",
         "scopes": ["admin:token"],
         "created": ANY,
@@ -869,7 +869,7 @@ async def test_create_admin(
     )
     assert r.status_code == 200
     assert r.json() == {
-        "username": "a-service",
+        "username": "bot-a-service",
         "name": "A Service",
         "email": "service@example.com",
         "uid": 1234,
@@ -978,7 +978,7 @@ async def test_create_admin(
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"Authorization": f"bearer {str(config.bootstrap_token)}"},
-        json={"username": "other-service", "token_type": "service"},
+        json={"username": "bot-other-service", "token_type": "service"},
     )
     assert r.status_code == 201
 

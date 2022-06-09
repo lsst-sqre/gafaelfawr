@@ -45,7 +45,7 @@ TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
             "generation": 1,
         },
         "spec": {
-            "service": "mobu",
+            "service": "bot-mobu",
             "scopes": ["admin:token"],
         },
     },
@@ -66,7 +66,7 @@ TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
             },
         },
         "spec": {
-            "service": "nublado-hub",
+            "service": "bot-nublado-hub",
             "scopes": [],
         },
     },
@@ -211,26 +211,26 @@ async def test_create(
             "key": ANY,
             "severity": "info",
             "token_scopes": ["admin:token"],
-            "token_username": "mobu",
+            "token_username": "bot-mobu",
         },
         {
             "event": "Created mobu/gafaelfawr-secret secret",
             "scopes": ["admin:token"],
             "severity": "info",
-            "service": "mobu",
+            "service": "bot-mobu",
         },
         {
             "event": "Created new service token",
             "key": ANY,
             "severity": "info",
             "token_scopes": [],
-            "token_username": "nublado-hub",
+            "token_username": "bot-nublado-hub",
         },
         {
             "event": "Created nublado2/gafaelfawr secret",
             "scopes": [],
             "severity": "info",
-            "service": "nublado-hub",
+            "service": "bot-nublado-hub",
         },
     ]
 
@@ -294,26 +294,26 @@ async def test_modify(
             "key": ANY,
             "severity": "info",
             "token_scopes": ["admin:token"],
-            "token_username": "mobu",
+            "token_username": "bot-mobu",
         },
         {
             "event": "Updated mobu/gafaelfawr-secret secret",
             "scopes": ["admin:token"],
             "severity": "info",
-            "service": "mobu",
+            "service": "bot-mobu",
         },
         {
             "event": "Created new service token",
             "key": ANY,
             "severity": "info",
             "token_scopes": [],
-            "token_username": "nublado-hub",
+            "token_username": "bot-nublado-hub",
         },
         {
             "event": "Updated nublado2/gafaelfawr secret",
             "scopes": [],
             "severity": "info",
-            "service": "nublado-hub",
+            "service": "bot-nublado-hub",
         },
     ]
 
@@ -321,7 +321,7 @@ async def test_modify(
     async with factory.session.begin():
         token = await token_service.create_token_from_admin_request(
             AdminTokenRequest(
-                username="some-other-service",
+                username="bot-some-other-service",
                 token_type=TokenType.service,
                 scopes=["admin:token"],
             ),
@@ -343,7 +343,7 @@ async def test_modify(
     async with factory.session.begin():
         token = await token_service.create_token_from_admin_request(
             AdminTokenRequest(
-                username="nublado-hub",
+                username="bot-nublado-hub",
                 token_type=TokenType.service,
                 scopes=["read:all"],
             ),
@@ -403,7 +403,7 @@ async def test_update_from_queue(
             "generation": 1,
         },
         "spec": {
-            "service": "mobu",
+            "service": "bot-mobu",
             "scopes": ["admin:token"],
         },
     }
@@ -438,7 +438,7 @@ async def test_update_from_queue(
         "gafaelfawr-secret",
     )
     service_token["metadata"]["generation"] = 2
-    service_token["spec"]["service"] = "other-mobu"
+    service_token["spec"]["service"] = "bot-other-mobu"
     await mock_kubernetes.replace_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
@@ -501,7 +501,7 @@ async def test_update_generation(
             "generation": 1,
         },
         "spec": {
-            "service": "mobu",
+            "service": "bot-mobu",
             "scopes": ["admin:token"],
         },
     }
@@ -541,7 +541,7 @@ async def test_update_generation(
         "gafaelfawrservicetokens",
         "gafaelfawr-secret",
     )
-    service_token["spec"]["service"] = "other-mobu"
+    service_token["spec"]["service"] = "bot-other-mobu"
     await mock_kubernetes.replace_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
@@ -613,7 +613,7 @@ async def test_update_metadata(
             "generation": 1,
         },
         "spec": {
-            "service": "mobu",
+            "service": "bot-mobu",
             "scopes": ["admin:token"],
         },
     }
@@ -769,7 +769,7 @@ async def test_errors_scope(
                 "generation": 1,
             },
             "spec": {
-                "service": "mobu",
+                "service": "bot-mobu",
                 "scopes": ["invalid:scope"],
             },
         },
@@ -792,6 +792,55 @@ async def test_errors_scope(
         {
             "lastTransitionTime": ANY,
             "message": "Unknown scopes requested",
+            "observedGeneration": 1,
+            "reason": StatusReason.Failed.value,
+            "status": "False",
+            "type": "SecretCreated",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_errors_username(
+    factory: Factory, mock_kubernetes: MockKubernetesApi
+) -> None:
+    await mock_kubernetes.create_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        {
+            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+            "kind": "GafaelfawrServiceToken",
+            "metadata": {
+                "name": "gafaelfawr-secret",
+                "namespace": "mobu",
+                "generation": 1,
+            },
+            "spec": {
+                "service": "mobu",
+                "scopes": [],
+            },
+        },
+    )
+    kubernetes_service = factory.create_kubernetes_service(MagicMock())
+
+    await kubernetes_service.update_service_tokens()
+    with pytest.raises(ApiException):
+        await mock_kubernetes.read_namespaced_secret(
+            "gafaelfawr-secret", "mobu"
+        )
+    service_token = await mock_kubernetes.get_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        "mobu",
+        "gafaelfawrservicetokens",
+        "gafaelfawr-secret",
+    )
+    assert service_token["status"]["conditions"] == [
+        {
+            "lastTransitionTime": ANY,
+            "message": 'Username "mobu" must start with "bot-"',
             "observedGeneration": 1,
             "reason": StatusReason.Failed.value,
             "status": "False",

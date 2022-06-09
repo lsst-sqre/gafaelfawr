@@ -698,7 +698,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
 
     # Now request a service token with minimal data instead.
     request = AdminTokenRequest(
-        username="service", token_type=TokenType.service
+        username="bot-service", token_type=TokenType.service
     )
     async with factory.session.begin():
         token = await token_service.create_token_from_admin_request(
@@ -1014,7 +1014,7 @@ async def test_delete_cascade(factory: Factory) -> None:
         user_token_data = await token_service.get_data(user_token)
         assert user_token_data
         admin_request = AdminTokenRequest(
-            username="service",
+            username="bot-service",
             token_type=TokenType.service,
             scopes=["read:all", "user:token"],
             name="Some Service",
@@ -1307,10 +1307,18 @@ async def test_invalid_username(factory: Factory) -> None:
         with pytest.raises(ValidationError):
             AdminTokenRequest(username=user, token_type=TokenType.service)
         request = AdminTokenRequest(
-            username="valid", token_type=TokenType.service
+            username="bot-valid", token_type=TokenType.service
         )
         request.username = user
         with pytest.raises(PermissionDeniedError):
             await token_service.create_token_from_admin_request(
                 request, data, ip_address="127.0.0.1"
             )
+
+    # Admin token requests have to be bot users.
+    data.username = "user"
+    request = AdminTokenRequest(username="user", token_type=TokenType.service)
+    with pytest.raises(PermissionDeniedError):
+        await token_service.create_token_from_admin_request(
+            request, data, ip_address="127.0.0.1"
+        )
