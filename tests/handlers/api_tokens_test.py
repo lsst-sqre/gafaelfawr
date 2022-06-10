@@ -1080,6 +1080,31 @@ async def test_create_admin_ldap(
         "groups": [{"name": "another-group", "id": 11111}],
     }
 
+    # Create a token for a user not found in LDAP, and without metadata.
+    csrf = await set_session_cookie(client, token_data.token)
+    r = await client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "username": "other-user",
+            "token_name": "other token",
+            "token_type": "user",
+            "scopes": [],
+            "expires": expires,
+        },
+    )
+    assert r.status_code == 201
+    service_token = Token.from_str(r.json()["token"])
+
+    # Getting metadata should not throw an exception.
+    clear_session_cookie(client)
+    r = await client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {"username": "other-user", "groups": []}
+
 
 @pytest.mark.asyncio
 async def test_create_admin_firestore(
