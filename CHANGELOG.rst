@@ -9,10 +9,18 @@ The internal configuration format may change in minor releases.
 5.0.0 (unreleased)
 ==================
 
+- Service tokens now must be for bot users, meaning that the username must begin with ``bot-``.
+  This applies to any tokens created via the ``/auth/api/v1/tokens`` route or via Kubernetes ``GafaelfawrServiceToken`` resources and the Kubernetes controller.
 - Add support for getting the full name and email address from LDAP as well.
   Those plus numeric UID (if configured) now all use ``config.ldap.userBaseDn`` and ``config.ldap.userSearchAttr`` to configure how the user's LDAP directory entry is found.
   Enabling numeric UID lookups now requires setting ``config.ldap.uidAttr`` plus ``config.ldap.userBaseDn``, and ``config.ldap.uidBaseDn`` is no longer a valid configuration setting.
 - LDAP data is cached for up to five minutes to reduce latency and load on the LDAP server.
+- Gafaelfawr now uniformly treats data stored with the token as overriding data from external sources, such as LDAP or Firestore.
+  This also applies to tokens created by admins.
+  To create a token but use user data from external sources, omit that data (such as UID or email) in the token creation request.
+- Allow users who are not found in LDAP.
+  These will normally be created via the admin token API.
+  User data such as UID, full name, and email address that would normally be retrieved from LDAP (depending on the configuration) will be null instead.
 - Rename ``config.ldap.baseDn`` to ``config.ldap.groupBaseDn`` to make it clearer that it is only used for group membership searches.
 - Add ``gafaelfawr fix-home-ownership`` command-line invocation that assigns UIDs via Firestore for all users found in a home directory tree and then recursively changes ownership of their files to their newly-allocated UIDs.
   This is intended as a one-time migration tool for environments that are switching to Firestore for UID assignment

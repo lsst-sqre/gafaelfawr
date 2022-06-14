@@ -230,9 +230,9 @@ class TokenInfo(TokenBase):
 class TokenUserInfo(BaseModel):
     """The information about a user stored with their token.
 
-    This information is derived from the upstream user information.  It is
-    kept here temporary until it has been replaced by a proper identity
-    management system.
+    If information is stored with the token, it overrides information from
+    other sources such as LDAP.  Fields that should be dynamically retrieved
+    from LDAP should be set to `None`.
     """
 
     username: str = Field(
@@ -381,22 +381,47 @@ class AdminTokenRequest(BaseModel):
     )
 
     name: Optional[str] = Field(
-        None, title="Preferred full name", example="Service User", min_length=1
+        None,
+        title="Preferred full name",
+        description=(
+            "If a value is not provided, and LDAP is configured, the full"
+            " name from the LDAP entry for that username will be used."
+        ),
+        example="Service User",
+        min_length=1,
     )
 
     email: Optional[str] = Field(
         None,
         title="Email address",
+        description=(
+            "If a value is not provided, and LDAP is configured, the email"
+            " address from the LDAP entry for that username will be used."
+        ),
         example="service@example.com",
         min_length=1,
     )
 
-    uid: Optional[int] = Field(None, title="UID number", example=4131, ge=1)
+    uid: Optional[int] = Field(
+        None,
+        title="UID number",
+        description=(
+            "If a value is not provided, and Firestore or LDAP are"
+            " configured, the UID from Firestore (preferred) or the LDAP"
+            " entry for that username will be used."
+        ),
+        example=4131,
+        ge=1,
+    )
 
     groups: Optional[List[TokenGroup]] = Field(
         None,
         title="Groups",
-        description="Groups of which the user is a member",
+        description=(
+            "Groups of which the user is a member. If a value is not provided,"
+            " and LDAP is configured, the group membership from LDAP will be"
+            " used."
+        ),
     )
 
     @validator("token_type")

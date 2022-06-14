@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import re
 import subprocess
 from pathlib import Path
 
 from structlog.stdlib import BoundLogger
 
 from ..cache import IdCache
-from ..constants import BOT_USERNAME_REGEX
 from ..storage.firestore import FirestoreStorage
+from ..util import is_bot_user
 
 __all__ = ["FirestoreService"]
 
@@ -133,7 +132,7 @@ class FirestoreService:
             uid = self._uid_cache.get(username)
             if uid:
                 return uid
-            bot = re.search(BOT_USERNAME_REGEX, username) is not None
+            bot = is_bot_user(username)
             uid = await self._storage.get_uid(username, bot=bot)
             self._uid_cache.store(username, uid)
             return uid

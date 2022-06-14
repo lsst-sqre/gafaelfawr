@@ -101,6 +101,7 @@ Gafaelfawr supports the following routes:
 ``/oauth2/callback``
     Identical to the ``/login`` route.
     Provided for backwards compatibility with oauth2_proxy.
+    Deprecated, and will be removed in a later release.
 
 ``/.well-known/jwks.json``
     Returns the key information used to issue JWTs in JWKS format.

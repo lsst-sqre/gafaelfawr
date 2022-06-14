@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 from datetime import datetime, timezone
 from ipaddress import IPv4Address, IPv6Address
 from typing import List, Optional, Union
 
 from safir.database import datetime_from_db
 
+from .constants import BOT_USERNAME_REGEX
+
 __all__ = [
     "add_padding",
     "base64_to_number",
     "current_datetime",
+    "is_bot_user",
     "normalize_datetime",
     "number_to_base64",
     "random_128_bits",
@@ -66,6 +70,11 @@ def base64_to_number(data: str) -> int:
 def current_datetime() -> datetime:
     """Return the current time without microseconds."""
     return datetime.now(tz=timezone.utc).replace(microsecond=0)
+
+
+def is_bot_user(username: str) -> bool:
+    """Return whether the given username is a bot user."""
+    return re.search(BOT_USERNAME_REGEX, username) is not None
 
 
 def normalize_datetime(

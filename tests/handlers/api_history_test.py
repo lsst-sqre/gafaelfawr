@@ -115,7 +115,7 @@ async def build_history(
         )
 
         request = AdminTokenRequest(
-            username="service",
+            username="bot-service",
             token_type=TokenType.service,
             scopes=["admin:token"],
         )

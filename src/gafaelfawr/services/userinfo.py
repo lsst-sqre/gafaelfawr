@@ -70,9 +70,9 @@ class UserInfoService:
     ) -> TokenUserInfo:
         """Get the user information from a token.
 
-        This returns the information stored in the token.  If group
-        information is not present in the token and LDAP is configured, it
-        will be obtained dynamically from LDAP.
+        Information stored with the token takes precedence over information
+        from LDAP.  If the token information is `None` and LDAP is configured,
+        retrieve it dynamically from LDAP.
 
         Parameters
         ----------
@@ -94,27 +94,37 @@ class UserInfoService:
             UID from LDAP, but the attempt failed due to some error.
         """
         username = token_data.username
+        uid = token_data.uid
+        if uid is None and self._firestore:
+            uid = await self._firestore.get_uid(username)
+
         if self._ldap:
-            if self._firestore:
-                group_names = await self._ldap.get_group_names(username)
-                groups = []
-                for group_name in group_names:
-                    gid = await self._firestore.get_gid(group_name)
-                    groups.append(TokenGroup(name=group_name, id=gid))
-            else:
-                groups = await self._ldap.get_groups(username)
+            groups = token_data.groups
+            if groups is None:
+                if self._firestore:
+                    group_names = await self._ldap.get_group_names(username)
+                    groups = []
+                    for group_name in group_names:
+                        gid = await self._firestore.get_gid(group_name)
+                        groups.append(TokenGroup(name=group_name, id=gid))
+                else:
+                    groups = await self._ldap.get_groups(username)
+            if not token_data.name or not token_data.email or not uid:
+                ldap_data = await self._ldap.get_data(username)
+                if not uid:
+                    uid = ldap_data.uid
             return TokenUserInfo(
                 username=username,
-                name=token_data.name,
-                uid=token_data.uid,
-                email=token_data.email,
+                name=token_data.name or ldap_data.name,
+                uid=uid,
+                email=token_data.email or ldap_data.email,
                 groups=groups,
             )
         else:
             return TokenUserInfo(
                 username=token_data.username,
                 name=token_data.name,
-                uid=token_data.uid,
+                uid=uid,
                 email=token_data.email,
                 groups=token_data.groups,
             )
@@ -243,16 +253,16 @@ class OIDCUserInfoService(UserInfoService):
         else:
             username = self._get_username_from_oidc_token(token)
             groups = await self._get_groups_from_oidc_token(token, username)
-        if self._firestore:
-            uid = await self._firestore.get_uid(username)
-        elif not ldap_data.uid:
+        if not self._firestore and not ldap_data.uid:
             uid = self._get_uid_from_oidc_token(token, username)
 
+        # If LDAP is configured and provides a name or email, set those to
+        # None to ensure that LDAP will be used for that data going forward.
         return TokenUserInfo(
             username=username,
-            name=ldap_data.name or token.claims.get("name"),
-            email=ldap_data.email or token.claims.get("email"),
-            uid=uid or ldap_data.uid,
+            name=None if ldap_data.name else token.claims.get("name"),
+            email=None if ldap_data.email else token.claims.get("email"),
+            uid=uid,
             groups=groups,
         )
 

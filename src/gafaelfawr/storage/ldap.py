@@ -192,8 +192,7 @@ class LDAPStorage:
                 raise LDAPError("LDAP user entry invalid")
 
         # Fell through without finding a UID.
-        logger.error("User not found in LDAP")
-        raise LDAPError("User not found in LDAP")
+        return LDAPUserData(uid=None, name=None, email=None)
 
     async def get_username(self, sub: str) -> Optional[str]:
         """Get the username of a user.

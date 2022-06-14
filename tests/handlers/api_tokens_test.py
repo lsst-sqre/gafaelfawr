@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
@@ -11,7 +12,7 @@ from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 
 from gafaelfawr.config import Config
-from gafaelfawr.constants import COOKIE_NAME
+from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
@@ -19,7 +20,10 @@ from gafaelfawr.util import current_datetime
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
+from ..support.firestore import MockFirestore
+from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
+from ..support.settings import reconfigure
 from ..support.tokens import create_session_token
 
 
@@ -331,7 +335,7 @@ async def test_auth_required(client: AsyncClient, factory: Factory) -> None:
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": csrf},
-        json={"username": "foo", "token_type": "service"},
+        json={"username": "bot-foo", "token_type": "service"},
     )
     assert r.status_code == 401
 
@@ -383,13 +387,13 @@ async def test_csrf_required(client: AsyncClient, factory: Factory) -> None:
 
     r = await client.post(
         "/auth/api/v1/tokens",
-        json={"username": "foo", "token_type": "service"},
+        json={"username": "bot-foo", "token_type": "service"},
     )
     assert r.status_code == 403
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": f"XXX{csrf}"},
-        json={"username": "foo", "token_type": "service"},
+        json={"username": "bot-foo", "token_type": "service"},
     )
     assert r.status_code == 403
 
@@ -816,7 +820,7 @@ async def test_create_admin(
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": csrf},
-        json={"username": "a-service", "token_type": "service"},
+        json={"username": "bot-a-service", "token_type": "service"},
     )
     assert r.status_code == 403
 
@@ -829,7 +833,7 @@ async def test_create_admin(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": csrf},
         json={
-            "username": "a-service",
+            "username": "bot-a-service",
             "token_type": "service",
             "scopes": ["admin:token"],
             "expires": expires,
@@ -842,7 +846,7 @@ async def test_create_admin(
     assert r.status_code == 201
     assert r.json() == {"token": ANY}
     service_token = Token.from_str(r.json()["token"])
-    token_url = f"/auth/api/v1/users/a-service/tokens/{service_token.key}"
+    token_url = f"/auth/api/v1/users/bot-a-service/tokens/{service_token.key}"
     assert r.headers["Location"] == token_url
 
     clear_session_cookie(client)
@@ -853,7 +857,7 @@ async def test_create_admin(
     assert r.status_code == 200
     assert r.json() == {
         "token": service_token.key,
-        "username": "a-service",
+        "username": "bot-a-service",
         "token_type": "service",
         "scopes": ["admin:token"],
         "created": ANY,
@@ -865,11 +869,10 @@ async def test_create_admin(
     )
     assert r.status_code == 200
     assert r.json() == {
-        "username": "a-service",
+        "username": "bot-a-service",
         "name": "A Service",
         "email": "service@example.com",
         "uid": 1234,
-        "email": "service@example.com",
         "groups": [{"name": "some-group", "id": 12381}],
     }
 
@@ -975,6 +978,171 @@ async def test_create_admin(
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"Authorization": f"bearer {str(config.bootstrap_token)}"},
-        json={"username": "other-service", "token_type": "service"},
+        json={"username": "bot-other-service", "token_type": "service"},
     )
     assert r.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_create_admin_ldap(
+    tmp_path: Path, client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
+) -> None:
+    """Create a token through the admin interface with LDAP user data."""
+    config = await reconfigure(tmp_path, "oidc-ldap", factory)
+    token_data = await create_session_token(factory, scopes=["admin:token"])
+    csrf = await set_session_cookie(client, token_data.token)
+
+    assert config.ldap
+    assert config.ldap.user_base_dn
+    mock_ldap.add_entries_for_test(
+        config.ldap.user_base_dn,
+        config.ldap.user_search_attr,
+        "some-user",
+        [
+            {
+                "displayName": ["Some User"],
+                "mail": ["user@example.com"],
+                "uidNumber": ["1234"],
+            }
+        ],
+    )
+    mock_ldap.add_entries_for_test(
+        config.ldap.group_base_dn,
+        "member",
+        "some-user",
+        [{"cn": ["some-group"], "gidNumber": ["12381"]}],
+    )
+
+    # Create a new service token with no user metadata.
+    now = datetime.now(tz=timezone.utc)
+    expires = int((now + timedelta(days=2)).timestamp())
+    r = await client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "username": "some-user",
+            "token_name": "test token",
+            "token_type": "user",
+            "scopes": ["admin:token"],
+            "expires": expires,
+        },
+    )
+    assert r.status_code == 201
+    service_token = Token.from_str(r.json()["token"])
+
+    # Check that all the user metadata is fleshed out from LDAP.
+    clear_session_cookie(client)
+    r = await client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "some-user",
+        "name": "Some User",
+        "email": "user@example.com",
+        "uid": 1234,
+        "groups": [{"name": "some-group", "id": 12381}],
+    }
+
+    # Create a new token, but this time provide different user metadata.
+    csrf = await set_session_cookie(client, token_data.token)
+    r = await client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "username": "some-user",
+            "token_name": "other token",
+            "token_type": "user",
+            "scopes": ["admin:token"],
+            "expires": expires,
+            "name": "Another Name",
+            "email": "another@example.com",
+            "uid": 2222,
+            "groups": [{"name": "another-group", "id": 11111}],
+        },
+    )
+    assert r.status_code == 201
+    service_token = Token.from_str(r.json()["token"])
+
+    # Now that data should override what's in LDAP.
+    clear_session_cookie(client)
+    r = await client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "some-user",
+        "name": "Another Name",
+        "email": "another@example.com",
+        "uid": 2222,
+        "groups": [{"name": "another-group", "id": 11111}],
+    }
+
+    # Create a token for a user not found in LDAP, and without metadata.
+    csrf = await set_session_cookie(client, token_data.token)
+    r = await client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "username": "other-user",
+            "token_name": "other token",
+            "token_type": "user",
+            "scopes": [],
+            "expires": expires,
+        },
+    )
+    assert r.status_code == 201
+    service_token = Token.from_str(r.json()["token"])
+
+    # Getting metadata should not throw an exception.
+    clear_session_cookie(client)
+    r = await client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {"username": "other-user", "groups": []}
+
+
+@pytest.mark.asyncio
+async def test_create_admin_firestore(
+    tmp_path: Path,
+    client: AsyncClient,
+    factory: Factory,
+    mock_firestore: MockFirestore,
+) -> None:
+    """Create a token through the admin interface with LDAP user data."""
+    await reconfigure(tmp_path, "oidc-firestore", factory)
+    firestore_storage = factory.create_firestore_storage()
+    await firestore_storage.initialize()
+    token_data = await create_session_token(factory, scopes=["admin:token"])
+    csrf = await set_session_cookie(client, token_data.token)
+
+    # Create a new service token with no user metadata.
+    now = datetime.now(tz=timezone.utc)
+    expires = int((now + timedelta(days=2)).timestamp())
+    r = await client.post(
+        "/auth/api/v1/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "username": "bot-user",
+            "token_type": "service",
+            "expires": expires,
+        },
+    )
+    assert r.status_code == 201
+    service_token = Token.from_str(r.json()["token"])
+
+    # Check that the UID came from Firestore.
+    clear_session_cookie(client)
+    r = await client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"bearer {str(service_token)}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "bot-user",
+        "uid": UID_BOT_MIN,
+    }

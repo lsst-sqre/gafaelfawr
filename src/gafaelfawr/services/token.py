@@ -34,7 +34,7 @@ from ..models.token import (
 )
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
-from ..util import current_datetime
+from ..util import current_datetime, is_bot_user
 from .token_cache import TokenCacheService
 
 __all__ = ["TokenService"]
@@ -265,6 +265,12 @@ class TokenService:
         self._validate_username(request.username)
         self._validate_scopes(request.scopes)
         self._validate_expires(request.expires)
+
+        # Service tokens must be for bot users.
+        if request.token_type == TokenType.service:
+            if not is_bot_user(request.username):
+                msg = f'Username "{request.username}" must start with "bot-"'
+                raise PermissionDeniedError(msg)
 
         token = Token()
         created = current_datetime()

@@ -31,6 +31,7 @@ That sets off the following interaction:
    For an OpenID Connect provider, the result is a JWT from that provider.
    For GitHub, the result is an OAuth 2.0 token, with which the ``/login`` handler makes additional API calls to gather metadata about a user equivalent to what the OpenID Connect provider includes in the returned JWT.
 #. Based on the provider's JWT or on data gathered from GitHub, the ``/login`` route creates a new token and stores the associated data in the Gafaelfawr token store.
+   If Firestore is used for UIDs, the UID for this username is retrieved from Firestore and stored with the token.
    It then stores that token in the user's session cookie.
    Finally, it redirects the user back to the original URL.
 #. When the user requests the original URL, this results in another authentication subrequest to the ``/auth`` route.
@@ -38,7 +39,9 @@ That sets off the following interaction:
    It retrieves the token details from the token store and decrypts and verifies it.
    It then checks the scope information of that token against the requested authentication scope given as a ``scope`` parameter to the ``/auth`` route.
    If the requested scope or scopes are not satisfied, it returns a 403 error.
-   Otherwise, it returns 200, and NGINX then proxies the request to the protected application and user interaction continues as normal.
+   If LDAP is configured, user metadata such as group memberships and email address are retrieved from LDAP.
+   That metadata, either from the data stored with the token or from LDAP, is added to additional response headers.
+   Gafaelfawr then returns 200 with those response headers, and NGINX then proxies the request to the protected application and user interaction continues as normal, possibly including some of the response headers in the proxied request.
 
 Programmatic flow
 =================
@@ -55,7 +58,7 @@ Here are the steps involved in a programmatic access to an application protected
 #. When making a programmatic request, the user includes the token as the parameter to an ``Authorization: Bearer`` HTTP header.
    Alternately, it can be given as either the username or the password of an ``Authorization: Basic`` header, if the other parameter (either username or password) is set to ``x-oauth-basic``.
 #. The request results in an auth subrequest to the ``/auth`` route as in the browser case.
-   The ``/auth`` route extracts the token from the ``Authorization`` header and then does scope-based authorization as described in the browser flow.
+   The ``/auth`` route extracts the token from the ``Authorization`` header and then does scope-based authorization and user metadata retrieval as described in the browser flow.
 
 OpenID Connect flow
 ===================

@@ -216,6 +216,8 @@ Any labels or annotations on the ``GafaelfawrServiceToken`` object will be copie
 
 You can then provide that secret to an application via whatever mechanism is the most convenient, such as by setting an environment variable with its value using the normal Kubernetes ``Pod`` specification.
 
+``<service-name>`` must begin with ``bot-`` and otherwise be a valid Gafaelfawr username.
+
 .. _openid-connect:
 
 Using OpenID Connect

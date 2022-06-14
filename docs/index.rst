@@ -49,7 +49,7 @@ Architecture
    arch/routes
    arch/providers
    arch/scopes
-   arch/session
+   arch/storage
    arch/security
    arch/references
 
