@@ -655,7 +655,9 @@ pysocks==1.7.1 \
     --hash=sha256:08e69f092cc6dbe92a0fdd16eeb9b9ffbc13cadfe5ca4c7bd92ffb078b293299 \
     --hash=sha256:2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5 \
     --hash=sha256:3f8804571ebe159c380ac6de37643bb4685970655d3bba243530d6558b799aa0
-    # via selenium-wire
+    # via
+    #   selenium-wire
+    #   urllib3
 pytest==7.1.2 \
     --hash=sha256:13d0e3ccfc2b6e26be000cb6568c832ba67ba32e719443bfe725814d3c42433c \
     --hash=sha256:a06a0425453864a270bc45e71f783330a7428defb4230fb5e6a731fde06ecd45
@@ -733,11 +735,9 @@ rfc3986[idna2008]==1.5.0 \
     # via
     #   -c requirements/main.txt
     #   httpx
-selenium==4.0.0 \
-    --hash=sha256:c942b166a21ce9c9065ad249b54059e926d39f9000167b5ca0fa4950d2ef9a82
-    # via
-    #   -r requirements/dev.in
-    #   selenium-wire
+selenium==4.2.0 \
+    --hash=sha256:ba5b2633f43cf6fe9d308fa4a6996e00a101ab9cb1aad6fd91ae1f3dbe57f56f
+    # via selenium-wire
 selenium-wire==4.6.4 \
     --hash=sha256:c16ef72cb4e0b2b2cf527513c9eb86a469c61933762808684e89b56350fa95b2 \
     --hash=sha256:d6e2e0947040b42a314f1d85ed88a4b34b0e8844d97da2c04b2017e6be60d60b
@@ -909,7 +909,7 @@ typing-extensions==4.2.0 \
     #   -c requirements/main.txt
     #   mypy
     #   sqlalchemy2-stubs
-urllib3[secure]==1.26.9 \
+urllib3[secure,socks]==1.26.9 \
     --hash=sha256:44ece4d53fb1706f667c9bd1c648f5469a2ec925fcf3a776667042d645472c14 \
     --hash=sha256:aabaf16477806a5e1dd19aa41f8c2b7950dd3c746362d7e3223dbe6de6ac448e
     # via
