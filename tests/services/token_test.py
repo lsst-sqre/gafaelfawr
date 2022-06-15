@@ -1273,7 +1273,7 @@ async def test_invalid_username(factory: Factory) -> None:
     data = await token_service.get_data(session_token)
     assert data
 
-    # Cannot create any type of token with an invalid name.
+    # Cannot create any type of token with an invalid username.
     for user in (
         "<bootstrap>",
         "<internal>",
@@ -1285,6 +1285,7 @@ async def test_invalid_username(factory: Factory) -> None:
         "-invalid",
         "invalid-",
         "in--valid",
+        "1234567",
     ):
         user_info.username = user
         with pytest.raises(PermissionDeniedError):
