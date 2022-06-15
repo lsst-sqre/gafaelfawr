@@ -55,6 +55,17 @@ class RedisStorage(Generic[S]):
         count = await self._redis.delete(key)
         return count > 0
 
+    async def delete_all(self, pattern: str) -> None:
+        """Delete all stored objects.
+
+        Parameters
+        ----------
+        pattern : `str`
+            Glob pattern matching the keys to purge, such as ``oidc:*``.
+        """
+        async for key in self._redis.scan_iter(pattern):
+            await self._redis.delete(key)
+
     async def get(self, key: str) -> Optional[S]:
         """Retrieve a stored object.
 

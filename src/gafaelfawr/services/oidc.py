@@ -71,6 +71,10 @@ class OIDCService:
         self._token_service = token_service
         self._logger = logger
 
+    async def delete_all_codes(self) -> None:
+        """Invalidate all issued OpenID Connect codes."""
+        await self._authorization_store.delete_all()
+
     def get_jwks(self) -> JWKS:
         """Return the key set for the OpenID Connect server."""
         key_id = self._config.key_id

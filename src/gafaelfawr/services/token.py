@@ -320,6 +320,15 @@ class TokenService:
             )
         return token
 
+    async def delete_all_tokens(self) -> None:
+        """Delete all stored tokens.
+
+        This only purges them from Redis, not from the database.  It is
+        normally called in combination with truncating all database tables
+        (which is much faster than deleting entries line by line).
+        """
+        await self._token_redis_store.delete_all()
+
     async def delete_token(
         self,
         key: str,
