@@ -68,7 +68,9 @@ GROUPNAME_REGEX = "^[a-zA-Z][a-zA-Z0-9._-]*$"
 SCOPE_REGEX = "^[a-zA-Z0-9:._-]+$"
 """Regex matching a valid scope."""
 
-USERNAME_REGEX = "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
+USERNAME_REGEX = (
+    "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*[a-z](?:[a-z0-9]|-[a-z0-9])*$"
+)
 """Regex matching all valid usernames."""
 
 ACTOR_REGEX = f"{USERNAME_REGEX}|^<[a-z]+>$"
