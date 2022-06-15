@@ -15,7 +15,7 @@ realm: "localhost"
 loglevel: "DEBUG"
 session_secret_file: "/run/secrets/session-secret"
 database_url: "postgresql://gafaelfawr:INSECURE@postgresql/gafaelfawr"
-bootstrap_token: "/run/secrets/bootstrap-token"
+bootstrap_token_file: "/run/secrets/bootstrap-token"
 
 # This Redis will be started by the docker-compose.yaml file at the top
 # level of the repository.
