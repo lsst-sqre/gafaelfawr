@@ -29,6 +29,14 @@ Installation
    cli
    glossary
 
+API
+===
+
+.. toctree::
+   :maxdepth: 2
+
+* `REST API <api.html>`__
+
 Changes
 =======
 
@@ -51,6 +59,7 @@ Architecture
    arch/scopes
    arch/storage
    arch/security
+   arch/internals
    arch/references
 
 Development guide
@@ -61,14 +70,6 @@ Development guide
 
    dev/development
    dev/release
-
-API
-===
-
-.. toctree::
-   :maxdepth: 2
-
-   api
 
 Indices
 =======

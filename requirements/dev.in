@@ -24,6 +24,7 @@ seqdiag
 sphinx-automodapi
 sphinx-click
 sphinx-prompt
+sphinxcontrib-redoc
 sqlalchemy[mypy]
 types-cachetools
 types-PyYAML

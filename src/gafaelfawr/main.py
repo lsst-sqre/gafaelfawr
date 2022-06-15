@@ -29,12 +29,21 @@ from .models.state import State
 __all__ = ["create_app"]
 
 
-def create_app() -> FastAPI:
+def create_app(*, load_config: bool = True) -> FastAPI:
     """Create the FastAPI application.
 
     This is in a function rather than using a global variable (as is more
     typical for FastAPI) because some middleware depends on configuration
     settings and we therefore want to recreate the application between tests.
+
+    Parameters
+    ----------
+    load_config : `bool`, optional
+        If set to `False`, do not try to load the configuration.  Configure
+        `~safir.middleware.x_forwarded.XForwardedMiddleware` with the default
+        set of proxy IP addresses.  This is used primarily for OpenAPI
+        schema generation, where constructing the app is required but the
+        configuration won't matter.
     """
     app = FastAPI(
         title="Gafaelfawr",
@@ -102,11 +111,14 @@ def create_app() -> FastAPI:
     )
 
     # Install the middleware.
-    config = config_dependency.config()
     app.add_middleware(
         StateMiddleware, cookie_name=COOKIE_NAME, state_class=State
     )
-    app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
+    if load_config:
+        config = config_dependency.config()
+        app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
+    else:
+        app.add_middleware(XForwardedMiddleware)
 
     # Register lifecycle handlers.
     app.on_event("startup")(startup_event)
