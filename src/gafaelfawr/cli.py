@@ -13,6 +13,7 @@ from kubernetes_asyncio.client import ApiClient
 from safir.asyncio import run_with_asyncio
 from safir.database import create_database_engine, initialize_database
 from safir.kubernetes import initialize_kubernetes
+from sqlalchemy import text
 
 from .dependencies.config import config_dependency
 from .exceptions import KubernetesError, NotConfiguredError
@@ -59,6 +60,43 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
     else:
         assert ctx.parent
         click.echo(ctx.parent.get_help())
+
+
+@main.command()
+@click.option(
+    "--settings",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
+    type=str,
+    default=None,
+    help="Application settings file.",
+)
+@run_with_asyncio
+async def delete_all_data(settings: Optional[str]) -> None:
+    """Delete all data from Redis and the database.
+
+    Intended for destructive upgrades, such as when switching from one
+    upstream authentication provider to another when all of the usernames will
+    change.  This does not delete or reset UID and GID assignments from
+    Firestore.
+    """
+    if settings:
+        config_dependency.set_settings_path(settings)
+    config = await config_dependency()
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    tables = (t.name for t in Base.metadata.sorted_tables)
+    async with Factory.standalone(config, engine) as factory:
+        admin_service = factory.create_admin_service()
+        async with factory.session.begin():
+            stmt = text(f'TRUNCATE TABLE {", ".join(tables)}')
+            await factory.session.execute(stmt)
+            await admin_service.add_initial_admins(config.initial_admins)
+        token_service = factory.create_token_service()
+        await token_service.delete_all_tokens()
+        if config.oidc_server:
+            oidc_service = factory.create_oidc_service()
+            await oidc_service.delete_all_codes()
 
 
 @main.command()

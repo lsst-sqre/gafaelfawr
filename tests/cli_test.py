@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import call, patch
 
+import pytest
 import structlog
 from _pytest.logging import LogCaptureFixture
 from click.testing import CliRunner
@@ -23,11 +24,13 @@ from safir.testing.kubernetes import MockKubernetesApi
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
-from gafaelfawr.config import Config
+from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import UID_USER_MIN
+from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
-from gafaelfawr.models.token import Token, TokenData
+from gafaelfawr.models.oidc import OIDCAuthorizationCode
+from gafaelfawr.models.token import Token, TokenData, TokenUserInfo
 from gafaelfawr.schema import Base
 
 from .support.firestore import MockFirestore
@@ -39,6 +42,50 @@ async def _initialize_database(engine: AsyncEngine, config: Config) -> None:
     """Helper function to initialize the database."""
     logger = structlog.get_logger("gafaelfawr")
     await initialize_database(engine, logger, schema=Base.metadata, reset=True)
+
+
+def test_delete_all_data(
+    tmp_path: Path,
+    engine: AsyncEngine,
+    event_loop: asyncio.AbstractEventLoop,
+) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
+    logger = structlog.get_logger("gafaelfawr")
+
+    async def setup() -> OIDCAuthorizationCode:
+        await initialize_database(engine, logger, schema=Base.metadata)
+        async with Factory.standalone(config, engine) as factory:
+            token_service = factory.create_token_service()
+            user_info = TokenUserInfo(username="some-user")
+            token = await token_service.create_session_token(
+                user_info, scopes=[], ip_address="127.0.0.1"
+            )
+            oidc_service = factory.create_oidc_service()
+            return await oidc_service.issue_code(
+                "some-id", "https://example.com/", token
+            )
+
+    code = event_loop.run_until_complete(setup())
+    runner = CliRunner()
+    result = runner.invoke(main, ["delete-all-data"])
+    assert result.exit_code == 0
+
+    async def check_data() -> None:
+        async with Factory.standalone(config, engine) as factory:
+            admin_service = factory.create_admin_service()
+            expected = [Admin(username=u) for u in config.initial_admins]
+            assert await admin_service.get_admins() == expected
+            token_service = factory.create_token_service()
+            bootstrap = TokenData.bootstrap_token()
+            assert await token_service.list_tokens(bootstrap) == []
+            oidc_service = factory.create_oidc_service()
+            with pytest.raises(InvalidGrantError):
+                await oidc_service.redeem_code(
+                    "some-id", "some-secret", "https://example.com/", code
+                )
+
+    event_loop.run_until_complete(check_data())
 
 
 def test_generate_key() -> None:
@@ -86,13 +133,6 @@ def test_init(
     assert result.exit_code == 0
 
     async def check_database() -> None:
-        # Dispose of the engine's connection pool at this point because its
-        # cache will be invalid due to the recreation of the database schema.
-        # (asyncpg will invalidate its cache automatically if it sees the
-        # schema changes, but the init CLI function will have created a new,
-        # independent engine.)
-        await engine.dispose()
-
         async with Factory.standalone(config, engine) as factory:
             admin_service = factory.create_admin_service()
             expected = [Admin(username=u) for u in config.initial_admins]

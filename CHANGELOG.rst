@@ -24,6 +24,8 @@ The internal configuration format may change in minor releases.
 - Rename ``config.ldap.baseDn`` to ``config.ldap.groupBaseDn`` to make it clearer that it is only used for group membership searches.
 - Add ``gafaelfawr fix-home-ownership`` command-line invocation that assigns UIDs via Firestore for all users found in a home directory tree and then recursively changes ownership of their files to their newly-allocated UIDs.
   This is intended as a one-time migration tool for environments that are switching to Firestore for UID assignment
+- Add ``gafaelfawr delete-all-data`` command-line invocation that deletes all data except Firestore UID/GID assignments.
+  This may be useful when performing destructive updates where everyone's usernames may change.
 - Use a connection pool for LDAP queries instead of opening a new connection for each query.
 - Fix verification of OpenID Connect ID tokens when the upstream issuer URL has a path component.
   Previous versions of Gafaelfawr would incorrectly look for standard metadata URLs one path level too high.

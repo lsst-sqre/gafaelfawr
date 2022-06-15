@@ -364,6 +364,10 @@ class TokenRedisStore:
         """
         return await self._storage.delete(f"token:{key}")
 
+    async def delete_all(self) -> None:
+        """Delete all stored tokens."""
+        await self._storage.delete_all("token:*")
+
     async def get_data(self, token: Token) -> Optional[TokenData]:
         """Retrieve the data for a token from Redis.
 

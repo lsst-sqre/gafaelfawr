@@ -64,6 +64,10 @@ class OIDCAuthorizationStore:
         """
         await self._storage.delete(f"oidc:{code.key}")
 
+    async def delete_all(self) -> None:
+        """Delete all stored OpenID Connect authorizations."""
+        await self._storage.delete_all("oidc:*")
+
     async def get(
         self, code: OIDCAuthorizationCode
     ) -> Optional[OIDCAuthorization]:
