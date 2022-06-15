@@ -288,9 +288,7 @@ filelock==3.7.1 \
 funcparserlib==1.0.0 \
     --hash=sha256:280fa30e608d547581d65f9294f9bbda7475da86d85119079da4a8402315025f \
     --hash=sha256:7dd33dd4299fc55cbdbf4b9fdfb3abc54d3b5ed0c694b83fb38e9e3e8ac38b6b
-    # via
-    #   -r requirements/dev.in
-    #   blockdiag
+    # via blockdiag
 gitdb==4.0.9 \
     --hash=sha256:8033ad4e853066ba6ca92050b9df2f89301b8fc8bf7e9324d412a63f8bf1a8fd \
     --hash=sha256:bac2fd45c0a1c9cf619e63a90d62bdc63892ef92387424b855792a6cabe789aa
