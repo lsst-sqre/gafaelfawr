@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sys
-from importlib.metadata import version
 from pathlib import Path
 from typing import Optional, Union
 
@@ -223,20 +222,26 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
 
 @main.command()
 @click.option(
+    "--add-back-link",
+    default=False,
+    is_flag=True,
+    help="Add back link (used when generating application documentation)",
+)
+@click.option(
     "--output",
     default=None,
     type=click.Path(path_type=Path),
     help="Output path (output to stdout if not given).",
 )
-def openapi_schema(output: Optional[Path]) -> None:
+def openapi_schema(add_back_link: bool, output: Optional[Path]) -> None:
     app = create_app(load_config=False)
+    description = app.description
+    if add_back_link:
+        description += "\n\n[Return to Gafaelfawr documentation](index.html)."
     schema = get_openapi(
-        title="Gafaelfawr",
-        description=(
-            "Gafaelfawr is a FastAPI application for the authorization and"
-            " management of tokens, including their issuance and revocation."
-        ),
-        version=version("gafaelfawr"),
+        title=app.title,
+        description=description,
+        version=app.version,
         routes=app.routes,
     )
     if output:
