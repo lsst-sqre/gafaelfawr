@@ -65,8 +65,16 @@ class AuthConfig:
 
 
 def auth_uri(
-    x_original_uri: Optional[str] = Header(None),
-    x_original_url: Optional[str] = Header(None),
+    x_original_uri: Optional[str] = Header(
+        None, description="URL for which authorization is being checked"
+    ),
+    x_original_url: Optional[str] = Header(
+        None,
+        description=(
+            "URL for which authorization is being checked. `X-Original-URI`"
+            " takes precedence if both are set."
+        ),
+    ),
 ) -> str:
     """Determine URL for which we're validating authentication.
 
@@ -82,7 +90,7 @@ def auth_config(
         ...,
         title="Required scopes",
         description=(
-            "If given more than once, meaning is determined by the satisfy"
+            "If given more than once, meaning is determined by the `satisfy`"
             " parameter"
         ),
         example="read:all",
@@ -91,21 +99,21 @@ def auth_config(
         Satisfy.ALL,
         title="Scope matching policy",
         description=(
-            "Set to all to require all listed scopes, set to any to require"
-            " any of the listed scopes"
+            "Set to `all` to require all listed scopes, set to `any` to"
+            " require any of the listed scopes"
         ),
         example="any",
     ),
     auth_type: AuthType = Query(
         AuthType.Bearer,
         title="Challenge type",
-        description="Control the type of WWW-Authenticate challenge returned",
+        description="Type of `WWW-Authenticate` challenge to return",
         example="basic",
     ),
     notebook: bool = Query(
         False,
         title="Request notebook token",
-        description="Cannot be used with delegate_to or delegate_scope.",
+        description="Cannot be used with `delegate_to` or `delegate_scope`",
         example=True,
     ),
     delegate_to: Optional[str] = Query(

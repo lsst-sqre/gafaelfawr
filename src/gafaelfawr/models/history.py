@@ -198,7 +198,21 @@ class TokenChangeHistoryEntry(BaseModel):
     )
 
     token_type: TokenType = Field(
-        ..., title="Type of the token", example="user"
+        ...,
+        title="Type of the token",
+        description=(
+            "Class of token, chosen from:\n\n"
+            "* `session`: An interactive user web session\n"
+            "* `user`: A user-generated token that may be used"
+            " programmatically\n"
+            "* `notebook`: The token delegated to a Jupyter notebook for"
+            " the user\n"
+            "* `internal`: A service-to-service token used for internal"
+            " sub-calls made as part of processing a user request\n"
+            "* `service`: A service-to-service token used for internal calls"
+            " initiated by services, unrelated to a user request\n"
+        ),
+        example="user",
     )
 
     token_name: Optional[str] = Field(

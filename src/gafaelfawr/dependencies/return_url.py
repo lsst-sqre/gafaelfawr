@@ -94,7 +94,7 @@ async def return_url_with_header(
         title="URL to return to",
         description=(
             "User is sent here after successful authentication. Overrides"
-            " X-Auth-Request-Redirect if both are set."
+            " `X-Auth-Request-Redirect` if both are set."
         ),
         example="https://example.com/",
     ),

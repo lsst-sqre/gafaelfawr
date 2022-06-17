@@ -22,6 +22,8 @@ The internal configuration format may change in minor releases.
   These will normally be created via the admin token API.
   User data such as UID, full name, and email address that would normally be retrieved from LDAP (depending on the configuration) will be null instead.
 - Rename ``config.ldap.baseDn`` to ``config.ldap.groupBaseDn`` to make it clearer that it is only used for group membership searches.
+- The return status of a successful ``PATCH /auth/api/v1/users/<username>/tokens/<token>`` request is now 200 instead of 201.
+  Since this modifies a resource rather than creating one, that status code seems more accurate.
 - Add ``gafaelfawr fix-home-ownership`` command-line invocation that assigns UIDs via Firestore for all users found in a home directory tree and then recursively changes ownership of their files to their newly-allocated UIDs.
   This is intended as a one-time migration tool for environments that are switching to Firestore for UID assignment
 - Add ``gafaelfawr delete-all-data`` command-line invocation that deletes all data except Firestore UID/GID assignments.

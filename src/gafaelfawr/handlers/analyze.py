@@ -109,7 +109,7 @@ async def get_analyze(
     description=(
         "Show a JSON dump of data about the provided token.  The output"
         " format is for backwards compatibility with Gafaelfawr 1.x."
-        " Use /auth/api/v1/token-info and /auth/api/v1/user-info instead."
+        " Use `/auth/api/v1/token-info` and `/auth/api/v1/user-info` instead."
     ),
     response_class=FormattedJSONResponse,
     responses={

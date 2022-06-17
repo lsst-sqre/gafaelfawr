@@ -51,7 +51,17 @@ class LoginError(Enum):
         " protected site."
     ),
     responses={
-        307: {"description": "Redirect to provider or destination"},
+        307: {
+            "description": "Redirect to provider or destination",
+            "headers": {
+                "Location": {
+                    "description": (
+                        "URL of authentication provider or protected site"
+                    ),
+                    "schema": {"type": "string"},
+                }
+            },
+        },
         403: {
             "content": {"text/html": {}},
             "description": "Error authenticating the user",

@@ -211,7 +211,7 @@ class OIDCTokenReply(BaseModel):
     token_type: str = Field(
         "Bearer",
         title="Type of token",
-        description="Will always be Bearer",
+        description="Will always be `Bearer`",
         example="Bearer",
     )
 
@@ -222,7 +222,10 @@ class OIDCErrorReply(BaseModel):
     error: str = Field(
         ...,
         title="Error code",
-        description="See RFC 6750 for possible codes",
+        description=(
+            "See [RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)"
+            " for possible codes"
+        ),
         example="some_code",
     )
 
@@ -239,21 +242,21 @@ class JWK(BaseModel):
     alg: str = Field(
         ...,
         title="Algorithm",
-        description=f"Will always be {ALGORITHM}",
+        description=f"Will always be `{ALGORITHM}`",
         example=ALGORITHM,
     )
 
     kty: str = Field(
         ...,
         title="Key type",
-        description="Will always be RSA",
+        description="Will always be `RSA`",
         example="RSA",
     )
 
     use: str = Field(
         ...,
         title="Key usage",
-        description="Will always be sig (signatures)",
+        description="Will always be `sig` (signatures)",
         example="sig",
     )
 
@@ -343,41 +346,41 @@ class OIDCConfig(BaseModel):
     scopes_supported: List[str] = Field(
         ["openid"],
         title="Supported scopes",
-        description="openid is the only supported scope",
+        description="`openid` is the only supported scope",
         example=["openid"],
     )
 
     response_types_supported: List[str] = Field(
         ["code"],
         title="Supported response types",
-        description="code is the only supported response type",
+        description="`code` is the only supported response type",
         example=["code"],
     )
 
     grant_types_supported: List[str] = Field(
         ["authorization_code"],
         title="Supported grant types",
-        description="authorization_code is the only supported grant type",
+        description="`authorization_code` is the only supported grant type",
         example=["authorization_code"],
     )
 
     subject_types_supported: List[str] = Field(
         ["public"],
         title="Supported subject types",
-        description="public is the only supported subject type",
+        description="`public` is the only supported subject type",
         example=["public"],
     )
 
     id_token_signing_alg_values_supported: List[str] = Field(
         [ALGORITHM],
         title="Supported JWT signing algorithms",
-        description=f"{ALGORITHM} is the only supported signing algorithm",
+        description=f"`{ALGORITHM}` is the only supported signing algorithm",
         example=[ALGORITHM],
     )
 
     token_endpoint_auth_methods_supported: List[str] = Field(
         ["client_secret_post"],
         title="Supported client auth methods",
-        description="client_secret_post is the only supported auth method",
+        description="`client_secret_post` is the only supported auth method",
         example=["client_secret_post"],
     )

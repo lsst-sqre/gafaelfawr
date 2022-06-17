@@ -55,6 +55,25 @@ authenticate_admin_write = AuthenticateWrite(
 )
 authenticate_session_read = AuthenticateRead(require_session=True)
 
+_pagination_headers = {
+    "Link": {
+        "description": (
+            "Links to paginated results if `limit` or `cursor` was given,"
+            " structured according to"
+            " [RFC 5988](https://datatracker.ietf.org/doc/html/rfc5988)."
+            " One or more of `prev`, `next`, and `first` relation types"
+            " may be provided."
+        ),
+        "schema": {"type": "string"},
+    },
+    "X-Total-Count": {
+        "description": (
+            "Total number of results if `limit` or `cursor` was given"
+        ),
+        "schema": {"type": "integer"},
+    },
+}
+
 
 @router.get(
     "/admins",
@@ -128,10 +147,11 @@ async def delete_admin(
     "/history/token-changes",
     description=(
         "Get the change history of tokens for any user. If a limit or cursor"
-        " was specified, links to paginated results may be found in the Link"
+        " was specified, links to paginated results may be found in the `Link`"
         " header of the reply and the total number of records in the"
-        " X-Total-Count header."
+        " `X-Total-Count` header."
     ),
+    responses={200: {"headers": _pagination_headers}},
     response_model=List[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
     summary="Get token change history",
@@ -286,6 +306,16 @@ async def get_token_info(
 
 @router.post(
     "/tokens",
+    responses={
+        201: {
+            "headers": {
+                "Location": {
+                    "description": "URL of new token",
+                    "schema": {"type": "string"},
+                }
+            }
+        }
+    },
     response_model=NewToken,
     status_code=201,
     summary="Create a token",
@@ -329,9 +359,10 @@ async def get_user_info(
     description=(
         "Get the change history of tokens for the current user. If a limit"
         " or cursor was specified, links to paginated results may be found"
-        " in the Link header of the reply and the total number of records"
-        " in the X-Total-Count header."
+        " in the `Link` header of the reply and the total number of records"
+        " in the `X-Total-Count` header."
     ),
+    responses={200: {"headers": _pagination_headers}},
     response_model=List[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
     summary="Get token change history",
@@ -441,6 +472,16 @@ async def get_tokens(
 
 @router.post(
     "/users/{username}/tokens",
+    responses={
+        201: {
+            "headers": {
+                "Location": {
+                    "description": "URL of new token",
+                    "schema": {"type": "string"},
+                }
+            }
+        }
+    },
     response_model=NewToken,
     status_code=201,
     summary="Create user token",
@@ -548,10 +589,14 @@ async def delete_token(
 
 @router.patch(
     "/users/{username}/tokens/{key}",
+    description=(
+        "Replace metadata of a user token with provided values. Only the"
+        " token name, scope, and expiration may be changed"
+    ),
     response_model=TokenInfo,
     response_model_exclude_none=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
-    status_code=201,
+    status_code=200,
     summary="Modify user token",
     tags=["user"],
 )
@@ -598,6 +643,7 @@ async def patch_token(
     response_model_exclude_unset=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
     summary="Get change history of token",
+    description="All changes are returned. Pagination is not supported.",
     tags=["user"],
 )
 async def get_token_change_history(
