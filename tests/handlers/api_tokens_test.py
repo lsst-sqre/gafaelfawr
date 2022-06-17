@@ -124,7 +124,7 @@ async def test_create_delete_modify(
             "expires": int(new_expires.timestamp()),
         },
     )
-    assert r.status_code == 201
+    assert r.status_code == 200
     assert r.json() == {
         "token": user_token.key,
         "username": "example",
@@ -673,7 +673,7 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
         headers={"X-CSRF-Token": csrf},
         json={"expires": None},
     )
-    assert r.status_code == 201
+    assert r.status_code == 200
     assert "expires" not in r.json()
 
     # Check that the expiration was also changed in Redis.

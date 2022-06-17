@@ -52,7 +52,7 @@ class APILoginResponse(BaseModel):
         title="CSRF token",
         description=(
             "This token must be included in any non-GET request using cookie"
-            " authentication as the value of the X-CSRF-Token header."
+            " authentication as the value of the `X-CSRF-Token` header"
         ),
         example="OmNdVTtKKuK_VuJsGFdrqg",
     )

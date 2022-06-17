@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import Optional, Union
@@ -9,6 +10,7 @@ from typing import Optional, Union
 import click
 import structlog
 import uvicorn
+from fastapi.openapi.utils import get_openapi
 from kubernetes_asyncio.client import ApiClient
 from safir.asyncio import run_with_asyncio
 from safir.database import create_database_engine, initialize_database
@@ -19,10 +21,12 @@ from .dependencies.config import config_dependency
 from .exceptions import KubernetesError, NotConfiguredError
 from .factory import Factory
 from .keypair import RSAKeyPair
+from .main import create_app
 from .models.token import Token
 from .schema import Base
 
 __all__ = [
+    "delete_all_data",
     "fix_home_ownership",
     "generate_key",
     "generate_token",
@@ -30,6 +34,7 @@ __all__ = [
     "init",
     "kubernetes_controller",
     "main",
+    "openapi_schema",
     "run",
     "update_service_tokens",
 ]
@@ -213,6 +218,37 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
             queue = await kubernetes_service.start_watcher()
             logger.debug("Starting continuous processing")
             await kubernetes_service.update_service_tokens_from_queue(queue)
+
+
+@main.command()
+@click.option(
+    "--add-back-link",
+    default=False,
+    is_flag=True,
+    help="Add back link (used when generating application documentation)",
+)
+@click.option(
+    "--output",
+    default=None,
+    type=click.Path(path_type=Path),
+    help="Output path (output to stdout if not given).",
+)
+def openapi_schema(add_back_link: bool, output: Optional[Path]) -> None:
+    app = create_app(load_config=False)
+    description = app.description
+    if add_back_link:
+        description += "\n\n[Return to Gafaelfawr documentation](index.html)."
+    schema = get_openapi(
+        title=app.title,
+        description=description,
+        version=app.version,
+        routes=app.routes,
+    )
+    if output:
+        with output.open("w") as f:
+            json.dump(schema, f)
+    else:
+        json.dump(schema, sys.stdout)
 
 
 @main.command()

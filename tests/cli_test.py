@@ -9,6 +9,7 @@ tests can therefore be async, and should instead run coroutines using the
 from __future__ import annotations
 
 import asyncio
+import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -104,6 +105,38 @@ def test_generate_token() -> None:
     assert Token.from_str(result.output.rstrip("\n"))
 
 
+def test_fix_home_ownership(
+    tmp_path: Path,
+    engine: AsyncEngine,
+    event_loop: asyncio.AbstractEventLoop,
+    mock_firestore: MockFirestore,
+) -> None:
+    configure(tmp_path, "oidc-firestore")
+    home = tmp_path / "home"
+    home.mkdir()
+    user_home = home / "someuser"
+    user_home.mkdir()
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["init"])
+    assert result.exit_code == 0
+    with patch.object(subprocess, "run") as mock_run:
+        result = runner.invoke(main, ["fix-home-ownership", str(home)])
+        print(result)
+        print(result.output)
+        assert result.exit_code == 0
+
+        assert mock_run.call_count == 1
+        document = mock_firestore.collection("users").document("someuser")
+        user = document.get_for_testing()
+        assert user.exists
+        uid = user["uid"]
+        assert uid == UID_USER_MIN
+        assert mock_run.call_args == call(
+            ["chown", "-R", f"{uid}:{uid}", str(user_home)]
+        )
+
+
 def test_help() -> None:
     runner = CliRunner()
 
@@ -144,36 +177,24 @@ def test_init(
     event_loop.run_until_complete(check_database())
 
 
-def test_fix_home_ownership(
-    tmp_path: Path,
-    engine: AsyncEngine,
-    event_loop: asyncio.AbstractEventLoop,
-    mock_firestore: MockFirestore,
-) -> None:
-    configure(tmp_path, "oidc-firestore")
-    home = tmp_path / "home"
-    home.mkdir()
-    user_home = home / "someuser"
-    user_home.mkdir()
-
+def test_openapi_schema(tmp_path: Path) -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["init"])
+    result = runner.invoke(main, ["openapi-schema"])
     assert result.exit_code == 0
-    with patch.object(subprocess, "run") as mock_run:
-        result = runner.invoke(main, ["fix-home-ownership", str(home)])
-        print(result)
-        print(result.output)
-        assert result.exit_code == 0
+    assert json.loads(result.output)
+    assert "Return to Gafaelfawr documentation" not in result.output
+    schema = result.output
 
-        assert mock_run.call_count == 1
-        document = mock_firestore.collection("users").document("someuser")
-        user = document.get_for_testing()
-        assert user.exists
-        uid = user["uid"]
-        assert uid == UID_USER_MIN
-        assert mock_run.call_args == call(
-            ["chown", "-R", f"{uid}:{uid}", str(user_home)]
-        )
+    result = runner.invoke(
+        main, ["openapi-schema", "--output", str(tmp_path / "openapi.json")]
+    )
+    assert result.exit_code == 0
+    assert result.output == ""
+    assert (tmp_path / "openapi.json").read_text() == schema
+
+    result = runner.invoke(main, ["openapi-schema", "--add-back-link"])
+    assert result.exit_code == 0
+    assert "Return to Gafaelfawr documentation" in result.output
 
 
 def test_update_service_tokens(

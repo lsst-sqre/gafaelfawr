@@ -2,25 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Union
+from typing import List
 
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from seleniumwire import webdriver
 
 
-class BaseFinder:
-    def __init__(self, root: Union[webdriver.Chrome, WebElement]) -> None:
-        self.root = root
-
-    def find_element(self, by: By, name: str) -> WebElement:
-        return self.root.find_element(by, name)
-
-    def find_elements(self, by: By, name: str) -> List[WebElement]:
-        return self.root.find_elements(by, name)
-
-
-class BasePage(BaseFinder):
+class BasePage:
     def __init__(self, root: webdriver.Chrome) -> None:
         self.root = root
 
@@ -28,12 +16,23 @@ class BasePage(BaseFinder):
     def page_source(self) -> str:
         return self.root.page_source
 
+    def find_element(self, by: str, name: str) -> WebElement:
+        return self.root.find_element(by, name)
 
-class BaseModal(BaseFinder):
+    def find_elements(self, by: str, name: str) -> List[WebElement]:
+        return self.root.find_elements(by, name)
+
+
+class BaseElement:
     def __init__(self, root: WebElement) -> None:
         self.root = root
 
+    def find_element(self, by: str, name: str) -> WebElement:
+        return self.root.find_element(by, name)
 
-class BaseElement(BaseFinder):
-    def __init__(self, root: WebElement) -> None:
-        self.root = root
+    def find_elements(self, by: str, name: str) -> List[WebElement]:
+        return self.root.find_elements(by, name)
+
+
+class BaseModal(BaseElement):
+    pass

@@ -100,6 +100,9 @@ class TokenType(Enum):
     internal
         A service-to-service token used for internal sub-calls made as part of
         processing a user request.
+    service
+        A service-to-service token used for internal calls initiated by
+        services, unrelated to a user request.
     """
 
     session = "session"
@@ -143,7 +146,23 @@ class TokenBase(BaseModel):
         max_length=64,
     )
 
-    token_type: TokenType = Field(..., title="Token type", example="session")
+    token_type: TokenType = Field(
+        ...,
+        description=(
+            "Class of token, chosen from:\n\n"
+            "* `session`: An interactive user web session\n"
+            "* `user`: A user-generated token that may be used"
+            " programmatically\n"
+            "* `notebook`: The token delegated to a Jupyter notebook for"
+            " the user\n"
+            "* `internal`: A service-to-service token used for internal"
+            " sub-calls made as part of processing a user request\n"
+            "* `service`: A service-to-service token used for internal calls"
+            " initiated by services, unrelated to a user request\n"
+        ),
+        title="Token type",
+        example="session",
+    )
 
     scopes: List[str] = Field(
         ..., title="Token scopes", example=["read:all", "user:token"]
@@ -340,7 +359,7 @@ class AdminTokenRequest(BaseModel):
         title="User for which to issue a token",
         description=(
             "The username may only contain lowercase letters, digits,"
-            " and dash (-), and may not start or end with a dash."
+            " and dash (`-`), and may not start or end with a dash"
         ),
         example="some-service",
         min_length=1,
@@ -351,14 +370,21 @@ class AdminTokenRequest(BaseModel):
     token_type: TokenType = Field(
         ...,
         title="Token type",
-        description="Must be either service or user.",
+        description=(
+            "Must be either `service` or `user`"
+            "\n\n"
+            "* `service`: A service-to-service token used for internal calls"
+            " initiated by services, unrelated to a user request\n"
+            "* `user`: A user-generated token that may be used"
+            " programmatically\n"
+        ),
         example="service",
     )
 
     token_name: Optional[str] = Field(
         None,
         title="User-given name of the token",
-        description="Only provide this field for a token type of user.",
+        description="Only provide this field for a token type of `user`",
         example="laptop token",
         min_length=1,
         max_length=64,
@@ -375,7 +401,7 @@ class AdminTokenRequest(BaseModel):
         title="Token expiration",
         description=(
             "Expiration timestamp of the token in seconds since epoch, or"
-            " omitted to never expire."
+            " omitted to never expire"
         ),
         example=1616986130,
     )
@@ -385,7 +411,7 @@ class AdminTokenRequest(BaseModel):
         title="Preferred full name",
         description=(
             "If a value is not provided, and LDAP is configured, the full"
-            " name from the LDAP entry for that username will be used."
+            " name from the LDAP entry for that username will be used"
         ),
         example="Service User",
         min_length=1,
@@ -396,7 +422,7 @@ class AdminTokenRequest(BaseModel):
         title="Email address",
         description=(
             "If a value is not provided, and LDAP is configured, the email"
-            " address from the LDAP entry for that username will be used."
+            " address from the LDAP entry for that username will be used"
         ),
         example="service@example.com",
         min_length=1,
@@ -408,7 +434,7 @@ class AdminTokenRequest(BaseModel):
         description=(
             "If a value is not provided, and Firestore or LDAP are"
             " configured, the UID from Firestore (preferred) or the LDAP"
-            " entry for that username will be used."
+            " entry for that username will be used"
         ),
         example=4131,
         ge=1,
@@ -420,7 +446,7 @@ class AdminTokenRequest(BaseModel):
         description=(
             "Groups of which the user is a member. If a value is not provided,"
             " and LDAP is configured, the group membership from LDAP will be"
-            " used."
+            " used"
         ),
     )
 

@@ -167,7 +167,7 @@ def build_return_url(
 
 @router.post(
     "/auth/openid/token",
-    description="Redeem an authorization code for a token.",
+    description="Redeem an authorization code for a token",
     response_model=OIDCTokenReply,
     responses={
         400: {"description": "Request was invalid", "model": OIDCErrorReply}
@@ -180,7 +180,7 @@ async def post_token(
     grant_type: str = Form(
         None,
         title="Request type",
-        description="authorization_code is the only supported grant type",
+        description="`authorization_code` is the only supported grant type",
         example="authorization_code",
     ),
     client_id: str = Form(
@@ -247,7 +247,7 @@ async def post_token(
 
 @router.get(
     "/auth/oidc/userinfo",
-    description="Return information about the holder of a JWT.",
+    description="Return information about the holder of a JWT",
     responses={
         200: {
             "content": {
@@ -286,7 +286,9 @@ async def get_userinfo(
     "/.well-known/jwks.json",
     description=(
         "Returns the key set used for JWT signatures in the format"
-        " specified in RFC 7517 and RFC 7518."
+        " specified in"
+        " [RFC 7517](https://datatracker.ietf.org/doc/html/rfc7517) and"
+        " [RFC 7518](https://datatracker.ietf.org/doc/html/rfc7518)"
     ),
     response_model=JWKS,
     response_model_exclude_none=True,
@@ -304,7 +306,10 @@ async def get_well_known_jwks(
     "/.well-known/openid-configuration",
     description=(
         "Returns OpenID Connect configuration information in the format"
-        " specified in the OpenID Connect Discovery 1.0 specification."
+        " specified in the"
+        " [OpenID Connect Discovery 1.0]"
+        "(https://openid.net/specs/openid-connect-discovery-1_0.html)"
+        " specification."
     ),
     response_model=OIDCConfig,
     summary="OIDC configuration",

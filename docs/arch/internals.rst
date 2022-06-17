@@ -1,6 +1,6 @@
-#############
-API reference
-#############
+################
+Python internals
+################
 
 .. automodapi:: gafaelfawr
    :include-all-objects:

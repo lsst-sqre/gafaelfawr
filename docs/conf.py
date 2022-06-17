@@ -26,6 +26,7 @@ extensions = [
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
     "sphinx_click",
+    "sphinxcontrib.redoc",
     "documenteer.sphinxext",
 ]
 
@@ -178,6 +179,19 @@ html_use_index = True
 
 # API Reference ==============================================================
 
+redoc = [
+    {
+        "name": "Gafaelfawr REST API",
+        "page": "api",
+        "spec": "_static/openapi.json",
+        "embed": True,
+        "opts": {"hide-hostname": True},
+    }
+]
+redoc_uri = (
+    "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"
+)
+
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = False
@@ -194,7 +208,7 @@ napoleon_use_rtype = True
 autosummary_generate = True
 
 automodapi_inheritance_diagram = True
-automodapi_toctreedirnm = "api"
+automodapi_toctreedirnm = "arch/internals"
 
 # Inheriting docstrings from parents by default creates huge amounts of noise
 # in Pydantic.  Use the :inherited-members: flag when this is needed.
