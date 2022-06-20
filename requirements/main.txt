@@ -536,9 +536,9 @@ jinja2==3.1.2 \
     --hash=sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852 \
     --hash=sha256:6088930bfe239f0e6710546ab9c19c9ef35e29792895fed6e6e31a023a182a61
     # via -r requirements/main.in
-kubernetes-asyncio==22.6.5 \
-    --hash=sha256:1d0e7c30015296454d23cd52214bb946c61585785c17bc4a3742478c1a103421 \
-    --hash=sha256:f52877a5460438f4af789f0376893e92aed0a15b11357e887635543f19ed55d1
+kubernetes-asyncio==23.6.0 \
+    --hash=sha256:4e6736e46ce4d07d9a33738f9e013e7e9d5c61a8d5b6d44c793480a6608c39a2 \
+    --hash=sha256:68c6a18c2ca3a5515b59cc43aec6fcd5832afe3a513b70636ac772948b46695e
     # via
     #   -r requirements/main.in
     #   safir
@@ -1038,7 +1038,7 @@ yarl==1.7.2 \
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==62.4.0 \
-    --hash=sha256:5a844ad6e190dccc67d6d7411d119c5152ce01f7c76be4d8a1eaa314501bba77 \
-    --hash=sha256:bf8a748ac98b09d32c9a64a995a6b25921c96cc5743c1efa82763ba80ff54e91
+setuptools==62.6.0 \
+    --hash=sha256:990a4f7861b31532871ab72331e755b5f14efbe52d336ea7f6118144dd478741 \
+    --hash=sha256:c1848f654aea2e3526d17fc3ce6aeaa5e7e24e66e645b5be2171f3f6b4e5a178
     # via kubernetes-asyncio
