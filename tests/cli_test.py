@@ -130,7 +130,7 @@ def test_fix_home_ownership(
         document = mock_firestore.collection("users").document("someuser")
         user = document.get_for_testing()
         assert user.exists
-        uid = user["uid"]
+        uid = user.get("uid")
         assert uid == UID_USER_MIN
         assert mock_run.call_args == call(
             ["chown", "-R", f"{uid}:{uid}", str(user_home)]

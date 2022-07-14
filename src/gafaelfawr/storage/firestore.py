@@ -185,12 +185,12 @@ async def _get_or_assign_gid(
     """
     group = await group_ref.get(transaction=transaction)
     if group.exists:
-        return group["gid"]
+        return group.get("gid")
     counter = await counter_ref.get(transaction=transaction)
     if not counter.exists:
         logger.error("Firestore GID counter not found")
         raise FirestoreNotInitializedError("Firestore GID counter not found")
-    next_gid = counter["next"]
+    next_gid = counter.get("next")
     if next_gid >= GID_MAX:
         msg = f"Next GID {next_gid} out of range (>= {GID_MAX})"
         logger.error(msg, group=group_name)
@@ -244,12 +244,12 @@ async def _get_or_assign_uid(
     """
     user = await user_ref.get(transaction=transaction)
     if user.exists:
-        return user["uid"]
+        return user.get("uid")
     counter = await counter_ref.get(transaction=transaction)
     if not counter.exists:
         logger.error("Firestore UID counter not found")
         raise FirestoreNotInitializedError("Firestore UID counter not found")
-    next_uid = counter["next"]
+    next_uid = counter.get("next")
     if bot and next_uid >= UID_BOT_MAX:
         msg = f"Next bot UID {next_uid} out of range (>= {UID_BOT_MAX})"
         logger.error(msg, user=username)

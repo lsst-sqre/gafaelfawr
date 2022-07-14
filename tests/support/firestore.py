@@ -18,7 +18,7 @@ class MockDocument:
         self._data = data
         self.exists = data is not None
 
-    def __getitem__(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any:
         assert self._data
         return self._data.get(key)
 
