@@ -30,7 +30,8 @@ __all__ = [
     "KubernetesError",
     "KubernetesObjectError",
     "LDAPError",
-    "MissingClaimsError",
+    "MissingUIDClaimError",
+    "MissingUsernameClaimError",
     "NoAvailableGidError",
     "NoAvailableUidError",
     "NotConfiguredError",
@@ -373,8 +374,12 @@ class InvalidTokenClaimsError(VerifyTokenError):
     """One of the claims in the token is of an invalid format."""
 
 
-class MissingClaimsError(VerifyTokenError):
-    """The token is missing required claims."""
+class MissingUIDClaimError(VerifyTokenError):
+    """The token is missing the required UID claim."""
+
+
+class MissingUsernameClaimError(VerifyTokenError):
+    """The token is missing the required username claim."""
 
 
 class UnknownAlgorithmError(VerifyTokenError):

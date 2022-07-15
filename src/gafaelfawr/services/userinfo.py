@@ -9,7 +9,8 @@ from structlog.stdlib import BoundLogger
 from ..config import Config
 from ..exceptions import (
     InvalidTokenClaimsError,
-    MissingClaimsError,
+    MissingUIDClaimError,
+    MissingUsernameClaimError,
     NotConfiguredError,
     ValidationError,
 )
@@ -343,7 +344,7 @@ class OIDCUserInfoService(UserInfoService):
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingClaimsError
+        gafaelfawr.exceptions.MissingUIDClaimError
             The token is missing the required numeric UID claim.
         gafaelfawr.exceptions.InvalidTokenClaimsError
             The numeric UID claim contains something that is not a number.
@@ -351,7 +352,7 @@ class OIDCUserInfoService(UserInfoService):
         if self._oidc_config.uid_claim not in token.claims:
             msg = f"No {self._oidc_config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise MissingClaimsError(msg)
+            raise MissingUIDClaimError(msg)
         try:
             uid = int(token.claims[self._oidc_config.uid_claim])
         except Exception:
@@ -375,11 +376,11 @@ class OIDCUserInfoService(UserInfoService):
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingClaimsError
+        gafaelfawr.exceptions.MissingUsernameClaimError
             The token is missing the required username claim.
         """
         if self._oidc_config.username_claim not in token.claims:
             msg = f"No {self._oidc_config.username_claim} claim in token"
             self._logger.warning(msg, claims=token.claims)
-            raise MissingClaimsError(msg)
+            raise MissingUsernameClaimError(msg)
         return token.claims[self._oidc_config.username_claim]
