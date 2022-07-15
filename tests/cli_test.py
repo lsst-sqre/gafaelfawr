@@ -10,10 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import subprocess
 from pathlib import Path
 from typing import Any
-from unittest.mock import call, patch
 
 import pytest
 import structlog
@@ -26,7 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config, OIDCClient
-from gafaelfawr.constants import UID_USER_MIN
 from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
@@ -34,7 +31,6 @@ from gafaelfawr.models.oidc import OIDCAuthorizationCode
 from gafaelfawr.models.token import Token, TokenData, TokenUserInfo
 from gafaelfawr.schema import Base
 
-from .support.firestore import MockFirestore
 from .support.logging import parse_log
 from .support.settings import configure
 
@@ -103,38 +99,6 @@ def test_generate_token() -> None:
 
     assert result.exit_code == 0
     assert Token.from_str(result.output.rstrip("\n"))
-
-
-def test_fix_home_ownership(
-    tmp_path: Path,
-    engine: AsyncEngine,
-    event_loop: asyncio.AbstractEventLoop,
-    mock_firestore: MockFirestore,
-) -> None:
-    configure(tmp_path, "oidc-firestore")
-    home = tmp_path / "home"
-    home.mkdir()
-    user_home = home / "someuser"
-    user_home.mkdir()
-
-    runner = CliRunner()
-    result = runner.invoke(main, ["init"])
-    assert result.exit_code == 0
-    with patch.object(subprocess, "run") as mock_run:
-        result = runner.invoke(main, ["fix-home-ownership", str(home)])
-        print(result)
-        print(result.output)
-        assert result.exit_code == 0
-
-        assert mock_run.call_count == 1
-        document = mock_firestore.collection("users").document("someuser")
-        user = document.get_for_testing()
-        assert user.exists
-        uid = user.get("uid")
-        assert uid == UID_USER_MIN
-        assert mock_run.call_args == call(
-            ["chown", "-R", f"{uid}:{uid}", str(user_home)]
-        )
 
 
 def test_help() -> None:
