@@ -86,9 +86,7 @@ class MockLDAP(Mock):
         entries = self._entries[base][key]
         results = []
         for entry in entries:
-            for attr in attrlist:
-                assert attr in entry, f"Invalid attribute {attr}"
-            results.append({a: entry[a] for a in attrlist})
+            results.append({a: entry[a] for a in attrlist if a in entry})
         return results
 
 

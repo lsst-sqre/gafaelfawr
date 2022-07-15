@@ -174,24 +174,26 @@ class LDAPStorage:
         )
         logger.debug("LDAP entries for UID", ldap_results=results)
 
-        for result in results:
-            try:
-                uid = None
-                name = None
-                email = None
-                if self._config.uid_attr:
-                    uid = int(result[self._config.uid_attr][0])
-                if self._config.name_attr:
-                    name = result[self._config.name_attr][0]
-                if self._config.email_attr:
-                    email = result[self._config.email_attr][0]
-                return LDAPUserData(uid=uid, name=name, email=email)
-            except Exception as e:
-                logger.error("LDAP user entry invalid", error=str(e))
-                raise LDAPError("LDAP user entry invalid")
+        # If results are empty, return no data.
+        if not results:
+            return LDAPUserData(uid=None, name=None, email=None)
+        result = results[0]
 
-        # Fell through without finding a UID.
-        return LDAPUserData(uid=None, name=None, email=None)
+        # Extract data from the result.
+        try:
+            uid = None
+            name = None
+            email = None
+            if self._config.uid_attr and self._config.uid_attr in result:
+                uid = int(result[self._config.uid_attr][0])
+            if self._config.name_attr and self._config.name_attr in result:
+                name = result[self._config.name_attr][0]
+            if self._config.email_attr and self._config.email_attr in result:
+                email = result[self._config.email_attr][0]
+            return LDAPUserData(uid=uid, name=name, email=email)
+        except Exception as e:
+            logger.error("LDAP user entry invalid", error=str(e))
+            raise LDAPError("LDAP user entry invalid")
 
     async def _query(
         self,

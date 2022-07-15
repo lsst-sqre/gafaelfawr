@@ -22,6 +22,8 @@ The internal configuration format may change in minor releases.
 - Gafaelfawr now uniformly treats data stored with the token as overriding data from external sources, such as LDAP or Firestore.
   This also applies to tokens created by admins.
   To create a token but use user data from external sources, omit that data (such as UID or email) in the token creation request.
+- Allow data to be missing from LDAP.
+  Users are allowed to not have email addresses or full names.
 - Allow users who are not found in LDAP.
   These will normally be created via the admin token API.
   User data such as UID, full name, and email address that would normally be retrieved from LDAP (depending on the configuration) will be null instead.
