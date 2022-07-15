@@ -6,7 +6,7 @@ Versioning follows `semver <https://semver.org/>`__.
 Versioning assumes that Gafaelfawr is installed and configured via `Phalanx <https://phalanx.lsst.io/>`__, so only changes to configuration changes exposed in the Helm values file are considered breaking changes.
 The internal configuration format may change in minor releases.
 
-5.0.0 (unreleased)
+5.0.0 (2022-07-15)
 ==================
 
 - Service tokens now must be for bot users, meaning that the username must begin with ``bot-``.
