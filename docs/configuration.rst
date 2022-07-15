@@ -111,7 +111,7 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     The shared secret to use for issuing InfluxDB tokens.
     See :ref:`influxdb` for more information.
 
-``ldap-secret`` (optional)
+``ldap-password`` (optional)
     The password used for simple binds to the LDAP server used as a source of data about users.
     Only used if LDAP lookups are enabled.
     See :ref:`ldap-groups` for more information.
@@ -317,7 +317,7 @@ You may need to set the following additional options under ``config.ldap`` depen
 ``config.ldap.userDn``
     The DN of the user to bind as.
     Gafaelfawr currently only supports simple binds.
-    If this is set, ``ldap-secret`` must be set in the Gafaelfawr Vault secret to the password to use with the simple bind.
+    If this is set, ``ldap-password`` must be set in the Gafaelfawr Vault secret to the password to use with the simple bind.
 
 ``config.ldap.groupObjectClass``
     The object class from which group information should be looked up.
