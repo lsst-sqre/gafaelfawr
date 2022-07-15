@@ -16,7 +16,9 @@ from ..config import OIDCConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
     FetchKeysError,
+    MissingUsernameClaimError,
     OIDCError,
+    OIDCNotEnrolledError,
     UnknownAlgorithmError,
     UnknownKeyIdError,
     VerifyTokenError,
@@ -166,6 +168,8 @@ class OIDCProvider(Provider):
         try:
             token = await self._verifier.verify_token(unverified_token)
             return await self._user_info.get_user_info_from_oidc_token(token)
+        except MissingUsernameClaimError as e:
+            raise OIDCNotEnrolledError(str(e))
         except (jwt.InvalidTokenError, VerifyTokenError) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCError(msg)

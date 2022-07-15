@@ -15,6 +15,7 @@ from ..exceptions import (
     FirestoreError,
     InvalidReturnURLError,
     LDAPError,
+    OIDCNotEnrolledError,
     PermissionDeniedError,
     ProviderError,
 )
@@ -219,6 +220,13 @@ async def handle_provider_return(
     provider = context.factory.create_provider()
     try:
         user_info = await provider.create_user_info(code, state, context.state)
+    except OIDCNotEnrolledError as e:
+        if context.config.oidc and context.config.oidc.enrollment_url:
+            url = context.config.oidc.enrollment_url
+            context.logger.info("Redirecting user to enrollment URL", url=url)
+            return RedirectResponse(url)
+        else:
+            return login_error(context, LoginError.NOT_ENROLLED, str(e))
     except FirestoreError as e:
         return login_error(context, LoginError.FIRESTORE_FAILED, str(e))
     except HTTPError as e:

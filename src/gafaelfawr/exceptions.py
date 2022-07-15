@@ -355,6 +355,15 @@ class OIDCError(ProviderError):
     """The OpenID Connect provider returned an error from an API call."""
 
 
+class OIDCNotEnrolledError(ProviderError):
+    """The user is not enrolled in the upstream OpenID Connect provider.
+
+    This is raised when the username claim is missing from the ID token,
+    which is how CILogon indicates that no matching enrolled user record
+    could be found in LDAP for the federated identity.
+    """
+
+
 class UnauthorizedClientError(Exception):
     """The client is not authorized to request an authorization code.
 

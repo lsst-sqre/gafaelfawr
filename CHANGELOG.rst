@@ -14,6 +14,7 @@ The internal configuration format may change in minor releases.
 - Drop support for retrieving the username from LDAP.
   CILogon can do this automatically and put the username in the OpenID Connect ID token, which was the only use case we had for this functionality.
   Remove it, and the ``config.ldap.usernameBaseDn`` and ``config.ldap.usernameSearchAttr`` Helm parameters, to reduce complexity.
+- The user is now redirected to the enrollment URL, if configured, when the username claim is missing from the upstream OpenID Connect ID token, rather than tying the enrollment URL feature to the (now removed) LDAP lookup of the username.
 - Add support for getting the full name and email address from LDAP as well.
   Those plus numeric UID (if configured) now all use ``config.ldap.userBaseDn`` and ``config.ldap.userSearchAttr`` to configure how the user's LDAP directory entry is found.
   Enabling numeric UID lookups now requires setting ``config.ldap.uidAttr`` plus ``config.ldap.userBaseDn``, and ``config.ldap.uidBaseDn`` is no longer a valid configuration setting.

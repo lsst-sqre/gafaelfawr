@@ -497,3 +497,34 @@ async def test_firestore(
             {"name": "group-2", "id": GID_MIN + 3},
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_enrollment_url(
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+) -> None:
+    await reconfigure(tmp_path, "oidc-enrollment")
+    token = create_upstream_oidc_jwt(groups=["admin"])
+
+    r = await simulate_oidc_login(
+        client, respx_mock, token, expect_enrollment=True
+    )
+    assert r.status_code == 307
+
+
+@pytest.mark.asyncio
+async def test_no_enrollment_url(
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+) -> None:
+    """Test a missing username claim in the ID token but no enrollment URL."""
+    await reconfigure(tmp_path, "oidc-claims")
+    token = create_upstream_oidc_jwt(groups=["admin"])
+
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 403
+    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert "User is not enrolled" in r.text
