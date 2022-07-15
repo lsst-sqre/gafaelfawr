@@ -45,6 +45,8 @@ jobs:
           path: ./ui/node_modules
           key: node-${{ steps.node_version.outputs.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
 
+      # --legacy-peer-deps is currently required because react-aria-modal
+      # hasn't been updated for the latest React.
       - name: Install Node dependencies
         run: npm ci --legacy-peer-deps
         if: steps.node-cache.outputs.cache-hit != 'true'
@@ -95,33 +97,18 @@ jobs:
           name: ui
           path: ui/public
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python }}
-
       - name: Update package lists
         run: sudo apt-get update
 
       - name: Install extra packages
         run: sudo apt install -y libpq-dev libldap2-dev libsasl2-dev
 
-      - name: Install tox
-        run: pip install tox tox-docker
-
-      - name: Cache tox environments
-        id: cache-tox
-        uses: actions/cache@v3
-        with:
-          path: .tox
-          # requirements/*.txt and tox.ini have versioning or dependency
-          # information that would impact the tox environment.
-          key: tox-${{ matrix.python }}-${{ hashFiles('requirements/*.txt') }}-${{ hashFiles('tox.ini') }}
-          restore-keys: |
-            tox-${{ matrix.python }}-${{ hashFiles('requirements/*.txt') }}-
-
       - name: Run tox
-        run: tox -e typing,py-coverage,coverage-report
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: ${{ matrix.python }}
+          tox-envs: "typing,py-coverage,coverage-report"
+          tox-plugins: tox-docker
 
   docs:
     runs-on: ubuntu-latest
@@ -132,38 +119,32 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
       - name: Update package lists
         run: sudo apt-get update
 
       - name: Install extra packages
-        run: sudo apt-get install -y libpq-dev libldap2-dev libsasl2-dev
-
-      - name: Install tox and LTD Conveyor
-        run: pip install tox ltd-conveyor
+        run: sudo apt install -y libpq-dev libldap2-dev libsasl2-dev
 
       - name: Install graphviz and ImageMagick
-        run: sudo apt-get install graphviz imagemagick
+        run: sudo apt install -y graphviz imagemagick
 
       - name: Run tox
-        run: tox -e docs
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: "3.10"
+          tox-envs: "docs,docs-linkcheck"
 
       # Only attempt documentation uploads for long-lived branches, tagged
       # releases, and pull requests from ticket branches.  This avoids version
       # clutter in the docs and failures when a PR doesn't have access to
-      # secrets.  This will still trigger on pull requests from untrusted
-      # repositories whose branch names match our tickets/* branch convention,
-      # but in this case the build will fail with an error since the secret
-      # won't be set.
+      # secrets.
       - name: Upload to LSST the Docs
-        env:
-          LTD_USERNAME: ${{ secrets.LTD_USERNAME }}
-          LTD_PASSWORD: ${{ secrets.LTD_PASSWORD }}
-        run: ltd upload --product gafaelfawr --gh --dir docs/_build/html
+        uses: lsst-sqre/ltd-upload@v1
+        with:
+          project: gafaelfawr
+          dir: "docs/_build/html"
+          username: ${{ secrets.LTD_USERNAME }}
+          password: ${{ secrets.LTD_PASSWORD }}
         if: >
           github.event_name != 'pull_request'
           || startsWith(github.head_ref, 'tickets/')
