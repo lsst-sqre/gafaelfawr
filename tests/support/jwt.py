@@ -63,6 +63,9 @@ def create_upstream_oidc_jwt(
             {"name": g, "id": 1000 + n} for n, g in enumerate(groups)
         ]
     payload.update(claims)
+    for claim, value in claims.items():
+        if value is None:
+            del payload[claim]
 
     encoded = jwt.encode(
         payload,

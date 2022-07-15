@@ -203,6 +203,7 @@ async def simulate_oidc_login(
     )
     if r.status_code == 307:
         if expect_enrollment:
+            assert config.oidc.enrollment_url
             assert r.headers["Location"] == config.oidc.enrollment_url
         else:
             assert r.headers["Location"] == return_url

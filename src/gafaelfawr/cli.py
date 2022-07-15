@@ -18,7 +18,7 @@ from safir.kubernetes import initialize_kubernetes
 from sqlalchemy import text
 
 from .dependencies.config import config_dependency
-from .exceptions import KubernetesError, NotConfiguredError
+from .exceptions import KubernetesError
 from .factory import Factory
 from .keypair import RSAKeyPair
 from .main import create_app
@@ -27,7 +27,6 @@ from .schema import Base
 
 __all__ = [
     "delete_all_data",
-    "fix_home_ownership",
     "generate_key",
     "generate_token",
     "help",
@@ -102,49 +101,6 @@ async def delete_all_data(settings: Optional[str]) -> None:
         if config.oidc_server:
             oidc_service = factory.create_oidc_service()
             await oidc_service.delete_all_codes()
-
-
-@main.command()
-@click.option(
-    "--settings",
-    envvar="GAFAELFAWR_SETTINGS_PATH",
-    type=str,
-    default=None,
-    help="Application settings file.",
-)
-@click.argument(
-    "path",
-    required=True,
-    type=click.Path(
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-        path_type=Path,
-    ),
-)
-@run_with_asyncio
-async def fix_home_ownership(settings: Optional[str], path: Path) -> None:
-    """Fix ownership of home directories.
-
-    For each directory under the provided path, assume the name of the
-    directory is the username of a user.  Look up (and create if necessary) a
-    UID for that user in Firestore, and then change the ownership of that
-    directory and everything under it (with ``chown -R``) to that UID.  The
-    GID will be set to match the UID.
-    """
-    if settings:
-        config_dependency.set_settings_path(settings)
-    config = await config_dependency()
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    async with Factory.standalone(config, engine) as factory:
-        try:
-            firestore = factory.create_firestore_service()
-        except NotConfiguredError:
-            raise click.UsageError("Firestore is not configured")
-        await firestore.fix_home_ownership(path)
 
 
 @main.command()

@@ -9,7 +9,8 @@ from structlog.stdlib import BoundLogger
 from ..config import Config
 from ..exceptions import (
     InvalidTokenClaimsError,
-    MissingClaimsError,
+    MissingUIDClaimError,
+    MissingUsernameClaimError,
     NotConfiguredError,
     ValidationError,
 )
@@ -234,24 +235,16 @@ class OIDCUserInfoService(UserInfoService):
         gafaelfawr.exceptions.LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
-        gafaelfawr.exceptions.NoUsernameMappingError
-            The opaque authentication identity could not be mapped to a
-            username, probably because the user is not enrolled.
         gafaelfawr.exceptions.VerifyTokenError
             The token is missing required claims.
         """
-        username = None
+        username = self._get_username_from_oidc_token(token)
         groups = None
         uid = None
         ldap_data = LDAPUserData(uid=None, name=None, email=None)
         if self._ldap:
-            if "sub" in token.claims:
-                username = await self._ldap.get_username(token.claims["sub"])
-            if username is None:
-                username = self._get_username_from_oidc_token(token)
             ldap_data = await self._ldap.get_data(username)
         else:
-            username = self._get_username_from_oidc_token(token)
             groups = await self._get_groups_from_oidc_token(token, username)
         if not self._firestore and not ldap_data.uid:
             uid = self._get_uid_from_oidc_token(token, username)
@@ -351,7 +344,7 @@ class OIDCUserInfoService(UserInfoService):
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingClaimsError
+        gafaelfawr.exceptions.MissingUIDClaimError
             The token is missing the required numeric UID claim.
         gafaelfawr.exceptions.InvalidTokenClaimsError
             The numeric UID claim contains something that is not a number.
@@ -359,7 +352,7 @@ class OIDCUserInfoService(UserInfoService):
         if self._oidc_config.uid_claim not in token.claims:
             msg = f"No {self._oidc_config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise MissingClaimsError(msg)
+            raise MissingUIDClaimError(msg)
         try:
             uid = int(token.claims[self._oidc_config.uid_claim])
         except Exception:
@@ -383,11 +376,11 @@ class OIDCUserInfoService(UserInfoService):
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingClaimsError
+        gafaelfawr.exceptions.MissingUsernameClaimError
             The token is missing the required username claim.
         """
         if self._oidc_config.username_claim not in token.claims:
             msg = f"No {self._oidc_config.username_claim} claim in token"
             self._logger.warning(msg, claims=token.claims)
-            raise MissingClaimsError(msg)
+            raise MissingUsernameClaimError(msg)
         return token.claims[self._oidc_config.username_claim]

@@ -30,10 +30,10 @@ __all__ = [
     "KubernetesError",
     "KubernetesObjectError",
     "LDAPError",
-    "MissingClaimsError",
+    "MissingUIDClaimError",
+    "MissingUsernameClaimError",
     "NoAvailableGidError",
     "NoAvailableUidError",
-    "NoUsernameMappingError",
     "NotConfiguredError",
     "OAuthError",
     "OAuthBearerError",
@@ -335,10 +335,6 @@ class LDAPError(Exception):
     """Group information for the user in LDAP was invalid."""
 
 
-class NoUsernameMappingError(LDAPError):
-    """No mapping from identifier to username was found in LDAP."""
-
-
 class NotConfiguredError(Exception):
     """The requested operation was not configured."""
 
@@ -357,6 +353,15 @@ class GitHubError(ProviderError):
 
 class OIDCError(ProviderError):
     """The OpenID Connect provider returned an error from an API call."""
+
+
+class OIDCNotEnrolledError(ProviderError):
+    """The user is not enrolled in the upstream OpenID Connect provider.
+
+    This is raised when the username claim is missing from the ID token,
+    which is how CILogon indicates that no matching enrolled user record
+    could be found in LDAP for the federated identity.
+    """
 
 
 class UnauthorizedClientError(Exception):
@@ -378,8 +383,12 @@ class InvalidTokenClaimsError(VerifyTokenError):
     """One of the claims in the token is of an invalid format."""
 
 
-class MissingClaimsError(VerifyTokenError):
-    """The token is missing required claims."""
+class MissingUIDClaimError(VerifyTokenError):
+    """The token is missing the required UID claim."""
+
+
+class MissingUsernameClaimError(VerifyTokenError):
+    """The token is missing the required username claim."""
 
 
 class UnknownAlgorithmError(VerifyTokenError):

@@ -1,5 +1,4 @@
 realm: "example.com"
-loglevel: "DEBUG"
 session_secret_file: "{session_secret_file}"
 database_url: "{database_url}"
 redis_url: "redis://localhost:6379/0"
@@ -15,11 +14,6 @@ known_scopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
-ldap:
-  url: "ldaps://ldap.example.com/"
-  group_base_dn: "dc=example,dc=com"
-  user_base_dn: "dc=example,dc=com"
-  username_base_dn: "dc=example,dc=com"
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"
@@ -34,5 +28,4 @@ oidc:
     - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
-error_footer: |
-  Some <strong>error instructions</strong> with HTML.
+  username_claim: "username"

@@ -21,7 +21,7 @@ However, you will need to configure persistent storage for that Redis server for
 
 Gafaelfawr requires use of Vault_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets as Kubernetes secrets.
 
-.. _Vault: https://vaultproject.io/
+.. _Vault: https://www.vaultproject.io/
 .. _Vault Secrets Operator: https://github.com/ricoberger/vault-secrets-operator
 
 Client configuration
@@ -111,7 +111,7 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     The shared secret to use for issuing InfluxDB tokens.
     See :ref:`influxdb` for more information.
 
-``ldap-secret`` (optional)
+``ldap-password`` (optional)
     The password used for simple binds to the LDAP server used as a source of data about users.
     Only used if LDAP lookups are enabled.
     See :ref:`ldap-groups` for more information.
@@ -254,10 +254,18 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     See the `CILogon OIDC documentation <https://www.cilogon.org/oidc>`__ for more information.
 
 ``config.cilogon.enrollmentUrl``
-    Used only when LDAP lookups of usernames are configured (see :ref:`ldap-username`).
     If a username was not found for the CILogon unique identifier, redirect the user to this URL.
     This is intended for deployments using CILogon with COmanage for identity management.
     The enrollment URL will normally be the initial URL for a COmanage user-initiated enrollment flow.
+
+``config.cilogon.uidClaim``
+    The claim of the OpenID Connect ID token from which to take the numeric UID.
+    Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
+    The default is ``uidNumber``.
+
+``config.cilogon.usernameClaim``
+    The claim of the OpenID Connect ID token from which to take the username.
+    The default is ``uid``.
 
 Generic OpenID Connect
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -282,19 +290,17 @@ There are two additional options under ``config.oidc`` that you may want to set:
     Can be used to set additional configuration options for some OpenID Connect providers.
 
 ``config.oidc.enrollmentUrl``
-    Used only when LDAP lookups of usernames are configured (see :ref:`ldap-username`).
     If a username was not found for the unique identifier in the ``sub`` claim of the OpenID Connect ID token, redirect the user to this URL.
     This could, for example, be a form where the user can register for access to the deployment, or a page explaining how a user can get access.
-
-``config.oidc.usernameClaim``
-    The claim of the OpenID Connect ID token from which to take the username.
-    Only used if :ref:`username lookup in LDAP <ldap-username>` is not configured.
-    The default is ``sub``.
 
 ``config.oidc.uidClaim``
     The claim of the OpenID Connect ID token from which to take the numeric UID.
     Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
     The default is ``uidNumber``.
+
+``config.oidc.usernameClaim``
+    The claim of the OpenID Connect ID token from which to take the username.
+    The default is ``uid``.
 
 .. _ldap-groups:
 
@@ -317,7 +323,7 @@ You may need to set the following additional options under ``config.ldap`` depen
 ``config.ldap.userDn``
     The DN of the user to bind as.
     Gafaelfawr currently only supports simple binds.
-    If this is set, ``ldap-secret`` must be set in the Gafaelfawr Vault secret to the password to use with the simple bind.
+    If this is set, ``ldap-password`` must be set in the Gafaelfawr Vault secret to the password to use with the simple bind.
 
 ``config.ldap.groupObjectClass``
     The object class from which group information should be looked up.
@@ -329,29 +335,6 @@ You may need to set the following additional options under ``config.ldap`` depen
     Default: ``member``.
 
 The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
-
-.. _ldap-username:
-
-LDAP username
--------------
-
-By default, Gafaelfawr gets the username from the ``uid`` claim in the ID token.
-If LDAP is used for group information, the username can instead be obtained from LDAP.
-To do this, add the following configuration:
-
-.. code-block:: yaml
-
-   config:
-     ldap:
-       usernameBaseDn: "<base-dn-for-search>"
-
-The username will be the value of the ``uid`` attribute of the corresponding record.
-
-You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
-
-``config.ldap.usernameSearchAttr``
-    The attribute that holds the value of the ``sub`` claim of the ID token returned by the OpenID Connect authentication server.
-    Default: ``voPersonSoRID``.
 
 .. _ldap-user:
 
@@ -419,6 +402,10 @@ Scopes
 
 Gafaelfawr takes group information from the upstream authentication provider and maps it to scopes.
 Scopes are then used to restrict access to protected applications (see :ref:`protect-service`).
+
+For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see DMTN-235_.
+
+.. _DMTN-235: https://dmtn-235.lsst.io/
 
 The list of scopes is configured via ``config.knownScopes``, which is an object mapping scope names to human-readable descriptions.
 Every scope that you want to use must be listed in ``config.knownScopes``.
@@ -566,7 +553,7 @@ Set this with ``config.proxies``:
      proxies:
        - "192.0.2.0/24"
 
-If not set, defaults to the `RFC 1918 private address spaces <https://tools.ietf.org/html/rfc1918>`__.
+If not set, defaults to the `RFC 1918 private address spaces <https://datatracker.ietf.org/doc/html/rfc1918>`__.
 See :ref:`client-ips` for more information.
 
 OpenID Connect server

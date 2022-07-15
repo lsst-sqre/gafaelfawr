@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import bonsai
 from bonsai import LDAPSearchScope
 from bonsai.asyncio import AIOConnectionPool
 from bonsai.asyncio.aiopool import AIOPoolContextManager
-from bonsai.utils import escape_filter_exp
 from structlog.stdlib import BoundLogger
 
 from ..config import LDAPConfig
 from ..constants import GROUPNAME_REGEX, LDAP_TIMEOUT
-from ..exceptions import LDAPError, NoUsernameMappingError
+from ..exceptions import LDAPError
 from ..models.ldap import LDAPUserData
 from ..models.token import TokenGroup
 
@@ -175,74 +174,26 @@ class LDAPStorage:
         )
         logger.debug("LDAP entries for UID", ldap_results=results)
 
-        for result in results:
-            try:
-                uid = None
-                name = None
-                email = None
-                if self._config.uid_attr:
-                    uid = int(result[self._config.uid_attr][0])
-                if self._config.name_attr:
-                    name = result[self._config.name_attr][0]
-                if self._config.email_attr:
-                    email = result[self._config.email_attr][0]
-                return LDAPUserData(uid=uid, name=name, email=email)
-            except Exception as e:
-                logger.error("LDAP user entry invalid", error=str(e))
-                raise LDAPError("LDAP user entry invalid")
+        # If results are empty, return no data.
+        if not results:
+            return LDAPUserData(uid=None, name=None, email=None)
+        result = results[0]
 
-        # Fell through without finding a UID.
-        return LDAPUserData(uid=None, name=None, email=None)
-
-    async def get_username(self, sub: str) -> Optional[str]:
-        """Get the username of a user.
-
-        Parameters
-        ----------
-        sub : `str`
-            The ``sub`` claim from a JWT.
-
-        Returns
-        -------
-        username : `str` or `None`
-            The corresponding username from LDAP, or `None` if Gafaelfawr was
-            not configured to get the username from LDAP (in which case the
-            caller should fall back to other sources of the username).
-
-        Raises
-        ------
-        gafaelfawr.exceptions.LDAPError
-            The lookup by ``username_search_attr`` in the LDAP server was not
-            valid (connection to the LDAP server failed, attribute not found
-            in LDAP, result value not an integer).
-        gafaelfawr.exceptions.NoUsernameMappingError
-            The opaque authentication identity could not be mapped to a
-            username, probably because the user is not enrolled.
-        """
-        if not self._config.username_base_dn:
-            return None
-
-        sub_escaped = escape_filter_exp(sub)
-        search = f"({self._config.username_search_attr}={sub_escaped})"
-        logger = self._logger.bind(ldap_search=search, sub=sub)
-        results = await self._query(
-            self._config.username_base_dn,
-            bonsai.LDAPSearchScope.ONE,
-            search,
-            ["uid"],
-        )
-        logger.debug("LDAP entries for username", ldap_results=results)
-
-        for result in results:
-            try:
-                return result["uid"][0]
-            except Exception as e:
-                self._logger.error("LDAP username is invalid", error=str(e))
-                raise LDAPError("Username in LDAP is invalid")
-
-        # Fell through without finding a UID.
-        self._logger.info("No username found in LDAP")
-        raise NoUsernameMappingError("No username found in LDAP")
+        # Extract data from the result.
+        try:
+            uid = None
+            name = None
+            email = None
+            if self._config.uid_attr and self._config.uid_attr in result:
+                uid = int(result[self._config.uid_attr][0])
+            if self._config.name_attr and self._config.name_attr in result:
+                name = result[self._config.name_attr][0]
+            if self._config.email_attr and self._config.email_attr in result:
+                email = result[self._config.email_attr][0]
+            return LDAPUserData(uid=uid, name=name, email=email)
+        except Exception as e:
+            logger.error("LDAP user entry invalid", error=str(e))
+            raise LDAPError("LDAP user entry invalid")
 
     async def _query(
         self,

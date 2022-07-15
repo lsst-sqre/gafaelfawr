@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from gafaelfawr.exceptions import MissingClaimsError
+from gafaelfawr.exceptions import (
+    MissingUIDClaimError,
+    MissingUsernameClaimError,
+)
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.oidc import OIDCVerifiedToken
 
@@ -32,14 +35,14 @@ async def test_missing_token_data(tmp_path: Path, factory: Factory) -> None:
     )
 
     # Missing username claim.
-    with pytest.raises(MissingClaimsError) as excinfo:
+    with pytest.raises(MissingUsernameClaimError) as excinfo_username:
         await user_info.get_user_info_from_oidc_token(token)
     expected = f"No {config.oidc.username_claim} claim in token"
-    assert str(excinfo.value) == expected
+    assert str(excinfo_username.value) == expected
 
     # Missing UID claim.
     token.claims[config.oidc.username_claim] = "some-user"
-    with pytest.raises(MissingClaimsError) as excinfo:
+    with pytest.raises(MissingUIDClaimError) as excinfo_uid:
         await user_info.get_user_info_from_oidc_token(token)
     expected = f"No {config.oidc.uid_claim} claim in token"
-    assert str(excinfo.value) == expected
+    assert str(excinfo_uid.value) == expected

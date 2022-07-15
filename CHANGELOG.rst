@@ -11,6 +11,10 @@ The internal configuration format may change in minor releases.
 
 - Service tokens now must be for bot users, meaning that the username must begin with ``bot-``.
   This applies to any tokens created via the ``/auth/api/v1/tokens`` route or via Kubernetes ``GafaelfawrServiceToken`` resources and the Kubernetes controller.
+- Drop support for retrieving the username from LDAP.
+  CILogon can do this automatically and put the username in the OpenID Connect ID token, which was the only use case we had for this functionality.
+  Remove it, and the ``config.ldap.usernameBaseDn`` and ``config.ldap.usernameSearchAttr`` Helm parameters, to reduce complexity.
+- The user is now redirected to the enrollment URL, if configured, when the username claim is missing from the upstream OpenID Connect ID token, rather than tying the enrollment URL feature to the (now removed) LDAP lookup of the username.
 - Add support for getting the full name and email address from LDAP as well.
   Those plus numeric UID (if configured) now all use ``config.ldap.userBaseDn`` and ``config.ldap.userSearchAttr`` to configure how the user's LDAP directory entry is found.
   Enabling numeric UID lookups now requires setting ``config.ldap.uidAttr`` plus ``config.ldap.userBaseDn``, and ``config.ldap.uidBaseDn`` is no longer a valid configuration setting.
@@ -18,20 +22,20 @@ The internal configuration format may change in minor releases.
 - Gafaelfawr now uniformly treats data stored with the token as overriding data from external sources, such as LDAP or Firestore.
   This also applies to tokens created by admins.
   To create a token but use user data from external sources, omit that data (such as UID or email) in the token creation request.
+- Allow data to be missing from LDAP.
+  Users are allowed to not have email addresses or full names.
 - Allow users who are not found in LDAP.
   These will normally be created via the admin token API.
   User data such as UID, full name, and email address that would normally be retrieved from LDAP (depending on the configuration) will be null instead.
 - Rename ``config.ldap.baseDn`` to ``config.ldap.groupBaseDn`` to make it clearer that it is only used for group membership searches.
 - The return status of a successful ``PATCH /auth/api/v1/users/<username>/tokens/<token>`` request is now 200 instead of 201.
   Since this modifies a resource rather than creating one, that status code seems more accurate.
-- Add ``gafaelfawr fix-home-ownership`` command-line invocation that assigns UIDs via Firestore for all users found in a home directory tree and then recursively changes ownership of their files to their newly-allocated UIDs.
-  This is intended as a one-time migration tool for environments that are switching to Firestore for UID assignment
 - Add ``gafaelfawr delete-all-data`` command-line invocation that deletes all data except Firestore UID/GID assignments.
   This may be useful when performing destructive updates where everyone's usernames may change.
 - Use a connection pool for LDAP queries instead of opening a new connection for each query.
 - Fix verification of OpenID Connect ID tokens when the upstream issuer URL has a path component.
   Previous versions of Gafaelfawr would incorrectly look for standard metadata URLs one path level too high.
-- Disallow usernames containing only digits, bringing the username policy in sync with `DMTN-255 <https://dmtn-255.lsst.io/>`__.
+- Disallow usernames containing only digits, bringing the username policy in sync with `DMTN-225 <https://dmtn-225.lsst.io/>`__.
 - Report better errors to the user if Firestore or LDAP fail during login.
 - Add ``config.oidc.usernameClaim`` and ``config.oidc.uidClaim`` Helm configuration options to customize which claims from the upstream OpenID Connect ID token are used to get the username and UID.
 - Update dependencies.
@@ -43,14 +47,14 @@ The internal configuration format may change in minor releases.
   When this is enabled, UID and GID information from the upstream OpenID Connect provider or from LDAP is ignored, and instead Gafaelfawr assigns UIDs and GIDs to usernames and group names on first use.
   UIDs and GIDs for usernames and group names will be retrieved from Firestore on initial authentication if already assigned.
   Currently, OpenID Connect (via CILogon or a generic server) must be used as the authentication provider to use Google Firestore UID and GID assignment.
-- Add an optional enrollment URL configuration when CILogon or generic OpenID Connect is used with LDAP lookups of the username.
-  If this is set and the ``sub`` claim in the ID token does not resolve to a user entry in LDAP, the user will be redirected to this URL instead of an error page.
 - Group information from LDAP is now retrieved dynamically when needed instead of stored with an authentication token, so it will change dynamically if the user's groups change in LDAP.
   This does not affect the token's scopes, only the group information retrieved by a user-info API request.
 - Support authenticated simple binds to an LDAP server.
   This requires setting the Helm ``config.ldap.userDn`` parameter and adding a new ``ldap-password`` secret.
 - Support retrieving the username from LDAP when using an upstream OpenID Connect provider.
   This is configured with the new ``config.ldap.usernameBaseDn`` and ``config.ldap.usernameSearchAttr`` Helm parameters.
+- Add an optional enrollment URL configuration when CILogon or generic OpenID Connect is used with LDAP lookups of the username.
+  If this is set and the ``sub`` claim in the ID token does not resolve to a user entry in LDAP, the user will be redirected to this URL instead of an error page.
 - Use the image from the GitHub Container Registry instead of Docker Hub.
 - Update dependencies.
 
@@ -316,7 +320,7 @@ See `the logging documentation <https://gafaelfawr.lsst.io/logging.html#client-i
 ==================
 
 New in this release is an ``/auth/forbidden`` route that can be used to provide a non-cached 403 error page.
-See `the documentation <https://gafaelfawr.lsst.io/install.html#disabling-error-caching>`__ for more information.
+See `the documentation <https://gafaelfawr.lsst.io/applications.html#disabling-error-caching>`__ for more information.
 
 This release changes Gafaelfawr's logging format and standardizes the contents of the logs.
 All logs are now in JSON.

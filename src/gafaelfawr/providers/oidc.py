@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urlencode
 
 import jwt
@@ -16,8 +16,9 @@ from ..config import OIDCConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
     FetchKeysError,
-    MissingClaimsError,
+    MissingUsernameClaimError,
     OIDCError,
+    OIDCNotEnrolledError,
     UnknownAlgorithmError,
     UnknownKeyIdError,
     VerifyTokenError,
@@ -122,9 +123,6 @@ class OIDCProvider(Provider):
         gafaelfawr.exceptions.LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
-        gafaelfawr.exceptions.NoUsernameMappingError
-            The opaque authentication identity could not be mapped to a
-            username, probably because the user is not enrolled.
         ``httpx.HTTPError``
             An HTTP client error occurred trying to talk to the authentication
             provider.
@@ -170,6 +168,8 @@ class OIDCProvider(Provider):
         try:
             token = await self._verifier.verify_token(unverified_token)
             return await self._user_info.get_user_info_from_oidc_token(token)
+        except MissingUsernameClaimError as e:
+            raise OIDCNotEnrolledError(str(e))
         except (jwt.InvalidTokenError, VerifyTokenError) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
             raise OIDCError(msg)
@@ -264,44 +264,6 @@ class OIDCTokenVerifier:
             encoded=token.encoded,
             claims=payload,
             jti=payload.get("jti", "UNKNOWN"),
-        )
-
-    def _build_token(
-        self, encoded: str, claims: Mapping[str, Any]
-    ) -> OIDCVerifiedToken:
-        """Build a VerifiedToken from an encoded token and its verified claims.
-
-        The resulting token will always have a ``uid`` attribute of `None`.
-        If the user's numeric UID should come from a JWT claim, the caller
-        should call `verify_oidc_token_uid`.
-
-        Parameters
-        ----------
-        encoded : str
-            The encoded form of the token.
-        claims : Mapping[`str`, Any]
-            The claims of a verified token.
-
-        Returns
-        -------
-        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
-            The resulting token.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.MissingClaimsError
-            The token is missing required claims.
-        """
-        if self._config.username_claim not in claims:
-            msg = f"No {self._config.username_claim} claim in token"
-            self._logger.warning(msg, claims=claims)
-            raise MissingClaimsError(msg)
-
-        return OIDCVerifiedToken(
-            encoded=encoded,
-            claims=claims,
-            jti=claims.get("jti", "UNKNOWN"),
-            username=claims[self._config.username_claim],
         )
 
     async def _get_key_as_pem(self, issuer_url: str, key_id: str) -> str:

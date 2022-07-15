@@ -54,7 +54,6 @@ Architecture
    arch/overview
    arch/configuration
    arch/flow
-   arch/routes
    arch/providers
    arch/scopes
    arch/storage

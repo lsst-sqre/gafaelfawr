@@ -268,9 +268,9 @@ cryptography==37.0.4 \
     --hash=sha256:f7a6de3e98771e183645181b3627e2563dcde3ce94a9e42a3f427d2255190327 \
     --hash=sha256:f8c0a6e9e1dd3eb0414ba320f85da6b0dcbd543126e30fcc546e7372a7fbf3b9
     # via -r requirements/main.in
-fastapi==0.78.0 \
-    --hash=sha256:15fcabd5c78c266fa7ae7d8de9b384bfc2375ee0503463a6febbe3bab69d6f65 \
-    --hash=sha256:3233d4a789ba018578658e2af1a4bb5e38bdd122ff722b313666a9b2c6786a83
+fastapi==0.79.0 \
+    --hash=sha256:cf0ff6db25b91d321050c4112baab0908c90f19b40bf257f9591d2f9780d1f22 \
+    --hash=sha256:d337563424ceada23857f73d5abe8dae0c28e4cccb53b2af06e78b7bb4a1c7d7
     # via
     #   -r requirements/main.in
     #   safir
@@ -343,9 +343,9 @@ google-api-core[grpc]==2.8.2 \
     # via
     #   google-cloud-core
     #   google-cloud-firestore
-google-auth==2.9.0 \
-    --hash=sha256:3b2f9d2f436cc7c3b363d0ac66470f42fede249c3bafcc504e9f0bcbe983cff0 \
-    --hash=sha256:75b3977e7e22784607e074800048f44d6a56df589fb2abe58a11d4d20c97c314
+google-auth==2.9.1 \
+    --hash=sha256:14292fa3429f2bb1e99862554cde1ee730d6840ebae067814d3d15d8549c0888 \
+    --hash=sha256:5a7eed0cb0e3a83989fad0b59fe1329dfc8c479543039cd6fd1e01e9adf39475
     # via
     #   google-api-core
     #   google-cloud-core
@@ -357,9 +357,9 @@ google-cloud-firestore==2.5.3 \
     --hash=sha256:2123e3a55d9f8d948c6e425ae98cc519daf0c840bc31ab8bc12ea9a2132d1686 \
     --hash=sha256:8685d21b7cc64f3f95a6cc484b54b21cf6df0d9537c5527d1060247225fe4bed
     # via -r requirements/main.in
-googleapis-common-protos==1.56.3 \
-    --hash=sha256:6f1369b58ed6cf3a4b7054a44ebe8d03b29c309257583a2bbdc064cd1e4a1442 \
-    --hash=sha256:87955d7b3a73e6e803f2572a33179de23989ebba725e05ea42f24838b792e461
+googleapis-common-protos==1.56.4 \
+    --hash=sha256:8eb2cbc91b69feaf23e32452a7ae60e791e09967d81d4fcc7fc388182d1bd394 \
+    --hash=sha256:c25873c47279387cfdcbdafa36149887901d36202cb645a0e4f29686bf6e4417
     # via
     #   google-api-core
     #   grpcio-status
@@ -1050,7 +1050,7 @@ yarl==1.7.2 \
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==63.1.0 \
-    --hash=sha256:16923d366ced322712c71ccb97164d07472abeecd13f3a6c283f6d5d26722793 \
-    --hash=sha256:db3b8e2f922b2a910a29804776c643ea609badb6a32c4bcc226fd4fd902cce65
+setuptools==63.2.0 \
+    --hash=sha256:0d33c374d41c7863419fc8f6c10bfe25b7b498aa34164d135c622e52580c6b16 \
+    --hash=sha256:c04b44a57a6265fe34a4a444e965884716d34bae963119a76353434d6f18e450
     # via kubernetes-asyncio
