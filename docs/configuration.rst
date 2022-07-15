@@ -403,6 +403,10 @@ Scopes
 Gafaelfawr takes group information from the upstream authentication provider and maps it to scopes.
 Scopes are then used to restrict access to protected applications (see :ref:`protect-service`).
 
+For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see DMTN-235_.
+
+.. _DMTN-235: https://dmtn-235.lsst.io/
+
 The list of scopes is configured via ``config.knownScopes``, which is an object mapping scope names to human-readable descriptions.
 Every scope that you want to use must be listed in ``config.knownScopes``.
 The default includes:

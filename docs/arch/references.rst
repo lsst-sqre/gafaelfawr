@@ -5,6 +5,13 @@ References
 Design documents
 ================
 
+`DMTN-235: Token scopes for the Rubin Science Platform`__
+    The authentication service for the Rubin Science Platform (Gafaelfawr) uses tokens to authenticate users.
+    Each token is associated with a list of scopes, which are used to make authorization decisions.
+    This tech note lists the scopes currently in use by the Science Platform, defines them, and discusses the services to which each scope grants access.
+
+__ https://dmtn-235.lsst.io/
+
 `SQR-039: Discussion of authentication and authorization for Science Platform`__
     This technote reassesses the authentication and authorization needs for the Science Platform in light of early operational experience and Data Facility developments, discusses trade-offs between possible implementation strategies, and proposes a modified design based on opaque bearer tokens and a separate authorization and user metadata service.
 
