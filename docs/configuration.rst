@@ -21,7 +21,7 @@ However, you will need to configure persistent storage for that Redis server for
 
 Gafaelfawr requires use of Vault_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets as Kubernetes secrets.
 
-.. _Vault: https://vaultproject.io/
+.. _Vault: https://www.vaultproject.io/
 .. _Vault Secrets Operator: https://github.com/ricoberger/vault-secrets-operator
 
 Client configuration
@@ -553,7 +553,7 @@ Set this with ``config.proxies``:
      proxies:
        - "192.0.2.0/24"
 
-If not set, defaults to the `RFC 1918 private address spaces <https://tools.ietf.org/html/rfc1918>`__.
+If not set, defaults to the `RFC 1918 private address spaces <https://datatracker.ietf.org/doc/html/rfc1918>`__.
 See :ref:`client-ips` for more information.
 
 OpenID Connect server

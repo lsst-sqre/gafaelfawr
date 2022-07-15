@@ -8,10 +8,10 @@ import gafaelfawr
 
 rst_epilog = """
 
-.. _mypy: http://www.mypy-lang.org
+.. _mypy: https://mypy.readthedocs.io/en/stable/
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/
-.. _tox: https://tox.readthedocs.io/en/latest/
+.. _tox: https://tox.wiki/en/latest/
 """
 
 # Extensions =================================================================
@@ -121,7 +121,15 @@ nitpick_ignore = [
 
 linkcheck_retries = 2
 
-# linkcheck_ignore = [r'^https://jira.lsstcorp.org/browse/']
+linkcheck_ignore = [
+    # Created during build by sphinxcontrib-redoc
+    r"^api\.html$",
+    # Generate redirects for authentication
+    r"^https://github\.com/settings/developers$",
+    r"^https://github\.com/.*/issues/new$",
+    # Dreamwidth blocks link checkers (probably for load reasons)
+    r"^https://mjg59\.dreamwidth\.org/59353\.html$",
+]
 
 linkcheck_timeout = 15
 

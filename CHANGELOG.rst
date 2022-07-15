@@ -35,7 +35,7 @@ The internal configuration format may change in minor releases.
 - Use a connection pool for LDAP queries instead of opening a new connection for each query.
 - Fix verification of OpenID Connect ID tokens when the upstream issuer URL has a path component.
   Previous versions of Gafaelfawr would incorrectly look for standard metadata URLs one path level too high.
-- Disallow usernames containing only digits, bringing the username policy in sync with `DMTN-255 <https://dmtn-255.lsst.io/>`__.
+- Disallow usernames containing only digits, bringing the username policy in sync with `DMTN-225 <https://dmtn-225.lsst.io/>`__.
 - Report better errors to the user if Firestore or LDAP fail during login.
 - Add ``config.oidc.usernameClaim`` and ``config.oidc.uidClaim`` Helm configuration options to customize which claims from the upstream OpenID Connect ID token are used to get the username and UID.
 - Update dependencies.
@@ -320,7 +320,7 @@ See `the logging documentation <https://gafaelfawr.lsst.io/logging.html#client-i
 ==================
 
 New in this release is an ``/auth/forbidden`` route that can be used to provide a non-cached 403 error page.
-See `the documentation <https://gafaelfawr.lsst.io/install.html#disabling-error-caching>`__ for more information.
+See `the documentation <https://gafaelfawr.lsst.io/applications.html#disabling-error-caching>`__ for more information.
 
 This release changes Gafaelfawr's logging format and standardizes the contents of the logs.
 All logs are now in JSON.
