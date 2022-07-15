@@ -258,6 +258,15 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     This is intended for deployments using CILogon with COmanage for identity management.
     The enrollment URL will normally be the initial URL for a COmanage user-initiated enrollment flow.
 
+``config.cilogon.uidClaim``
+    The claim of the OpenID Connect ID token from which to take the numeric UID.
+    Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
+    The default is ``uidNumber``.
+
+``config.cilogon.usernameClaim``
+    The claim of the OpenID Connect ID token from which to take the username.
+    The default is ``uid``.
+
 Generic OpenID Connect
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -284,14 +293,14 @@ There are two additional options under ``config.oidc`` that you may want to set:
     If a username was not found for the unique identifier in the ``sub`` claim of the OpenID Connect ID token, redirect the user to this URL.
     This could, for example, be a form where the user can register for access to the deployment, or a page explaining how a user can get access.
 
-``config.oidc.usernameClaim``
-    The claim of the OpenID Connect ID token from which to take the username.
-    The default is ``sub``.
-
 ``config.oidc.uidClaim``
     The claim of the OpenID Connect ID token from which to take the numeric UID.
     Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
     The default is ``uidNumber``.
+
+``config.oidc.usernameClaim``
+    The claim of the OpenID Connect ID token from which to take the username.
+    The default is ``uid``.
 
 .. _ldap-groups:
 
