@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from structlog.stdlib import BoundLogger
 
@@ -127,19 +127,3 @@ class LDAPService:
             data = await self._ldap.get_data(username)
             self._user_cache.store(username, data)
             return data
-
-    async def get_username(self, sub: str) -> Optional[str]:
-        """Determine a user's username from LDAP.
-
-        Parameters
-        ----------
-        sub : `str`
-            ``sub`` claim from the OpenID Connect ID token.
-
-        Returns
-        -------
-        username : `str` or `None`
-            Corresponding username from LDAP, or `None` if LDAP was not
-            configured to get usernames.
-        """
-        return await self._ldap.get_username(sub)

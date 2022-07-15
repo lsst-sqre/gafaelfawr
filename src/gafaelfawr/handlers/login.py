@@ -15,7 +15,6 @@ from ..exceptions import (
     FirestoreError,
     InvalidReturnURLError,
     LDAPError,
-    NoUsernameMappingError,
     PermissionDeniedError,
     ProviderError,
 )
@@ -167,8 +166,8 @@ async def redirect_to_provider(
         context.state.state = state
 
     # Get the authentication provider URL send the user there.
-    auth_provider = context.factory.create_provider()
-    redirect_url = auth_provider.get_redirect_url(state)
+    provider = context.factory.create_provider()
+    redirect_url = provider.get_redirect_url(state)
     return RedirectResponse(redirect_url)
 
 
@@ -217,18 +216,9 @@ async def handle_provider_return(
 
     # Retrieve the user identity and authorization information based on the
     # reply from the authentication provider.
-    auth_provider = context.factory.create_provider()
+    provider = context.factory.create_provider()
     try:
-        user_info = await auth_provider.create_user_info(
-            code, state, context.state
-        )
-    except NoUsernameMappingError as e:
-        if context.config.oidc and context.config.oidc.enrollment_url:
-            url = context.config.oidc.enrollment_url
-            context.logger.info("Redirecting user to enrollment URL", url=url)
-            return RedirectResponse(url)
-        else:
-            return login_error(context, LoginError.NOT_ENROLLED, str(e))
+        user_info = await provider.create_user_info(code, state, context.state)
     except FirestoreError as e:
         return login_error(context, LoginError.FIRESTORE_FAILED, str(e))
     except HTTPError as e:
@@ -242,7 +232,7 @@ async def handle_provider_return(
     user_info_service = context.factory.create_user_info_service()
     scopes = await user_info_service.get_scopes(user_info)
     if scopes is None:
-        await auth_provider.logout(context.state)
+        await provider.logout(context.state)
         msg = f"{user_info.username} is not a member of any authorized groups"
         return login_error(context, LoginError.GROUPS_MISSING, details=msg)
 
@@ -257,7 +247,7 @@ async def handle_provider_return(
                 user_info, scopes=scopes, ip_address=context.ip_address
             )
         except PermissionDeniedError as e:
-            await auth_provider.logout(context.state)
+            await provider.logout(context.state)
             return login_error(context, LoginError.INVALID_USERNAME, str(e))
     context.state.token = token
 

@@ -190,26 +190,6 @@ class LDAPSettings(BaseModel):
     ``mail``.
     """
 
-    username_base_dn: Optional[str] = None
-    """Base DN to use to resolve a token identity to a username.
-
-    If set, the identifier in the ``sub`` claim in the token will be used as
-    the value of the ``username_search_attr`` attribute in LDAP in a search
-    rooted at this DN, and the ``uid`` attribute of a matching record will be
-    taken to be the username.  If this is not set, the token claim specified
-    by the ``username_claim`` setting (``uid`` by default) is used as the
-    username.
-    """
-
-    username_search_attr: str = "voPersonSoRID"
-    """LDAP attribute to search to find the username.
-
-    Used if ``username_base_dn`` is set.  The default is ``voPersonSoRID``,
-    which is the correct choice when using CILogon as the upstream identity
-    provider and an LDAP server provisioned by COmanage as the repository for
-    identity information.
-    """
-
 
 class FirestoreSettings(BaseModel):
     """pydantic model of Firestore configuration."""
@@ -555,26 +535,6 @@ class LDAPConfig:
     ``mail``.
     """
 
-    username_base_dn: Optional[str] = None
-    """Base DN to use to resolve a token identity to a username.
-
-    If set, the identifier in the ``sub`` claim in the token will be used as
-    the value of the ``username_search_attr`` attribute in LDAP in a search
-    rooted at this DN, and the ``uid`` attribute of a matching record will be
-    taken to be the username.  If this is not set, the token claim specified
-    by the ``username_claim`` setting (``uid`` by default) is used as the
-    username.
-    """
-
-    username_search_attr: str = "voPersonSoRID"
-    """LDAP attribute to search to find the username.
-
-    Used if ``username_base_dn`` is set.  The default is ``voPersonSoRID``,
-    which is the correct choice when using CILogon as the upstream identity
-    provider and an LDAP server provisioned by COmanage as the repository for
-    identity information.
-    """
-
 
 @dataclass(frozen=True)
 class FirestoreConfig:
@@ -774,8 +734,6 @@ class Config:
                 name_attr=settings.ldap.name_attr,
                 email_attr=settings.ldap.email_attr,
                 uid_attr=settings.ldap.uid_attr,
-                username_base_dn=settings.ldap.username_base_dn,
-                username_search_attr=settings.ldap.username_search_attr,
             )
 
         # Build Firestore configuration if needed.

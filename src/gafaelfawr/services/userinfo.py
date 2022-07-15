@@ -234,24 +234,16 @@ class OIDCUserInfoService(UserInfoService):
         gafaelfawr.exceptions.LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
-        gafaelfawr.exceptions.NoUsernameMappingError
-            The opaque authentication identity could not be mapped to a
-            username, probably because the user is not enrolled.
         gafaelfawr.exceptions.VerifyTokenError
             The token is missing required claims.
         """
-        username = None
+        username = self._get_username_from_oidc_token(token)
         groups = None
         uid = None
         ldap_data = LDAPUserData(uid=None, name=None, email=None)
         if self._ldap:
-            if "sub" in token.claims:
-                username = await self._ldap.get_username(token.claims["sub"])
-            if username is None:
-                username = self._get_username_from_oidc_token(token)
             ldap_data = await self._ldap.get_data(username)
         else:
-            username = self._get_username_from_oidc_token(token)
             groups = await self._get_groups_from_oidc_token(token, username)
         if not self._firestore and not ldap_data.uid:
             uid = self._get_uid_from_oidc_token(token, username)

@@ -122,9 +122,6 @@ class OIDCProvider(Provider):
         gafaelfawr.exceptions.LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
-        gafaelfawr.exceptions.NoUsernameMappingError
-            The opaque authentication identity could not be mapped to a
-            username, probably because the user is not enrolled.
         ``httpx.HTTPError``
             An HTTP client error occurred trying to talk to the authentication
             provider.

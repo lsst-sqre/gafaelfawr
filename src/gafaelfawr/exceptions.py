@@ -33,7 +33,6 @@ __all__ = [
     "MissingClaimsError",
     "NoAvailableGidError",
     "NoAvailableUidError",
-    "NoUsernameMappingError",
     "NotConfiguredError",
     "OAuthError",
     "OAuthBearerError",
@@ -333,10 +332,6 @@ class KubernetesObjectError(KubernetesError):
 
 class LDAPError(Exception):
     """Group information for the user in LDAP was invalid."""
-
-
-class NoUsernameMappingError(LDAPError):
-    """No mapping from identifier to username was found in LDAP."""
 
 
 class NotConfiguredError(Exception):

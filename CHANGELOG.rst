@@ -11,6 +11,9 @@ The internal configuration format may change in minor releases.
 
 - Service tokens now must be for bot users, meaning that the username must begin with ``bot-``.
   This applies to any tokens created via the ``/auth/api/v1/tokens`` route or via Kubernetes ``GafaelfawrServiceToken`` resources and the Kubernetes controller.
+- Drop support for retrieving the username from LDAP.
+  CILogon can do this automatically and put the username in the OpenID Connect ID token, which was the only use case we had for this functionality.
+  Remove it, and the ``config.ldap.usernameBaseDn`` and ``config.ldap.usernameSearchAttr`` Helm parameters, to reduce complexity.
 - Add support for getting the full name and email address from LDAP as well.
   Those plus numeric UID (if configured) now all use ``config.ldap.userBaseDn`` and ``config.ldap.userSearchAttr`` to configure how the user's LDAP directory entry is found.
   Enabling numeric UID lookups now requires setting ``config.ldap.uidAttr`` plus ``config.ldap.userBaseDn``, and ``config.ldap.uidBaseDn`` is no longer a valid configuration setting.
@@ -43,14 +46,14 @@ The internal configuration format may change in minor releases.
   When this is enabled, UID and GID information from the upstream OpenID Connect provider or from LDAP is ignored, and instead Gafaelfawr assigns UIDs and GIDs to usernames and group names on first use.
   UIDs and GIDs for usernames and group names will be retrieved from Firestore on initial authentication if already assigned.
   Currently, OpenID Connect (via CILogon or a generic server) must be used as the authentication provider to use Google Firestore UID and GID assignment.
-- Add an optional enrollment URL configuration when CILogon or generic OpenID Connect is used with LDAP lookups of the username.
-  If this is set and the ``sub`` claim in the ID token does not resolve to a user entry in LDAP, the user will be redirected to this URL instead of an error page.
 - Group information from LDAP is now retrieved dynamically when needed instead of stored with an authentication token, so it will change dynamically if the user's groups change in LDAP.
   This does not affect the token's scopes, only the group information retrieved by a user-info API request.
 - Support authenticated simple binds to an LDAP server.
   This requires setting the Helm ``config.ldap.userDn`` parameter and adding a new ``ldap-password`` secret.
 - Support retrieving the username from LDAP when using an upstream OpenID Connect provider.
   This is configured with the new ``config.ldap.usernameBaseDn`` and ``config.ldap.usernameSearchAttr`` Helm parameters.
+- Add an optional enrollment URL configuration when CILogon or generic OpenID Connect is used with LDAP lookups of the username.
+  If this is set and the ``sub`` claim in the ID token does not resolve to a user entry in LDAP, the user will be redirected to this URL instead of an error page.
 - Use the image from the GitHub Container Registry instead of Docker Hub.
 - Update dependencies.
 

@@ -254,7 +254,6 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     See the `CILogon OIDC documentation <https://www.cilogon.org/oidc>`__ for more information.
 
 ``config.cilogon.enrollmentUrl``
-    Used only when LDAP lookups of usernames are configured (see :ref:`ldap-username`).
     If a username was not found for the CILogon unique identifier, redirect the user to this URL.
     This is intended for deployments using CILogon with COmanage for identity management.
     The enrollment URL will normally be the initial URL for a COmanage user-initiated enrollment flow.
@@ -282,13 +281,11 @@ There are two additional options under ``config.oidc`` that you may want to set:
     Can be used to set additional configuration options for some OpenID Connect providers.
 
 ``config.oidc.enrollmentUrl``
-    Used only when LDAP lookups of usernames are configured (see :ref:`ldap-username`).
     If a username was not found for the unique identifier in the ``sub`` claim of the OpenID Connect ID token, redirect the user to this URL.
     This could, for example, be a form where the user can register for access to the deployment, or a page explaining how a user can get access.
 
 ``config.oidc.usernameClaim``
     The claim of the OpenID Connect ID token from which to take the username.
-    Only used if :ref:`username lookup in LDAP <ldap-username>` is not configured.
     The default is ``sub``.
 
 ``config.oidc.uidClaim``
@@ -329,29 +326,6 @@ You may need to set the following additional options under ``config.ldap`` depen
     Default: ``member``.
 
 The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
-
-.. _ldap-username:
-
-LDAP username
--------------
-
-By default, Gafaelfawr gets the username from the ``uid`` claim in the ID token.
-If LDAP is used for group information, the username can instead be obtained from LDAP.
-To do this, add the following configuration:
-
-.. code-block:: yaml
-
-   config:
-     ldap:
-       usernameBaseDn: "<base-dn-for-search>"
-
-The username will be the value of the ``uid`` attribute of the corresponding record.
-
-You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
-
-``config.ldap.usernameSearchAttr``
-    The attribute that holds the value of the ``sub`` claim of the ID token returned by the OpenID Connect authentication server.
-    Default: ``voPersonSoRID``.
 
 .. _ldap-user:
 
