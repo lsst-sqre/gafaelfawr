@@ -37,8 +37,9 @@ babel==2.10.3 \
     --hash=sha256:7614553711ee97490f732126dc077f8d0ae084ebc6a96e23db1482afabdb2c51 \
     --hash=sha256:ff56f4892c1c4bf0d814575ea23471c230d544203c7748e8c68f0089478d48eb
     # via sphinx
-blinker==1.4 \
-    --hash=sha256:471aee25f3992bd325afa3772f1063dbdbbca947a041b8b89466dc00d606f8b6
+blinker==1.5 \
+    --hash=sha256:1eb563df6fdbc39eeddc177d953203f99f097e9bf0e2b8f9f3cf18b6ca425e36 \
+    --hash=sha256:923e5e2f69c155f2cc42dafbbd70e16e3fde24d2d4aa2ab72fbe386238892462
     # via selenium-wire
 blockdiag==3.0.0 \
     --hash=sha256:4031bfae6a7f36071d733dec639987346e10f7871356ee2c7a221961c64961d8 \
