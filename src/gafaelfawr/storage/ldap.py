@@ -258,12 +258,12 @@ class LDAPStorage:
                         attrlist=attrlist,
                         timeout=LDAP_TIMEOUT,
                     )
-            except asyncio.TimeoutError:
+            except (bonsai.ConnectionError, asyncio.TimeoutError):
                 logger.debug("Reopening LDAP connection after timeout")
                 conn.close()
                 await conn.open(timeout=LDAP_TIMEOUT)
             except bonsai.LDAPError as e:
-                logger.exception("Cannot query LDAP", error=str(e))
+                logger.error("Cannot query LDAP", error=str(e))
                 raise LDAPError("Error querying LDAP") from e
 
         # Failed twice with a timeout.
