@@ -6,6 +6,13 @@ Versioning follows `semver <https://semver.org/>`__.
 Versioning assumes that Gafaelfawr is installed and configured via `Phalanx <https://phalanx.lsst.io/>`__, so only changes to configuration changes exposed in the Helm values file are considered breaking changes.
 The internal configuration format may change in minor releases.
 
+5.0.1 (2022-07-21)
+==================
+
+- Retry LDAP queries after a bonsai ``ConnectionError`` exception, which may happen due to an intervening firewall timing out the TCP connection.
+- Improve logging of exceptions by adding ``from`` clauses where appropriate to expose the underlying triggering exception.
+- Update dependencies.
+
 5.0.0 (2022-07-15)
 ==================
 

@@ -193,7 +193,7 @@ class LDAPStorage:
             return LDAPUserData(uid=uid, name=name, email=email)
         except Exception as e:
             logger.error("LDAP user entry invalid", error=str(e))
-            raise LDAPError("LDAP user entry invalid")
+            raise LDAPError("LDAP user entry invalid") from e
 
     async def _query(
         self,
@@ -258,13 +258,13 @@ class LDAPStorage:
                         attrlist=attrlist,
                         timeout=LDAP_TIMEOUT,
                     )
-            except asyncio.TimeoutError:
+            except (bonsai.ConnectionError, asyncio.TimeoutError):
                 logger.debug("Reopening LDAP connection after timeout")
                 conn.close()
                 await conn.open(timeout=LDAP_TIMEOUT)
             except bonsai.LDAPError as e:
                 logger.error("Cannot query LDAP", error=str(e))
-                raise LDAPError("Error querying LDAP")
+                raise LDAPError("Error querying LDAP") from e
 
         # Failed twice with a timeout.
         msg = f"LDAP query timed out after {LDAP_TIMEOUT}s"

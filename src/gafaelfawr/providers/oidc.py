@@ -146,12 +146,12 @@ class OIDCProvider(Provider):
         # fails, just raise an exception for the HTTP status.
         try:
             result = r.json()
-        except Exception:
+        except Exception as e:
             if r.status_code != 200:
                 r.raise_for_status()
             else:
                 msg = "Response from {token_url} not valid JSON"
-                raise OIDCError(msg)
+                raise OIDCError(msg) from e
         if r.status_code != 200 and "error" in result:
             msg = result["error"] + ": " + result["error_description"]
             raise OIDCError(msg)
@@ -169,10 +169,10 @@ class OIDCProvider(Provider):
             token = await self._verifier.verify_token(unverified_token)
             return await self._user_info.get_user_info_from_oidc_token(token)
         except MissingUsernameClaimError as e:
-            raise OIDCNotEnrolledError(str(e))
+            raise OIDCNotEnrolledError(str(e)) from e
         except (jwt.InvalidTokenError, VerifyTokenError) as e:
             msg = f"OpenID Connect token verification failed: {str(e)}"
-            raise OIDCError(msg)
+            raise OIDCError(msg) from e
 
     async def logout(self, session: State) -> None:
         """User logout callback.
@@ -357,15 +357,15 @@ class OIDCTokenVerifier:
                 reason = f"{r.status_code} {r.reason_phrase}"
                 msg = f"Cannot retrieve keys from {url}: {reason}"
                 raise FetchKeysError(msg)
-        except RequestError:
-            raise FetchKeysError(f"Cannot retrieve keys from {url}")
+        except RequestError as e:
+            raise FetchKeysError(f"Cannot retrieve keys from {url}") from e
 
         try:
             body = r.json()
             return body["keys"]
-        except Exception:
+        except Exception as e:
             msg = f"No keys property in JWKS metadata for {url}"
-            raise FetchKeysError(msg)
+            raise FetchKeysError(msg) from e
 
     async def _get_jwks_uri(self, issuer_url: str) -> Optional[str]:
         """Retrieve the JWKS URI for a given issuer.
@@ -401,6 +401,6 @@ class OIDCTokenVerifier:
         try:
             body = r.json()
             return body["jwks_uri"]
-        except Exception:
+        except Exception as e:
             msg = f"No jwks_uri property in OIDC metadata for {issuer_url}"
-            raise FetchKeysError(msg)
+            raise FetchKeysError(msg) from e

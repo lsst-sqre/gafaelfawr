@@ -288,7 +288,8 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
         basic_auth = base64.b64decode(auth_blob).decode()
         user, password = basic_auth.strip().split(":")
     except Exception as e:
-        raise InvalidRequestError(f"Invalid Basic auth string: {str(e)}")
+        msg = f"Invalid Basic auth string: {str(e)}"
+        raise InvalidRequestError(msg) from e
     if password == "x-oauth-basic":
         context.rebind_logger(token_source="basic-username")
         return user

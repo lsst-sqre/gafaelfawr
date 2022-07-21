@@ -111,7 +111,7 @@ class GafaelfawrServiceToken:
                 )
             else:
                 msg = f"GafaelfawrServiceToken is malformed: {str(e)}"
-            raise KubernetesObjectError(msg)
+            raise KubernetesObjectError(msg) from e
 
     @property
     def key(self) -> str:
