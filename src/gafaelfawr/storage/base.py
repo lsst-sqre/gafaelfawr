@@ -94,14 +94,14 @@ class RedisStorage(Generic[S]):
             data = self._fernet.decrypt(encrypted_data)
         except InvalidToken as e:
             msg = f"Cannot decrypt data for {key}: {str(e)}"
-            raise DeserializeError(msg)
+            raise DeserializeError(msg) from e
 
         # Deserialize the data.
         try:
             return self._content.parse_raw(data.decode())
         except Exception as e:
             msg = f"Cannot deserialize data for {key}: {str(e)}"
-            raise DeserializeError(msg)
+            raise DeserializeError(msg) from e
 
     async def store(self, key: str, obj: S, lifetime: Optional[int]) -> None:
         """Store an object.

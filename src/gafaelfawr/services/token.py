@@ -918,7 +918,7 @@ class TokenService:
             else:
                 ipaddress.ip_address(ip_or_cidr)
         except ValueError as e:
-            raise InvalidIPAddressError(f"Invalid IP address: {str(e)}")
+            raise InvalidIPAddressError(f"Invalid IP address: {str(e)}") from e
 
     def _validate_expires(self, expires: Optional[datetime]) -> None:
         """Check that a provided token expiration is valid.

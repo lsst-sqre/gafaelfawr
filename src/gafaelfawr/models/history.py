@@ -115,7 +115,7 @@ class HistoryCursor:
                 previous=previous,
             )
         except Exception as e:
-            raise InvalidCursorError(f"Invalid cursor: {str(e)}")
+            raise InvalidCursorError(f"Invalid cursor: {str(e)}") from e
 
     @classmethod
     def invert(cls, cursor: HistoryCursor) -> HistoryCursor:

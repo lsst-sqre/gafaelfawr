@@ -213,7 +213,7 @@ class OIDCService:
             authorization = await self._authorization_store.get(code)
         except DeserializeError as e:
             msg = f"Cannot get authorization for {code.key}: {str(e)}"
-            raise InvalidGrantError(msg)
+            raise InvalidGrantError(msg) from e
         if not authorization:
             msg = f"Unknown authorization code {code.key}"
             raise InvalidGrantError(msg)
@@ -277,9 +277,9 @@ class OIDCService:
                 username=payload["sub"],
             )
         except jwt.InvalidTokenError as e:
-            raise InvalidTokenError(str(e))
+            raise InvalidTokenError(str(e)) from e
         except KeyError as e:
-            raise InvalidTokenError(f"Missing claim {str(e)}")
+            raise InvalidTokenError(f"Missing claim {str(e)}") from e
 
     def _check_client_secret(
         self, client_id: str, client_secret: Optional[str]
