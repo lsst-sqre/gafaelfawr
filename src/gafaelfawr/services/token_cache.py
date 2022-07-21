@@ -118,6 +118,9 @@ class TokenCacheService:
         token : `gafaelfawr.models.token.Token`
             The cached token or newly-created token.
         """
+        token = self._internal_cache.get(token_data, service, scopes)
+        if token and await self._is_token_valid(token, scopes):
+            return token
         async with await self._internal_cache.lock(token_data.username):
             token = self._internal_cache.get(token_data, service, scopes)
             if token and await self._is_token_valid(token, scopes):
@@ -153,6 +156,9 @@ class TokenCacheService:
         token : `gafaelfawr.models.token.Token` or `None`
             The cached token or `None` if no matching token is cached.
         """
+        token = self._notebook_cache.get(token_data)
+        if token and await self._is_token_valid(token):
+            return token
         async with await self._notebook_cache.lock(token_data.username):
             token = self._notebook_cache.get(token_data)
             if token and await self._is_token_valid(token):
