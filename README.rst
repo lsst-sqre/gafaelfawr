@@ -8,13 +8,19 @@ Gafaelfawr is a `FastAPI`_ application for the authorization and management of t
 
 .. _FastAPI: https://fastapi.tiangolo.com/
 
-Gafaelfawr started as an implementation of the `Token Proxy component <https://dmtn-094.lsst.io/#token-proxy>`__ identified in `DMTN-094 <https://dmtn-094.lsst.io>`__.
-It has been subsequently simplified along the lines discussed in `SQR-039 <https://sqr-039.lsst.io/>`__ and contains an (as yet partial) implementation of the token management API defined in `SQR-049 <https://sqr-049.lsst.io/>`__.
+It is part of the Rubin Science Platform identity management system.
+The overall design is documented in DMTN-234_, and its implementation in DMTN-224_.
+History and decisions made during its development are documented in SQR-069_.
+Read those documents for a more complete picture of how Gafaelfawr fits into a larger identity management system.
 
-It authorizes tokens in according to the Nginx's ``auth_request`` directive via it's ``/auth`` endpoint and handles integration with an external identity provider (either with GitHub or OpenID Connect).
+.. _DMTN-224: https://dmtn-224.lsst.io/
+.. _DMTN-234: https://dmtn-234.lsst.io/
+.. _SQR-069: https://sqr-069.lsst.io/
+
+Gafaelfawr provides authentication and access control via NGINX's ``auth_request`` directive, and handles integration with an external identity provider (either with GitHub or OpenID Connect).
 Authentication sessions and user identity information are stored in Redis.
 Token information is stored in a SQL database.
-It also provides a minimal OpenID Connect server to support protected applications that only understand OpenID Connect.
+It also provides an API (and currently a UI) to create and manipulate tokens, and a minimal OpenID Connect server to support protected applications that only understand OpenID Connect.
 
 For full documentation, see `gafaelfawr.lsst.io <https://gafaelfawr.lsst.io/>`__.
 

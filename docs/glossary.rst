@@ -16,7 +16,7 @@ identity provider
     This may be via the OpenID Connect protocol or (as with GitHub) some other protocol such as OAuth 2.0.
 
 issue
-    To create and sign a new JWT from a set of claims.
+    To create a new authentication token, either Gafaelfawr's own token or a JWT.
 
 issuer
     An entity that issues JWTs.
@@ -77,7 +77,7 @@ UID
 
 username
     A short string identifying a user, suitable for use as a POSIX username.
-    Conventionally this does not include an ``@`` or domain (see the email claim for that).
+    Conventionally this does not include an ``@`` or domain (see the user's email address for that).
 
 verify
     To check the signature and validity of a JWT.

@@ -2,10 +2,15 @@
 Logging
 #######
 
-Gafaelfawr uses structlog to log all its internal messages in JSON.
-It is run via `uvicorn <https://www.uvicorn.org/>`__, which also logs all requests in the standard Apache log format.
+Gafaelfawr uses structlog_ (via Safir_) to log all its internal messages in JSON.
+It is run via uvicorn_, which also logs all requests in the standard Apache log format.
 Interesting events that are not obvious from the access logging done by uvicorn are logged at the ``INFO`` level.
 User errors are logged at the ``WARNING`` level.
+Gafaelfawr or other identity management errors are logged at the ``ERROR`` level.
+
+.. _Safir: https://safir.lsst.io/
+.. _structlog: https://www.structlog.org/en/stable/
+.. _uvicorn: https://www.uvicorn.org/
 
 Log attributes
 ==============
@@ -13,34 +18,11 @@ Log attributes
 The main log message will be in the ``event`` attribute of each log message.
 If this message indicates an error with supplemental information, the additional details of the error will be in the ``error`` attribute.
 
-The following attributes will be added to each log message, in addition to the default attributes added by :py:mod:`structlog`:
-
-``logger``
-    Always set to ``gafaelfawr``.
-
-``method``
-    The HTTP method of the request.
-
-``path``
-    The path portion of the HTTP request.
-
-``remote``
-    The remote IP address making the request.
-    This will be taken from ``X-Forwarded-For`` if available, since Gafaelfawr is designed to be run behind a Kubernetes NGINX ingress.
-    See :ref:`client-ips` for more details.
-
-``request_id``
-    A unique UUID for each request.
-    This can be used to correlate multiple messages logged from a single request.
-
-``user_agent``
-    The ``User-Agent`` header of the incoming request.
-    This can be helpful in finding requests from a particular user or investigating problems with specific web browsers.
-
+Gafaelfawr will add some consistent attributes to log messages, in addition to the default attributes `added by Safir <https://safir.lsst.io/logging.html>`__.
 All authenticated routes add the following attributes once the user's token has been located and verified:
 
 ``scope``
-    The comma-separated scopes of the authentication token.
+    The scopes of the authentication token.
 
 ``token``
     The key of the authentication token.
@@ -109,7 +91,7 @@ Making this work properly requires some additional configuration:
    This comes with some caveats and drawbacks.
    See `this Medium post <https://medium.com/pablo-perez/k8s-externaltrafficpolicy-local-or-cluster-40b259a19404>`__ for more details.
 
-If you are using the `NGINX ingress Helm chart <https://github.com/helm/charts/tree/master/stable/nginx-ingress>`__, you can make both of the required NGINX ingress changes with the following ``values.yaml`` file:
+If you are using the `ingress-nginx Helm chart <https://github.com/kubernetes/ingress-nginx/tree/main/charts/ingress-nginx>`__, you can make both of the required NGINX ingress changes with the following ``values.yaml`` file:
 
 .. code-block:: yaml
 
