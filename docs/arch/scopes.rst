@@ -30,7 +30,7 @@ Currently, two scopes in that reserved namespace are used:
 * ``admin:token`` grants token administrator powers.
   Users authenticated with a token with this scope can view, create, modify, and delete tokens for any user.
   Administrators are automatically granted this scope when they authenticate.
-  The bootstrap token (configured with the ``bootstrap-token`` secret) is automatically granted ``admin:token`` scope.
+  The bootstrap token (configured with the ``bootstrap-token`` Kubernetes secret) is automatically granted ``admin:token`` scope.
 * ``user:token`` grants the ability to view and delete all tokens for the same user, and create and modify user tokens for that user.
   All session tokens are automatically granted this scope.
 
