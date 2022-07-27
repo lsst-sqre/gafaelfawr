@@ -1146,3 +1146,47 @@ async def test_create_admin_firestore(
         "username": "bot-user",
         "uid": UID_BOT_MIN,
     }
+
+
+@pytest.mark.asyncio
+async def test_no_form_post(
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+) -> None:
+    """Ensure that the token creation API does not support a form POST.
+
+    To ensure that web security rules are followed, we need to be sure that
+    the token creation endpoint only supports JSON POST and not the form
+    encoding.  This will ensure that the API call requires a CORS preflight
+    (which we will reject).
+
+    The creation API is used as a proxy for testing all the APIs.  Only POST
+    needs to be tested; PUT, PATCH, and DELETE always require CORS.
+    """
+    user_info = TokenUserInfo(
+        username="example",
+        name="Example Person",
+        email="example@example.com",
+        uid=45613,
+        groups=[TokenGroup(name="foo", id=12313)],
+    )
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        session_token = await token_service.create_session_token(
+            user_info,
+            scopes=["read:all", "exec:admin", "user:token"],
+            ip_address="127.0.0.1",
+        )
+    csrf = await set_session_cookie(client, session_token)
+
+    expires = current_datetime() + timedelta(days=100)
+    r = await client.post(
+        "/auth/api/v1/users/example/tokens",
+        headers={"X-CSRF-Token": csrf},
+        data={
+            "token_name": "some token",
+            "scopes": "read:all",
+            "expires": int(expires.timestamp()),
+        },
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"][0]["type"] == "type_error.dict"
