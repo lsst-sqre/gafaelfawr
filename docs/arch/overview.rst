@@ -2,6 +2,11 @@
 Overview
 ########
 
+The primary architectural documentation for Gafaelfawr is DMTN-224_, the implementation tech note.
+This part of Gafaelfawr's documentation contains some supplemental information primarily of interest to people doing development on Gafaelfawr itself.
+
+.. _DMTN-224: https://dmtn-224.lsst.io/
+
 Gafaelfawr is deployed as an auth subrequest handler for a Kubernetes cluster that uses an NGINX ingress.
 
 .. figure:: /_static/architecture.png
