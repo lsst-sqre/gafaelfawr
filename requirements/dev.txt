@@ -284,10 +284,11 @@ documenteer==0.6.12 \
     --hash=sha256:21be14255b72919a280b296313261970b77f3083770978f266aad78ae6a254d5 \
     --hash=sha256:6e746c2c98f4b7e687f4f08043085935af47d9b1c52a783cdf4fa8d02e5bc9e7
     # via -r requirements/dev.in
-docutils==0.19 \
-    --hash=sha256:33995a6753c30b7f577febfc2c50411fec6aac7f7ffeb7c4cfe5991072dcf9e6 \
-    --hash=sha256:5e1de4d849fee02c63b040a4a3fd567f4ab104defd8a5511fbbc24a8a017efbc
+docutils==0.18.1 \
+    --hash=sha256:23010f129180089fbcd3bc08cfefccb3b890b0050e1ca00c867036e9d161b98c \
+    --hash=sha256:679987caf361a7539d76e584cbeddc311e3aee937877c87346f31debc63e9d06
     # via
+    #   myst-parser
     #   pybtex-docutils
     #   sphinx
     #   sphinx-click
@@ -432,6 +433,7 @@ jinja2==3.1.2 \
     # via
     #   -c requirements/main.txt
     #   diagrams
+    #   myst-parser
     #   sphinx
     #   sphinxcontrib-redoc
 jsonschema==4.7.2 \
@@ -446,9 +448,20 @@ latexcodec==2.0.1 \
     --hash=sha256:2aa2551c373261cefe2ad3a8953a6d6533e68238d180eb4bb91d7964adb3fe9a \
     --hash=sha256:c277a193638dc7683c4c30f6684e3db728a06efb0dc9cf346db8bd0aa6c5d271
     # via pybtex
+linkify-it-py==1.0.3 \
+    --hash=sha256:11e29f00150cddaa8f434153f103c14716e7e097a8fd372d9eb1ed06ed91524d \
+    --hash=sha256:2b3f168d5ce75e3a425e34b341a6b73e116b5d9ed8dbbbf5dc7456843b7ce2ee
+    # via markdown-it-py
 lsst-sphinx-bootstrap-theme==0.2.2 \
     --hash=sha256:71c14b309cac280301facdd6db4fc43be9b95962e20c16bb84678fd813f2d2a1
     # via -r requirements/dev.in
+markdown-it-py[linkify]==2.1.0 \
+    --hash=sha256:93de681e5c021a432c63147656fe21790bc01231e0cd2da73626f1aa3ac0fe27 \
+    --hash=sha256:cf7e59fed14b5ae17c0006eff14a2d9a00ed5f3a846148153899a0224e2c07da
+    # via
+    #   -r requirements/dev.in
+    #   mdit-py-plugins
+    #   myst-parser
 markupsafe==2.1.1 \
     --hash=sha256:0212a68688482dc52b2d45013df70d169f542b7394fc744c02a57374a4207003 \
     --hash=sha256:089cf3dbf0cd6c100f02945abeb18484bd1ee57a079aefd52cffd17fba910b88 \
@@ -493,6 +506,14 @@ markupsafe==2.1.1 \
     # via
     #   -c requirements/main.txt
     #   jinja2
+mdit-py-plugins==0.3.0 \
+    --hash=sha256:b1279701cee2dbf50e188d3da5f51fee8d78d038cdf99be57c6b9d1aa93b4073 \
+    --hash=sha256:ecc24f51eeec6ab7eecc2f9724e8272c2fb191c2e93cf98109120c2cace69750
+    # via myst-parser
+mdurl==0.1.1 \
+    --hash=sha256:6a8f6804087b7128040b2fb2ebe242bdc2affaeaa034d5fc9feeed30b443651b \
+    --hash=sha256:f79c9709944df218a4cdb0fcc0b0c7ead2f44594e3e84dc566606f04ad749c20
+    # via markdown-it-py
 mypy==0.971 \
     --hash=sha256:02ef476f6dcb86e6f502ae39a16b93285fef97e7f1ff22932b657d1ef1f28655 \
     --hash=sha256:0d054ef16b071149917085f51f89555a576e2618d5d9dd70bd6eea6410af3ac9 \
@@ -524,6 +545,10 @@ mypy-extensions==0.4.3 \
     --hash=sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d \
     --hash=sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8
     # via mypy
+myst-parser==0.18.0 \
+    --hash=sha256:4965e51918837c13bf1c6f6fe2c6bddddf193148360fbdaefe743a4981358f6a \
+    --hash=sha256:739a4d96773a8e55a2cacd3941ce46a446ee23dcd6b37e06f73f551ad7821d86
+    # via -r requirements/dev.in
 nodeenv==1.7.0 \
     --hash=sha256:27083a7b96a25f2f5e1d8cb4b6317ee8aeda3bdd121394e5ac54e498028a042e \
     --hash=sha256:e0e7f7dfb85fc5394c6fe1e8fa98131a2473e04311a45afb6508f7cf1836fa2b
@@ -680,6 +705,7 @@ pyyaml==6.0 \
     # via
     #   -c requirements/main.txt
     #   documenteer
+    #   myst-parser
     #   pre-commit
     #   pybtex
     #   sphinxcontrib-redoc
@@ -742,6 +768,7 @@ sphinx==5.1.1 \
     --hash=sha256:ba3224a4e206e1fbdecf98a4fae4992ef9b24b85ebf7b584bb340156eaf08d89
     # via
     #   documenteer
+    #   myst-parser
     #   sphinx-automodapi
     #   sphinx-click
     #   sphinx-prompt
@@ -868,7 +895,12 @@ typing-extensions==4.3.0 \
     # via
     #   -c requirements/main.txt
     #   mypy
+    #   myst-parser
     #   sqlalchemy2-stubs
+uc-micro-py==1.0.1 \
+    --hash=sha256:316cfb8b6862a0f1d03540f0ae6e7b033ff1fa0ddbe60c12cbe0d4cec846a69f \
+    --hash=sha256:b7cdf4ea79433043ddfe2c82210208f26f7962c0cfbe3bacb05ee879a7fdb596
+    # via linkify-it-py
 urllib3[secure,socks]==1.26.11 \
     --hash=sha256:c33ccba33c819596124764c23a97d25f32b28433ba0dedeb77d873a38722c9bc \
     --hash=sha256:ea6e8fb210b19d950fab93b60c9009226c63a28808bc8386e05301e25883ac0a
@@ -876,9 +908,9 @@ urllib3[secure,socks]==1.26.11 \
     #   -c requirements/main.txt
     #   requests
     #   selenium
-virtualenv==20.16.1 \
-    --hash=sha256:6cc42cad4d1a15c7ea5ed68e602eb49cc243b52d2eead36e577555cb56bf8705 \
-    --hash=sha256:bde925b831f36053a0fa7a468ca337dee26851c9f0bfc3d72a79d534703102d2
+virtualenv==20.16.2 \
+    --hash=sha256:0ef5be6d07181946891f5abc8047fda8bc2f0b4b9bf222c64e6e8963baee76db \
+    --hash=sha256:635b272a8e2f77cb051946f46c60a54ace3cb5e25568228bd6b57fc70eca9ff3
     # via pre-commit
 wsproto==1.1.0 \
     --hash=sha256:2218cb57952d90b9fca325c0dcfb08c3bda93e8fd8070b0a17f048e2e47a521b \

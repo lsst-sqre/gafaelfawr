@@ -12,7 +12,7 @@ repos:
     hooks:
       - id: rst-linter
         name: Check rST
-        files: (README\.rst)|(CHANGELOG\.rst)
+        files: (README\.rst)
 
   - repo: https://github.com/pycqa/isort
     rev: 5.10.1

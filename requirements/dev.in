@@ -7,12 +7,9 @@
 
 -c main.txt
 
+# Testing
 asgi-lifespan
 coverage[toml]
-diagrams
-documenteer
-holdup
-lsst-sphinx-bootstrap-theme
 mypy
 pre-commit
 pytest
@@ -20,10 +17,20 @@ pytest-asyncio
 pytest-cov
 respx
 selenium-wire
+sqlalchemy[mypy]
+types-cachetools
+types-PyYAML
+
+# Local test instance
+holdup
+
+# Documentation
+diagrams
+documenteer
+lsst-sphinx-bootstrap-theme
+markdown-it-py[linkify]
+myst-parser
 sphinx-automodapi
 sphinx-click
 sphinx-prompt
 sphinxcontrib-redoc
-sqlalchemy[mypy]
-types-cachetools
-types-PyYAML

@@ -52,7 +52,7 @@ The `ci.yaml`_ GitHub Actions workflow uploads the new release to Docker Hub.
 
 Add a new GitHub release for this version.
 The release title should be the same as the version number.
-The description of the release should be the ``CHANGELOG.rst`` entry for this release, converted to Markdown.
+The description of the release should be the :file:`CHANGELOG.md` entry for this release.
 
 .. _backport-release:
 
