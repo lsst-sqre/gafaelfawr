@@ -123,10 +123,7 @@ jobs:
         run: sudo apt-get update
 
       - name: Install extra packages
-        run: sudo apt install -y libpq-dev libldap2-dev libsasl2-dev
-
-      - name: Install graphviz and ImageMagick
-        run: sudo apt install -y graphviz imagemagick
+        run: sudo apt install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
       - name: Run tox
         uses: lsst-sqre/run-tox@v1

@@ -21,4 +21,4 @@ It may not work with other applications without additional changes.
 
 .. _Chronograf: https://docs.influxdata.com/chronograf/v1.8/administration/managing-security/
 
-Gafaelfawr can also deploy a Kubernetes ``CronJob`` resource to maintain service tokens in Kubernetes secrets for the use of other applications deployed in the same cluster.
+Gafaelfawr also deploys a Kubernetes operator to maintain service tokens in Kubernetes secrets for the use of other applications deployed in the same cluster.

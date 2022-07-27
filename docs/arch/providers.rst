@@ -6,21 +6,17 @@ Gafaelfawr supports two choices of authentication provider: GitHub and OpenID Co
 The authentication provider is chosen based on whether the ``config.github.clientId``, ``config.cilogon.clientId``, or ``config.oidc.clientId`` settings are present.
 See :ref:`providers` for more information.
 
-The username obtained from the authentication provider must meet the following requirements:
+The username obtained from the authentication provider must meet the requirements specified in DMTN-225_.
 
-* Only lowercase alphanumeric characters (GitHub usernames will be automatically lowercased) or hyphen
-* May not start or end with a hyphen
-* May not have two consecutive hyphens
-
-These are the same requirements GitHub imposes.
+.. _DMTN-225: https://dmtn-225.lsst.io/
 
 OpenID Connect
 ==============
 
-When configured to use an OpenID Connect provider, Gafaelfawr obtains the ID token from the provider after authentication and then stores key pieces of data from it as the underlying data of a token.
+When configured to use an OpenID Connect provider (either CILogon or generic OpenID Connect), Gafaelfawr obtains the ID token from the provider after authentication and then stores key pieces of data from it as the underlying data of a token.
 
-- Username is taken from the claim identified by the ``username_claim`` setting.
-- UID (unless LDAP or Firestore are used for UIDs) is taken from the claim identified by the ``uid_claim`` setting and is converted to a number.
+- Username is taken from the claim set in the ``config.cilogon.usernameClaim`` or ``config.oidc.usernameClaim`` setting.
+- UID (unless LDAP or Firestore are used for UIDs) is taken from the claim set in the ``config.cilogon.uidClaim`` or ``config.oidc.uidClaim`` setting and is converted to a number.
 - Name (unless LDAP is used) is taken from the ``name`` claim if it exists.
 - Email address (unless LDAP is used) is taken from the ``email`` claim if it exists.
 - Groups (unless LDAP is used) are taken from the ``isMemberOf`` claim if it exists.
@@ -34,14 +30,14 @@ Refresh tokens are not used.
 GitHub
 ======
 
-GitHub does not issue JWTs, so the token created after GitHub authentication is based on information retrieved from the GitHub API.
+The token created after GitHub authentication is based on information retrieved from the GitHub API.
 The username will be taken from the ``login`` value returned by the ``/user`` API route, forced to lowercase.
 The UID will be taken from the ``id`` value returned by the ``/user`` API route.
 The name will be taken from the ``name`` value returned by the ``/user`` API route.
 The email address will be taken from the address tagged primary in the addresses returned by the ``/user/emails`` API route.
 The group membership will be taken from the user's team membership.
 See :ref:`github-groups` for more details.
-The scope of the token will be based on the group membership and the ``group_mapping`` configuration setting.
+The scope of the token will be based on the group membership and the ``config.groupMapping`` configuration setting.
 
 LDAP and Firestore are not supported as sources of user metadata when GitHub is used as an authentication provider.
 
@@ -60,6 +56,4 @@ It's a canonicalization of the name that removes case differences and replaces s
 Since group names are limited to 32 characters, if that name is longer than 32 characters, it will be truncated and made unique.
 The full, long group name will be hashed (with SHA-256), and truncated at 25 characters, and then a dash and the first six characters of the URL-safe-base64-encoded hash will be appended.
 
-The ``id`` attribute for each group will be the ``id`` of the team.
-It's not clear from the GitHub API whether this value is globally unique.
-Hopefully it will be.
+The GID for each group will be the ``id`` of the team.

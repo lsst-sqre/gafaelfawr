@@ -62,13 +62,9 @@ Architecture
 
    arch/overview
    arch/configuration
-   arch/flow
    arch/providers
    arch/scopes
-   arch/storage
-   arch/security
    arch/internals
-   arch/references
 
 Development guide
 =================

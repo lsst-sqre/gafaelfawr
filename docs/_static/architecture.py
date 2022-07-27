@@ -16,10 +16,11 @@ graph_attr = {
     "nodesep": "0.2",
     "pad": "0.2",
     "ranksep": "0.75",
+    "splines": "spline",
 }
 
 node_attr = {
-    "fontsize": "10.0",
+    "fontsize": "12.0",
 }
 
 with Diagram(
@@ -30,16 +31,16 @@ with Diagram(
     graph_attr=graph_attr,
     node_attr=node_attr,
 ):
-    user = User("End User")
+    user = User("End user")
 
     with Cluster("Kubernetes"):
-        ingress = LoadBalancing("NGINX Ingress")
+        ingress = LoadBalancing("NGINX ingress")
 
         with Cluster("Gafaelfawr"):
             server = KubernetesEngine("Server")
             redis = KubernetesEngine("Redis")
-            storage = PersistentDisk("Redis Storage")
-            KubernetesEngine("Background")
+            storage = PersistentDisk("Redis storage")
+            KubernetesEngine("Kubernetes operator")
 
             user >> ingress >> server >> redis >> storage
 
@@ -47,7 +48,7 @@ with Diagram(
 
         ingress >> app
 
-    idp = Server("Identity Provider")
+    idp = Server("Identity provider")
 
     server >> idp
     user >> idp
