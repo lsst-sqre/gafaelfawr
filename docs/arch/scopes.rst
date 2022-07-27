@@ -17,9 +17,7 @@ See :ref:`scopes` for more information.
 The list of supported scopes and their human-readable descriptions are configured in the ``config.knownScopes`` Helm configuration setting.
 The human-readable descriptions are used in the UI.
 
-For more details on how scopes are used in the Rubin Science Platform, see DMTN-235_.
-
-.. _DMTN-235: https://dmtn-235.lsst.io/
+For more details on how scopes are used in the Rubin Science Platform, see :dmtn:`235`.
 
 Reserved scopes
 ===============

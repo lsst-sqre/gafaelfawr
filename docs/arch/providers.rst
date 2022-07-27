@@ -6,9 +6,7 @@ Gafaelfawr supports two choices of authentication provider: GitHub and OpenID Co
 The authentication provider is chosen based on whether the ``config.github.clientId``, ``config.cilogon.clientId``, or ``config.oidc.clientId`` settings are present.
 See :ref:`providers` for more information.
 
-The username obtained from the authentication provider must meet the requirements specified in DMTN-225_.
-
-.. _DMTN-225: https://dmtn-225.lsst.io/
+The username obtained from the authentication provider must meet the requirements specified in :dmtn:`225`.
 
 OpenID Connect
 ==============

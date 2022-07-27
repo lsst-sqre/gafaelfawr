@@ -11,13 +11,9 @@ Gafaelfawr requires the Kubernetes `NGINX ingress controller <https://github.com
 Gafaelfawr is developed on `GitHub <https://github.com/lsst-sqre/gafaelfawr>`__.
 
 Gafaelfawr is part of the Rubin Science Platform identity management system.
-Its design is documented in DMTN-234_, and its implementation in DMTN-224_.
-History and decisions made during its development are documented in SQR-069_.
+Its design is documented in :dmtn:`234`, and its implementation in :dmtn:`224`.
+History and decisions made during its development are documented in :sqr:`069`.
 Read those documents for a more complete picture of how Gafaelfawr fits into a larger identity management system.
-
-.. _DMTN-224: https://dmtn-224.lsst.io/
-.. _DMTN-234: https://dmtn-234.lsst.io/
-.. _SQR-069: https://sqr-069.lsst.io/
 
 Once Gafaelfawr is installed, API documentation is available at ``/auth/docs`` and ``/auth/redoc``.
 The latter provides somewhat more detailed information.

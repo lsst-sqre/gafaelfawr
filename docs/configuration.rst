@@ -365,9 +365,7 @@ The same service account used for Cloud SQL must have read/write permissions to 
 
 When this support is enabled, Gafaelfawr ignores any UID and GID information from the tokens issued by the upstream OpenID Connect provider and from LDAP, and instead assigns UIDs and GIDs to users and groups by name the first time that a given username or group name is seen.
 UIDs and GIDs are never reused.
-They are assigned from the ranges documented in DMTN-225_.
-
-.. _DMTN-225: https://dmtn-225.lsst.io/
+They are assigned from the ranges documented in :dmtn:`225`.
 
 To enable use of Firestore for UID/GID assignment, add the following configuration:
 
@@ -386,9 +384,7 @@ Scopes
 Gafaelfawr takes group information from the upstream authentication provider and maps it to scopes.
 Scopes are then used to restrict access to protected applications (see :ref:`protect-service`).
 
-For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see DMTN-235_.
-
-.. _DMTN-235: https://dmtn-235.lsst.io/
+For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see :dmtn:`235`.
 
 The list of scopes is configured via ``config.knownScopes``, which is an object mapping scope names to human-readable descriptions.
 Every scope that you want to use must be listed in ``config.knownScopes``.
