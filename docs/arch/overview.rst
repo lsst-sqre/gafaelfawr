@@ -2,7 +2,7 @@
 Overview
 ########
 
-The primary architectural documentation for Gafaelfawr is DMTN-224_, the implementation tech note.
+The primary architectural documentation for Gafaelfawr is :dmtn:`224`, the implementation tech note.
 This part of Gafaelfawr's documentation contains some supplemental information primarily of interest to people doing development on Gafaelfawr itself.
 
 .. _DMTN-224: https://dmtn-224.lsst.io/
