@@ -7,13 +7,6 @@ repos:
         args: [--allow-multiple-documents]
       - id: trailing-whitespace
 
-  - repo: https://github.com/Lucas-C/pre-commit-hooks-markup
-    rev: v1.0.1
-    hooks:
-      - id: rst-linter
-        name: Check rST
-        files: (README\.rst)
-
   - repo: https://github.com/pycqa/isort
     rev: 5.10.1
     hooks:
