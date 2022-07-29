@@ -7,8 +7,11 @@ The internal configuration format may change in minor releases.
 Dependencies are updated to the latest available version during each release.
 Those changes are not noted here explicitly.
 
-## 5.0.2 (unreleased)
+## 5.0.2 (2022-07-29)
 
+- Improved error handling for LDAP queries.
+  Hopefully Gafaelfawr should now recover automatically from LDAP outages.
+- Gafaelfawr now uses a pure `pyproject.toml` build system (using the beta support in setuptools) rather than using `setup.cfg` or `setup.py`.
 - Substantial improvements to the documentation.
   Much of the design and implementation information has move to tech notes and the Gafaelfawr documentation references those.
   The changelog is now maintained in Markdown to ease preparation of GitHub releases.
