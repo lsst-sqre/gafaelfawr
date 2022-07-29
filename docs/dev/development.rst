@@ -35,14 +35,13 @@ This init step does three things:
 2. Installs pre-commit, tox, and tox-docker.
 3. Installs the pre-commit hooks.
 
-On macOS hosts, you may also need to run:
+On macOS hosts, you may also need to run the following in the terminal window where you run ``make init`` and where you intend to run ``tox`` commands:
 
 .. code-block:: sh
 
    export LDFLAGS="-L/usr/local/opt/openssl/lib"
 
-in the terminal window where you run ``make init`` and where you intend to run ``tox`` commands.
-Otherwise, OpenSSL isn't on the default linker path and the psycopg2 Python extension may not build.
+Otherwise, OpenSSL isn't on the default linker path and some Python extensions may not build.
 
 .. _pre-commit-hooks:
 
@@ -192,7 +191,7 @@ The build documentation is located in the :file:`docs/_build/html` directory.
 Updating the change log
 =======================
 
-Each pull request should update the change log (:file:`CHANGELOG.rst`).
+Each pull request should update the change log (:file:`CHANGELOG.md`).
 Add a description of new features and fixes as list items under a section at the top of the change log called "Unreleased:"
 
 .. code-block:: rst

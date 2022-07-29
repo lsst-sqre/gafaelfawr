@@ -2,6 +2,9 @@
 Overview
 ########
 
+The primary architectural documentation for Gafaelfawr is :dmtn:`224`, the implementation tech note.
+This part of Gafaelfawr's documentation contains some supplemental information primarily of interest to people doing development on Gafaelfawr itself.
+
 Gafaelfawr is deployed as an auth subrequest handler for a Kubernetes cluster that uses an NGINX ingress.
 
 .. figure:: /_static/architecture.png
@@ -21,4 +24,4 @@ It may not work with other applications without additional changes.
 
 .. _Chronograf: https://docs.influxdata.com/chronograf/v1.8/administration/managing-security/
 
-Gafaelfawr can also deploy a Kubernetes ``CronJob`` resource to maintain service tokens in Kubernetes secrets for the use of other applications deployed in the same cluster.
+Gafaelfawr also deploys a Kubernetes operator to maintain service tokens in Kubernetes secrets for the use of other applications deployed in the same cluster.

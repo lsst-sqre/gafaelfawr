@@ -5,7 +5,7 @@ Configuration settings
 The only supported way to deploy Gafaelfawr is via its Helm chart.
 User configuration is done through Helm values.
 
-Internally, Gafaelfawr uses `Pydantic`_ for configuration.
+Internally, Gafaelfawr uses Pydantic_ for configuration.
 Most configuration settings are provided via a YAML file that is constructed from a ``ConfigMap`` Kubernetes resource created by the Helm chart.
 Secrets are referenced by paths in that YAML file and mounted as a secret volume in the Gafaelfawr pods.
 The Pydantic settings are then turned into frozen dataclasses internally, which are passed to Gafaelfawr components as configuration.
@@ -14,7 +14,7 @@ The Pydantic settings are then turned into frozen dataclasses internally, which 
 
 The exact mechanisms for how the Helm chart communicates configuration settings to Gafaelfawr are an internal implementation detail and are intentionally not documented in the manual.
 Updates to Gafaelfawr move, rename, or restructure those configuration mechanisms without notice.
-This is only considered a breaking change if the Helm chart configuration changes.
+This is only considered a breaking change for versioning purposes if the Helm chart configuration changes.
 
 Development settings
 ====================

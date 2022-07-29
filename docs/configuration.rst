@@ -14,7 +14,7 @@ Gafaelfawr also expects TLS termination to be done by the ingress controller.
 
 A PostgreSQL database is required but not provided by the Helm chart.
 You must provision this database and configure it as described below.
-Google Cloud SQL (including the Google Cloud SQL Auth Proxy) is supported.
+Google Cloud SQL (including the Google Cloud SQL Auth Proxy) is supported (and preferred).
 
 Redis is also required for storage, but the Gafaelfawr Helm chart will configure and deploy a private Redis server for this purpose.
 However, you will need to configure persistent storage for that Redis server for any non-test deployment, which means that the Kubernetes cluster must provide persistent storage.
@@ -43,29 +43,10 @@ CILogon
 
 If you will use CILogon as the authentication provider, you will need to register with CILogon to get a client ID and secret.
 
-1. Go to the `registration page <https://cilogon.org/oauth2/register>`__.
-2. Enter the client name.
-   For Rubin Observatory deployments, include "Rubin Observatory LSP" in the name.
-3. Enter the contact email.
-   You will be notified at this email when the client is registered.
-4. Enter the top page of the LSP deployment as the home URL.
-   For example: ``https://lsp-instance.example.com``
-5. Enter the ``/login`` route as the callback URL.
-   For example: ``https://lsp-instance.example.com/login``
-6. Leave the public client box unchecked.
-7. Select the following scopes:
-   - email
-   - org.cilogin.userinfo
-   - profile
-   You will need some additional custom configuration, but you will have to request that via email since it isn't available on the registration page.
-8. Enter one day (86400 seconds) as the refresh token lifetime.
+Normally, CILogon is used in conjunction with COmanage, and Gafaelfawr should be registered as a OIDC client in the settings of the corresponding COmanage instance.
+For details on how to do this, see SQR-055_.
 
-Submit that information.
-You will get a client ID and secret.
-This will not work immediately; you will need to wait for the CILogon team to register the client.
-
-After you have gotten email confirming that your client has been registered, reply to that email and request that the client configuration be copied from the client ``cilogon:/client_id/6ca7b54ac075b65bccb9c885f9ba4a75``.
-This will add the scope that releases group and UID information from LDAP.
+.. _SQR-055: https://sqr-055.lsst.io/
 
 Other OpenID Connect provider
 -----------------------------
@@ -384,7 +365,7 @@ The same service account used for Cloud SQL must have read/write permissions to 
 
 When this support is enabled, Gafaelfawr ignores any UID and GID information from the tokens issued by the upstream OpenID Connect provider and from LDAP, and instead assigns UIDs and GIDs to users and groups by name the first time that a given username or group name is seen.
 UIDs and GIDs are never reused.
-They are assigned from the ranges documented in `DMTN-225 <https://dmtn-225.lsst.io/>`__.
+They are assigned from the ranges documented in :dmtn:`225`.
 
 To enable use of Firestore for UID/GID assignment, add the following configuration:
 
@@ -403,9 +384,7 @@ Scopes
 Gafaelfawr takes group information from the upstream authentication provider and maps it to scopes.
 Scopes are then used to restrict access to protected applications (see :ref:`protect-service`).
 
-For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see DMTN-235_.
-
-.. _DMTN-235: https://dmtn-235.lsst.io/
+For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see :dmtn:`235`.
 
 The list of scopes is configured via ``config.knownScopes``, which is an object mapping scope names to human-readable descriptions.
 Every scope that you want to use must be listed in ``config.knownScopes``.

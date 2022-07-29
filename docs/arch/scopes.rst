@@ -10,12 +10,14 @@ Each token has zero or more scopes associated with it.
 Protected applications indicate which scopes are required to access that application via the scope parameter on the ``/auth`` route.
 When users create their own tokens, they can choose which scopes to delegate to the user token to restrict its power.
 
-Scopes are derived from the user's group membership as determined by their OpenID Connect claims (if OpenID Connect authentication is used), their GitHub team memberships (if GitHub authentication is used), or their LDAP data (if LDAP is configured).
+Scopes are derived from the user's group membership as determined by their OpenID Connect claims (if OpenID Connect authentication is used), their GitHub team memberships (if GitHub authentication is used), or their LDAP group membership (if LDAP is configured).
 The mapping of groups to scopes is controlled by the ``config.groupMappings`` Helm chart value.
 See :ref:`scopes` for more information.
 
-The list of supported scopes and their human-readable descriptions are configured in the ``known_scopes`` configuration setting.
+The list of supported scopes and their human-readable descriptions are configured in the ``config.knownScopes`` Helm configuration setting.
 The human-readable descriptions are used in the UI.
+
+For more details on how scopes are used in the Rubin Science Platform, see :dmtn:`235`.
 
 Reserved scopes
 ===============
@@ -26,7 +28,7 @@ Currently, two scopes in that reserved namespace are used:
 * ``admin:token`` grants token administrator powers.
   Users authenticated with a token with this scope can view, create, modify, and delete tokens for any user.
   Administrators are automatically granted this scope when they authenticate.
-  The bootstrap token (configured with the ``bootstrap_token`` configuration setting) is automatically granted ``admin:token`` scope.
+  The bootstrap token (configured with the ``bootstrap-token`` Kubernetes secret) is automatically granted ``admin:token`` scope.
 * ``user:token`` grants the ability to view and delete all tokens for the same user, and create and modify user tokens for that user.
   All session tokens are automatically granted this scope.
 

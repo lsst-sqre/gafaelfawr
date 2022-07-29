@@ -313,7 +313,7 @@ class OIDCUserInfoService(UserInfoService):
                 claim=token.claims.get("isMemberOf", []),
                 user=username,
             )
-            raise InvalidTokenClaimsError(msg)
+            raise InvalidTokenClaimsError(msg) from e
 
         if invalid_groups:
             self._logger.warning(
@@ -355,10 +355,10 @@ class OIDCUserInfoService(UserInfoService):
             raise MissingUIDClaimError(msg)
         try:
             uid = int(token.claims[self._oidc_config.uid_claim])
-        except Exception:
+        except Exception as e:
             msg = f"Invalid {self._oidc_config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise InvalidTokenClaimsError(msg)
+            raise InvalidTokenClaimsError(msg) from e
         return uid
 
     def _get_username_from_oidc_token(self, token: OIDCVerifiedToken) -> str:

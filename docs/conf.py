@@ -17,6 +17,7 @@ rst_epilog = """
 # Extensions =================================================================
 
 extensions = [
+    "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.doctest",
@@ -32,10 +33,13 @@ extensions = [
 
 # General configuration ======================================================
 
-source_suffix = ".rst"
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
 
-# The master toctree document.
-master_doc = "index"
+# The root toctree document.
+root_doc = "index"
 
 # General information about the project.
 project = "Gafaelfawr"
@@ -43,14 +47,14 @@ copyright = (
     "2020-2022 "
     "Association of Universities for Research in Astronomy, Inc. (AURA)"
 )
-author = "LSST Data Management"
+author = "Rubin Observatory"
 
 version = gafaelfawr.__version__
 release = version
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ["_build", "README.rst"]
+exclude_patterns = ["_build"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -152,8 +156,8 @@ html_context = {
     "github_user": "lsst",
     "github_repo": "gafaelfawr",
     "conf_py_path": "docs/",
-    # GITHUB_REF is available in GitHub Actions, but master is a safe default
-    "github_version": os.getenv("GITHUB_REF", default="master") + "/",
+    # GITHUB_REF is available in GitHub Actions, but main is a safe default
+    "github_version": os.getenv("GITHUB_REF", default="main") + "/",
 }
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -251,3 +255,22 @@ graphviz_dot_args = [
 # TODO extension =============================================================
 
 todo_include_todos = False
+
+# My-ST (Markdown) ===========================================================
+# https://myst-parser.readthedocs.io/en/latest/syntax/optional.html
+
+myst_enable_extensions = [
+    "amsmath",
+    "colon_fence",
+    "deflist",
+    "dollarmath",
+    "fieldlist",
+    "html_admonition",
+    "html_image",
+    "linkify",
+    "replacements",
+    "smartquotes",
+    "strikethrough",
+    "substitution",
+    "tasklist",
+]

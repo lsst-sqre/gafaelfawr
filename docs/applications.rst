@@ -7,6 +7,10 @@ Application configuration
 Protecting a service
 ====================
 
+Gafaelfawr requires ingress-nginx_.
+
+.. _ingress-nginx: https://kubernetes.github.io/ingress-nginx/deploy/
+
 Gafaelfawr's routes must be exposed under the same hostname as the service that it is protecting.
 IF you need to protect services running under multiple hostnames, you will need to configure Gafaelfawr's ingress to add its routes (specifically ``/auth`` and ``/login``) to each of those hostnames.
 
@@ -16,12 +20,12 @@ The typical annotations for a web application used via a web browser are:
 .. code-block:: yaml
 
    annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/auth-method: GET
+    nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
 
 Replace ``<hostname>`` with the hostname of the ingress on which the Gafaelfawr routes are configured, and ``<scope>`` with the name of the scope that should be required in order to visit this site.
+You must also either set ``spec.ingressClassName`` to ``nginx`` (Kubernetes 1.19 or later) or add the annotation ``kubernetes.io/ingress.class: nginx`` (older versions of Kubernetes).
 
 This will send a request to the Gafaelfawr ``/auth`` route for each request.
 It will find the user's authentication token, check that it is valid, and check that the user has the required scope.
@@ -33,10 +37,10 @@ The typical annotations for a API that expects direct requests from programs are
 .. code-block:: yaml
 
    annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/auth-method: GET
+    nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
 
+(In other words, omit ``nginx.ingress.kubernetes.io/auth-signin``.)
 The difference in this case is that the 401 error when authentication is not provided will be returned to the client, rather than returning a redirect to the login page.
 
 If the user authenticates and authorizes successfully, the request will be sent to the application.
@@ -50,9 +54,8 @@ These applications must request an internal token from Gafaelfawr using Kubernet
 .. code-block:: yaml
 
    annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/auth-method: GET
-    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>&delegate_to=<service>&delegate_scope=<scope>,<scope>"
 
@@ -63,15 +66,14 @@ These applications must request an internal token from Gafaelfawr using Kubernet
 
 The token will be included in the request in an ``X-Auth-Request-Token`` header, hence the additional annotation saying to pass that header to the application.
 
-As a special case, JupyterLab notebooks can request a special type of internal token called a notebook token, which will always have the same scope as the user's session token (and thus can do anything the user can do).
+As a special case, JupyterLab notebooks can request a type of internal token called a notebook token, which will always have the same scope as the user's session token (and thus can do anything the user can do).
 To request such a token, use annotations like:
 
 .. code-block:: yaml
 
    annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/auth-method: GET
-    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Token
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>&notebook=true"
 
@@ -83,7 +85,7 @@ Disabling error caching
 =======================
 
 Web browsers cache 403 (HTTP Forbidden) error replies by default.
-Unfortunately, NGINX does not pass a ``Cache-Control`` response header from an ``auth_request`` handler back to the client.
+Unfortunately, NGINX does not pass a ``Cache-Control`` response header (or any other headers) from an ``auth_request`` handler back to the client.
 It also does not set ``Cache-Control`` on a 403 response itself, and the Kubernetes ingress-nginx does not provide a configuration knob to change that.
 This can cause user confusion; if they reauthenticate after a 403 error and obtain additional group memberships, they may still get a 403 error when they return to the page they were trying to access even if they now have access.
 
@@ -175,7 +177,7 @@ The value of that annotation is a comma-separated list of desired headers.
     If the token has scopes in the ``scope`` claim or derived from groups listed in ``isMemberOf``, they will be returned in this header.
 
 ``X-Auth-Request-Token-Scopes-Accepted``
-    A space-separated list of token scopes the reliant resource accepts.
+    A space-separated list of token scopes the protected service accepts.
     This is configured in the ``nginx.ingress.kubernetes.io/auth-url`` annotation via the ``scope`` parameter.
 
 ``X-Auth-Request-Token-Scopes-Satisfy``
@@ -286,6 +288,7 @@ Authenticating to InfluxDB
 
    InfluxDB 2.x is not supported.
    These tokens will only work with InfluxDB 1.x.
+   This feature is deprecated and will likely be removed in a future version of Gafaelfawr.
 
 Gafaelfawr optionally supports issuing tokens for InfluxDB 1.x authentication.
 To enable this support, set ``config.influxdb.enabled`` to true in :ref:`helm-settings`.
