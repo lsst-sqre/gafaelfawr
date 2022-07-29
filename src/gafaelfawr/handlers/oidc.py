@@ -36,6 +36,8 @@ from ..models.oidc import (
 )
 from ..models.token import TokenData
 
+__all__ = ["router"]
+
 router = APIRouter(
     responses={
         404: {
@@ -47,8 +49,6 @@ router = APIRouter(
 authenticate = AuthenticateRead(
     require_session=True, redirect_if_unauthenticated=True
 )
-
-__all__ = ["get_login", "get_userinfo", "post_token"]
 
 
 @router.get(

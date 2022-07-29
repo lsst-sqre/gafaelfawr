@@ -16,6 +16,8 @@ __all__ = ["TokenChangeHistory"]
 
 
 class TokenChangeHistory(Base):
+    """History of changes to tokens."""
+
     __tablename__ = "token_change_history"
 
     id: int = Column(Integer, primary_key=True)

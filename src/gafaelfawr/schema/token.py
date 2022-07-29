@@ -14,6 +14,8 @@ __all__ = ["Token"]
 
 
 class Token(Base):
+    """Metadata for a token."""
+
     __tablename__ = "token"
 
     token: str = Column(String(64, collation="C"), primary_key=True)

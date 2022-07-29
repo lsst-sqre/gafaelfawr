@@ -15,6 +15,8 @@ __all__ = ["TokenAuthHistory"]
 
 
 class TokenAuthHistory(Base):
+    """Authentication history by token."""
+
     __tablename__ = "token_auth_history"
 
     id: int = Column(Integer, primary_key=True)

@@ -190,6 +190,7 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
     help="Output path (output to stdout if not given).",
 )
 def openapi_schema(add_back_link: bool, output: Optional[Path]) -> None:
+    """Generate the OpenAPI schema."""
     app = create_app(load_config=False)
     description = app.description
     if add_back_link:

@@ -12,6 +12,8 @@ __all__ = ["Subtoken"]
 
 
 class Subtoken(Base):
+    """Records parent/child relationships for tokens."""
+
     __tablename__ = "subtoken"
 
     child: str = Column(
