@@ -78,6 +78,8 @@ class AdminHistoryEntry(BaseModel):
     )
 
     class Config:
+        """Additional Pydantic configuration."""
+
         orm_mode = True
 
     _normalize_event_time = validator(
@@ -321,6 +323,8 @@ class TokenChangeHistoryEntry(BaseModel):
     )
 
     class Config:
+        """Additional Pydantic configuration."""
+
         json_encoders = {datetime: lambda v: int(v.timestamp())}
         orm_mode = True
 

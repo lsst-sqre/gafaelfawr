@@ -18,6 +18,8 @@ __all__ = ["AdminHistory"]
 
 
 class AdminHistory(Base):
+    """History of changes to the list of admins."""
+
     __tablename__ = "admin_history"
 
     id: int = Column(Integer, primary_key=True)

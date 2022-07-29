@@ -14,6 +14,8 @@ __all__ = ["Admin"]
 
 
 class Admin(Base):
+    """List of users with admin privileges."""
+
     __tablename__ = "admin"
 
     username = Column(String(64), primary_key=True)
