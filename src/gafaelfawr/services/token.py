@@ -715,16 +715,17 @@ class TokenService:
             expires=expires,
             no_expire=no_expire,
         )
+        if not info:
+            return None
         await self._token_change_store.add(history_entry)
 
         # Update the expiration in Redis if needed.
-        if info and (no_expire or expires):
+        if no_expire or expires:
             data = await self._token_redis_store.get_data_by_key(key)
-            if data:
-                data.expires = None if no_expire else expires
-                await self._token_redis_store.store_data(data)
-            else:
-                info = None
+            if not data:
+                return None
+            data.expires = None if no_expire else expires
+            await self._token_redis_store.store_data(data)
 
         # Update subtokens if needed.
         if update_subtoken_expires and info:
@@ -734,15 +735,14 @@ class TokenService:
                     child, auth_data, expires, ip_address
                 )
 
-        if info:
-            timestamp = int(info.expires.timestamp()) if info.expires else None
-            self._logger.info(
-                "Modified token",
-                key=key,
-                token_name=info.token_name,
-                token_scopes=sorted(info.scopes),
-                expires=timestamp,
-            )
+        timestamp = int(info.expires.timestamp()) if info.expires else None
+        self._logger.info(
+            "Modified token",
+            key=key,
+            token_name=info.token_name,
+            token_scopes=sorted(info.scopes),
+            expires=timestamp,
+        )
         return info
 
     def _check_authorization(

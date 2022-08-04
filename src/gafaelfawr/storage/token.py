@@ -281,8 +281,8 @@ class TokenDatabaseStore:
 
         Returns
         -------
-        info : `gafaelfawr.models.token.TokenInfo`
-            Information for the updated token.
+        info : `gafaelfawr.models.token.TokenInfo` or `None`
+            Information for the updated token or `None` if it was not found.
 
         Raises
         ------
