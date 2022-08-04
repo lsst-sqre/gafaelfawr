@@ -719,12 +719,15 @@ class TokenService:
             return None
         await self._token_change_store.add(history_entry)
 
-        # Update the expiration in Redis if needed.
-        if no_expire or expires:
+        # Token names exist only in the database and don't require updating
+        # Redis, but scopes and expirations are stored in both places and
+        # require rewriting the token data in Redis as well.
+        if scopes or no_expire or expires:
             data = await self._token_redis_store.get_data_by_key(key)
             if not data:
                 return None
-            data.expires = None if no_expire else expires
+            data.scopes = info.scopes
+            data.expires = info.expires
             await self._token_redis_store.store_data(data)
 
         # Update subtokens if needed.
