@@ -9,6 +9,14 @@ The internal configuration format may change in minor releases.
 Dependencies are updated to the latest available version during each
 release.  Those changes are not noted here explicitly.
 
+## 5.0.3 (unreleased)
+
+- When a user token was edited to change its scope, but not its expiration
+  time, its scopes were not updated in Redis.  Since Redis is canonical
+  for token scopes, this meant that the change appeared to go through but
+  had no actual effect.  Fixed by updating Redis if either the scope or
+  expiration of a user token is changed.
+
 ## 5.0.2 (2022-07-29)
 
 - Improved error handling for LDAP queries.  Hopefully Gafaelfawr should

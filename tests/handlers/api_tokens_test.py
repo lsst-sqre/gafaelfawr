@@ -1190,3 +1190,104 @@ async def test_no_form_post(
     )
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "type_error.dict"
+
+
+@pytest.mark.asyncio
+async def test_scope_modify(
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+) -> None:
+    """Ensure modifying the scope updates Redis.
+
+    In Gafaelfawr 5.0.2 and earlier, modifying only the token scope didn't
+    change Redis and therefore wasn't reflected in the ``/auth`` route.
+    """
+    user_info = TokenUserInfo(
+        username="example",
+        name="Example Person",
+        email="example@example.com",
+        uid=45613,
+        groups=[TokenGroup(name="foo", id=12313)],
+    )
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        session_token = await token_service.create_session_token(
+            user_info,
+            scopes=["read:all", "exec:admin", "user:token"],
+            ip_address="127.0.0.1",
+        )
+    csrf = await set_session_cookie(client, session_token)
+
+    expires = current_datetime() + timedelta(days=100)
+    r = await client.post(
+        "/auth/api/v1/users/example/tokens",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "token_name": "some token",
+            "scopes": [],
+            "expires": int(expires.timestamp()),
+        },
+    )
+    assert r.status_code == 201
+    assert r.json() == {"token": ANY}
+    user_token = Token.from_str(r.json()["token"])
+    token_url = r.headers["Location"]
+    assert token_url == f"/auth/api/v1/users/example/tokens/{user_token.key}"
+
+    r = await client.get(token_url)
+    assert r.status_code == 200
+    assert r.json() == {
+        "token": user_token.key,
+        "username": "example",
+        "token_name": "some token",
+        "token_type": "user",
+        "scopes": [],
+        "created": ANY,
+        "expires": int(expires.timestamp()),
+    }
+
+    # This token should get access denied when hitting the /auth route with a
+    # required read:all scope.
+    cookie = client.cookies.pop(COOKIE_NAME)
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers={"Authorization": f"bearer {user_token}"},
+    )
+    assert r.status_code == 403
+    client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
+
+    # Modify the scopes to include read:all, and then check the token
+    # information again.
+    r = await client.patch(
+        token_url,
+        headers={"X-CSRF-Token": csrf},
+        json={"scopes": ["read:all"]},
+    )
+    assert r.status_code == 200
+    info = r.json()
+    assert info == {
+        "token": user_token.key,
+        "username": "example",
+        "token_name": "some token",
+        "token_type": "user",
+        "scopes": ["read:all"],
+        "created": ANY,
+        "expires": int(expires.timestamp()),
+    }
+
+    # Now remove the cookie and test the token-info and auth routes with the
+    # new token.  It should allow access when protected by read:all.
+    client.cookies.pop(COOKIE_NAME)
+    r = await client.get(
+        "/auth/api/v1/token-info",
+        headers={"Authorization": f"bearer {user_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == info
+
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers={"Authorization": f"bearer {user_token}"},
+    )
+    assert r.status_code == 200
