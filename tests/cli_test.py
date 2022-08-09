@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -28,8 +29,9 @@ from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.oidc import OIDCAuthorizationCode
-from gafaelfawr.models.token import Token, TokenData, TokenUserInfo
+from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 from gafaelfawr.schema import Base
+from gafaelfawr.storage.token import TokenDatabaseStore
 
 from .support.logging import parse_log
 from .support.settings import configure
@@ -137,6 +139,37 @@ def test_init(
             token_service = factory.create_token_service()
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []
+
+    event_loop.run_until_complete(check_database())
+
+
+def test_maintenance(
+    engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
+) -> None:
+    now = datetime.now(tz=timezone.utc)
+    token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.session,
+        scopes=["read:all", "user:token"],
+        created=now - timedelta(minutes=60),
+        expires=now - timedelta(minutes=30),
+    )
+
+    async def initialize() -> None:
+        async with Factory.standalone(config, engine) as factory:
+            token_store = TokenDatabaseStore(factory.session)
+            await token_store.add(token_data)
+
+    event_loop.run_until_complete(initialize())
+    runner = CliRunner()
+    result = runner.invoke(main, ["maintenance"])
+    assert result.exit_code == 0
+
+    async def check_database() -> None:
+        async with Factory.standalone(config, engine) as factory:
+            token_store = TokenDatabaseStore(factory.session)
+            assert await token_store.get_info(token_data.token.key) is None
 
     event_loop.run_until_complete(check_database())
 

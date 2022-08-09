@@ -100,6 +100,63 @@ class TokenDatabaseStore:
         result = cast(CursorResult, await self._session.execute(stmt))
         return result.rowcount >= 1
 
+    async def delete_expired(self) -> List[TokenInfo]:
+        """Delete entries for expired tokens from the database.
+
+        Returns
+        -------
+        deleted : List[`gafaelfawr.models.token.TokenInfo`]
+            The deleted tokens.
+        """
+        now = datetime.utcnow()
+
+        # Start by finding all tokens that have expired.
+        stmt = select(SQLToken.token).where(SQLToken.expires <= now)
+        result = await self._session.scalars(stmt)
+        to_delete = set(result.all())
+
+        # Gather the token information for each of those tokens.  We have to
+        # do this before starting to delete them, since deleting will cause a
+        # cascading delete of child tokens and we'll otherwise lose the
+        # opportunity to record history entries for them.
+        #
+        # This is the same query as get_info, except that it asks for the
+        # information for all the tokens at once, saving database round trips.
+        deleted = []
+        stmt = (
+            select(SQLToken, Subtoken.parent)
+            .where(SQLToken.token.in_(to_delete))
+            .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
+        )
+        tokens = await self._session.execute(stmt)
+        for token, parent in tokens.all():
+            info = TokenInfo.from_orm(token)
+            info.parent = parent
+            deleted.append(info)
+
+        # Now, start deleting the tokens.  For each token, we get all of its
+        # children and look for anything we weren't expecting to delete.  This
+        # should be impossible, since child tokens should not have an
+        # expiration later than their parent token, but if this does somehow
+        # happen we don't want to miss entering metadata for their expiration.
+        #
+        # Don't bother optimizing getting info for these missing tokens, since
+        # this should essentially always be an empty list.
+        while to_delete:
+            parent = to_delete.pop()
+            children = set(await self.get_children(parent))
+            for missed_key in children - to_delete:
+                missed_info = await self.get_info(missed_key)
+                if missed_info:
+                    deleted.append(missed_info)
+            keys = children | {parent}
+            delete_stmt = delete(SQLToken).where(SQLToken.token.in_(keys))
+            await self._session.execute(delete_stmt)
+            to_delete -= children
+
+        # Return the info for the deleted tokens.
+        return deleted
+
     async def get_children(self, key: str) -> List[str]:
         """Return all children (recursively) of a token.
 

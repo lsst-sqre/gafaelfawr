@@ -373,6 +373,40 @@ class TokenService:
 
         return success
 
+    async def expire_tokens(self) -> None:
+        """Bookkeeping for expired tokens.
+
+        Token expiration is primarily controlled by the Redis expiration,
+        after which the token disappears from Redis and effectively expires
+        from an authentication standpoint.  However, we want to do some
+        additional bookkeeping of expired tokens: remove them from the
+        database and add an expiration entry to the token history table.
+
+        This method is meant to be run periodically, outside of any given user
+        request.
+        """
+        expired_tokens = await self._token_db_store.delete_expired()
+        for info in expired_tokens:
+            self._logger.info(
+                "Expired token",
+                user=info.username,
+                token_type=info.token_type.value,
+                token=info.token,
+            )
+            history_entry = TokenChangeHistoryEntry(
+                token=info.token,
+                username=info.username,
+                token_type=info.token_type,
+                token_name=info.token_name,
+                parent=info.parent,
+                scopes=info.scopes,
+                service=info.service,
+                expires=info.expires,
+                actor="<internal>",
+                action=TokenChange.expire,
+            )
+            await self._token_change_store.add(history_entry)
+
     async def get_change_history(
         self,
         auth_data: TokenData,
