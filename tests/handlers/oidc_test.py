@@ -29,6 +29,7 @@ from ..support.headers import (
 )
 from ..support.logging import parse_log
 from ..support.settings import reconfigure
+from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
@@ -209,6 +210,7 @@ async def test_login_errors(
     client: AsyncClient,
     factory: Factory,
     caplog: LogCaptureFixture,
+    mock_slack: MockSlack,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     await reconfigure(
@@ -324,6 +326,9 @@ async def test_login_errors(
         "error_description": ["openid is the only supported scope"],
     }
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_token_errors(
@@ -331,6 +336,7 @@ async def test_token_errors(
     client: AsyncClient,
     factory: Factory,
     caplog: LogCaptureFixture,
+    mock_slack: MockSlack,
 ) -> None:
     clients = [
         OIDCClient(client_id="some-id", client_secret="some-secret"),
@@ -503,11 +509,19 @@ async def test_token_errors(
         "error_description": "Invalid authorization code",
     }
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_no_auth(client: AsyncClient, config: Config) -> None:
+async def test_no_auth(
+    client: AsyncClient, config: Config, mock_slack: MockSlack
+) -> None:
     r = await client.get("/auth/userinfo")
     assert_unauthorized_is_correct(r, config)
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -516,6 +530,7 @@ async def test_invalid(
     client: AsyncClient,
     factory: Factory,
     caplog: LogCaptureFixture,
+    mock_slack: MockSlack,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     config = await reconfigure(
@@ -592,6 +607,9 @@ async def test_invalid(
             "token_source": "bearer",
         }
     ]
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio

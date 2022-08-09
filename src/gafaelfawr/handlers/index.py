@@ -7,7 +7,9 @@ from typing import cast
 from fastapi import APIRouter
 from safir.metadata import Metadata, get_project_url
 
-router = APIRouter()
+from ..slack import SlackRouteErrorHandler
+
+router = APIRouter(route_class=SlackRouteErrorHandler)
 
 __all__ = ["get_index"]
 

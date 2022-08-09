@@ -19,6 +19,7 @@ from ..support.jwt import create_upstream_oidc_jwt
 from ..support.logging import parse_log
 from ..support.oidc import mock_oidc_provider_token, simulate_oidc_login
 from ..support.settings import reconfigure
+from ..support.slack import MockSlack
 
 
 @pytest.mark.asyncio
@@ -166,6 +167,7 @@ async def test_callback_error(
     client: AsyncClient,
     respx_mock: respx.Router,
     caplog: LogCaptureFixture,
+    mock_slack: MockSlack,
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
     config = await reconfigure(tmp_path, "oidc")
@@ -263,10 +265,16 @@ async def test_callback_error(
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_connection_error(
-    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_slack: MockSlack,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
@@ -287,10 +295,16 @@ async def test_connection_error(
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_verify_error(
-    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_slack: MockSlack,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
@@ -317,10 +331,16 @@ async def test_verify_error(
     assert r.status_code == 403
     assert "token verification failed" in r.text
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_invalid_username(
-    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_slack: MockSlack,
 ) -> None:
     await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
@@ -331,10 +351,16 @@ async def test_invalid_username(
     assert r.status_code == 403
     assert "Invalid username: invalid@user" in r.text
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_invalid_group_syntax(
-    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_slack: MockSlack,
 ) -> None:
     await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(isMemberOf=47)
@@ -342,6 +368,9 @@ async def test_invalid_group_syntax(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
     assert "isMemberOf claim has invalid format" in r.text
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -372,7 +401,10 @@ async def test_invalid_groups(
 
 @pytest.mark.asyncio
 async def test_no_valid_groups(
-    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_slack: MockSlack,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
@@ -389,6 +421,9 @@ async def test_no_valid_groups(
     # The user should not be logged in.
     r = await client.get("/auth", params={"scope": "user:token"})
     assert r.status_code == 401
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -519,6 +554,7 @@ async def test_no_enrollment_url(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
+    mock_slack: MockSlack,
 ) -> None:
     """Test a missing username claim in the ID token but no enrollment URL."""
     await reconfigure(tmp_path, "oidc-claims")
@@ -528,3 +564,6 @@ async def test_no_enrollment_url(
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
     assert "User is not enrolled" in r.text
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []

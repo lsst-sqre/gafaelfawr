@@ -10,8 +10,9 @@ from fastapi.responses import RedirectResponse
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import return_url
 from ..models.state import State
+from ..slack import SlackRouteErrorHandler
 
-router = APIRouter()
+router = APIRouter(route_class=SlackRouteErrorHandler)
 
 __all__ = ["get_logout"]
 

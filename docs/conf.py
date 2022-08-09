@@ -89,9 +89,12 @@ nitpick_ignore = [
     # are generated from the type signatures and can't be avoided.
     ("py:class", "fastapi.applications.FastAPI"),
     ("py:class", "fastapi.exceptions.HTTPException"),
-    ("py:exc", "fastapi.HTTPException"),
+    ("py:class", "fastapi.routing.APIRoute"),
     ("py:class", "httpx.AsyncClient"),
+    ("py:exc", "fastapi.HTTPException"),
+    ("py:exc", "fastapi.exceptions.RequestValidationError"),
     ("py:exc", "httpx.HTTPError"),
+    ("py:obj", "fastapi.routing.APIRoute"),
     ("py:class", "kubernetes_asyncio.client.api_client.ApiClient"),
     ("py:class", "kubernetes_asyncio.client.models.v1_secret.V1Secret"),
     ("py:class", "pydantic.env_settings.BaseSettings"),
@@ -103,6 +106,9 @@ nitpick_ignore = [
     ("py:class", "starlette.middleware.base.BaseHTTPMiddleware"),
     ("py:class", "starlette.requests.Request"),
     ("py:class", "starlette.responses.Response"),
+    ("py:class", "starlette.routing.Route"),
+    ("py:class", "starlette.routing.BaseRoute"),
+    ("py:exc", "starlette.exceptions.HTTPException"),
     # Special Pydantic magic that Sphinx doesn't understand.
     ("py:class", "gafaelfawr.models.history.ConstrainedStrValue"),
     ("py:class", "gafaelfawr.models.token.ConstrainedIntValue"),

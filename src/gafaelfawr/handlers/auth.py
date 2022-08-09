@@ -22,8 +22,9 @@ from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InsufficientScopeError, InvalidDelegateToError
 from ..models.token import TokenData
+from ..slack import SlackRouteErrorHandler
 
-router = APIRouter()
+router = APIRouter(route_class=SlackRouteErrorHandler)
 
 __all__ = ["get_auth"]
 

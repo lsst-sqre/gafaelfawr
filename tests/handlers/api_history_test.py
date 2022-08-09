@@ -27,6 +27,7 @@ from gafaelfawr.util import current_datetime
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import set_session_cookie
+from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
@@ -471,7 +472,9 @@ async def test_user_change_history(
 
 
 @pytest.mark.asyncio
-async def test_auth_required(client: AsyncClient, factory: Factory) -> None:
+async def test_auth_required(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory)
     username = token_data.username
     key = token_data.token.key
@@ -487,18 +490,28 @@ async def test_auth_required(client: AsyncClient, factory: Factory) -> None:
     )
     assert r.status_code == 401
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_admin_required(client: AsyncClient, factory: Factory) -> None:
+async def test_admin_required(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
 
     r = await client.get("/auth/api/v1/history/token-changes")
     assert r.status_code == 403
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_no_scope(client: AsyncClient, factory: Factory) -> None:
+async def test_no_scope(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory)
     username = token_data.username
     token_service = factory.create_token_service()
@@ -522,3 +535,6 @@ async def test_no_scope(client: AsyncClient, factory: Factory) -> None:
         headers={"Authorization": f"bearer {token}"},
     )
     assert r.status_code == 403
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []

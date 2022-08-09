@@ -17,11 +17,14 @@ from ..support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
 )
+from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio
-async def test_no_auth(client: AsyncClient, config: Config) -> None:
+async def test_no_auth(
+    client: AsyncClient, config: Config, mock_slack: MockSlack
+) -> None:
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert_unauthorized_is_correct(r, config)
 
@@ -40,9 +43,14 @@ async def test_no_auth(client: AsyncClient, config: Config) -> None:
     )
     assert_unauthorized_is_correct(r, config, AuthType.Basic)
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_invalid(client: AsyncClient, factory: Factory) -> None:
+async def test_invalid(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token = await create_session_token(factory)
 
     r = await client.get(
@@ -67,9 +75,14 @@ async def test_invalid(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "type_error.enum"
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_invalid_auth(client: AsyncClient, config: Config) -> None:
+async def test_invalid_auth(
+    client: AsyncClient, config: Config, mock_slack: MockSlack
+) -> None:
     r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
@@ -122,10 +135,16 @@ async def test_invalid_auth(client: AsyncClient, config: Config) -> None:
     assert authenticate.realm == config.realm
     assert authenticate.error == AuthError.invalid_token
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_access_denied(
-    client: AsyncClient, config: Config, factory: Factory
+    client: AsyncClient,
+    config: Config,
+    factory: Factory,
+    mock_slack: MockSlack,
 ) -> None:
     token_data = await create_session_token(factory)
 
@@ -144,9 +163,14 @@ async def test_access_denied(
     assert authenticate.scope == "exec:admin"
     assert "Token missing required scope" in r.text
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_auth_forbidden(client: AsyncClient, config: Config) -> None:
+async def test_auth_forbidden(
+    client: AsyncClient, config: Config, mock_slack: MockSlack
+) -> None:
     r = await client.get(
         "/auth/forbidden",
         params=[("scope", "exec:test"), ("scope", "exec:admin")],
@@ -172,10 +196,16 @@ async def test_auth_forbidden(client: AsyncClient, config: Config) -> None:
     assert authenticate.realm == config.realm
     assert "Token missing required scope" in r.text
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_satisfy_all(
-    client: AsyncClient, config: Config, factory: Factory
+    client: AsyncClient,
+    config: Config,
+    factory: Factory,
+    mock_slack: MockSlack,
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:test"])
 
@@ -193,6 +223,9 @@ async def test_satisfy_all(
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin exec:test"
     assert "Token missing required scope" in r.text
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -366,7 +399,9 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_internal_errors(client: AsyncClient, factory: Factory) -> None:
+async def test_internal_errors(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory, scopes=["read:some"])
 
     # Delegating a token with a scope the original doesn't have will fail.
@@ -398,6 +433,9 @@ async def test_internal_errors(client: AsyncClient, factory: Factory) -> None:
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 422
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -469,7 +507,9 @@ async def test_basic(client: AsyncClient, factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_basic_failure(client: AsyncClient, config: Config) -> None:
+async def test_basic_failure(
+    client: AsyncClient, config: Config, mock_slack: MockSlack
+) -> None:
     basic_b64 = base64.b64encode(b"bogus-string").decode()
     r = await client.get(
         "/auth",
@@ -491,6 +531,9 @@ async def test_basic_failure(client: AsyncClient, config: Config) -> None:
             headers={"Authorization": f"Basic {basic_b64}"},
         )
         assert_unauthorized_is_correct(r, config, AuthType.Basic)
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio

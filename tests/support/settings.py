@@ -112,6 +112,9 @@ def build_settings(
     influxdb_secret_file = store_secret(tmp_path, "influxdb", b"influx-secret")
     github_secret_file = store_secret(tmp_path, "github", b"github-secret")
     oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
+    slack_webhook_file = store_secret(
+        tmp_path, "slack-webhook", b"https://slack.example.com/webhook"
+    )
 
     oidc_path = tmp_path / "oidc.json"
     if oidc_clients:
@@ -132,6 +135,7 @@ def build_settings(
         oidc_secret_file=oidc_secret_file,
         influxdb_secret_file=influxdb_secret_file,
         oidc_server_secrets_file=oidc_path if oidc_clients else "",
+        slack_webhook_file=slack_webhook_file,
     )
 
     if settings:

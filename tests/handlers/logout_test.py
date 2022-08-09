@@ -16,6 +16,7 @@ from ..support.cookies import set_session_cookie
 from ..support.github import mock_github
 from ..support.headers import query_from_url
 from ..support.logging import parse_log
+from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
@@ -100,7 +101,9 @@ async def test_logout_not_logged_in(
 
 
 @pytest.mark.asyncio
-async def test_logout_bad_url(client: AsyncClient) -> None:
+async def test_logout_bad_url(
+    client: AsyncClient, mock_slack: MockSlack
+) -> None:
     r = await client.get("/logout", params={"rd": "https://foo.example.com/"})
     assert r.status_code == 422
     assert r.json() == {
@@ -112,6 +115,9 @@ async def test_logout_bad_url(client: AsyncClient) -> None:
             }
         ]
     }
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ import os
 from importlib.metadata import version
 from pathlib import Path
 
+import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +26,7 @@ from .exceptions import (
 from .handlers import analyze, api, auth, index, influxdb, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
+from .slack import initialize_slack_alerts
 
 __all__ = ["create_app"]
 
@@ -119,6 +121,11 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
     else:
         app.add_middleware(XForwardedMiddleware)
+
+    # Configure Slack alerts.
+    if load_config and config.slack_webhook:
+        logger = structlog.get_logger("gafaelfawr")
+        initialize_slack_alerts(config.slack_webhook, "Gafaelfawr", logger)
 
     # Register lifecycle handlers.
     app.on_event("startup")(startup_event)

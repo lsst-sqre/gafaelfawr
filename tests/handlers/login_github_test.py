@@ -21,6 +21,7 @@ from gafaelfawr.providers.github import (
 
 from ..support.github import mock_github
 from ..support.logging import parse_log
+from ..support.slack import MockSlack
 
 
 async def simulate_github_login(
@@ -230,9 +231,14 @@ async def test_login_redirect_header(
 
 
 @pytest.mark.asyncio
-async def test_login_no_destination(client: AsyncClient) -> None:
+async def test_login_no_destination(
+    client: AsyncClient, mock_slack: MockSlack
+) -> None:
     r = await client.get("/login")
     assert r.status_code == 422
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -275,7 +281,7 @@ async def test_cookie_auth_with_token(
 
 @pytest.mark.asyncio
 async def test_bad_redirect(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlack
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -307,6 +313,9 @@ async def test_bad_redirect(
         return_url="https://foo.example.com/",
     )
     assert r.status_code == 307
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -365,7 +374,7 @@ async def test_github_admin(
 
 @pytest.mark.asyncio
 async def test_invalid_username(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlack
 ) -> None:
     """Test that invalid usernames are rejected."""
     user_info = GitHubUserInfo(
@@ -381,6 +390,9 @@ async def test_invalid_username(
     )
     assert r.status_code == 403
     assert "Invalid username: invalid user" in r.text
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -452,7 +464,7 @@ async def test_paginated_teams(
 
 @pytest.mark.asyncio
 async def test_no_valid_groups(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlack
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -473,6 +485,9 @@ async def test_no_valid_groups(
     # The user should not be logged in.
     r = await client.get("/auth", params={"scope": "user:token"})
     assert r.status_code == 401
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
