@@ -787,7 +787,11 @@ class TokenService:
         return info
 
     async def truncate_history(self) -> None:
-        """Drop history entries older than the cutoff date."""
+        """Drop history entries older than the cutoff date.
+
+        This method is meant to be run periodically, outside of any given user
+        request.
+        """
         cutoff = current_datetime() - CHANGE_HISTORY_RETENTION
         await self._token_change_store.delete(older_than=cutoff)
 
