@@ -85,7 +85,7 @@ class TokenChangeHistoryStore:
             Delete entries created prior to this date.
         """
         stmt = delete(TokenChangeHistory).where(
-            TokenChangeHistory.event_time <= datetime_to_db(older_than)
+            TokenChangeHistory.event_time < datetime_to_db(older_than)
         )
         await self._session.execute(stmt)
 
