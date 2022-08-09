@@ -115,11 +115,8 @@ class TokenDatabaseStore:
         result = await self._session.scalars(stmt)
         to_delete = set(result.all())
 
-        # Gather the token information for each of those tokens.  We have to
-        # do this before starting to delete them, since deleting will cause a
-        # cascading delete of child tokens and we'll otherwise lose the
-        # opportunity to record history entries for them.
-        #
+        # Gather the token information for each of those tokens so that we can
+        # return it, which in turn is used to construct history entries.
         # This is the same query as get_info, except that it asks for the
         # information for all the tokens at once, saving database round trips.
         deleted = []
@@ -134,25 +131,13 @@ class TokenDatabaseStore:
             info.parent = parent
             deleted.append(info)
 
-        # Now, start deleting the tokens.  For each token, we get all of its
-        # children and look for anything we weren't expecting to delete.  This
-        # should be impossible, since child tokens should not have an
-        # expiration later than their parent token, but if this does somehow
-        # happen we don't want to miss entering metadata for their expiration.
-        #
-        # Don't bother optimizing getting info for these missing tokens, since
-        # this should essentially always be an empty list.
-        while to_delete:
-            parent = to_delete.pop()
-            children = set(await self.get_children(parent))
-            for missed_key in children - to_delete:
-                missed_info = await self.get_info(missed_key)
-                if missed_info:
-                    deleted.append(missed_info)
-            keys = children | {parent}
-            delete_stmt = delete(SQLToken).where(SQLToken.token.in_(keys))
-            await self._session.execute(delete_stmt)
-            to_delete -= children
+        # Delete the tokens.  In the (broken) case that there is a child token
+        # with an expiration ahead of its parent token, this orphans the child
+        # token rather than deleting it.  (In other words, it doesn't
+        # implement cascading delete semantics.)  These anomalies will be
+        # caught by a separate audit pass.
+        delete_stmt = delete(SQLToken).where(SQLToken.token.in_(to_delete))
+        await self._session.execute(delete_stmt)
 
         # Return the info for the deleted tokens.
         return deleted
