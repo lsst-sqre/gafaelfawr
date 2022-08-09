@@ -11,7 +11,11 @@ from typing import List, Optional
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..constants import MINIMUM_LIFETIME, USERNAME_REGEX
+from ..constants import (
+    CHANGE_HISTORY_RETENTION,
+    MINIMUM_LIFETIME,
+    USERNAME_REGEX,
+)
 from ..exceptions import (
     InvalidExpiresError,
     InvalidIPAddressError,
@@ -454,7 +458,7 @@ class TokenService:
 
         Returns
         -------
-        entries : List[`gafaelfawr.models.history.TokenChangeHistoryEntry`]
+        entries : `gafaelfawr.models.history.PaginatedHistory`
             A list of changes matching the search criteria.
 
         Raises
@@ -781,6 +785,11 @@ class TokenService:
             expires=timestamp,
         )
         return info
+
+    async def truncate_history(self) -> None:
+        """Drop history entries older than the cutoff date."""
+        cutoff = current_datetime() - CHANGE_HISTORY_RETENTION
+        await self._token_change_store.delete(older_than=cutoff)
 
     def _check_authorization(
         self,

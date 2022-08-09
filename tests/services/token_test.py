@@ -10,6 +10,7 @@ from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
 from gafaelfawr.config import Config
+from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
 from gafaelfawr.exceptions import (
     InvalidExpiresError,
     InvalidScopesError,
@@ -26,6 +27,7 @@ from gafaelfawr.models.token import (
     TokenType,
     TokenUserInfo,
 )
+from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import current_datetime
 
@@ -1327,7 +1329,7 @@ async def test_invalid_username(factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_token_expires(factory: Factory) -> None:
+async def test_expire_tokens(factory: Factory) -> None:
     """Test periodic cleanup of expired tokens."""
     now = datetime.now(tz=timezone.utc)
     session_token_data = TokenData(
@@ -1461,3 +1463,49 @@ async def test_token_expires(factory: Factory) -> None:
             created=unexpired_user_token_data.created,
             expires=unexpired_user_token_data.expires,
         )
+
+
+@pytest.mark.asyncio
+async def test_truncate_history(factory: Factory) -> None:
+    """Test periodic truncation of history."""
+    now = datetime.now(tz=timezone.utc)
+    token_service = factory.create_token_service()
+    session_token_data = await create_session_token(
+        factory, scopes=["admin:token"]
+    )
+    history_store = TokenChangeHistoryStore(factory.session)
+    old_entry = TokenChangeHistoryEntry(
+        token=Token().key,
+        username="other-user",
+        token_type=TokenType.session,
+        scopes=[],
+        expires=now - CHANGE_HISTORY_RETENTION + timedelta(days=10),
+        actor="other-user",
+        action=TokenChange.create,
+        ip_address="127.0.0.1",
+        event_time=now - CHANGE_HISTORY_RETENTION - timedelta(minutes=1),
+    )
+    new_entry = TokenChangeHistoryEntry(
+        token=Token().key,
+        username="other-user",
+        token_type=TokenType.session,
+        scopes=[],
+        expires=now - CHANGE_HISTORY_RETENTION + timedelta(days=5),
+        actor="other-user",
+        action=TokenChange.create,
+        ip_address="127.0.0.1",
+        event_time=now - CHANGE_HISTORY_RETENTION + timedelta(minutes=1),
+    )
+
+    async with factory.session.begin():
+        await history_store.add(old_entry)
+        await history_store.add(new_entry)
+
+    async with factory.session.begin():
+        await token_service.truncate_history()
+
+    async with factory.session.begin():
+        history = await token_service.get_change_history(
+            auth_data=session_token_data, username="other-user"
+        )
+        assert history.entries == [new_entry]

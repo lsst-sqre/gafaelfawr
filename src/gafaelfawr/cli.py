@@ -192,7 +192,7 @@ async def maintenance(settings: Optional[str]) -> None:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
-    logger.debug("Starting")
+    logger.debug("Starting background maintenance")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
@@ -200,6 +200,8 @@ async def maintenance(settings: Optional[str]) -> None:
         token_service = factory.create_token_service()
         async with factory.session.begin():
             await token_service.expire_tokens()
+            await token_service.truncate_history()
+    logger.debug("Completed background maintenance")
 
 
 @main.command()

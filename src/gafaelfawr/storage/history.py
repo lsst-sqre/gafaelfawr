@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from safir.database import datetime_from_db, datetime_to_db
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, delete, func, or_
 from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.future import select
 from sqlalchemy.sql import Select, text
@@ -55,7 +55,13 @@ class TokenChangeHistoryStore:
         self._session = session
 
     async def add(self, entry: TokenChangeHistoryEntry) -> None:
-        """Record a change to a token."""
+        """Record a change to a token.
+
+        Parameters
+        ----------
+        entry : `gafaelfawr.models.history.TokenChangeHistoryEntry`
+            New entry to add to the database.
+        """
         entry_dict = entry.dict()
 
         # Convert the lists of scopes to the empty string for an empty list
@@ -69,6 +75,19 @@ class TokenChangeHistoryStore:
         new.old_expires = datetime_to_db(entry.old_expires)
         new.event_time = datetime_to_db(entry.event_time)
         self._session.add(new)
+
+    async def delete(self, *, older_than: datetime) -> None:
+        """Delete older entries.
+
+        Parameters
+        ----------
+        older_than : `datetime.datetime`
+            Delete entries created prior to this date.
+        """
+        stmt = delete(TokenChangeHistory).where(
+            TokenChangeHistory.event_time <= datetime_to_db(older_than)
+        )
+        await self._session.execute(stmt)
 
     async def list(
         self,
