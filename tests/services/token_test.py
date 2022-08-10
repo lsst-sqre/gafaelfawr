@@ -1448,6 +1448,7 @@ async def test_expire_tokens(factory: Factory) -> None:
                     expires=token_data.expires,
                     actor="<internal>",
                     action=TokenChange.expire,
+                    event_time=history.entries[0].event_time,
                 )
             ]
 
