@@ -110,19 +110,15 @@ class TokenDatabaseStore:
         """
         now = datetime.utcnow()
 
-        # Start by finding all tokens that have expired.
-        stmt = select(SQLToken.token).where(SQLToken.expires <= now)
-        result = await self._session.scalars(stmt)
-        to_delete = set(result.all())
-
-        # Gather the token information for each of those tokens so that we can
-        # return it, which in turn is used to construct history entries.
-        # This is the same query as get_info, except that it asks for the
-        # information for all the tokens at once, saving database round trips.
+        # Start by finding all tokens that have expired and gather their
+        # information, which in turn will be used to construct history entries
+        # by the caller.  This is the same query as get_info, except that it
+        # asks for the information for all the tokens at once, saving database
+        # round trips.
         deleted = []
         stmt = (
             select(SQLToken, Subtoken.parent)
-            .where(SQLToken.token.in_(to_delete))
+            .where(SQLToken.expires <= now)
             .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
         )
         tokens = await self._session.execute(stmt)
@@ -136,6 +132,7 @@ class TokenDatabaseStore:
         # token rather than deleting it.  (In other words, it doesn't
         # implement cascading delete semantics.)  These anomalies will be
         # caught by a separate audit pass.
+        to_delete = [d.token for d in deleted]
         delete_stmt = delete(SQLToken).where(SQLToken.token.in_(to_delete))
         await self._session.execute(delete_stmt)
 
