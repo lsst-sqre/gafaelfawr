@@ -33,6 +33,7 @@ __all__ = [
     "init",
     "kubernetes_controller",
     "main",
+    "maintenance",
     "openapi_schema",
     "run",
     "update_service_tokens",
@@ -174,6 +175,33 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
             queue = await kubernetes_service.start_watcher()
             logger.debug("Starting continuous processing")
             await kubernetes_service.update_service_tokens_from_queue(queue)
+
+
+@main.command()
+@click.option(
+    "--settings",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
+    type=str,
+    default=None,
+    help="Application settings file.",
+)
+@run_with_asyncio
+async def maintenance(settings: Optional[str]) -> None:
+    """Perform background maintenance."""
+    if settings:
+        config_dependency.set_settings_path(settings)
+    config = await config_dependency()
+    logger = structlog.get_logger("gafaelfawr")
+    logger.debug("Starting background maintenance")
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    async with Factory.standalone(config, engine, check_db=True) as factory:
+        token_service = factory.create_token_service()
+        async with factory.session.begin():
+            await token_service.expire_tokens()
+            await token_service.truncate_history()
+    logger.debug("Completed background maintenance")
 
 
 @main.command()

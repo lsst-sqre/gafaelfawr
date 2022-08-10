@@ -11,7 +11,11 @@ from typing import List, Optional
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..constants import MINIMUM_LIFETIME, USERNAME_REGEX
+from ..constants import (
+    CHANGE_HISTORY_RETENTION,
+    MINIMUM_LIFETIME,
+    USERNAME_REGEX,
+)
 from ..exceptions import (
     InvalidExpiresError,
     InvalidIPAddressError,
@@ -373,6 +377,40 @@ class TokenService:
 
         return success
 
+    async def expire_tokens(self) -> None:
+        """Bookkeeping for expired tokens.
+
+        Token expiration is primarily controlled by the Redis expiration,
+        after which the token disappears from Redis and effectively expires
+        from an authentication standpoint.  However, we want to do some
+        additional bookkeeping of expired tokens: remove them from the
+        database and add an expiration entry to the token history table.
+
+        This method is meant to be run periodically, outside of any given user
+        request.
+        """
+        expired_tokens = await self._token_db_store.delete_expired()
+        for info in expired_tokens:
+            self._logger.info(
+                "Expired token",
+                user=info.username,
+                token_type=info.token_type.value,
+                token=info.token,
+            )
+            history_entry = TokenChangeHistoryEntry(
+                token=info.token,
+                username=info.username,
+                token_type=info.token_type,
+                token_name=info.token_name,
+                parent=info.parent,
+                scopes=info.scopes,
+                service=info.service,
+                expires=info.expires,
+                actor="<internal>",
+                action=TokenChange.expire,
+            )
+            await self._token_change_store.add(history_entry)
+
     async def get_change_history(
         self,
         auth_data: TokenData,
@@ -420,7 +458,7 @@ class TokenService:
 
         Returns
         -------
-        entries : List[`gafaelfawr.models.history.TokenChangeHistoryEntry`]
+        entries : `gafaelfawr.models.history.PaginatedHistory`
             A list of changes matching the search criteria.
 
         Raises
@@ -747,6 +785,15 @@ class TokenService:
             expires=timestamp,
         )
         return info
+
+    async def truncate_history(self) -> None:
+        """Drop history entries older than the cutoff date.
+
+        This method is meant to be run periodically, outside of any given user
+        request.
+        """
+        cutoff = current_datetime() - CHANGE_HISTORY_RETENTION
+        await self._token_change_store.delete(older_than=cutoff)
 
     def _check_authorization(
         self,

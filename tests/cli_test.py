@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,12 +25,16 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config, OIDCClient
+from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
 from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
+from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import OIDCAuthorizationCode
-from gafaelfawr.models.token import Token, TokenData, TokenUserInfo
+from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 from gafaelfawr.schema import Base
+from gafaelfawr.storage.history import TokenChangeHistoryStore
+from gafaelfawr.storage.token import TokenDatabaseStore
 
 from .support.logging import parse_log
 from .support.settings import configure
@@ -137,6 +142,65 @@ def test_init(
             token_service = factory.create_token_service()
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []
+
+    event_loop.run_until_complete(check_database())
+
+
+def test_maintenance(
+    engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
+) -> None:
+    now = datetime.now(tz=timezone.utc)
+    token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.session,
+        scopes=["read:all", "user:token"],
+        created=now - timedelta(minutes=60),
+        expires=now - timedelta(minutes=30),
+    )
+    new_token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.session,
+        scopes=["read:all", "user:token"],
+        created=now - timedelta(minutes=60),
+        expires=now + timedelta(minutes=30),
+    )
+    old_history_entry = TokenChangeHistoryEntry(
+        token=Token().key,
+        username="other-user",
+        token_type=TokenType.session,
+        scopes=[],
+        expires=now - CHANGE_HISTORY_RETENTION + timedelta(days=10),
+        actor="other-user",
+        action=TokenChange.create,
+        ip_address="127.0.0.1",
+        event_time=now - CHANGE_HISTORY_RETENTION - timedelta(minutes=1),
+    )
+
+    async def initialize() -> None:
+        async with Factory.standalone(config, engine) as factory:
+            async with factory.session.begin():
+                token_store = TokenDatabaseStore(factory.session)
+                await token_store.add(token_data)
+                await token_store.add(new_token_data)
+                history_store = TokenChangeHistoryStore(factory.session)
+                await history_store.add(old_history_entry)
+
+    event_loop.run_until_complete(initialize())
+    runner = CliRunner()
+    result = runner.invoke(main, ["maintenance"])
+    assert result.exit_code == 0
+
+    async def check_database() -> None:
+        async with Factory.standalone(config, engine) as factory:
+            async with factory.session.begin():
+                token_store = TokenDatabaseStore(factory.session)
+                assert await token_store.get_info(token_data.token.key) is None
+                assert await token_store.get_info(new_token_data.token.key)
+                history_store = TokenChangeHistoryStore(factory.session)
+                history = await history_store.list(username="other-user")
+                assert history.entries == []
 
     event_loop.run_until_complete(check_database())
 

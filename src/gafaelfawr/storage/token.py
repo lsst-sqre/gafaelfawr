@@ -100,6 +100,45 @@ class TokenDatabaseStore:
         result = cast(CursorResult, await self._session.execute(stmt))
         return result.rowcount >= 1
 
+    async def delete_expired(self) -> List[TokenInfo]:
+        """Delete entries for expired tokens from the database.
+
+        Returns
+        -------
+        deleted : List[`gafaelfawr.models.token.TokenInfo`]
+            The deleted tokens.
+        """
+        now = datetime.utcnow()
+
+        # Start by finding all tokens that have expired and gather their
+        # information, which in turn will be used to construct history entries
+        # by the caller.  This is the same query as get_info, except that it
+        # asks for the information for all the tokens at once, saving database
+        # round trips.
+        deleted = []
+        stmt = (
+            select(SQLToken, Subtoken.parent)
+            .where(SQLToken.expires <= now)
+            .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
+        )
+        tokens = await self._session.execute(stmt)
+        for token, parent in tokens.all():
+            info = TokenInfo.from_orm(token)
+            info.parent = parent
+            deleted.append(info)
+
+        # Delete the tokens.  In the (broken) case that there is a child token
+        # with an expiration ahead of its parent token, this orphans the child
+        # token rather than deleting it.  (In other words, it doesn't
+        # implement cascading delete semantics.)  These anomalies will be
+        # caught by a separate audit pass.
+        to_delete = [d.token for d in deleted]
+        delete_stmt = delete(SQLToken).where(SQLToken.token.in_(to_delete))
+        await self._session.execute(delete_stmt)
+
+        # Return the info for the deleted tokens.
+        return deleted
+
     async def get_children(self, key: str) -> List[str]:
         """Return all children (recursively) of a token.
 

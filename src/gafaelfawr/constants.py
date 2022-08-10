@@ -1,5 +1,33 @@
 """Constants for Gafaelfawr."""
 
+from datetime import timedelta
+
+__all__ = [
+    "ACTOR_REGEX",
+    "ALGORITHM",
+    "BOT_USERNAME_REGEX",
+    "CHANGE_HISTORY_RETENTION",
+    "COOKIE_NAME",
+    "CURSOR_REGEX",
+    "GID_MIN",
+    "GID_MAX",
+    "GROUPNAME_REGEX",
+    "HTTP_TIMEOUT",
+    "ID_CACHE_SIZE",
+    "LDAP_CACHE_SIZE",
+    "LDAP_CACHE_LIFETIME",
+    "LDAP_TIMEOUT",
+    "MINIMUM_LIFETIME",
+    "OIDC_AUTHORIZATION_LIFETIME",
+    "SETTINGS_PATH",
+    "SCOPE_REGEX",
+    "TOKEN_CACHE_SIZE",
+    "UID_BOT_MIN",
+    "UID_BOT_MAX",
+    "UID_USER_MIN",
+    "USERNAME_REGEX",
+]
+
 ALGORITHM = "RS256"
 """JWT algorithm to use for all tokens."""
 
@@ -11,6 +39,9 @@ HTTP_TIMEOUT = 20.0
 
 LDAP_TIMEOUT = 5.0
 """Timeout (in seconds) for LDAP queries."""
+
+CHANGE_HISTORY_RETENTION = timedelta(days=365)
+"""Retention of old token change history entries."""
 
 MINIMUM_LIFETIME = 5 * 60
 """Minimum expiration lifetime for a token in seconds."""

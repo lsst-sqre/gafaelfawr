@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
 from gafaelfawr.config import Config
+from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
 from gafaelfawr.exceptions import (
     InvalidExpiresError,
     InvalidScopesError,
@@ -26,6 +27,8 @@ from gafaelfawr.models.token import (
     TokenType,
     TokenUserInfo,
 )
+from gafaelfawr.storage.history import TokenChangeHistoryStore
+from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import current_datetime
 
 from ..support.tokens import create_session_token
@@ -1323,3 +1326,187 @@ async def test_invalid_username(factory: Factory) -> None:
         await token_service.create_token_from_admin_request(
             request, data, ip_address="127.0.0.1"
         )
+
+
+@pytest.mark.asyncio
+async def test_expire_tokens(factory: Factory) -> None:
+    """Test periodic cleanup of expired tokens."""
+    now = datetime.now(tz=timezone.utc)
+    session_token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.session,
+        scopes=["read:all", "user:token"],
+        created=now - timedelta(minutes=60),
+        expires=now - timedelta(minutes=30),
+    )
+    user_token_data = TokenData(
+        token=Token(),
+        username=session_token_data.username,
+        token_type=TokenType.user,
+        scopes=["read:all"],
+        created=now - timedelta(minutes=50),
+        expires=now - timedelta(minutes=30),
+    )
+    unexpired_user_token_data = TokenData(
+        token=Token(),
+        username=session_token_data.username,
+        token_type=TokenType.user,
+        scopes=["admin:token", "read:all"],
+        created=now - timedelta(minutes=50),
+        expires=now + timedelta(minutes=30),
+    )
+    notebook_token_data = TokenData(
+        token=Token(),
+        username=session_token_data.username,
+        token_type=TokenType.notebook,
+        scopes=["read:all"],
+        created=now - timedelta(minutes=59),
+        expires=now - timedelta(minutes=30),
+    )
+    internal_token_data = TokenData(
+        token=Token(),
+        username=session_token_data.username,
+        token_type=TokenType.internal,
+        scopes=[],
+        created=now - timedelta(minutes=58),
+        expires=now - timedelta(minutes=30),
+    )
+    notebook_internal_token_data = TokenData(
+        token=Token(),
+        username=session_token_data.username,
+        token_type=TokenType.internal,
+        scopes=["read:all"],
+        created=now - timedelta(minutes=58),
+        expires=now - timedelta(minutes=30),
+    )
+    service_token_data = TokenData(
+        token=Token(),
+        username="bot-service",
+        token_type=TokenType.service,
+        scopes=["read:all"],
+        created=now - timedelta(minutes=45),
+        expires=now - timedelta(minutes=30),
+    )
+    token_service = factory.create_token_service()
+    token_store = TokenDatabaseStore(factory.session)
+
+    # Create some tokens, most of which are expired.  These entries are
+    # created only in the database and not in Redis since expired tokens
+    # should have already expired from Redis and therefore it's normal for
+    # there to be no Redis entry.
+    async with factory.session.begin():
+        await token_store.add(session_token_data)
+        await token_store.add(user_token_data, token_name="old")
+        await token_store.add(unexpired_user_token_data, token_name="new")
+        await token_store.add(
+            notebook_token_data, parent=session_token_data.token.key
+        )
+        await token_store.add(
+            internal_token_data,
+            service="tap",
+            parent=session_token_data.token.key,
+        )
+        await token_store.add(
+            notebook_internal_token_data,
+            service="tap",
+            parent=notebook_token_data.token.key,
+        )
+        await token_store.add(service_token_data)
+
+    # Run the expiration.
+    async with factory.session.begin():
+        await token_service.expire_tokens()
+
+    # Check that all of the tokens that should be expired have been expired,
+    # that ones that shouldn't be expired are still present, and that history
+    # entries were created as appropriate for each token.
+    async with factory.session.begin():
+        for token_data in (
+            session_token_data,
+            user_token_data,
+            notebook_token_data,
+            internal_token_data,
+            notebook_internal_token_data,
+            service_token_data,
+        ):
+            assert await token_store.get_info(token_data.token.key) is None
+            history = await token_service.get_change_history(
+                unexpired_user_token_data,
+                username=token_data.username,
+                token=token_data.token.key,
+            )
+            assert history.entries == [
+                TokenChangeHistoryEntry(
+                    token=token_data.token.key,
+                    username=token_data.username,
+                    token_type=token_data.token_type,
+                    token_name=history.entries[0].token_name,
+                    parent=history.entries[0].parent,
+                    scopes=token_data.scopes,
+                    service=history.entries[0].service,
+                    expires=token_data.expires,
+                    actor="<internal>",
+                    action=TokenChange.expire,
+                    event_time=history.entries[0].event_time,
+                )
+            ]
+
+        unexpired = await token_store.get_info(
+            unexpired_user_token_data.token.key
+        )
+        assert unexpired == TokenInfo(
+            token=unexpired_user_token_data.token.key,
+            username=unexpired_user_token_data.username,
+            token_type=unexpired_user_token_data.token_type,
+            token_name="new",
+            scopes=unexpired_user_token_data.scopes,
+            created=unexpired_user_token_data.created,
+            expires=unexpired_user_token_data.expires,
+        )
+
+
+@pytest.mark.asyncio
+async def test_truncate_history(factory: Factory) -> None:
+    """Test periodic truncation of history."""
+    now = datetime.now(tz=timezone.utc)
+    token_service = factory.create_token_service()
+    session_token_data = await create_session_token(
+        factory, scopes=["admin:token"]
+    )
+    history_store = TokenChangeHistoryStore(factory.session)
+    old_entry = TokenChangeHistoryEntry(
+        token=Token().key,
+        username="other-user",
+        token_type=TokenType.session,
+        scopes=[],
+        expires=now - CHANGE_HISTORY_RETENTION + timedelta(days=10),
+        actor="other-user",
+        action=TokenChange.create,
+        ip_address="127.0.0.1",
+        event_time=now - CHANGE_HISTORY_RETENTION - timedelta(minutes=1),
+    )
+    new_entry = TokenChangeHistoryEntry(
+        token=Token().key,
+        username="other-user",
+        token_type=TokenType.session,
+        scopes=[],
+        expires=now - CHANGE_HISTORY_RETENTION + timedelta(days=5),
+        actor="other-user",
+        action=TokenChange.create,
+        ip_address="127.0.0.1",
+        event_time=now - CHANGE_HISTORY_RETENTION + timedelta(minutes=1),
+    )
+
+    async with factory.session.begin():
+        await history_store.add(old_entry)
+        await history_store.add(new_entry)
+
+    async with factory.session.begin():
+        await token_service.truncate_history()
+
+    async with factory.session.begin():
+        history = await token_service.get_change_history(
+            auth_data=session_token_data, username="other-user"
+        )
+        assert history.entries == [new_entry]
