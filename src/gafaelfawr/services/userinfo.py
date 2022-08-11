@@ -106,16 +106,20 @@ class UserInfoService:
                 username=token_data.username,
                 name=token_data.name,
                 uid=uid,
+                gid=token_data.gid,
                 email=token_data.email,
                 groups=token_data.groups,
             )
 
         # Otherwise, try retrieving data from LDAP if it's not already set in
         # the data stored with the token.
-        if not token_data.name or not token_data.email or not uid:
+        gid = token_data.gid
+        if not token_data.name or not token_data.email or not uid or not gid:
             ldap_data = await self._ldap.get_data(username)
             if not uid:
                 uid = ldap_data.uid
+            if not gid:
+                gid = ldap_data.gid
 
         groups = token_data.groups
         if groups is None:
@@ -133,11 +137,14 @@ class UserInfoService:
             # and modifying it would modify the cache.
             if self._config.ldap and self._config.ldap.add_user_group and uid:
                 groups = groups + [TokenGroup(name=username, id=uid)]
+                if not gid:
+                    gid = uid
 
         return TokenUserInfo(
             username=username,
             name=token_data.name or ldap_data.name,
             uid=uid,
+            gid=gid,
             email=token_data.email or ldap_data.email,
             groups=sorted(groups, key=lambda g: g.name),
         )
@@ -253,7 +260,7 @@ class OIDCUserInfoService(UserInfoService):
         username = self._get_username_from_oidc_token(token)
         groups = None
         uid = None
-        ldap_data = LDAPUserData(uid=None, name=None, email=None)
+        ldap_data = LDAPUserData(name=None, email=None, uid=None, gid=None)
         if self._ldap:
             ldap_data = await self._ldap.get_data(username)
         else:

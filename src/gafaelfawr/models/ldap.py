@@ -25,3 +25,6 @@ class LDAPUserData:
 
     uid: Optional[int]
     """UID number."""
+
+    gid: Optional[int]
+    """Primary GID."""

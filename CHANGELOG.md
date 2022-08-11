@@ -20,6 +20,13 @@ release.  Those changes are not noted here explicitly.
   space (used for GIDs) and the user ID space (used for UIDs) are not
   distinct and may collide (although this is unlikely).
 
+- Add support for a primary GID for a user.  When GitHub is used as the
+  authentication provider, this is always set to the same as the UID.  For
+  other authentication providers, it can be retrieved from LDAP or, if
+  synthesized user private groups are enabled, will be set to the GID of
+  the user private group.  Tokens created by admins can set a GID, which
+  overrides the GID from other sources.
+
 - Add a Kubernetes `CronJob` to delete entries for expired tokens, note
   their expiration in the token change history, and truncate history
   tables.  History entries older than one year are dropped.

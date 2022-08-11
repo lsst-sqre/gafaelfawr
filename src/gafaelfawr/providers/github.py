@@ -226,6 +226,7 @@ class GitHubProvider(Provider):
             name=user_info.name,
             email=user_info.email,
             uid=user_info.uid,
+            gid=user_info.uid,
             groups=sorted(groups, key=lambda g: g.name),
         )
 

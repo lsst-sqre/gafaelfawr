@@ -216,6 +216,7 @@ class TokenCacheService:
             name=token_data.name,
             email=token_data.email,
             uid=token_data.uid,
+            gid=token_data.gid,
             groups=token_data.groups,
         )
         history_entry = TokenChangeHistoryEntry(
@@ -288,6 +289,7 @@ class TokenCacheService:
             name=token_data.name,
             email=token_data.email,
             uid=token_data.uid,
+            gid=token_data.gid,
             groups=token_data.groups,
         )
         history_entry = TokenChangeHistoryEntry(

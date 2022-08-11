@@ -188,6 +188,7 @@ async def test_login(
         "name": "GitHub User",
         "email": "githubuser@example.com",
         "uid": 123456,
+        "gid": 123456,
         "groups": [
             {"name": "githubuser", "id": 123456},
             {"name": "org-a-team", "id": 1000},
@@ -497,6 +498,7 @@ async def test_unicode_name(
         "name": "名字",
         "email": "githubuser@example.com",
         "uid": 123456,
+        "gid": 123456,
         "groups": [
             {"name": "githubuser", "id": 123456},
             {"name": "org-a-team", "id": 1000},

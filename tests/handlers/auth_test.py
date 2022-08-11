@@ -275,6 +275,20 @@ async def test_notebook(client: AsyncClient, factory: Factory) -> None:
         "parent": token_data.token.key,
     }
 
+    r = await client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"Bearer {notebook_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token_data.username,
+        "name": token_data.name,
+        "email": token_data.email,
+        "uid": token_data.uid,
+        "gid": token_data.gid,
+        "groups": token_data.groups,
+    }
+
     # Requesting a token with the same parameters returns the same token.
     r = await client.get(
         "/auth",
@@ -321,6 +335,20 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
         "created": ANY,
         "expires": int(token_data.expires.timestamp()),
         "parent": token_data.token.key,
+    }
+
+    r = await client.get(
+        "/auth/api/v1/user-info",
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token_data.username,
+        "name": token_data.name,
+        "email": token_data.email,
+        "uid": token_data.uid,
+        "gid": token_data.gid,
+        "groups": token_data.groups,
     }
 
     # Requesting a token with the same parameters returns the same token.

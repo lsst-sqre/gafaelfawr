@@ -345,6 +345,12 @@ To also obtain the numeric UID from LDAP, add ``uidAttr: "uidNumber"`` to the LD
 (Replace ``uidNumber`` with some other attribute if your LDAP directory stores the numeric UID elsewhere.)
 As with the other attributes, if this attribute has multiple values, the first one will be used.
 
+To obtain the primary GID from LDAP, add ``gidAttr: "gidNumber"`` to the LDAP configuration.
+(Replace ``gidNumber`` with some other attribute if your LDAP directory stores the primary GID elsewhere.)
+As with the other attributes, if this attribute has multiple values, the first one will be used.
+If this configuration is not given but user private groups is enabled with ``addUserGroup: true``, the primary GID will be set to the same as the UID (which is the GID of the synthetic user private group).
+Otherwise, the primary GID will be left unset.
+
 You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
 
 ``config.ldap.emailAttr``

@@ -206,6 +206,7 @@ class TokenService:
             name=auth_data.name,
             email=auth_data.email,
             uid=auth_data.uid,
+            gid=auth_data.gid,
             groups=auth_data.groups,
         )
         history_entry = TokenChangeHistoryEntry(
@@ -288,6 +289,7 @@ class TokenService:
             name=request.name,
             email=request.email,
             uid=request.uid,
+            gid=request.gid,
             groups=request.groups,
         )
         history_entry = TokenChangeHistoryEntry(

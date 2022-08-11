@@ -155,42 +155,47 @@ class LDAPStorage:
             attribute not found in LDAP, UID result value not an integer).
         """
         if not self._config.user_base_dn:
-            return LDAPUserData(uid=None, name=None, email=None)
+            return LDAPUserData(name=None, email=None, uid=None, gid=None)
 
         search = f"({self._config.user_search_attr}={username})"
         logger = self._logger.bind(ldap_search=search, user=username)
         attrs = []
-        if self._config.uid_attr:
-            attrs.append(self._config.uid_attr)
         if self._config.name_attr:
             attrs.append(self._config.name_attr)
         if self._config.email_attr:
             attrs.append(self._config.email_attr)
+        if self._config.uid_attr:
+            attrs.append(self._config.uid_attr)
+        if self._config.gid_attr:
+            attrs.append(self._config.gid_attr)
         results = await self._query(
             self._config.user_base_dn,
             bonsai.LDAPSearchScope.ONE,
             search,
             attrs,
         )
-        logger.debug("LDAP entries for UID", ldap_results=results)
+        logger.debug("LDAP entries for user data", ldap_results=results)
 
         # If results are empty, return no data.
         if not results:
-            return LDAPUserData(uid=None, name=None, email=None)
+            return LDAPUserData(name=None, email=None, uid=None, gid=None)
         result = results[0]
 
         # Extract data from the result.
         try:
-            uid = None
             name = None
             email = None
-            if self._config.uid_attr and self._config.uid_attr in result:
-                uid = int(result[self._config.uid_attr][0])
+            uid = None
+            gid = None
             if self._config.name_attr and self._config.name_attr in result:
                 name = result[self._config.name_attr][0]
             if self._config.email_attr and self._config.email_attr in result:
                 email = result[self._config.email_attr][0]
-            return LDAPUserData(uid=uid, name=name, email=email)
+            if self._config.uid_attr and self._config.uid_attr in result:
+                uid = int(result[self._config.uid_attr][0])
+            if self._config.gid_attr and self._config.gid_attr in result:
+                gid = int(result[self._config.gid_attr][0])
+            return LDAPUserData(name=name, email=email, uid=uid, gid=gid)
         except Exception as e:
             logger.error("LDAP user entry invalid", error=str(e))
             raise LDAPError("LDAP user entry invalid") from e
