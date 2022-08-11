@@ -315,6 +315,12 @@ You may need to set the following additional options under ``config.ldap`` depen
     The values must match the username returned in the token from the OpenID Connect authentication server.
     Default: ``member``.
 
+``config.ldap.addUserGroup``
+    If set to ``true``, add an additional group to the user's group membership with a name equal to their username and a GID equal to their UID (provided they have a UID; if not, no group is added).
+    Use this in environments with user private groups that do not appear in LDAP.
+    In order to safely use this option, the GIDs of regular groups must be disjoint from user UIDs so that the user's UID can safely be used as the GID of this synthetic group.
+    Default: ``false``.
+
 The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
 
 .. _ldap-user:

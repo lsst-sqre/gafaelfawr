@@ -170,7 +170,14 @@ async def test_login(
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
     assert r.headers["X-Auth-Request-Uid"] == "123456"
-    expected = "org-a-team,org-other-team,other-org-team-with-very--F279yg"
+    expected = ",".join(
+        [
+            "githubuser",
+            "org-a-team",
+            "org-other-team",
+            "other-org-team-with-very--F279yg",
+        ]
+    )
     assert r.headers["X-Auth-Request-Groups"] == expected
 
     # Do the same verification with the user-info endpoint.
@@ -182,6 +189,7 @@ async def test_login(
         "email": "githubuser@example.com",
         "uid": 123456,
         "groups": [
+            {"name": "githubuser", "id": 123456},
             {"name": "org-a-team", "id": 1000},
             {"name": "org-other-team", "id": 1001},
             {"name": "other-org-team-with-very--F279yg", "id": 1002},
@@ -325,6 +333,7 @@ async def test_github_uppercase(
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "someuser"
+    assert r.headers["X-Auth-Request-Groups"] == "org-a-team,someuser"
 
 
 @pytest.mark.asyncio
@@ -396,7 +405,7 @@ async def test_invalid_groups(
     # present.
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Groups"] == "org-a-team"
+    assert r.headers["X-Auth-Request-Groups"] == "org-a-team,someuser"
 
 
 @pytest.mark.asyncio
@@ -430,9 +439,10 @@ async def test_paginated_teams(
     assert r.status_code == 200
     expected = ",".join(
         [
+            "foo-third-team",
+            "githubuser",
             "org-a-team",
             "org-other-team",
-            "foo-third-team",
             "other-org-team-with-very--F279yg",
         ]
     )
@@ -487,5 +497,8 @@ async def test_unicode_name(
         "name": "名字",
         "email": "githubuser@example.com",
         "uid": 123456,
-        "groups": [{"name": "org-a-team", "id": 1000}],
+        "groups": [
+            {"name": "githubuser", "id": 123456},
+            {"name": "org-a-team", "id": 1000},
+        ],
     }

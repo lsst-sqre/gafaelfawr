@@ -190,6 +190,14 @@ class LDAPSettings(BaseModel):
     ``mail``.
     """
 
+    add_user_group: bool = False
+    """Whether to synthesize a user private group with GID matching UID.
+
+    If set to `True`, synthesize a group for the user whose name and GID
+    matches the username and UID, adding it to the group list without
+    requiring it to appear in LDAP.
+    """
+
 
 class FirestoreSettings(BaseModel):
     """pydantic model of Firestore configuration."""
@@ -535,6 +543,14 @@ class LDAPConfig:
     ``mail``.
     """
 
+    add_user_group: bool = False
+    """Whether to synthesize a user private group with GID matching UID.
+
+    If set to `True`, synthesize a group for the user whose name and GID
+    matches the username and UID, adding it to the group list without
+    requiring it to appear in LDAP.
+    """
+
 
 @dataclass(frozen=True)
 class FirestoreConfig:
@@ -734,6 +750,7 @@ class Config:
                 name_attr=settings.ldap.name_attr,
                 email_attr=settings.ldap.email_attr,
                 uid_attr=settings.ldap.uid_attr,
+                add_user_group=settings.ldap.add_user_group,
             )
 
         # Build Firestore configuration if needed.

@@ -22,6 +22,7 @@ ldap:
   uid_attr: "uidNumber"
   name_attr: null
   email_attr: null
+  add_user_group: true
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"

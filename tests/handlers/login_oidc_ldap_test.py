@@ -109,7 +109,10 @@ async def test_no_name_email(
         "username": "ldap-user",
         "email": token.claims["email"],
         "uid": 2000,
-        "groups": [{"name": "foo", "id": 1222}],
+        "groups": [
+            {"name": "foo", "id": 1222},
+            {"name": "ldap-user", "id": 2000},
+        ],
     }
 
     # Check that the headers returned by the auth endpoint are also correct.
@@ -118,7 +121,7 @@ async def test_no_name_email(
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
     assert r.headers["X-Auth-Request-Email"] == token.claims["email"]
     assert r.headers["X-Auth-Request-Uid"] == "2000"
-    assert r.headers["X-Auth-Request-Groups"] == "foo"
+    assert r.headers["X-Auth-Request-Groups"] == "foo,ldap-user"
 
 
 @pytest.mark.asyncio

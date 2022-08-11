@@ -98,8 +98,11 @@ class UserInfoService:
         uid = token_data.uid
         if uid is None and self._firestore:
             uid = await self._firestore.get_uid(username)
-
         if self._ldap:
+            if not token_data.name or not token_data.email or not uid:
+                ldap_data = await self._ldap.get_data(username)
+                if not uid:
+                    uid = ldap_data.uid
             groups = token_data.groups
             if groups is None:
                 if self._firestore:
@@ -110,16 +113,20 @@ class UserInfoService:
                         groups.append(TokenGroup(name=group_name, id=gid))
                 else:
                     groups = await self._ldap.get_groups(username)
-            if not token_data.name or not token_data.email or not uid:
-                ldap_data = await self._ldap.get_data(username)
-                if not uid:
-                    uid = ldap_data.uid
+
+                # When adding the user private group, be careful not to change
+                # the groups array, since it may be cached in the LDAP cache
+                # and modifying it would modify the cache.
+                if self._config.ldap and self._config.ldap.add_user_group:
+                    if uid:
+                        groups = groups + [TokenGroup(name=username, id=uid)]
+
             return TokenUserInfo(
                 username=username,
                 name=token_data.name or ldap_data.name,
                 uid=uid,
                 email=token_data.email or ldap_data.email,
-                groups=groups,
+                groups=sorted(groups, key=lambda g: g.name),
             )
         else:
             return TokenUserInfo(

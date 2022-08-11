@@ -235,6 +235,9 @@ async def handle_provider_return(
         return login_error(context, LoginError.LDAP_FAILED, str(e))
     except ProviderError as e:
         return login_error(context, LoginError.PROVIDER_FAILED, str(e))
+    except PermissionDeniedError as e:
+        await provider.logout(context.state)
+        return login_error(context, LoginError.INVALID_USERNAME, str(e))
 
     # Get the scopes for this user.
     user_info_service = context.factory.create_user_info_service()
