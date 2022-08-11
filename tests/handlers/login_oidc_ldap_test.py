@@ -180,6 +180,62 @@ async def test_gid(
 
 
 @pytest.mark.asyncio
+async def test_gid_group_lookup(
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_ldap: MockLDAP,
+) -> None:
+    """Test separate lookup of the primary group."""
+    config = await reconfigure(tmp_path, "oidc-ldap-gid")
+    assert config.ldap
+    assert config.ldap.user_base_dn
+    token = create_upstream_oidc_jwt(uid="ldap-user", groups=["admin"])
+    mock_ldap.add_entries_for_test(
+        config.ldap.user_base_dn,
+        config.ldap.user_search_attr,
+        "ldap-user",
+        [
+            {
+                "displayName": ["LDAP User"],
+                "mail": ["ldap-user@example.com"],
+                "uidNumber": ["2000"],
+                "gidNumber": ["1045"],
+            }
+        ],
+    )
+    mock_ldap.add_entries_for_test(
+        config.ldap.group_base_dn,
+        "member",
+        "ldap-user",
+        [{"cn": ["group-1"], "gidNumber": ["123123"]}],
+    )
+    mock_ldap.add_entries_for_test(
+        config.ldap.group_base_dn,
+        "gidNumber",
+        "1045",
+        [{"cn": ["invalid!name"]}, {"cn": ["foo"]}],
+    )
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 307
+
+    # Check that the data returned from the user-info API is correct.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "ldap-user",
+        "name": "LDAP User",
+        "email": "ldap-user@example.com",
+        "uid": 2000,
+        "gid": 1045,
+        "groups": [
+            {"name": "foo", "id": 1045},
+            {"name": "group-1", "id": 123123},
+        ],
+    }
+
+
+@pytest.mark.asyncio
 async def test_only_groups(
     tmp_path: Path,
     client: AsyncClient,

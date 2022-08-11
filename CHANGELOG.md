@@ -27,6 +27,13 @@ release.  Those changes are not noted here explicitly.
   the user private group.  Tokens created by admins can set a GID, which
   overrides the GID from other sources.
 
+- If configured to get a primary GID for the user from LDAP, and that GID
+  does not appear in the user's group memberships, find the group name
+  corresponding to that GID in the group tree and add it to the user's
+  group memberships.  Some LDAP configurations only record explicit
+  memberships for secondary groups and represent the user's primary group
+  only via their GID.
+
 - Add a Kubernetes `CronJob` to delete entries for expired tokens, note
   their expiration in the token change history, and truncate history
   tables.  History entries older than one year are dropped.

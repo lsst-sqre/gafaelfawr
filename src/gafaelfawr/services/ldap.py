@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from structlog.stdlib import BoundLogger
 
@@ -49,13 +49,20 @@ class LDAPService:
         self._user_cache = user_cache
         self._logger = logger
 
-    async def get_group_names(self, username: str) -> List[str]:
+    async def get_group_names(
+        self, username: str, gid: Optional[int]
+    ) -> List[str]:
         """Get the names of user groups from LDAP.
 
         Parameters
         ----------
         username : `str`
             Username of the user.
+        gid : `int` or `None`
+            Primary GID if set.  If not `None`, search for the group with this
+            GID and add it to the user's group memberships.  This handles LDAP
+            configurations where the user's primary group is represented only
+            by their GID and not their group memberships.
 
         Returns
         -------
@@ -69,17 +76,25 @@ class LDAPService:
             groups = self._group_name_cache.get(username)
             if groups:
                 return groups
-            groups = await self._ldap.get_group_names(username)
+            groups = await self._ldap.get_group_names(username, gid)
             self._group_name_cache.store(username, groups)
             return groups
 
-    async def get_groups(self, username: str) -> List[TokenGroup]:
+    async def get_groups(
+        self, username: str, gid: Optional[int]
+    ) -> List[TokenGroup]:
         """Get user group membership and GIDs from LDAP.
 
         Parameters
         ----------
         username : `str`
             Username for which to get information.
+        gid : `int` or `None`
+            Primary GID if set.  If not `None`, the user's groups will be
+            checked for this GID.  If it's not found, search for the group
+            with this GID and add it to the user's group memberships.  This
+            handles LDAP configurations where the user's primary group is
+            represented only by their GID and not their group memberships.
 
         Returns
         -------
@@ -98,7 +113,7 @@ class LDAPService:
             groups = self._group_cache.get(username)
             if groups:
                 return groups
-            groups = await self._ldap.get_groups(username)
+            groups = await self._ldap.get_groups(username, gid)
             self._group_cache.store(username, groups)
             return groups
 

@@ -321,7 +321,7 @@ You may need to set the following additional options under ``config.ldap`` depen
     In order to safely use this option, the GIDs of regular groups must be disjoint from user UIDs so that the user's UID can safely be used as the GID of this synthetic group.
     Default: ``false``.
 
-The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
+The name of each group will be taken from the ``cn`` attribute and the GID will be taken from the ``gidNumber`` attribute.
 
 .. _ldap-user:
 
@@ -348,6 +348,8 @@ As with the other attributes, if this attribute has multiple values, the first o
 To obtain the primary GID from LDAP, add ``gidAttr: "gidNumber"`` to the LDAP configuration.
 (Replace ``gidNumber`` with some other attribute if your LDAP directory stores the primary GID elsewhere.)
 As with the other attributes, if this attribute has multiple values, the first one will be used.
+If this GID does not match the GID of any of the user's groups, the corresponding group will be looked up in LDAP by GID and added to the user's group list.
+This handles LDAP configurations where only supplemental group memberships are recorded in LDAP, and the primary group membership is recorded only via the user's GID.
 If this configuration is not given but user private groups is enabled with ``addUserGroup: true``, the primary GID will be set to the same as the UID (which is the GID of the synthetic user private group).
 Otherwise, the primary GID will be left unset.
 
