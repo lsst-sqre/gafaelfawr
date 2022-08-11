@@ -98,37 +98,10 @@ class UserInfoService:
         uid = token_data.uid
         if uid is None and self._firestore:
             uid = await self._firestore.get_uid(username)
-        if self._ldap:
-            if not token_data.name or not token_data.email or not uid:
-                ldap_data = await self._ldap.get_data(username)
-                if not uid:
-                    uid = ldap_data.uid
-            groups = token_data.groups
-            if groups is None:
-                if self._firestore:
-                    group_names = await self._ldap.get_group_names(username)
-                    groups = []
-                    for group_name in group_names:
-                        gid = await self._firestore.get_gid(group_name)
-                        groups.append(TokenGroup(name=group_name, id=gid))
-                else:
-                    groups = await self._ldap.get_groups(username)
 
-                # When adding the user private group, be careful not to change
-                # the groups array, since it may be cached in the LDAP cache
-                # and modifying it would modify the cache.
-                if self._config.ldap and self._config.ldap.add_user_group:
-                    if uid:
-                        groups = groups + [TokenGroup(name=username, id=uid)]
-
-            return TokenUserInfo(
-                username=username,
-                name=token_data.name or ldap_data.name,
-                uid=uid,
-                email=token_data.email or ldap_data.email,
-                groups=sorted(groups, key=lambda g: g.name),
-            )
-        else:
+        # If LDAP is not in use, whatever is stored with the token is all the
+        # data that we have.
+        if not self._ldap:
             return TokenUserInfo(
                 username=token_data.username,
                 name=token_data.name,
@@ -136,6 +109,38 @@ class UserInfoService:
                 email=token_data.email,
                 groups=token_data.groups,
             )
+
+        # Otherwise, try retrieving data from LDAP if it's not already set in
+        # the data stored with the token.
+        if not token_data.name or not token_data.email or not uid:
+            ldap_data = await self._ldap.get_data(username)
+            if not uid:
+                uid = ldap_data.uid
+
+        groups = token_data.groups
+        if groups is None:
+            if self._firestore:
+                group_names = await self._ldap.get_group_names(username)
+                groups = []
+                for group_name in group_names:
+                    gid = await self._firestore.get_gid(group_name)
+                    groups.append(TokenGroup(name=group_name, id=gid))
+            else:
+                groups = await self._ldap.get_groups(username)
+
+            # When adding the user private group, be careful not to change
+            # the groups array, since it may be cached in the LDAP cache
+            # and modifying it would modify the cache.
+            if self._config.ldap and self._config.ldap.add_user_group and uid:
+                groups = groups + [TokenGroup(name=username, id=uid)]
+
+        return TokenUserInfo(
+            username=username,
+            name=token_data.name or ldap_data.name,
+            uid=uid,
+            email=token_data.email or ldap_data.email,
+            groups=sorted(groups, key=lambda g: g.name),
+        )
 
     async def get_scopes(
         self, user_info: TokenUserInfo
