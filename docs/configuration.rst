@@ -120,6 +120,11 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     The PEM-encoded RSA private key used to sign internally-issued JWTs.
     Generate with ``gafaelfawr generate-key``.
 
+``slack-webhook`` (optional)
+    Only used if the Helm chart parameter ``config.slackAlerts`` is set to true.
+    The Slack incoming webhook URL to which to post alerts.
+    See :ref:`slack-alerts` for more information.
+
 .. _helm-settings:
 
 Helm configuration
@@ -548,6 +553,21 @@ Set this with ``config.proxies``:
 
 If not set, defaults to the `RFC 1918 private address spaces <https://datatracker.ietf.org/doc/html/rfc1918>`__.
 See :ref:`client-ips` for more information.
+
+.. _slack-alerts:
+
+Slack alerts
+------------
+
+Gafaelfawr can optionally report uncaught exceptions to Slack.
+To enable this, set ``config.slackAlerts``:
+
+.. code-block:: yaml
+
+   config:
+     slackAlerts: true
+
+You will also have to set the ``slack-webhook`` key in the Gafaelfawr secret to the URL of the incoming webhook to use to post these alerts.
 
 OpenID Connect server
 ---------------------
