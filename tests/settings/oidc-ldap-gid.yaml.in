@@ -19,10 +19,8 @@ ldap:
   url: "ldaps://ldap.example.com/"
   group_base_dn: "dc=example,dc=com"
   user_base_dn: "ou=people,dc=example,dc=com"
-  name_attr: null
-  email_attr: null
   uid_attr: "uidNumber"
-  add_user_group: true
+  gid_attr: "gidNumber"
 oidc:
   client_id: "some-oidc-client-id"
   client_secret_file: "{oidc_secret_file}"

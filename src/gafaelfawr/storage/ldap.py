@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import bonsai
 from bonsai import LDAPSearchScope
@@ -41,13 +41,20 @@ class LDAPStorage:
         self._pool = pool
         self._logger = logger.bind(ldap_url=self._config.url)
 
-    async def get_group_names(self, username: str) -> List[str]:
+    async def get_group_names(
+        self, username: str, primary_gid: Optional[int]
+    ) -> List[str]:
         """Get names of groups for a user from LDAP.
 
         Parameters
         ----------
         username : `str`
             Username of the user.
+        primary_gid : `int` or `None`
+            Primary GID if set.  If not `None`, search for the group with this
+            GID and add it to the user's group memberships.  This handles LDAP
+            configurations where the user's primary group is represented only
+            by their GID and not their group memberships.
 
         Returns
         -------
@@ -87,15 +94,51 @@ class LDAPStorage:
                 groups.append(name)
             else:
                 logger.warning(f"LDAP group {name} invalid, ignoring")
+
+        # Check that the primary group is included, and if not, try to add it.
+        if primary_gid:
+            search = f"(&(objectClass={group_class})(gidNumber={primary_gid}))"
+            logger = self._logger.bind(ldap_search=search)
+            results = await self._query(
+                self._config.group_base_dn,
+                bonsai.LDAPSearchScope.SUB,
+                search,
+                ["cn"],
+            )
+            logger.debug(
+                "Results for primary group",
+                gid=primary_gid,
+                ldap_results=results,
+            )
+            for result in results:
+                if "cn" not in result or not result["cn"]:
+                    continue
+                name = result["cn"][0]
+                if name in groups:
+                    break
+                if valid_group_regex.match(name):
+                    groups.append(name)
+                    break
+                else:
+                    logger.warning(f"LDAP group {name} invalid, ignoring")
+
         return groups
 
-    async def get_groups(self, username: str) -> List[TokenGroup]:
+    async def get_groups(
+        self, username: str, primary_gid: Optional[int]
+    ) -> List[TokenGroup]:
         """Get groups for a user from LDAP.
 
         Parameters
         ----------
         username : `str`
             Username of the user.
+        primary_gid : `int` or `None`
+            Primary GID if set.  If not `None`, the user's groups will be
+            checked for this GID.  If it's not found, search for the group
+            with this GID and add it to the user's group memberships.  This
+            handles LDAP configurations where the user's primary group is
+            represented only by their GID and not their group memberships.
 
         Returns
         -------
@@ -131,6 +174,33 @@ class LDAPStorage:
                 logger.warning(
                     f"LDAP group {name} invalid, ignoring", error=str(e)
                 )
+
+        # Check that the primary group is included, and if not, try to add it.
+        if primary_gid and not any(g.id == primary_gid for g in groups):
+            search = f"(&(objectClass={group_class})(gidNumber={primary_gid}))"
+            logger = self._logger.bind(ldap_search=search)
+            results = await self._query(
+                self._config.group_base_dn,
+                bonsai.LDAPSearchScope.SUB,
+                search,
+                ["cn"],
+            )
+            logger.debug(
+                "Results for primary group",
+                gid=primary_gid,
+                ldap_results=results,
+            )
+            for result in results:
+                if "cn" not in result or not result["cn"]:
+                    continue
+                name = result["cn"][0]
+                try:
+                    groups.append(TokenGroup(name=name, id=primary_gid))
+                    break
+                except Exception as e:
+                    msg = f"LDAP group {name} invalid, ignoring"
+                    logger.warning(msg, error=str(e))
+
         return groups
 
     async def get_data(self, username: str) -> LDAPUserData:
@@ -155,42 +225,47 @@ class LDAPStorage:
             attribute not found in LDAP, UID result value not an integer).
         """
         if not self._config.user_base_dn:
-            return LDAPUserData(uid=None, name=None, email=None)
+            return LDAPUserData(name=None, email=None, uid=None, gid=None)
 
         search = f"({self._config.user_search_attr}={username})"
         logger = self._logger.bind(ldap_search=search, user=username)
         attrs = []
-        if self._config.uid_attr:
-            attrs.append(self._config.uid_attr)
         if self._config.name_attr:
             attrs.append(self._config.name_attr)
         if self._config.email_attr:
             attrs.append(self._config.email_attr)
+        if self._config.uid_attr:
+            attrs.append(self._config.uid_attr)
+        if self._config.gid_attr:
+            attrs.append(self._config.gid_attr)
         results = await self._query(
             self._config.user_base_dn,
             bonsai.LDAPSearchScope.ONE,
             search,
             attrs,
         )
-        logger.debug("LDAP entries for UID", ldap_results=results)
+        logger.debug("LDAP entries for user data", ldap_results=results)
 
         # If results are empty, return no data.
         if not results:
-            return LDAPUserData(uid=None, name=None, email=None)
+            return LDAPUserData(name=None, email=None, uid=None, gid=None)
         result = results[0]
 
         # Extract data from the result.
         try:
-            uid = None
             name = None
             email = None
-            if self._config.uid_attr and self._config.uid_attr in result:
-                uid = int(result[self._config.uid_attr][0])
+            uid = None
+            gid = None
             if self._config.name_attr and self._config.name_attr in result:
                 name = result[self._config.name_attr][0]
             if self._config.email_attr and self._config.email_attr in result:
                 email = result[self._config.email_attr][0]
-            return LDAPUserData(uid=uid, name=name, email=email)
+            if self._config.uid_attr and self._config.uid_attr in result:
+                uid = int(result[self._config.uid_attr][0])
+            if self._config.gid_attr and self._config.gid_attr in result:
+                gid = int(result[self._config.gid_attr][0])
+            return LDAPUserData(name=name, email=email, uid=uid, gid=gid)
         except Exception as e:
             logger.error("LDAP user entry invalid", error=str(e))
             raise LDAPError("LDAP user entry invalid") from e

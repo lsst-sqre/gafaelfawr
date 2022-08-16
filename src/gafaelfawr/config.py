@@ -162,15 +162,6 @@ class LDAPSettings(BaseModel):
     is the LDAP convention for the attribute holding the username.
     """
 
-    uid_attr: Optional[str] = None
-    """LDAP UID attribute.
-
-    If set, the user's UID will be taken from this sttribute.  If UID lookups
-    are desired, this should usually be ``uidNumber``, as specified in
-    :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
-    """
-
     name_attr: Optional[str] = "displayName"
     """LDAP full name attribute.
 
@@ -188,6 +179,34 @@ class LDAPSettings(BaseModel):
     The attribute from which the user's email address should be taken, or
     `None` to not look up email addresses.  This should normally be
     ``mail``.
+    """
+
+    uid_attr: Optional[str] = None
+    """LDAP UID attribute.
+
+    If set, the user's UID will be taken from this sttribute.  If UID lookups
+    are desired, this should usually be ``uidNumber``, as specified in
+    :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    gid_attr: Optional[str] = None
+    """LDAP GID attirbute.
+
+    If set, the user's primary GID will be taken from this sttribute.  If GID
+    lookups are desired, this should usually be ``gidNumber``, as specified in
+    :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.  If
+    not set, the primary GID will match the UID if ``add_user_group`` is true,
+    and otherwise will not be set.
+    """
+
+    add_user_group: bool = False
+    """Whether to synthesize a user private group with GID matching UID.
+
+    If set to `True`, synthesize a group for the user whose name and GID
+    matches the username and UID, adding it to the group list without
+    requiring it to appear in LDAP.
     """
 
 
@@ -507,15 +526,6 @@ class LDAPConfig:
     is the LDAP convention for the attribute holding the username.
     """
 
-    uid_attr: Optional[str] = None
-    """LDAP UID attribute.
-
-    If set, the user's UID will be taken from this sttribute.  If UID lookups
-    are desired, this should usually be ``uidNumber``, as specified in
-    :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
-    """
-
     name_attr: Optional[str] = "displayName"
     """LDAP full name attribute.
 
@@ -533,6 +543,34 @@ class LDAPConfig:
     The attribute from which the user's email address should be taken, or
     `None` to not look up email addresses.  This should normally be
     ``mail``.
+    """
+
+    uid_attr: Optional[str] = None
+    """LDAP UID attribute.
+
+    If set, the user's UID will be taken from this sttribute.  If UID lookups
+    are desired, this should usually be ``uidNumber``, as specified in
+    :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    gid_attr: Optional[str] = None
+    """LDAP GID attirbute.
+
+    If set, the user's primary GID will be taken from this sttribute.  If GID
+    lookups are desired, this should usually be ``gidNumber``, as specified in
+    :rfc:`2307` and `RFC 2307bis
+    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.  If
+    not set, the primary GID will match the UID if ``add_user_group`` is true,
+    and otherwise will not be set.
+    """
+
+    add_user_group: bool = False
+    """Whether to synthesize a user private group with GID matching UID.
+
+    If set to `True`, synthesize a group for the user whose name and GID
+    matches the username and UID, adding it to the group list without
+    requiring it to appear in LDAP.
     """
 
 
@@ -734,6 +772,8 @@ class Config:
                 name_attr=settings.ldap.name_attr,
                 email_attr=settings.ldap.email_attr,
                 uid_attr=settings.ldap.uid_attr,
+                gid_attr=settings.ldap.gid_attr,
+                add_user_group=settings.ldap.add_user_group,
             )
 
         # Build Firestore configuration if needed.

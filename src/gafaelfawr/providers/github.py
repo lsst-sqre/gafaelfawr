@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List
 from urllib.parse import urlencode
@@ -13,7 +14,8 @@ from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
 from ..config import GitHubConfig
-from ..exceptions import GitHubError
+from ..constants import USERNAME_REGEX
+from ..exceptions import GitHubError, PermissionDeniedError
 from ..models.link import LinkData
 from ..models.state import State
 from ..models.token import TokenGroup, TokenUserInfo
@@ -33,7 +35,7 @@ class GitHubTeam:
     """The organization (its login attribute) of which the team is a part."""
 
     gid: int
-    """The GitHub ID of the team, hopefully usable as a GID."""
+    """The GitHub ID of the team, used as a GID."""
 
     @property
     def group_name(self) -> str:
@@ -70,7 +72,7 @@ class GitHubUserInfo:
     """The GitHub login of the user."""
 
     uid: int
-    """The GitHub ID of the user, hopefully usable as a UID."""
+    """The GitHub ID of the user, used as the UID and primary GID."""
 
     email: str
     """The primary email address of the user."""
@@ -171,6 +173,8 @@ class GitHubProvider(Provider):
         ------
         gafaelfawr.exceptions.GitHubError
             GitHub responded with an error to a request.
+        gafaelfawr.exceptions.PermissionDeniedError
+            The GitHub username is not a valid username for Gafaelfawr.
         ``httpx.HTTPError``
             An HTTP client error occurred trying to talk to the authentication
             provider.
@@ -189,6 +193,7 @@ class GitHubProvider(Provider):
             ],
         )
 
+        # Map GitHub teams to groups.
         groups = []
         invalid_groups = {}
         for team in user_info.teams:
@@ -200,13 +205,29 @@ class GitHubProvider(Provider):
             self._logger.warning(
                 "Ignoring invalid groups", invalid_groups=invalid_groups
             )
+
+        # Always synthesize a user private group with the same name as the
+        # username and a GID matching the UID.  This is not truly a valid
+        # approach because GitHub team IDs may clash with GitHub user IDs, but
+        # the space of both is large enough that we take the risk.
+        username = user_info.username.lower()
+        if not re.match(USERNAME_REGEX, username):
+            raise PermissionDeniedError(f"Invalid username: {username}")
+        groups.append(TokenGroup(name=username, id=user_info.uid))
+
+        # Save the token in the session so that we can revoke it later.
         session.github = github_token
+
+        # Return the calculated user information.  For GitHub logins, we store
+        # all user information with the token rather than looking it up
+        # dynamically.
         return TokenUserInfo(
             username=user_info.username.lower(),
             name=user_info.name,
             email=user_info.email,
             uid=user_info.uid,
-            groups=groups,
+            gid=user_info.uid,
+            groups=sorted(groups, key=lambda g: g.name),
         )
 
     async def logout(self, session: State) -> None:

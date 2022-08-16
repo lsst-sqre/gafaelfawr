@@ -11,6 +11,29 @@ release.  Those changes are not noted here explicitly.
 
 ## 5.1.0 (unreleased)
 
+- Add support for synthesizing user private groups.  When GitHub is used
+  as the authentication provider, or when LDAP is used as a source of
+  group membership and `config.ldap.addUserGroup` is set to `true`,
+  synthesize an additional group with a name equal to the username and a
+  GID equal to the user's UID and add it to the user's group membership.
+  Be aware that this is not strictly safe for GitHub because the team ID
+  space (used for GIDs) and the user ID space (used for UIDs) are not
+  distinct and may collide (although this is unlikely).
+
+- Add support for a primary GID for a user.  When GitHub is used as the
+  authentication provider, this is always set to the same as the UID.  For
+  other authentication providers, it can be retrieved from LDAP or, if
+  synthesized user private groups are enabled, will be set to the GID of
+  the user private group.  Tokens created by admins can set a GID, which
+  overrides the GID from other sources.
+
+- If configured to get a primary GID for the user from LDAP, and that GID
+  does not appear in the user's group memberships, find the group name
+  corresponding to that GID in the group tree and add it to the user's
+  group memberships.  Some LDAP configurations only record explicit
+  memberships for secondary groups and represent the user's primary group
+  only via their GID.
+
 - Add a Kubernetes `CronJob` to delete entries for expired tokens, note
   their expiration in the token change history, and truncate history
   tables.  History entries older than one year are dropped.

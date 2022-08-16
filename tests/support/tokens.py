@@ -120,6 +120,7 @@ async def create_session_token(
         name="Some User",
         email="someuser@example.com",
         uid=1000,
+        gid=2000,
         groups=groups,
     )
     if not scopes:

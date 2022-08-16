@@ -281,6 +281,17 @@ class TokenUserInfo(BaseModel):
 
     uid: Optional[int] = Field(None, title="UID number", example=4123, ge=1)
 
+    gid: Optional[int] = Field(
+        None,
+        title="Primary GID",
+        description=(
+            "GID of primary group. If set, this will also be the GID of one of"
+            " the groups of which the user is a member."
+        ),
+        example=4123,
+        ge=1,
+    )
+
     groups: Optional[List[TokenGroup]] = Field(
         None,
         title="Groups",
@@ -441,6 +452,19 @@ class AdminTokenRequest(BaseModel):
             " entry for that username will be used"
         ),
         example=4131,
+        ge=1,
+    )
+
+    gid: Optional[int] = Field(
+        None,
+        title="Primary GID",
+        description=(
+            "GID of primary group. If set, should correspond to the id of a"
+            " group of which the user is a member. If a value is not provided"
+            " and LDAP is configured to add user private groups, it will be"
+            " set to the same value as the UID."
+        ),
+        example=4123,
         ge=1,
     )
 

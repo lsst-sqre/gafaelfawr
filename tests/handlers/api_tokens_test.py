@@ -227,6 +227,7 @@ async def test_token_info(
         name="Example Person",
         email="example@example.com",
         uid=45613,
+        gid=12345,
         groups=[TokenGroup(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
@@ -268,6 +269,7 @@ async def test_token_info(
         "name": "Example Person",
         "email": "example@example.com",
         "uid": 45613,
+        "gid": 12345,
         "groups": [
             {
                 "name": "foo",
@@ -839,6 +841,7 @@ async def test_create_admin(
             "expires": expires,
             "name": "A Service",
             "uid": 1234,
+            "gid": 4567,
             "email": "service@example.com",
             "groups": [{"name": "some-group", "id": 12381}],
         },
@@ -873,6 +876,7 @@ async def test_create_admin(
         "name": "A Service",
         "email": "service@example.com",
         "uid": 1234,
+        "gid": 4567,
         "groups": [{"name": "some-group", "id": 12381}],
     }
 

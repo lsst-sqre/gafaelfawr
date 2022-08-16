@@ -315,7 +315,13 @@ You may need to set the following additional options under ``config.ldap`` depen
     The values must match the username returned in the token from the OpenID Connect authentication server.
     Default: ``member``.
 
-The name of each group will be taken from the ``cn`` attribute and the numeric UID will be taken from the ``gidNumber`` attribute.
+``config.ldap.addUserGroup``
+    If set to ``true``, add an additional group to the user's group membership with a name equal to their username and a GID equal to their UID (provided they have a UID; if not, no group is added).
+    Use this in environments with user private groups that do not appear in LDAP.
+    In order to safely use this option, the GIDs of regular groups must be disjoint from user UIDs so that the user's UID can safely be used as the GID of this synthetic group.
+    Default: ``false``.
+
+The name of each group will be taken from the ``cn`` attribute and the GID will be taken from the ``gidNumber`` attribute.
 
 .. _ldap-user:
 
@@ -338,6 +344,14 @@ If either have multiple values, the first one will be used.
 To also obtain the numeric UID from LDAP, add ``uidAttr: "uidNumber"`` to the LDAP configuration.
 (Replace ``uidNumber`` with some other attribute if your LDAP directory stores the numeric UID elsewhere.)
 As with the other attributes, if this attribute has multiple values, the first one will be used.
+
+To obtain the primary GID from LDAP, add ``gidAttr: "gidNumber"`` to the LDAP configuration.
+(Replace ``gidNumber`` with some other attribute if your LDAP directory stores the primary GID elsewhere.)
+As with the other attributes, if this attribute has multiple values, the first one will be used.
+If this GID does not match the GID of any of the user's groups, the corresponding group will be looked up in LDAP by GID and added to the user's group list.
+This handles LDAP configurations where only supplemental group memberships are recorded in LDAP, and the primary group membership is recorded only via the user's GID.
+If this configuration is not given but user private groups is enabled with ``addUserGroup: true``, the primary GID will be set to the same as the UID (which is the GID of the synthetic user private group).
+Otherwise, the primary GID will be left unset.
 
 You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
 
