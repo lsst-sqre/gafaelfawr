@@ -40,11 +40,6 @@ gafaelfawr = "gafaelfawr.cli:main"
 
 [tool.setuptools_scm]
 
-[tool.setuptools.packages.find]
-# https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
-where = ["src"]
-include = ["gafaelfawr*"]
-
 [tool.coverage.run]
 parallel = true
 branch = true

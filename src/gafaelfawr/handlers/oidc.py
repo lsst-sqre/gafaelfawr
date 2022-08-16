@@ -35,6 +35,7 @@ from ..models.oidc import (
     OIDCVerifiedToken,
 )
 from ..models.token import TokenData
+from ..slack import SlackRouteErrorHandler
 
 __all__ = ["router"]
 
@@ -44,7 +45,8 @@ router = APIRouter(
             "description": "OpenID Connect server not configured",
             "model": ErrorModel,
         },
-    }
+    },
+    route_class=SlackRouteErrorHandler,
 )
 authenticate = AuthenticateRead(
     require_session=True, redirect_if_unauthenticated=True

@@ -9,6 +9,7 @@ from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
 from ..models.influxdb import InfluxDBToken
 from ..models.token import TokenData
+from ..slack import SlackRouteErrorHandler
 
 router = APIRouter(
     responses={
@@ -16,7 +17,8 @@ router = APIRouter(
             "description": "InfluxDB support not configured",
             "model": ErrorModel,
         },
-    }
+    },
+    route_class=SlackRouteErrorHandler,
 )
 
 __all__ = ["get_influxdb"]

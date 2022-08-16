@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import AsyncIterator, Iterator
+from typing import AsyncIterator, Iterator, Optional
 from urllib.parse import urljoin
 
 import pytest
 import pytest_asyncio
+import respx
 import structlog
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
@@ -35,11 +36,12 @@ from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
 from .support.settings import build_settings, configure
+from .support.slack import MockSlack, mock_slack_webhook
 
 
 @pytest_asyncio.fixture
 async def app(
-    engine: AsyncEngine, empty_database: None
+    engine: AsyncEngine, empty_database: None, mock_slack: Optional[MockSlack]
 ) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
@@ -200,6 +202,22 @@ def mock_ldap() -> Iterator[MockLDAP]:
         The mock LDAP API object.
     """
     yield from patch_ldap()
+
+
+@pytest.fixture
+def mock_slack(
+    config: Config, respx_mock: respx.Router
+) -> Optional[MockSlack]:
+    """Mock a Slack webhook.
+
+    Returns
+    -------
+    mock_slack : `tests.support.slack.MockSlack`
+        Object that accumulates posted Slack messages.
+    """
+    if not config.slack_webhook:
+        return None
+    return mock_slack_webhook(config.slack_webhook, respx_mock)
 
 
 @pytest_asyncio.fixture

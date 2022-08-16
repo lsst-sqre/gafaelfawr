@@ -24,6 +24,7 @@ from ..support.firestore import MockFirestore
 from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
 from ..support.settings import reconfigure
+from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
@@ -324,7 +325,9 @@ async def test_token_info(
 
 
 @pytest.mark.asyncio
-async def test_auth_required(client: AsyncClient, factory: Factory) -> None:
+async def test_auth_required(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
     csrf = await set_session_cookie(client, token)
@@ -372,9 +375,14 @@ async def test_auth_required(client: AsyncClient, factory: Factory) -> None:
     )
     assert r.status_code == 401
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_csrf_required(client: AsyncClient, factory: Factory) -> None:
+async def test_csrf_required(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
     token_service = factory.create_token_service()
@@ -435,10 +443,16 @@ async def test_csrf_required(client: AsyncClient, factory: Factory) -> None:
     )
     assert r.status_code == 403
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_no_bootstrap(
-    client: AsyncClient, config: Config, factory: Factory
+    client: AsyncClient,
+    config: Config,
+    factory: Factory,
+    mock_slack: MockSlack,
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -476,9 +490,14 @@ async def test_no_bootstrap(
     )
     assert r.status_code == 401
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_no_scope(client: AsyncClient, factory: Factory) -> None:
+async def test_no_scope(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory)
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -522,9 +541,14 @@ async def test_no_scope(client: AsyncClient, factory: Factory) -> None:
     )
     assert r.status_code == 403
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_modify_nonuser(client: AsyncClient, factory: Factory) -> None:
+async def test_modify_nonuser(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
     csrf = await set_session_cookie(client, token)
@@ -537,9 +561,14 @@ async def test_modify_nonuser(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 403
     assert r.json()["detail"][0]["type"] == "permission_denied"
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_wrong_user(client: AsyncClient, factory: Factory) -> None:
+async def test_wrong_user(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     token_data = await create_session_token(factory)
     csrf = await set_session_cookie(client, token_data.token)
     token_service = factory.create_token_service()
@@ -631,6 +660,9 @@ async def test_wrong_user(client: AsyncClient, factory: Factory) -> None:
     )
     assert r.status_code == 404
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
@@ -685,7 +717,7 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_duplicate_token_name(
-    client: AsyncClient, factory: Factory
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
 ) -> None:
     """Test duplicate token names."""
     token_data = await create_session_token(factory)
@@ -722,9 +754,14 @@ async def test_duplicate_token_name(
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
-async def test_bad_expires(client: AsyncClient, factory: Factory) -> None:
+async def test_bad_expires(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     """Test creating or modifying a token with bogus expirations."""
     token_data = await create_session_token(factory)
     csrf = await set_session_cookie(client, token_data.token)
@@ -763,10 +800,16 @@ async def test_bad_expires(client: AsyncClient, factory: Factory) -> None:
         assert data["detail"][0]["loc"] == ["body", "expires"]
         assert data["detail"][0]["type"] == "invalid_expires"
 
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
 
 @pytest.mark.asyncio
 async def test_bad_scopes(
-    client: AsyncClient, config: Config, factory: Factory
+    client: AsyncClient,
+    config: Config,
+    factory: Factory,
+    mock_slack: MockSlack,
 ) -> None:
     """Test creating or modifying a token with bogus scopes."""
     known_scopes = list(config.known_scopes.keys())
@@ -809,6 +852,9 @@ async def test_bad_scopes(
         data = r.json()
         assert data["detail"][0]["loc"] == ["body", "scopes"]
         assert data["detail"][0]["type"] == "invalid_scopes"
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
@@ -1154,7 +1200,10 @@ async def test_create_admin_firestore(
 
 @pytest.mark.asyncio
 async def test_no_form_post(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient,
+    factory: Factory,
+    caplog: LogCaptureFixture,
+    mock_slack: MockSlack,
 ) -> None:
     """Ensure that the token creation API does not support a form POST.
 
@@ -1194,6 +1243,9 @@ async def test_no_form_post(
     )
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "type_error.dict"
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio

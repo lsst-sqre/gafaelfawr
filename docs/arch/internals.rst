@@ -73,6 +73,8 @@ Python internals
 
 .. automodapi:: gafaelfawr.services.userinfo
 
+.. automodapi:: gafaelfawr.slack
+
 .. automodapi:: gafaelfawr.storage.admin
 
 .. automodapi:: gafaelfawr.storage.base

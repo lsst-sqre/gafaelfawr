@@ -337,6 +337,9 @@ class Settings(BaseSettings):
     error_footer: Optional[str] = None
     """HTML to add (inside ``<p>``) to login error pages."""
 
+    slack_webhook_file: Optional[str] = None
+    """File containing the Slack webhook to which to post alerts."""
+
     @validator("initial_admins", each_item=True)
     def _validate_initial_admins(cls, v: str) -> str:
         if not re.match(USERNAME_REGEX, v):
@@ -702,6 +705,9 @@ class Config:
     error_footer: Optional[str] = None
     """HTML to add (inside ``<p>``) to login error pages."""
 
+    slack_webhook: Optional[str] = None
+    """Slack webhook to which to post alerts."""
+
     @classmethod
     def from_file(cls, path: str) -> Config:
         """Construct a Config object from a settings file.
@@ -847,6 +853,10 @@ class Config:
         if settings.database_password_file:
             path = settings.database_password_file
             database_password = cls._load_secret(path).decode()
+        slack_webhook = None
+        if settings.slack_webhook_file:
+            path = settings.slack_webhook_file
+            slack_webhook = cls._load_secret(path).decode()
         config = cls(
             realm=settings.realm,
             session_secret=session_secret.decode(),
@@ -868,6 +878,7 @@ class Config:
             group_mapping=group_mapping_frozen,
             initial_admins=tuple(settings.initial_admins),
             error_footer=settings.error_footer,
+            slack_webhook=slack_webhook,
         )
 
         # Configure logging.  Some Safir applications allow customization of

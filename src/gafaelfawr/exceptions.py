@@ -7,6 +7,8 @@ from typing import ClassVar, Dict, List, Union
 
 from fastapi import status
 
+from .slack import SlackIgnoredException
+
 __all__ = [
     "DeserializeError",
     "DuplicateTokenNameError",
@@ -57,7 +59,7 @@ class ErrorLocation(Enum):
     query = "query"
 
 
-class ValidationError(Exception):
+class ValidationError(SlackIgnoredException):
     """Represents an input validation error.
 
     There is a global handler for this exception and all exceptions derived
@@ -335,11 +337,11 @@ class LDAPError(Exception):
     """Group information for the user in LDAP was invalid."""
 
 
-class NotConfiguredError(Exception):
+class NotConfiguredError(SlackIgnoredException):
     """The requested operation was not configured."""
 
 
-class PermissionDeniedError(Exception):
+class PermissionDeniedError(SlackIgnoredException):
     """The user does not have permission to perform this operation."""
 
 

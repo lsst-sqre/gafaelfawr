@@ -17,6 +17,7 @@ from gafaelfawr.models.token import Token
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.headers import assert_unauthorized_is_correct
+from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
@@ -51,7 +52,10 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_login_no_auth(
-    client: AsyncClient, config: Config, factory: Factory
+    client: AsyncClient,
+    config: Config,
+    factory: Factory,
+    mock_slack: MockSlack,
 ) -> None:
     r = await client.get("/auth/api/v1/login")
     assert_unauthorized_is_correct(r, config)
@@ -91,3 +95,6 @@ async def test_login_no_auth(
         cookies={COOKIE_NAME: bad_cookie},
     )
     assert_unauthorized_is_correct(r, config)
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []

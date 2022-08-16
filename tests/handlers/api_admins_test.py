@@ -9,11 +9,14 @@ from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
 
 from ..support.cookies import set_session_cookie
+from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio
-async def test_admins(client: AsyncClient, factory: Factory) -> None:
+async def test_admins(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
     r = await client.get("/auth/api/v1/admins")
     assert r.status_code == 401
 
@@ -48,6 +51,9 @@ async def test_admins(client: AsyncClient, factory: Factory) -> None:
     )
     assert r.status_code == 200
     assert r.json() == [{"username": "admin"}, {"username": "example"}]
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio

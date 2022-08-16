@@ -40,11 +40,12 @@ from ..models.token import (
     UserTokenModifyRequest,
     UserTokenRequest,
 )
+from ..slack import SlackRouteErrorHandler
 from ..util import random_128_bits
 
 __all__ = ["router"]
 
-router = APIRouter()
+router = APIRouter(route_class=SlackRouteErrorHandler)
 authenticate_read = AuthenticateRead()
 authenticate_write = AuthenticateWrite()
 authenticate_admin_read = AuthenticateRead(

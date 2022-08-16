@@ -25,3 +25,4 @@ github:
   client_secret_file: "{github_secret_file}"
 error_footer: |
   Some <strong>error instructions</strong> with HTML.
+slack_webhook_file: "{slack_webhook_file}"
