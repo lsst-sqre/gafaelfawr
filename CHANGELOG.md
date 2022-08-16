@@ -44,6 +44,9 @@ release.  Those changes are not noted here explicitly.
   had no actual effect.  Fixed by updating Redis if either the scope or
   expiration of a user token is changed.
 
+- Add support for configuring a Slack webhook for alerting, and send
+  uncaught exceptions to that webhook if configured.
+
 ## 5.0.2 (2022-07-29)
 
 - Improve error handling for LDAP queries.  Hopefully Gafaelfawr should
