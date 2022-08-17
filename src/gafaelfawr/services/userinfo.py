@@ -127,8 +127,8 @@ class UserInfoService:
                 group_names = await self._ldap.get_group_names(username, gid)
                 groups = []
                 for group_name in group_names:
-                    gid = await self._firestore.get_gid(group_name)
-                    groups.append(TokenGroup(name=group_name, id=gid))
+                    group_gid = await self._firestore.get_gid(group_name)
+                    groups.append(TokenGroup(name=group_name, id=group_gid))
             else:
                 groups = await self._ldap.get_groups(username, gid)
 

@@ -8,6 +8,10 @@ import pytest
 import respx
 from httpx import AsyncClient
 
+from gafaelfawr.constants import GID_MIN, UID_USER_MIN
+from gafaelfawr.factory import Factory
+
+from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.ldap import MockLDAP
 from ..support.oidc import simulate_oidc_login
@@ -74,6 +78,64 @@ async def test_ldap(
     assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
     assert r.headers["X-Auth-Request-Uid"] == "2000"
     assert r.headers["X-Auth-Request-Groups"] == "foo,group-1,group-2"
+
+
+@pytest.mark.asyncio
+async def test_ldap_firestore(
+    tmp_path: Path,
+    factory: Factory,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_ldap: MockLDAP,
+    mock_firestore: MockFirestore,
+) -> None:
+    config = await reconfigure(tmp_path, "oidc-ldap-firestore", factory)
+    assert config.oidc
+    assert config.ldap
+    assert config.ldap.user_base_dn
+    firestore_storage = factory.create_firestore_storage()
+    await firestore_storage.initialize()
+    token = create_upstream_oidc_jwt(uid="ldap-user", groups=["admin"])
+    mock_ldap.add_entries_for_test(
+        config.ldap.user_base_dn,
+        config.ldap.user_search_attr,
+        "ldap-user",
+        [{"displayName": ["LDAP User"], "mail": ["ldap-user@example.com"]}],
+    )
+    mock_ldap.add_entries_for_test(
+        config.ldap.group_base_dn,
+        "member",
+        "ldap-user",
+        [{"cn": ["foo"]}, {"cn": ["group-1"]}, {"cn": ["group-2"]}],
+    )
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 307
+
+    # Check that the data returned from the user-info API is correct.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "ldap-user",
+        "name": "LDAP User",
+        "email": "ldap-user@example.com",
+        "uid": UID_USER_MIN,
+        "gid": UID_USER_MIN,
+        "groups": [
+            {"name": "foo", "id": GID_MIN},
+            {"name": "group-1", "id": GID_MIN + 1},
+            {"name": "group-2", "id": GID_MIN + 2},
+            {"name": "ldap-user", "id": UID_USER_MIN},
+        ],
+    }
+
+    # Check that the headers returned by the auth endpoint are also correct.
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == "ldap-user"
+    assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
+    assert r.headers["X-Auth-Request-Uid"] == str(UID_USER_MIN)
+    expected = "foo,group-1,group-2,ldap-user"
+    assert r.headers["X-Auth-Request-Groups"] == expected
 
 
 @pytest.mark.asyncio
