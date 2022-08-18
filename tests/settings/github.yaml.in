@@ -3,6 +3,7 @@ session_secret_file: "{session_secret_file}"
 database_url: "{database_url}"
 redis_url: "redis://localhost:6379/0"
 bootstrap_token_file: "{bootstrap_token_file}"
+slack_webhook_file: "{slack_webhook_file}"
 initial_admins: ["admin"]
 proxies:
   - "10.0.0.0/8"
@@ -25,4 +26,3 @@ github:
   client_secret_file: "{github_secret_file}"
 error_footer: |
   Some <strong>error instructions</strong> with HTML.
-slack_webhook_file: "{slack_webhook_file}"
