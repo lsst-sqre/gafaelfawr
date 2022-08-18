@@ -79,10 +79,9 @@ class SlackAlertClient:
                 },
                 {
                     "type": "section",
-                    "fields": {
-                        "type": "mrkdown",
-                        "text": f"*Failed at*\n{date}",
-                    },
+                    "fields": [
+                        {"type": "mrkdwn", "text": f"*Failed at*\n{date}"}
+                    ],
                 },
                 {
                     "type": "section",
