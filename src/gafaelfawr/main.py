@@ -126,6 +126,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     if load_config and config.slack_webhook:
         logger = structlog.get_logger("gafaelfawr")
         initialize_slack_alerts(config.slack_webhook, "Gafaelfawr", logger)
+        logger.debug("Initialized Slack webhook")
 
     # Register lifecycle handlers.
     app.on_event("startup")(startup_event)
