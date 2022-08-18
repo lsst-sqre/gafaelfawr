@@ -2,6 +2,7 @@ realm: "example.com"
 session_secret_file: "{session_secret_file}"
 database_url: "{database_url}"
 redis_url: "redis://localhost:6379/0"
+slack_webhook_file: "{slack_webhook_file}"
 initial_admins: ["admin"]
 after_logout_url: "https://example.com/landing"
 group_mapping:

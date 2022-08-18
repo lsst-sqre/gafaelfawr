@@ -79,10 +79,9 @@ class SlackAlertClient:
                 },
                 {
                     "type": "section",
-                    "fields": {
-                        "type": "mrkdown",
-                        "text": f"*Failed at*\n{date}",
-                    },
+                    "fields": [
+                        {"type": "mrkdwn", "text": f"*Failed at*\n{date}"}
+                    ],
                 },
                 {
                     "type": "section",
@@ -134,8 +133,6 @@ class SlackRouteErrorHandler(APIRoute):
     ) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         """Wrap route handler with an exception handler."""
         original_route_handler = super().get_route_handler()
-        if not _slack_alert_client:
-            return original_route_handler
 
         async def wrapped_route_handler(request: Request) -> Response:
             try:

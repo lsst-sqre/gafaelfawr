@@ -48,10 +48,7 @@ async def test_uncaught_exception(
                 },
                 {
                     "type": "section",
-                    "fields": {
-                        "type": "mrkdown",
-                        "text": ANY,
-                    },
+                    "fields": [{"type": "mrkdwn", "text": ANY}],
                 },
                 {
                     "type": "section",
@@ -68,6 +65,6 @@ async def test_uncaught_exception(
             ]
         }
     ]
-    assert mock_slack.messages[0]["blocks"][1]["fields"]["text"].startswith(
+    assert mock_slack.messages[0]["blocks"][1]["fields"][0]["text"].startswith(
         "*Failed at*\n"
     )
