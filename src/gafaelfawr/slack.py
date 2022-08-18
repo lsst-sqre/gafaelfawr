@@ -134,8 +134,6 @@ class SlackRouteErrorHandler(APIRoute):
     ) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         """Wrap route handler with an exception handler."""
         original_route_handler = super().get_route_handler()
-        if not _slack_alert_client:
-            return original_route_handler
 
         async def wrapped_route_handler(request: Request) -> Response:
             try:
