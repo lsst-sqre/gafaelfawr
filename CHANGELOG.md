@@ -9,7 +9,7 @@ The internal configuration format may change in minor releases.
 Dependencies are updated to the latest available version during each
 release.  Those changes are not noted here explicitly.
 
-## 5.1.0 (unreleased)
+## 5.1.0 (2022-08-18)
 
 - Add support for synthesizing user private groups.  When GitHub is used
   as the authentication provider, or when LDAP is used as a source of
