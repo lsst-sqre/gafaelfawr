@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Dict, Optional
 
 from fastapi import HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -58,6 +58,24 @@ class SlackAlertClient:
         self._application = application
         self._logger = logger
 
+    async def message(self, message: str) -> None:
+        """Post a Markdown message to Slack.
+
+        Parameters
+        ----------
+        message : `str`
+            The message to post, in Markdown format.
+        """
+        alert = {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": message},
+                }
+            ]
+        }
+        await self._post(alert)
+
     async def uncaught_exception(self, exc: Exception) -> None:
         """Post an alert to Slack about an uncaught webapp exception.
 
@@ -94,13 +112,18 @@ class SlackAlertClient:
                 {"type": "divider"},
             ]
         }
+        await self._post(alert)
+
+    async def _post(self, alert: Dict[str, Any]) -> None:
+        """Send an alert to Slack."""
         self._logger.debug("Sending alert to Slack")
         try:
             client = await http_client_dependency()
             r = await client.post(self._hook_url, json=alert)
             r.raise_for_status()
         except Exception:
-            self._logger.exception("Posting Slack alert failed", alert=alert)
+            msg = "Posting Slack alert failed"
+            self._logger.exception(msg, alert=alert)
 
 
 class SlackRouteErrorHandler(APIRoute):

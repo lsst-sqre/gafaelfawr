@@ -8,7 +8,7 @@ confined to this file.
 
 from __future__ import annotations
 
-from typing import Generic, Optional, Type, TypeVar
+from typing import AsyncIterator, Generic, Optional, Type, TypeVar
 
 from aioredis import Redis
 from cryptography.fernet import Fernet, InvalidToken
@@ -100,8 +100,25 @@ class RedisStorage(Generic[S]):
         try:
             return self._content.parse_raw(data.decode())
         except Exception as e:
-            msg = f"Cannot deserialize data for {key}: {str(e)}"
+            error = f"{type(e).__name__}: {str(e)}"
+            msg = f"Cannot deserialize data for {key}: {error}"
             raise DeserializeError(msg) from e
+
+    async def scan(self, pattern: str) -> AsyncIterator[str]:
+        """Scan Redis for a given key pattern, returning each key.
+
+        Parameters
+        ----------
+        pattern : `str`
+            Key pattern to scan for.
+
+        Yields
+        ------
+        key : `str`
+            Each key matching that pattern.
+        """
+        async for key in self._redis.scan_iter(match=pattern):
+            yield key.decode()
 
     async def store(self, key: str, obj: S, lifetime: Optional[int]) -> None:
         """Store an object.

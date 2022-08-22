@@ -80,6 +80,103 @@ class TokenService:
         self._token_change_store = token_change_store
         self._logger = logger
 
+    async def audit(self) -> List[str]:
+        """Check Gafaelfawr data stores for consistency.
+
+        If any errors are found and Slack is configured, report them to Slack
+        in addition to returning them.
+
+        Returns
+        -------
+        alerts : List[`str`]
+            A list of human-readable alert messages formatted in Markdown.
+        """
+        alerts = []
+        now = current_datetime()
+        db_tokens = {
+            t.token: t for t in await self._token_db_store.list_with_parents()
+        }
+        db_token_keys = set(db_tokens.keys())
+        redis_token_keys = set(await self._token_redis_store.list())
+        redis_tokens = {}
+        for key in redis_token_keys:
+            token_data = await self._token_redis_store.get_data_by_key(key)
+            if token_data:
+                redis_tokens[key] = token_data
+        redis_token_keys = set(redis_tokens.keys())
+
+        # Tokens in the database but not in Redis.
+        for key in db_token_keys - redis_token_keys:
+            expires = db_tokens[key].expires
+            if expires and expires <= now:
+                continue
+            alerts.append(
+                f"Token `{key}` for `{db_tokens[key].username}` found in"
+                " database but not Redis"
+            )
+
+        # Tokens in Redis but not in the database.
+        for key in redis_token_keys - db_token_keys:
+            alerts.append(
+                f"Token `{key}` for `{redis_tokens[key].username}` found in"
+                " Redis but not database"
+            )
+
+        # Check that the data matches between the database and Redis.
+        for key in db_token_keys & redis_token_keys:
+            db = db_tokens[key]
+            redis = redis_tokens[key]
+            mismatches = []
+            if db.username != redis.username:
+                mismatches.append("username")
+            if db.token_type != redis.token_type:
+                mismatches.append("type")
+            if db.scopes != redis.scopes:
+                mismatches.append("scopes")
+            if db.created != redis.created:
+                mismatches.append("created")
+            if db.expires != redis.expires:
+                mismatches.append("expires")
+            if mismatches:
+                alerts.append(
+                    f"Token `{key}` for `{redis.username}` does not match"
+                    f' between database and Redis ({", ".join(mismatches)})'
+                )
+            if db.parent and db.parent in db_tokens:
+                parent = db_tokens[db.parent]
+                expires = db.expires
+                if not expires and parent.expires:
+                    alerts.append(
+                        f"Token `{key}` for `{redis.username}` expires after"
+                        " its parent token"
+                    )
+                elif expires and parent.expires and expires > parent.expires:
+                    alerts.append(
+                        f"Token `{key}` for `{redis.username}` expires after"
+                        " its parent token"
+                    )
+
+        # Check for orphaned tokens.
+        for token in await self._token_db_store.list_orphaned():
+            alerts.append(
+                f"Token `{token.token}` for `{token.username}` has no parent"
+                " token"
+            )
+
+        # Check for unknown scopes.
+        for token_data in redis_tokens.values():
+            known_scopes = set(self._config.known_scopes.keys())
+            for scope in token_data.scopes:
+                if scope not in known_scopes:
+                    alerts.append(
+                        f"Token `{token_data.token.key}` for"
+                        f" `{token_data.username}` has unknown scope"
+                        f" (`{scope}`)"
+                    )
+
+        # Return any errors.
+        return alerts
+
     async def create_session_token(
         self, user_info: TokenUserInfo, *, scopes: List[str], ip_address: str
     ) -> Token:

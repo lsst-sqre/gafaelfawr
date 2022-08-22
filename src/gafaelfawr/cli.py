@@ -24,6 +24,7 @@ from .keypair import RSAKeyPair
 from .main import create_app
 from .models.token import Token
 from .schema import Base
+from .slack import SlackAlertClient
 
 __all__ = [
     "delete_all_data",
@@ -76,6 +77,46 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
     help="Application settings file.",
 )
 @run_with_asyncio
+async def audit(settings: Optional[str]) -> None:
+    """Run a consistency check on Gafaelfawr's data stores.
+
+    Any problems found will be reported to Slack.
+    """
+    if settings:
+        config_dependency.set_settings_path(settings)
+    config = await config_dependency()
+    if not config.slack_webhook:
+        msg = "Slack alerting required for audit but not configured"
+        raise click.UsageError(msg)
+    logger = structlog.get_logger("gafaelfawr")
+    logger.debug("Starting audit")
+    slack = SlackAlertClient(config.slack_webhook, "Gafaelfawr", logger)
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    async with Factory.standalone(config, engine) as factory:
+        token_service = factory.create_token_service()
+        async with factory.session.begin():
+            alerts = await token_service.audit()
+        if alerts:
+            message = (
+                "Gafaelfawr data inconsistencies found:\n* "
+                + "\n* ".join(alerts)
+                + "\n"
+            )
+            await slack.message(message)
+    await engine.dispose()
+
+
+@main.command()
+@click.option(
+    "--settings",
+    envvar="GAFAELFAWR_SETTINGS_PATH",
+    type=str,
+    default=None,
+    help="Application settings file.",
+)
+@run_with_asyncio
 async def delete_all_data(settings: Optional[str]) -> None:
     """Delete all data from Redis and the database.
 
@@ -102,6 +143,7 @@ async def delete_all_data(settings: Optional[str]) -> None:
         if config.oidc_server:
             oidc_service = factory.create_oidc_service()
             await oidc_service.delete_all_codes()
+    await engine.dispose()
 
 
 @main.command()
@@ -175,6 +217,7 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
             queue = await kubernetes_service.start_watcher()
             logger.debug("Starting continuous processing")
             await kubernetes_service.update_service_tokens_from_queue(queue)
+    await engine.dispose()
 
 
 @main.command()
@@ -202,6 +245,7 @@ async def maintenance(settings: Optional[str]) -> None:
             await token_service.expire_tokens()
             await token_service.truncate_history()
     logger.debug("Completed background maintenance")
+    await engine.dispose()
 
 
 @main.command()
@@ -276,3 +320,4 @@ async def update_service_tokens(settings: Optional[str]) -> None:
                 msg = "Failed to update service token secrets"
                 logger.error(msg, error=str(e))
                 sys.exit(1)
+    await engine.dispose()

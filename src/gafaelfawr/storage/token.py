@@ -293,6 +293,54 @@ class TokenDatabaseStore:
         result = await self._session.scalars(stmt)
         return [TokenInfo.from_orm(t) for t in result.all()]
 
+    async def list_orphaned(self) -> List[TokenInfo]:
+        """List all orphaned tokens.
+
+        Tokens are orphaned if they appear in the subtoken table but their
+        parent column is null.
+
+        Returns
+        -------
+        tokens : List[`gafaelfawr.models.token.TokenInfo`]
+            Information about the tokens.
+        """
+        stmt = (
+            select(SQLToken)
+            .join(Subtoken, Subtoken.child == SQLToken.token)
+            .where(Subtoken.parent.is_(None))
+        )
+        result = await self._session.scalars(stmt)
+        return [TokenInfo.from_orm(t) for t in result.all()]
+
+    async def list_with_parents(self) -> List[TokenInfo]:
+        """List all tokens including parent information.
+
+        This is a slower and more expensive query than `list`, used for
+        audits.
+
+        Returns
+        -------
+        tokens : List[`gafaelfawr.models.token.TokenInfo`]
+            Information about the tokens.
+        """
+        stmt = (
+            select(SQLToken, Subtoken.parent)
+            .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
+            .order_by(
+                SQLToken.last_used.desc(),
+                SQLToken.created.desc(),
+                SQLToken.token,
+            )
+        )
+        results = await self._session.execute(stmt)
+        token_info = []
+        for result in results.all():
+            token, parent = result
+            info = TokenInfo.from_orm(token)
+            info.parent = parent
+            token_info.append(info)
+        return token_info
+
     async def modify(
         self,
         key: str,
@@ -458,6 +506,19 @@ class TokenRedisStore:
             self._logger.error("Cannot retrieve token", error=str(e))
             return None
         return data
+
+    async def list(self) -> List[str]:
+        """List all token keys stored in Redis.
+
+        Returns
+        -------
+        tokens : List[`str`]
+            The tokens found in Redis (by looking for valid keys).
+        """
+        keys = []
+        async for key in self._storage.scan("token:*"):
+            keys.append(key[len("token:") :])
+        return keys
 
     async def store_data(self, data: TokenData) -> None:
         """Store the data for a token.
