@@ -122,7 +122,9 @@ class TokenService:
                 " Redis but not database"
             )
 
-        # Check that the data matches between the database and Redis.
+        # Check that the data matches between the database and Redis.  Older
+        # versions of Gafaelfawr didn't sort the scopes in Redis, so we have
+        # to sort them here or we get false positives with old tokens.
         for key in db_token_keys & redis_token_keys:
             db = db_tokens[key]
             redis = redis_tokens[key]
@@ -131,7 +133,7 @@ class TokenService:
                 mismatches.append("username")
             if db.token_type != redis.token_type:
                 mismatches.append("type")
-            if db.scopes != redis.scopes:
+            if db.scopes != sorted(redis.scopes):
                 mismatches.append("scopes")
             if db.created != redis.created:
                 mismatches.append("created")
@@ -380,7 +382,7 @@ class TokenService:
             token=token,
             username=request.username,
             token_type=request.token_type,
-            scopes=request.scopes,
+            scopes=sorted(request.scopes),
             created=created,
             expires=request.expires,
             name=request.name,
@@ -411,14 +413,14 @@ class TokenService:
                 "Created new user token",
                 key=token.key,
                 token_name=request.token_name,
-                token_scopes=sorted(data.scopes),
+                token_scopes=data.scopes,
                 token_username=data.username,
             )
         else:
             self._logger.info(
                 "Created new service token",
                 key=token.key,
-                token_scopes=sorted(data.scopes),
+                token_scopes=data.scopes,
                 token_username=data.username,
             )
         return token
