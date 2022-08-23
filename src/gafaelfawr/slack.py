@@ -61,11 +61,20 @@ class SlackAlertClient:
     async def message(self, message: str) -> None:
         """Post a Markdown message to Slack.
 
+        Slack limits the main section of the message to 3000 characters.  It
+        will be truncated if longer than that.
+
         Parameters
         ----------
         message : `str`
             The message to post, in Markdown format.
         """
+        if len(message) > 3000:
+            last_newline = message.rfind("\n", 0, 2950)
+            if last_newline == -1:
+                message = message[:3000]
+            else:
+                message = message[:last_newline] + "\n... truncated ...\n"
         alert = {
             "blocks": [
                 {
