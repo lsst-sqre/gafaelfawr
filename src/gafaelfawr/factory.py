@@ -420,43 +420,6 @@ class Factory:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
 
-    def create_user_info_service(self) -> UserInfoService:
-        """Create a user information service.
-
-        This service retrieves metadata about the user, such as their UID,
-        groups, and GIDs.  This is the generic service that acts on Gafaelfawr
-        tokens, without support for the additional authentication-time methods
-        used by authentication providers.
-
-        Returns
-        -------
-        info_service : `gafaelfawr.services.userinfo.UserInfoService`
-            Newly created service.
-        """
-        firestore = None
-        if self._context.config.firestore:
-            firestore = self.create_firestore_service()
-        ldap = None
-        if self._context.config.ldap and self._context.ldap_pool:
-            ldap_storage = LDAPStorage(
-                self._context.config.ldap,
-                self._context.ldap_pool,
-                self._logger,
-            )
-            ldap = LDAPService(
-                ldap=ldap_storage,
-                group_cache=self._context.ldap_group_cache,
-                group_name_cache=self._context.ldap_group_name_cache,
-                user_cache=self._context.ldap_user_cache,
-                logger=self._logger,
-            )
-        return UserInfoService(
-            config=self._context.config,
-            ldap=ldap,
-            firestore=firestore,
-            logger=self._logger,
-        )
-
     def create_token_cache_service(self) -> TokenCacheService:
         """Create a token cache.
 
@@ -508,6 +471,43 @@ class Factory:
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
+            logger=self._logger,
+        )
+
+    def create_user_info_service(self) -> UserInfoService:
+        """Create a user information service.
+
+        This service retrieves metadata about the user, such as their UID,
+        groups, and GIDs.  This is the generic service that acts on Gafaelfawr
+        tokens, without support for the additional authentication-time methods
+        used by authentication providers.
+
+        Returns
+        -------
+        info_service : `gafaelfawr.services.userinfo.UserInfoService`
+            Newly created service.
+        """
+        firestore = None
+        if self._context.config.firestore:
+            firestore = self.create_firestore_service()
+        ldap = None
+        if self._context.config.ldap and self._context.ldap_pool:
+            ldap_storage = LDAPStorage(
+                self._context.config.ldap,
+                self._context.ldap_pool,
+                self._logger,
+            )
+            ldap = LDAPService(
+                ldap=ldap_storage,
+                group_cache=self._context.ldap_group_cache,
+                group_name_cache=self._context.ldap_group_name_cache,
+                user_cache=self._context.ldap_user_cache,
+                logger=self._logger,
+            )
+        return UserInfoService(
+            config=self._context.config,
+            ldap=ldap,
+            firestore=firestore,
             logger=self._logger,
         )
 

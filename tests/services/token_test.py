@@ -27,6 +27,7 @@ from gafaelfawr.models.token import (
     TokenType,
     TokenUserInfo,
 )
+from gafaelfawr.schema.subtoken import Subtoken
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import current_datetime
@@ -1510,3 +1511,137 @@ async def test_truncate_history(factory: Factory) -> None:
             auth_data=session_token_data, username="other-user"
         )
         assert history.entries == [new_entry]
+
+
+@pytest.mark.asyncio
+async def test_audit(factory: Factory) -> None:
+    token_service = factory.create_token_service()
+    token_db_store = token_service._token_db_store
+    token_redis_store = token_service._token_redis_store
+    now = current_datetime()
+
+    # Add token to the database that isn't in Redis.
+    db_session_token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.session,
+        scopes=["user:token"],
+        created=now,
+        expires=now + timedelta(days=7),
+    )
+    async with factory.session.begin():
+        await token_db_store.add(db_session_token_data)
+
+    # Add token to Redis that isn't in the database.
+    redis_session_token_data = TokenData(
+        token=Token(),
+        username="other-user",
+        token_type=TokenType.session,
+        scopes=["user:token"],
+        created=now,
+        expires=now + timedelta(days=7),
+    )
+    await token_redis_store.store_data(redis_session_token_data)
+
+    # Add the same token to both places but with mismatched data.
+    db_user_token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.user,
+        scopes=[],
+        created=now - timedelta(days=1),
+        expires=now + timedelta(days=7),
+    )
+    redis_user_token_data = TokenData(
+        token=db_user_token_data.token,
+        username=db_user_token_data.username,
+        token_type=db_user_token_data.token_type,
+        scopes=["read:all"],
+        created=now,
+        expires=db_user_token_data.expires,
+    )
+    await token_redis_store.store_data(redis_user_token_data)
+    async with factory.session.begin():
+        await token_db_store.add(
+            db_user_token_data,
+            token_name="foo",
+            parent=db_session_token_data.token.key,
+        )
+
+    # Add a child token that expires after the parent token.
+    internal_token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.internal,
+        scopes=[],
+        created=now,
+        expires=now + timedelta(days=14),
+    )
+    await token_redis_store.store_data(internal_token_data)
+    async with factory.session.begin():
+        await token_db_store.add(
+            internal_token_data,
+            service="some-service",
+            parent=db_session_token_data.token.key,
+        )
+
+    # Add a child token whose parent token doesn't exist.
+    orphaned_token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.internal,
+        scopes=[],
+        created=now,
+        expires=now + timedelta(days=7),
+    )
+    await token_redis_store.store_data(orphaned_token_data)
+    async with factory.session.begin():
+        await token_db_store.add(orphaned_token_data, service="some-service")
+        subtoken = Subtoken(parent=None, child=orphaned_token_data.token.key)
+        factory.session.add(subtoken)
+
+    # Add a token with an unknown scope.
+    unknown_scope_token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.session,
+        scopes=["bogus:scope"],
+        created=now,
+        expires=now + timedelta(days=7),
+    )
+    await token_redis_store.store_data(unknown_scope_token_data)
+    async with factory.session.begin():
+        await token_db_store.add(unknown_scope_token_data)
+
+    # A token that has expired shouldn't result in warnings about it missing
+    # from Redis.
+    expired_token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.session,
+        scopes=["user:token"],
+        created=now - timedelta(days=7),
+        expires=now - timedelta(seconds=5),
+    )
+    async with factory.session.begin():
+        await token_db_store.add(expired_token_data)
+
+    # Run the audit.  This should result in a Slack message about all of the
+    # problems found.
+    async with factory.session.begin():
+        alerts = await token_service.audit()
+    expected = [
+        f"Token `{db_session_token_data.token.key}` for `some-user`"
+        " found in database but not Redis",
+        f"Token `{redis_session_token_data.token.key}` for `other-user`"
+        " found in Redis but not database",
+        f"Token `{db_user_token_data.token.key}` for `some-user` does"
+        " not match between database and Redis (scopes, created)",
+        f"Token `{internal_token_data.token.key}` for `some-user`"
+        " expires after its parent token",
+        f"Token `{orphaned_token_data.token.key}` for `some-user` has"
+        " no parent token",
+        f"Token `{unknown_scope_token_data.token.key}` for `some-user`"
+        " has unknown scope (`bogus:scope`)",
+    ]
+    assert sorted(alerts) == sorted(expected)

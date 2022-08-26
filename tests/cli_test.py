@@ -35,15 +35,68 @@ from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 from gafaelfawr.schema import Base
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
+from gafaelfawr.util import current_datetime
 
 from .support.logging import parse_log
 from .support.settings import configure
+from .support.slack import MockSlack
 
 
 async def _initialize_database(engine: AsyncEngine, config: Config) -> None:
     """Helper function to initialize the database."""
     logger = structlog.get_logger("gafaelfawr")
     await initialize_database(engine, logger, schema=Base.metadata, reset=True)
+
+
+def test_audit(
+    tmp_path: Path,
+    config: Config,
+    engine: AsyncEngine,
+    event_loop: asyncio.AbstractEventLoop,
+    mock_slack: MockSlack,
+) -> None:
+    logger = structlog.get_logger("gafaelfawr")
+    now = current_datetime()
+    token_data = TokenData(
+        token=Token(),
+        username="some-user",
+        token_type=TokenType.session,
+        scopes=["user:token"],
+        created=now,
+        expires=now + timedelta(days=7),
+    )
+
+    async def setup() -> None:
+        await initialize_database(engine, logger, schema=Base.metadata)
+        async with Factory.standalone(config, engine) as factory:
+            token_db_store = TokenDatabaseStore(factory.session)
+            async with factory.session.begin():
+                await token_db_store.add(token_data)
+
+    event_loop.run_until_complete(setup())
+    runner = CliRunner()
+    result = runner.invoke(main, ["audit"])
+    assert result.exit_code == 0
+
+    alerts = [
+        f"Token `{token_data.token.key}` for `some-user` found in database"
+        " but not Redis",
+    ]
+    expected_alert = (
+        "Gafaelfawr data inconsistencies found:\n* "
+        + "\n* ".join(alerts)
+        + "\n"
+    )
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": expected_alert},
+                }
+            ]
+        }
+    ]
 
 
 def test_delete_all_data(

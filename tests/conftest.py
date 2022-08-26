@@ -116,6 +116,7 @@ async def empty_database(
             stmt = text(f'TRUNCATE TABLE {", ".join(tables)}')
             await factory.session.execute(stmt)
             await admin_service.add_initial_admins(config.initial_admins)
+        await factory._context.redis.flushdb()
 
 
 @pytest.fixture(scope="session")
@@ -126,7 +127,7 @@ def engine() -> AsyncEngine:
     its own database engine, create a single engine at session scope.  This
     allows all the tests to share a single connection pool and not constantly
     open and close connections to the database, which in turn reduces the time
-    it takes to run tests by XX%.
+    it takes to run tests.
     """
     return create_database_engine(TEST_DATABASE_URL, None)
 
