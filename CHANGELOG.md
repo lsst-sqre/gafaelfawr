@@ -9,6 +9,10 @@ The internal configuration format may change in minor releases.
 Dependencies are updated to the latest available version during each
 release.  Those changes are not noted here explicitly.
 
+## 5.2.0 (unreleased)
+
+- Add a Kubernetes `CronJob` to audit Gafaelfawr data stores for inconsistencies and report them to Slack.
+
 ## 5.1.0 (2022-08-18)
 
 - Add support for synthesizing user private groups.  When GitHub is used
