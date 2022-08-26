@@ -110,6 +110,11 @@ class TokenService:
             expires = db_tokens[key].expires
             if expires and expires <= now:
                 continue
+            self._logger.warning(
+                "Token found in database but not Redis",
+                token=key,
+                user=db_tokens[key].username,
+            )
             alerts.append(
                 f"Token `{key}` for `{db_tokens[key].username}` found in"
                 " database but not Redis"
@@ -117,6 +122,11 @@ class TokenService:
 
         # Tokens in Redis but not in the database.
         for key in redis_token_keys - db_token_keys:
+            self._logger.warning(
+                "Token found in Redis but not database",
+                token=key,
+                user=redis_tokens[key].username,
+            )
             alerts.append(
                 f"Token `{key}` for `{redis_tokens[key].username}` found in"
                 " Redis but not database"
@@ -140,6 +150,12 @@ class TokenService:
             if db.expires != redis.expires:
                 mismatches.append("expires")
             if mismatches:
+                self._logger.warning(
+                    "Token does not match between database and Redis",
+                    token=key,
+                    user=redis.username,
+                    mismatches=mismatches,
+                )
                 alerts.append(
                     f"Token `{key}` for `{redis.username}` does not match"
                     f' between database and Redis ({", ".join(mismatches)})'
@@ -148,11 +164,25 @@ class TokenService:
                 parent = db_tokens[db.parent]
                 expires = db.expires
                 if not expires and parent.expires:
+                    self._logger.warning(
+                        "Token expires after its parent",
+                        token=key,
+                        user=redis.username,
+                        expires=db.expires,
+                        parent_expires=parent.expires,
+                    )
                     alerts.append(
                         f"Token `{key}` for `{redis.username}` expires after"
                         " its parent token"
                     )
                 elif expires and parent.expires and expires > parent.expires:
+                    self._logger.warning(
+                        "Token expires after its parent",
+                        token=key,
+                        user=redis.username,
+                        expires=db.expires,
+                        parent_expires=parent.expires,
+                    )
                     alerts.append(
                         f"Token `{key}` for `{redis.username}` expires after"
                         " its parent token"
@@ -160,6 +190,9 @@ class TokenService:
 
         # Check for orphaned tokens.
         for token in await self._token_db_store.list_orphaned():
+            self._logger.warning(
+                "Token has no parent", token=token.token, user=token.username
+            )
             alerts.append(
                 f"Token `{token.token}` for `{token.username}` has no parent"
                 " token"
@@ -170,6 +203,12 @@ class TokenService:
             known_scopes = set(self._config.known_scopes.keys())
             for scope in token_data.scopes:
                 if scope not in known_scopes:
+                    self._logger.warning(
+                        "Token has unknown scope",
+                        token=token_data.token.key,
+                        user=token_data.username,
+                        scope=scope,
+                    )
                     alerts.append(
                         f"Token `{token_data.token.key}` for"
                         f" `{token_data.username}` has unknown scope"
