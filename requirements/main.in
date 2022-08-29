@@ -15,7 +15,7 @@ uvicorn[standard]
 # Other dependencies.
 aioredis
 asyncpg
-bonsai
+bonsai>=1.5.0
 cachetools
 click
 cryptography

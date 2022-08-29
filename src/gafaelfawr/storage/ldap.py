@@ -9,7 +9,6 @@ from typing import Dict, List, Optional
 import bonsai
 from bonsai import LDAPSearchScope
 from bonsai.asyncio import AIOConnectionPool
-from bonsai.asyncio.aiopool import AIOPoolContextManager
 from structlog.stdlib import BoundLogger
 
 from ..config import LDAPConfig
@@ -285,13 +284,13 @@ class LDAPStorage:
         connections and will keep returning the same connection even if the
         LDAP server has stopped responding (due to a firewall timeout, for
         example).  Working around this requires setting a timeout, catching
-        the timeout exception, and explicitly closing and reopening the
-        connection.  A search is attempted at most twice.
+        the timeout exception, and explicitly closing the connection.  A
+        search is attempted at most twice.
 
-        As of bonsai 1.4.0, be aware that bonsai appears to go into an
-        infinite CPU loop when waiting for results when run in an asyncio loop
-        without other active coroutines.  It's not clear whether that's true
-        if there are other active coroutines.
+        Be aware that bonsai (seen in 1.4.0, not tested again in 1.5.0)
+        appears to go into an infinite CPU loop when waiting for results when
+        run in an asyncio loop without other active coroutines.  It's not
+        clear whether that's true if there are other active coroutines.
 
         Parameters
         ----------
@@ -322,7 +321,7 @@ class LDAPStorage:
 
         try:
             for _ in range(2):
-                async with AIOPoolContextManager(self._pool) as conn:
+                async with self._pool.spawn() as conn:
                     try:
                         logger.debug("Querying LDAP")
                         return await conn.search(
@@ -335,14 +334,6 @@ class LDAPStorage:
                     except (bonsai.ConnectionError, asyncio.TimeoutError):
                         logger.debug("Reopening LDAP connection after timeout")
                         conn.close()
-                        await conn.open(timeout=LDAP_TIMEOUT)
-                    except bonsai.ConnectionClosed:
-                        # If we timed out and then the open failed, a closed
-                        # connection is left in the pool and returned later,
-                        # at which point it fails with this exception.
-                        # Attempt to reopen it.
-                        logger.debug("Attempting to reopen closed connection")
-                        await conn.open(timeout=LDAP_TIMEOUT)
         except bonsai.LDAPError as e:
             logger.error("Cannot query LDAP", error=str(e))
             raise LDAPError("Error querying LDAP") from e
