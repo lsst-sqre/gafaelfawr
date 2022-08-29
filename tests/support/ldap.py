@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from types import TracebackType
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Type
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Dict, Iterator, List, Tuple
 from unittest.mock import Mock, patch
 
 import bonsai
 from bonsai.utils import escape_filter_exp
 
-from gafaelfawr import factory, storage
+from gafaelfawr import factory
 from gafaelfawr.constants import LDAP_TIMEOUT
 
 _SearchResults = List[Dict[str, List[str]]]
@@ -26,17 +26,6 @@ class MockLDAP(Mock):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(spec=bonsai.LDAPConnection, **kwargs)
         self._entries: _MockData = defaultdict(dict)
-
-    async def __aenter__(self) -> MockLDAP:
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: Optional[Type[Exception]],
-        exc: Optional[Exception],
-        tb: Optional[TracebackType],
-    ) -> Literal[False]:
-        return False
 
     def add_entries_for_test(
         self, base_dn: str, attr: str, value: str, entries: _SearchResults
@@ -89,6 +78,10 @@ class MockLDAP(Mock):
             results.append({a: entry[a] for a in attrlist if a in entry})
         return results
 
+    @asynccontextmanager
+    async def spawn(self) -> AsyncIterator[MockLDAP]:
+        yield self
+
 
 def patch_ldap() -> Iterator[MockLDAP]:
     """Mock the bonsai API for testing.
@@ -99,8 +92,6 @@ def patch_ldap() -> Iterator[MockLDAP]:
         The mock LDAP API.
     """
     mock_ldap = MockLDAP()
-    with patch.object(storage.ldap, "AIOPoolContextManager") as mock_manager:
-        mock_manager.return_value = mock_ldap
-        with patch.object(factory, "AIOConnectionPool") as mock_pool:
-            mock_pool.return_value = mock_ldap
-            yield mock_ldap
+    with patch.object(factory, "AIOConnectionPool") as mock_pool:
+        mock_pool.return_value = mock_ldap
+        yield mock_ldap
