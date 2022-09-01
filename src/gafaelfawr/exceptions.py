@@ -32,6 +32,7 @@ __all__ = [
     "KubernetesError",
     "KubernetesObjectError",
     "LDAPError",
+    "MissingGIDClaimError",
     "MissingUIDClaimError",
     "MissingUsernameClaimError",
     "NoAvailableGidError",
@@ -383,6 +384,10 @@ class FetchKeysError(VerifyTokenError):
 
 class InvalidTokenClaimsError(VerifyTokenError):
     """One of the claims in the token is of an invalid format."""
+
+
+class MissingGIDClaimError(VerifyTokenError):
+    """The token is missing the required GID claim."""
 
 
 class MissingUIDClaimError(VerifyTokenError):

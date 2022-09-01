@@ -48,7 +48,7 @@ async def test_login(
     expected_scopes = set(config.group_mapping["admin"])
     expected_scopes.add("user:token")
     username = token.claims[config.oidc.username_claim]
-    uid = token.claims[config.oidc.uid_claim]
+    uid = int(token.claims[config.oidc.uid_claim])
     event = f"Successfully authenticated user {username} ({uid})"
     assert parse_log(caplog) == [
         {
@@ -96,8 +96,19 @@ async def test_login(
     assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == username
     assert r.headers["X-Auth-Request-Email"] == "person@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == uid
+    assert r.headers["X-Auth-Request-Uid"] == str(uid)
     assert r.headers["X-Auth-Request-Groups"] == "admin"
+
+    # Also check the information retrieved via the API.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": username,
+        "name": "Some Person",
+        "email": "person@example.com",
+        "uid": uid,
+        "groups": [{"name": "admin", "id": 1000}],
+    }
 
 
 @pytest.mark.asyncio
@@ -567,3 +578,29 @@ async def test_no_enrollment_url(
 
     # None of these errors should have resulted in Slack alerts.
     assert mock_slack.messages == []
+
+
+@pytest.mark.asyncio
+async def test_gid(
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_slack: MockSlack,
+) -> None:
+    """Test getting the primary GID from the OIDC claims."""
+    await reconfigure(tmp_path, "oidc-gid")
+    token = create_upstream_oidc_jwt(groups=["admin"], gid_number="1671")
+
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 307
+
+    # Get the token information and check that the GID was set.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token.claims["sub"],
+        "email": token.claims["email"],
+        "uid": 1000,
+        "gid": 1671,
+        "groups": [{"name": "admin", "id": 1000}],
+    }

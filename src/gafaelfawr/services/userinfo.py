@@ -9,6 +9,7 @@ from structlog.stdlib import BoundLogger
 from ..config import Config
 from ..exceptions import (
     InvalidTokenClaimsError,
+    MissingGIDClaimError,
     MissingUIDClaimError,
     MissingUsernameClaimError,
     NotConfiguredError,
@@ -236,9 +237,9 @@ class OIDCUserInfoService(UserInfoService):
         Determine the user's username, numeric UID, and groups.  These may
         come from LDAP, from Firestore, or some combination, depending on
         configuration.  This is the data that we'll store with the token data
-        in Redis.  It therefore only includes groups if we get them statically
-        from the upstream authentication provider, not if they're read
-        dynamically from LDAP.
+        in Redis.  It therefore only includes that data if it comes statically
+        from the OIDC tokens of the upstream authentication provider, not if
+        they're read dynamically from LDAP or generated via Firestore.
 
         Parameters
         ----------
@@ -253,9 +254,6 @@ class OIDCUserInfoService(UserInfoService):
 
         Raises
         ------
-        gafaelfawr.exceptions.FirestoreError
-            UID/GID allocation using Firestore failed, probably because the UID
-            or GID space has been exhausted.
         gafaelfawr.exceptions.LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
@@ -265,6 +263,7 @@ class OIDCUserInfoService(UserInfoService):
         username = self._get_username_from_oidc_token(token)
         groups = None
         uid = None
+        gid = None
         ldap_data = LDAPUserData(name=None, email=None, uid=None, gid=None)
         if self._ldap:
             ldap_data = await self._ldap.get_data(username)
@@ -272,6 +271,8 @@ class OIDCUserInfoService(UserInfoService):
             groups = await self._get_groups_from_oidc_token(token, username)
         if not self._firestore and not ldap_data.uid:
             uid = self._get_uid_from_oidc_token(token, username)
+        if not self._firestore and not ldap_data.gid:
+            gid = self._get_gid_from_oidc_token(token, username)
 
         # If LDAP is configured and provides a name or email, set those to
         # None to ensure that LDAP will be used for that data going forward.
@@ -280,6 +281,7 @@ class OIDCUserInfoService(UserInfoService):
             name=None if ldap_data.name else token.claims.get("name"),
             email=None if ldap_data.email else token.claims.get("email"),
             uid=uid,
+            gid=gid,
             groups=groups,
         )
 
@@ -348,6 +350,45 @@ class OIDCUserInfoService(UserInfoService):
             )
 
         return groups
+
+    def _get_gid_from_oidc_token(
+        self, token: OIDCVerifiedToken, username: str
+    ) -> Optional[int]:
+        """Verify and return the primary GID from the token.
+
+        Parameters
+        ----------
+        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+            The previously verified token.
+        username : `str`
+            Authenticated username (for error reporting).
+
+        Returns
+        -------
+        gid : `int` or `None`
+            The primary GID of the user as obtained from the token, or `None`
+            if not configured to get a primary GID from the claims.
+
+        Raises
+        ------
+        gafaelfawr.exceptions.MissingGIDClaimError
+            The token is missing the required numeric GID claim.
+        gafaelfawr.exceptions.InvalidTokenClaimsError
+            The GID claim contains something that is not a number.
+        """
+        if not self._oidc_config.gid_claim:
+            return None
+        if self._oidc_config.gid_claim not in token.claims:
+            msg = f"No {self._oidc_config.gid_claim} claim in token"
+            self._logger.warning(msg, claims=token.claims, user=username)
+            raise MissingGIDClaimError(msg)
+        try:
+            gid = int(token.claims[self._oidc_config.gid_claim])
+        except Exception as e:
+            msg = f"Invalid {self._oidc_config.gid_claim} claim in token"
+            self._logger.warning(msg, claims=token.claims, user=username)
+            raise InvalidTokenClaimsError(msg) from e
+        return gid
 
     def _get_uid_from_oidc_token(
         self, token: OIDCVerifiedToken, username: str

@@ -244,6 +244,11 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     This is intended for deployments using CILogon with COmanage for identity management.
     The enrollment URL will normally be the initial URL for a COmanage user-initiated enrollment flow.
 
+``config.cilogon.gidClaim``
+    The claim of the OpenID Connect ID token from which to take the primary GID.
+    Only used if :ref:`GID lookup in LDAP <ldap-user>` is not configured.
+    The default is to not obtain a primary GID from the token.
+
 ``config.cilogon.uidClaim``
     The claim of the OpenID Connect ID token from which to take the numeric UID.
     Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
@@ -278,6 +283,11 @@ There are two additional options under ``config.oidc`` that you may want to set:
 ``config.oidc.enrollmentUrl``
     If a username was not found for the unique identifier in the ``sub`` claim of the OpenID Connect ID token, redirect the user to this URL.
     This could, for example, be a form where the user can register for access to the deployment, or a page explaining how a user can get access.
+
+``config.oidc.gidClaim``
+    The claim of the OpenID Connect ID token from which to take the primary GID.
+    Only used if :ref:`GID lookup in LDAP <ldap-user>` is not configured.
+    The default is to not obtain a primary GID from the token.
 
 ``config.oidc.uidClaim``
     The claim of the OpenID Connect ID token from which to take the numeric UID.
@@ -334,7 +344,7 @@ LDAP user information
 ---------------------
 
 By default, Gafaelfawr takes the user's name, email, and numeric UID from the upstream provider via the ``name``, ``mail``, and ``uidNumber`` claims in the ID token.
-If LDAP is used for group information, this data can instead be obtained from LDAP.
+If LDAP is used for group information, this data, plus the primary GID, can instead be obtained from LDAP.
 To do this, add the following configuration:
 
 .. code-block:: yaml
