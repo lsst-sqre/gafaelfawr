@@ -200,7 +200,7 @@ async def test_login(
 
 
 @pytest.mark.asyncio
-async def test_login_redirect_header(
+async def test_redirect_header(
     client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
@@ -231,7 +231,7 @@ async def test_login_redirect_header(
 
 
 @pytest.mark.asyncio
-async def test_login_no_destination(
+async def test_no_destination(
     client: AsyncClient, mock_slack: MockSlack
 ) -> None:
     r = await client.get("/login")
@@ -242,7 +242,7 @@ async def test_login_no_destination(
 
 
 @pytest.mark.asyncio
-async def test_cookie_auth_with_token(
+async def test_cookie_and_token(
     client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     """Test that cookie auth takes precedence over an Authorization header.
