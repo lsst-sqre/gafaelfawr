@@ -217,6 +217,9 @@ GitHub
 
 using the GitHub client ID from :ref:`github-config`.
 
+When GitHub is used as the provider, group membership will be synthesized from GitHub team membership.
+See :ref:`github-groups` for more information.
+
 CILogon
 ^^^^^^^
 
@@ -227,6 +230,19 @@ CILogon
        clientId: "<cilogon-client-id>"
 
 using the CILogon client ID from :ref:`cilogon-config`.
+
+When CILogon is used as the provider, group membership should normally be obtained from LDAP (see :ref:`LDAP groups <ldap-groups>`).
+However, it optionally can be obtained from information embedded in the OpenID Connect ID token.
+To do the latter, CILogon (generally via COmanage) should be configured to add a token claim in the following format:
+
+.. code-block:: json
+
+   {"isMemberOf": [
+       {"name": "one-group", "id": 1344},
+       {"name": "other-group", "id": 3718},
+   ]}
+
+The name of the claim can be overridden with ``config.cilogon.groupsClaim`` as discussed below.
 
 CILogon has some additional options under ``config.cilogon`` that you may want to set:
 
@@ -279,7 +295,20 @@ Generic OpenID Connect
          - "<scope-to-request>"
          - "<scope-to-request>"
 
-There are two additional options under ``config.oidc`` that you may want to set:
+Group information from the user can come from either LDAP (see :ref:`LDAP groups <ldap-groups>`) or from a claim in the OpenID Connect ID token.
+For the latter option, the claim should preferrably have the following format:
+
+.. code-block:: json
+
+   {"isMemberOf": [
+       {"name": "one-group", "id": 1344},
+       {"name": "other-group", "id": 3718},
+   ]}
+
+The name of the claim can be overridden with ``config.oidc.groupsClaim`` as discussed below.
+Optionally, the value of the claim can be a simple list of group names instead of a structure including the GIDs, but in this case Gafaelfawr will not have access to the GID information and will not be able to provide it to protected applications.
+
+There are some additional options under ``config.oidc`` that you may want to set:
 
 ``config.oidc.loginParams``
     A mapping of additional parameters to send to the login route.
@@ -420,7 +449,7 @@ Set ``<google-project-id>`` to the name of the Google project for the Firestore 
 Scopes
 ------
 
-Gafaelfawr takes group information from the upstream authentication provider and maps it to scopes.
+Gafaelfawr takes group information from the upstream authentication provider or from LDAP and maps it to scopes.
 Scopes are then used to restrict access to protected applications (see :ref:`protect-service`).
 
 For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see :dmtn:`235`.
@@ -441,8 +470,6 @@ You can add additional scopes by adding more key/value pairs to the ``config.kno
 
 Once the scopes are configured, you will need to set up a mapping from groups to scope names.
 
-When GitHub is used as the provider, group membership will be synthesized from GitHub team membership.
-See :ref:`github-groups` for more information.
 A setting for GitHub might look something like this:
 
 .. code-block:: yaml
@@ -465,16 +492,17 @@ A setting for GitHub might look something like this:
          - "lsst-sqre-friends"
 
 This uses groups generated from teams in the GitHub ``lsst-sqre`` organization.
+See :ref:`github-groups` for more information.
 
-When an OpenID Connect provider such as CILogon is used as the provider, group membership will be taken from the ``isMemberOf`` claim of the token returned by the provider.
-The value of this claim will be all scopes for which the user is a member (according to the ``isMemberOf`` claim) of at least one of the corresponding groups.
+When CILogon or generic OpenID Connect are used as the providers, the group information may come from either LDAP or claims in the OpenID Connect ID token.
+Either way, that group membership will then be used to determine scopes via the ``groupMapping`` configuration.
 For example, given a configuration like:
 
 .. code-block:: yaml
 
    config:
      groupMapping:
-       "admin": ["foo", "bar"]
+       "exec:admin": ["foo", "bar"]
 
 and a token claim of:
 
@@ -482,7 +510,7 @@ and a token claim of:
 
    {"isMemberOf": [{"name": "other"}, {"name": "bar"}]}
 
-a ``scope`` claim of ``admin`` will be added to a reissued token.
+a ``scope`` claim of ``exec:admin`` will be added to the token.
 
 Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
 The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
