@@ -579,6 +579,22 @@ To enable this, set ``config.slackAlerts``:
 
 You will also have to set the ``slack-webhook`` key in the Gafaelfawr secret to the URL of the incoming webhook to use to post these alerts.
 
+Maintenance timing
+------------------
+
+Gafaelfawr uses two Kubernetes ``CronJob`` resources to perform periodic maintenance and consistency checks on its data stores.
+
+The maintenance job records history and deletes active entries for expired tokens, and truncates history tables as needed.
+By default, it is run hourly at five minutes past the hour.
+Its schedule can be set with ``config.maintenance.maintenanceSchedule`` (a `cron schedule expression`_).
+
+The audit job looks for data inconsistencies and reports them to Slack.
+:ref:`Slack alerts <slack-alerts>` must be configured.
+By default, it runs once a day at 03:00 in the time zone of the Kubernetes cluster.
+Its schedule can be set with ``config.maintenance.auditSchedule`` (a `cron schedule expression`_).
+
+.. _cron schedule expression: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#cron-schedule-syntax
+
 OpenID Connect server
 ---------------------
 
