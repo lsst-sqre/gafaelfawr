@@ -13,6 +13,7 @@ release.  Those changes are not noted here explicitly.
 
 - The primary GID can now be obtained from the OpenID Connect ID token from either CILogon or generic OpenID Connect by setting `config.cilogon.gidClaim` or `config.oidc.gidClaim`.
 - Add a Kubernetes `CronJob` to audit Gafaelfawr data stores for inconsistencies and report them to Slack.
+- The timing of the maintenance `CronJob` added in 5.1.0 can now be configured with `config.maintenance.maintenanceSchedule` (a cron schedule expression).
 
 ## 5.1.0 (2022-08-18)
 
