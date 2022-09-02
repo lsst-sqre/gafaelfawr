@@ -29,5 +29,6 @@ oidc:
   audience: "https://test.example.com/"
   username_claim: "username"
   uid_claim: "numeric_uid"
+  groups_claim: "group_membership"
 error_footer: |
   Some <strong>error instructions</strong> with HTML.

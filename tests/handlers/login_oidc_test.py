@@ -155,21 +155,22 @@ async def test_claim_names(
     claims = {
         config.oidc.username_claim: "alt-username",
         config.oidc.uid_claim: 7890,
+        config.oidc.groups_claim: [{"name": "admin", "id": "1000"}],
     }
-    token = create_upstream_oidc_jwt(
-        kid="orig-kid", groups=["admin"], **claims
-    )
+    token = create_upstream_oidc_jwt(kid="orig-kid", groups=["test"], **claims)
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
 
     # Check that the /auth route works and sets the headers correctly.  uid
-    # will be set to some-user and uidNumber will be set to 1000, so we'll
-    # know if we read the alternate claim names correctly instead.
+    # will be set to some-user, uidNumber will be set to 1000, and isMemberOf
+    # will include just the test group, so we'll know if we read the alternate
+    # claim names correctly instead.
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "alt-username"
     assert r.headers["X-Auth-Request-Uid"] == "7890"
+    assert r.headers["X-Auth-Request-Groups"] == "admin"
 
 
 @pytest.mark.asyncio

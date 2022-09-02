@@ -254,6 +254,11 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
     The default is ``uidNumber``.
 
+``config.cilogon.groupsClaim``
+    The claim of the OpenID Connect ID token from which to take the group membership information.
+    Only used if :ref:`LDAP groups <ldap-groups>` are not configured.
+    The default is ``isMemberOf``.
+
 ``config.cilogon.usernameClaim``
     The claim of the OpenID Connect ID token from which to take the username.
     The default is ``uid``.
@@ -293,6 +298,11 @@ There are two additional options under ``config.oidc`` that you may want to set:
     The claim of the OpenID Connect ID token from which to take the numeric UID.
     Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
     The default is ``uidNumber``.
+
+``config.cilogon.groupsClaim``
+    The claim of the OpenID Connect ID token from which to take the group membership information.
+    Only used if :ref:`LDAP groups <ldap-groups>` are not configured.
+    The default is ``isMemberOf``.
 
 ``config.oidc.usernameClaim``
     The claim of the OpenID Connect ID token from which to take the username.

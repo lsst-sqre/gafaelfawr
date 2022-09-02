@@ -304,7 +304,7 @@ class OIDCUserInfoService(UserInfoService):
         Returns
         -------
         groups : List[`gafaelfawr.models.token.TokenGroup`]
-            List of groups derived from the ``isMemberOf`` token claim.
+            List of groups derived from the token claim.
 
         Raises
         ------
@@ -313,10 +313,11 @@ class OIDCUserInfoService(UserInfoService):
         gafaelfawr.exceptions.InvalidTokenClaimsError
             The ``isMemberOf`` claim has an invalid syntax.
         """
+        claim = self._oidc_config.groups_claim
         groups = []
         invalid_groups = {}
         try:
-            for oidc_group in token.claims.get("isMemberOf", []):
+            for oidc_group in token.claims.get(claim, []):
                 if "name" not in oidc_group:
                     continue
                 name = oidc_group["name"]
@@ -330,11 +331,11 @@ class OIDCUserInfoService(UserInfoService):
                 except (TypeError, ValueError, ValidationError) as e:
                     invalid_groups[name] = str(e)
         except TypeError as e:
-            msg = f"isMemberOf claim has invalid format: {str(e)}"
+            msg = f"{claim} claim has invalid format: {str(e)}"
             self._logger.error(
                 "Unable to get groups from token",
                 error=msg,
-                claim=token.claims.get("isMemberOf", []),
+                claim=token.claims.get(claim, []),
                 user=username,
             )
             raise InvalidTokenClaimsError(msg) from e
@@ -342,7 +343,7 @@ class OIDCUserInfoService(UserInfoService):
         if invalid_groups:
             self._logger.warning(
                 "Ignoring invalid groups in OIDC token",
-                error="isMemberOf claim value could not be parsed",
+                error=f"{claim} claim value could not be parsed",
                 invalid_groups=invalid_groups,
                 user=username,
             )
