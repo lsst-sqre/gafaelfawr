@@ -11,6 +11,7 @@ release.  Those changes are not noted here explicitly.
 
 ## 5.2.0 (unreleased)
 
+- The primary GID can now be obtained from the OpenID Connect ID token from either CILogon or generic OpenID Connect by setting `config.cilogon.gidClaim` or `config.oidc.gidClaim`.
 - Add a Kubernetes `CronJob` to audit Gafaelfawr data stores for inconsistencies and report them to Slack.
 
 ## 5.1.0 (2022-08-18)

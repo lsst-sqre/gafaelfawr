@@ -1,0 +1,31 @@
+realm: "example.com"
+session_secret_file: "{session_secret_file}"
+database_url: "{database_url}"
+redis_url: "redis://localhost:6379/0"
+slack_webhook_file: "{slack_webhook_file}"
+initial_admins: ["admin"]
+after_logout_url: "https://example.com/landing"
+group_mapping:
+  "exec:admin": ["admin"]
+  "exec:test": ["test"]
+  "read:all": ["foo", "admin", "org-a-team"]
+known_scopes:
+  "admin:token": "Can create and modify tokens for any user"
+  "exec:admin": "admin description"
+  "exec:test": "test description"
+  "read:all": "can read everything"
+  "user:token": "Can create and modify user tokens"
+oidc:
+  client_id: "some-oidc-client-id"
+  client_secret_file: "{oidc_secret_file}"
+  login_url: "https://upstream.example.com/oidc/login"
+  login_params:
+    skin: "test"
+  redirect_url: "https://upstream.example.com/login"
+  token_url: "https://upstream.example.com/token"
+  scopes:
+    - "email"
+    - "voPerson"
+  issuer: "https://upstream.example.com/"
+  audience: "https://test.example.com/"
+  gid_claim: "gid_number"

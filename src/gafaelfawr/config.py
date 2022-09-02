@@ -112,6 +112,9 @@ class OIDCSettings(BaseModel):
     uid_claim: str = "uidNumber"
     """Name of claim to use as the UID."""
 
+    gid_claim: Optional[str] = None
+    """Name of claim to use as the primary GID."""
+
 
 class LDAPSettings(BaseModel):
     """pydantic model of LDAP configuration."""
@@ -474,6 +477,9 @@ class OIDCConfig:
     uid_claim: str
     """Token claim from which to take the UID."""
 
+    gid_claim: Optional[str]
+    """Token claim from which to take the primary GID."""
+
 
 @dataclass(frozen=True)
 class LDAPConfig:
@@ -757,6 +763,7 @@ class Config:
                 audience=settings.oidc.audience,
                 username_claim=settings.oidc.username_claim,
                 uid_claim=settings.oidc.uid_claim,
+                gid_claim=settings.oidc.gid_claim,
             )
 
         # Build LDAP configuration if needed.
