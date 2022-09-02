@@ -113,11 +113,7 @@ class TokenType(Enum):
 
 
 class TokenGroup(BaseModel):
-    """Information about a single group.
-
-    This is temporary until group information is stored in a dedicated
-    identity management system.
-    """
+    """Information about a single group."""
 
     name: str = Field(
         ...,
@@ -127,7 +123,18 @@ class TokenGroup(BaseModel):
         regex=GROUPNAME_REGEX,
     )
 
-    id: int = Field(..., title="The numeric GID of the group", example=123181)
+    id: Optional[int] = Field(
+        None,
+        title="Numeric GID of the group",
+        example=123181,
+        description=(
+            "Numeric GID may be unset, in which case the group still"
+            " contributes to determining scopes, but may be ignored by"
+            " services that require a GID. If Firestore is configured, a"
+            " numeric GID will be allocated by Firestore if left unset"
+            " when creating a token."
+        ),
+    )
 
 
 class TokenBase(BaseModel):
@@ -253,7 +260,7 @@ class TokenUserInfo(BaseModel):
 
     If information is stored with the token, it overrides information from
     other sources such as LDAP.  Fields that should be dynamically retrieved
-    from LDAP should be set to `None`.
+    from LDAP should be omitted or set to `None`.
     """
 
     username: str = Field(

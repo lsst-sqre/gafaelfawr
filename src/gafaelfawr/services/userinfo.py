@@ -320,13 +320,11 @@ class OIDCUserInfoService(UserInfoService):
                 if "name" not in oidc_group:
                     continue
                 name = oidc_group["name"]
+                gid = None
                 try:
                     if self._firestore:
                         gid = await self._firestore.get_gid(name)
-                    else:
-                        if "id" not in oidc_group:
-                            invalid_groups[name] = "missing id"
-                            continue
+                    elif "id" in oidc_group:
                         gid = int(oidc_group["id"])
                     groups.append(TokenGroup(name=name, id=gid))
                 except (TypeError, ValueError, ValidationError) as e:

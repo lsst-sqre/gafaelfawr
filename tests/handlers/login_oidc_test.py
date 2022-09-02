@@ -391,7 +391,7 @@ async def test_invalid_groups(
     await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
         isMemberOf=[
-            {"name": "foo"},
+            {"name": "test"},
             {"group": "bar", "id": 4567},
             {"name": "valid", "id": "7889"},
             {"name": "admin", "id": 2371, "extra": "blah"},
@@ -405,9 +405,27 @@ async def test_invalid_groups(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
 
+    # test counts as a valid group despite not having a GID, and should
+    # contribute to scopes.
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Groups"] == "valid,admin"
+    assert r.headers["X-Auth-Request-Groups"] == "test,valid,admin"
+    expected_scopes = "exec:admin exec:test read:all user:token"
+    assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
+
+    # Check the group membership via the user-info endpoint.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token.claims["uid"],
+        "email": token.claims["email"],
+        "uid": int(token.claims["uidNumber"]),
+        "groups": [
+            {"name": "test"},
+            {"name": "valid", "id": 7889},
+            {"name": "admin", "id": 2371},
+        ],
+    }
 
 
 @pytest.mark.asyncio
