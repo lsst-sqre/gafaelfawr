@@ -292,7 +292,10 @@ class OIDCUserInfoService(UserInfoService):
     ) -> List[TokenGroup]:
         """Determine the user's groups from token claims.
 
-        Invalid groups are logged and ignored.
+        Invalid groups are logged and ignored.  The token claim containing the
+        group membership can either be a list of dicts with ``name`` and
+        optional ``id`` keys, or a simple list of names of groups.  In the
+        latter case, the groups will have no GID data.
 
         Parameters
         ----------
@@ -318,11 +321,14 @@ class OIDCUserInfoService(UserInfoService):
         invalid_groups = {}
         try:
             for oidc_group in token.claims.get(claim, []):
-                if "name" not in oidc_group:
-                    continue
-                name = oidc_group["name"]
-                gid = None
                 try:
+                    if isinstance(oidc_group, str):
+                        groups.append(TokenGroup(name=oidc_group))
+                        continue
+                    if "name" not in oidc_group:
+                        continue
+                    name = oidc_group["name"]
+                    gid = None
                     if self._firestore:
                         gid = await self._firestore.get_gid(name)
                     elif "id" in oidc_group:

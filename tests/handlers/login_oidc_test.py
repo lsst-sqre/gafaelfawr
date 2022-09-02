@@ -613,7 +613,7 @@ async def test_gid(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
 
-    # Get the token information and check that the GID was set.
+    # Get the user information and check that the GID was set.
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
     assert r.json() == {
@@ -622,4 +622,35 @@ async def test_gid(
         "uid": 1000,
         "gid": 1671,
         "groups": [{"name": "admin", "id": 1000}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_group_list(
+    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
+) -> None:
+    """Test a simple list of groups instead of a complex structure."""
+    config = await reconfigure(tmp_path, "oidc-claims")
+    assert config.oidc
+    claims = {
+        config.oidc.username_claim: "alt-username",
+        config.oidc.uid_claim: 7890,
+        config.oidc.groups_claim: ["foo", "admin"],
+    }
+    token = create_upstream_oidc_jwt(kid="orig-kid", groups=["test"], **claims)
+
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 307
+
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Groups"] == "foo,admin"
+
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "alt-username",
+        "email": token.claims["email"],
+        "uid": 7890,
+        "groups": [{"name": "foo"}, {"name": "admin"}],
     }
