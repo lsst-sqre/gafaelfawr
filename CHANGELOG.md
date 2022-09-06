@@ -4,7 +4,7 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 5.2.0 (unreleased)
+## 5.2.0 (2022-09-06)
 
 ### New features
 
@@ -13,6 +13,10 @@ Dependencies are updated to the latest available version during each release. Th
 - The name of the claim in an OpenID Connect ID token from which group membership is taken can now be changed by setting `config.cilogon.groupsClaim` or `config.oidc.groupsClaim`.
 - Add a Kubernetes `CronJob` to audit Gafaelfawr data stores for inconsistencies and report them to Slack.
 - The timing of the maintenance `CronJob` added in 5.1.0 can now be configured with `config.maintenance.maintenanceSchedule` (a cron schedule expression).
+
+### Bug fixes
+
+- Hopefully fix recovery from LDAP connection timeouts by removing a reference to an incorrect exception name, and take advantage of the recovery support in the latest release of [bonsai](https://github.com/noirello/bonsai).
 
 ## 5.1.0 (2022-08-18)
 
