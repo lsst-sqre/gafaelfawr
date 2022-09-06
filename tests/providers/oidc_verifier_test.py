@@ -83,7 +83,7 @@ async def test_verify_token(
 
 
 @pytest.mark.asyncio
-async def test_verify_oidc_no_kids(
+async def test_verify_no_kids(
     tmp_path: Path, respx_mock: respx.Router, factory: Factory
 ) -> None:
     config = await reconfigure(tmp_path, "oidc-no-kids", factory)

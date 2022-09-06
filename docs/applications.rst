@@ -174,7 +174,8 @@ The value of that annotation is a comma-separated list of desired headers.
     If a notebook or internal token was requested, it will be provided as the value of this header.
 
 ``X-Auth-Request-Token-Scopes``
-    If the token has scopes in the ``scope`` claim or derived from groups listed in ``isMemberOf``, they will be returned in this header.
+    A space-separated list of scopes possessed by the user's token.
+    This is the scopes of the token presented by the user, not the scopes of the delegated token (if any) provided in the ``X-Auth-Request-Token`` header.
 
 ``X-Auth-Request-Token-Scopes-Accepted``
     A space-separated list of token scopes the protected service accepts.

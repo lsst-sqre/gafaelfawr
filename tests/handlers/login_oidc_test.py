@@ -155,21 +155,22 @@ async def test_claim_names(
     claims = {
         config.oidc.username_claim: "alt-username",
         config.oidc.uid_claim: 7890,
+        config.oidc.groups_claim: [{"name": "admin", "id": "1000"}],
     }
-    token = create_upstream_oidc_jwt(
-        kid="orig-kid", groups=["admin"], **claims
-    )
+    token = create_upstream_oidc_jwt(kid="orig-kid", groups=["test"], **claims)
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
 
     # Check that the /auth route works and sets the headers correctly.  uid
-    # will be set to some-user and uidNumber will be set to 1000, so we'll
-    # know if we read the alternate claim names correctly instead.
+    # will be set to some-user, uidNumber will be set to 1000, and isMemberOf
+    # will include just the test group, so we'll know if we read the alternate
+    # claim names correctly instead.
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "alt-username"
     assert r.headers["X-Auth-Request-Uid"] == "7890"
+    assert r.headers["X-Auth-Request-Groups"] == "admin"
 
 
 @pytest.mark.asyncio
@@ -391,7 +392,7 @@ async def test_invalid_groups(
     await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
         isMemberOf=[
-            {"name": "foo"},
+            {"name": "test"},
             {"group": "bar", "id": 4567},
             {"name": "valid", "id": "7889"},
             {"name": "admin", "id": 2371, "extra": "blah"},
@@ -405,9 +406,27 @@ async def test_invalid_groups(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
 
+    # test counts as a valid group despite not having a GID, and should
+    # contribute to scopes.
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Groups"] == "valid,admin"
+    assert r.headers["X-Auth-Request-Groups"] == "test,valid,admin"
+    expected_scopes = "exec:admin exec:test read:all user:token"
+    assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
+
+    # Check the group membership via the user-info endpoint.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token.claims["uid"],
+        "email": token.claims["email"],
+        "uid": int(token.claims["uidNumber"]),
+        "groups": [
+            {"name": "test"},
+            {"name": "valid", "id": 7889},
+            {"name": "admin", "id": 2371},
+        ],
+    }
 
 
 @pytest.mark.asyncio
@@ -594,7 +613,7 @@ async def test_gid(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
 
-    # Get the token information and check that the GID was set.
+    # Get the user information and check that the GID was set.
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
     assert r.json() == {
@@ -603,4 +622,35 @@ async def test_gid(
         "uid": 1000,
         "gid": 1671,
         "groups": [{"name": "admin", "id": 1000}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_group_list(
+    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
+) -> None:
+    """Test a simple list of groups instead of a complex structure."""
+    config = await reconfigure(tmp_path, "oidc-claims")
+    assert config.oidc
+    claims = {
+        config.oidc.username_claim: "alt-username",
+        config.oidc.uid_claim: 7890,
+        config.oidc.groups_claim: ["foo", "admin"],
+    }
+    token = create_upstream_oidc_jwt(kid="orig-kid", groups=["test"], **claims)
+
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 307
+
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Groups"] == "foo,admin"
+
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "alt-username",
+        "email": token.claims["email"],
+        "uid": 7890,
+        "groups": [{"name": "foo"}, {"name": "admin"}],
     }

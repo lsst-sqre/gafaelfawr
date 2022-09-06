@@ -115,6 +115,9 @@ class OIDCSettings(BaseModel):
     gid_claim: Optional[str] = None
     """Name of claim to use as the primary GID."""
 
+    groups_claim: str = "isMemberOf"
+    """Name of claim to use for the group membership."""
+
 
 class LDAPSettings(BaseModel):
     """pydantic model of LDAP configuration."""
@@ -480,6 +483,9 @@ class OIDCConfig:
     gid_claim: Optional[str]
     """Token claim from which to take the primary GID."""
 
+    groups_claim: str
+    """Token claim from which to take the group membership."""
+
 
 @dataclass(frozen=True)
 class LDAPConfig:
@@ -764,6 +770,7 @@ class Config:
                 username_claim=settings.oidc.username_claim,
                 uid_claim=settings.oidc.uid_claim,
                 gid_claim=settings.oidc.gid_claim,
+                groups_claim=settings.oidc.groups_claim,
             )
 
         # Build LDAP configuration if needed.

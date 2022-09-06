@@ -292,7 +292,10 @@ class OIDCUserInfoService(UserInfoService):
     ) -> List[TokenGroup]:
         """Determine the user's groups from token claims.
 
-        Invalid groups are logged and ignored.
+        Invalid groups are logged and ignored.  The token claim containing the
+        group membership can either be a list of dicts with ``name`` and
+        optional ``id`` keys, or a simple list of names of groups.  In the
+        latter case, the groups will have no GID data.
 
         Parameters
         ----------
@@ -304,7 +307,7 @@ class OIDCUserInfoService(UserInfoService):
         Returns
         -------
         groups : List[`gafaelfawr.models.token.TokenGroup`]
-            List of groups derived from the ``isMemberOf`` token claim.
+            List of groups derived from the token claim.
 
         Raises
         ------
@@ -313,30 +316,32 @@ class OIDCUserInfoService(UserInfoService):
         gafaelfawr.exceptions.InvalidTokenClaimsError
             The ``isMemberOf`` claim has an invalid syntax.
         """
+        claim = self._oidc_config.groups_claim
         groups = []
         invalid_groups = {}
         try:
-            for oidc_group in token.claims.get("isMemberOf", []):
-                if "name" not in oidc_group:
-                    continue
-                name = oidc_group["name"]
+            for oidc_group in token.claims.get(claim, []):
                 try:
+                    if isinstance(oidc_group, str):
+                        groups.append(TokenGroup(name=oidc_group))
+                        continue
+                    if "name" not in oidc_group:
+                        continue
+                    name = oidc_group["name"]
+                    gid = None
                     if self._firestore:
                         gid = await self._firestore.get_gid(name)
-                    else:
-                        if "id" not in oidc_group:
-                            invalid_groups[name] = "missing id"
-                            continue
+                    elif "id" in oidc_group:
                         gid = int(oidc_group["id"])
                     groups.append(TokenGroup(name=name, id=gid))
                 except (TypeError, ValueError, ValidationError) as e:
                     invalid_groups[name] = str(e)
         except TypeError as e:
-            msg = f"isMemberOf claim has invalid format: {str(e)}"
+            msg = f"{claim} claim has invalid format: {str(e)}"
             self._logger.error(
                 "Unable to get groups from token",
                 error=msg,
-                claim=token.claims.get("isMemberOf", []),
+                claim=token.claims.get(claim, []),
                 user=username,
             )
             raise InvalidTokenClaimsError(msg) from e
@@ -344,7 +349,7 @@ class OIDCUserInfoService(UserInfoService):
         if invalid_groups:
             self._logger.warning(
                 "Ignoring invalid groups in OIDC token",
-                error="isMemberOf claim value could not be parsed",
+                error=f"{claim} claim value could not be parsed",
                 invalid_groups=invalid_groups,
                 user=username,
             )
