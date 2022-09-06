@@ -412,9 +412,9 @@ hyperframe==6.0.1 \
     # via
     #   h2
     #   selenium-wire
-identify==2.5.3 \
-    --hash=sha256:25851c8c1370effb22aaa3c987b30449e9ff0cece408f810ae6ce408fdd20893 \
-    --hash=sha256:887e7b91a1be152b0d46bbf072130235a8117392b9f1828446079a816a05ef44
+identify==2.5.5 \
+    --hash=sha256:322a5699daecf7c6fd60e68852f36f2ecbb6a36ff6e6e973e0d2bb6fca203ee6 \
+    --hash=sha256:ef78c0d96098a3b5fe7720be4a97e73f439af7cf088ebf47b620aeaa10fadf97
     # via pre-commit
 idna==3.3 \
     --hash=sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff \
@@ -442,9 +442,9 @@ jinja2==3.1.2 \
     #   myst-parser
     #   sphinx
     #   sphinxcontrib-redoc
-jsonschema==4.14.0 \
-    --hash=sha256:15062f4cc6f591400cd528d2c355f2cfa6a57e44c820dc783aee5e23d36a831f \
-    --hash=sha256:9892b8d630a82990521a9ca630d3446bd316b5ad54dbe981338802787f3e0d2d
+jsonschema==4.15.0 \
+    --hash=sha256:21f4979391bdceb044e502fd8e79e738c0cdfbdc8773f9a49b5769461e82fe1e \
+    --hash=sha256:2df0fab225abb3b41967bb3a46fd37dc74b1536b5296d0b1c2078cd072adf0f7
     # via sphinxcontrib-redoc
 kaitaistruct==0.10 \
     --hash=sha256:a044dee29173d6afbacf27bcac39daf89b654dd418cfa009ab82d9178a9ae52a \
@@ -654,9 +654,9 @@ pysocks==1.7.1 \
     # via
     #   selenium-wire
     #   urllib3
-pytest==7.1.2 \
-    --hash=sha256:13d0e3ccfc2b6e26be000cb6568c832ba67ba32e719443bfe725814d3c42433c \
-    --hash=sha256:a06a0425453864a270bc45e71f783330a7428defb4230fb5e6a731fde06ecd45
+pytest==7.1.3 \
+    --hash=sha256:1377bda3466d70b55e3f5cecfa55bb7cfcf219c7964629b967c37cf0bda818b7 \
+    --hash=sha256:4f365fec2dff9c1162f834d9f18af1ba13062db0c708bf7b946f8a5c76180c39
     # via
     #   -r requirements/dev.in
     #   pytest-asyncio
@@ -755,9 +755,9 @@ smmap==5.0.0 \
     --hash=sha256:2aba19d6a040e78d8b09de5c57e96207b09ed71d8e55ce0959eeee6c8e190d94 \
     --hash=sha256:c840e62059cd3be204b0c9c9f74be2c09d5648eddd4580d9314c3ecde0b30936
     # via gitdb
-sniffio==1.2.0 \
-    --hash=sha256:471b71698eac1c2112a40ce2752bb2f4a4814c22a54a3eed3676bc0f5ca9f663 \
-    --hash=sha256:c4666eecec1d3f50960c6bdf61ab7bc350648da6c126e3cf6898d8cd4ddcd3de
+sniffio==1.3.0 \
+    --hash=sha256:e60305c5e5d314f5389259b7f22aaa33d8f7dee49763119234af3755c55b9101 \
+    --hash=sha256:eecefdce1e5bbfb7ad2eeaabf7c1eeb404d7757c379bd1f7e5cce9d8bf425384
     # via
     #   -c requirements/main.txt
     #   anyio
@@ -866,9 +866,9 @@ sqlalchemy[asyncio,mypy]==1.4.40 \
     # via
     #   -c requirements/main.txt
     #   -r requirements/dev.in
-sqlalchemy2-stubs==0.0.2a26 \
-    --hash=sha256:2848755b30e177a3d39cd10c52c0fcbbbecb227a6a608fa53b0ce11070b156f7 \
-    --hash=sha256:bb2e2cd88cb7c3710c2361ad0b085c86a287667a4a51b640c66711dd83fce82b
+sqlalchemy2-stubs==0.0.2a27 \
+    --hash=sha256:6cea12fec3c261f6e0e14a95d2cc4914e373095e68ec4fc2eb473183ac2b17a2 \
+    --hash=sha256:f79bce50b7837a2c2374ef4480b41e2b8a8226f313f347dc2a70526a4191db93
     # via sqlalchemy
 termcolor==1.1.0 \
     --hash=sha256:1d6d69ce66211143803fbc56652b41d73b4a400a2891d7bf7a1cdf4c02de613b
@@ -921,9 +921,9 @@ urllib3[socks]==1.26.12 \
     #   -c requirements/main.txt
     #   requests
     #   selenium
-virtualenv==20.16.3 \
-    --hash=sha256:4193b7bc8a6cd23e4eb251ac64f29b4398ab2c233531e66e40b19a6b7b0d30c1 \
-    --hash=sha256:d86ea0bb50e06252d79e6c241507cb904fcd66090c3271381372d6221a3970f9
+virtualenv==20.16.4 \
+    --hash=sha256:014f766e4134d0008dcaa1f95bafa0fb0f575795d07cae50b1bee514185d6782 \
+    --hash=sha256:035ed57acce4ac35c82c9d8802202b0e71adac011a511ff650cbcf9635006a22
     # via pre-commit
 wsproto==1.2.0 \
     --hash=sha256:ad565f26ecb92588a3e43bc3d96164de84cd9902482b130d0ddbaa9664a85065 \
