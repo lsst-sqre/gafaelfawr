@@ -18,7 +18,7 @@ Log attributes
 The main log message will be in the ``event`` attribute of each log message.
 If this message indicates an error with supplemental information, the additional details of the error will be in the ``error`` attribute.
 
-Gafaelfawr will add some consistent attributes to log messages, in addition to the default attributes `added by Safir <https://safir.lsst.io/logging.html>`__.
+Gafaelfawr will add some consistent attributes to log messages, in addition to the default attributes `added by Safir <https://safir.lsst.io/user-guide/logging.html>`__.
 All authenticated routes add the following attributes once the user's token has been located and verified:
 
 ``scope``
