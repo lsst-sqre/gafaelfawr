@@ -24,6 +24,7 @@ from .exceptions import (
     ValidationError,
 )
 from .handlers import analyze, api, auth, index, influxdb, login, logout, oidc
+from .logging import setup_uvicorn_logging
 from .middleware.state import StateMiddleware
 from .models.state import State
 from .slack import initialize_slack_alerts
@@ -136,6 +137,10 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     app.exception_handler(NotConfiguredError)(not_configured_handler)
     app.exception_handler(PermissionDeniedError)(permission_handler)
     app.exception_handler(ValidationError)(validation_handler)
+
+    # Customize uvicorn logging to use the same structlog configuration as
+    # main application logging.
+    setup_uvicorn_logging()
 
     return app
 
