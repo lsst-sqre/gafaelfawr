@@ -63,7 +63,7 @@ def process_uvicorn_access_log(
 def setup_uvicorn_logging(loglevel: str = "INFO") -> None:
     """Set up logging.
 
-    This configures the uvicorn to use structlog for output formatting.  It is
+    This configures uvicorn to use structlog for output formatting.  It is
     used by the main FastAPI application.
 
     Parameters
