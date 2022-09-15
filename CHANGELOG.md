@@ -4,7 +4,11 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 5.2.1 (unreleased)
+## 6.0.0 (unreleased)
+
+### Backwards-incompatible changes
+
+- Drop support for `/oauth2/callback` as an alias for `/login` and the `config.cilogon.redirectUrl` setting. This was required for some older CILogon integrations at NCSA, but those deployments have been retired.
 
 ### Other changes
 

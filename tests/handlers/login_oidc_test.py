@@ -131,21 +131,6 @@ async def test_login_redirect_header(
 
 
 @pytest.mark.asyncio
-async def test_oauth2_callback(
-    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
-) -> None:
-    """Test the compatibility /oauth2/callback route."""
-    config = await reconfigure(tmp_path, "oidc")
-    token = create_upstream_oidc_jwt(groups=["admin"])
-    assert config.oidc
-
-    r = await simulate_oidc_login(
-        client, respx_mock, token, callback_route="/oauth2/callback"
-    )
-    assert r.status_code == 307
-
-
-@pytest.mark.asyncio
 async def test_claim_names(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
@@ -202,8 +187,7 @@ async def test_callback_error(
     # Simulate the return from the OpenID Connect provider.
     caplog.clear()
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "error_code: description" in r.text
@@ -238,8 +222,7 @@ async def test_callback_error(
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
@@ -249,8 +232,7 @@ async def test_callback_error(
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "No id_token in token reply" in r.text
@@ -260,8 +242,7 @@ async def test_callback_error(
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "not valid JSON" in r.text
@@ -271,8 +252,7 @@ async def test_callback_error(
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text

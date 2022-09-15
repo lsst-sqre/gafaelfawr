@@ -72,7 +72,6 @@ class LoginError(Enum):
     summary="Authenticate browser",
     tags=["browser"],
 )
-@router.get("/oauth2/callback", include_in_schema=False, tags=["browser"])
 async def get_login(
     code: Optional[str] = Query(
         None,

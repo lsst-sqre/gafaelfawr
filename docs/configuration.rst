@@ -246,10 +246,6 @@ The name of the claim can be overridden with ``config.cilogon.groupsClaim`` as d
 
 CILogon has some additional options under ``config.cilogon`` that you may want to set:
 
-``config.cilogon.redirectUrl``
-    The full redirect URL for CILogon if using CILogon as the identity provider.
-    Set this if you need to change the redirect URL to the ``/oauth2/callback`` route instead of the ``/login`` route.
-
 ``config.cilogon.loginParams``
     A mapping of additional parameters to send to the CILogon authorize route.
     Can be used to set parameters like ``skin`` or ``selected_idp``.
