@@ -26,6 +26,6 @@ jinja2
 pydantic
 PyJWT
 pyyaml
-safir[db,kubernetes]
+safir[db,kubernetes]>=3.3.0
 sqlalchemy
 structlog

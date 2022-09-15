@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
+from safir.logging import configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 
@@ -24,7 +25,6 @@ from .exceptions import (
     ValidationError,
 )
 from .handlers import analyze, api, auth, index, influxdb, login, logout, oidc
-from .logging import setup_uvicorn_logging
 from .middleware.state import StateMiddleware
 from .models.state import State
 from .slack import initialize_slack_alerts
@@ -140,7 +140,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
 
     # Customize uvicorn logging to use the same structlog configuration as
     # main application logging.
-    setup_uvicorn_logging()
+    configure_uvicorn_logging()
 
     return app
 
