@@ -254,7 +254,7 @@ class GitHubProvider(Provider):
                 "DELETE",
                 grant_url,
                 auth=(client_id, client_secret),
-                headers={"Accept": "application/json"},
+                headers={"Accept": "application/vnd.github+json"},
                 json=data,
             )
             r.raise_for_status()
@@ -296,7 +296,7 @@ class GitHubProvider(Provider):
         r = await self._http_client.post(
             self._TOKEN_URL,
             data=data,
-            headers={"Accept": "application/json"},
+            headers={"Accept": "application/vnd.github+json"},
         )
         r.raise_for_status()
         result = r.json()
@@ -328,14 +328,20 @@ class GitHubProvider(Provider):
         self._logger.debug("Fetching user data from %s", self._USER_URL)
         r = await self._http_client.get(
             self._USER_URL,
-            headers={"Authorization": f"token {token}"},
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"token {token}",
+            },
         )
         r.raise_for_status()
         user_data = r.json()
         self._logger.debug("Fetching user data from %s", self._EMAILS_URL)
         r = await self._http_client.get(
             self._EMAILS_URL,
-            headers={"Authorization": f"token {token}"},
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"token {token}",
+            },
         )
         r.raise_for_status()
         emails_data = r.json()
@@ -390,7 +396,10 @@ class GitHubProvider(Provider):
         self._logger.debug("Fetching user team data from %s", self._TEAMS_URL)
         r = await self._http_client.get(
             self._TEAMS_URL,
-            headers={"Authorization": f"token {token}"},
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"token {token}",
+            },
         )
         r.raise_for_status()
         teams_data = r.json()
@@ -410,7 +419,10 @@ class GitHubProvider(Provider):
             )
             r = await self._http_client.get(
                 link_data.next_url,
-                headers={"Authorization": f"token {token}"},
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"token {token}",
+                },
             )
             r.raise_for_status()
             teams_data.extend(r.json())

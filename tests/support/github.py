@@ -59,7 +59,7 @@ class MockGitHub:
 
     def delete_token(self, request: Request) -> Response:
         assert self.token, "Must obtain GitHub token first"
-        assert request.headers["Accept"] == "application/json"
+        assert request.headers["Accept"] == "application/vnd.github+json"
         basic_auth_raw = f"{self.config.client_id}:{self.config.client_secret}"
         basic_auth = base64.b64encode(basic_auth_raw.encode()).decode()
         assert request.headers["Authorization"] == f"Basic {basic_auth}"
@@ -70,6 +70,7 @@ class MockGitHub:
 
     def get_emails(self, request: Request) -> Response:
         assert self.token, "Must obtain GitHub token first"
+        assert request.headers["Accept"] == "application/vnd.github+json"
         assert request.headers["Authorization"] == f"token {self.token}"
         return Response(
             200,
@@ -81,6 +82,7 @@ class MockGitHub:
 
     def get_teams(self, request: Request) -> Response:
         assert self.token, "Must obtain GitHub token first"
+        assert request.headers["Accept"] == "application/vnd.github+json"
         assert request.headers["Authorization"] == f"token {self.token}"
         teams = [
             {
@@ -116,6 +118,7 @@ class MockGitHub:
 
     def get_user(self, request: Request) -> Response:
         assert self.token, "Must obtain GitHub token first"
+        assert request.headers["Accept"] == "application/vnd.github+json"
         assert request.headers["Authorization"] == f"token {self.token}"
         return Response(
             200,
@@ -127,7 +130,7 @@ class MockGitHub:
         )
 
     def post_token(self, request: Request) -> Response:
-        assert request.headers["Accept"] == "application/json"
+        assert request.headers["Accept"] == "application/vnd.github+json"
         assert parse_qs(request.read().decode()) == {
             "client_id": [self.config.client_id],
             "client_secret": [self.config.client_secret],

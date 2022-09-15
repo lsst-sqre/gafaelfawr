@@ -14,6 +14,7 @@ Dependencies are updated to the latest available version during each release. Th
 ### Other changes
 
 - Uvicorn logs are now sent through structlog for consistent JSON formatting. Context expected by Google's Cloud Logging is added to each log message.
+- Send `Accept: application/vnd.github+json` instead of `Accept: application/json` when making GitHub API calls.
 
 ## 5.2.0 (2022-09-06)
 
