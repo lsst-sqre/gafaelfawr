@@ -4,6 +4,12 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
+## 5.2.1 (unreleased)
+
+### Other changes
+
+- Uvicorn logs are now sent through structlog for consistent JSON formatting. Context expected by Google's Cloud Logging is added to each log message.
+
 ## 5.2.0 (2022-09-06)
 
 ### New features
