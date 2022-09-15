@@ -279,28 +279,3 @@ Assuming that Gafaelfawr and Open Distro for Elasticsearch are deployed on the h
 * ``opendistro_security.openid.client_secret``: ``fb7518beb61d27aaf20675d62778dea9``
 * ``opendistro_security.openid.scope``: ``openid``
 * ``opendistro_security.openid.logout_url``: ``https://example.com/logout``
-
-.. _influxdb:
-
-Authenticating to InfluxDB
-==========================
-
-.. warning::
-
-   InfluxDB 2.x is not supported.
-   These tokens will only work with InfluxDB 1.x.
-   This feature is deprecated and will likely be removed in a future version of Gafaelfawr.
-
-Gafaelfawr optionally supports issuing tokens for InfluxDB 1.x authentication.
-To enable this support, set ``config.influxdb.enabled`` to true in :ref:`helm-settings`.
-Then, create an ``influxdb-secret`` Vault secret key with the shared key that InfluxDB uses to verify the token.
-This can be any string of characters, such as the results of ``os.urandom(32).hex()``.
-The same secret must be configured in the `InfluxDB configuration file <https://docs.influxdata.com/influxdb/v1.8/administration/authentication_and_authorization/>`__.
-
-This will enable creation of new InfluxDB tokens via the ``/auth/tokens/influxdb/new`` route.
-Users can authenticate to this route with either a web session or a bearer token.
-The result is a JSON object containing a ``token`` key, the contents of which are the bearer token to present to InfluxDB.
-
-The token will contain a ``username`` claim matching the user's Gafaelfawr username and will expire at the same time as the token or session used to authenticate to this route.
-
-If you want all InfluxDB tokens to contain the same ``username`` field so that you can use a single generic InfluxDB account, set ``config.influxdb.username`` to that value in :ref:`helm-settings`.

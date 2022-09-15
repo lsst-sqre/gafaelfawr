@@ -24,7 +24,7 @@ from .exceptions import (
     PermissionDeniedError,
     ValidationError,
 )
-from .handlers import analyze, api, auth, index, influxdb, login, logout, oidc
+from .handlers import analyze, api, auth, index, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
 from .slack import initialize_slack_alerts
@@ -98,7 +98,6 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     )
     app.include_router(auth.router)
     app.include_router(index.router)
-    app.include_router(influxdb.router)
     app.include_router(login.router)
     app.include_router(logout.router)
     app.include_router(oidc.router)

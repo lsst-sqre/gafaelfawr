@@ -37,8 +37,6 @@ Python internals
 
 .. automodapi:: gafaelfawr.models.history
 
-.. automodapi:: gafaelfawr.models.influxdb
-
 .. automodapi:: gafaelfawr.models.ldap
 
 .. automodapi:: gafaelfawr.models.link
@@ -58,8 +56,6 @@ Python internals
 .. automodapi:: gafaelfawr.services.admin
 
 .. automodapi:: gafaelfawr.services.firestore
-
-.. automodapi:: gafaelfawr.services.influxdb
 
 .. automodapi:: gafaelfawr.services.kubernetes
 

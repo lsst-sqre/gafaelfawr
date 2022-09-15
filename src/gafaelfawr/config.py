@@ -38,8 +38,6 @@ __all__ = [
     "FirestoreSettings",
     "GitHubConfig",
     "GitHubSettings",
-    "InfluxDBConfig",
-    "InfluxDBSettings",
     "LDAPConfig",
     "LDAPSettings",
     "OIDCConfig",
@@ -223,16 +221,6 @@ class FirestoreSettings(BaseModel):
     """Project containing the Firestore collections."""
 
 
-class InfluxDBSettings(BaseModel):
-    """pydantic model of InfluxDB token issuer configuration."""
-
-    secret_file: str
-    """File containing shared secret for issuing InfluxDB tokens."""
-
-    username: Optional[str] = None
-    """The username to set in all InfluxDB tokens."""
-
-
 class OIDCServerSettings(BaseModel):
     """pydantic model of issuer configuration."""
 
@@ -325,9 +313,6 @@ class Settings(BaseSettings):
     firestore: Optional[FirestoreSettings] = None
     """Settings for Firestore-based UID/GID assignment."""
 
-    influxdb: Optional[InfluxDBSettings] = None
-    """Settings for the InfluxDB token issuer."""
-
     oidc_server: Optional[OIDCServerSettings] = None
     """Settings for the internal OpenID Connect server."""
 
@@ -396,20 +381,6 @@ class Settings(BaseSettings):
         if not v:
             raise ValueError("initial_admins is empty")
         return v
-
-
-@dataclass(frozen=True)
-class InfluxDBConfig:
-    """Configuration for how to issue InfluxDB tokens."""
-
-    lifetime: timedelta
-    """Lifetime of issued tokens."""
-
-    secret: str
-    """Shared secret for issuing authentication tokens."""
-
-    username: Optional[str]
-    """The username to set in all InfluxDB tokens."""
 
 
 @dataclass(frozen=True)
@@ -687,9 +658,6 @@ class Config:
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
 
-    influxdb: Optional[InfluxDBConfig]
-    """Configuration for the InfluxDB token issuer."""
-
     github: Optional[GitHubConfig]
     """Configuration for GitHub authentication."""
 
@@ -803,17 +771,6 @@ class Config:
                 project=settings.firestore.project
             )
 
-        # Build InfluxDB token issuer configuration if needed.
-        influxdb_config = None
-        if settings.influxdb:
-            path = settings.influxdb.secret_file
-            influxdb_secret = cls._load_secret(path).decode()
-            influxdb_config = InfluxDBConfig(
-                lifetime=timedelta(minutes=settings.token_lifetime_minutes),
-                secret=influxdb_secret,
-                username=settings.influxdb.username,
-            )
-
         # Build the OpenID Connect server configuration if needed.
         oidc_server_config = None
         if settings.oidc_server:
@@ -882,7 +839,6 @@ class Config:
             token_lifetime=timedelta(minutes=settings.token_lifetime_minutes),
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
-            influxdb=influxdb_config,
             github=github_config,
             oidc=oidc_config,
             ldap=ldap_config,
