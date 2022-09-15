@@ -155,7 +155,7 @@ async def test_login(
     ]
 
     r = await client.get(
-        "/auth/userinfo",
+        "/auth/openid/userinfo",
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
 
@@ -517,7 +517,7 @@ async def test_token_errors(
 async def test_no_auth(
     client: AsyncClient, config: Config, mock_slack: MockSlack
 ) -> None:
-    r = await client.get("/auth/userinfo")
+    r = await client.get("/auth/openid/userinfo")
     assert_unauthorized_is_correct(r, config)
 
     # None of these errors should have resulted in Slack alerts.
@@ -542,7 +542,7 @@ async def test_invalid(
 
     caplog.clear()
     r = await client.get(
-        "/auth/userinfo",
+        "/auth/openid/userinfo",
         headers={"Authorization": f"token {oidc_token.encoded}"},
     )
 
@@ -560,7 +560,7 @@ async def test_invalid(
             "event": "Invalid request",
             "httpRequest": {
                 "requestMethod": "GET",
-                "requestUrl": f"https://{TEST_HOSTNAME}/auth/userinfo",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/userinfo",
                 "remoteIp": "127.0.0.1",
             },
             "severity": "warning",
@@ -568,7 +568,7 @@ async def test_invalid(
     ]
 
     r = await client.get(
-        "/auth/userinfo",
+        "/auth/openid/userinfo",
         headers={"Authorization": f"bearer{oidc_token.encoded}"},
     )
 
@@ -582,7 +582,7 @@ async def test_invalid(
 
     caplog.clear()
     r = await client.get(
-        "/auth/userinfo",
+        "/auth/openid/userinfo",
         headers={"Authorization": f"bearer XXX{oidc_token.encoded}"},
     )
 
@@ -600,7 +600,7 @@ async def test_invalid(
             "event": "Invalid token",
             "httpRequest": {
                 "requestMethod": "GET",
-                "requestUrl": f"https://{TEST_HOSTNAME}/auth/userinfo",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/userinfo",
                 "remoteIp": "127.0.0.1",
             },
             "severity": "warning",

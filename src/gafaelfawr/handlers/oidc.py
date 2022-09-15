@@ -248,7 +248,7 @@ async def post_token(
 
 
 @router.get(
-    "/auth/oidc/userinfo",
+    "/auth/openid/userinfo",
     description="Return information about the holder of a JWT",
     responses={
         200: {
@@ -275,7 +275,6 @@ async def post_token(
     summary="Get OIDC token metadata",
     tags=["oidc"],
 )
-@router.get("/auth/userinfo", include_in_schema=False, tags=["oidc"])
 async def get_userinfo(
     token: OIDCVerifiedToken = Depends(verified_oidc_token),
     context: RequestContext = Depends(context_dependency),

@@ -8,6 +8,7 @@ Dependencies are updated to the latest available version during each release. Th
 
 ### Backwards-incompatible changes
 
+- The supported URL for getting token information after an OpenID Connect authentication to Gafaelfawr is `/auth/openid/userinfo`. Fix the mistaken creation of `/auth/oidc/userinfo` and drop support for `/auth/userinfo`. The latter incorrectly implies this is a general API, as opposed to specific to the OpenID Connect support.
 - Drop support for `/oauth2/callback` as an alias for `/login` and the `config.cilogon.redirectUrl` setting. This was required for some older CILogon integrations at NCSA, but those deployments have been retired.
 
 ### Other changes
