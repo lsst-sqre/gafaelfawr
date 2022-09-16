@@ -73,7 +73,10 @@ class State(BaseState):
         except Exception as e:
             if request:
                 logger = await logger_dependency(request)
-                logger.warning("Discarding invalid state cookie", error=str(e))
+                error = type(e).__name__
+                if str(e):
+                    error += f": {str(e)}"
+                logger.warning("Discarding invalid state cookie", error=error)
             return cls()
 
         return cls(
