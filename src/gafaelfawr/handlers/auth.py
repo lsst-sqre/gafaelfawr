@@ -146,11 +146,6 @@ def auth_config(
     fastapi.HTTPException
         If ``notebook`` and ``delegate_to`` are both set.
     """
-    context.rebind_logger(
-        auth_uri=auth_uri,
-        required_scopes=sorted(scope),
-        satisfy=satisfy.name.lower(),
-    )
     if notebook and delegate_to:
         msg = "delegate_to cannot be set for notebook tokens"
         raise InvalidDelegateToError(msg)
@@ -158,6 +153,11 @@ def auth_config(
         delegate_scopes = [s.strip() for s in delegate_scope.split(",")]
     else:
         delegate_scopes = []
+    context.rebind_logger(
+        auth_uri=auth_uri,
+        required_scopes=sorted(set(scope) | set(delegate_scopes)),
+        satisfy=satisfy.name.lower(),
+    )
     return AuthConfig(
         scopes=set(scope) | set(delegate_scopes),
         satisfy=satisfy,
