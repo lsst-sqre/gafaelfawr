@@ -139,17 +139,30 @@ async def test_login(
             "severity": "info",
         },
         {
-            "event": "Successfully authenticated user githubuser (123456)",
+            "event": "Successfully authenticated user githubuser",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
             "return_url": return_url,
-            "scopes": ["read:all", "user:token"],
             "severity": "info",
-            "token": ANY,
-            "user": "githubuser",
+            "token_key": ANY,
+            "token_username": "githubuser",
+            "token_expires": ANY,
+            "token_scopes": ["read:all", "user:token"],
+            "token_userinfo": {
+                "email": "githubuser@example.com",
+                "gid": 123456,
+                "groups": [
+                    {"id": 123456, "name": "githubuser"},
+                    {"id": 1000, "name": "org-a-team"},
+                    {"id": 1001, "name": "org-other-team"},
+                    {"id": 1002, "name": "other-org-team-with-very--F279yg"},
+                ],
+                "name": "GitHub User",
+                "uid": 123456,
+            },
         },
     ]
 

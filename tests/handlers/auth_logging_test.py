@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import base64
+from unittest.mock import ANY
 
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.token import Token
+from gafaelfawr.util import format_datetime_for_logging
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.logging import parse_log
@@ -250,4 +253,142 @@ async def test_invalid_token(
             "severity": "warning",
             "token_source": "bearer",
         }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_notebook(
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
+    )
+    assert token_data.expires
+
+    caplog.clear()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin", "notebook": "true"},
+        headers={
+            "Authorization": f"Bearer {token_data.token}",
+            "X-Original-Uri": "/foo",
+        },
+    )
+    assert r.status_code == 200
+    notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
+
+    assert parse_log(caplog) == [
+        {
+            "auth_uri": "/foo",
+            "event": "Token authorized",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
+            "required_scopes": ["exec:admin"],
+            "satisfy": "all",
+            "scopes": ["exec:admin", "read:all"],
+            "severity": "info",
+            "token": token_data.token.key,
+            "token_source": "bearer",
+            "user": token_data.username,
+        },
+        {
+            "auth_uri": "/foo",
+            "event": "Created new notebook token",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
+            "required_scopes": ["exec:admin"],
+            "satisfy": "all",
+            "scopes": ["exec:admin", "read:all"],
+            "severity": "info",
+            "token": token_data.token.key,
+            "token_key": notebook_token.key,
+            "token_expires": format_datetime_for_logging(token_data.expires),
+            "token_source": "bearer",
+            "token_userinfo": {
+                "email": token_data.email,
+                "name": token_data.name,
+                "uid": token_data.uid,
+                "gid": token_data.gid,
+                "groups": [{"id": 1000, "name": "admin"}],
+            },
+            "user": token_data.username,
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_internal(
+    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
+    )
+    assert token_data.expires
+
+    caplog.clear()
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "exec:admin",
+            "delegate_to": "a-service",
+            "delegate_scope": "read:all",
+        },
+        headers={
+            "Authorization": f"Bearer {token_data.token}",
+            "X-Original-Uri": "/foo",
+        },
+    )
+    assert r.status_code == 200
+    notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
+
+    assert parse_log(caplog) == [
+        {
+            "auth_uri": "/foo",
+            "event": "Token authorized",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
+            "required_scopes": ["exec:admin"],
+            "satisfy": "all",
+            "scopes": ["exec:admin", "read:all"],
+            "severity": "info",
+            "token": token_data.token.key,
+            "token_source": "bearer",
+            "user": token_data.username,
+        },
+        {
+            "auth_uri": "/foo",
+            "event": "Created new internal token",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
+            "required_scopes": ["exec:admin"],
+            "satisfy": "all",
+            "scopes": ["exec:admin", "read:all"],
+            "severity": "info",
+            "token": token_data.token.key,
+            "token_key": notebook_token.key,
+            "token_expires": format_datetime_for_logging(token_data.expires),
+            "token_scopes": ["read:all"],
+            "token_service": "a-service",
+            "token_source": "bearer",
+            "token_userinfo": {
+                "email": token_data.email,
+                "name": token_data.name,
+                "uid": token_data.uid,
+                "gid": token_data.gid,
+                "groups": [{"id": 1000, "name": "admin"}],
+            },
+            "user": token_data.username,
+        },
     ]

@@ -70,6 +70,7 @@ class AdminService:
         )
         await self._admin_store.add(admin)
         await self._admin_history_store.add(history_entry)
+        self._logger.info(f"Added admin {admin.username}")
 
     async def add_initial_admins(self, admins: Iterable[str]) -> None:
         """Add the initial admins if the database is not initialized.
@@ -85,7 +86,7 @@ class AdminService:
         """
         if not await self._admin_store.list():
             for admin in admins:
-                self._logger.info(f"adding initial admin {admin}")
+                self._logger.info(f"Adding initial admin {admin}")
                 await self._admin_store.add(Admin(username=admin))
 
     async def delete_admin(
@@ -128,6 +129,7 @@ class AdminService:
         result = await self._admin_store.delete(admin)
         if result:
             await self._admin_history_store.add(history_entry)
+            self._logger.info(f"Deleted admin {username}")
         return result
 
     async def get_admins(self) -> List[Admin]:

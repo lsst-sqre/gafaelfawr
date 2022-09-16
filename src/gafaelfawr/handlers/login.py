@@ -266,14 +266,6 @@ async def handle_provider_return(
     # what they were doing.
     context.state.state = None
     context.state.return_url = None
-    context.logger.info(
-        "Successfully authenticated user %s (%s)",
-        user_info.username,
-        user_info.uid,
-        user=user_info.username,
-        token=token.key,
-        scopes=sorted(scopes),
-    )
     return RedirectResponse(return_url)
 
 

@@ -49,7 +49,6 @@ async def test_login(
     expected_scopes.add("user:token")
     username = token.claims[config.oidc.username_claim]
     uid = int(token.claims[config.oidc.uid_claim])
-    event = f"Successfully authenticated user {username} ({uid})"
     assert parse_log(caplog) == [
         {
             "event": f"Redirecting user to {login_url} for authentication",
@@ -72,17 +71,24 @@ async def test_login(
             "severity": "info",
         },
         {
-            "event": event,
+            "event": f"Successfully authenticated user {username}",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
             "return_url": return_url,
-            "scopes": sorted(expected_scopes),
             "severity": "info",
-            "token": ANY,
-            "user": username,
+            "token_key": ANY,
+            "token_username": username,
+            "token_expires": ANY,
+            "token_scopes": sorted(expected_scopes),
+            "token_userinfo": {
+                "email": "person@example.com",
+                "groups": [{"id": 1000, "name": "admin"}],
+                "name": "Some Person",
+                "uid": uid,
+            },
         },
     ]
 

@@ -21,7 +21,7 @@ If this message indicates an error with supplemental information, the additional
 Gafaelfawr will add some consistent attributes to log messages, in addition to the default attributes `added by Safir <https://safir.lsst.io/user-guide/logging.html>`__.
 All authenticated routes add the following attributes once the user's token has been located and verified:
 
-``scope``
+``scopes``
     The scopes of the authentication token.
 
 ``token``
@@ -52,7 +52,31 @@ The ``/login`` route adds the following attributes:
 ``return_url``
     The URL to which the user will be sent after successful authentication.
 
-Some actions will add additional structured data appropriate to that action.
+Routes that create or modify tokens will log the new details of the token in some or all of the following attributes:
+
+``token_expires``
+    The expiration time of the token, in ISO 8601 format but with the ``T`` separator replaced with a space.
+
+``token_key``
+    The key of the new token.
+
+``token_name``
+    The name of the token.
+
+``token_scopes``
+    The scopes of the newly-created token (not to be confused with ``scopes``, which are the scopes of the token used to authenticate the request).
+
+``token_service``
+    The service for which this delegated token was created, used only for internal tokens.
+
+``token_userinfo``
+    User identity information stored with the token.
+    This information will override any information coming from external sources, such as LDAP or Firestore.
+    It is a dictionary, with possible keys including ``name``, ``email``, ``uid``, ``gid``, and ``groups``.
+
+``token_username``
+    The username of the new token.
+    This is often omitted when a user is creating a token for themselves, and the username of the token therefore matches ``user``.
 
 .. _client-ips:
 

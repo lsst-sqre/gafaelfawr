@@ -305,6 +305,37 @@ class TokenUserInfo(BaseModel):
         description="Groups of which the user is a member",
     )
 
+    def to_userinfo_dict(self) -> Dict[str, Any]:
+        """Convert to a dictionary for logging purposes.
+
+        This method converts only the `TokenUserInfo` portion of a token to a
+        dictionary for logging purposes, excluding the ``username`` field
+        (which is logged separately).  It's used when logging creation of
+        new tokens to make a record of the user identity information included
+        in the token (as opposed to retrieved dynamically from other sources
+        such as LDAP or Firestore).
+
+        Returns
+        -------
+        token_userinfo : Dict[`str`, Any]:
+            Dictionary of information, roughly equivalent to calling
+            ``dict(exclude_none=True)`` on the `TokenUserInfo` object, but
+            ensuring that only its data is included even if called on a
+            subclass such as `TokenData`.
+        """
+        token_userinfo: Dict[str, Any] = {}
+        if self.name is not None:
+            token_userinfo["name"] = self.name
+        if self.email is not None:
+            token_userinfo["email"] = self.email
+        if self.uid is not None:
+            token_userinfo["uid"] = self.uid
+        if self.gid is not None:
+            token_userinfo["gid"] = self.gid
+        if self.groups is not None:
+            token_userinfo["groups"] = [g.dict() for g in self.groups]
+        return token_userinfo
+
 
 class TokenData(TokenBase, TokenUserInfo):
     """Data about a token stored in Redis.
