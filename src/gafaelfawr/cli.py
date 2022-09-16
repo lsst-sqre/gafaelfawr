@@ -260,7 +260,9 @@ async def maintenance(settings: Optional[str]) -> None:
     async with Factory.standalone(config, engine, check_db=True) as factory:
         token_service = factory.create_token_service()
         async with factory.session.begin():
+            logger.info("Marking expired tokens in database")
             await token_service.expire_tokens()
+            logger.info("Truncating token history")
             await token_service.truncate_history()
     await engine.dispose()
     logger.debug("Finished background maintenance")
