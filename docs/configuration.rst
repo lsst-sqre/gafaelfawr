@@ -108,7 +108,7 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
 
 ``session-secret``
     Encryption key for the Gafaelfawr session cookie.
-    Generate with :py:meth:`cryptography.fernet.Fernet.generate_key`.
+    Generate with ``gafaelfawr generate-session-secret``.
 
 ``signing-key`` (optional)
     Only used if the Helm chart parameter ``config.oidcServer.enabled`` is set to true.

@@ -10,6 +10,7 @@ from typing import Optional, Union
 import click
 import structlog
 import uvicorn
+from cryptography.fernet import Fernet
 from fastapi.openapi.utils import get_openapi
 from kubernetes_asyncio.client import ApiClient
 from safir.asyncio import run_with_asyncio
@@ -158,6 +159,12 @@ def generate_key() -> None:
     """Generate a new RSA key pair and print the private key."""
     keypair = RSAKeyPair.generate()
     print(keypair.private_key_as_pem())
+
+
+@main.command()
+def generate_session_secret() -> None:
+    """Generate a new Gafaelfawr session secret."""
+    print(Fernet.generate_key().decode())
 
 
 @main.command()
