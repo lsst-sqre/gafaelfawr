@@ -70,11 +70,11 @@ class LDAPService:
             The names of the user's groups according to LDAP.
         """
         groups = self._group_name_cache.get(username)
-        if groups:
+        if groups is not None:
             return groups
         async with await self._group_name_cache.lock(username):
             groups = self._group_name_cache.get(username)
-            if groups:
+            if groups is not None:
                 return groups
             groups = await self._ldap.get_group_names(username, gid)
             self._group_name_cache.store(username, groups)
@@ -107,11 +107,11 @@ class LDAPService:
             An error occurred when retrieving user information from LDAP.
         """
         groups = self._group_cache.get(username)
-        if groups:
+        if groups is not None:
             return groups
         async with await self._group_cache.lock(username):
             groups = self._group_cache.get(username)
-            if groups:
+            if groups is not None:
                 return groups
             groups = await self._ldap.get_groups(username, gid)
             self._group_cache.store(username, groups)

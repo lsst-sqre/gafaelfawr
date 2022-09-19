@@ -76,8 +76,6 @@ async def test_ldap(
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
     assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == "2000"
-    assert r.headers["X-Auth-Request-Groups"] == "foo,group-1,group-2"
 
 
 @pytest.mark.asyncio
@@ -133,9 +131,6 @@ async def test_ldap_firestore(
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
     assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == str(UID_USER_MIN)
-    expected = "foo,group-1,group-2,ldap-user"
-    assert r.headers["X-Auth-Request-Groups"] == expected
 
 
 @pytest.mark.asyncio
@@ -183,8 +178,6 @@ async def test_no_name_email(
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
     assert r.headers["X-Auth-Request-Email"] == token.claims["email"]
-    assert r.headers["X-Auth-Request-Uid"] == "2000"
-    assert r.headers["X-Auth-Request-Groups"] == "foo,ldap-user"
 
 
 @pytest.mark.asyncio
@@ -334,8 +327,6 @@ async def test_only_groups(
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
     assert r.headers["X-Auth-Request-Email"] == token.claims["email"]
-    assert r.headers["X-Auth-Request-Uid"] == token.claims["uidNumber"]
-    assert r.headers["X-Auth-Request-Groups"] == "foo"
 
 
 @pytest.mark.asyncio
@@ -379,5 +370,4 @@ async def test_missing_attrs(
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
-    assert r.headers["X-Auth-Request-Uid"] == "2000"
-    assert r.headers["X-Auth-Request-Groups"] == "foo"
+    assert "X-Auth-Request-Email" not in r.headers

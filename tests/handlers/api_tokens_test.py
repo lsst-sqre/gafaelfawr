@@ -16,7 +16,7 @@ from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
-from gafaelfawr.util import current_datetime
+from gafaelfawr.util import current_datetime, format_datetime_for_logging
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
@@ -48,6 +48,7 @@ async def test_create_delete_modify(
         )
     csrf = await set_session_cookie(client, session_token)
 
+    caplog.clear()
     expires = current_datetime() + timedelta(days=100)
     r = await client.post(
         "/auth/api/v1/users/example/tokens",
@@ -63,6 +64,35 @@ async def test_create_delete_modify(
     user_token = Token.from_str(r.json()["token"])
     token_url = r.headers["Location"]
     assert token_url == f"/auth/api/v1/users/example/tokens/{user_token.key}"
+
+    # Check the logging.
+    assert parse_log(caplog) == [
+        {
+            "event": "Created new user token",
+            "httpRequest": {
+                "requestMethod": "POST",
+                "requestUrl": (
+                    f"https://{TEST_HOSTNAME}/auth/api/v1/users/example/tokens"
+                ),
+                "remoteIp": "127.0.0.1",
+            },
+            "scopes": ["exec:admin", "read:all", "user:token"],
+            "severity": "info",
+            "token": session_token.key,
+            "token_key": user_token.key,
+            "token_expires": format_datetime_for_logging(expires),
+            "token_name": "some token",
+            "token_scopes": ["read:all"],
+            "token_source": "cookie",
+            "token_userinfo": {
+                "email": "example@example.com",
+                "name": "Example Person",
+                "uid": 45613,
+                "groups": [{"id": 12313, "name": "foo"}],
+            },
+            "user": "example",
+        }
+    ]
 
     r = await client.get(token_url)
     assert r.status_code == 200
@@ -137,20 +167,20 @@ async def test_create_delete_modify(
     }
 
     # Check the logging.  Regression test for a bug where new expirations
-    # would be logged as raw datetime objects instead of timestamps.
+    # would be logged as raw datetime objects instead of formatted dates.
     assert parse_log(caplog) == [
         {
-            "expires": int(new_expires.timestamp()),
             "event": "Modified token",
             "httpRequest": {
                 "requestMethod": "PATCH",
                 "requestUrl": f"https://{TEST_HOSTNAME}{token_url}",
                 "remoteIp": "127.0.0.1",
             },
-            "key": user_token.key,
             "scopes": ["exec:admin", "read:all", "user:token"],
             "severity": "info",
             "token": session_token.key,
+            "token_key": user_token.key,
+            "token_expires": format_datetime_for_logging(new_expires),
             "token_name": "happy token",
             "token_scopes": ["exec:admin"],
             "token_source": "cookie",
@@ -159,10 +189,30 @@ async def test_create_delete_modify(
     ]
 
     # Delete the token.
+    caplog.clear()
     r = await client.delete(token_url, headers={"X-CSRF-Token": csrf})
     assert r.status_code == 204
     r = await client.get(token_url)
     assert r.status_code == 404
+
+    # Check the logging.
+    assert parse_log(caplog) == [
+        {
+            "event": "Deleted token",
+            "httpRequest": {
+                "requestMethod": "DELETE",
+                "requestUrl": f"https://{TEST_HOSTNAME}{token_url}",
+                "remoteIp": "127.0.0.1",
+            },
+            "scopes": ["exec:admin", "read:all", "user:token"],
+            "severity": "info",
+            "token": session_token.key,
+            "token_key": user_token.key,
+            "token_source": "cookie",
+            "token_username": "example",
+            "user": "example",
+        }
+    ]
 
     # Deleting again should return 404.
     r = await client.delete(token_url, headers={"X-CSRF-Token": csrf})
@@ -859,7 +909,10 @@ async def test_bad_scopes(
 
 @pytest.mark.asyncio
 async def test_create_admin(
-    client: AsyncClient, config: Config, factory: Factory
+    client: AsyncClient,
+    config: Config,
+    factory: Factory,
+    caplog: LogCaptureFixture,
 ) -> None:
     """Test creating a token through the admin interface."""
     token_data = await create_session_token(factory, scopes=["exec:admin"])
@@ -876,7 +929,8 @@ async def test_create_admin(
     csrf = await set_session_cookie(client, token_data.token)
 
     now = datetime.now(tz=timezone.utc)
-    expires = int((now + timedelta(days=2)).timestamp())
+    expires = now + timedelta(days=2)
+    caplog.clear()
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": csrf},
@@ -884,7 +938,7 @@ async def test_create_admin(
             "username": "bot-a-service",
             "token_type": "service",
             "scopes": ["admin:token"],
-            "expires": expires,
+            "expires": int(expires.timestamp()),
             "name": "A Service",
             "uid": 1234,
             "gid": 4567,
@@ -898,6 +952,35 @@ async def test_create_admin(
     token_url = f"/auth/api/v1/users/bot-a-service/tokens/{service_token.key}"
     assert r.headers["Location"] == token_url
 
+    # Check the logging.
+    assert parse_log(caplog) == [
+        {
+            "event": "Created new service token",
+            "httpRequest": {
+                "requestMethod": "POST",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/api/v1/tokens",
+                "remoteIp": "127.0.0.1",
+            },
+            "scopes": ["admin:token"],
+            "severity": "info",
+            "token": token_data.token.key,
+            "token_key": service_token.key,
+            "token_expires": format_datetime_for_logging(expires),
+            "token_scopes": ["admin:token"],
+            "token_source": "cookie",
+            "token_userinfo": {
+                "name": "A Service",
+                "email": "service@example.com",
+                "uid": 1234,
+                "gid": 4567,
+                "groups": [{"name": "some-group", "id": 12381}],
+            },
+            "token_username": "bot-a-service",
+            "user": token_data.username,
+        }
+    ]
+
+    # Check API information about the token.
     clear_session_cookie(client)
     r = await client.get(
         "/auth/api/v1/token-info",
@@ -910,7 +993,7 @@ async def test_create_admin(
         "token_type": "service",
         "scopes": ["admin:token"],
         "created": ANY,
-        "expires": expires,
+        "expires": int(expires.timestamp()),
     }
     r = await client.get(
         "/auth/api/v1/user-info",
@@ -926,6 +1009,8 @@ async def test_create_admin(
         "groups": [{"name": "some-group", "id": 12381}],
     }
 
+    # Check a bunch of invalid ways to create a new token for another user.
+    caplog.clear()
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"Authorization": f"bearer {str(service_token)}"},
@@ -963,6 +1048,7 @@ async def test_create_admin(
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "invalid_scopes"
 
+    # Create a new token for another user.
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"Authorization": f"bearer {str(service_token)}"},
@@ -978,7 +1064,29 @@ async def test_create_admin(
     token_url = f"/auth/api/v1/users/a-user/tokens/{user_token.key}"
     assert r.headers["Location"] == token_url
 
-    # Successfully create a user token.
+    assert parse_log(caplog) == [
+        {
+            "event": "Created new user token as administrator",
+            "httpRequest": {
+                "requestMethod": "POST",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/api/v1/tokens",
+                "remoteIp": "127.0.0.1",
+            },
+            "scopes": ["admin:token"],
+            "severity": "info",
+            "token": service_token.key,
+            "token_key": user_token.key,
+            "token_expires": None,
+            "token_name": "some token",
+            "token_scopes": [],
+            "token_source": "bearer",
+            "token_userinfo": {},
+            "token_username": "a-user",
+            "user": "bot-a-service",
+        }
+    ]
+
+    # Check the API information about that token.
     r = await client.get(
         "/auth/api/v1/token-info",
         headers={"Authorization": f"bearer {str(user_token)}"},

@@ -72,6 +72,26 @@ def current_datetime() -> datetime:
     return datetime.now(tz=timezone.utc).replace(microsecond=0)
 
 
+def format_datetime_for_logging(date: Optional[datetime]) -> Optional[str]:
+    """Format a datetime for logging.
+
+    Parameters
+    ----------
+    date : `datetime.datetime` or `None`
+        The object to format.
+
+    Returns
+    -------
+    date_str : `str` or `None`
+        The datetime in ISO format with seconds, or `None` if the input was
+        `None`.
+    """
+    if date:
+        return date.isoformat(sep=" ", timespec="seconds")
+    else:
+        return None
+
+
 def is_bot_user(username: str) -> bool:
     """Return whether the given username is a bot user."""
     return re.search(BOT_USERNAME_REGEX, username) is not None

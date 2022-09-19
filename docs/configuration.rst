@@ -87,11 +87,6 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     The GitHub secret, obtained when creating the OAuth App as described above.
     This is only required if you're using GitHub for authentication.
 
-``influxdb-secret`` (optional)
-    Only used if the Helm chart parameter ``config.influxdb.enabled`` is set to true.
-    The shared secret to use for issuing InfluxDB tokens.
-    See :ref:`influxdb` for more information.
-
 ``ldap-password`` (optional)
     The password used for simple binds to the LDAP server used as a source of data about users.
     Only used if LDAP lookups are enabled.
@@ -113,7 +108,7 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
 
 ``session-secret``
     Encryption key for the Gafaelfawr session cookie.
-    Generate with :py:meth:`cryptography.fernet.Fernet.generate_key`.
+    Generate with ``gafaelfawr generate-session-secret``.
 
 ``signing-key`` (optional)
     Only used if the Helm chart parameter ``config.oidcServer.enabled`` is set to true.
@@ -184,7 +179,7 @@ The default is 1380 (23 hours).
    config:
      tokenLifetimeMinutes: 43200  # 30 days
 
-This setting will also affect the lifetime of tokens issued by the OpenID Connect server and the InfluxDB token issuer, if enabled.
+This setting will also affect the lifetime of tokens issued by the OpenID Connect server, if enabled.
 
 Finally, you may want to define the initial set of administrators:
 
@@ -245,10 +240,6 @@ To do the latter, CILogon (generally via COmanage) should be configured to add a
 The name of the claim can be overridden with ``config.cilogon.groupsClaim`` as discussed below.
 
 CILogon has some additional options under ``config.cilogon`` that you may want to set:
-
-``config.cilogon.redirectUrl``
-    The full redirect URL for CILogon if using CILogon as the identity provider.
-    Set this if you need to change the redirect URL to the ``/oauth2/callback`` route instead of the ``/login`` route.
 
 ``config.cilogon.loginParams``
     A mapping of additional parameters to send to the CILogon authorize route.
@@ -640,23 +631,6 @@ Gafaelfawr can act as an OpenID Connect identity provider for relying parties in
 To enable this, set ``config.oidcServer.enabled`` to true.
 If this is set, ``oidc-server-secrets`` and ``signing-key`` must be set in the Gafaelfawr Vault secret.
 See :ref:`openid-connect` for more information.
-
-InfluxDB tokens
----------------
-
-To enable issuing of InfluxDB tokens, set ``config.influxdb.enabled``.
-To force all InfluxDB tokens to be issued with the same username, instead of the username requesting the token, set ``config.influxdb.username``.
-For example:
-
-.. code-block:: yaml
-
-   config:
-     influxdb:
-       enabled: true
-       username: "influxdbuser"
-
-If this is set, ``influxdb-secret`` must be set in the Vault secret.
-See :ref:`influxdb` for more information.
 
 Administrators
 ==============

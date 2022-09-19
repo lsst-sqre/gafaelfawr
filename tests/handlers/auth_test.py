@@ -237,20 +237,11 @@ async def test_success(client: AsyncClient, factory: Factory) -> None:
     r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
-        headers={
-            "Authorization": f"Bearer {token_data.token}",
-            "X-Forwarded-For": "192.0.2.1",
-        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Client-Ip"] == "192.0.2.1"
-    assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:admin read:all"
-    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
-    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == token_data.username
     assert r.headers["X-Auth-Request-Email"] == token_data.email
-    assert r.headers["X-Auth-Request-Uid"] == str(token_data.uid)
-    assert r.headers["X-Auth-Request-Groups"] == "admin"
 
 
 @pytest.mark.asyncio
@@ -268,13 +259,8 @@ async def test_success_minimal(client: AsyncClient, factory: Factory) -> None:
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all"
-    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
-    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == "user"
-    assert r.headers["X-Auth-Request-Uid"] == "1234"
     assert "X-Auth-Request-Email" not in r.headers
-    assert "X-Auth-Request-Groups" not in r.headers
 
 
 @pytest.mark.asyncio
@@ -443,8 +429,7 @@ async def test_success_any(client: AsyncClient, factory: Factory) -> None:
     """Test ``satisfy=any`` as an ``/auth`` parameter.
 
     Ask for either ``exec:admin`` or ``exec:test`` and pass in credentials
-    with only ``exec:test``.  Ensure they are accepted but also the headers
-    don't claim the client has ``exec:admin``.
+    with only ``exec:test``.  Ensure they are accepted.
     """
     token_data = await create_session_token(
         factory, group_names=["test"], scopes=["exec:test"]
@@ -459,12 +444,8 @@ async def test_success_any(client: AsyncClient, factory: Factory) -> None:
         ],
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
-    scopes = "exec:admin exec:test"
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Token-Scopes"] == "exec:test"
-    assert r.headers["X-Auth-Request-Scopes-Accepted"] == scopes
-    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "any"
-    assert r.headers["X-Auth-Request-Groups"] == "test"
+    assert r.headers["X-Auth-Request-User"] == token_data.username
 
 
 @pytest.mark.asyncio
@@ -569,4 +550,3 @@ async def test_success_unicode_name(
     )
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "user"
-    assert r.headers["X-Auth-Request-Uid"] == "1234"

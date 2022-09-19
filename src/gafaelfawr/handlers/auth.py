@@ -146,11 +146,6 @@ def auth_config(
     fastapi.HTTPException
         If ``notebook`` and ``delegate_to`` are both set.
     """
-    context.rebind_logger(
-        auth_uri=auth_uri,
-        required_scopes=sorted(scope),
-        satisfy=satisfy.name.lower(),
-    )
     if notebook and delegate_to:
         msg = "delegate_to cannot be set for notebook tokens"
         raise InvalidDelegateToError(msg)
@@ -158,6 +153,11 @@ def auth_config(
         delegate_scopes = [s.strip() for s in delegate_scope.split(",")]
     else:
         delegate_scopes = []
+    context.rebind_logger(
+        auth_uri=auth_uri,
+        required_scopes=sorted(set(scope) | set(delegate_scopes)),
+        satisfy=satisfy.name.lower(),
+    )
     return AuthConfig(
         scopes=set(scope) | set(delegate_scopes),
         satisfy=satisfy,
@@ -223,29 +223,13 @@ async def get_auth(
 
     The following headers may be set in the response:
 
-    X-Auth-Request-Client-Ip
-        The IP address of the client, as determined after parsing
-        ``X-Forwarded-For`` headers.
     X-Auth-Request-Email
         The email address of the authenticated user, if known.
     X-Auth-Request-User
         The username of the authenticated user.
-    X-Auth-Request-Uid
-        The numeric UID of the authenticated user.
-    X-Auth-Request-Groups
-        The names of the groups of the authenticated user, comma-separated, if
-        any.
     X-Auth-Request-Token
         If requested by ``notebook`` or ``delegate_to``, will be set to the
         delegated token.
-    X-Auth-Request-Token-Scopes
-        If the token has scopes in the ``scope`` claim or derived from groups
-        in the ``isMemberOf`` claim, they will be returned in this header.
-    X-Auth-Request-Token-Scopes-Accepted
-        A space-separated list of token scopes the reliant resource accepts.
-    X-Auth-Request-Token-Scopes-Satisfy
-        Whether all requested scopes must be present, or just any one of
-        them.  Will be set to either ``any`` or ``all``.
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
@@ -349,22 +333,11 @@ async def build_success_headers(
     headers : Dict[`str`, `str`]
         Headers to include in the response.
     """
-    headers = {
-        "X-Auth-Request-Client-Ip": context.ip_address,
-        "X-Auth-Request-Scopes-Accepted": " ".join(sorted(auth_config.scopes)),
-        "X-Auth-Request-Scopes-Satisfy": auth_config.satisfy.name.lower(),
-        "X-Auth-Request-Token-Scopes": " ".join(sorted(token_data.scopes)),
-        "X-Auth-Request-User": token_data.username,
-    }
+    headers = {"X-Auth-Request-User": token_data.username}
     user_info_service = context.factory.create_user_info_service()
     user_info = await user_info_service.get_user_info_from_token(token_data)
     if user_info.email:
         headers["X-Auth-Request-Email"] = user_info.email
-    if user_info.uid:
-        headers["X-Auth-Request-Uid"] = str(user_info.uid)
-    if user_info.groups:
-        groups = ",".join([g.name for g in user_info.groups])
-        headers["X-Auth-Request-Groups"] = groups
 
     if auth_config.notebook:
         token_service = context.factory.create_token_service()

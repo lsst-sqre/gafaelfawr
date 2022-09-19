@@ -11,7 +11,7 @@
 # Realm for WWW-Authenticate 401 error.
 realm: "example.com"
 
-# Generate this with cryptography.fernet.Fernet.generate_key().
+# File contents should be the result of gafaelfawr generate-session-secret.
 session_secret_file: "/path/to/session-secret"
 
 # The URL of and password for a Redis instance used for storing sessions.

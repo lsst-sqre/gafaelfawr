@@ -109,7 +109,6 @@ def build_settings(
     session_secret_file = store_secret(tmp_path, "session", session_secret)
     issuer_key = _ISSUER_KEY.private_key_as_pem()
     issuer_key_file = store_secret(tmp_path, "issuer", issuer_key)
-    influxdb_secret_file = store_secret(tmp_path, "influxdb", b"influx-secret")
     github_secret_file = store_secret(tmp_path, "github", b"github-secret")
     oidc_secret_file = store_secret(tmp_path, "oidc", b"oidc-secret")
     slack_webhook_file = store_secret(
@@ -133,7 +132,6 @@ def build_settings(
         issuer_key_file=issuer_key_file,
         github_secret_file=github_secret_file,
         oidc_secret_file=oidc_secret_file,
-        influxdb_secret_file=influxdb_secret_file,
         oidc_server_secrets_file=oidc_path if oidc_clients else "",
         slack_webhook_file=slack_webhook_file,
     )

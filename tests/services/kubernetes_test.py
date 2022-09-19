@@ -208,10 +208,12 @@ async def test_create(
     assert parse_log(caplog) == [
         {
             "event": "Created new service token",
-            "key": ANY,
             "severity": "info",
-            "token_scopes": ["admin:token"],
+            "token_key": ANY,
             "token_username": "bot-mobu",
+            "token_expires": None,
+            "token_scopes": ["admin:token"],
+            "token_userinfo": {},
         },
         {
             "event": "Created mobu/gafaelfawr-secret secret",
@@ -221,10 +223,12 @@ async def test_create(
         },
         {
             "event": "Created new service token",
-            "key": ANY,
             "severity": "info",
-            "token_scopes": [],
+            "token_key": ANY,
             "token_username": "bot-nublado-hub",
+            "token_expires": None,
+            "token_scopes": [],
+            "token_userinfo": {},
         },
         {
             "event": "Created nublado2/gafaelfawr secret",
@@ -291,10 +295,12 @@ async def test_modify(
     assert parse_log(caplog) == [
         {
             "event": "Created new service token",
-            "key": ANY,
             "severity": "info",
+            "token_key": ANY,
+            "token_expires": None,
             "token_scopes": ["admin:token"],
             "token_username": "bot-mobu",
+            "token_userinfo": {},
         },
         {
             "event": "Updated mobu/gafaelfawr-secret secret",
@@ -304,10 +310,12 @@ async def test_modify(
         },
         {
             "event": "Created new service token",
-            "key": ANY,
             "severity": "info",
+            "token_key": ANY,
+            "token_expires": None,
             "token_scopes": [],
             "token_username": "bot-nublado-hub",
+            "token_userinfo": {},
         },
         {
             "event": "Updated nublado2/gafaelfawr secret",

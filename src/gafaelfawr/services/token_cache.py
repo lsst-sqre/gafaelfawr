@@ -13,7 +13,7 @@ from ..models.history import TokenChange, TokenChangeHistoryEntry
 from ..models.token import Token, TokenData, TokenType
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
-from ..util import current_datetime
+from ..util import current_datetime, format_datetime_for_logging
 
 __all__ = ["TokenCacheService"]
 
@@ -241,9 +241,11 @@ class TokenCacheService:
 
         self._logger.info(
             "Created new internal token",
-            key=token.key,
-            service=service,
+            token_key=token.key,
+            token_expires=format_datetime_for_logging(expires),
             token_scopes=sorted(data.scopes),
+            token_service=service,
+            token_userinfo=data.to_userinfo_dict(),
         )
 
         return token
@@ -310,7 +312,12 @@ class TokenCacheService:
         await self._token_change_store.add(history_entry)
 
         # Cache the token and return it.
-        self._logger.info("Created new notebook token", key=token.key)
+        self._logger.info(
+            "Created new notebook token",
+            token_key=token.key,
+            token_expires=format_datetime_for_logging(expires),
+            token_userinfo=data.to_userinfo_dict(),
+        )
         return token
 
     async def _is_token_valid(

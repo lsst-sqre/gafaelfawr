@@ -19,8 +19,6 @@ known_scopes:
   "read:all": "can read everything"
   "read:some": "can read some things"
   "user:token": "Can create and modify user tokens"
-influxdb:
-  secret_file: "{influxdb_secret_file}"
 github:
   client_id: "some-github-client-id"
   client_secret_file: "{github_secret_file}"

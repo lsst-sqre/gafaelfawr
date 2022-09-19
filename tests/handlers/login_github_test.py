@@ -139,17 +139,30 @@ async def test_login(
             "severity": "info",
         },
         {
-            "event": "Successfully authenticated user githubuser (123456)",
+            "event": "Successfully authenticated user githubuser",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
             "return_url": return_url,
-            "scopes": ["read:all", "user:token"],
             "severity": "info",
-            "token": ANY,
-            "user": "githubuser",
+            "token_key": ANY,
+            "token_username": "githubuser",
+            "token_expires": ANY,
+            "token_scopes": ["read:all", "user:token"],
+            "token_userinfo": {
+                "email": "githubuser@example.com",
+                "gid": 123456,
+                "groups": [
+                    {"id": 123456, "name": "githubuser"},
+                    {"id": 1000, "name": "org-a-team"},
+                    {"id": 1001, "name": "org-other-team"},
+                    {"id": 1002, "name": "other-org-team-with-very--F279yg"},
+                ],
+                "name": "GitHub User",
+                "uid": 123456,
+            },
         },
     ]
 
@@ -165,21 +178,8 @@ async def test_login(
     # information is correct.
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Token-Scopes"] == "read:all user:token"
-    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "read:all"
-    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == "123456"
-    expected = ",".join(
-        [
-            "githubuser",
-            "org-a-team",
-            "org-other-team",
-            "other-org-team-with-very--F279yg",
-        ]
-    )
-    assert r.headers["X-Auth-Request-Groups"] == expected
 
     # Do the same verification with the user-info endpoint.
     r = await client.get("/auth/api/v1/user-info")
@@ -343,7 +343,20 @@ async def test_github_uppercase(
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "someuser"
-    assert r.headers["X-Auth-Request-Groups"] == "org-a-team,someuser"
+
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "someuser",
+        "name": "A User",
+        "email": "user@example.com",
+        "uid": 1000,
+        "gid": 1000,
+        "groups": [
+            {"name": "org-a-team", "id": 1000},
+            {"name": "someuser", "id": 1000},
+        ],
+    }
 
 
 @pytest.mark.asyncio
@@ -414,11 +427,19 @@ async def test_invalid_groups(
     r = await simulate_github_login(client, respx_mock, user_info)
     assert r.status_code == 307
 
-    # The invalid groups should not appear but the valid group should still be
-    # present.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Groups"] == "org-a-team,someuser"
+    assert r.json() == {
+        "username": "someuser",
+        "name": "A User",
+        "email": "user@example.com",
+        "uid": 1000,
+        "gid": 1000,
+        "groups": [
+            {"name": "org-a-team", "id": 1000},
+            {"name": "someuser", "id": 1000},
+        ],
+    }
 
 
 @pytest.mark.asyncio
@@ -448,18 +469,22 @@ async def test_paginated_teams(
     assert r.status_code == 307
 
     # Check the group list.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
-    expected = ",".join(
-        [
-            "foo-third-team",
-            "githubuser",
-            "org-a-team",
-            "org-other-team",
-            "other-org-team-with-very--F279yg",
-        ]
-    )
-    assert r.headers["X-Auth-Request-Groups"] == expected
+    assert r.json() == {
+        "username": "githubuser",
+        "name": "GitHub User",
+        "email": "githubuser@example.com",
+        "uid": 123456,
+        "gid": 123456,
+        "groups": [
+            {"name": "foo-third-team", "id": 1002},
+            {"name": "githubuser", "id": 123456},
+            {"name": "org-a-team", "id": 1000},
+            {"name": "org-other-team", "id": 1001},
+            {"name": "other-org-team-with-very--F279yg", "id": 1003},
+        ],
+    }
 
 
 @pytest.mark.asyncio

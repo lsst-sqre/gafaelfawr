@@ -49,7 +49,6 @@ async def test_login(
     expected_scopes.add("user:token")
     username = token.claims[config.oidc.username_claim]
     uid = int(token.claims[config.oidc.uid_claim])
-    event = f"Successfully authenticated user {username} ({uid})"
     assert parse_log(caplog) == [
         {
             "event": f"Redirecting user to {login_url} for authentication",
@@ -72,32 +71,32 @@ async def test_login(
             "severity": "info",
         },
         {
-            "event": event,
+            "event": f"Successfully authenticated user {username}",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
             "return_url": return_url,
-            "scopes": sorted(expected_scopes),
             "severity": "info",
-            "token": ANY,
-            "user": username,
+            "token_key": ANY,
+            "token_username": username,
+            "token_expires": ANY,
+            "token_scopes": sorted(expected_scopes),
+            "token_userinfo": {
+                "email": "person@example.com",
+                "groups": [{"id": 1000, "name": "admin"}],
+                "name": "Some Person",
+                "uid": uid,
+            },
         },
     ]
 
     # Check that the /auth route works and finds our token.
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Token-Scopes"] == " ".join(
-        sorted(expected_scopes)
-    )
-    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
-    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == username
     assert r.headers["X-Auth-Request-Email"] == "person@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == str(uid)
-    assert r.headers["X-Auth-Request-Groups"] == "admin"
 
     # Also check the information retrieved via the API.
     r = await client.get("/auth/api/v1/user-info")
@@ -131,21 +130,6 @@ async def test_login_redirect_header(
 
 
 @pytest.mark.asyncio
-async def test_oauth2_callback(
-    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
-) -> None:
-    """Test the compatibility /oauth2/callback route."""
-    config = await reconfigure(tmp_path, "oidc")
-    token = create_upstream_oidc_jwt(groups=["admin"])
-    assert config.oidc
-
-    r = await simulate_oidc_login(
-        client, respx_mock, token, callback_route="/oauth2/callback"
-    )
-    assert r.status_code == 307
-
-
-@pytest.mark.asyncio
 async def test_claim_names(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
@@ -162,15 +146,22 @@ async def test_claim_names(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
 
-    # Check that the /auth route works and sets the headers correctly.  uid
-    # will be set to some-user, uidNumber will be set to 1000, and isMemberOf
-    # will include just the test group, so we'll know if we read the alternate
-    # claim names correctly instead.
+    # Check that the /auth/api/v1/user-info and /auth routes works and return
+    # the correct information.  uid will be set to some-user, uidNumber will
+    # be set to 1000, and isMemberOf will include just the test group, so
+    # we'll know if we read the alternate claim names correctly instead.
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "alt-username"
-    assert r.headers["X-Auth-Request-Uid"] == "7890"
-    assert r.headers["X-Auth-Request-Groups"] == "admin"
+
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "alt-username",
+        "email": "some-user@example.com",
+        "uid": 7890,
+        "groups": [{"name": "admin", "id": 1000}],
+    }
 
 
 @pytest.mark.asyncio
@@ -202,8 +193,7 @@ async def test_callback_error(
     # Simulate the return from the OpenID Connect provider.
     caplog.clear()
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "error_code: description" in r.text
@@ -238,8 +228,7 @@ async def test_callback_error(
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
@@ -249,8 +238,7 @@ async def test_callback_error(
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "No id_token in token reply" in r.text
@@ -260,8 +248,7 @@ async def test_callback_error(
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "not valid JSON" in r.text
@@ -271,8 +258,7 @@ async def test_callback_error(
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
-        "/oauth2/callback",
-        params={"code": "some-code", "state": query["state"][0]},
+        "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 403
     assert "Cannot contact authentication provider" in r.text
@@ -410,9 +396,6 @@ async def test_invalid_groups(
     # contribute to scopes.
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Groups"] == "test,valid,admin"
-    expected_scopes = "exec:admin exec:test read:all user:token"
-    assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
 
     # Check the group membership via the user-info endpoint.
     r = await client.get("/auth/api/v1/user-info")
@@ -426,6 +409,18 @@ async def test_invalid_groups(
             {"name": "valid", "id": 7889},
             {"name": "admin", "id": 2371},
         ],
+    }
+
+    # Check the scopes with the token-info endpoint.
+    r = await client.get("/auth/api/v1/token-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token.claims["uid"],
+        "token_type": "session",
+        "scopes": ["exec:admin", "exec:test", "read:all", "user:token"],
+        "created": ANY,
+        "expires": ANY,
+        "token": ANY,
     }
 
 
@@ -641,10 +636,6 @@ async def test_group_list(
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
-
-    r = await client.get("/auth", params={"scope": "read:all"})
-    assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Groups"] == "foo,admin"
 
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200

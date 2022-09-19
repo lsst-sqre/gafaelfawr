@@ -29,7 +29,6 @@ from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
 from .services.firestore import FirestoreService
-from .services.influxdb import InfluxDBService
 from .services.kubernetes import KubernetesService
 from .services.ldap import LDAPService
 from .services.oidc import OIDCService
@@ -261,18 +260,6 @@ class Factory:
         if not self._context.config.firestore:
             raise NotConfiguredError("Firestore is not configured")
         return FirestoreStorage(self._context.config.firestore, self._logger)
-
-    def create_influxdb_service(self) -> InfluxDBService:
-        """Create an InfluxDB token issuer service.
-
-        Returns
-        -------
-        influxdb_service : `gafaelfawr.services.influxdb.InfluxDBService`
-            Newly-created InfluxDB token issuer.
-        """
-        if not self._context.config.influxdb:
-            raise NotConfiguredError("No InfluxDB issuer configuration")
-        return InfluxDBService(self._context.config.influxdb)
 
     def create_kubernetes_service(
         self, api_client: ApiClient

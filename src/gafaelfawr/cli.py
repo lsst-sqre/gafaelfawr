@@ -10,6 +10,7 @@ from typing import Optional, Union
 import click
 import structlog
 import uvicorn
+from cryptography.fernet import Fernet
 from fastapi.openapi.utils import get_openapi
 from kubernetes_asyncio.client import ApiClient
 from safir.asyncio import run_with_asyncio
@@ -106,6 +107,7 @@ async def audit(settings: Optional[str]) -> None:
             )
             await slack.message(message)
     await engine.dispose()
+    logger.debug("Finished audit")
 
 
 @main.command()
@@ -128,6 +130,8 @@ async def delete_all_data(settings: Optional[str]) -> None:
     if settings:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
+    logger = structlog.get_logger("gafaelfawr")
+    logger.debug("Starting to delete all data")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
@@ -136,14 +140,18 @@ async def delete_all_data(settings: Optional[str]) -> None:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
             stmt = text(f'TRUNCATE TABLE {", ".join(tables)}')
+            logger.info("Truncating all tables")
             await factory.session.execute(stmt)
             await admin_service.add_initial_admins(config.initial_admins)
         token_service = factory.create_token_service()
+        logger.info("Deleting all tokens from Redis")
         await token_service.delete_all_tokens()
         if config.oidc_server:
             oidc_service = factory.create_oidc_service()
+            logger.info("Deleting all OpenID Connect codes from Redis")
             await oidc_service.delete_all_codes()
     await engine.dispose()
+    logger.debug("Finished deleting all data")
 
 
 @main.command()
@@ -151,6 +159,12 @@ def generate_key() -> None:
     """Generate a new RSA key pair and print the private key."""
     keypair = RSAKeyPair.generate()
     print(keypair.private_key_as_pem())
+
+
+@main.command()
+def generate_session_secret() -> None:
+    """Generate a new Gafaelfawr session secret."""
+    print(Fernet.generate_key().decode())
 
 
 @main.command()
@@ -174,18 +188,22 @@ async def init(settings: Optional[str]) -> None:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
+    logger.debug("Initializing database")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
     await initialize_database(engine, logger, schema=Base.metadata)
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
+        logger.debug("Adding initial administrators")
         async with factory.session.begin():
             await admin_service.add_initial_admins(config.initial_admins)
         if config.firestore:
             firestore = factory.create_firestore_storage()
+            logger.debug("Initializing Firestore")
             await firestore.initialize()
     await engine.dispose()
+    logger.debug("Finished initializing data stores")
 
 
 @main.command()
@@ -203,7 +221,7 @@ async def kubernetes_controller(settings: Optional[str]) -> None:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
-    logger.debug("Starting")
+    logger.debug("Starting Kubernetes controller")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
@@ -242,10 +260,12 @@ async def maintenance(settings: Optional[str]) -> None:
     async with Factory.standalone(config, engine, check_db=True) as factory:
         token_service = factory.create_token_service()
         async with factory.session.begin():
+            logger.info("Marking expired tokens in database")
             await token_service.expire_tokens()
+            logger.info("Truncating token history")
             await token_service.truncate_history()
-    logger.debug("Completed background maintenance")
     await engine.dispose()
+    logger.debug("Finished background maintenance")
 
 
 @main.command()
@@ -306,6 +326,7 @@ async def update_service_tokens(settings: Optional[str]) -> None:
         config_dependency.set_settings_path(settings)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
+    logger.debug("Starting update of all service tokens")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
@@ -314,10 +335,10 @@ async def update_service_tokens(settings: Optional[str]) -> None:
         async with ApiClient() as api_client:
             kubernetes_service = factory.create_kubernetes_service(api_client)
             try:
-                logger.debug("Updating all service tokens")
                 await kubernetes_service.update_service_tokens()
             except KubernetesError as e:
                 msg = "Failed to update service token secrets"
                 logger.error(msg, error=str(e))
                 sys.exit(1)
     await engine.dispose()
+    logger.debug("Finished update of service tokens")

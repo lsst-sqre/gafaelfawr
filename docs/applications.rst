@@ -154,37 +154,14 @@ Additional authentication headers
 The following headers may be requested by the application by adding them to the ``nginx.ingress.kubernetes.io/auth-response-headers`` annotation for the ingress rule.
 The value of that annotation is a comma-separated list of desired headers.
 
-``X-Auth-Request-Client-Ip``
-    The IP address of the client, as determined after parsing ``X-Forwarded-For`` headers.
-    See :ref:`client-ips` for more information.
-
-``X-Auth-Request-User``
-    The username of the authenticated user.
-
 ``X-Auth-Request-Email``
     The email address of the authenticated user, if available.
-
-``X-Auth-Request-Uid``
-    The numeric UID of the authenticated user if the user has one.
-
-``X-Auth-Request-Groups``
-    The names of groups of the authenticated user, comma-separated, if any.
 
 ``X-Auth-Request-Token``
     If a notebook or internal token was requested, it will be provided as the value of this header.
 
-``X-Auth-Request-Token-Scopes``
-    A space-separated list of scopes possessed by the user's token.
-    This is the scopes of the token presented by the user, not the scopes of the delegated token (if any) provided in the ``X-Auth-Request-Token`` header.
-
-``X-Auth-Request-Token-Scopes-Accepted``
-    A space-separated list of token scopes the protected service accepts.
-    This is configured in the ``nginx.ingress.kubernetes.io/auth-url`` annotation via the ``scope`` parameter.
-
-``X-Auth-Request-Token-Scopes-Satisfy``
-    The strategy the reliant resource uses to determine whether a token satisfies the scope requirements.
-    It will be either ``any`` or ``all``.
-    This is configured in the ``nginx.ingress.kubernetes.io/auth-url`` annotation via the ``satisfy`` parameter.
+``X-Auth-Request-User``
+    The username of the authenticated user.
 
 Verifying tokens
 ================
@@ -279,28 +256,3 @@ Assuming that Gafaelfawr and Open Distro for Elasticsearch are deployed on the h
 * ``opendistro_security.openid.client_secret``: ``fb7518beb61d27aaf20675d62778dea9``
 * ``opendistro_security.openid.scope``: ``openid``
 * ``opendistro_security.openid.logout_url``: ``https://example.com/logout``
-
-.. _influxdb:
-
-Authenticating to InfluxDB
-==========================
-
-.. warning::
-
-   InfluxDB 2.x is not supported.
-   These tokens will only work with InfluxDB 1.x.
-   This feature is deprecated and will likely be removed in a future version of Gafaelfawr.
-
-Gafaelfawr optionally supports issuing tokens for InfluxDB 1.x authentication.
-To enable this support, set ``config.influxdb.enabled`` to true in :ref:`helm-settings`.
-Then, create an ``influxdb-secret`` Vault secret key with the shared key that InfluxDB uses to verify the token.
-This can be any string of characters, such as the results of ``os.urandom(32).hex()``.
-The same secret must be configured in the `InfluxDB configuration file <https://docs.influxdata.com/influxdb/v1.8/administration/authentication_and_authorization/>`__.
-
-This will enable creation of new InfluxDB tokens via the ``/auth/tokens/influxdb/new`` route.
-Users can authenticate to this route with either a web session or a bearer token.
-The result is a JSON object containing a ``token`` key, the contents of which are the bearer token to present to InfluxDB.
-
-The token will contain a ``username`` claim matching the user's Gafaelfawr username and will expire at the same time as the token or session used to authenticate to this route.
-
-If you want all InfluxDB tokens to contain the same ``username`` field so that you can use a single generic InfluxDB account, set ``config.influxdb.username`` to that value in :ref:`helm-settings`.

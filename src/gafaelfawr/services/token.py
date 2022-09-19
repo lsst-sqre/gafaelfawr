@@ -38,7 +38,7 @@ from ..models.token import (
 )
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
-from ..util import current_datetime, is_bot_user
+from ..util import current_datetime, format_datetime_for_logging, is_bot_user
 from .token_cache import TokenCacheService
 
 __all__ = ["TokenService"]
@@ -272,6 +272,16 @@ class TokenService:
         await self._token_db_store.add(data)
         await self._token_change_store.add(history_entry)
 
+        self._logger.info(
+            "Successfully authenticated user %s",
+            data.username,
+            token_key=token.key,
+            token_username=data.username,
+            token_expires=format_datetime_for_logging(expires),
+            token_scopes=scopes,
+            token_userinfo=data.to_userinfo_dict(),
+        )
+
         return token
 
     async def create_user_token(
@@ -321,10 +331,9 @@ class TokenService:
         Notes
         -----
         This can only be used by the user themselves, not by a token
-        administrator, because this API does not provide a way to set the
-        additional user information for the token.  Once the user information
-        no longer needs to be tracked by the token system, it can be unified
-        with ``create_token_from_admin_request``.
+        administrator for a different user, because this API does not provide
+        a way to set the additional user information for the token and instead
+        always takes it from the authentication token.
         """
         self._check_authorization(username, auth_data, require_same_user=True)
         self._validate_username(username)
@@ -366,9 +375,11 @@ class TokenService:
 
         self._logger.info(
             "Created new user token",
-            key=token.key,
+            token_key=token.key,
+            token_expires=format_datetime_for_logging(expires),
             token_name=token_name,
             token_scopes=sorted(data.scopes),
+            token_userinfo=data.to_userinfo_dict(),
         )
 
         return token
@@ -449,18 +460,22 @@ class TokenService:
 
         if data.token_type == TokenType.user:
             self._logger.info(
-                "Created new user token",
-                key=token.key,
+                "Created new user token as administrator",
+                token_key=token.key,
+                token_username=request.username,
+                token_expires=format_datetime_for_logging(request.expires),
                 token_name=request.token_name,
                 token_scopes=data.scopes,
-                token_username=data.username,
+                token_userinfo=data.to_userinfo_dict(),
             )
         else:
             self._logger.info(
                 "Created new service token",
-                key=token.key,
+                token_key=token.key,
+                token_username=request.username,
+                token_expires=format_datetime_for_logging(request.expires),
                 token_scopes=data.scopes,
-                token_username=data.username,
+                token_userinfo=data.to_userinfo_dict(),
             )
         return token
 
@@ -916,13 +931,12 @@ class TokenService:
                     child, auth_data, expires, ip_address
                 )
 
-        timestamp = int(info.expires.timestamp()) if info.expires else None
         self._logger.info(
             "Modified token",
-            key=key,
+            token_key=key,
+            token_expires=format_datetime_for_logging(info.expires),
             token_name=info.token_name,
             token_scopes=sorted(info.scopes),
-            expires=timestamp,
         )
         return info
 
@@ -1029,7 +1043,9 @@ class TokenService:
         success = await self._token_db_store.delete(key)
         if success:
             await self._token_change_store.add(history_entry)
-            self._logger.info("Deleted token", key=key, username=info.username)
+            self._logger.info(
+                "Deleted token", token_key=key, token_username=info.username
+            )
         return success
 
     async def _modify_expires(

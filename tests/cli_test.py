@@ -18,6 +18,7 @@ import pytest
 import structlog
 from _pytest.logging import LogCaptureFixture
 from click.testing import CliRunner
+from cryptography.fernet import Fernet
 from kubernetes_asyncio.client import ApiException
 from safir.database import initialize_database
 from safir.testing.kubernetes import MockKubernetesApi
@@ -149,6 +150,14 @@ def test_generate_key() -> None:
 
     assert result.exit_code == 0
     assert "-----BEGIN PRIVATE KEY-----" in result.output
+
+
+def test_generate_session_secret() -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["generate-session-secret"])
+
+    assert result.exit_code == 0
+    assert Fernet(result.output.rstrip("\n").encode())
 
 
 def test_generate_token() -> None:

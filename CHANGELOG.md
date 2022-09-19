@@ -4,11 +4,29 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 5.2.1 (unreleased)
+## 6.0.0 (unreleased)
+
+### Backwards-incompatible changes
+
+- Remove support for all `X-Auth-Request-*` headers that were not being used. The only available headers are now `X-Auth-Request-Email`, `X-Auth-Request-Token`, and `X-Auth-Request-User`. The other information is already available to the application in other ways (client IP), should not be used by the application due to separation of concerns (scopes), or can be retrieved from the `/auth/api/v1/user-info` or `/auth/api/v1/token-info` routes if required.
+- Drop support for creating InfluxDB tokens, including the configuration options and the `/auth/tokens/influxdb/new` route. This support only worked with InfluxDB 1.x and was not used; InfluxDB 2.x uses an entirely different authentication mechanism.
+- The supported URL for getting token information after an OpenID Connect authentication to Gafaelfawr is `/auth/openid/userinfo`. Fix the mistaken creation of `/auth/oidc/userinfo` and drop support for `/auth/userinfo`. The latter incorrectly implies this is a general API, as opposed to specific to the OpenID Connect support.
+- Drop support for `/oauth2/callback` as an alias for `/login` and the `config.cilogon.redirectUrl` setting. This was required for some older CILogon integrations at NCSA, but those deployments have been retired.
+
+### New features
+
+- Add new `gafaelfawr generate-session-secret` command to generate the session secret so that users do not have to write a small script to call the Fernet function.
+- Log more details during token creation or modification, including any user identity information stored with the token. Log expiration times in ISO date format instead of seconds since epoch. The names of the attributes logged have changed from previous versions in some cases.
+- Log changes to the list of administrators.
+
+### Bug fixes
+
+- Correctly cache empty LDAP group membership results.
 
 ### Other changes
 
 - Uvicorn logs are now sent through structlog for consistent JSON formatting. Context expected by Google's Cloud Logging is added to each log message.
+- Send `Accept: application/vnd.github+json` instead of `Accept: application/json` when making GitHub API calls.
 
 ## 5.2.0 (2022-09-06)
 
