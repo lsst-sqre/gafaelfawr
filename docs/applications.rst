@@ -154,37 +154,14 @@ Additional authentication headers
 The following headers may be requested by the application by adding them to the ``nginx.ingress.kubernetes.io/auth-response-headers`` annotation for the ingress rule.
 The value of that annotation is a comma-separated list of desired headers.
 
-``X-Auth-Request-Client-Ip``
-    The IP address of the client, as determined after parsing ``X-Forwarded-For`` headers.
-    See :ref:`client-ips` for more information.
-
-``X-Auth-Request-User``
-    The username of the authenticated user.
-
 ``X-Auth-Request-Email``
     The email address of the authenticated user, if available.
-
-``X-Auth-Request-Uid``
-    The numeric UID of the authenticated user if the user has one.
-
-``X-Auth-Request-Groups``
-    The names of groups of the authenticated user, comma-separated, if any.
 
 ``X-Auth-Request-Token``
     If a notebook or internal token was requested, it will be provided as the value of this header.
 
-``X-Auth-Request-Token-Scopes``
-    A space-separated list of scopes possessed by the user's token.
-    This is the scopes of the token presented by the user, not the scopes of the delegated token (if any) provided in the ``X-Auth-Request-Token`` header.
-
-``X-Auth-Request-Token-Scopes-Accepted``
-    A space-separated list of token scopes the protected service accepts.
-    This is configured in the ``nginx.ingress.kubernetes.io/auth-url`` annotation via the ``scope`` parameter.
-
-``X-Auth-Request-Token-Scopes-Satisfy``
-    The strategy the reliant resource uses to determine whether a token satisfies the scope requirements.
-    It will be either ``any`` or ``all``.
-    This is configured in the ``nginx.ingress.kubernetes.io/auth-url`` annotation via the ``satisfy`` parameter.
+``X-Auth-Request-User``
+    The username of the authenticated user.
 
 Verifying tokens
 ================

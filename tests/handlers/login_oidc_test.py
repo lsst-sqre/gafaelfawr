@@ -95,15 +95,8 @@ async def test_login(
     # Check that the /auth route works and finds our token.
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Token-Scopes"] == " ".join(
-        sorted(expected_scopes)
-    )
-    assert r.headers["X-Auth-Request-Scopes-Accepted"] == "exec:admin"
-    assert r.headers["X-Auth-Request-Scopes-Satisfy"] == "all"
     assert r.headers["X-Auth-Request-User"] == username
     assert r.headers["X-Auth-Request-Email"] == "person@example.com"
-    assert r.headers["X-Auth-Request-Uid"] == str(uid)
-    assert r.headers["X-Auth-Request-Groups"] == "admin"
 
     # Also check the information retrieved via the API.
     r = await client.get("/auth/api/v1/user-info")
@@ -153,15 +146,22 @@ async def test_claim_names(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
 
-    # Check that the /auth route works and sets the headers correctly.  uid
-    # will be set to some-user, uidNumber will be set to 1000, and isMemberOf
-    # will include just the test group, so we'll know if we read the alternate
-    # claim names correctly instead.
+    # Check that the /auth/api/v1/user-info and /auth routes works and return
+    # the correct information.  uid will be set to some-user, uidNumber will
+    # be set to 1000, and isMemberOf will include just the test group, so
+    # we'll know if we read the alternate claim names correctly instead.
     r = await client.get("/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "alt-username"
-    assert r.headers["X-Auth-Request-Uid"] == "7890"
-    assert r.headers["X-Auth-Request-Groups"] == "admin"
+
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "alt-username",
+        "email": "some-user@example.com",
+        "uid": 7890,
+        "groups": [{"name": "admin", "id": 1000}],
+    }
 
 
 @pytest.mark.asyncio
@@ -396,9 +396,6 @@ async def test_invalid_groups(
     # contribute to scopes.
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Groups"] == "test,valid,admin"
-    expected_scopes = "exec:admin exec:test read:all user:token"
-    assert r.headers["X-Auth-Request-Token-Scopes"] == expected_scopes
 
     # Check the group membership via the user-info endpoint.
     r = await client.get("/auth/api/v1/user-info")
@@ -412,6 +409,18 @@ async def test_invalid_groups(
             {"name": "valid", "id": 7889},
             {"name": "admin", "id": 2371},
         ],
+    }
+
+    # Check the scopes with the token-info endpoint.
+    r = await client.get("/auth/api/v1/token-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": token.claims["uid"],
+        "token_type": "session",
+        "scopes": ["exec:admin", "exec:test", "read:all", "user:token"],
+        "created": ANY,
+        "expires": ANY,
+        "token": ANY,
     }
 
 
@@ -627,10 +636,6 @@ async def test_group_list(
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
-
-    r = await client.get("/auth", params={"scope": "read:all"})
-    assert r.status_code == 200
-    assert r.headers["X-Auth-Request-Groups"] == "foo,admin"
 
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
