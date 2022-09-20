@@ -24,8 +24,8 @@ __all__ = [
     "InvalidExpiresError",
     "InvalidGrantError",
     "InvalidIPAddressError",
+    "InvalidMinimumLifetimeError",
     "InvalidRequestError",
-    "InvalidRequiredLifetimeError",
     "InvalidReturnURLError",
     "InvalidScopesError",
     "InvalidTokenClaimsError",
@@ -171,13 +171,13 @@ class InvalidIPAddressError(ValidationError):
         super().__init__(message, ErrorLocation.query, "ip_address")
 
 
-class InvalidRequiredLifetimeError(ValidationError):
-    """The ``required_lifetime`` parameter was set to an invalid value."""
+class InvalidMinimumLifetimeError(ValidationError):
+    """The ``minimum_lifetime`` parameter was set to an invalid value."""
 
-    error = "invalid_required_lifetime"
+    error = "invalid_minimum_lifetime"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.query, "required_lifetime")
+        super().__init__(message, ErrorLocation.query, "minimum_lifetime")
 
 
 class InvalidReturnURLError(ValidationError):

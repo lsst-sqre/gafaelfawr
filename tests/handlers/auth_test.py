@@ -556,7 +556,7 @@ async def test_success_unicode_name(
 
 
 @pytest.mark.asyncio
-async def test_required_lifetime(
+async def test_minimum_lifetime(
     config: Config, client: AsyncClient, factory: Factory
 ) -> None:
     user_info = TokenUserInfo(username="user", uid=1234, name="Some User")
@@ -577,14 +577,14 @@ async def test_required_lifetime(
         params={
             "scope": "read:all",
             "notebook": "true",
-            "required_lifetime": int(
+            "minimum_lifetime": int(
                 (config.token_lifetime - minimum_lifetime).total_seconds()
             ),
         },
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 422
-    assert r.json()["detail"][0]["type"] == "invalid_required_lifetime"
+    assert r.json()["detail"][0]["type"] == "invalid_minimum_lifetime"
 
     # Create a user token with a short lifetime.
     async with factory.session.begin():
@@ -604,7 +604,7 @@ async def test_required_lifetime(
         params={
             "scope": "read:all",
             "notebook": "true",
-            "required_lifetime": 4000,
+            "minimum_lifetime": 4000,
         },
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -619,7 +619,7 @@ async def test_required_lifetime(
         params={
             "scope": "read:all",
             "notebook": "true",
-            "required_lifetime": 3000,
+            "minimum_lifetime": 3000,
         },
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -633,7 +633,7 @@ async def test_required_lifetime(
         params={
             "scope": "read:all",
             "notebook": "true",
-            "required_lifetime": 4000,
+            "minimum_lifetime": 4000,
         },
         headers={
             "Authorization": f"Bearer {token}",

@@ -31,7 +31,7 @@ from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
     InsufficientScopeError,
     InvalidDelegateToError,
-    InvalidRequiredLifetimeError,
+    InvalidMinimumLifetimeError,
     InvalidTokenError,
 )
 from ..models.token import TokenData
@@ -78,7 +78,7 @@ class AuthConfig:
     delegate_scopes: List[str]
     """List of scopes the delegated token should have."""
 
-    required_lifetime: Optional[timedelta]
+    minimum_lifetime: Optional[timedelta]
     """Required minimum lifetime of the token."""
 
 
@@ -150,7 +150,7 @@ def auth_config(
         ),
         example="read:all,write:all",
     ),
-    required_lifetime: Optional[int] = Query(
+    minimum_lifetime: Optional[int] = Query(
         None,
         title="Required minimum lifetime",
         description=(
@@ -185,8 +185,8 @@ def auth_config(
         required_scopes=sorted(set(scope) | set(delegate_scopes)),
         satisfy=satisfy.name.lower(),
     )
-    if required_lifetime:
-        lifetime = timedelta(seconds=required_lifetime)
+    if minimum_lifetime:
+        lifetime = timedelta(seconds=minimum_lifetime)
     else:
         lifetime = None
     return AuthConfig(
@@ -196,7 +196,7 @@ def auth_config(
         notebook=notebook,
         delegate_to=delegate_to,
         delegate_scopes=delegate_scopes,
-        required_lifetime=lifetime,
+        minimum_lifetime=lifetime,
     )
 
 
@@ -269,22 +269,22 @@ async def get_auth(
     # 403 error.  We don't allow required lifetimes within MINIMUM_LIFETIME of
     # the maximum lifetime to avoid the risk of a slow infinite redirect loop
     # when the login process takes a while.
-    if auth_config.required_lifetime:
+    if auth_config.minimum_lifetime:
         grace_period = timedelta(seconds=MINIMUM_LIFETIME)
         max_lifetime = context.config.token_lifetime - grace_period
-        if auth_config.required_lifetime > max_lifetime:
-            required_lifetime_seconds = int(
-                auth_config.required_lifetime.total_seconds()
+        if auth_config.minimum_lifetime > max_lifetime:
+            minimum_lifetime_seconds = int(
+                auth_config.minimum_lifetime.total_seconds()
             )
             max_lifetime_seconds = int(max_lifetime.total_seconds())
             msg = (
-                f"Requested lifetime {required_lifetime_seconds}s longer"
+                f"Requested lifetime {minimum_lifetime_seconds}s longer"
                 f" than maximum lifetime {max_lifetime_seconds}s"
             )
-            raise InvalidRequiredLifetimeError(msg)
+            raise InvalidMinimumLifetimeError(msg)
         if token_data.expires:
             lifetime = token_data.expires - current_datetime()
-            if auth_config.required_lifetime > lifetime:
+            if auth_config.minimum_lifetime > lifetime:
                 raise generate_unauthorized_challenge(
                     context,
                     auth_config.auth_type,
@@ -406,7 +406,7 @@ async def build_success_headers(
             token = await token_service.get_notebook_token(
                 token_data,
                 ip_address=context.ip_address,
-                minimum_lifetime=auth_config.required_lifetime,
+                minimum_lifetime=auth_config.minimum_lifetime,
             )
         headers["X-Auth-Request-Token"] = str(token)
     elif auth_config.delegate_to:
@@ -417,7 +417,7 @@ async def build_success_headers(
                 service=auth_config.delegate_to,
                 scopes=auth_config.delegate_scopes,
                 ip_address=context.ip_address,
-                minimum_lifetime=auth_config.required_lifetime,
+                minimum_lifetime=auth_config.minimum_lifetime,
             )
         headers["X-Auth-Request-Token"] = str(token)
 
