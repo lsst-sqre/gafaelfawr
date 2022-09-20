@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from datetime import timedelta
 from unittest.mock import ANY
 
 import pytest
@@ -10,8 +11,10 @@ from httpx import AsyncClient
 
 from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import Config
+from gafaelfawr.constants import MINIMUM_LIFETIME
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token, TokenUserInfo
+from gafaelfawr.util import current_datetime
 
 from ..support.headers import (
     assert_unauthorized_is_correct,
@@ -550,3 +553,95 @@ async def test_success_unicode_name(
     )
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "user"
+
+
+@pytest.mark.asyncio
+async def test_required_lifetime(
+    config: Config, client: AsyncClient, factory: Factory
+) -> None:
+    user_info = TokenUserInfo(username="user", uid=1234, name="Some User")
+    token_service = factory.create_token_service()
+    async with factory.session.begin():
+        token = await token_service.create_session_token(
+            user_info,
+            scopes=["read:all", "user:token"],
+            ip_address="127.0.0.1",
+        )
+        token_data = await token_service.get_data(token)
+        assert token_data
+
+    # Required lifetime is within MINIMUM_LIFETIME of maximum token lifetime.
+    minimum_lifetime = timedelta(seconds=MINIMUM_LIFETIME - 1)
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:all",
+            "notebook": "true",
+            "required_lifetime": int(
+                (config.token_lifetime - minimum_lifetime).total_seconds()
+            ),
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"][0]["type"] == "invalid_required_lifetime"
+
+    # Create a user token with a short lifetime.
+    async with factory.session.begin():
+        expires = current_datetime() + timedelta(hours=1)
+        token = await token_service.create_user_token(
+            token_data,
+            "user",
+            token_name="token",
+            scopes=["read:all"],
+            expires=expires,
+            ip_address="127.0.0.1",
+        )
+
+    # Try to authenticate with a longer requested lifetime.
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:all",
+            "notebook": "true",
+            "required_lifetime": 4000,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.error == AuthError.invalid_token
+
+    # Required lifetime is shorter than token lifetime.
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:all",
+            "notebook": "true",
+            "required_lifetime": 3000,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+
+    # If this is an AJAX request, we should return 403 rather than 401 if the
+    # required lifetime isn't long enough, to avoid the redirect spam from
+    # failing AJAX requests.
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:all",
+            "notebook": "true",
+            "required_lifetime": 4000,
+        },
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-Requested-With": "XMLHttpRequest",
+        },
+    )
+    assert r.status_code == 403
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.error == AuthError.invalid_token

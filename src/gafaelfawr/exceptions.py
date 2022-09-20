@@ -25,6 +25,7 @@ __all__ = [
     "InvalidGrantError",
     "InvalidIPAddressError",
     "InvalidRequestError",
+    "InvalidRequiredLifetimeError",
     "InvalidReturnURLError",
     "InvalidScopesError",
     "InvalidTokenClaimsError",
@@ -143,6 +144,15 @@ class InvalidCursorError(ValidationError):
         super().__init__(message, ErrorLocation.query, "cursor")
 
 
+class InvalidDelegateToError(ValidationError):
+    """The ``delegate_to`` parameter was set to an invalid value."""
+
+    error = "invalid_delegate_to"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, "delegate_to")
+
+
 class InvalidExpiresError(ValidationError):
     """The provided token expiration time was invalid."""
 
@@ -161,13 +171,13 @@ class InvalidIPAddressError(ValidationError):
         super().__init__(message, ErrorLocation.query, "ip_address")
 
 
-class InvalidDelegateToError(ValidationError):
-    """The ``delegate_to`` parameter was set to an invalid value."""
+class InvalidRequiredLifetimeError(ValidationError):
+    """The ``required_lifetime`` parameter was set to an invalid value."""
 
-    error = "invalid_delegate_to"
+    error = "invalid_required_lifetime"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.query, "delegate_to")
+        super().__init__(message, ErrorLocation.query, "required_lifetime")
 
 
 class InvalidReturnURLError(ValidationError):

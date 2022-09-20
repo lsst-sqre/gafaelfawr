@@ -5,7 +5,7 @@ from __future__ import annotations
 import ipaddress
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from structlog.stdlib import BoundLogger
@@ -664,6 +664,7 @@ class TokenService:
         scopes: List[str],
         *,
         ip_address: str,
+        minimum_lifetime: Optional[timedelta] = None,
     ) -> Token:
         """Get or create a new internal token.
 
@@ -677,6 +678,8 @@ class TokenService:
             The scopes the new token should have.
         ip_address : `str`
             The IP address from which the request came.
+        minimum_lifetime : `datetime.timedelta` or `None`, optional
+            If set, the minimum required lifetime of the token.
 
         Returns
         -------
@@ -692,11 +695,19 @@ class TokenService:
         self._validate_username(token_data.username)
         scopes = sorted(scopes)
         return await self._token_cache.get_internal_token(
-            token_data, service, scopes, ip_address
+            token_data,
+            service,
+            scopes,
+            ip_address,
+            minimum_lifetime=minimum_lifetime,
         )
 
     async def get_notebook_token(
-        self, token_data: TokenData, ip_address: str
+        self,
+        token_data: TokenData,
+        ip_address: str,
+        *,
+        minimum_lifetime: Optional[timedelta] = None,
     ) -> Token:
         """Get or create a new notebook token.
 
@@ -706,6 +717,8 @@ class TokenService:
             The authentication data on which to base the new token.
         ip_address : `str`
             The IP address from which the request came.
+        minimum_lifetime : `datetime.timedelta` or `None`, optional
+            If set, the minimum required lifetime of the token.
 
         Returns
         -------
@@ -719,7 +732,7 @@ class TokenService:
         """
         self._validate_username(token_data.username)
         return await self._token_cache.get_notebook_token(
-            token_data, ip_address
+            token_data, ip_address, minimum_lifetime=minimum_lifetime
         )
 
     async def get_token_info(

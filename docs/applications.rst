@@ -144,6 +144,9 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     This must be a subset of the scopes the authenticating token has, or the ``auth_request`` handler will deny access.
     Only meaningful when ``delegate_to`` is also set.
 
+``required_lifetime`` (optional)
+    The required minimum lifetime for a delegated token (internal or notebook).
+
 These parameters must be URL-encoded as GET parameters to the ``/auth`` route.
 
 .. _auth-headers:
