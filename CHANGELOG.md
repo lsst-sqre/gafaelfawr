@@ -15,6 +15,7 @@ Dependencies are updated to the latest available version during each release. Th
 
 ### New features
 
+- Add new parameter to the `/auth` route, `minimum_lifetime`, which can be used to specify the minimum required lifetime of a delegated token (internal or notebook). If the user's authenticating token doesn't have sufficient remaining lifetime to satisfy this request, `/auth` will return a 401 error to force a reauthentication.
 - Add new `gafaelfawr generate-session-secret` command to generate the session secret so that users do not have to write a small script to call the Fernet function.
 - Log more details during token creation or modification, including any user identity information stored with the token. Log expiration times in ISO date format instead of seconds since epoch. The names of the attributes logged have changed from previous versions in some cases.
 - Log changes to the list of administrators.

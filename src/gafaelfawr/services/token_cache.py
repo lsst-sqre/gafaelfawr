@@ -91,6 +91,8 @@ class TokenCacheService:
         service: str,
         scopes: List[str],
         ip_address: str,
+        *,
+        minimum_lifetime: Optional[timedelta] = None,
     ) -> Token:
         """Retrieve or create an internal token.
 
@@ -112,27 +114,36 @@ class TokenCacheService:
             The scopes the internal token should have.
         ip_address : `str`
             The IP address from which the request came.
+        minimum_lifetime : `datetime.timedelta` or `None`, optional
+            If set, the minimum required lifetime of the token.
 
         Returns
         -------
         token : `gafaelfawr.models.token.Token`
             The cached token or newly-created token.
         """
+        # Awkward code is to convince mypy that token is not None.
         token = self._internal_cache.get(token_data, service, scopes)
-        if token and await self._is_token_valid(token, scopes):
+        valid = await self._is_token_valid(token, minimum_lifetime, scopes)
+        if token and valid:
             return token
         async with await self._internal_cache.lock(token_data.username):
             token = self._internal_cache.get(token_data, service, scopes)
-            if token and await self._is_token_valid(token, scopes):
+            valid = await self._is_token_valid(token, minimum_lifetime, scopes)
+            if token and valid:
                 return token
             token = await self._create_internal_token(
-                token_data, service, scopes, ip_address
+                token_data, service, scopes, ip_address, minimum_lifetime
             )
             self._internal_cache.store(token_data, service, scopes, token)
             return token
 
     async def get_notebook_token(
-        self, token_data: TokenData, ip_address: str
+        self,
+        token_data: TokenData,
+        ip_address: str,
+        *,
+        minimum_lifetime: Optional[timedelta] = None,
     ) -> Token:
         """Retrieve or create a notebook token.
 
@@ -150,6 +161,8 @@ class TokenCacheService:
             The authentication data for the parent token.
         ip_address : `str`
             The IP address from which the request came.
+        minimum_lifetime : `datetime.timedelta` or `None`, optional
+            If set, the minimum required lifetime of the token.
 
         Returns
         -------
@@ -157,13 +170,15 @@ class TokenCacheService:
             The cached token or `None` if no matching token is cached.
         """
         token = self._notebook_cache.get(token_data)
-        if token and await self._is_token_valid(token):
+        if token and await self._is_token_valid(token, minimum_lifetime):
             return token
         async with await self._notebook_cache.lock(token_data.username):
             token = self._notebook_cache.get(token_data)
-            if token and await self._is_token_valid(token):
+            if token and await self._is_token_valid(token, minimum_lifetime):
                 return token
-            token = await self._create_notebook_token(token_data, ip_address)
+            token = await self._create_notebook_token(
+                token_data, ip_address, minimum_lifetime
+            )
             self._notebook_cache.store(token_data, token)
             return token
 
@@ -173,6 +188,7 @@ class TokenCacheService:
         service: str,
         scopes: List[str],
         ip_address: str,
+        minimum_lifetime: Optional[timedelta] = None,
     ) -> Token:
         """Retrieve or create a new internal token.
 
@@ -190,10 +206,15 @@ class TokenCacheService:
             The scopes the internal token should have.
         ip_address : `str`
             The IP address from which the request came.
+        minimum_lifetime : `datetime.timedelta` or `None`, optional
+            If set, the minimum required lifetime of the token.
         """
         # See if there's already a matching internal token.
         key = await self._token_db_store.get_internal_token_key(
-            token_data, service, scopes, self._minimum_expiration(token_data)
+            token_data,
+            service,
+            scopes,
+            self._minimum_expiration(token_data, minimum_lifetime),
         )
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
@@ -251,7 +272,10 @@ class TokenCacheService:
         return token
 
     async def _create_notebook_token(
-        self, token_data: TokenData, ip_address: str
+        self,
+        token_data: TokenData,
+        ip_address: str,
+        minimum_lifetime: Optional[timedelta] = None,
     ) -> Token:
         """Retrieve or create a notebook token.
 
@@ -265,10 +289,12 @@ class TokenCacheService:
             The authentication data for the parent token.
         ip_address : `str`
             The IP address from which the request came.
+        minimum_lifetime : `datetime.timedelta` or `None`, optional
+            If set, the minimum required lifetime of the token.
         """
         # See if there's already a matching notebook token.
         key = await self._token_db_store.get_notebook_token_key(
-            token_data, self._minimum_expiration(token_data)
+            token_data, self._minimum_expiration(token_data, minimum_lifetime)
         )
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
@@ -321,41 +347,56 @@ class TokenCacheService:
         return token
 
     async def _is_token_valid(
-        self, token: Token, scopes: Optional[List[str]] = None
+        self,
+        token: Optional[Token],
+        minimum_lifetime: Optional[timedelta] = None,
+        scopes: Optional[List[str]] = None,
     ) -> bool:
         """Check whether a token is valid.
 
-        Tokens are considered invalid if they cannot be retrieved from Redis
-        or if more than half of their lifetime has expired.
+        Tokens are considered invalid if they cannot be retrieved from Redis,
+        don't satisfy a required minimum lifetime, or if more than half of
+        their lifetime has expired.
 
         Parameters
         ----------
-        token : `gafaelfawr.models.token.Token`
+        token : `gafaelfawr.models.token.Token` or `None`
             The token to check for validity.
         scopes : List[`str`], optional
             If provided, ensure that the token has scopes that are a subset of
             this scope list.  This is used to force a cache miss if an
             internal token is requested but the requesting token no longer has
             the scopes that the internal token provides.
+        minimum_lifetime : `datetime.timedelta` or `None`, optional
+            If set, the minimum required lifetime of the token.
 
         Returns
         -------
         valid : `bool`
             Whether the token is valid.
         """
+        if not token:
+            return False
         data = await self._token_redis_store.get_data(token)
         if not data:
             return False
         if scopes is not None and not (set(data.scopes) <= set(scopes)):
             return False
         if data.expires:
-            lifetime = data.expires - data.created
+            if minimum_lifetime:
+                required = minimum_lifetime.total_seconds()
+            else:
+                required = (data.expires - data.created).total_seconds() / 2
             remaining = data.expires - current_datetime()
-            if remaining.total_seconds() < lifetime.total_seconds() / 2:
+            if remaining.total_seconds() < required:
                 return False
         return True
 
-    def _minimum_expiration(self, token_data: TokenData) -> datetime:
+    def _minimum_expiration(
+        self,
+        token_data: TokenData,
+        minimum_lifetime: Optional[timedelta] = None,
+    ) -> datetime:
         """Determine the minimum expiration for a child token.
 
         Parameters
@@ -363,6 +404,8 @@ class TokenCacheService:
         token_data : `gafaelfawr.models.token.TokenData`
             The data for the parent token for which a child token was
             requested.
+        minimum_lifetime : `datetime.timedelta` or `None`, optional
+            If set, the minimum required lifetime of the token.
 
         Returns
         -------
@@ -371,9 +414,19 @@ class TokenCacheService:
             no child tokens with at least this expiration time exist, a new
             child token should be created.
         """
-        min_expires = current_datetime() + timedelta(
-            seconds=self._config.token_lifetime.total_seconds() / 2
-        )
+        if minimum_lifetime:
+            min_expires = current_datetime() + minimum_lifetime
+        else:
+            min_expires = current_datetime() + timedelta(
+                seconds=self._config.token_lifetime.total_seconds() / 2
+            )
+
+        # If the minimum expiration is greater than than the expiration of the
+        # parent token, cap it at the expiration of the parent token, since we
+        # can never create a child token with a longer expiration than that,
+        # so we should use what we find rather than creating a new token that
+        # will still have its expiration capped at the same value.
         if token_data.expires and min_expires > token_data.expires:
             min_expires = token_data.expires
+
         return min_expires

@@ -128,7 +128,7 @@ def generate_challenge(
         A prepopulated ``fastapi.HTTPException`` object ready for raising.
         The headers will contain a ``WWW-Authenticate`` challenge.
     """
-    context.logger.warning("%s", exc.message, error=str(exc))
+    context.logger.warning(exc.message, error=str(exc))
     challenge = AuthErrorChallenge(
         auth_type=auth_type,
         realm=context.config.realm,
@@ -200,7 +200,7 @@ def generate_unauthorized_challenge(
     ``error_description`` attribute of a ``WWW-Authenticate`` header.
     """
     if exc:
-        context.logger.warning("%s", exc.message, error=str(exc))
+        context.logger.warning(exc.message, error=str(exc))
         challenge: AuthChallenge = AuthErrorChallenge(
             auth_type=auth_type,
             realm=context.config.realm,

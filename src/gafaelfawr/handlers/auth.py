@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import Enum
 from typing import Dict, List, Optional, Set
 
@@ -17,12 +18,25 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse
 
-from ..auth import AuthError, AuthErrorChallenge, AuthType, generate_challenge
+from ..auth import (
+    AuthError,
+    AuthErrorChallenge,
+    AuthType,
+    generate_challenge,
+    generate_unauthorized_challenge,
+)
+from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import InsufficientScopeError, InvalidDelegateToError
+from ..exceptions import (
+    InsufficientScopeError,
+    InvalidDelegateToError,
+    InvalidMinimumLifetimeError,
+    InvalidTokenError,
+)
 from ..models.token import TokenData
 from ..slack import SlackRouteErrorHandler
+from ..util import current_datetime
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 
@@ -63,6 +77,9 @@ class AuthConfig:
 
     delegate_scopes: List[str]
     """List of scopes the delegated token should have."""
+
+    minimum_lifetime: Optional[timedelta]
+    """Required minimum lifetime of the token."""
 
 
 def auth_uri(
@@ -133,6 +150,16 @@ def auth_config(
         ),
         example="read:all,write:all",
     ),
+    minimum_lifetime: Optional[int] = Query(
+        None,
+        title="Required minimum lifetime",
+        description=(
+            "Force reauthentication if the delegated token (internal or"
+            " notebook) would have a shorter lifetime, in seconds, than this"
+            " parameter."
+        ),
+        example=86400,
+    ),
     auth_uri: str = Depends(auth_uri),
     context: RequestContext = Depends(context_dependency),
 ) -> AuthConfig:
@@ -158,6 +185,10 @@ def auth_config(
         required_scopes=sorted(set(scope) | set(delegate_scopes)),
         satisfy=satisfy.name.lower(),
     )
+    if minimum_lifetime:
+        lifetime = timedelta(seconds=minimum_lifetime)
+    else:
+        lifetime = None
     return AuthConfig(
         scopes=set(scope) | set(delegate_scopes),
         satisfy=satisfy,
@@ -165,6 +196,7 @@ def auth_config(
         notebook=notebook,
         delegate_to=delegate_to,
         delegate_scopes=delegate_scopes,
+        minimum_lifetime=lifetime,
     )
 
 
@@ -202,25 +234,6 @@ async def get_auth(
 
     Notes
     -----
-    Expects the following query parameters to be set:
-
-    scope
-        One or more scopes to check (required, may be given multiple times).
-    satisfy (optional)
-        Require that ``all`` (the default) or ``any`` of the scopes requested
-        via the ``scope`` parameter be satisfied.
-    auth_type (optional)
-        The authentication type to use in challenges.  If given, must be
-        either ``bearer`` or ``basic``.  Defaults to ``bearer``.
-
-    Expects the following headers to be set in the request:
-
-    Authorization
-        The JWT token. This must always be the full JWT token. The token
-        should be in this  header as type ``Bearer``, but it may be type
-        ``Basic`` if ``x-oauth-basic`` is the username or password.  This may
-        be omitted if the user has a valid session cookie instead.
-
     The following headers may be set in the response:
 
     X-Auth-Request-Email
@@ -233,6 +246,52 @@ async def get_auth(
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
+    # Check if the token lifetime is long enough.
+    #
+    # It's awkward to do this check here, since what we have access to is the
+    # lifetime of the user's authentication token, but what we need is the
+    # lifetime of any delegated internal or notebook token we will pass along.
+    # However, getting the latter is more expensive: we would have to do all
+    # the work of creating the token, then retrieve it from Redis, and then
+    # check its lifetime.
+    #
+    # Thankfully, we can know in advance whether the token we will create will
+    # have a long enough lifetime, since we can request tokens up to the
+    # lifetime of the parent token and therefore can check the required
+    # lifetime against the lifetime of the parent token as long as we require
+    # the child token have the required lifetime (which we do, in
+    # build_success_headers).
+    #
+    # The only special case we need to handle is where the required lifetime
+    # is too close to the maximum lifetime for new tokens, since the lifetime
+    # of delegated tokens will be capped at that.  In this case, we can never
+    # satisfy this request and need to raise a 422 error instead of a 401 or
+    # 403 error.  We don't allow required lifetimes within MINIMUM_LIFETIME of
+    # the maximum lifetime to avoid the risk of a slow infinite redirect loop
+    # when the login process takes a while.
+    if auth_config.minimum_lifetime:
+        grace_period = timedelta(seconds=MINIMUM_LIFETIME)
+        max_lifetime = context.config.token_lifetime - grace_period
+        if auth_config.minimum_lifetime > max_lifetime:
+            minimum_lifetime_seconds = int(
+                auth_config.minimum_lifetime.total_seconds()
+            )
+            max_lifetime_seconds = int(max_lifetime.total_seconds())
+            msg = (
+                f"Requested lifetime {minimum_lifetime_seconds}s longer"
+                f" than maximum lifetime {max_lifetime_seconds}s"
+            )
+            raise InvalidMinimumLifetimeError(msg)
+        if token_data.expires:
+            lifetime = token_data.expires - current_datetime()
+            if auth_config.minimum_lifetime > lifetime:
+                raise generate_unauthorized_challenge(
+                    context,
+                    auth_config.auth_type,
+                    InvalidTokenError("Remaining token lifetime too short"),
+                    ajax_forbidden=True,
+                )
+
     # Determine whether the request is authorized.
     if auth_config.satisfy == Satisfy.ANY:
         authorized = any([s in token_data.scopes for s in auth_config.scopes])
@@ -241,9 +300,11 @@ async def get_auth(
 
     # If not authorized, log and raise the appropriate error.
     if not authorized:
-        exc = InsufficientScopeError("Token missing required scope")
         raise generate_challenge(
-            context, auth_config.auth_type, exc, auth_config.scopes
+            context,
+            auth_config.auth_type,
+            InsufficientScopeError("Token missing required scope"),
+            auth_config.scopes,
         )
 
     # Log and return the results.
@@ -343,7 +404,9 @@ async def build_success_headers(
         token_service = context.factory.create_token_service()
         async with context.session.begin():
             token = await token_service.get_notebook_token(
-                token_data, ip_address=context.ip_address
+                token_data,
+                ip_address=context.ip_address,
+                minimum_lifetime=auth_config.minimum_lifetime,
             )
         headers["X-Auth-Request-Token"] = str(token)
     elif auth_config.delegate_to:
@@ -354,6 +417,7 @@ async def build_success_headers(
                 service=auth_config.delegate_to,
                 scopes=auth_config.delegate_scopes,
                 ip_address=context.ip_address,
+                minimum_lifetime=auth_config.minimum_lifetime,
             )
         headers["X-Auth-Request-Token"] = str(token)
 

@@ -144,6 +144,13 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     This must be a subset of the scopes the authenticating token has, or the ``auth_request`` handler will deny access.
     Only meaningful when ``delegate_to`` is also set.
 
+``minimum_lifetime`` (optional)
+    The required minimum lifetime for a delegated token (internal or notebook).
+    Since the maximum lifetime of a delegated token is the same as the remaining lifetime of the authenticating token, capped by the maximum token lifetime, this may also be used to set the minimum remaining lifetime of the user's session.
+
+    If the presented authentication credentials don't satisfy this required lifetime, a 401 error will be returned.
+    If the ``nginx.ingress.kubernetes.io/auth-signin`` annotation is set in the ``Ingress``, this will force a user reauthentication.
+
 These parameters must be URL-encoded as GET parameters to the ``/auth`` route.
 
 .. _auth-headers:
