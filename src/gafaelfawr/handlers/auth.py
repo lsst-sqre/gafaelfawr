@@ -75,7 +75,7 @@ class AuthConfig:
     delegate_to: Optional[str]
     """Internal service for which to create an internal token."""
 
-    delegate_scopes: List[str]
+    delegate_scopes: Set[str]
     """List of scopes the delegated token should have."""
 
     minimum_lifetime: Optional[timedelta]
@@ -176,21 +176,23 @@ def auth_config(
     if notebook and delegate_to:
         msg = "delegate_to cannot be set for notebook tokens"
         raise InvalidDelegateToError(msg)
-    if delegate_scope:
-        delegate_scopes = [s.strip() for s in delegate_scope.split(",")]
-    else:
-        delegate_scopes = []
+    scopes = set(scope)
     context.rebind_logger(
         auth_uri=auth_uri,
-        required_scopes=sorted(set(scope) | set(delegate_scopes)),
+        required_scopes=sorted(scopes),
         satisfy=satisfy.name.lower(),
     )
+
+    if delegate_scope:
+        delegate_scopes = set(s.strip() for s in delegate_scope.split(","))
+    else:
+        delegate_scopes = set()
     if minimum_lifetime:
         lifetime = timedelta(seconds=minimum_lifetime)
     else:
         lifetime = None
     return AuthConfig(
-        scopes=set(scope) | set(delegate_scopes),
+        scopes=scopes,
         satisfy=satisfy,
         auth_type=auth_type,
         notebook=notebook,
@@ -410,12 +412,20 @@ async def build_success_headers(
             )
         headers["X-Auth-Request-Token"] = str(token)
     elif auth_config.delegate_to:
+        # Delegated scopes are optional; if the authenticating token doesn't
+        # have the scope, it's omitted from the delegated token.  (To make it
+        # mandatory, require that scope via the scope parameter as well, and
+        # then the authenticating token will always have it.)  Therefore,
+        # reduce the scopes of the internal token to the intersection between
+        # the requested delegated scopes and the scopes of the authenticating
+        # token.
+        delegate_scopes = auth_config.delegate_scopes & set(token_data.scopes)
         token_service = context.factory.create_token_service()
         async with context.session.begin():
             token = await token_service.get_internal_token(
                 token_data,
                 service=auth_config.delegate_to,
-                scopes=auth_config.delegate_scopes,
+                scopes=sorted(delegate_scopes),
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )

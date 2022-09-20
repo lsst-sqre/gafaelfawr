@@ -388,12 +388,41 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_internal_errors(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
-) -> None:
+async def test_internal_scopes(client: AsyncClient, factory: Factory) -> None:
+    """Delegated scopes are optional and dropped if not available."""
     token_data = await create_session_token(factory, scopes=["read:some"])
+    assert token_data.expires
 
-    # Delegating a token with a scope the original doesn't have will fail.
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:some",
+            "delegate_to": "a-service",
+            "delegate_scope": "read:all,read:some",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    internal_token = Token.from_str(r.headers["X-Auth-Request-Token"])
+
+    r = await client.get(
+        "/auth/api/v1/token-info",
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "token": internal_token.key,
+        "username": token_data.username,
+        "token_type": "internal",
+        "scopes": ["read:some"],
+        "service": "a-service",
+        "created": ANY,
+        "expires": int(token_data.expires.timestamp()),
+        "parent": token_data.token.key,
+    }
+
+    # If the intersection of desired and available scopes is empty, we still
+    # get a token with no scopes.
     r = await client.get(
         "/auth",
         params={
@@ -403,12 +432,31 @@ async def test_internal_errors(
         },
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
-    assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.error == AuthError.insufficient_scope
-    assert authenticate.scope == "read:all read:some"
+    assert r.status_code == 200
+    internal_token = Token.from_str(r.headers["X-Auth-Request-Token"])
+
+    r = await client.get(
+        "/auth/api/v1/token-info",
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "token": internal_token.key,
+        "username": token_data.username,
+        "token_type": "internal",
+        "scopes": [],
+        "service": "a-service",
+        "created": ANY,
+        "expires": int(token_data.expires.timestamp()),
+        "parent": token_data.token.key,
+    }
+
+
+@pytest.mark.asyncio
+async def test_internal_errors(
+    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+) -> None:
+    token_data = await create_session_token(factory, scopes=["read:some"])
 
     # Cannot request a notebook token and an internal token at the same time.
     r = await client.get(
