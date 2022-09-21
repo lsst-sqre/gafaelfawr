@@ -140,7 +140,7 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     This may not be set at the same time as ``notebook``.
 
 ``delegate_scope`` (optional)
-    A comma-separated list of scopes that the internal token should have.
+    A comma-separated list of scopes that the internal token should have, if available from the authenticating token.
     Only meaningful when ``delegate_to`` is also set.
 
     By default, these scopes are optional.
