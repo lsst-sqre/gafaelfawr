@@ -101,8 +101,8 @@ async def audit(settings: Optional[str]) -> None:
             alerts = await token_service.audit()
         if alerts:
             message = (
-                "Gafaelfawr data inconsistencies found:\n* "
-                + "\n* ".join(alerts)
+                "Gafaelfawr data inconsistencies found:\n• "
+                + "\n• ".join(alerts)
                 + "\n"
             )
             await slack.message(message)
