@@ -48,7 +48,9 @@ Notebook tokens automatically get the same list of scopes as the token that trig
 
 Internal tokens get no scopes by default.
 Scopes can be added to internal tokens if requested via the ``delegate_scope`` parameter to the ``/auth`` route.
-All scopes added in this way must be present in the token that triggers the creation of an internal token.
+The resulting internal token will have scopes equal to the intersection of the list in ``delegate_scope`` and the scopes present in the authenticating token.
+This means the delegated token may have no scopes if the authenticating token doesn't have any of the requested scopes.
+If the protected application wants to be assured of having a given scope in its delegated internal token, it must also make that scope mandatory for access by listing it in ``scope``.
 
 Scope naming
 ============

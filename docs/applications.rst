@@ -140,9 +140,12 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
     This may not be set at the same time as ``notebook``.
 
 ``delegate_scope`` (optional)
-    A comma-separated list of scopes that the internal token should have.
-    This must be a subset of the scopes the authenticating token has, or the ``auth_request`` handler will deny access.
+    A comma-separated list of scopes that the internal token should have, if available from the authenticating token.
     Only meaningful when ``delegate_to`` is also set.
+
+    By default, these scopes are optional.
+    The delegated token will have each scope listed if the authenticating token has that scope, but if it does not, authentication will still succeed and a delegated token will still be passed down but some scopes will be missing.
+    If the protected application wants to ensure that all requested scopes are present in the delegated token, every scope listed in ``delegate_scopes`` must also be listed in ``scope``, and ``satisfy`` must either be unset or set to ``all``.
 
 ``minimum_lifetime`` (optional)
     The required minimum lifetime for a delegated token (internal or notebook).
