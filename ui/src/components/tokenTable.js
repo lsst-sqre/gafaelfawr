@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useTable } from 'react-table';
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FaTrash } from 'react-icons/fa';
 
 import Timestamp from './timestamp';
 import Token from './token';
@@ -24,28 +24,7 @@ DeleteTokenButton.propTypes = {
   onDeleteToken: PropTypes.func.isRequired,
 };
 
-const EditTokenButton = function ({ token, onEditToken }) {
-  const onClick = () => {
-    onEditToken(token);
-  };
-  return (
-    <button type="button" className="qa-token-edit" onClick={onClick}>
-      <FaEdit />
-    </button>
-  );
-};
-EditTokenButton.propTypes = {
-  token: PropTypes.string.isRequired,
-  onEditToken: PropTypes.func.isRequired,
-};
-
-const TokenTable = function ({
-  id,
-  data,
-  onEditToken,
-  onDeleteToken,
-  includeName = false,
-}) {
+const TokenTable = function ({ id, data, onDeleteToken, includeName = false }) {
   const columns = useMemo(() => {
     const tokenBase = [
       {
@@ -82,17 +61,6 @@ const TokenTable = function ({
         accessor: 'token_name',
       },
     ];
-    const tokenEdit = [
-      {
-        id: 'edit',
-        Header: '',
-        // eslint-disable-next-line react/display-name, react/prop-types
-        Cell: ({ value }) => (
-          <EditTokenButton token={value} onEditToken={onEditToken} />
-        ),
-        accessor: 'token',
-      },
-    ];
     const tokenDelete = [
       {
         id: 'delete',
@@ -105,11 +73,8 @@ const TokenTable = function ({
       },
     ];
     const partial = (includeName ? tokenName : []).concat(tokenBase);
-    if (onEditToken) {
-      return partial.concat(tokenEdit).concat(tokenDelete);
-    }
     return partial.concat(tokenDelete);
-  }, [includeName, onEditToken, onDeleteToken]);
+  }, [includeName, onDeleteToken]);
 
   const table = useTable({ columns, data });
 
@@ -147,7 +112,6 @@ const TokenTable = function ({
 TokenTable.propTypes = {
   id: PropTypes.string.isRequired,
   data: PropTypes.arrayOf(PropTypes.object).isRequired,
-  onEditToken: PropTypes.func.isRequired,
   onDeleteToken: PropTypes.func.isRequired,
   includeName: PropTypes.bool,
 };

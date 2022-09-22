@@ -8,7 +8,6 @@ import React, {
 import { useAlert } from 'react-alert';
 
 import CreateTokenButton from './createTokenButton';
-import EditTokenModal from './editTokenModal';
 import { LoginContext } from './loginContext.js';
 import TokenTable from './tokenTable';
 import { apiDelete, apiGet } from '../functions/api';
@@ -17,17 +16,7 @@ const TokenList = function () {
   const alert = useAlert();
   const { csrf, username } = useContext(LoginContext);
   const [data, setData] = useState(null);
-  const [editingToken, _setEditingToken] = useState(null);
   const tokens = useMemo(() => data, [data]);
-
-  const setEditingToken = useCallback(
-    (token) => _setEditingToken(token),
-    [_setEditingToken]
-  );
-  const clearEditingToken = useCallback(
-    () => _setEditingToken(null),
-    [_setEditingToken]
-  );
 
   const loadTokenData = useCallback(() => {
     if (!username) return;
@@ -41,11 +30,6 @@ const TokenList = function () {
       .then(setData)
       .catch((e) => alert.show(e.message));
   }, [alert, username]);
-
-  const editToken = useCallback(() => {
-    clearEditingToken();
-    loadTokenData();
-  }, [clearEditingToken, loadTokenData]);
 
   const deleteToken = useCallback(
     async (token) => {
@@ -70,7 +54,6 @@ const TokenList = function () {
           data={tokens.user}
           includeName
           onDeleteToken={deleteToken}
-          onEditToken={setEditingToken}
         />
       ) : null}
       <h2>Web Sessions</h2>
@@ -98,13 +81,6 @@ const TokenList = function () {
             onDeleteToken={deleteToken}
           />
         </>
-      ) : null}
-      {editingToken !== null ? (
-        <EditTokenModal
-          token={editingToken}
-          onSuccess={editToken}
-          onExit={clearEditingToken}
-        />
       ) : null}
     </>
   );

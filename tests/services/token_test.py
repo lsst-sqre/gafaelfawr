@@ -500,7 +500,9 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     """Test that a new internal token is generated at half its lifetime."""
-    session_token_data = await create_session_token(factory)
+    session_token_data = await create_session_token(
+        factory, scopes=["admin:token", "user:token"]
+    )
     token_service = factory.create_token_service()
 
     # Generate a user token with a lifetime less than half of the default
@@ -803,7 +805,7 @@ async def test_modify(factory: Factory) -> None:
     async with factory.session.begin():
         session_token = await token_service.create_session_token(
             user_info,
-            scopes=["read:all", "user:token"],
+            scopes=["admin:token", "read:all", "user:token"],
             ip_address="127.0.0.1",
         )
     data = await token_service.get_data(session_token)
@@ -1131,7 +1133,7 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
     """Test that expiration changes cascade to subtokens."""
     token_service = factory.create_token_service()
     session_token_data = await create_session_token(
-        factory, scopes=["user:token"]
+        factory, scopes=["admin:token", "user:token"]
     )
 
     # Create a user token with no expiration and some additional tokens
@@ -1180,7 +1182,7 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
     async with factory.session.begin():
         await token_service.modify_token(
             user_token.key,
-            user_token_data,
+            session_token_data,
             expires=new_expires,
             ip_address="127.0.0.1",
         )
