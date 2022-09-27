@@ -592,14 +592,17 @@ async def delete_token(
     "/users/{username}/tokens/{key}",
     description=(
         "Replace metadata of a user token with provided values. Only the"
-        " token name, scope, and expiration may be changed"
+        " token name, scope, and expiration may be changed. Only token"
+        " administrators may modify tokens; users cannot modify even their"
+        " own tokens and should instead create a new token and delete the"
+        " old one."
     ),
     response_model=TokenInfo,
     response_model_exclude_none=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
     status_code=200,
     summary="Modify user token",
-    tags=["user"],
+    tags=["admin"],
 )
 async def patch_token(
     token_request: UserTokenModifyRequest,

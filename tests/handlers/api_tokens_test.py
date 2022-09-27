@@ -143,6 +143,27 @@ async def test_create_delete_modify(
         "expires": ANY,
     }
 
+    # Modifying a user token fails with permission denied.
+    new_expires = current_datetime() + timedelta(days=200)
+    r = await client.patch(
+        token_url,
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "token_name": "happy token",
+            "scopes": ["exec:admin"],
+            "expires": int(new_expires.timestamp()),
+        },
+    )
+    assert r.status_code == 403
+    assert r.json()["detail"][0]["type"] == "permission_denied"
+
+    # Get a token admin token, which will be allowed to modify the token.
+    async with factory.session.begin():
+        admin_token = await token_service.create_session_token(
+            user_info, scopes=["admin:token"], ip_address="127.0.0.1"
+        )
+    csrf = await set_session_cookie(client, admin_token)
+
     # Change the name, scope, and expiration of the token.
     caplog.clear()
     new_expires = current_datetime() + timedelta(days=200)
@@ -176,9 +197,9 @@ async def test_create_delete_modify(
                 "requestUrl": f"https://{TEST_HOSTNAME}{token_url}",
                 "remoteIp": "127.0.0.1",
             },
-            "scopes": ["exec:admin", "read:all", "user:token"],
+            "scopes": ["admin:token"],
             "severity": "info",
-            "token": session_token.key,
+            "token": admin_token.key,
             "token_key": user_token.key,
             "token_expires": format_datetime_for_logging(new_expires),
             "token_name": "happy token",
@@ -188,7 +209,8 @@ async def test_create_delete_modify(
         }
     ]
 
-    # Delete the token.
+    # Go back to the previous authentication and delete the token.
+    csrf = await set_session_cookie(client, session_token)
     caplog.clear()
     r = await client.delete(token_url, headers={"X-CSRF-Token": csrf})
     assert r.status_code == 204
@@ -218,10 +240,10 @@ async def test_create_delete_modify(
     r = await client.delete(token_url, headers={"X-CSRF-Token": csrf})
     assert r.status_code == 404
 
-    # This user should now have only one token.
+    # This user should now have just the two session tokens we created.
     r = await client.get("/auth/api/v1/users/example/tokens")
     assert r.status_code == 200
-    assert len(r.json()) == 1
+    assert len(r.json()) == 2
 
     # We should be able to see the change history for the token.
     r = await client.get(token_url + "/change-history")
@@ -717,7 +739,9 @@ async def test_wrong_user(
 @pytest.mark.asyncio
 async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
     """Test creating a user token that doesn't expire."""
-    token_data = await create_session_token(factory)
+    token_data = await create_session_token(
+        factory, scopes=["admin:token", "user:token"]
+    )
     csrf = await set_session_cookie(client, token_data.token)
 
     r = await client.post(
@@ -770,7 +794,9 @@ async def test_duplicate_token_name(
     client: AsyncClient, factory: Factory, mock_slack: MockSlack
 ) -> None:
     """Test duplicate token names."""
-    token_data = await create_session_token(factory)
+    token_data = await create_session_token(
+        factory, scopes=["admin:token", "user:token"]
+    )
     csrf = await set_session_cookie(client, token_data.token)
 
     r = await client.post(
@@ -813,7 +839,9 @@ async def test_bad_expires(
     client: AsyncClient, factory: Factory, mock_slack: MockSlack
 ) -> None:
     """Test creating or modifying a token with bogus expirations."""
-    token_data = await create_session_token(factory)
+    token_data = await create_session_token(
+        factory, scopes=["user:token", "admin:token"]
+    )
     csrf = await set_session_cookie(client, token_data.token)
 
     now = int(time.time())
@@ -865,13 +893,13 @@ async def test_bad_scopes(
     known_scopes = list(config.known_scopes.keys())
     assert len(known_scopes) > 4
     token_data = await create_session_token(
-        factory, scopes=known_scopes[1:3] + ["other:scope", "user:token"]
+        factory, scopes=known_scopes[:3] + ["other:scope", "user:token"]
     )
     csrf = await set_session_cookie(client, token_data.token)
 
     # Check that we reject both an unknown scope and a scope that's present on
     # the session but isn't valid in the configuration.
-    for bad_scope in (known_scopes[3], "other:scope"):
+    for bad_scope in ("some:random-thing", "other:scope"):
         r = await client.post(
             f"/auth/api/v1/users/{token_data.username}/tokens",
             headers={"X-CSRF-Token": csrf},
@@ -886,13 +914,13 @@ async def test_bad_scopes(
     r = await client.post(
         f"/auth/api/v1/users/{token_data.username}/tokens",
         headers={"X-CSRF-Token": csrf},
-        json={"token_name": "some token", "scopes": known_scopes[1:3]},
+        json={"token_name": "some token", "scopes": known_scopes[:3]},
     )
     assert r.status_code == 201
     token_url = r.headers["Location"]
 
     # Now try modifying it with the invalid scope.
-    for bad_scope in (known_scopes[3], "other:scope"):
+    for bad_scope in ("some:random-thing", "other:scope"):
         r = await client.patch(
             token_url,
             headers={"X-CSRF-Token": csrf},
@@ -1376,7 +1404,7 @@ async def test_scope_modify(
     async with factory.session.begin():
         session_token = await token_service.create_session_token(
             user_info,
-            scopes=["read:all", "exec:admin", "user:token"],
+            scopes=["admin:token", "read:all", "exec:admin", "user:token"],
             ip_address="127.0.0.1",
         )
     csrf = await set_session_cookie(client, session_token)

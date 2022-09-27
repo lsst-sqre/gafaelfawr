@@ -46,7 +46,7 @@ async def build_history(
         user_info_one = TokenUserInfo(username="one")
         token_one = await token_service.create_session_token(
             user_info_one,
-            scopes=["exec:test", "read:all", "user:token"],
+            scopes=["admin:token", "exec:test", "read:all", "user:token"],
             ip_address="192.0.2.3",
         )
         token_data_one = await token_service.get_data(token_one)
@@ -87,7 +87,7 @@ async def build_history(
         user_info_two = TokenUserInfo(username="two")
         token_two = await token_service.create_session_token(
             user_info_two,
-            scopes=["read:some", "user:token"],
+            scopes=["admin:token", "read:some", "user:token"],
             ip_address="192.0.2.20",
         )
         token_data_two = await token_service.get_data(token_two)
@@ -96,7 +96,7 @@ async def build_history(
             token_data_two,
             token_data_two.username,
             token_name="some token",
-            scopes=["read:some", "user:token"],
+            scopes=["admin:token", "read:some", "user:token"],
             ip_address="192.0.2.20",
         )
         token_data_user_two = await token_service.get_data(user_token_two)

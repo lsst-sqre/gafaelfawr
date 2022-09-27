@@ -4,12 +4,13 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 6.0.0 (unreleased)
+## 6.0.0 (2022-09-27)
 
 ### Backwards-incompatible changes
 
 - Remove support for all `X-Auth-Request-*` headers that were not being used. The only available headers are now `X-Auth-Request-Email`, `X-Auth-Request-Token`, and `X-Auth-Request-User`. The other information is already available to the application in other ways (client IP), should not be used by the application due to separation of concerns (scopes), or can be retrieved from the `/auth/api/v1/user-info` or `/auth/api/v1/token-info` routes if required.
 - Scopes requested via `delegate_scope` are now optional. If the authenticating token has a scope requested via that parameter, the delegated token will have it, but if it does not, authentication will still succeed and the delegated token will be created, but without that scope. To restore the previous behavior of also requiring that scope for authentication, add it to `scope` as well and either omit `satisfy` or use `satisfy=all`.
+- Remove support for a user editing their own tokens, and remove the corresponding UI. This is not a commonly supported operation on tokens in other implementations, such as GitHub. Token administrators with the `admin:token` scope can still edit tokens.
 - Drop support for creating InfluxDB tokens, including the configuration options and the `/auth/tokens/influxdb/new` route. This support only worked with InfluxDB 1.x and was not used; InfluxDB 2.x uses an entirely different authentication mechanism.
 - The supported URL for getting token information after an OpenID Connect authentication to Gafaelfawr is `/auth/openid/userinfo`. Fix the mistaken creation of `/auth/oidc/userinfo` and drop support for `/auth/userinfo`. The latter incorrectly implies this is a general API, as opposed to specific to the OpenID Connect support.
 - Drop support for `/oauth2/callback` as an alias for `/login` and the `config.cilogon.redirectUrl` setting. This was required for some older CILogon integrations at NCSA, but those deployments have been retired.

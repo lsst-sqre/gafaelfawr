@@ -843,6 +843,12 @@ class TokenService:
     ) -> Optional[TokenInfo]:
         """Modify a token.
 
+        Token modification is only allowed for token administrators.  Users
+        who want to modify their own tokens should instead create a new token
+        and delete the old one.  Arguably, it shouldn't be allowed for token
+        administrators either, but it allows them to fix bugs and the code is
+        tested and working.
+
         Parameters
         ----------
         key : `str`
@@ -877,14 +883,12 @@ class TokenService:
         gafaelfawr.exceptions.DuplicateTokenNameError
             A token with this name for this user already exists.
         gafaelfawr.exceptions.PermissionDeniedError
-            The token being modified is not owned by the user identified with
-            ``auth_data`` or the user attempted to modify a token type other
-            than user.
+            The user modifiying the token is not a token administrator.
         """
         info = await self.get_token_info_unchecked(key, username)
         if not info:
             return None
-        self._check_authorization(info.username, auth_data)
+        self._check_authorization(info.username, auth_data, require_admin=True)
         if info.token_type != TokenType.user:
             msg = "Only user tokens can be modified"
             self._logger.warning("Permission denied", error=msg)
