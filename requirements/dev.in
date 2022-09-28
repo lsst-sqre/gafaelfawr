@@ -27,11 +27,7 @@ holdup
 
 # Documentation
 diagrams
-documenteer
-lsst-sphinx-bootstrap-theme
-markdown-it-py[linkify]
-myst-parser
-sphinx-automodapi
+documenteer[guide]>=0.7.0b2
 sphinx-click
-sphinx-prompt
+sphinx-diagrams
 sphinxcontrib-redoc

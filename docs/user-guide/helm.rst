@@ -1,129 +1,8 @@
-##################
-Installation guide
-##################
-
-Gafaelfawr was written to run within the Vera C. Rubin Science Platform.
-While there is nothing intrinsic in Gafaelfawr that would prevent it from working in some other environment, only installation via `Phalanx <https://github.com/lsst-sqre/phalanx>`__ is supported or has been tested.
-
-Prerequisites
-=============
-
-The `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__ must already be configured and working.
-Gafaelfawr only supports that ingress controller.
-Gafaelfawr also expects TLS termination to be done by the ingress controller.
-
-A PostgreSQL database is required but not provided by the Helm chart.
-You must provision this database and configure it as described below.
-Google Cloud SQL (including the Google Cloud SQL Auth Proxy) is supported (and preferred).
-
-Redis is also required for storage, but the Gafaelfawr Helm chart will configure and deploy a private Redis server for this purpose.
-However, you will need to configure persistent storage for that Redis server for any non-test deployment, which means that the Kubernetes cluster must provide persistent storage.
-
-Gafaelfawr requires use of Vault_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets as Kubernetes secrets.
-
-.. _Vault: https://www.vaultproject.io/
-.. _Vault Secrets Operator: https://github.com/ricoberger/vault-secrets-operator
-
-Client configuration
-====================
-
-.. _github-config:
-
-GitHub
-------
-
-If you will be using GitHub as the authentication provider, you will need to create a GitHub OAuth app for Gafaelfawr and obtain a client ID and secret.
-To get these values, go to Settings → Developer Settings for either a GitHub user or an organization, go into OAuth Apps, and create a new application.
-The callback URL should be the ``/login`` route under the hostname you will use for your Gafaelfawr deployment.
-
-.. _cilogon-config:
-
-CILogon
--------
-
-If you will use CILogon as the authentication provider, you will need to register with CILogon to get a client ID and secret.
-
-Normally, CILogon is used in conjunction with COmanage, and Gafaelfawr should be registered as a OIDC client in the settings of the corresponding COmanage instance.
-For details on how to do this, see SQR-055_.
-
-.. _SQR-055: https://sqr-055.lsst.io/
-
-Other OpenID Connect provider
------------------------------
-
-Gafaelfawr supports client authentication using an arbitrary OpenID Connect provider, as long as the provider supports a ``response_type`` of ``code``, a ``grant_type`` of ``authorization_code``, accepts a ``client_secret`` for authentication, and returns tokens that contain a username and numeric UID.
-You will need the following information from the OpenID Connect provider:
-
-- Client ID that Gafaelfawr will use to authenticate
-- Client secret corresponding to that client ID
-- JWT audience corresponding to that client ID
-- Authorization endpoint URL (where the user is sent to authorize Gafaelafwr)
-- Token endpoint URL (from which Gafaelfawr retrieves a token after authentication)
-- JWT issuer URL
-- List of scopes to request from the OpenID Connect provider
-
-.. _vault-secrets:
-
-Vault secrets
-=============
-
-Gafaelfawr uses secrets stored in `Vault`_ and uses `Vault Secrets Operator`_ to materialize those secrets in Kubernetes.
-The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevant Science Platform environment containing the following keys:
-
-``bootstrap-token``
-    A Gafaelfawr token created with ``gafaelfawr generate-token``.
-    Used to create service tokens, initialize admins, and do other privileged operations.
-    See :ref:`bootstrapping` for more information.
-
-``cilogon-client-secret``
-    The CILogon secret, obtained during client registration as described above.
-    This is only required if you're using CILogon for authentication.
-
-``database-password``
-    The password to use for the PostgreSQL database.
-    This should be set to a long, randomly-generated alphanumeric string.
-
-``github-client-secret`` (optional)
-    The GitHub secret, obtained when creating the OAuth App as described above.
-    This is only required if you're using GitHub for authentication.
-
-``ldap-password`` (optional)
-    The password used for simple binds to the LDAP server used as a source of data about users.
-    Only used if LDAP lookups are enabled.
-    See :ref:`ldap-groups` for more information.
-
-``oidc-client-secret`` (optional)
-    The secret for an OpenID Connect authentication provider.
-    This is only required if you're using generic OpenID Connect for authentication.
-
-``oidc-server-secrets`` (optional)
-    Only used if the Helm chart parameter ``config.oidcServer.enabled`` is set to true.
-    The JSON representation of the OpenID Connect clients.
-    Must be a JSON list of objects, each of which must have ``id`` and ``secret`` keys corresponding to the ``client_id`` and ``client_secret`` parameters sent by OpenID Connect clients.
-    See :ref:`openid-connect` for more information.
-
-``redis-password``
-    The password to use for Redis authentication.
-    This should be set to a long, randomly-generated alphanumeric string.
-
-``session-secret``
-    Encryption key for the Gafaelfawr session cookie.
-    Generate with ``gafaelfawr generate-session-secret``.
-
-``signing-key`` (optional)
-    Only used if the Helm chart parameter ``config.oidcServer.enabled`` is set to true.
-    The PEM-encoded RSA private key used to sign internally-issued JWTs.
-    Generate with ``gafaelfawr generate-key``.
-
-``slack-webhook`` (optional)
-    Only used if the Helm chart parameter ``config.slackAlerts`` is set to true.
-    The Slack incoming webhook URL to which to post alerts.
-    See :ref:`slack-alerts` for more information.
-
 .. _helm-settings:
 
+##################
 Helm configuration
-==================
+##################
 
 The supported way of deploying Gafaelfawr is as a Phalanx service, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr/>`__.
 You will need to provide a ``values-<environment>.yaml`` file for your Phalanx environment.
@@ -134,7 +13,7 @@ For examples, see the other ``values-<environment>.yaml`` files in that director
 In the below examples, the full key hierarchy is shown for each setting.
 For example:
 
-.. code-block::
+.. code-block:: yaml
 
    config:
      cilogon:
@@ -146,7 +25,7 @@ For example, there should be one top-level ``config:`` key and all parameters th
 .. _basic-settings:
 
 Basic settings
---------------
+==============
 
 Set the URL to the PostgreSQL database that Gafaelfawr will use:
 
@@ -197,12 +76,12 @@ Setting this is optional; you can instead use the bootstrap token (see :ref:`boo
 .. _providers:
 
 Authentication provider
------------------------
+=======================
 
 Configure GitHub, CILogon, or OpenID Connect as the upstream provider.
 
 GitHub
-^^^^^^
+------
 
 .. code-block:: yaml
 
@@ -216,7 +95,7 @@ When GitHub is used as the provider, group membership will be synthesized from G
 See :ref:`github-groups` for more information.
 
 CILogon
-^^^^^^^
+-------
 
 .. code-block:: yaml
 
@@ -271,7 +150,7 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     The default is ``uid``.
 
 Generic OpenID Connect
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 .. code-block:: yaml
 
@@ -331,7 +210,7 @@ There are some additional options under ``config.oidc`` that you may want to set
 .. _ldap-groups:
 
 LDAP groups
------------
+===========
 
 When using either CILogon or generic OpenID Connect as an authentication provider, you can choose to obtain group information from an LDAP server rather than an ``isMemberOf`` attribute inside the token.
 
@@ -371,7 +250,7 @@ The name of each group will be taken from the ``cn`` attribute and the GID will 
 .. _ldap-user:
 
 LDAP user information
----------------------
+=====================
 
 By default, Gafaelfawr takes the user's name, email, and numeric UID from the upstream provider via the ``name``, ``mail``, and ``uidNumber`` claims in the ID token.
 If LDAP is used for group information, this data, plus the primary GID, can instead be obtained from LDAP.
@@ -416,7 +295,7 @@ You may need to set the following additional options under ``config.ldap`` depen
 .. _scopes:
 
 Firestore UID/GID assignment
-----------------------------
+============================
 
 Gafaelfawr can manage UID and GID assignment internally, using `Google Firestore <https://cloud.google.com/firestore>`__ as the storage mechanism.
 This only works with Open ID Connect authentication, and :ref:`Cloud SQL <cloudsql>` must also be enabled.
@@ -438,7 +317,7 @@ Set ``<google-project-id>`` to the name of the Google project for the Firestore 
 (Best practice is to make a dedicated project solely for Firestore, since there can only be one Firestore instance per Google project.)
 
 Scopes
-------
+======
 
 Gafaelfawr takes group information from the upstream authentication provider or from LDAP and maps it to scopes.
 Scopes are then used to restrict access to protected applications (see :ref:`protect-service`).
@@ -507,7 +386,7 @@ Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scop
 The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
 
 Redis storage
--------------
+=============
 
 For any Gafaelfawr deployment other than a test instance, you will want to configure persistent storage for Redis.
 Otherwise, each upgrade of Gafaelfawr's Redis component will invalidate all of the tokens.
@@ -541,7 +420,7 @@ This will use an ephemeral ``emptyDir`` volume for Redis storage.
 .. _cloudsql:
 
 Cloud SQL
----------
+=========
 
 If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL database, Gafaelfawr supports using the Cloud SQL Auth Proxy via Workload Identity.
 
@@ -568,7 +447,7 @@ Gafaelfawr therefore doesn't support IAM authentication to the database.
 .. _helm-proxies:
 
 Logging and proxies
--------------------
+===================
 
 The default logging level of Gafaelfawr is ``INFO``, which will log a message for every action it takes.
 To change this, set ``config.loglevel``:
@@ -596,7 +475,7 @@ See :ref:`client-ips` for more information.
 .. _slack-alerts:
 
 Slack alerts
-------------
+============
 
 Gafaelfawr can optionally report uncaught exceptions to Slack.
 To enable this, set ``config.slackAlerts``:
@@ -609,7 +488,7 @@ To enable this, set ``config.slackAlerts``:
 You will also have to set the ``slack-webhook`` key in the Gafaelfawr secret to the URL of the incoming webhook to use to post these alerts.
 
 Maintenance timing
-------------------
+==================
 
 Gafaelfawr uses two Kubernetes ``CronJob`` resources to perform periodic maintenance and consistency checks on its data stores.
 
@@ -625,33 +504,9 @@ Its schedule can be set with ``config.maintenance.auditSchedule`` (a `cron sched
 .. _cron schedule expression: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#cron-schedule-syntax
 
 OpenID Connect server
----------------------
+=====================
 
 Gafaelfawr can act as an OpenID Connect identity provider for relying parties inside the Kubernetes cluster.
 To enable this, set ``config.oidcServer.enabled`` to true.
 If this is set, ``oidc-server-secrets`` and ``signing-key`` must be set in the Gafaelfawr Vault secret.
 See :ref:`openid-connect` for more information.
-
-Administrators
-==============
-
-Gafaelfawr has a concept of token administrators.
-Those users can add and remove other administrators and can create a service or user token for any user.
-Currently, this capability is only available via the API, not the UI.
-
-If a username is marked as a token administrator, that user will be automatically granted the ``admin:token`` scope when they authenticate (via either GitHub or OpenID Connect), regardless of their group membership.
-They can then choose whether to delegate that scope to any user tokens they create.
-
-The initial set of administrators can be added with the ``config.initialAdmins`` Helm variable (see :ref:`basic-settings`) or via the bootstrap token.
-
-.. _bootstrapping:
-
-Bootstrapping
--------------
-
-Gafaelfawr can be configured with a special token, called the bootstrap token.
-This token must be generated with ``gafaelfawr generate-token`` and then stored in the ``bootstrap-token`` key of the Gafaelfawr Vault secret.
-See :ref:`vault-secrets` for more details.
-It can then be used with API calls as a bearer token in the ``Authenticate`` header.
-
-The bootstrap token acts like the token of a service or user with the ``admin:token`` scope, but can only access specific routes, namely ``/auth/api/v1/tokens`` and those under ``/auth/api/v1/admins``.

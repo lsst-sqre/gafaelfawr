@@ -70,9 +70,9 @@ instance/
 
 # Sphinx documentation
 /docs/_build/
-/docs/arch/internals/
 /docs/_static/openapi.json
 /docs/_static/*.png
+/docs/dev/internals/
 
 # PyBuilder
 target/
