@@ -26,6 +26,9 @@ class TokenCacheService:
     request data matches, the token is still valid, and less than half of its
     lifetime has passed.
 
+    This class handles both the creation and the caching of internal and
+    notebook tokens.
+
     Parameters
     ----------
     config : `gafaelfawr.config.Config`

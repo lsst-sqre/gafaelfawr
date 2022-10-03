@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ipaddress
 import re
-import time
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -1186,8 +1185,8 @@ class TokenService:
         """
         if not expires:
             return
-        if expires.timestamp() < time.time() + MINIMUM_LIFETIME:
-            msg = "token must be valid for at least five minutes"
+        if expires < current_datetime() + MINIMUM_LIFETIME:
+            msg = "Token must be valid for at least five minutes"
             raise InvalidExpiresError(msg)
 
     def _validate_scopes(

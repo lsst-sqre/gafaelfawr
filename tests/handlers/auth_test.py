@@ -619,7 +619,7 @@ async def test_minimum_lifetime(
         assert token_data
 
     # Required lifetime is within MINIMUM_LIFETIME of maximum token lifetime.
-    minimum_lifetime = timedelta(seconds=MINIMUM_LIFETIME - 1)
+    minimum_lifetime = MINIMUM_LIFETIME - timedelta(seconds=1)
     r = await client.get(
         "/auth",
         params={

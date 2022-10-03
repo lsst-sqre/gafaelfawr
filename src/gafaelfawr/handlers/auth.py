@@ -272,8 +272,7 @@ async def get_auth(
     # the maximum lifetime to avoid the risk of a slow infinite redirect loop
     # when the login process takes a while.
     if auth_config.minimum_lifetime:
-        grace_period = timedelta(seconds=MINIMUM_LIFETIME)
-        max_lifetime = context.config.token_lifetime - grace_period
+        max_lifetime = context.config.token_lifetime - MINIMUM_LIFETIME
         if auth_config.minimum_lifetime > max_lifetime:
             minimum_lifetime_seconds = int(
                 auth_config.minimum_lifetime.total_seconds()
