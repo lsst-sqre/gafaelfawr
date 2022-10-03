@@ -71,6 +71,9 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
 
 @main.command()
 @click.option(
+    "--fix", default=False, is_flag=True, help="Fix issues found, if possible"
+)
+@click.option(
     "--settings",
     envvar="GAFAELFAWR_SETTINGS_PATH",
     type=str,
@@ -78,7 +81,7 @@ def help(ctx: click.Context, topic: Union[None, str]) -> None:
     help="Application settings file.",
 )
 @run_with_asyncio
-async def audit(settings: Optional[str]) -> None:
+async def audit(fix: bool, settings: Optional[str]) -> None:
     """Run a consistency check on Gafaelfawr's data stores.
 
     Any problems found will be reported to Slack.
@@ -98,7 +101,7 @@ async def audit(settings: Optional[str]) -> None:
     async with Factory.standalone(config, engine) as factory:
         token_service = factory.create_token_service()
         async with factory.session.begin():
-            alerts = await token_service.audit()
+            alerts = await token_service.audit(fix=fix)
         if alerts:
             message = (
                 "Gafaelfawr data inconsistencies found:\n• "

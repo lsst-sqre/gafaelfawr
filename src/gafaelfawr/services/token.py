@@ -80,11 +80,17 @@ class TokenService:
         self._token_change_store = token_change_store
         self._logger = logger
 
-    async def audit(self) -> List[str]:
+    async def audit(self, fix: bool = False) -> List[str]:
         """Check Gafaelfawr data stores for consistency.
 
         If any errors are found and Slack is configured, report them to Slack
         in addition to returning them.
+
+        Parameters
+        ----------
+        fix : `bool`, optional
+            Whether to fix problems that the audit code knows how to fix
+            (which is not all alerts).  Default is `False`.
 
         Returns
         -------
@@ -115,10 +121,14 @@ class TokenService:
                 token=key,
                 user=db_tokens[key].username,
             )
-            alerts.append(
+            alert = (
                 f"Token `{key}` for `{db_tokens[key].username}` found in"
                 " database but not Redis"
             )
+            if fix:
+                await self._token_db_store.modify(key, expires=now)
+                alert += " (fixed)"
+            alerts.append(alert)
 
         # Tokens in Redis but not in the database.
         for key in redis_token_keys - db_token_keys:
@@ -127,10 +137,14 @@ class TokenService:
                 token=key,
                 user=redis_tokens[key].username,
             )
-            alerts.append(
+            alert = (
                 f"Token `{key}` for `{redis_tokens[key].username}` found in"
                 " Redis but not database"
             )
+            if fix:
+                await self._token_redis_store.delete(key)
+                alert += " (fixed)"
+            alerts.append(alert)
 
         # Check that the data matches between the database and Redis.  Older
         # versions of Gafaelfawr didn't sort the scopes in Redis, so we have
@@ -144,7 +158,14 @@ class TokenService:
             if db.token_type != redis.token_type:
                 mismatches.append("type")
             if db.scopes != sorted(redis.scopes):
-                mismatches.append("scopes")
+                # There was a bug where Redis wasn't updated when the scopes
+                # were changed but the database was.  Redis is canonical, so
+                # set the database scopes to match.
+                if fix:
+                    await self._token_db_store.modify(key, scopes=redis.scopes)
+                    mismatches.append("scopes [fixed]")
+                else:
+                    mismatches.append("scopes")
             if db.created != redis.created:
                 mismatches.append("created")
             if db.expires != redis.expires:
