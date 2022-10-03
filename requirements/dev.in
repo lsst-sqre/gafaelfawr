@@ -26,7 +26,6 @@ types-PyYAML
 holdup
 
 # Documentation
-diagrams
 documenteer[guide]>=0.7.0b2
 sphinx-click
 sphinx-diagrams

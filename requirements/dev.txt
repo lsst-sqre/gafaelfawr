@@ -291,9 +291,7 @@ cryptography==38.0.1 \
 diagrams==0.22.0 \
     --hash=sha256:39c183fab1705d4eae1213131d8eba377a55519e11b37d4c7dbe528aa447bcb5 \
     --hash=sha256:b61bac4a0afe6072d37ee21a08d46868fc9a251878035adf9097a4842bc86472
-    # via
-    #   -r requirements/dev.in
-    #   sphinx-diagrams
+    # via sphinx-diagrams
 distlib==0.3.6 \
     --hash=sha256:14bad2d9b04d3a36127ac97f30b12a19268f211063d8f8ee4f47108896e11b46 \
     --hash=sha256:f35c4b692542ca110de7ef0bea44d73981caeb34ca0b9b6b2e6d7790dda8f80e
