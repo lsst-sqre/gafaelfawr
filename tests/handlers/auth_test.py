@@ -656,6 +656,7 @@ async def test_minimum_lifetime(
         },
         headers={"Authorization": f"Bearer {token}"},
     )
+    assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -689,6 +690,58 @@ async def test_minimum_lifetime(
         },
     )
     assert r.status_code == 403
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.error == AuthError.invalid_token
+
+
+@pytest.mark.asyncio
+async def test_default_minimum_lifetime(
+    config: Config, client: AsyncClient, factory: Factory
+) -> None:
+    user_info = TokenUserInfo(username="user", uid=1234, name="Some User")
+    token_service = factory.create_token_service()
+
+    # Create a token and then change it to expire in one minute.  We only
+    # change Redis, which is canonical; no need to change the database as
+    # well.
+    async with factory.session.begin():
+        token = await token_service.create_session_token(
+            user_info, scopes=["user:token"], ip_address="127.0.0.1"
+        )
+        token_data = await token_service.get_data(token)
+        assert token_data
+        token_data.expires = current_datetime() + timedelta(minutes=1)
+        await token_service._token_redis_store.store_data(token_data)
+
+    # Check that one can authenticate with this token.
+    r = await client.get(
+        "/auth",
+        params={"scope": "user:token"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+
+    # Attempt to get an internal and a notebook token with no required minimum
+    # lifetime.  Both should fail because the created tokens would not have a
+    # long enough lifetime.
+    r = await client.get(
+        "/auth",
+        params={"scope": "user:token", "notebook": "true"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 401
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.error == AuthError.invalid_token
+    r = await client.get(
+        "/auth",
+        params={"scope": "user:token", "delegate_to": "some-service"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
