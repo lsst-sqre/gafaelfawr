@@ -1564,11 +1564,7 @@ async def test_audit(factory: Factory) -> None:
     )
     await token_redis_store.store_data(redis_user_token_data)
     async with factory.session.begin():
-        await token_db_store.add(
-            db_user_token_data,
-            token_name="foo",
-            parent=db_session_token_data.token.key,
-        )
+        await token_db_store.add(db_user_token_data, token_name="foo")
 
     # Add a child token that expires after the parent token.
     internal_token_data = TokenData(
@@ -1584,7 +1580,7 @@ async def test_audit(factory: Factory) -> None:
         await token_db_store.add(
             internal_token_data,
             service="some-service",
-            parent=db_session_token_data.token.key,
+            parent=db_user_token_data.token.key,
         )
 
     # Add a child token whose parent token doesn't exist.
@@ -1646,4 +1642,30 @@ async def test_audit(factory: Factory) -> None:
         f"Token `{unknown_scope_token_data.token.key}` for `some-user`"
         " has unknown scope (`bogus:scope`)",
     ]
+    assert sorted(alerts) == sorted(expected)
+
+    # Run the audit again with fixing enabled.
+    async with factory.session.begin():
+        alerts = await token_service.audit(fix=True)
+    expected[0] += " (fixed)"
+    expected[1] += " (fixed)"
+    expected[2] = (
+        f"Token `{db_user_token_data.token.key}` for `some-user` does"
+        " not match between database and Redis (scopes [fixed], created)"
+    )
+    assert sorted(alerts) == sorted(expected)
+
+    # Remove expired tokens from the database, since a token present in the
+    # database and not in Redis is addressed by expiring it.
+    async with factory.session.begin():
+        await token_service.expire_tokens()
+
+    # Run the audit again, which should show fewer issues.
+    async with factory.session.begin():
+        alerts = await token_service.audit()
+    expected = expected[2:]
+    expected[0] = (
+        f"Token `{db_user_token_data.token.key}` for `some-user` does"
+        " not match between database and Redis (created)"
+    )
     assert sorted(alerts) == sorted(expected)

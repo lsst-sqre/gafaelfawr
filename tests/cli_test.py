@@ -99,6 +99,18 @@ def test_audit(
         }
     ]
 
+    mock_slack.messages = []
+    runner = CliRunner()
+    result = runner.invoke(main, ["audit", "--fix"])
+    assert result.exit_code == 0
+    assert len(mock_slack.messages) == 1
+
+    mock_slack.messages = []
+    runner = CliRunner()
+    result = runner.invoke(main, ["audit"])
+    assert result.exit_code == 0
+    assert len(mock_slack.messages) == 0
+
 
 def test_delete_all_data(
     tmp_path: Path,
