@@ -158,6 +158,7 @@ def auth_config(
             " notebook) would have a shorter lifetime, in seconds, than this"
             " parameter."
         ),
+        ge=MINIMUM_LIFETIME.total_seconds(),
         example=86400,
     ),
     auth_uri: str = Depends(auth_uri),
@@ -187,10 +188,11 @@ def auth_config(
         delegate_scopes = set(s.strip() for s in delegate_scope.split(","))
     else:
         delegate_scopes = set()
+    lifetime = None
     if minimum_lifetime:
         lifetime = timedelta(seconds=minimum_lifetime)
-    else:
-        lifetime = None
+    elif not minimum_lifetime and (notebook or delegate_to):
+        lifetime = MINIMUM_LIFETIME
     return AuthConfig(
         scopes=scopes,
         satisfy=satisfy,
@@ -272,8 +274,7 @@ async def get_auth(
     # the maximum lifetime to avoid the risk of a slow infinite redirect loop
     # when the login process takes a while.
     if auth_config.minimum_lifetime:
-        grace_period = timedelta(seconds=MINIMUM_LIFETIME)
-        max_lifetime = context.config.token_lifetime - grace_period
+        max_lifetime = context.config.token_lifetime - MINIMUM_LIFETIME
         if auth_config.minimum_lifetime > max_lifetime:
             minimum_lifetime_seconds = int(
                 auth_config.minimum_lifetime.total_seconds()

@@ -43,8 +43,8 @@ LDAP_TIMEOUT = 5.0
 CHANGE_HISTORY_RETENTION = timedelta(days=365)
 """Retention of old token change history entries."""
 
-MINIMUM_LIFETIME = 5 * 60
-"""Minimum expiration lifetime for a token in seconds."""
+MINIMUM_LIFETIME = timedelta(minutes=5)
+"""Minimum expiration lifetime for a token."""
 
 OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 """How long (in seconds) an authorization code is good for."""
