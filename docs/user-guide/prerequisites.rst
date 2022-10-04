@@ -30,7 +30,7 @@ If that header is not present, the connecting IP address will be used as the IP 
 Making this work properly requires some additional NGINX configuration:
 
 #. Configure the NGINX ingress to generate full, chained ``X-Forwarded-For`` headers.
-   Do this by adding:
+   Do this by adding the following to the ``ConfigMap`` for the ingress-nginx service:
 
    .. code-block:: yaml
 
@@ -38,7 +38,6 @@ Making this work properly requires some additional NGINX configuration:
         compute-full-forwarded-for: "true"
         use-forwarded-headers: "true"
 
-   to the ``ConfigMap`` for the NGINX ingress.
    See the `NGINX Ingress Controller documentation <https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/>`__ for more details.
    Be aware that this will affect every service behind the NGINX ingress, not just Gafaelfawr, so all other services must be prepared for receiving a full ``X-Forwaded-For`` header, possibly including (on the left-most end) addresses sent by a malicious client.
    There is more information at `the Wikipedia article on X-Forwarded-For <https://en.wikipedia.org/wiki/X-Forwarded-For>`__.
