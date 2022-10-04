@@ -8,7 +8,7 @@ Gafaelfawr uses secrets stored in `Vault`_ and uses `Vault Secrets Operator`_ to
 The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevant Science Platform environment containing the following keys:
 
 ``bootstrap-token``
-    A Gafaelfawr token created with ``gafaelfawr generate-token``.
+    A Gafaelfawr token created with ``gafaelfawr generate-token`` (:doc:`CLI command <cli>`).
     Used to create service tokens, initialize admins, and do other privileged operations.
     See :ref:`bootstrapping` for more information.
 
@@ -45,12 +45,12 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
 
 ``session-secret``
     Encryption key for the Gafaelfawr session cookie.
-    Generate with ``gafaelfawr generate-session-secret``.
+    Generate with ``gafaelfawr generate-session-secret`` (:doc:`CLI command <cli>`).
 
 ``signing-key`` (optional)
     Only used if the Helm chart parameter ``config.oidcServer.enabled`` is set to true.
     The PEM-encoded RSA private key used to sign internally-issued JWTs.
-    Generate with ``gafaelfawr generate-key``.
+    Generate with ``gafaelfawr generate-key`` (:doc:`CLI command <cli>`).
 
 ``slack-webhook`` (optional)
     Only used if the Helm chart parameter ``config.slackAlerts`` is set to true.
