@@ -10,6 +10,10 @@ Dependencies are updated to the latest available version during each release. Th
 
 - Add `--fix` flag to the `gafaelfawr audit` command, which attempts to fix discovered issues where possible. Only some discoverable issues have code to fix them.
 
+### Bug fixes
+
+- If a delegated token is requested from the `/auth` route, the authenticating token now must have a remaining lifetime of at least five minutes or it is treated as if it is expired. This avoids creating delegated tokens with unusably short or zero lifetimes.
+
 ## 6.0.0 (2022-09-27)
 
 ### Backwards-incompatible changes
