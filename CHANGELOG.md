@@ -4,7 +4,7 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 6.1.0 (unreleased)
+## 6.1.0 (2022-10-04)
 
 ### New features
 
@@ -13,6 +13,10 @@ Dependencies are updated to the latest available version during each release. Th
 ### Bug fixes
 
 - If a delegated token is requested from the `/auth` route, the authenticating token now must have a remaining lifetime of at least five minutes or it is treated as if it is expired. This avoids creating delegated tokens with unusably short or zero lifetimes.
+
+### Other changes
+
+- The documentation has been updated and restructured to use the new Rubin user guide theme.
 
 ## 6.0.0 (2022-09-27)
 
