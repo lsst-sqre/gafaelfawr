@@ -40,15 +40,15 @@ payload
     Consists of key/value pairs.
     The value is normally a `str` but may be an `int` or a more complex structure.
 
-protected application
-    An application that uses Gafaelfawr for authentication and authorization.
-    Gafaelfawr will run as an NGINX auth subrequest handler and return headers that NGINX will in turn pass to the protected application, which it can use for further authorization and identity decisions.
+protected service
+    A service that uses Gafaelfawr for authentication and authorization.
+    Gafaelfawr will run as an NGINX auth subrequest handler and return headers that NGINX will in turn pass to the protected service, which it can use for further authorization and identity decisions.
 
 scope
     A permission that a user holding a token has in some system.
     When requesting authentication from an OpenID Connect provider, the requested scopes control what information is returned about the user in the ID token.
     For a token issued by Gafaelfawr, a scope represents a general class of permissions on systems protected by Gafaelfawr.
-    Applications can be protected by authorization rules that require specific scopes.
+    Services can be protected by authorization rules that require specific scopes.
 
 session
     A stored authentication token for a user that expires after some set length of time.
@@ -64,7 +64,7 @@ subject
 
 token
     There are two types of authentication tokens used by Gafaelfawr.
-    When authenticating the user to an external OpenID Connect service, or when acting as an OpenID Connect service to a protected application, tokens are JWTs.
+    When authenticating the user to an external OpenID Connect service, or when acting as an OpenID Connect service to a protected service, tokens are JWTs.
     For all other operations, tokens are opaque strings starting with ``gt-``.
     These opaque tokens consist of two parts: a key and a secret.
     The key is the Redis key for the stored session.

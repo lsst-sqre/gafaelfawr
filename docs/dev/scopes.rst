@@ -7,7 +7,7 @@ Overview
 
 Gafaelfawr makes all authorization decisions based on scopes.
 Each token has zero or more scopes associated with it.
-Protected applications indicate which scopes are required to access that application via the scope parameter on the ``/auth`` route.
+Protected services indicate which scopes are required to access that service via the scope parameter on the ``/auth`` route.
 When users create their own tokens, they can choose which scopes to delegate to the user token to restrict its power.
 
 Scopes are derived from the user's group membership as determined by their OpenID Connect claims (if OpenID Connect authentication is used), their GitHub team memberships (if GitHub authentication is used), or their LDAP group membership (if LDAP is configured).
@@ -50,7 +50,7 @@ Internal tokens get no scopes by default.
 Scopes can be added to internal tokens if requested via the ``delegate_scope`` parameter to the ``/auth`` route.
 The resulting internal token will have scopes equal to the intersection of the list in ``delegate_scope`` and the scopes present in the authenticating token.
 This means the delegated token may have no scopes if the authenticating token doesn't have any of the requested scopes.
-If the protected application wants to be assured of having a given scope in its delegated internal token, it must also make that scope mandatory for access by listing it in ``scope``.
+If the protected service wants to be assured of having a given scope in its delegated internal token, it must also make that scope mandatory for access by listing it in ``scope``.
 
 Scope naming
 ============

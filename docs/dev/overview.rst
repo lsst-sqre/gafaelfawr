@@ -12,10 +12,10 @@ Instead, the NGINX ingress makes a subrequest to Gafaelfawr to check the authori
 Authentication is handled by an external identity provider to which the user will be redirected as necessary.
 Gafaelfawr will also make direct requests to that identity provider to get information about the user after authentication.
 
-For protected applications that only understand OpenID Connect, Gafaelfawr also includes a minimal OpenID Connect server.
+For protected services that only understand OpenID Connect, Gafaelfawr also includes a minimal OpenID Connect server.
 This was designed with just enough features to support `Chronograf`_.
 It may not work with other applications without additional changes.
 
 .. _Chronograf: https://docs.influxdata.com/chronograf/v1.8/administration/managing-security/
 
-Gafaelfawr also deploys a Kubernetes operator to maintain service tokens in Kubernetes secrets for the use of other applications deployed in the same cluster, a ``CronJob`` to perform maintenance on its storage, and a ``CronJob`` to audit storage for inconsistencies.
+Gafaelfawr also deploys a Kubernetes operator to maintain service tokens in Kubernetes secrets for the use of other services deployed in the same cluster, a ``CronJob`` to perform maintenance on its storage, and a ``CronJob`` to audit storage for inconsistencies.

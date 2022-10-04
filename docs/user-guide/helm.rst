@@ -176,7 +176,7 @@ For the latter option, the claim should preferrably have the following format:
    ]}
 
 The name of the claim can be overridden with ``config.oidc.groupsClaim`` as discussed below.
-Optionally, the value of the claim can be a simple list of group names instead of a structure including the GIDs, but in this case Gafaelfawr will not have access to the GID information and will not be able to provide it to protected applications.
+Optionally, the value of the claim can be a simple list of group names instead of a structure including the GIDs, but in this case Gafaelfawr will not have access to the GID information and will not be able to provide it to protected services.
 
 There are some additional options under ``config.oidc`` that you may want to set:
 
@@ -320,7 +320,7 @@ Scopes
 ======
 
 Gafaelfawr takes group information from the upstream authentication provider or from LDAP and maps it to scopes.
-Scopes are then used to restrict access to protected applications (see :ref:`service-ingress`).
+Scopes are then used to restrict access to protected services (see :ref:`service-ingress`).
 
 For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see :dmtn:`235`.
 

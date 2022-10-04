@@ -18,7 +18,7 @@ Dependencies are updated to the latest available version during each release. Th
 
 ### Backwards-incompatible changes
 
-- Remove support for all `X-Auth-Request-*` headers that were not being used. The only available headers are now `X-Auth-Request-Email`, `X-Auth-Request-Token`, and `X-Auth-Request-User`. The other information is already available to the application in other ways (client IP), should not be used by the application due to separation of concerns (scopes), or can be retrieved from the `/auth/api/v1/user-info` or `/auth/api/v1/token-info` routes if required.
+- Remove support for all `X-Auth-Request-*` headers that were not being used. The only available headers are now `X-Auth-Request-Email`, `X-Auth-Request-Token`, and `X-Auth-Request-User`. The other information is already available to the service in other ways (client IP), should not be used by the service due to separation of concerns (scopes), or can be retrieved from the `/auth/api/v1/user-info` or `/auth/api/v1/token-info` routes if required.
 - Scopes requested via `delegate_scope` are now optional. If the authenticating token has a scope requested via that parameter, the delegated token will have it, but if it does not, authentication will still succeed and the delegated token will be created, but without that scope. To restore the previous behavior of also requiring that scope for authentication, add it to `scope` as well and either omit `satisfy` or use `satisfy=all`.
 - Remove support for a user editing their own tokens, and remove the corresponding UI. This is not a commonly supported operation on tokens in other implementations, such as GitHub. Token administrators with the `admin:token` scope can still edit tokens.
 - Drop support for creating InfluxDB tokens, including the configuration options and the `/auth/tokens/influxdb/new` route. This support only worked with InfluxDB 1.x and was not used; InfluxDB 2.x uses an entirely different authentication mechanism.
@@ -203,7 +203,7 @@ As of this release, the only supported mechanism for installing Gafaelfawr is as
 
 ### Other changes
 
-- The Docker image now starts a single async Python process rather than running multiple processes using Gunicorn. This follows the FastAPI upstream recommendations for applications running under Kubernetes. Scaling in Kubernetes is better-handled by spawning multiple pods rather than running multiple frontend processes in each pod.
+- The Docker image now starts a single async Python process rather than running multiple processes using Gunicorn. This follows the FastAPI upstream recommendations for services running under Kubernetes. Scaling in Kubernetes is better-handled by spawning multiple pods rather than running multiple frontend processes in each pod.
 - Update the base Docker image to Debian bullseye and Python 3.9.
 - Require Python 3.9 or later.
 
@@ -242,7 +242,7 @@ As of this release, the only supported mechanism for installing Gafaelfawr is as
 
 ### Other changes
 
-- Depend on Safir 2.x and drop remaining aiohttp dependency paths. Remove code that is now supplied by Safir. Share one `httpx.AsyncClient` across all requests and close it when the application is shut down.
+- Depend on Safir 2.x and drop remaining aiohttp dependency paths. Remove code that is now supplied by Safir. Share one `httpx.AsyncClient` across all requests and close it when Gafaelfawr is shut down.
 
 ## 3.0.3 (2021-06-17)
 
@@ -308,7 +308,7 @@ As of this release, Gafaelfawr now uses FastAPI instead of aiohttp. OpenAPI docu
 
 - Eliminate internal JWTs, including the old session and session handle system, in favor of opaque tokens.
 - Replace the `/auth/tokens` UI with a new UI using React and Gatsby. Currently, it supports viewing all the tokens for a user, creating and editing user tokens, revoking tokens, viewing token information with the token change history, and searching the token change history.
-- Protected applications no longer receive a copy of the user's authentication token. They must request a delegated token if they want one.
+- protected services no longer receive a copy of the user's authentication token. They must request a delegated token if they want one.
 - Enforce constraints on valid usernames matching GitHub's constraints, except without allowing capital letters.
 - Only document and support installing Gafaelfawr via the Helm chart.
 
@@ -318,8 +318,8 @@ As of this release, Gafaelfawr now uses FastAPI instead of aiohttp. OpenAPI docu
 - Add support for several classes of tokens for different purposes. Add additional token metadata to record the purpose of a token.
 - Add caching of internal and notebook tokens. Issue new internal and notebook tokens when the previous token is half-expired.
 - Add support for a bootstrap token that can be used to dynamically create other tokens or configure administrators.
-- Add support for maintaining Kubernetes secrets containing Gafaelfawr service tokens for applications that need to make authenticated calls on their own behalf.
-- The `/auth` route now supports requesting a notebook or internal delegated token for the application.
+- Add support for maintaining Kubernetes secrets containing Gafaelfawr service tokens for services that need to make authenticated calls on their own behalf.
+- The `/auth` route now supports requesting a notebook or internal delegated token for the service.
 - Add `/.well-known/openid-configuration` route to provide metadata about the internal OpenID Connect server. This follows the OpenID Connect Discovery 1.0 specification.
 
 ### Bug fixes
@@ -353,7 +353,7 @@ This release fixes some bugs in the internal OpenID Connect support uncovered by
 
 ## 1.4.0 (2020-08-13)
 
-This release adds a minimalist OpenID Connect server to support protected applications that only understand OpenID Connect. The initial implementation is intended to support [Chronograf](https://www.influxdata.com/time-series-platform/chronograf/). Other applications may or may not work. It also adds optional support for issuing InfluxDB authentication tokens.
+This release adds a minimalist OpenID Connect server to support protected services that only understand OpenID Connect. The initial implementation is intended to support [Chronograf](https://www.influxdata.com/time-series-platform/chronograf/). Other applications may or may not work. It also adds optional support for issuing InfluxDB authentication tokens.
 
 ### New features
 
@@ -390,7 +390,7 @@ This release drops support for Python 3.7. Python 3.8 or later is now required.
 
 ## 1.3.0 (2020-05-19)
 
-This release changes the construction of identity and groups from GitHub authentication by coercing identifiers to lowercase. GitHub is case-preserving but case-insensitive, which is complex for protected applications to deal with. This change ensures Gafaelfawr exposes a consistent canonical identity to downstream applications that is also compatible with other systems that expect lowercase identifiers, such as Kubernetes namespaces.
+This release changes the construction of identity and groups from GitHub authentication by coercing identifiers to lowercase. GitHub is case-preserving but case-insensitive, which is complex for protected services to deal with. This change ensures Gafaelfawr exposes a consistent canonical identity to downstream services that is also compatible with other systems that expect lowercase identifiers, such as Kubernetes namespaces.
 
 ### Backward-incompatible changes
 
@@ -414,7 +414,7 @@ Gafaelfawr can now analyze the `X-Forwarded-For` header to determine the true cl
 
 ## 1.2.0 (2020-05-07)
 
-New in this release is an `/auth/forbidden` route that can be used to provide a non-cached 403 error page. See [the documentation](https://gafaelfawr.lsst.io/applications.html#disabling-error-caching) for more information.
+New in this release is an `/auth/forbidden` route that can be used to provide a non-cached 403 error page. See [the documentation](https://gafaelfawr.lsst.io/user-guide/ingress.html#disabling-error-caching) for more information.
 
 This release changes Gafaelfawr's logging format and standardizes the contents of the logs. All logs are now in JSON. See [the new logging documentation](https://gafaelfawr.lsst.io/logging.html) for more information.
 

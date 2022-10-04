@@ -2,8 +2,8 @@
 Service tokens
 ##############
 
-If an application needs its own service token to make authenticated calls on its own behalf, the recommended way to create such tokens is with Gafaelfawr's Kubernetes secret support.
-Create a ``GafaelfawrServiceToken`` object in the same namespace as the application:
+If a service needs a token to make authenticated calls on its own behalf, the recommended way to create such service tokens is with Gafaelfawr's Kubernetes secret support.
+Create a ``GafaelfawrServiceToken`` object in the same namespace as the service:
 
 .. code-block:: yaml
 
@@ -23,6 +23,6 @@ That secret will have one ``data`` element, ``token``, which will contain a vali
 The service name and the scopes of that token will be determined by the settings in ``spec``.
 Any labels or annotations on the ``GafaelfawrServiceToken`` object will be copied to the created secret.
 
-You can then provide that secret to an application via whatever mechanism is the most convenient, such as by setting an environment variable with its value using the normal Kubernetes ``Pod`` specification.
+You can then provide that secret to the service via whatever mechanism is the most convenient, such as by setting an environment variable with its value using the normal Kubernetes ``Pod`` specification.
 
 ``<service-name>`` must begin with ``bot-`` and otherwise be a valid Gafaelfawr username.
