@@ -1,6 +1,6 @@
-################
-Python internals
-################
+###################
+Python internal API
+###################
 
 .. automodapi:: gafaelfawr
    :include-all-objects:

@@ -45,7 +45,7 @@ class LoginError(Enum):
 @router.get(
     "/login",
     description=(
-        "Protected applications redirect to this URL when the user is not"
+        "Protected services redirect to this URL when the user is not"
         " authenticated to start the authentication process. The user will"
         " then be sent to an authentication provider, back to this URL with"
         " additional parameters to complete the process, and then back to the"

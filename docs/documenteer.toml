@@ -1,0 +1,86 @@
+[project]
+title = "Gafaelfawr"
+copyright = "2020-2022 Association of Universities for Research in Astronomy, Inc. (AURA)"
+
+[project.python]
+package = "gafaelfawr"
+
+[sphinx]
+extensions = [
+    "sphinx_click",
+    "sphinx_diagrams",
+    "sphinxcontrib.redoc",
+]
+nitpicky = true
+nitpick_ignore = [
+    # Ignore missing cross-references for modules that don't provide
+    # intersphinx.  The documentation itself should use double-quotes instead
+    # of single-quotes to not generate a reference, but automatic references
+    # are generated from the type signatures and can't be avoided.  These are
+    # intentionally listed specifically because I've caught documentation bugs
+    # by having Sphinx complain about a new symbol.
+    ["py:class", "fastapi.applications.FastAPI"],
+    ["py:class", "fastapi.datastructures.DefaultPlaceholder"],
+    ["py:class", "fastapi.exceptions.HTTPException"],
+    ["py:class", "fastapi.params.Depends"],
+    ["py:class", "fastapi.routing.APIRoute"],
+    ["py:class", "httpx.AsyncClient"],
+    ["py:exc", "fastapi.HTTPException"],
+    ["py:exc", "fastapi.exceptions.RequestValidationError"],
+    ["py:exc", "httpx.HTTPError"],
+    ["py:obj", "fastapi.routing.APIRoute"],
+    ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
+    ["py:class", "kubernetes_asyncio.client.models.v1_secret.V1Secret"],
+    ["py:class", "pydantic.env_settings.BaseSettings"],
+    ["py:class", "pydantic.main.BaseModel"],
+    ["py:class", "pydantic.networks.AnyHttpUrl"],
+    ["py:class", "pydantic.networks.IPvAnyNetwork"],
+    ["py:class", "pydantic.types.SecretStr"],
+    ["py:class", "pydantic.utils.Representation"],
+    ["py:class", "starlette.middleware.base.BaseHTTPMiddleware"],
+    ["py:class", "starlette.requests.Request"],
+    ["py:class", "starlette.responses.Response"],
+    ["py:class", "starlette.routing.Route"],
+    ["py:class", "starlette.routing.BaseRoute"],
+    ["py:exc", "starlette.exceptions.HTTPException"],
+    # Special Pydantic magic that Sphinx doesn't understand.
+    ["py:class", "gafaelfawr.models.history.ConstrainedStrValue"],
+    ["py:class", "gafaelfawr.models.token.ConstrainedIntValue"],
+    ["py:class", "gafaelfawr.models.token.ConstrainedStrValue"],
+    # asyncio.Lock and asyncio.Queue are documented, and that's what all the
+    # code references, but the combination of Sphinx extensions we're using
+    # confuse themselves and there doesn't seem to be any way to fix this.
+    ["py:class", "asyncio.locks.Lock"],
+    ["py:class", "asyncio.queues.Queue"],
+    # TypeVar references that shouldn't be documented.
+    ["py:class", "gafaelfawr.cache.S"],
+    ["py:obj", "gafaelfawr.cache.S"],
+    ["py:class", "gafaelfawr.models.history.E"],
+    ["py:obj", "gafaelfawr.models.history.E"],
+    ["py:class", "gafaelfawr.storage.base.S"],
+    ["py:obj", "gafaelfawr.storage.base.S"],
+]
+python_api_dir = "dev/internals"
+rst_epilog_file = "_rst_epilog.rst"
+
+[sphinx.intersphinx.projects]
+python = "https://docs.python.org/3/"
+aioredis = "https://aioredis.readthedocs.io/en/stable/"
+bonsai = "https://bonsai.readthedocs.io/en/latest/"
+cryptography = "https://cryptography.io/en/latest/"
+google-cloud-firestore = "https://googleapis.dev/python/firestore/latest/"
+jwt = "https://pyjwt.readthedocs.io/en/latest/"
+safir = "https://safir.lsst.io/"
+sqlalchemy = "https://docs.sqlalchemy.org/en/latest/"
+structlog = "https://www.structlog.org/en/stable/"
+
+[sphinx.linkcheck]
+ignore = [
+    # Created during build by sphinxcontrib-redoc
+    '^rest\.html$',
+    # Generate redirects for authentication
+    '^https://github\.com/settings/developers$',
+    '^https://github\.com/.*/issues/new$',
+    # Dreamwidth blocks link checkers (probably for load reasons)
+    '^https://mjg59\.dreamwidth\.org/59353\.html$',
+]

@@ -15,65 +15,28 @@ Its design is documented in :dmtn:`234`, and its implementation in :dmtn:`224`.
 History and decisions made during its development are documented in :sqr:`069`.
 Read those documents for a more complete picture of how Gafaelfawr fits into a larger identity management system.
 
-Once Gafaelfawr is installed, API documentation is available at ``/auth/docs`` and ``/auth/redoc``.
-The latter provides somewhat more detailed information.
-
 Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
 Gafaelfawr is pronounced (very roughly) gah-VILE-vahwr.
 (If you speak Welsh and can provide a better pronunciation guide, please open an issue!)
 
-Installation
-============
+Usage
+=====
 
 .. toctree::
    :maxdepth: 2
 
-   configuration
-   applications
-   logging
-   cli
-   glossary
-
-API
-===
+   user-guide/index
+   api
 
 .. toctree::
-   :maxdepth: 2
-
-* `REST API <api.html>`__
-
-Changes
-=======
-
-.. toctree::
-   :maxdepth: 1
+   :hidden:
 
    changelog
 
-Architecture
-============
+Development
+===========
 
 .. toctree::
    :maxdepth: 2
 
-   arch/overview
-   arch/configuration
-   arch/providers
-   arch/scopes
-   arch/internals
-
-Development guide
-=================
-
-.. toctree::
-   :maxdepth: 2
-
-   dev/development
-   dev/release
-
-Indices
-=======
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   dev/index

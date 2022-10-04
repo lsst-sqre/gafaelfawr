@@ -67,7 +67,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
             {
                 "name": "oidc",
                 "description": (
-                    "OpenID Connect routes used by protected applications."
+                    "OpenID Connect routes used by protected services."
                 ),
             },
             {

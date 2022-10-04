@@ -45,10 +45,7 @@ __all__ = [
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(message="%(version)s")
 def main() -> None:
-    """Gafaelfawr main.
-
-    Administrative command-line interface for gafaelfawr.
-    """
+    """Administrative command-line interface for gafaelfawr."""
     pass
 
 
@@ -289,7 +286,7 @@ def openapi_schema(add_back_link: bool, output: Optional[Path]) -> None:
     app = create_app(load_config=False)
     description = app.description
     if add_back_link:
-        description += "\n\n[Return to Gafaelfawr documentation](index.html)."
+        description += "\n\n[Return to Gafaelfawr documentation](api.html)."
     schema = get_openapi(
         title=app.title,
         description=description,
@@ -297,6 +294,7 @@ def openapi_schema(add_back_link: bool, output: Optional[Path]) -> None:
         routes=app.routes,
     )
     if output:
+        output.parent.mkdir(exist_ok=True)
         with output.open("w") as f:
             json.dump(schema, f)
     else:

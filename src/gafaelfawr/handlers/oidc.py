@@ -59,7 +59,7 @@ authenticate = AuthenticateRead(
         "Authenticates the user and then returns an authorization code to the"
         " OpenID Connect client via redirect. All errors except those from an"
         " invalid OpenID client ID are reported via a redirect back to the"
-        " OpenID client application with error and error_description set."
+        " protected service with error and error_description set."
     ),
     response_class=RedirectResponse,
     responses={
