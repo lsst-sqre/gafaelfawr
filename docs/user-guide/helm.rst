@@ -320,7 +320,7 @@ Scopes
 ======
 
 Gafaelfawr takes group information from the upstream authentication provider or from LDAP and maps it to scopes.
-Scopes are then used to restrict access to protected applications (see :ref:`protect-service`).
+Scopes are then used to restrict access to protected applications (see :ref:`service-ingress`).
 
 For a list of scopes used by the Rubin Science Platform, which may also be useful as an example for other deployments, see :dmtn:`235`.
 

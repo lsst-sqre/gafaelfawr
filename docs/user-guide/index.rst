@@ -13,7 +13,13 @@ While there is nothing intrinsic in Gafaelfawr that would prevent it from workin
    secrets
    helm
    administrators
-   applications
+
+.. toctree::
+   :caption: Protecting services
+
+   ingress
+   service-tokens
+   openid-connect
 
 .. toctree::
    :caption: Reference
