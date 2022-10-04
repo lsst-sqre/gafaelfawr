@@ -1,6 +1,6 @@
-######################
-Configuration settings
-######################
+##########################
+Configuration architecture
+##########################
 
 The only supported way to deploy Gafaelfawr is via its Helm chart.
 User configuration is done through Helm values.
