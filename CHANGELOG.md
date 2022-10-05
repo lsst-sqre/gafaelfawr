@@ -4,7 +4,7 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 6.1.0 (unreleased)
+## 6.1.0 (2022-10-04)
 
 ### New features
 
@@ -13,6 +13,10 @@ Dependencies are updated to the latest available version during each release. Th
 ### Bug fixes
 
 - If a delegated token is requested from the `/auth` route, the authenticating token now must have a remaining lifetime of at least five minutes or it is treated as if it is expired. This avoids creating delegated tokens with unusably short or zero lifetimes.
+
+### Other changes
+
+- The documentation has been updated and restructured to use the new Rubin user guide theme.
 
 ## 6.0.0 (2022-09-27)
 
@@ -399,7 +403,7 @@ This release changes the construction of identity and groups from GitHub authent
 
 ## 1.2.1 (2020-05-14)
 
-Gafaelfawr can now analyze the `X-Forwarded-For` header to determine the true client IP for logging purposes. This requires some configuration of both Gafaelfawr and the NGINX ingress. See [the logging documentation](https://gafaelfawr.lsst.io/logging.html#client-ip-addresses) for more information.
+Gafaelfawr can now analyze the `X-Forwarded-For` header to determine the true client IP for logging purposes. This requires some configuration of both Gafaelfawr and the NGINX ingress. See [the logging documentation](https://gafaelfawr.lsst.io/user-guide/prerequisites.html#client-ips) for more information.
 
 ### New features
 
@@ -416,7 +420,7 @@ Gafaelfawr can now analyze the `X-Forwarded-For` header to determine the true cl
 
 New in this release is an `/auth/forbidden` route that can be used to provide a non-cached 403 error page. See [the documentation](https://gafaelfawr.lsst.io/user-guide/ingress.html#disabling-error-caching) for more information.
 
-This release changes Gafaelfawr's logging format and standardizes the contents of the logs. All logs are now in JSON. See [the new logging documentation](https://gafaelfawr.lsst.io/logging.html) for more information.
+This release changes Gafaelfawr's logging format and standardizes the contents of the logs. All logs are now in JSON. See [the new logging documentation](https://gafaelfawr.lsst.io/user-guide/logging.html) for more information.
 
 ### New features
 
