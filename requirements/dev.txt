@@ -322,9 +322,9 @@ gitdb==4.0.9 \
     --hash=sha256:8033ad4e853066ba6ca92050b9df2f89301b8fc8bf7e9324d412a63f8bf1a8fd \
     --hash=sha256:bac2fd45c0a1c9cf619e63a90d62bdc63892ef92387424b855792a6cabe789aa
     # via gitpython
-gitpython==3.1.27 \
-    --hash=sha256:1c885ce809e8ba2d88a29befeb385fcea06338d3640712b59ca623c220bb5704 \
-    --hash=sha256:5b68b000463593e05ff2b261acff0ff0972df8ab1b70d3cdbd41b546c8b8fc3d
+gitpython==3.1.28 \
+    --hash=sha256:6bd3451b8271132f099ceeaf581392eaf6c274af74bb06144307870479d0697c \
+    --hash=sha256:77bfbd299d8709f6af7e0c70840ef26e7aff7cf0c1ed53b42dd7fc3a310fcb02
     # via documenteer
 graphviz==0.19.2 \
     --hash=sha256:7c90cebc147c18bcdffcd3c76db58cbface5d45fe0247a2f3bfb144d32a8c77c \
@@ -660,9 +660,9 @@ pydantic==1.10.2 \
     # via
     #   -c requirements/main.txt
     #   documenteer
-pydata-sphinx-theme==0.10.1 \
-    --hash=sha256:0c203ff3761407da96c3a5b7a51ae079fb3268a9c95557a4a8bbe0593c88ada2 \
-    --hash=sha256:4731f937c7f42f516e927d52be0a356ab6b901698aef8331b097e6c4fd8100f4
+pydata-sphinx-theme==0.11.0 \
+    --hash=sha256:5fb1751d68a4b8574f817296e925132835281332616eb2839ddac4ef4503cd99 \
+    --hash=sha256:64f1fc4c79a1f066b913541116cd5a7e83e140ba0e983509eedd9e66e1f948c8
     # via documenteer
 pygments==2.13.0 \
     --hash=sha256:56a8508ae95f98e2b9bdf93a6be5ae3f7d8af858b43e02c5a2ff083726be40c1 \
@@ -963,9 +963,9 @@ sqlalchemy[asyncio,mypy]==1.4.41 \
     # via
     #   -c requirements/main.txt
     #   -r requirements/dev.in
-sqlalchemy2-stubs==0.0.2a27 \
-    --hash=sha256:6cea12fec3c261f6e0e14a95d2cc4914e373095e68ec4fc2eb473183ac2b17a2 \
-    --hash=sha256:f79bce50b7837a2c2374ef4480b41e2b8a8226f313f347dc2a70526a4191db93
+sqlalchemy2-stubs==0.0.2a28 \
+    --hash=sha256:72659f6c6db5b4470679c39227c5515de08f0959c6833524225c32a26fdf18ff \
+    --hash=sha256:aedb5c37279e39f32752caa7324f36d7de34a9bcb502e188e30d4ea820893011
     # via sqlalchemy
 termcolor==2.0.1 \
     --hash=sha256:6b2cf769e93364a2676e1de56a7c0cff2cf5bd07f37e9cc80b0dd6320ebfe388 \
@@ -1001,9 +1001,9 @@ types-pyyaml==6.0.12 \
     --hash=sha256:29228db9f82df4f1b7febee06bbfb601677882e98a3da98132e31c6874163e15 \
     --hash=sha256:f6f350418125872f3f0409d96a62a5a5ceb45231af5cc07ee0034ec48a3c82fa
     # via -r requirements/dev.in
-typing-extensions==4.3.0 \
-    --hash=sha256:25642c956049920a5aa49edcdd6ab1e06d7e5d467fc00e0506c44ac86fbfca02 \
-    --hash=sha256:e6d2677a32f47fc7eb2795db1dd15c1f34eff616bcaf2cfb5e997f854fa1c4a6
+typing-extensions==4.4.0 \
+    --hash=sha256:1511434bb92bf8dd198c12b1cc812e800d4181cfcb867674e0f8279cc93087aa \
+    --hash=sha256:16fa4864408f655d35ec496218b85f79b3437c829e93320c7c9215ccfd92489e
     # via
     #   -c requirements/main.txt
     #   mypy
