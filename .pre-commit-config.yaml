@@ -13,7 +13,7 @@ repos:
         additional_dependencies: [toml]
 
   - repo: https://github.com/psf/black
-    rev: 22.8.0
+    rev: 22.10.0
     hooks:
       - id: black
 
@@ -37,7 +37,7 @@ repos:
         files: ^src/
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.24.0
+    rev: v8.25.0
     hooks:
       - id: eslint
         additional_dependencies:
