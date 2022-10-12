@@ -25,6 +25,7 @@ nitpick_ignore = [
     ["py:class", "fastapi.params.Depends"],
     ["py:class", "fastapi.routing.APIRoute"],
     ["py:class", "httpx.AsyncClient"],
+    ["py:class", "kopf._core.actions.execution.PermanentError"],
     ["py:exc", "fastapi.HTTPException"],
     ["py:exc", "fastapi.exceptions.RequestValidationError"],
     ["py:exc", "httpx.HTTPError"],

@@ -168,6 +168,47 @@ class Factory:
     """
 
     @classmethod
+    async def create(
+        cls, config: Config, engine: AsyncEngine, check_db: bool = False
+    ) -> Factory:
+        """Create a component factory outside of a request.
+
+        Intended for long-running daemons other than the FastAPI web
+        application, such as the Kubernetes operator.  This class method
+        should only be used in situations where an async context manager
+        cannot be used.  Do not use this factory inside the web application or
+        anywhere that may use the default `Factory`, since they will interfere
+        with each other's Redis pools.
+
+        If an async context manager can be used, call `standalone` rather than
+        this method.
+
+        Parameters
+        ----------
+        config : `gafaelfawr.config.Config`
+            Gafaelfawr configuration.
+        engine : `sqlalchemy.ext.asyncio.AsyncEngine`
+            Database engine to use for connections.
+        check_db : `bool`, optional
+            If set to `True`, check database connectivity before returning by
+            doing a simple query.
+
+        Returns
+        -------
+        factory : `gafaelfawr.factory.Factory`
+            Newly-created factory.  The caller must call `aclose` on the
+            returned object during shutdown.
+        """
+        logger = structlog.get_logger("gafaelfawr")
+        statement = select(SQLAdmin) if check_db else None
+        session = await create_async_session(engine, statement=statement)
+        try:
+            context = await ProcessContext.from_config(config)
+            return cls(context, session, logger)
+        finally:
+            await session.remove()
+
+    @classmethod
     @asynccontextmanager
     async def standalone(
         cls, config: Config, engine: AsyncEngine, check_db: bool = False
@@ -194,15 +235,9 @@ class Factory:
         factory : `Factory`
             The factory.  Must be used as a context manager.
         """
-        logger = structlog.get_logger("gafaelfawr")
-        statement = select(SQLAdmin) if check_db else None
-        session = await create_async_session(engine, statement=statement)
-        try:
-            context = await ProcessContext.from_config(config)
-            async with aclosing(context):
-                yield cls(context, session, logger)
-        finally:
-            await session.remove()
+        factory = await cls.create(config, engine, check_db)
+        async with aclosing(factory):
+            yield factory
 
     def __init__(
         self,
@@ -218,6 +253,17 @@ class Factory:
     def redis(self) -> Redis:
         """Underlying Redis connection pool, mainly for tests."""
         return self._context.redis
+
+    async def aclose(self) -> None:
+        """Shut down the factory.
+
+        After this method is called, the factory object is no longer valid and
+        must not be used.
+        """
+        try:
+            await self._context.aclose()
+        finally:
+            await self.session.remove()
 
     def create_admin_service(self) -> AdminService:
         """Create a new manager object for token administrators.

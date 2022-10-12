@@ -20,3 +20,6 @@ Generating this takes a surprisingly long time when summed across every test,
 so generate one statically at import time for each test run and use it for
 every OpenID Connect authentication provider test.
 """
+
+TEST_KUBERNETES_NAMESPACES = ("test-gafaelfawr-1", "test-gafaelfawr-2")
+"""Test namespaces to create."""

@@ -96,7 +96,9 @@ aiohttp==3.8.3 \
     --hash=sha256:f88df3a83cf9df566f171adba39d5bd52814ac0b94778d2448652fc77f9eb491 \
     --hash=sha256:f973157ffeab5459eefe7b97a804987876dd0a55570b8fa56b4e1954bf11329b \
     --hash=sha256:ff25f48fc8e623d95eca0670b8cc1469a83783c924a602e0fbd47363bb54aaca
-    # via kubernetes-asyncio
+    # via
+    #   kopf
+    #   kubernetes-asyncio
 aioredis==2.0.1 \
     --hash=sha256:9ac0d0b3b485d293b8ca1987e6de8658d7dafcca1cddfcd1d506cae8cdebfdd6 \
     --hash=sha256:eaa51aaf993f2d71f54b70527c440437ba65340588afeb786cd87c55c89cd98e
@@ -256,6 +258,7 @@ click==8.1.3 \
     --hash=sha256:bb4d8133cb15a609f44e8213d9b391b0809795062913b383c62be0ee95b1db48
     # via
     #   -r requirements/main.in
+    #   kopf
     #   uvicorn
 cryptography==38.0.1 \
     --hash=sha256:0297ffc478bdd237f5ca3a7dc96fc0d315670bfa099c04dc3a4a2172008a405a \
@@ -568,9 +571,17 @@ idna==3.4 \
     #   requests
     #   rfc3986
     #   yarl
+iso8601==1.1.0 \
+    --hash=sha256:32811e7b81deee2063ea6d2e94f8819a86d1f3811e49d23623a41fa832bef03f \
+    --hash=sha256:8400e90141bf792bce2634df533dc57e3bee19ea120a87bebcd3da89a58ad73f
+    # via kopf
 jinja2==3.1.2 \
     --hash=sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852 \
     --hash=sha256:6088930bfe239f0e6710546ab9c19c9ef35e29792895fed6e6e31a023a182a61
+    # via -r requirements/main.in
+kopf==1.35.6 \
+    --hash=sha256:152dfa5b964cb5f77be00f9b18360f12fe0b2c032d7b5d7e95f4690558ab9ba7 \
+    --hash=sha256:b3f812072da7c16aa20e3807d9a35bb9d65df4423a68b039c6424f4e68014b82
     # via -r requirements/main.in
 kubernetes-asyncio==24.2.2 \
     --hash=sha256:0a8ad5f31bcb2a7b3235b754fe9c83055e66970c68326b42dbee289632bd9f0c \
@@ -775,6 +786,10 @@ python-dotenv==0.21.0 \
     --hash=sha256:1684eb44636dd462b66c3ee016599815514527ad99965de77f43e0944634a7e5 \
     --hash=sha256:b77d08274639e3d34145dfa6c7008e66df0f04b7be7a75fd0d5292c191d79045
     # via uvicorn
+python-json-logger==2.0.4 \
+    --hash=sha256:3b03487b14eb9e4f77e4fc2a023358b5394b82fd89cecf5586259baed57d8c6f \
+    --hash=sha256:764d762175f99fcc4630bd4853b09632acb60a6224acb27ce08cd70f0b1b81bd
+    # via kopf
 python-multipart==0.0.5 \
     --hash=sha256:f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c83fa43
     # via -r requirements/main.in
@@ -821,6 +836,7 @@ pyyaml==6.0 \
     --hash=sha256:f84fbc98b019fef2ee9a1cb3ce93e3187a6df0b2538a651bfb890254ba9f90b5
     # via
     #   -r requirements/main.in
+    #   kopf
     #   kubernetes-asyncio
     #   uvicorn
 requests==2.28.1 \
@@ -918,6 +934,7 @@ typing-extensions==4.4.0 \
     --hash=sha256:16fa4864408f655d35ec496218b85f79b3437c829e93320c7c9215ccfd92489e
     # via
     #   aioredis
+    #   kopf
     #   pydantic
 urllib3==1.26.12 \
     --hash=sha256:3fa96cf423e6987997fc326ae8df396db2a8b7c667747d47ddd8ecba91f4a74e \

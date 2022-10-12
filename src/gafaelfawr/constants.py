@@ -14,6 +14,7 @@ __all__ = [
     "GROUPNAME_REGEX",
     "HTTP_TIMEOUT",
     "ID_CACHE_SIZE",
+    "KUBERNETES_TOKEN_INTERVAL",
     "LDAP_CACHE_SIZE",
     "LDAP_CACHE_LIFETIME",
     "LDAP_TIMEOUT",
@@ -36,6 +37,9 @@ COOKIE_NAME = "gafaelfawr"
 
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
+
+KUBERNETES_TOKEN_INTERVAL = 60 * 60
+"""How frequently (in seconds) to validate GafaelafwrServiceToken secrets."""
 
 LDAP_TIMEOUT = 5.0
 """Timeout (in seconds) for LDAP queries."""
