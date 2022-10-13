@@ -10,8 +10,17 @@ proxies:
 after_logout_url: "https://example.com/landing"
 group_mapping:
   "exec:admin": ["admin"]
-  "exec:test": ["test"]
-  "read:all": ["foo", "admin", "org-a-team"]
+  "exec:test":
+    - "test"
+    - github:
+        organization: "other-org"
+        team: "team-with-very-long-name"
+  "read:all":
+    - "foo"
+    - "admin"
+    - github:
+        organization: "org"
+        team: "a-team"
 known_scopes:
   "admin:token": "token administration"
   "exec:admin": "admin description"

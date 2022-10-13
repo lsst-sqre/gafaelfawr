@@ -150,7 +150,7 @@ async def test_login(
             "token_key": ANY,
             "token_username": "githubuser",
             "token_expires": ANY,
-            "token_scopes": ["read:all", "user:token"],
+            "token_scopes": ["exec:test", "read:all", "user:token"],
             "token_userinfo": {
                 "email": "githubuser@example.com",
                 "gid": 123456,
