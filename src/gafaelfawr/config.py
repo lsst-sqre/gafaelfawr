@@ -16,7 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
-from typing import Dict, FrozenSet, List, Mapping, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
 
 import yaml
 from pydantic import (
@@ -30,6 +30,7 @@ from safir.logging import configure_logging
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .keypair import RSAKeyPair
+from .models.github import GitHubTeam
 from .models.token import Token
 
 __all__ = [
@@ -374,6 +375,39 @@ class Settings(BaseSettings):
             raise ValueError("not all required ldap fields are present")
         if v and v.user_dn and not v.password_file:
             raise ValueError("ldap.password_file required if ldap.user_dn set")
+        return v
+
+    @validator("group_mapping", pre=True)
+    def _convert_github_orgs(cls, v: Dict[str, Any]) -> Dict[str, List[str]]:
+        """Convert GitHub org/team pairs to group names."""
+        if not isinstance(v, dict):
+            raise ValueError("group_mapping must be a dictionary")
+
+        for scope, groups in v.items():
+            new_groups = []
+            for group in groups:
+                if isinstance(group, str):
+                    new_groups.append(group)
+                    continue
+                if not isinstance(group, dict):
+                    raise ValueError("group_mapping value not str or dict")
+                if list(group.keys()) != ["github"]:
+                    raise ValueError("group_mapping key is not github")
+                data = group["github"]
+                if sorted(data.keys()) != ["organization", "team"]:
+                    raise ValueError("group_mapping contains unknown keys")
+                team = GitHubTeam(
+                    slug=data["team"],
+                    organization=data["organization"],
+                    gid=1000,
+                )
+                new_groups.append(team.group_name)
+
+            # Replacing the value for an existing key is safe while iterating
+            # over a Python dictionary even though adding or removing keys
+            # is not.
+            v[scope] = new_groups
+
         return v
 
     @validator("initial_admins", pre=True)

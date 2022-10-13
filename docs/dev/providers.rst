@@ -44,10 +44,12 @@ LDAP and Firestore are not supported as sources of user metadata when GitHub is 
 Groups from GitHub
 ------------------
 
-Gafaelfawr synthesizes groups from GitHub teams.
+When GitHub is used as an authentication provider, Gafaelfawr synthesizes groups from GitHub teams.
+
 Each team membership that an authenticated user has on GitHub (and releases through the GitHub OAuth authentication) will be mapped to a group.
 The default group name is ``<organization>-<team-slug>`` where ``<organization>`` is the ``login`` attribute (forced to lowercase) of the organization containing the team and ``<team-slug>`` is the ``slug`` attribute of the team.
 These values are retrieved through the ``/user/teams`` API route.
+
 The ``slug`` attribute is constructed by GitHub based on the name.
 It's a canonicalization of the name that removes case differences and replaces special characters like space with a dash.
 

@@ -338,34 +338,65 @@ The default includes:
 which are used internally by Gafaelfawr, plus the scopes that are used by the Rubin Science Platform.
 You can add additional scopes by adding more key/value pairs to the ``config.knownScopes`` object in ``values-<environment>.yaml``.
 
-Once the scopes are configured, you will need to set up a mapping from groups to scope names.
+Once the scopes are configured, you will need to set up a mapping from groups to scope names using the ``groupMapping`` setting.
+This is a dictionary of scope names to lists of groups that provide that scope.
 
-A setting for GitHub might look something like this:
+The group can be given in one of two ways: either a simple string giving the name of the group (used for CILogon and OpenID Connect authentication providers), or the GitHub organization and team specified with the following syntax:
+
+.. code-block:: yaml
+
+   github:
+     organization: "lsst-sqre"
+     team: "friends"
+
+The value of ``organization`` must be the ``login`` attribute of the organization, and the value of ``team`` must be the ``slug`` attribute of the team.
+(Generally the latter is the name of the team converted to lowercase with spaces and other special characters replaced with ``-``.)
+
+A complete setting for GitHub might look something like this:
 
 .. code-block:: yaml
 
    config:
      groupMapping:
        "exec:admin":
-         - "lsst-sqre-square"
+         - github:
+             organization: "lsst-sqre"
+             team: "square"
        "exec:notebook":
-         - "lsst-sqre-square"
-         - "lsst-sqre-friends"
+         - github:
+             organization: "lsst-sqre"
+             team: "square"
+         - github:
+             organization: "lsst-sqre"
+             team: "friends"
        "exec:portal":
-         - "lsst-sqre-square"
-         - "lsst-sqre-friends"
+         - github:
+             organization: "lsst-sqre"
+             team: "square"
+         - github:
+             organization: "lsst-sqre"
+             team: "friends"
        "exec:user":
-         - "lsst-sqre-square"
-         - "lsst-sqre-friends"
+         - github:
+             organization: "lsst-sqre"
+             team: "square"
+         - github:
+             organization: "lsst-sqre"
+             team: "friends"
        "read:tap":
-         - "lsst-sqre-square"
-         - "lsst-sqre-friends"
+         - github:
+             organization: "lsst-sqre"
+             team: "square"
+         - github:
+             organization: "lsst-sqre"
+             team: "friends"
 
-This uses groups generated from teams in the GitHub ``lsst-sqre`` organization.
+Be aware that Gafaelfawr will convert these organization and team pairs to group names internally, and applications will see only the converted group names.
 See :ref:`github-groups` for more information.
 
 When CILogon or generic OpenID Connect are used as the providers, the group information may come from either LDAP or claims in the OpenID Connect ID token.
 Either way, that group membership will then be used to determine scopes via the ``groupMapping`` configuration.
+For those authentication providers, the group names are simple strings.
 For example, given a configuration like:
 
 .. code-block:: yaml

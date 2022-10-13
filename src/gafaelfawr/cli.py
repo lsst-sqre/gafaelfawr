@@ -308,7 +308,11 @@ def openapi_schema(add_back_link: bool, output: Optional[Path]) -> None:
 def run(port: int) -> None:
     """Run the application (for testing only)."""
     uvicorn.run(
-        "gafaelfawr.main:app", port=port, reload=True, reload_dirs=["src"]
+        "gafaelfawr.main:create_app",
+        factory=True,
+        port=port,
+        reload=True,
+        reload_dirs=["src"],
     )
 
 
