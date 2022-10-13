@@ -645,3 +645,30 @@ async def test_group_list(
         "uid": 7890,
         "groups": [{"name": "foo"}, {"name": "admin"}],
     }
+
+
+@pytest.mark.asyncio
+async def test_group_slashes(
+    tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
+) -> None:
+    """Test group names starting with a slash."""
+    config = await reconfigure(tmp_path, "oidc-claims")
+    assert config.oidc
+    claims = {
+        config.oidc.username_claim: "alt-username",
+        config.oidc.uid_claim: 7890,
+        config.oidc.groups_claim: ["/foo", {"name": "/admin"}],
+    }
+    token = create_upstream_oidc_jwt(kid="orig-kid", groups=["test"], **claims)
+
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 307
+
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "alt-username",
+        "email": token.claims["email"],
+        "uid": 7890,
+        "groups": [{"name": "foo"}, {"name": "admin"}],
+    }

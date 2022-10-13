@@ -323,11 +323,12 @@ class OIDCUserInfoService(UserInfoService):
             for oidc_group in token.claims.get(claim, []):
                 try:
                     if isinstance(oidc_group, str):
-                        groups.append(TokenGroup(name=oidc_group))
+                        name = oidc_group.removeprefix("/")
+                        groups.append(TokenGroup(name=name))
                         continue
                     if "name" not in oidc_group:
                         continue
-                    name = oidc_group["name"]
+                    name = oidc_group["name"].removeprefix("/")
                     gid = None
                     if self._firestore:
                         gid = await self._firestore.get_gid(name)

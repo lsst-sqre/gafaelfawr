@@ -178,6 +178,9 @@ For the latter option, the claim should preferrably have the following format:
 The name of the claim can be overridden with ``config.oidc.groupsClaim`` as discussed below.
 Optionally, the value of the claim can be a simple list of group names instead of a structure including the GIDs, but in this case Gafaelfawr will not have access to the GID information and will not be able to provide it to protected services.
 
+If group names in the token claim start with a slash, the name is canonicalized by removing the slash.
+This was required to support at least one Keycloak installation.
+
 There are some additional options under ``config.oidc`` that you may want to set:
 
 ``config.oidc.loginParams``
