@@ -4,11 +4,12 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 6.2.0 (unreleased)
+## 6.2.0 (2022-10-13)
 
 ### New features
 
 - Groups derived from GitHub organizations and teams can now be specified in the `groupMapping` configuration directly as the organization and team, rather than requiring the administrator first convert that to the internal group name used by Gafaelfawr. This can be used to make the Helm configuration easier to read. There is no change to how Gafaelfawr represents the groups internally or exposes them to applications.
+- Group names from the token from an upstream OpenID Connect provider that begin with a slash are normalized to remove the starting slash. This was needed by at least one Keycloak installation.
 
 ### Bug fixes
 
