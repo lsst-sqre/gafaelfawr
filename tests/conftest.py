@@ -34,7 +34,7 @@ from gafaelfawr.schema import Base
 from .pages.tokens import TokensPage
 from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
-from .support.kubernetes import create_test_namespaces, install_crds
+from .support.kubernetes import install_crds, temporary_namespace
 from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
 from .support.settings import build_settings, configure
@@ -191,8 +191,14 @@ async def kubernetes_setup() -> None:
 async def kubernetes(kubernetes_setup: None) -> AsyncIterator[ApiClient]:
     """Set up a Kubernetes environment and clean up after a test."""
     async with ApiClient() as api_client:
-        async with create_test_namespaces(api_client):
-            yield api_client
+        yield api_client
+
+
+@pytest_asyncio.fixture
+async def kubernetes_namespace(kubernetes: ApiClient) -> AsyncIterator[str]:
+    """Set up a randomly-named namespace, and clean it up afterwards."""
+    async with temporary_namespace(kubernetes) as namespace:
+        yield namespace
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from base64 import b64decode, b64encode
 from datetime import timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, Tuple
 from unittest.mock import ANY
 
 import pytest
@@ -30,59 +30,15 @@ from gafaelfawr.services.token import TokenService
 from gafaelfawr.storage.kubernetes import StatusReason
 from gafaelfawr.util import current_datetime
 
-from ..support.constants import TEST_KUBERNETES_NAMESPACES
 from ..support.kubernetes import (
     operator_running,
     requires_kubernetes,
     run_operator_once,
 )
 
-TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
-    {
-        "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
-        "kind": "GafaelfawrServiceToken",
-        "metadata": {
-            "name": "gafaelfawr-secret",
-            "namespace": TEST_KUBERNETES_NAMESPACES[0],
-        },
-        "spec": {
-            "service": "bot-mobu",
-            "scopes": ["admin:token"],
-        },
-    },
-    {
-        "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
-        "kind": "GafaelfawrServiceToken",
-        "metadata": {
-            "name": "gafaelfawr",
-            "namespace": TEST_KUBERNETES_NAMESPACES[1],
-            "labels": {
-                "foo": "bar",
-                "other": "blah",
-            },
-            "annotations": {
-                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-                "argocd.argoproj.io/sync-options": "Prune=false",
-            },
-        },
-        "spec": {
-            "service": "bot-nublado-hub",
-            "scopes": [],
-        },
-    },
-]
 
-
-async def create_test_service_tokens(kubernetes: ApiClient) -> None:
-    custom_api = client.CustomObjectsApi(kubernetes)
-    for body in TEST_SERVICE_TOKENS:
-        await custom_api.create_namespaced_custom_object(
-            "gafaelfawr.lsst.io",
-            "v1alpha1",
-            body["metadata"]["namespace"],
-            "gafaelfawrservicetokens",
-            body,
-        )
+def secret_sort_key(secret: V1Secret) -> Tuple[str, str]:
+    return (secret.metadata.namespace, secret.metadata.name)
 
 
 def token_as_base64(token: Token) -> str:
@@ -99,22 +55,58 @@ async def token_data_from_secret(
     return data
 
 
+async def create_test_service_tokens(
+    kubernetes: ApiClient, namespace: str
+) -> None:
+    custom_api = client.CustomObjectsApi(kubernetes)
+    await custom_api.create_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        namespace,
+        "gafaelfawrservicetokens",
+        {
+            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+            "kind": "GafaelfawrServiceToken",
+            "metadata": {"name": "gafaelfawr-secret", "namespace": namespace},
+            "spec": {"service": "bot-mobu", "scopes": ["admin:token"]},
+        },
+    )
+    await custom_api.create_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        namespace,
+        "gafaelfawrservicetokens",
+        {
+            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+            "kind": "GafaelfawrServiceToken",
+            "metadata": {
+                "name": "gafaelfawr",
+                "namespace": namespace,
+                "labels": {"foo": "bar", "other": "blah"},
+                "annotations": {
+                    "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+                    "argocd.argoproj.io/sync-options": "Prune=false",
+                },
+            },
+            "spec": {"service": "bot-nublado-hub", "scopes": []},
+        },
+    )
+
+
 async def assert_kubernetes_secrets_are_correct(
-    factory: Factory, kubernetes: ApiClient, is_fresh: bool = True
+    factory: Factory,
+    kubernetes: ApiClient,
+    namespace: str,
+    is_fresh: bool = True,
 ) -> None:
     token_service = factory.create_token_service()
 
     # Get all of the GafaelfawrServiceToken custom objects.
     custom_api = client.CustomObjectsApi(kubernetes)
-    service_tokens = []
-    for namespace in TEST_KUBERNETES_NAMESPACES:
-        token_list = await custom_api.list_namespaced_custom_object(
-            "gafaelfawr.lsst.io",
-            "v1alpha1",
-            namespace,
-            "gafaelfawrservicetokens",
-        )
-        service_tokens.extend(token_list["items"])
+    token_list = await custom_api.list_namespaced_custom_object(
+        "gafaelfawr.lsst.io", "v1alpha1", namespace, "gafaelfawrservicetokens"
+    )
+    service_tokens = token_list["items"]
 
     # Calculate the expected secrets.  Convert empty annotations and labels to
     # None separately.
@@ -128,9 +120,10 @@ async def assert_kubernetes_secrets_are_correct(
                     k: v
                     for k, v in t["metadata"].get("annotations", {}).items()
                     if not k.startswith("kopf.zalando.org/")
-                },
+                }
+                or None,
                 creation_timestamp=ANY,
-                labels=t["metadata"].get("labels", {}),
+                labels=t["metadata"].get("labels", None) or None,
                 managed_fields=ANY,
                 owner_references=[
                     V1OwnerReference(
@@ -149,31 +142,21 @@ async def assert_kubernetes_secrets_are_correct(
         )
         for t in service_tokens
     ]
-    for secret in expected:
-        if secret.metadata.annotations == {}:
-            secret.metadata.annotations = None
-        if secret.metadata.labels == {}:
-            secret.metadata.labels = None
-    expected = sorted(
-        expected, key=lambda o: (o.metadata.namespace, o.metadata.name)
-    )
+    expected = sorted(expected, key=secret_sort_key)
+
+    # Compare the secrets.
     core_api = client.CoreV1Api(kubernetes)
-    secrets = []
-    for namespace in (t["metadata"]["namespace"] for t in service_tokens):
-        secret_list = await core_api.list_namespaced_secret(namespace)
-        secrets.extend(
-            [
-                s
-                for s in secret_list.items
-                if not s.metadata.name.startswith("default")
-            ]
-        )
-    assert secrets == expected
+    secret_list = await core_api.list_namespaced_secret(namespace)
+    secrets = [
+        s
+        for s in secret_list.items
+        if not s.metadata.name.startswith("default")
+    ]
+    assert sorted(secrets, key=secret_sort_key) == expected
 
     # Now check that every token in those secrets is correct.
     for service_token in service_tokens:
         name = service_token["metadata"]["name"]
-        namespace = service_token["metadata"]["namespace"]
         secret = await core_api.read_namespaced_secret(name, namespace)
         data = await token_data_from_secret(token_service, secret)
         assert data == TokenData(
@@ -194,17 +177,21 @@ async def assert_kubernetes_secrets_are_correct(
 
 @requires_kubernetes
 @pytest.mark.asyncio
-async def test_create(factory: Factory, kubernetes: ApiClient) -> None:
-    await create_test_service_tokens(kubernetes)
+async def test_create(
+    factory: Factory, kubernetes: ApiClient, kubernetes_namespace: str
+) -> None:
+    await create_test_service_tokens(kubernetes, kubernetes_namespace)
 
     await run_operator_once("gafaelfawr.operator")
-    await assert_kubernetes_secrets_are_correct(factory, kubernetes)
+    await assert_kubernetes_secrets_are_correct(
+        factory, kubernetes, kubernetes_namespace
+    )
 
     custom_api = client.CustomObjectsApi(kubernetes)
     service_token = await custom_api.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
-        TEST_KUBERNETES_NAMESPACES[0],
+        kubernetes_namespace,
         "gafaelfawrservicetokens",
         "gafaelfawr-secret",
     )
@@ -221,7 +208,7 @@ async def test_create(factory: Factory, kubernetes: ApiClient) -> None:
     service_token = await custom_api.get_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
-        TEST_KUBERNETES_NAMESPACES[1],
+        kubernetes_namespace,
         "gafaelfawrservicetokens",
         "gafaelfawr",
     )
@@ -240,9 +227,9 @@ async def test_create(factory: Factory, kubernetes: ApiClient) -> None:
 @requires_kubernetes
 @pytest.mark.asyncio
 async def test_secret_verification(
-    factory: Factory, kubernetes: ApiClient
+    factory: Factory, kubernetes: ApiClient, kubernetes_namespace: str
 ) -> None:
-    await create_test_service_tokens(kubernetes)
+    await create_test_service_tokens(kubernetes, kubernetes_namespace)
     token_service = factory.create_token_service()
     core_api = client.CoreV1Api(kubernetes)
 
@@ -252,13 +239,11 @@ async def test_secret_verification(
         kind="Secret",
         data={"token": b64encode(b"bogus").decode()},
         metadata=V1ObjectMeta(
-            name="gafaelfawr-secret", namespace=TEST_KUBERNETES_NAMESPACES[0]
+            name="gafaelfawr-secret", namespace=kubernetes_namespace
         ),
         type="Opaque",
     )
-    await core_api.create_namespaced_secret(
-        TEST_KUBERNETES_NAMESPACES[0], secret
-    )
+    await core_api.create_namespaced_secret(kubernetes_namespace, secret)
 
     # Valid secret but with a nonexistent token.
     secret = V1Secret(
@@ -267,7 +252,7 @@ async def test_secret_verification(
         data={"token": token_as_base64(Token())},
         metadata=V1ObjectMeta(
             name="gafaelfawr",
-            namespace=TEST_KUBERNETES_NAMESPACES[1],
+            namespace=kubernetes_namespace,
             labels={
                 "foo": "bar",
                 "other": "blah",
@@ -279,13 +264,13 @@ async def test_secret_verification(
         ),
         type="Opaque",
     )
-    await core_api.create_namespaced_secret(
-        TEST_KUBERNETES_NAMESPACES[1], secret
-    )
+    await core_api.create_namespaced_secret(kubernetes_namespace, secret)
 
     # Run the operator.  This should replace both with fresh secrets.
     await run_operator_once("gafaelfawr.operator")
-    await assert_kubernetes_secrets_are_correct(factory, kubernetes)
+    await assert_kubernetes_secrets_are_correct(
+        factory, kubernetes, kubernetes_namespace
+    )
 
     # Replace one secret with a valid token for the wrong service.
     async with factory.session.begin():
@@ -303,12 +288,12 @@ async def test_secret_verification(
         kind="Secret",
         data={"token": token_as_base64(token)},
         metadata=V1ObjectMeta(
-            name="gafaelfawr-secret", namespace=TEST_KUBERNETES_NAMESPACES[0]
+            name="gafaelfawr-secret", namespace=kubernetes_namespace
         ),
         type="Opaque",
     )
     await core_api.replace_namespaced_secret(
-        "gafaelfawr-secret", TEST_KUBERNETES_NAMESPACES[0], secret
+        "gafaelfawr-secret", kubernetes_namespace, secret
     )
 
     # Replace the other token with a valid token with the wrong scopes.
@@ -327,12 +312,12 @@ async def test_secret_verification(
         kind="Secret",
         data={"token": token_as_base64(token)},
         metadata=V1ObjectMeta(
-            name="gafaelfawr", namespace=TEST_KUBERNETES_NAMESPACES[1]
+            name="gafaelfawr", namespace=kubernetes_namespace
         ),
         type="Opaque",
     )
     await core_api.replace_namespaced_secret(
-        "gafaelfawr", TEST_KUBERNETES_NAMESPACES[1], secret
+        "gafaelfawr", kubernetes_namespace, secret
     )
 
     # Run the operator again.  This should create new tokens for both.  We
@@ -340,9 +325,11 @@ async def test_secret_verification(
     # update handlers will not notice a change.
     delay = KUBERNETES_TIMER_DELAY + 2
     await run_operator_once("gafaelfawr.operator", delay=delay)
-    await assert_kubernetes_secrets_are_correct(factory, kubernetes)
+    await assert_kubernetes_secrets_are_correct(
+        factory, kubernetes, kubernetes_namespace
+    )
     nublado_secret = await core_api.read_namespaced_secret(
-        "gafaelfawr", TEST_KUBERNETES_NAMESPACES[1]
+        "gafaelfawr", kubernetes_namespace
     )
 
     # Finally, replace a secret with one with no token.
@@ -350,28 +337,30 @@ async def test_secret_verification(
         api_version="v1",
         data={},
         metadata=V1ObjectMeta(
-            name="gafaelfawr-secret", namespace=TEST_KUBERNETES_NAMESPACES[0]
+            name="gafaelfawr-secret", namespace=kubernetes_namespace
         ),
         type="Opaque",
     )
     await core_api.replace_namespaced_secret(
-        "gafaelfawr-secret", TEST_KUBERNETES_NAMESPACES[0], secret
+        "gafaelfawr-secret", kubernetes_namespace, secret
     )
 
     # Run the operator again.  This should create a new token for the first
     # secret but not for the second.
     await run_operator_once("gafaelfawr.operator", delay=delay)
     await assert_kubernetes_secrets_are_correct(
-        factory, kubernetes, is_fresh=False
+        factory, kubernetes, kubernetes_namespace, is_fresh=False
     )
     assert nublado_secret == await core_api.read_namespaced_secret(
-        "gafaelfawr", TEST_KUBERNETES_NAMESPACES[1]
+        "gafaelfawr", kubernetes_namespace
     )
 
 
 @requires_kubernetes
 @pytest.mark.asyncio
-async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
+async def test_update(
+    factory: Factory, kubernetes: ApiClient, kubernetes_namespace: str
+) -> None:
     core_api = client.CoreV1Api(kubernetes)
     custom_api = client.CustomObjectsApi(kubernetes)
     service_token: Dict[str, Any] = {
@@ -379,12 +368,9 @@ async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
         "kind": "GafaelfawrServiceToken",
         "metadata": {
             "name": "gafaelfawr-secret",
-            "namespace": TEST_KUBERNETES_NAMESPACES[0],
+            "namespace": kubernetes_namespace,
         },
-        "spec": {
-            "service": "bot-mobu",
-            "scopes": ["admin:token"],
-        },
+        "spec": {"service": "bot-mobu", "scopes": ["admin:token"]},
     }
 
     # Start the operator.  Additional changes will be made while the operator
@@ -393,17 +379,19 @@ async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
         await custom_api.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             service_token,
         )
         await asyncio.sleep(1)
-        await assert_kubernetes_secrets_are_correct(factory, kubernetes)
+        await assert_kubernetes_secrets_are_correct(
+            factory, kubernetes, kubernetes_namespace
+        )
 
         service_token = await custom_api.get_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             "gafaelfawr-secret",
         )
@@ -411,19 +399,21 @@ async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
         await custom_api.replace_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             "gafaelfawr-secret",
             service_token,
         )
         await asyncio.sleep(1)
-        await assert_kubernetes_secrets_are_correct(factory, kubernetes)
+        await assert_kubernetes_secrets_are_correct(
+            factory, kubernetes, kubernetes_namespace
+        )
 
         # Now add some labels and annotations.
         service_token = await custom_api.get_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             "gafaelfawr-secret",
         )
@@ -432,34 +422,38 @@ async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
         await custom_api.replace_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             "gafaelfawr-secret",
             service_token,
         )
         await asyncio.sleep(1)
-        await assert_kubernetes_secrets_are_correct(factory, kubernetes)
+        await assert_kubernetes_secrets_are_correct(
+            factory, kubernetes, kubernetes_namespace
+        )
 
         # Deletion should remove the secret.  Wait a bit longer for this,
         # since it takes Kubernetes a while to finish deleting things.
         await custom_api.delete_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             "gafaelfawr-secret",
         )
         await asyncio.sleep(5)
         with pytest.raises(ApiException) as excinfo:
             await core_api.read_namespaced_secret(
-                "gafaelfawr-secret", TEST_KUBERNETES_NAMESPACES[0]
+                "gafaelfawr-secret", kubernetes_namespace
             )
         assert excinfo.value.status == 404
 
 
 @requires_kubernetes
 @pytest.mark.asyncio
-async def test_errors_scope(factory: Factory, kubernetes: ApiClient) -> None:
+async def test_errors_scope(
+    factory: Factory, kubernetes: ApiClient, kubernetes_namespace: str
+) -> None:
     core_api = client.CoreV1Api(kubernetes)
     custom_api = client.CustomObjectsApi(kubernetes)
 
@@ -467,32 +461,29 @@ async def test_errors_scope(factory: Factory, kubernetes: ApiClient) -> None:
         await custom_api.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             {
                 "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
                 "kind": "GafaelfawrServiceToken",
                 "metadata": {
                     "name": "gafaelfawr-secret",
-                    "namespace": TEST_KUBERNETES_NAMESPACES[0],
+                    "namespace": kubernetes_namespace,
                 },
-                "spec": {
-                    "service": "bot-mobu",
-                    "scopes": ["invalid:scope"],
-                },
+                "spec": {"service": "bot-mobu", "scopes": ["invalid:scope"]},
             },
         )
 
         await asyncio.sleep(1)
         with pytest.raises(ApiException) as excinfo:
             await core_api.read_namespaced_secret(
-                "gafaelfawr-secret", TEST_KUBERNETES_NAMESPACES[0]
+                "gafaelfawr-secret", kubernetes_namespace
             )
         assert excinfo.value.status == 404
         service_token = await custom_api.get_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             "gafaelfawr-secret",
         )
@@ -513,7 +504,7 @@ async def test_errors_scope(factory: Factory, kubernetes: ApiClient) -> None:
         await custom_api.replace_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             "gafaelfawr-secret",
             service_token,
@@ -524,7 +515,7 @@ async def test_errors_scope(factory: Factory, kubernetes: ApiClient) -> None:
 @requires_kubernetes
 @pytest.mark.asyncio
 async def test_errors_username(
-    factory: Factory, kubernetes: ApiClient
+    factory: Factory, kubernetes: ApiClient, kubernetes_namespace: str
 ) -> None:
     core_api = client.CoreV1Api(kubernetes)
     custom_api = client.CustomObjectsApi(kubernetes)
@@ -533,32 +524,29 @@ async def test_errors_username(
         await custom_api.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             {
                 "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
                 "kind": "GafaelfawrServiceToken",
                 "metadata": {
                     "name": "gafaelfawr-secret",
-                    "namespace": TEST_KUBERNETES_NAMESPACES[0],
+                    "namespace": kubernetes_namespace,
                 },
-                "spec": {
-                    "service": "mobu",
-                    "scopes": [],
-                },
+                "spec": {"service": "mobu", "scopes": []},
             },
         )
 
         await asyncio.sleep(1)
         with pytest.raises(ApiException) as excinfo:
             await core_api.read_namespaced_secret(
-                "gafaelfawr-secret", TEST_KUBERNETES_NAMESPACES[0]
+                "gafaelfawr-secret", kubernetes_namespace
             )
         assert excinfo.value.status == 404
         service_token = await custom_api.get_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             "gafaelfawr-secret",
         )
@@ -579,7 +567,7 @@ async def test_errors_username(
         await custom_api.replace_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
-            TEST_KUBERNETES_NAMESPACES[0],
+            kubernetes_namespace,
             "gafaelfawrservicetokens",
             service_token["metadata"]["name"],
             service_token,
