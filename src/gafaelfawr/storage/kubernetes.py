@@ -3,22 +3,8 @@
 from __future__ import annotations
 
 from base64 import b64encode
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
 from functools import wraps
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Any, Awaitable, Callable, Optional, TypeVar, cast
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
@@ -30,158 +16,17 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ..exceptions import KubernetesError, KubernetesObjectError
+from ..exceptions import KubernetesError
+from ..models.kubernetes import (
+    GafaelfawrServiceToken,
+    KubernetesResourceStatus,
+    StatusReason,
+)
 from ..models.token import Token
-from ..util import current_datetime
 
 F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
-__all__ = [
-    "GafaelfawrServiceToken",
-    "GafaelfawrServiceTokenStatus",
-    "KubernetesStorage",
-    "StatusReason",
-]
-
-
-@dataclass
-class GafaelfawrServiceToken:
-    """The key data from a GafaelfawrServiceToken Kubernetes object."""
-
-    name: str
-    """The name of the GafaelfawrServiceToken object."""
-
-    namespace: str
-    """The namespace in which the GafaelfawrServiceToken object is located."""
-
-    annotations: Dict[str, str]
-    """The annotations of the GafaelfawrServiceToken object."""
-
-    labels: Dict[str, str]
-    """The labels of the GafaelfawrServiceToken object."""
-
-    uid: str
-    """The UID of the GafaelfawrServiceToken object."""
-
-    generation: int
-    """The generation of the GafaelfawrServiceToken object."""
-
-    service: str
-    """The username of the service token."""
-
-    scopes: List[str]
-    """The scopes to grant to the service token."""
-
-    @classmethod
-    def from_dict(cls, obj: Mapping[str, Any]) -> GafaelfawrServiceToken:
-        """Convert from the dict returned by Kubernetes.
-
-        Parameters
-        ----------
-        obj : Dict[`str`, Any]
-            The object as returned by the Kubernetes API.
-
-        Raises
-        ------
-        KubernetesObjectError
-            The dict could not be parsed.
-        """
-        name = None
-        namespace = None
-        try:
-            name = obj["metadata"]["name"]
-            namespace = obj["metadata"]["namespace"]
-            annotations = {
-                k: v
-                for k, v in obj["metadata"].get("annotations", {}).items()
-                if not k.startswith("kopf.zalando.org/")
-            }
-            return cls(
-                name=name,
-                namespace=namespace,
-                annotations=annotations,
-                labels=obj["metadata"].get("labels", {}),
-                uid=obj["metadata"]["uid"],
-                generation=obj["metadata"]["generation"],
-                service=obj["spec"]["service"],
-                scopes=obj["spec"]["scopes"],
-            )
-        except KeyError as e:
-            if name and namespace:
-                msg = (
-                    f"GafaelfawrServiceToken {namespace}/{name} is"
-                    f" malformed: {str(e)}"
-                )
-            else:
-                msg = f"GafaelfawrServiceToken is malformed: {str(e)}"
-            raise KubernetesObjectError(msg) from e
-
-    @property
-    def key(self) -> str:
-        """Return a unique key for this custom object."""
-        return f"{self.namespace}/{self.name}"
-
-
-class StatusReason(Enum):
-    """Reason for the status update of a GafaelfawrServiceToken."""
-
-    Created = "Created"
-    Updated = "Updated"
-    Failed = "Failed"
-
-
-@dataclass
-class GafaelfawrServiceTokenStatus:
-    """Represents the processing status of a GafaelfawrServiceToken.
-
-    This is returned as the result of the Kopf_ operator handlers for changes
-    to a GafaelfawrServiceToken.  Kopf will then put this information into the
-    ``status`` field of the GafaelfawrServiceToken object.
-    """
-
-    message: str
-    """Message associated with the transition."""
-
-    generation: int
-    """Generation of the GafaelfawrServiceToken that was processed."""
-
-    reason: StatusReason
-    """Reason for the status update."""
-
-    timestamp: datetime = field(default_factory=current_datetime)
-    """Time of the status event."""
-
-    @classmethod
-    def failure(
-        cls, service_token: GafaelfawrServiceToken, message: str
-    ) -> GafaelfawrServiceTokenStatus:
-        """Create a status object for a failure.
-
-        Parameters
-        ----------
-        service_token : `GafaelfawrServiceToken`
-            The GafaelfawrServiceToken object being processed.
-        message : `str`
-            The error message for the failure.
-        """
-        return cls(
-            message=message,
-            generation=service_token.generation,
-            reason=StatusReason.Failed,
-        )
-
-    def to_dict(self) -> Dict[str, Union[str, int]]:
-        """Convert the status update to a dictionary for Kubernetes."""
-        transition_time = self.timestamp.isoformat().split("+")[0] + "Z"
-        status = "False" if self.reason == StatusReason.Failed else "True"
-        return {
-            "lastTransitionTime": transition_time,
-            "message": self.message,
-            "observedGeneration": self.generation,
-            "reason": self.reason.value,
-            "status": status,
-            "type": "SecretCreated",
-        }
+__all__ = ["KubernetesStorage"]
 
 
 def _convert_exception(f: F) -> F:
@@ -213,7 +58,7 @@ class KubernetesStorage:
     @_convert_exception
     async def create_secret_for_service_token(
         self, parent: GafaelfawrServiceToken, token: Token
-    ) -> GafaelfawrServiceTokenStatus:
+    ) -> KubernetesResourceStatus:
         """Create a Kubernetes secret from a token.
 
         The token will always be stored in the data field ``token``.  This
@@ -222,19 +67,19 @@ class KubernetesStorage:
 
         Parameters
         ----------
-        parent : `GafaelfawrServiceToken`
-            The parent `GafaelfawrServiceToken` object for the secret.
+        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+            The parent object for the secret.
         token : `gafaelfawr.models.token.Token`
             The token to store.
 
         Returns
         -------
-        status : `GafaelfawrServiceTokenStatus`
+        status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
             Status information to store in the parent object.
         """
         secret = self._build_secret_for_service_token(parent, token)
         await self._api.create_namespaced_secret(parent.namespace, secret)
-        return GafaelfawrServiceTokenStatus(
+        return KubernetesResourceStatus(
             message="Secret was created",
             reason=StatusReason.Created,
             generation=parent.generation,
@@ -244,12 +89,12 @@ class KubernetesStorage:
     async def get_secret_for_service_token(
         self, parent: GafaelfawrServiceToken
     ) -> Optional[V1Secret]:
-        """Retrieve the secret corresponding to a GafaelfawrServiceToken.
+        """Retrieve the secret corresponding to a ``GafaelfawrServiceToken``.
 
         Parameters
         ----------
-        parent : `GafaelfawrServiceToken`
-            The parent GafaelfawrServiceToken object.
+        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+            The parent object.
 
         Returns
         -------
@@ -270,7 +115,7 @@ class KubernetesStorage:
     @_convert_exception
     async def replace_secret_for_service_token(
         self, parent: GafaelfawrServiceToken, token: Token
-    ) -> GafaelfawrServiceTokenStatus:
+    ) -> KubernetesResourceStatus:
         """Replace the token in a Secret.
 
         This must be called within a Kopf_ handler, since it relies on Kopf
@@ -279,21 +124,21 @@ class KubernetesStorage:
 
         Parameters
         ----------
-        parent : `GafaelfawrServiceToken`
-            The parent ``GafaelfawrServiceToken`` object for the Secret.
+        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+            The parent object for the ``Secret``.
         token : `gafaelfawr.models.token.Token`
             The token to store.
 
         Returns
         -------
-        status : `GafaelfawrServiceTokenStatus`
+        status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
             Status information to store in the parent object.
         """
         secret = self._build_secret_for_service_token(parent, token)
         await self._api.replace_namespaced_secret(
             parent.name, parent.namespace, secret
         )
-        return GafaelfawrServiceTokenStatus(
+        return KubernetesResourceStatus(
             message="Secret was updated",
             reason=StatusReason.Updated,
             generation=parent.generation,
@@ -303,12 +148,12 @@ class KubernetesStorage:
     async def update_secret_metadata_for_service_token(
         self, parent: GafaelfawrServiceToken
     ) -> None:
-        """Update the metadata for a Secret.
+        """Update the metadata for a ``Secret``.
 
         Parameters
         ----------
-        parent : `GafaelfawrServiceToken`
-            The parent ``GafaelfawrServiceToken`` object for the Secret.
+        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+            The parent object for the ``Secret``.
         """
         await self._api.patch_namespaced_secret(
             parent.name,
@@ -334,8 +179,8 @@ class KubernetesStorage:
 
         Parameters
         ----------
-        parent : `GafaelfawrServiceSecret`
-            The parent GafaelfawrServiceSecret object.
+        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+            The parent object.
         token : `gafaelfawr.models.token.Token`
             The Gafaelfawr token to store in the secret.
 

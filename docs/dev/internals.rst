@@ -37,6 +37,8 @@ Python internal API
 
 .. automodapi:: gafaelfawr.models.history
 
+.. automodapi:: gafaelfawr.models.kubernetes
+
 .. automodapi:: gafaelfawr.models.ldap
 
 .. automodapi:: gafaelfawr.models.link

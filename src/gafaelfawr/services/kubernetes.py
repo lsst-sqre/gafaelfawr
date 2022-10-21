@@ -14,12 +14,12 @@ from ..exceptions import (
     PermissionDeniedError,
     ValidationError,
 )
-from ..models.token import AdminTokenRequest, Token, TokenData, TokenType
-from ..storage.kubernetes import (
+from ..models.kubernetes import (
     GafaelfawrServiceToken,
-    GafaelfawrServiceTokenStatus,
-    KubernetesStorage,
+    KubernetesResourceStatus,
 )
+from ..models.token import AdminTokenRequest, Token, TokenData, TokenType
+from ..storage.kubernetes import KubernetesStorage
 from .token import TokenService
 
 __all__ = ["KubernetesService"]
@@ -67,7 +67,7 @@ class KubernetesService:
 
     async def update_service_token(
         self, name: str, namespace: str, body: Mapping[str, Any]
-    ) -> Optional[GafaelfawrServiceTokenStatus]:
+    ) -> Optional[KubernetesResourceStatus]:
         """Handle a change to a GafaelfawrServiceToken.
 
         Parameters
@@ -81,7 +81,7 @@ class KubernetesService:
 
         Returns
         -------
-        status : `gafaelfawr.storage.kubernetes.GafaelfawrServiceTokenStatus`
+        status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
             Information to put into the ``status`` portion of the object, or
             `None` if no status update was required.
 
@@ -155,7 +155,7 @@ class KubernetesService:
 
     async def _update_secret_for_service_token(
         self, parent: GafaelfawrServiceToken, secret: V1Secret
-    ) -> Optional[GafaelfawrServiceTokenStatus]:
+    ) -> Optional[KubernetesResourceStatus]:
         """Verify that a service secret is still correct.
 
         This checks that the contained service token is still valid and the
@@ -164,7 +164,7 @@ class KubernetesService:
 
         Returns
         -------
-        status : `gafaelfawr.storage.kubernetes.GafaelfawrServiceTokenStatus`
+        status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
             Information to put into the ``status`` field of the
             GafaelfawrServiceToken Kubernetes object, or `None` if no status
             update is required.
@@ -195,7 +195,7 @@ class KubernetesService:
         except (KubernetesError, PermissionDeniedError, ValidationError) as e:
             msg = f"Updating Secret {parent.key} failed"
             self._logger.error(msg, error=str(e))
-            return GafaelfawrServiceTokenStatus.failure(parent, str(e))
+            return KubernetesResourceStatus.failure(parent, str(e))
         else:
             if secret:
                 msg = f"Updated {parent.key} secret"

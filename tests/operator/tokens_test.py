@@ -233,7 +233,7 @@ async def test_create(factory: Factory, kubernetes: ApiClient) -> None:
             "observedGeneration": ANY,
             "reason": StatusReason.Created.value,
             "status": "True",
-            "type": "SecretCreated",
+            "type": "ResourceCreated",
         }
     }
     service_token = await custom_api.get_namespaced_custom_object(
@@ -250,7 +250,7 @@ async def test_create(factory: Factory, kubernetes: ApiClient) -> None:
             "observedGeneration": ANY,
             "reason": StatusReason.Created.value,
             "status": "True",
-            "type": "SecretCreated",
+            "type": "ResourceCreated",
         }
     }
 
@@ -540,7 +540,7 @@ async def test_errors_scope(
                 "observedGeneration": 1,
                 "reason": StatusReason.Failed.value,
                 "status": "False",
-                "type": "SecretCreated",
+                "type": "ResourceCreated",
             }
         }
 
@@ -617,7 +617,7 @@ async def test_errors_username(
                 "observedGeneration": 1,
                 "reason": StatusReason.Failed.value,
                 "status": "False",
-                "type": "SecretCreated",
+                "type": "ResourceCreated",
             }
         }
 
