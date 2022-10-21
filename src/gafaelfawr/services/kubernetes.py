@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from base64 import b64decode
-from typing import Any, Mapping, Optional
+from typing import Optional
 
 from kubernetes_asyncio.client import V1Secret
 from sqlalchemy.ext.asyncio import async_scoped_session
@@ -67,7 +67,7 @@ class KubernetesTokenService:
         self._logger = logger
 
     async def update(
-        self, name: str, namespace: str, body: Mapping[str, Any]
+        self, name: str, namespace: str, service_token: GafaelfawrServiceToken
     ) -> Optional[KubernetesResourceStatus]:
         """Handle a change to a ``GafaelfawrServiceToken``.
 
@@ -77,7 +77,7 @@ class KubernetesTokenService:
             Name of the ``GafaelfawrServiceToken`` Kubernetes object.
         namespace : `str`
             Namespace of the ``GafaelfawrServiceToken`` Kubernetes object.
-        body : Mapping[`str`, Any]
+        body : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
             Contents of the ``GafaelfawrServiceToken`` Kubernetes object.
 
         Returns
@@ -91,7 +91,6 @@ class KubernetesTokenService:
         error : `gafaelfawr.exceptions.KubernetesError`
             Some error occurred while trying to write to Kubernetes.
         """
-        service_token = GafaelfawrServiceToken.from_dict(body)
         try:
             secret = await self._storage.get_secret(service_token)
         except KubernetesError as e:

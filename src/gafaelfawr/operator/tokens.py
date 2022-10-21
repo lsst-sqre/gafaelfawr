@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Union
 import kopf
 
 from ..constants import KUBERNETES_TIMER_DELAY, KUBERNETES_TOKEN_INTERVAL
+from ..models.kubernetes import GafaelfawrServiceToken
 from ..services.kubernetes import KubernetesTokenService
 
 __all__ = [
@@ -25,11 +26,14 @@ async def _update_token(
 ) -> Optional[Dict[str, Union[int, str]]]:
     """Do the work of updating the token, shared by `create` and `periodic`."""
     token_service: KubernetesTokenService = memo.token_service
-    if not name:
+
+    # These cases are probably not possible given how the handlers are
+    # invoked, but unconfuse mypy.
+    if not name or not namespace:
         return None
-    if not namespace:
-        return None
-    status = await token_service.update(name, namespace, body)
+
+    service_token = GafaelfawrServiceToken.from_dict(body)
+    status = await token_service.update(name, namespace, service_token)
     return status.to_dict() if status else None
 
 
