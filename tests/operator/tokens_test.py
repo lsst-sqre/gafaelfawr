@@ -17,7 +17,6 @@ from kubernetes_asyncio.client import (
     V1OwnerReference,
     V1Secret,
 )
-from safir.testing.kubernetes import MockKubernetesApi
 
 from gafaelfawr.constants import KUBERNETES_TIMER_DELAY
 from gafaelfawr.factory import Factory
@@ -460,9 +459,7 @@ async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
 
 @requires_kubernetes
 @pytest.mark.asyncio
-async def test_errors_scope(
-    factory: Factory, kubernetes: MockKubernetesApi
-) -> None:
+async def test_errors_scope(factory: Factory, kubernetes: ApiClient) -> None:
     core_api = client.CoreV1Api(kubernetes)
     custom_api = client.CustomObjectsApi(kubernetes)
 
