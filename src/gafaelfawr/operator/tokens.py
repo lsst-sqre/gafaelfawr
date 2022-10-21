@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Union
 
 import kopf
 
-from ..constants import KUBERNETES_TOKEN_INTERVAL
+from ..constants import KUBERNETES_TIMER_DELAY, KUBERNETES_TOKEN_INTERVAL
 from ..services.kubernetes import KubernetesTokenService
 
 __all__ = [
@@ -69,9 +69,9 @@ async def create(
     "gafaelfawr.lsst.io",
     "v1alpha1",
     "gafaelfawrservicetokens",
-    idle=5,
+    idle=KUBERNETES_TIMER_DELAY,
     interval=KUBERNETES_TOKEN_INTERVAL,
-    initial_delay=5,
+    initial_delay=KUBERNETES_TIMER_DELAY,
 )
 async def periodic(
     name: Optional[str],

@@ -21,6 +21,7 @@ from kubernetes_asyncio.client import (
 )
 from safir.testing.kubernetes import MockKubernetesApi
 
+from gafaelfawr.constants import KUBERNETES_TIMER_DELAY
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import (
     AdminTokenRequest,
@@ -356,7 +357,7 @@ async def test_secret_verification(
     # Run the operator again.  This should create new tokens for both.  We
     # need to wait for longer to ensure the timer runs, since the create and
     # update handlers will not notice a change.
-    await run_operator(delay=10)
+    await run_operator(delay=KUBERNETES_TIMER_DELAY + 2)
     await assert_kubernetes_secrets_are_correct(factory, kubernetes)
     nublado_secret = await core_api.read_namespaced_secret(
         "gafaelfawr", TEST_KUBERNETES_NAMESPACES[1]
@@ -377,7 +378,7 @@ async def test_secret_verification(
 
     # Run the operator again.  This should create a new token for the first
     # secret but not for the second.
-    await run_operator(delay=10)
+    await run_operator(delay=KUBERNETES_TIMER_DELAY + 2)
     await assert_kubernetes_secrets_are_correct(
         factory, kubernetes, is_fresh=False
     )
