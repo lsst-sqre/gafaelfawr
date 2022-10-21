@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
+import os
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Iterator
 
+import pytest
 import yaml
+from kopf.testing import KopfRunner
 from kubernetes_asyncio.client import (
     ApiClient,
     ApiException,
@@ -23,7 +26,17 @@ from .constants import TEST_KUBERNETES_NAMESPACES
 __all__ = [
     "create_test_namespaces",
     "install_crds",
+    "operator_running",
+    "requires_kubernetes",
+    "run_operator_once",
 ]
+
+
+requires_kubernetes = pytest.mark.skipif(
+    os.getenv("TEST_KUBERNETES") is None,
+    reason="Install minikube and set TEST_KUBERNETES to run test",
+)
+"""Decorator to mark tests that should only be run if Kubernetes is enabled."""
 
 
 @asynccontextmanager
@@ -95,3 +108,48 @@ async def install_crds(api_client: ApiClient) -> None:
         with crd.open("r") as fh:
             crd_data = yaml.safe_load(fh)
         await extensions_api.create_custom_resource_definition(crd_data)
+
+
+@contextmanager
+def operator_running(module: str) -> Iterator[None]:
+    """Start the Kopf operator as a context manager.
+
+    This is a wrapper around `kopf.testing.KopfRunner` that constructs an
+    appropriate command line and verifies that the operator didn't fail.
+
+    Parameters
+    ----------
+    module : `str`
+        Name of the module that provides the operator.
+    """
+    kopf_command = [
+        "run",
+        "-A",
+        "--verbose",
+        "--log-format=json",
+        "-m",
+        module,
+    ]
+    with KopfRunner(kopf_command) as runner:
+        yield
+    print(runner.stdout)
+    assert runner.exit_code == 0
+    assert runner.exception is None
+
+
+async def run_operator_once(module: str, *, delay: float = 1) -> None:
+    """Run the Kopf operator, wait for a delay, and then shut it down.
+
+    This does a single run of the operator, processing any pending changes,
+    and then shuts it down again.
+
+    Parameters
+    ----------
+    module : `str`
+        Name of the module that provides the operator.
+    delay : `float`, optional
+        How long to wait after the operator has started before shutting it
+        down again.
+    """
+    with operator_running(module):
+        await asyncio.sleep(delay)

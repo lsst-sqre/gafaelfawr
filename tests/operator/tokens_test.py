@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from base64 import b64decode, b64encode
 from datetime import timedelta
 from typing import Any, Dict, List
 from unittest.mock import ANY
 
 import pytest
-from kopf.testing import KopfRunner
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
     ApiClient,
@@ -33,7 +31,12 @@ from gafaelfawr.services.token import TokenService
 from gafaelfawr.storage.kubernetes import StatusReason
 from gafaelfawr.util import current_datetime
 
-from ..support.kubernetes import TEST_KUBERNETES_NAMESPACES
+from ..support.constants import TEST_KUBERNETES_NAMESPACES
+from ..support.kubernetes import (
+    operator_running,
+    requires_kubernetes,
+    run_operator_once,
+)
 
 TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
     {
@@ -70,11 +73,6 @@ TEST_SERVICE_TOKENS: List[Dict[str, Any]] = [
     },
 ]
 
-requires_kubernetes = pytest.mark.skipif(
-    os.getenv("TEST_KUBERNETES") is None,
-    reason="Install minikube and set TEST_KUBERNETES to run test",
-)
-
 
 async def create_test_service_tokens(kubernetes: ApiClient) -> None:
     custom_api = client.CustomObjectsApi(kubernetes)
@@ -86,22 +84,6 @@ async def create_test_service_tokens(kubernetes: ApiClient) -> None:
             "gafaelfawrservicetokens",
             body,
         )
-
-
-async def run_operator(*, delay: float = 1) -> None:
-    kopf_command = [
-        "run",
-        "-A",
-        "--verbose",
-        "--log-format=json",
-        "-m",
-        "gafaelfawr.operator",
-    ]
-    with KopfRunner(kopf_command) as runner:
-        await asyncio.sleep(delay)
-    print(runner.stdout)
-    assert runner.exit_code == 0
-    assert runner.exception is None
 
 
 def token_as_base64(token: Token) -> str:
@@ -216,7 +198,7 @@ async def assert_kubernetes_secrets_are_correct(
 async def test_create(factory: Factory, kubernetes: ApiClient) -> None:
     await create_test_service_tokens(kubernetes)
 
-    await run_operator()
+    await run_operator_once("gafaelfawr.operator")
     await assert_kubernetes_secrets_are_correct(factory, kubernetes)
 
     custom_api = client.CustomObjectsApi(kubernetes)
@@ -303,7 +285,7 @@ async def test_secret_verification(
     )
 
     # Run the operator.  This should replace both with fresh secrets.
-    await run_operator()
+    await run_operator_once("gafaelfawr.operator")
     await assert_kubernetes_secrets_are_correct(factory, kubernetes)
 
     # Replace one secret with a valid token for the wrong service.
@@ -357,7 +339,8 @@ async def test_secret_verification(
     # Run the operator again.  This should create new tokens for both.  We
     # need to wait for longer to ensure the timer runs, since the create and
     # update handlers will not notice a change.
-    await run_operator(delay=KUBERNETES_TIMER_DELAY + 2)
+    delay = KUBERNETES_TIMER_DELAY + 2
+    await run_operator_once("gafaelfawr.operator", delay=delay)
     await assert_kubernetes_secrets_are_correct(factory, kubernetes)
     nublado_secret = await core_api.read_namespaced_secret(
         "gafaelfawr", TEST_KUBERNETES_NAMESPACES[1]
@@ -378,7 +361,7 @@ async def test_secret_verification(
 
     # Run the operator again.  This should create a new token for the first
     # secret but not for the second.
-    await run_operator(delay=KUBERNETES_TIMER_DELAY + 2)
+    await run_operator_once("gafaelfawr.operator", delay=delay)
     await assert_kubernetes_secrets_are_correct(
         factory, kubernetes, is_fresh=False
     )
@@ -407,15 +390,7 @@ async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
 
     # Start the operator.  Additional changes will be made while the operator
     # is running.
-    kopf_command = [
-        "run",
-        "-A",
-        "--verbose",
-        "--log-format=json",
-        "-m",
-        "gafaelfawr.operator",
-    ]
-    with KopfRunner(kopf_command) as runner:
+    with operator_running("gafaelfawr.operator"):
         await custom_api.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
@@ -466,7 +441,8 @@ async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
         await asyncio.sleep(1)
         await assert_kubernetes_secrets_are_correct(factory, kubernetes)
 
-        # Deletion should remove the secret.
+        # Deletion should remove the secret.  Wait a bit longer for this,
+        # since it takes Kubernetes a while to finish deleting things.
         await custom_api.delete_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
@@ -481,10 +457,6 @@ async def test_update(factory: Factory, kubernetes: ApiClient) -> None:
             )
         assert excinfo.value.status == 404
 
-    print(runner.stdout)
-    assert runner.exit_code == 0
-    assert runner.exception is None
-
 
 @requires_kubernetes
 @pytest.mark.asyncio
@@ -493,15 +465,8 @@ async def test_errors_scope(
 ) -> None:
     core_api = client.CoreV1Api(kubernetes)
     custom_api = client.CustomObjectsApi(kubernetes)
-    kopf_command = [
-        "run",
-        "-A",
-        "--verbose",
-        "--log-format=json",
-        "-m",
-        "gafaelfawr.operator",
-    ]
-    with KopfRunner(kopf_command) as runner:
+
+    with operator_running("gafaelfawr.operator"):
         await custom_api.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
@@ -558,10 +523,6 @@ async def test_errors_scope(
         )
         await asyncio.sleep(1)
 
-    print(runner.stdout)
-    assert runner.exit_code == 0
-    assert runner.exception is None
-
 
 @requires_kubernetes
 @pytest.mark.asyncio
@@ -570,15 +531,8 @@ async def test_errors_username(
 ) -> None:
     core_api = client.CoreV1Api(kubernetes)
     custom_api = client.CustomObjectsApi(kubernetes)
-    kopf_command = [
-        "run",
-        "-A",
-        "--verbose",
-        "--log-format=json",
-        "-m",
-        "gafaelfawr.operator",
-    ]
-    with KopfRunner(kopf_command) as runner:
+
+    with operator_running("gafaelfawr.operator"):
         await custom_api.create_namespaced_custom_object(
             "gafaelfawr.lsst.io",
             "v1alpha1",
@@ -634,7 +588,3 @@ async def test_errors_username(
             service_token,
         )
         await asyncio.sleep(1)
-
-    print(runner.stdout)
-    assert runner.exit_code == 0
-    assert runner.exception is None
