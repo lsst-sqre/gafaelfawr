@@ -78,14 +78,15 @@ async def create_test_namespaces(api_client: ApiClient) -> AsyncIterator[None]:
             "gafaelfawrservicetokens",
         )
         for service_token in service_tokens["items"]:
-            await custom_api.patch_namespaced_custom_object(
-                "gafaelfawr.lsst.io",
-                "v1alpha1",
-                service_token["metadata"]["namespace"],
-                "gafaelfawrservicetokens",
-                service_token["metadata"]["name"],
-                [{"op": "remove", "path": "/metadata/finalizers"}],
-            )
+            if "finalizers" in service_token["metadata"]:
+                await custom_api.patch_namespaced_custom_object(
+                    "gafaelfawr.lsst.io",
+                    "v1alpha1",
+                    service_token["metadata"]["namespace"],
+                    "gafaelfawrservicetokens",
+                    service_token["metadata"]["name"],
+                    [{"op": "remove", "path": "/metadata/finalizers"}],
+                )
 
     # Clean everything up by deleting the namespaces.
     for namespace in TEST_KUBERNETES_NAMESPACES:
