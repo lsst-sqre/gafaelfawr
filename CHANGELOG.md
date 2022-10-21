@@ -4,6 +4,17 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
+## 7.0.0 (unreleased)
+
+### Backwards-incompatible changes
+
+- Creation of `Secret` resources in Kubernetes from `GafaelfawrServiceToken` objects is now done with the [Kopf](https://kopf.readthedocs.io/en/stable/) framework. Sync status is now stored in Kubernetes attributes, and the `status` field of `GafaelfawrServiceToken` objects uses a different format.
+- The `gafaelfawr kubernetes-controller` and `gafaelfawr update-service-tokens` commands to manage Kubernetes `Secret` resources containing service tokens have been dropped.
+
+### New features
+
+- While the Kubernetes operator is running, all `Secret` objects created from `GafaelfawrServiceToken` objects are checked for validity every half-hour and replaced if needed.
+
 ## 6.2.0 (2022-10-13)
 
 ### New features
