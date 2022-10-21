@@ -14,10 +14,8 @@ import structlog
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
-from kubernetes_asyncio.client import ApiClient
 from safir.database import create_database_engine, initialize_database
 from safir.dependencies.db_session import db_session_dependency
-from safir.kubernetes import initialize_kubernetes
 from seleniumwire import webdriver
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -34,7 +32,6 @@ from gafaelfawr.schema import Base
 from .pages.tokens import TokensPage
 from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
-from .support.kubernetes import install_crds, temporary_namespace
 from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
 from .support.settings import build_settings, configure
@@ -169,36 +166,6 @@ async def initialize_empty_database(engine: AsyncEngine) -> None:
     """
     logger = structlog.get_logger(__name__)
     await initialize_database(engine, logger, schema=Base.metadata, reset=True)
-
-
-@pytest_asyncio.fixture(scope="session")
-async def kubernetes_setup() -> None:
-    """Initialize the Kubernetes client and install the testing CRDs.
-
-    Notes
-    -----
-    This needs to be done as a session fixture, since deleting CRDs between
-    tests doesn't really work.  Even if one waits for the CRD to be deleted,
-    Kubernetes still won't allow it to be reinstalled, failing with a 409
-    Conflict error.  Presumably it lives on for longer than we want to wait.
-    """
-    await initialize_kubernetes()
-    async with ApiClient() as api_client:
-        await install_crds(api_client)
-
-
-@pytest_asyncio.fixture
-async def kubernetes(kubernetes_setup: None) -> AsyncIterator[ApiClient]:
-    """Set up a Kubernetes environment and clean up after a test."""
-    async with ApiClient() as api_client:
-        yield api_client
-
-
-@pytest_asyncio.fixture
-async def kubernetes_namespace(kubernetes: ApiClient) -> AsyncIterator[str]:
-    """Set up a randomly-named namespace, and clean it up afterwards."""
-    async with temporary_namespace(kubernetes) as namespace:
-        yield namespace
 
 
 @pytest.fixture
