@@ -49,6 +49,10 @@ Python internal API
 
 .. automodapi:: gafaelfawr.models.token
 
+.. automodapi:: gafaelfawr.operator.startup
+
+.. automodapi:: gafaelfawr.operator.tokens
+
 .. automodapi:: gafaelfawr.providers.base
 
 .. automodapi:: gafaelfawr.providers.github

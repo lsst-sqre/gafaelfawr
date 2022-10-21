@@ -25,7 +25,6 @@ nitpick_ignore = [
     ["py:class", "fastapi.params.Depends"],
     ["py:class", "fastapi.routing.APIRoute"],
     ["py:class", "httpx.AsyncClient"],
-    ["py:class", "kopf._core.actions.execution.PermanentError"],
     ["py:exc", "fastapi.HTTPException"],
     ["py:exc", "fastapi.exceptions.RequestValidationError"],
     ["py:exc", "httpx.HTTPError"],
@@ -71,6 +70,7 @@ bonsai = "https://bonsai.readthedocs.io/en/latest/"
 cryptography = "https://cryptography.io/en/latest/"
 google-cloud-firestore = "https://googleapis.dev/python/firestore/latest/"
 jwt = "https://pyjwt.readthedocs.io/en/latest/"
+kopf = "https://kopf.readthedocs.io/en/stable/"
 safir = "https://safir.lsst.io/"
 sqlalchemy = "https://docs.sqlalchemy.org/en/latest/"
 structlog = "https://www.structlog.org/en/stable/"

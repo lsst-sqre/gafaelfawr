@@ -54,7 +54,7 @@ async def create(
         Body of the object in dictionary form.
     memo : `kopf.Memo`
         Holds global state, used to store the
-        `~gafaelfawr.services.KubernetesService` object.
+        `~gafaelfawr.services.kubernetes.KubernetesTokenService` object.
 
     Returns
     -------
@@ -92,7 +92,7 @@ async def periodic(
         Body of the object in dictionary form.
     memo : `kopf.Memo`
         Holds global state, used to store the
-        `~gafaelfawr.services.KubernetesService` object.
+        `~gafaelfawr.services.kubernetes.KubernetesTokenService` object.
 
     Returns
     -------
