@@ -9,7 +9,7 @@ Start the Gafaelfawr Kubernetes operator with the following command:
 
 .. code-block: shell
 
-   kopf run -A -m gafaelfawr.kubernetes.operator
+   kopf run -A --log-format=json -m gafaelfawr.operator
 """
 
 from . import startup, tokens
