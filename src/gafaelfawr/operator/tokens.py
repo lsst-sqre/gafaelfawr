@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Union
 import kopf
 
 from ..constants import KUBERNETES_TOKEN_INTERVAL
-from ..services.kubernetes import KubernetesService
+from ..services.kubernetes import KubernetesTokenService
 
 __all__ = [
     "create",
@@ -24,14 +24,12 @@ async def _update_token(
     **_: Any,
 ) -> Optional[Dict[str, Union[int, str]]]:
     """Do the work of updating the token, shared by `create` and `periodic`."""
-    kubernetes_service: KubernetesService = memo.kubernetes_service
+    token_service: KubernetesTokenService = memo.token_service
     if not name:
         return None
     if not namespace:
         return None
-    status = await kubernetes_service.update_service_token(
-        name, namespace, body
-    )
+    status = await token_service.update(name, namespace, body)
     return status.to_dict() if status else None
 
 
@@ -107,6 +105,9 @@ async def periodic(
     The callbacks for timers have different signatures than the callbacks for
     event handlers, so this unfortunately has to be a separate function and
     thus will record separate status information than the `create` function.
+    Kopf determines the key into which to store status information from the
+    name of the handler function and there is apparently no way to override
+    this.
 
     This uses idle and initial_delay settings to try to avoid conflicting with
     the create and update handlers on startup if changes had happened while

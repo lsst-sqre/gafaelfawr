@@ -26,7 +26,7 @@ from ..models.token import Token
 
 F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
-__all__ = ["KubernetesStorage"]
+__all__ = ["KubernetesTokenStorage"]
 
 
 def _convert_exception(f: F) -> F:
@@ -42,11 +42,11 @@ def _convert_exception(f: F) -> F:
     return cast(F, wrapper)
 
 
-class KubernetesStorage:
-    """Kubernetes storage layer.
+class KubernetesTokenStorage:
+    """Kubernetes storage layer for service token objects.
 
-    This abstracts storage of Kubernetes objects by wrapping the underlying
-    Kubernetes Python client.
+    This abstracts storage of Gafaelfawr service tokens in Kubernetes objects
+    by wrapping the underlying Kubernetes Python client.
     """
 
     def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
@@ -56,14 +56,12 @@ class KubernetesStorage:
         self._logger = logger
 
     @_convert_exception
-    async def create_secret_for_service_token(
+    async def create_secret(
         self, parent: GafaelfawrServiceToken, token: Token
     ) -> KubernetesResourceStatus:
-        """Create a Kubernetes secret from a token.
+        """Create a Kubernetes secret from a ``GafaelfawrServiceToken``.
 
-        The token will always be stored in the data field ``token``.  This
-        must be called within a Kopf_ handler, since it relies on Kopf and the
-        currently-processed resource to set metadata for the ``Secret``.
+        The token will always be stored in the data field ``token``.
 
         Parameters
         ----------
@@ -77,7 +75,7 @@ class KubernetesStorage:
         status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
             Status information to store in the parent object.
         """
-        secret = self._build_secret_for_service_token(parent, token)
+        secret = self._build_secret(parent, token)
         await self._api.create_namespaced_secret(parent.namespace, secret)
         return KubernetesResourceStatus(
             message="Secret was created",
@@ -86,7 +84,7 @@ class KubernetesStorage:
         )
 
     @_convert_exception
-    async def get_secret_for_service_token(
+    async def get_secret(
         self, parent: GafaelfawrServiceToken
     ) -> Optional[V1Secret]:
         """Retrieve the secret corresponding to a ``GafaelfawrServiceToken``.
@@ -113,14 +111,10 @@ class KubernetesStorage:
         return secret
 
     @_convert_exception
-    async def replace_secret_for_service_token(
+    async def replace_secret(
         self, parent: GafaelfawrServiceToken, token: Token
     ) -> KubernetesResourceStatus:
-        """Replace the token in a Secret.
-
-        This must be called within a Kopf_ handler, since it relies on Kopf
-        and the currently-processed resource to set metadata for the
-        ``Secret``.
+        """Replace the token in a ``Secret``.
 
         Parameters
         ----------
@@ -134,7 +128,7 @@ class KubernetesStorage:
         status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
             Status information to store in the parent object.
         """
-        secret = self._build_secret_for_service_token(parent, token)
+        secret = self._build_secret(parent, token)
         await self._api.replace_namespaced_secret(
             parent.name, parent.namespace, secret
         )
@@ -145,7 +139,7 @@ class KubernetesStorage:
         )
 
     @_convert_exception
-    async def update_secret_metadata_for_service_token(
+    async def update_secret_metadata(
         self, parent: GafaelfawrServiceToken
     ) -> None:
         """Update the metadata for a ``Secret``.
@@ -172,10 +166,10 @@ class KubernetesStorage:
             ],
         )
 
-    def _build_secret_for_service_token(
+    def _build_secret(
         self, parent: GafaelfawrServiceToken, token: Token
     ) -> V1Secret:
-        """Construct a new Secret object.
+        """Construct a new ``Secret`` object.
 
         Parameters
         ----------

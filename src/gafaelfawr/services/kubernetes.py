@@ -19,32 +19,33 @@ from ..models.kubernetes import (
     KubernetesResourceStatus,
 )
 from ..models.token import AdminTokenRequest, Token, TokenData, TokenType
-from ..storage.kubernetes import KubernetesStorage
+from ..storage.kubernetes import KubernetesTokenStorage
 from .token import TokenService
 
-__all__ = ["KubernetesService"]
+__all__ = ["KubernetesTokenService"]
 
 
-class KubernetesService:
-    """Manage Gafaelfawr-related Kubernetes secrets.
+class KubernetesTokenService:
+    """Manage Gafaelfawr service tokens stored in Kubernetes secrets.
 
-    The GafaelfawrServiceToken custom resource defines a Gafaelfawr service
-    token that should be created and managed as a Kubernetes secret.  This
-    class provides the core of the Kubernetes operator that does this.  It is
-    intended to be driven via Kopf_ and a thin layer of Kopf event handlers.
+    The ``GafaelfawrServiceToken`` custom resource defines a Gafaelfawr
+    service token that should be created and managed as a Kubernetes secret.
+    This class provides the core of the Kubernetes operator that does this.
+    It is intended to be driven via Kopf_ and a thin layer of Kopf event
+    handlers.
 
     Notes
     -----
     This service unfortunately has to be aware of the database session since
     it has to manage transactions around token issuance.  The token service is
-    transaction-unaware because it normally runs in the context of a request
+    transaction-unaware because it otherwise runs in the context of a request
     handler, where we implement one transaction per request.
 
     Parameters
     ----------
     token_service : `gafaelfawr.services.token.TokenService`
         Token management service.
-    storage : `gafaelfawr.storage.kubernetes.KubernetesStorage`
+    storage : `gafaelfawr.storage.kubernetes.KubernetesTokenStorage`
         Storage layer for the Kubernetes cluster.
     session : `sqlalchemy.ext.asyncio.async_scoped_session`
         Database session, used for transaction management.
@@ -56,7 +57,7 @@ class KubernetesService:
         self,
         *,
         token_service: TokenService,
-        storage: KubernetesStorage,
+        storage: KubernetesTokenStorage,
         session: async_scoped_session,
         logger: BoundLogger,
     ) -> None:
@@ -65,19 +66,19 @@ class KubernetesService:
         self._session = session
         self._logger = logger
 
-    async def update_service_token(
+    async def update(
         self, name: str, namespace: str, body: Mapping[str, Any]
     ) -> Optional[KubernetesResourceStatus]:
-        """Handle a change to a GafaelfawrServiceToken.
+        """Handle a change to a ``GafaelfawrServiceToken``.
 
         Parameters
         ----------
         name : `str`
-            Name of the GafaelfawrServiceToken Kubernetes object.
+            Name of the ``GafaelfawrServiceToken`` Kubernetes object.
         namespace : `str`
-            Namespace of the GafaelfawrServiceToken Kubernetes object.
+            Namespace of the ``GafaelfawrServiceToken`` Kubernetes object.
         body : Mapping[`str`, Any]
-            Contents of the GafaelfawrServiceToken Kubernetes object.
+            Contents of the ``GafaelfawrServiceToken`` Kubernetes object.
 
         Returns
         -------
@@ -92,20 +93,15 @@ class KubernetesService:
         """
         service_token = GafaelfawrServiceToken.from_dict(body)
         try:
-            secret = await self._storage.get_secret_for_service_token(
-                service_token
-            )
+            secret = await self._storage.get_secret(service_token)
         except KubernetesError as e:
             msg = f"Cannot retrieve Secret {service_token.key}"
             self._logger.error(msg, error=str(e))
             raise
-        return await self._update_secret_for_service_token(
-            service_token, secret
-        )
+        return await self._update_secret(service_token, secret)
 
-    async def _create_service_token(
-        self, parent: GafaelfawrServiceToken
-    ) -> Token:
+    async def _create_token(self, parent: GafaelfawrServiceToken) -> Token:
+        """Create a service token for a ``GafaelfawrServiceToken``."""
         request = AdminTokenRequest(
             username=parent.service,
             token_type=TokenType.service,
@@ -116,31 +112,7 @@ class KubernetesService:
                 request, TokenData.internal_token(), ip_address=None
             )
 
-    async def _secret_needs_update(
-        self, parent: GafaelfawrServiceToken, secret: Optional[V1Secret]
-    ) -> bool:
-        """Check if a secret needs to be updated."""
-        if not secret:
-            return True
-        if not secret.data or "token" not in secret.data:
-            return True
-        try:
-            token_str = b64decode(secret.data["token"]).decode()
-            token = Token.from_str(token_str)
-            return not await self._service_token_valid(token, parent)
-        except Exception:
-            return True
-
-    def _secret_needs_metadata_update(
-        self, parent: GafaelfawrServiceToken, secret: V1Secret
-    ) -> bool:
-        """Check if a secret needs its metadata updated."""
-        return not (
-            secret.metadata.annotations == parent.annotations
-            and secret.metadata.labels == parent.labels
-        )
-
-    async def _service_token_valid(
+    async def _is_token_valid(
         self, token: Token, parent: GafaelfawrServiceToken
     ) -> bool:
         """Check whether a service token matches its configuration."""
@@ -153,29 +125,51 @@ class KubernetesService:
             return False
         return True
 
-    async def _update_secret_for_service_token(
+    async def _secret_needs_update(
+        self, parent: GafaelfawrServiceToken, secret: Optional[V1Secret]
+    ) -> bool:
+        """Check if a secret needs to be updated."""
+        if not secret:
+            return True
+        if not secret.data or "token" not in secret.data:
+            return True
+        try:
+            token_str = b64decode(secret.data["token"]).decode()
+            token = Token.from_str(token_str)
+            return not await self._is_token_valid(token, parent)
+        except Exception:
+            return True
+
+    def _secret_needs_metadata_update(
+        self, parent: GafaelfawrServiceToken, secret: V1Secret
+    ) -> bool:
+        """Check if a secret needs its metadata updated."""
+        return not (
+            secret.metadata.annotations == parent.annotations
+            and secret.metadata.labels == parent.labels
+        )
+
+    async def _update_secret(
         self, parent: GafaelfawrServiceToken, secret: V1Secret
     ) -> Optional[KubernetesResourceStatus]:
-        """Verify that a service secret is still correct.
+        """Update a service token stored in Kubernetes if necessary.
 
-        This checks that the contained service token is still valid and the
-        secret metadata matches the GafaelfawrServiceToken metadata and
-        replaces it with a new one if not.
+        This checks that the service token stored in the ``Secret`` is still
+        valid and the ``Secret`` metadata matches the
+        ``GafaelfawrServiceToken``, and updates the ``Secret`` as needed.
 
         Returns
         -------
         status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
             Information to put into the ``status`` field of the
-            GafaelfawrServiceToken Kubernetes object, or `None` if no status
-            update is required.
+            ``GafaelfawrServiceToken`` Kubernetes object, or `None` if no
+            status update is required.
         """
         storage = self._storage
         if not await self._secret_needs_update(parent, secret):
             if self._secret_needs_metadata_update(parent, secret):
                 try:
-                    await storage.update_secret_metadata_for_service_token(
-                        parent
-                    )
+                    await storage.update_secret_metadata(parent)
                 except KubernetesError as e:
                     msg = f"Updating Secret {parent.key} failed"
                     self._logger.error(msg, error=str(e))
@@ -183,15 +177,11 @@ class KubernetesService:
 
         # Something is either different or invalid.  Replace the secret.
         try:
-            token = await self._create_service_token(parent)
+            token = await self._create_token(parent)
             if secret:
-                status = await storage.replace_secret_for_service_token(
-                    parent, token
-                )
+                status = await storage.replace_secret(parent, token)
             else:
-                status = await storage.create_secret_for_service_token(
-                    parent, token
-                )
+                status = await storage.create_secret(parent, token)
         except (KubernetesError, PermissionDeniedError, ValidationError) as e:
             msg = f"Updating Secret {parent.key} failed"
             self._logger.error(msg, error=str(e))

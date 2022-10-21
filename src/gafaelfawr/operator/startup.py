@@ -31,8 +31,8 @@ async def startup(memo: kopf.Memo, **_: Any) -> None:
     memo.factory = await Factory.create(config, memo.engine, check_db=True)
     await initialize_kubernetes()
     memo.api_client = ApiClient()
-    service = memo.factory.create_kubernetes_service(memo.api_client)
-    memo.kubernetes_service = service
+    service = memo.factory.create_kubernetes_token_service(memo.api_client)
+    memo.token_service = service
 
 
 @kopf.on.cleanup()

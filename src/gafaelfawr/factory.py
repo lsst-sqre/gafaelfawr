@@ -29,7 +29,7 @@ from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
 from .services.firestore import FirestoreService
-from .services.kubernetes import KubernetesService
+from .services.kubernetes import KubernetesTokenService
 from .services.ldap import LDAPService
 from .services.oidc import OIDCService
 from .services.token import TokenService
@@ -39,7 +39,7 @@ from .storage.admin import AdminStore
 from .storage.base import RedisStorage
 from .storage.firestore import FirestoreStorage
 from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
-from .storage.kubernetes import KubernetesStorage
+from .storage.kubernetes import KubernetesTokenStorage
 from .storage.ldap import LDAPStorage
 from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
@@ -307,10 +307,10 @@ class Factory:
             raise NotConfiguredError("Firestore is not configured")
         return FirestoreStorage(self._context.config.firestore, self._logger)
 
-    def create_kubernetes_service(
+    def create_kubernetes_token_service(
         self, api_client: ApiClient
-    ) -> KubernetesService:
-        """Create a Kubernetes service.
+    ) -> KubernetesTokenService:
+        """Create a service for managing tokens stored in Kubernetes.
 
         Parameters
         ----------
@@ -319,12 +319,12 @@ class Factory:
 
         Returns
         -------
-        kubernetes_service : `gafaelfawr.services.kubernetes.KubernetesService`
+        service : `gafaelfawr.services.kubernetes.KubernetesTokenService`
             Newly-created Kubernetes service.
         """
-        storage = KubernetesStorage(api_client, self._logger)
+        storage = KubernetesTokenStorage(api_client, self._logger)
         token_service = self.create_token_service()
-        return KubernetesService(
+        return KubernetesTokenService(
             token_service=token_service,
             storage=storage,
             session=self.session,
