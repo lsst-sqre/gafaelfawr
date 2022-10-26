@@ -100,6 +100,22 @@ To run the tests with coverage analysis and generate a report, run:
 
    tox -e py-coverage,coverage-report
 
+To see a listing of test environments, run:
+
+.. code-block:: sh
+
+   tox -av
+
+To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` or ``py-full`` tox environment.
+For example:
+
+.. code-block:: sh
+
+   tox -e py -- tests/handlers/api_tokens_test.py
+
+Testing the Kubernetes operator
+-------------------------------
+
 To test the Kubernetes operator, you must have a Kubernetes cluster available that is not already running Gafaelfawr.
 This is only tested with Minikube_, which is the approach used by CI.
 
@@ -114,26 +130,37 @@ This is only tested with Minikube_, which is the approach used by CI.
 
    If you want to run these tests manually rather than via CI, using Minikube for tests and carefully verifying that the default Kubernetes credentials are for the Minikube environment is strongly encouraged.
 
-To run all of the tests including Kubernetes tests, run:
+To set up Minikube:
+
+#. `Install Minikube <https://minikube.sigs.k8s.io/docs/start/>`__ for your platform.
+
+#. Start a cluster using the Docker driver with the minimum recommended resources:
+
+   .. code-block:: sh
+
+      minikube start --driver=docker --cpus=4 --memory=8g --disk-size=100g  --kubernetes-version=1.21.5
+
+   The ``--kubernetes-version`` option can be used to specify the Kubernetes version to use.
+
+#. Enable the NGINX Ingress Controller using the  `Minikube ingress addon <https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/>`__:
+
+   .. code-block:: sh
+
+   minikube addons enable ingress
+
+To run all of the tests including Kubernetes tests, first check that your default Kubernetes environment is the one in which you want to run tests:
+
+.. code-block:: sh
+
+   kubectl config current-context
+
+Then, run:
 
 .. code-block:: sh
 
    tox -e py-full
 
 Add the ``coverage-report`` environment to also get a test coverage report.
-
-To see a listing of test environments, run:
-
-.. code-block:: sh
-
-   tox -av
-
-To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` or ``py-full`` tox environment.
-For example:
-
-.. code-block:: sh
-
-   tox -e py -- tests/handlers/api_tokens_test.py
 
 .. _dev-server:
 
