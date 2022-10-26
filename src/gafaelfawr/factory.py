@@ -213,7 +213,7 @@ class Factory:
     async def standalone(
         cls, config: Config, engine: AsyncEngine, check_db: bool = False
     ) -> AsyncIterator[Factory]:
-        """Build Gafaelfawr components outside of a request.
+        """Async context manager for Gafaelfawr components.
 
         Intended for background jobs.  Uses the non-request default values for
         the dependencies of `Factory`.  Do not use this factory inside the web
@@ -233,7 +233,16 @@ class Factory:
         Yields
         ------
         factory : `Factory`
-            The factory.  Must be used as a context manager.
+            The factory.  Must be used as an async context manager.
+
+        Examples
+        --------
+        .. code-block:: python
+
+           async with Factory.standalone(config, engine) as factory:
+               token_service = factory.create_token_service()
+               async with factory.session.begin():
+                   alerts = await token_service.audit(fix=fix)
         """
         factory = await cls.create(config, engine, check_db)
         async with aclosing(factory):
