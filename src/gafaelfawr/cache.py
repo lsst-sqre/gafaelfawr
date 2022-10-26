@@ -92,12 +92,12 @@ class IdCache(BaseCache):
 
         Parameters
         ----------
-        name : `str`
+        name
             Username or group name.
 
         Returns
         -------
-        id : `int` or `None`
+        int or None
             UID or GID if the name is in the cache, else `None`.
         """
         return self._cache.get(name)
@@ -109,13 +109,20 @@ class IdCache(BaseCache):
 
         Returns
         -------
-        lock : `asyncio.Lock`
+        asyncio.Lock
             The lock for the cache.
         """
         return self._lock
 
     def store(self, name: str, id: int) -> None:
         """Store the UID or GID for a user or group in the cache.
+
+        Parameters
+        ----------
+        name
+            Name of the user or group.
+        id
+            UID or GID to store.
 
         Examples
         --------
@@ -126,13 +133,6 @@ class IdCache(BaseCache):
                 if not uid:
                     # do something to allocate a UID
                     id_cache.store(username, uid)
-
-        Parameters
-        ----------
-        name : `str`
-            Name of the user or group.
-        id : `int`
-            UID or GID to store.
         """
         self._cache[name] = id
 
@@ -146,9 +146,9 @@ class UserLockManager:
 
     Parameters
     ----------
-    general_lock : `asyncio.Lock`
+    general_lock
         Lock protecting the per-user locks.
-    user_lock : `asyncio.Lock`
+    user_lock
         Per-user lock for a given user.
     """
 
@@ -237,12 +237,12 @@ class PerUserCache(BaseCache):
 
         Parameters
         ----------
-        username : `str`
+        username
             Per-user lock to hold.
 
         Returns
         -------
-        lock : `UserLockManager`
+        UserLockManager
             Async context manager that will take the user lock.
         """
         async with self._lock:
@@ -257,7 +257,7 @@ class LDAPCache(PerUserCache, Generic[S]):
 
     Parameters
     ----------
-    content : `typing.Type`
+    content
         The type of object being stored.
     """
 
@@ -271,12 +271,12 @@ class LDAPCache(PerUserCache, Generic[S]):
 
         Parameters
         ----------
-        username : `str`
+        username
             Username for which to retrieve data.
 
         Returns
         -------
-        data : `typing.Any` or `None`
+        Any or None
             The cached data or `None` if there is no data in the cache.
         """
         return self._cache.get(username)
@@ -292,9 +292,9 @@ class LDAPCache(PerUserCache, Generic[S]):
 
         Parameters
         ----------
-        username : `str`
+        username
             Username for which to store data.
-        data : `typing.Any`
+        data
             Data to store.
         """
         self._cache[username] = data
@@ -323,16 +323,16 @@ class InternalTokenCache(TokenCache):
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
-        service : `str`
+        service
             The service of the internal token.
-        scopes : List[`str`]
+        scopes
             The scopes the internal token should have.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token` or `None`
+        Token or None
             The cached token or `None` if there is no matching token in the
             cache.
 
@@ -358,13 +358,13 @@ class InternalTokenCache(TokenCache):
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
-        service : `str`
+        service
             The service of the internal token.
-        scopes : List[`str`]
+        scopes
             The scopes the internal token should have.
-        token : `gafaelfawr.models.token.Token`
+        token
             The token to cache.
         """
         key = self._build_key(token_data, service, scopes)
@@ -377,12 +377,17 @@ class InternalTokenCache(TokenCache):
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
-        service : `str`
+        service
             The service of the internal token.
-        scopes : List[`str`]
+        scopes
             The scopes the internal token should have.
+
+        Returns
+        -------
+        Tuple
+            An object suitable for use as a hash key for this internal token.
         """
         expires = str(token_data.expires) if token_data.expires else "None"
         scope = ",".join(sorted(scopes))
@@ -397,12 +402,12 @@ class NotebookTokenCache(TokenCache):
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token` or `None`
+        Token or None
             The cached token or `None` if there is no matching token in the
             cache.
 
@@ -422,9 +427,9 @@ class NotebookTokenCache(TokenCache):
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
-        token : `gafaelfawr.models.token.Token`
+        token
             The token to cache.
         """
         key = self._build_key(token_data)
@@ -435,8 +440,13 @@ class NotebookTokenCache(TokenCache):
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
+
+        Returns
+        -------
+        Tuple
+            An object suitable for use as a hash key for this internal token.
         """
         expires = str(token_data.expires) if token_data.expires else "None"
         return (token_data.token.key, expires)

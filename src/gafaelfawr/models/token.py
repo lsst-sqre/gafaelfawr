@@ -57,17 +57,17 @@ class Token(BaseModel):
 
         Parameters
         ----------
-        token : `str`
+        token
             The serialized token.
 
         Returns
         -------
-        decoded_token : `Token`
+        Token
             The decoded `Token`.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidTokenError
+        InvalidTokenError
             The provided string is not a valid token.
         """
         if not token.startswith("gt-"):
@@ -89,27 +89,30 @@ class Token(BaseModel):
 
 
 class TokenType(Enum):
-    """The class of token.
-
-    session
-        An interactive user web session.
-    user
-        A user-generated token that may be used programmatically.
-    notebook
-        The token delegated to a Jupyter notebook for the user.
-    internal
-        A service-to-service token used for internal sub-calls made as part of
-        processing a user request.
-    service
-        A service-to-service token used for internal calls initiated by
-        services, unrelated to a user request.
-    """
+    """The class of token."""
 
     session = "session"
+    """An interactive user web session."""
+
     user = "user"
+    """A user-generated token that may be used programmatically."""
+
     notebook = "notebook"
+    """The token delegated to a Jupyter notebook for the user."""
+
     internal = "internal"
+    """Service-to-service token chained from a user request.
+
+    A service-to-service token used for internal sub-calls made as part of
+    processing a user request.
+    """
+
     service = "service"
+    """Service-to-service token independent of a user request.
+
+    A service-to-service token used for internal calls initiated by
+    services, unrelated to a user request.
+    """
 
 
 class TokenGroup(BaseModel):
@@ -317,7 +320,7 @@ class TokenUserInfo(BaseModel):
 
         Returns
         -------
-        token_userinfo : Dict[`str`, Any]:
+        dict
             Dictionary of information, roughly equivalent to calling
             ``dict(exclude_none=True)`` on the `TokenUserInfo` object, but
             ensuring that only its data is included even if called on a
@@ -362,7 +365,7 @@ class TokenData(TokenBase, TokenUserInfo):
 
         Returns
         -------
-        data : `gafaelfawr.models.token.TokenData`
+        TokenData
             Artificial data for the bootstrap token.
         """
         return cls(
@@ -382,7 +385,7 @@ class TokenData(TokenBase, TokenUserInfo):
 
         Returns
         -------
-        data : `gafaelfawr.models.token.TokenData`
+        TokenData
             Artificial data for the bootstrap token.
         """
         return cls(

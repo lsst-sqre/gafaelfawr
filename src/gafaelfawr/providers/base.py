@@ -19,12 +19,12 @@ class Provider(metaclass=ABCMeta):
 
         Parameters
         ----------
-        state : `str`
+        state
             A random string used for CSRF protection.
 
         Returns
         -------
-        url : `str`
+        str
             The encoded URL to which to redirect the user.
         """
 
@@ -36,26 +36,26 @@ class Provider(metaclass=ABCMeta):
 
         Parameters
         ----------
-        code : `str`
+        code
             Code returned by a successful authentication.
-        state : `str`
+        state
             The same random string used for the redirect URL.
-        session : `gafaelfawr.models.state.State`
+        session
             The session state.  The provider may also store data used during
             logout.
 
         Returns
         -------
-        user_info : `gafaelfawr.models.token.TokenUserInfo`
+        TokenUserInfo
             The user information corresponding to that authentication.
 
         Raises
         ------
         httpx.HTTPError
-            An HTTP client error occurred trying to talk to the authentication
-            provider.
-        gafaelfawr.exceptions.ProviderError
-            The provider responded with an error to a request.
+            Raised if an HTTP client error occurred trying to talk to the
+            authentication provider.
+        ProviderError
+            Raised if the provider responded with an error to a request.
         """
 
     @abstractmethod
@@ -67,6 +67,6 @@ class Provider(metaclass=ABCMeta):
 
         Parameters
         ----------
-        session : `gafaelfawr.models.state.State`
+        session
             The session state before logout.
         """

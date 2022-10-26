@@ -32,7 +32,10 @@ class AuthType(str, Enum):
     """Authentication types for the WWW-Authenticate header."""
 
     Basic = "basic"
+    """HTTP Basic Authentication (RFC 7617)."""
+
     Bearer = "bearer"
+    """HTTP Bearer Authentication (RFC 6750)."""
 
 
 class AuthError(Enum):
@@ -61,7 +64,7 @@ class AuthChallenge:
 
         Returns
         -------
-        header : `str`
+        str
             Contents of the WWW-Authenticate header.
         """
         return f'{self.auth_type.name} realm="{self.realm}"'
@@ -72,20 +75,20 @@ class AuthErrorChallenge(AuthChallenge):
     """Represents a ``WWW-Authenticate`` header for an error challenge."""
 
     error: AuthError
-    """The value of the error attribute if present."""
+    """Short error code."""
 
     error_description: str
-    """The value of the error description attribute if present."""
+    """Human-readable error description."""
 
     scope: Optional[str] = None
-    """The value of the scope attribute if present."""
+    """Scope required to access this URL."""
 
     def as_header(self) -> str:
         """Construct the WWW-Authenticate header for this challenge.
 
         Returns
         -------
-        header : `str`
+        str
             Contents of the WWW-Authenticate header.
         """
         if self.auth_type == AuthType.Basic:
@@ -112,13 +115,13 @@ def generate_challenge(
 
     Parameters
     ----------
-    request : `gafaelfawr.dependencies.context.RequestContext`
+    context
         The context of the incoming request.
-    auth_type : `AuthType`
+    auth_type
         The type of authentication to request.
-    exc : `gafaelfawr.exceptions.OAuthBearerError`
+    exc
         An exception representing a bearer token error.
-    scopes : Set[`str`], optional
+    scopes
         Optional scopes to include in the challenge, primarily intended for
         `~gafaelfawr.exceptions.InsufficientScopeError` exceptions.
 
@@ -163,20 +166,20 @@ def generate_unauthorized_challenge(
 
     Parameters
     ----------
-    context : `gafaelfawr.dependencies.context.RequestContext`
+    context
         The incoming request.
-    auth_type : `AuthType`
+    auth_type
         The type of authentication to request.
-    exc : `gafaelfawr.exceptions.OAuthBearerError`, optional
+    exc
         An exception representing a bearer token error.  If not present,
         assumes that no token was provided and there was no error.
-    ajax_forbidden : `bool`, optional
+    ajax_forbidden
         If set to `True`, check to see if the request was sent via AJAX (see
-        Notes) and, if so, convert it to a 403 error.  The default is `False`.
+        Notes) and, if so, convert it to a 403 error.
 
     Returns
     -------
-    exception : ``fastapi.HTTPException``
+    ``fastapi.HTTPException``
         The exception to raise, either a 403 (for AJAX) or a 401.
 
     Notes
@@ -245,17 +248,17 @@ def parse_authorization(context: RequestContext) -> Optional[str]:
 
     Parameters
     ----------
-    context : `gafaelfawr.dependencies.context.RequestContext`
+    context
         The context of the incoming request.
 
     Returns
     -------
-    handle_or_token : `str` or `None`
-        The handle or token if one was found, otherwise None.
+    str or None
+        The handle or token if one was found, otherwise `None`.
 
     Raises
     ------
-    gafaelfawr.exceptions.InvalidRequestError
+    InvalidRequestError
         If the Authorization header is malformed.
 
     Notes

@@ -728,13 +728,13 @@ class Config:
 
         Parameters
         ----------
-        path : `str`
+        path
             Path to the settings file in YAML.
 
         Returns
         -------
-        config : `Config`
-            The corresponding Config object.
+        Config
+            The corresponding `Config` object.
         """
         with open(path, "r") as f:
             raw_settings = yaml.safe_load(f)

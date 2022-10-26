@@ -48,17 +48,17 @@ class TokenService:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
+    config
         Gafaelfawr configuration.
-    token_cache : `gafaelfawr.services.token_cache.TokenCacheService`
+    token_cache
         Cache of internal and notebook tokens.
-    token_db_store : `gafaelfawr.storage.token.TokenDatabaseStore`
+    token_db_store
         The database backing store for tokens.
-    token_redis_store : `gafaelfawr.storage.token.TokenRedisStore`
+    token_redis_store
         The Redis backing store for tokens.
-    token_change_store : `gafaelfawr.storage.history.TokenChangeHistoryStore`
+    token_change_store
         The backing store for history of changes to tokens.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to use.
     """
 
@@ -87,13 +87,13 @@ class TokenService:
 
         Parameters
         ----------
-        fix : `bool`, optional
+        fix
             Whether to fix problems that the audit code knows how to fix
-            (which is not all alerts).  Default is `False`.
+            (which is not all alerts).
 
         Returns
         -------
-        alerts : List[`str`]
+        List of str
             A list of human-readable alert messages formatted in Markdown.
         """
         alerts = []
@@ -245,21 +245,21 @@ class TokenService:
 
         Parameters
         ----------
-        user_info : `gafaelfawr.models.token.TokenUserInfo`
+        user_info
             The user information to associate with the token.
-        scopes : List[`str`]
+        scopes
             The scopes of the token.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token`
+        Token
             The newly-created token.
 
         Raises
         ------
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             If the provided username is invalid.
         """
         self._validate_username(user_info.username)
@@ -318,33 +318,33 @@ class TokenService:
 
         Parameters
         ----------
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The token data for the authentication token of the user creating
             a user token.
-        username : `str`
+        username
             The username for which to create a token.
-        token_name : `str`
+        token_name
             The name of the token.
-        scopes : List[`str`]
+        scopes
             The scopes of the token.
-        expires : `datetime` or `None`
+        expires
             When the token should expire.  If not given, defaults to the
             expiration of the authentication token taken from ``data``.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token`
+        Token
             The newly-created token.
 
         Raises
         ------
-        gafaelfawr.exceptions.DuplicateTokenNameError
+        DuplicateTokenNameError
             A token with this name for this user already exists.
-        gafaelfawr.exceptions.InvalidExpiresError
+        InvalidExpiresError
             The provided expiration time was invalid.
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             If the given username didn't match the user information in the
             authentication token, or if the specified username is invalid.
 
@@ -415,26 +415,26 @@ class TokenService:
 
         Parameters
         ----------
-        request : `gafaelfawr.models.token.AdminTokenRequest`
+        request
             The incoming request.
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The data for the authenticated user making the request.
-        ip_address : `str` or `None`
+        ip_address
             The IP address from which the request came, or `None` for internal
             requests by Gafaelfawr.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token`
+        Token
             The newly-created token.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidExpiresError
+        InvalidExpiresError
             The provided expiration time is not valid.
-        gafaelfawr.exceptions.InvalidScopesError
+        InvalidScopesError
             The requested scopes are not permitted.
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             If the provided username is invalid.
         """
         self._check_authorization(
@@ -524,20 +524,21 @@ class TokenService:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key of the token to delete.
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The token data for the authentication token of the user deleting
             the token.
-        username : `str`
+        username
             Constrain deletions to tokens owned by the given user.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
 
         Returns
         -------
-        success : `bool`
-            Whether the token was found and deleted.
+        bool
+            `True` if the token has been deleted, `False` if it was not
+            found.
         """
         info = await self.get_token_info_unchecked(key, username)
         if not info:
@@ -609,42 +610,42 @@ class TokenService:
 
         Parameters
         ----------
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             Authentication information for the user making the request.
-        cursor : `str`, optional
+        cursor
             A pagination cursor specifying where to start in the results.
-        limit : `int`, optional
+        limit
             Limit the number of returned results.
-        since : `datetime.datetime`, optional
+        since
             Limit the results to events at or after this time.
-        until : `datetime.datetime`, optional
+        until
             Limit the results to events before or at this time.
-        username : `str`, optional
+        username
             Limit the results to tokens owned by this user.
-        actor : `str`, optional
+        actor
             Limit the results to actions performed by this user.
-        key : `str`, optional
+        key
             Limit the results to this token and any subtokens of this token.
             Note that this will currently pick up direct subtokens but not
             subtokens of subtokens.
-        token : `str`, optional
+        token
             Limit the results to only this token.
-        token_type : `gafaelfawr.models.token.TokenType`, optional
+        token_type
             Limit the results to tokens of this type.
-        ip_or_cidr : `str`, optional
+        ip_or_cidr
             Limit the results to changes made from this IPv4 or IPv6 address
             or CIDR block.
 
         Returns
         -------
-        entries : `gafaelfawr.models.history.PaginatedHistory`
+        PaginatedHistory
             A list of changes matching the search criteria.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidCursorError
+        InvalidCursorError
             The provided cursor was invalid.
-        gafaelfawr.exceptions.InvalidIPAddressError
+        InvalidIPAddressError
             The provided argument was syntactically invalid for both an
             IP address and a CIDR block.
         """
@@ -670,14 +671,14 @@ class TokenService:
 
         Parameters
         ----------
-        token : `gafaelfawr.models.token.Token`
+        token
             The token.
 
         Returns
         -------
-        data : `gafaelfawr.models.token.TokenData` or `None`
-            The data underlying the token, or `None` if the token is not
-            valid.
+        TokenData or None
+            The data underlying the token, or `None` if the token is not found
+            or is invalid.
         """
         return await self._token_redis_store.get_data(token)
 
@@ -694,25 +695,25 @@ class TokenService:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data on which to base the new token.
-        service : `str`
+        service
             The internal service to which the token is delegated.
-        scopes : List[`str`]
+        scopes
             The scopes the new token should have.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
-        minimum_lifetime : `datetime.timedelta` or `None`, optional
+        minimum_lifetime
             If set, the minimum required lifetime of the token.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token`
+        Token
             The newly-created token.
 
         Raises
         ------
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             If the username is invalid.
         """
         self._validate_scopes(scopes, token_data)
@@ -737,21 +738,21 @@ class TokenService:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data on which to base the new token.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
-        minimum_lifetime : `datetime.timedelta` or `None`, optional
+        minimum_lifetime
             If set, the minimum required lifetime of the token.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token`
+        Token
             The newly-created token.
 
         Raises
         ------
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             If the username is invalid.
         """
         self._validate_username(token_data.username)
@@ -766,14 +767,27 @@ class TokenService:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key of the token.
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The authentication data of the person requesting the token
             information, used for authorization checks.
-        username : `str`, optional
+        username
             If set, constrain the result to tokens from that user and return
             `None` if the token exists but is for a different user.
+
+        Returns
+        -------
+        TokenInfo or None
+            Token information from the database, or `None` if the token was
+            not found or username was given and the token was for another
+            user.
+
+        Raises
+        ------
+        PermissionDeniedError
+            The authenticated user doesn't have permission to manipulate
+            tokens for that user.
         """
         info = await self.get_token_info_unchecked(key, username)
         if not info:
@@ -788,11 +802,18 @@ class TokenService:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key of the token.
-        username : `str`, optional
+        username
             If set, constrain the result to tokens from that user and return
             `None` if the token exists but is for a different user.
+
+        Returns
+        -------
+        TokenInfo or None
+            Token information from the database, or `None` if the token was
+            not found or username was given and the token was for another
+            user.
         """
         info = await self._token_db_store.get_info(key)
         if not info:
@@ -806,14 +827,14 @@ class TokenService:
 
         Parameters
         ----------
-        token : `gafaelfawr.models.token.Token`
+        token
             Data from the authentication token.
 
         Returns
         -------
-        user_info : `gafaelfawr.models.token.TokenUserInfo` or `None`
+        TokenUserInfo or None
             User information for the holder of that token, or `None` if the
-            user's token is not valid.
+            token is not valid.
         """
         data = await self.get_data(token)
         if not data:
@@ -833,20 +854,20 @@ class TokenService:
 
         Parameters
         ----------
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The token data for the authentication token of the user making
             this modification.
-        username : `str`, optional
+        username
             Limit results to the given username.
 
         Returns
         -------
-        info : List[`gafaelfawr.models.token.TokenInfo`]
+        List of TokenInfo
             Information for all matching tokens.
 
         Raises
         ------
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             The user whose tokens are being listed does not match the
             authentication information.
         """
@@ -875,38 +896,39 @@ class TokenService:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key of the token to modify.
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The token data for the authentication token of the user making
             this modification.
-        username : `str`, optional
+        username
             If given, constrain modifications to tokens owned by the given
             user.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
-        token_name : `str`, optional
+        token_name
             The new name for the token.
-        scopes : List[`str`], optional
+        scopes
             The new scopes for the token.
-        expires : `datetime`, optional
+        expires
             The new expiration time for the token.
-        no_expire : `bool`
+        no_expire
             If set, the token should not expire.  This is a separate parameter
             because passing `None` to ``expires`` is ambiguous.
 
         Returns
         -------
-        info : `gafaelfawr.models.token.TokenInfo` or `None`
-            Information for the updated token or `None` if it was not found.
+        TokenInfo or None
+            Information for the updated token or `None` if the token was not
+            found.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidExpiresError
+        InvalidExpiresError
             The provided expiration time was invalid.
-        gafaelfawr.exceptions.DuplicateTokenNameError
+        DuplicateTokenNameError
             A token with this name for this user already exists.
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             The user modifiying the token is not a token administrator.
         """
         info = await self.get_token_info_unchecked(key, username)
@@ -1002,22 +1024,22 @@ class TokenService:
 
         Arguments
         ---------
-        username : `str` or `None`
+        username
             The user whose tokens are being changed, or `None` if listing
             all tokens.
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The authenticated user changing the tokens.
-        require_admin : `bool`, optional
+        require_admin
             If set to `True`, require the authenticated user have
-            ``admin:token`` scope.  Default is `False`.
-        require_same_user : `bool`, optional
+            ``admin:token`` scope.
+        require_same_user
             If set to `True`, require that ``username`` match the
             authenticated user as specified by ``auth_data`` and do not allow
-            token admins.  Default is `False`.
+            token admins.
 
         Raises
         ------
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             The authenticated user doesn't have permission to manipulate
             tokens for that user.
         """
@@ -1049,18 +1071,19 @@ class TokenService:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key of the token to delete.
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The token data for the authentication token of the user deleting
             the token.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
 
         Returns
         -------
-        success : `bool`
-            Whether the token was found and deleted.
+        bool
+            `True` if the token was deleted, `False` if the token was not
+            found.
         """
         info = await self.get_token_info_unchecked(key)
         if not info:
@@ -1103,15 +1126,15 @@ class TokenService:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key of the token to update.
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The token data for the authentication token of the user changing
             the expiration.
-        expires : `datetime.datetime`
+        expires
             The new expiration of the parent token.  The expiration of the
             child token will be changed if it's later than this value.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
         """
         info = await self.get_token_info_unchecked(key)
@@ -1147,13 +1170,13 @@ class TokenService:
 
         Arguments
         ---------
-        ip_address : `str` or `None`
+        ip_address
             `None` or a string representing an IPv4 or IPv6 address or CIDR
             block.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidIPAddressError
+        InvalidIPAddressError
             The provided argument was syntactically invalid for both an
             IP address and a CIDR block.
         """
@@ -1172,12 +1195,12 @@ class TokenService:
 
         Arguments
         ---------
-        expires : `datetime` or `None`
+        expires
             The token expiration time.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidExpiresError
+        InvalidExpiresError
             The provided expiration time is not valid.
 
         Notes
@@ -1202,15 +1225,15 @@ class TokenService:
 
         Arguments
         ---------
-        scopes : List[`str`]
+        scopes
             The requested scopes.
-        auth_data : `gafaelfawr.models.token.TokenData`, optional
+        auth_data
             The token used to authenticate the operation, if the scopes should
             be checked to ensure they are a subset.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidScopesError
+        InvalidScopesError
             The requested scopes are not permitted.
         """
         if not scopes:
@@ -1233,17 +1256,17 @@ class TokenService:
 
         Arguments
         ---------
-        username : `str`
+        username
             The user whose tokens are being changed.
-        auth_data : `gafaelfawr.models.token.TokenData`
+        auth_data
             The authenticated user changing the tokens.
-        same_user : `bool`, optional
+        same_user
             Require that ``username`` match the authenticated user as
             specified by ``auth_data`` and do not allow token admins.
 
         Raises
         ------
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             The username is invalid or the authenticated user doesn't have
             permission to manipulate tokens for that user.
         """

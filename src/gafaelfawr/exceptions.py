@@ -73,11 +73,11 @@ class ValidationError(SlackIgnoredException, kopf.PermanentError):
 
     Parameters
     ----------
-    message : `str`
+    message
         The error message (used as the ``msg`` key).
-    location : `ErrorLocation`
+    location
         The part of the request giving rise to the error.
-    field : `str`
+    field
         The field within that part of the request giving rise to the error.
 
     Notes
@@ -107,8 +107,12 @@ class ValidationError(SlackIgnoredException, kopf.PermanentError):
     def to_dict(self) -> Dict[str, Union[List[str], str]]:
         """Convert the exception to a dictionary suitable for the exception.
 
-        The return value is intended to be passed as the ``detail`` parameter
-        to a `fastapi.HTTPException`.
+        Returns
+        -------
+        dict
+            Serialized error emssage to pass as the ``detail`` parameter to a
+            ``fastapi.HTTPException``.  It is designed to produce the same
+            JSON structure as native FastAPI errors.
         """
         return {
             "loc": [self.location.value, self.field],

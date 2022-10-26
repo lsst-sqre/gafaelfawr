@@ -26,11 +26,11 @@ class RedisStorage(Generic[S]):
 
     Parameters
     ----------
-    content : `typing.Type`
+    content
         The class of object being stored.
-    key : `str`
+    key
         Encryption key.  Must be a `~cryptography.fernet.Fernet` key.
-    redis : ``aioredis.Redis``
+    redis
         A Redis client configured to talk to the backend store.
     """
 
@@ -44,12 +44,12 @@ class RedisStorage(Generic[S]):
 
         Parameters
         ----------
-        key : `str`
+        key
             The key to delete.
 
         Returns
         -------
-        success : `bool`
+        bool
             `True` if the key was found and deleted, `False` otherwise.
         """
         count = await self._redis.delete(key)
@@ -60,7 +60,7 @@ class RedisStorage(Generic[S]):
 
         Parameters
         ----------
-        pattern : `str`
+        pattern
             Glob pattern matching the keys to purge, such as ``oidc:*``.
         """
         async for key in self._redis.scan_iter(pattern):
@@ -71,19 +71,20 @@ class RedisStorage(Generic[S]):
 
         Parameters
         ----------
-        key : `str`
+        key
             The key for the object.
 
         Returns
         -------
-        obj : `Serializable` or `None`
+        Any or None
             The deserialized object or `None` if no such object could be
             found.
 
         Raises
         ------
-        gafaelfawr.exceptions.DeserializeError
-            The stored object could not be decrypted or deserialized.
+        DeserializeError
+            Raised if the stored object could not be decrypted or
+            deserialized.
         """
         encrypted_data = await self._redis.get(key)
         if not encrypted_data:
@@ -109,12 +110,12 @@ class RedisStorage(Generic[S]):
 
         Parameters
         ----------
-        pattern : `str`
+        pattern
             Key pattern to scan for.
 
         Yields
         ------
-        key : `str`
+        str
             Each key matching that pattern.
         """
         async for key in self._redis.scan_iter(match=pattern):
@@ -125,14 +126,14 @@ class RedisStorage(Generic[S]):
 
         Parameters
         ----------
-        key : `str`
+        key
             The key for the object.
-        obj : `Serializable`
+        obj
             The object to store.
-        lifetime : `int` or `None`
+        lifetime
             The object lifetime in seconds.  The object should expire from the
-            data store after that many seconds after the current time.
-            Returns `None` if the object should not expire.
+            data store after that many seconds after the current time.  Pass
+            `None` if the object should not expire.
         """
         encrypted_data = self._fernet.encrypt(obj.json().encode())
         await self._redis.set(key, encrypted_data, ex=lifetime)

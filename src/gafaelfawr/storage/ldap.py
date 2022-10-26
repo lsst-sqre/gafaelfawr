@@ -25,11 +25,11 @@ class LDAPStorage:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.LDAPConfig`
+    config
         Configuration for LDAP searches.
-    pool : `bonsai.asyncio.AIOConnectionPool`
+    pool
         Connection pool for LDAP searches.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for debug messages and errors.
     """
 
@@ -47,9 +47,9 @@ class LDAPStorage:
 
         Parameters
         ----------
-        username : `str`
+        username
             Username of the user.
-        primary_gid : `int` or `None`
+        primary_gid
             Primary GID if set.  If not `None`, search for the group with this
             GID and add it to the user's group memberships.  This handles LDAP
             configurations where the user's primary group is represented only
@@ -57,13 +57,13 @@ class LDAPStorage:
 
         Returns
         -------
-        groups : List[`str`]
+        list of str
             User's group names from LDAP.
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPError
-            Some error occurred while doing the LDAP search.
+        LDAPError
+            Raised if some error occurred while doing the LDAP search.
         """
         group_class = self._config.group_object_class
         member_attr = self._config.group_member_attr
@@ -130,9 +130,9 @@ class LDAPStorage:
 
         Parameters
         ----------
-        username : `str`
+        username
             Username of the user.
-        primary_gid : `int` or `None`
+        primary_gid
             Primary GID if set.  If not `None`, the user's groups will be
             checked for this GID.  If it's not found, search for the group
             with this GID and add it to the user's group memberships.  This
@@ -141,13 +141,13 @@ class LDAPStorage:
 
         Returns
         -------
-        groups : List[`gafaelfawr.models.token.TokenGroup`]
+        list of TokenGroup
             User's groups from LDAP.
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPError
-            Some error occurred when searching LDAP.
+        LDAPError
+            Raised if some error occurred when searching LDAP.
         """
         group_class = self._config.group_object_class
         member_attr = self._config.group_member_attr
@@ -207,21 +207,22 @@ class LDAPStorage:
 
         Parameters
         ----------
-        username : `str`
+        username
             Username of the user.
 
         Returns
         -------
-        data : `gafaelfawr.models.ldap.LDAPUserData`
+        LDAPUserData
             The data for an LDAP user.  Which fields are filled in will be
             determined by the configuration.
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPError
-            The lookup of ``user_search_attr`` at ``user_base_dn`` in the LDAP
-            server was not valid (connection to the LDAP server failed,
-            attribute not found in LDAP, UID result value not an integer).
+        LDAPError
+            Raised if the lookup of ``user_search_attr`` at ``user_base_dn``
+            in the LDAP server was not valid (connection to the LDAP server
+            failed, attribute not found in LDAP, UID result value not an
+            integer).
         """
         if not self._config.user_base_dn:
             return LDAPUserData(name=None, email=None, uid=None, gid=None)
@@ -278,6 +279,29 @@ class LDAPStorage:
     ) -> List[Dict[str, List[str]]]:
         """Perform an LDAP query using the connection pool.
 
+        Parameters
+        ----------
+        base
+            Base DN of the search.
+        scope
+            Scope of the search.
+        filter_exp
+            Search filter.
+        attrlist
+            List of attributes to retrieve.
+
+        Returns
+        -------
+        list of dict
+            List of result entries, each of which is a dictionary of the
+            requested attributes (plus possibly other attributes) to a list
+            of their values.
+
+        Raises
+        ------
+        LDAPError
+            Raised if failed to run the search.
+
         Notes
         -----
         The current bonsai connection pool does not keep track of failed
@@ -291,29 +315,6 @@ class LDAPStorage:
         appears to go into an infinite CPU loop when waiting for results when
         run in an asyncio loop without other active coroutines.  It's not
         clear whether that's true if there are other active coroutines.
-
-        Parameters
-        ----------
-        base : `str`
-            Base DN of the search.
-        scope : `bonsai.LDAPSearchScope`
-            Scope of the search.
-        filter_exp : `str`
-            Search filter.
-        attrlist : List[`str`]
-            List of attributes to retrieve.
-
-        Returns
-        -------
-        results : List[Dict[`str`, List[`str`]]]
-            List of result entries, each of which is a dictionary of the
-            requested attributes (plus possibly other attributes) to a list
-            of their values.
-
-        Raises
-        ------
-        gafaelfawr.exceptions.LDAPError
-            Failed to run the search.
         """
         logger = self._logger.bind(
             ldap_attrs=attrlist, ldap_base=base, ldap_search=filter_exp

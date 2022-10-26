@@ -21,14 +21,14 @@ class FirestoreService:
 
     Parameters
     ----------
-    uid_cache : `gafaelfawr.cache.IdCache`
+    uid_cache
         The underlying UID and GID cache and locks.
-    gid_cache : `gafaelfawr.cache.IdCache`
+    gid_cache
         The underlying UID and GID cache and locks.
-    storage : `gafaelfawr.storage.firestore.FirestoreStorage`, optional
+    storage
         The underlying Firestore storage for UID and GID assignment, if
         Firestore was configured.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to use.
     """
 
@@ -50,17 +50,17 @@ class FirestoreService:
 
         Parameters
         ----------
-        group : `str`
+        group
             Group of the user.
 
         Returns
         -------
-        gid : `int`
+        int
             GID of the user.
 
         Raises
         ------
-        gafaelfawr.exceptions.NoAvailableGidError
+        NoAvailableGidError
             No more GIDs are available in that range.
         """
         gid = self._gid_cache.get(group)
@@ -79,17 +79,17 @@ class FirestoreService:
 
         Parameters
         ----------
-        username : `str`
+        username
             Username of the user.
 
         Returns
         -------
-        uid : `int`
+        int
             UID of the user.
 
         Raises
         ------
-        gafaelfawr.exceptions.NoAvailableUidError
+        NoAvailableUidError
             No more UIDs are available in that range.
         """
         uid = self._uid_cache.get(username)

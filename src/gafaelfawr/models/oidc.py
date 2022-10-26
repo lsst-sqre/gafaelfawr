@@ -39,18 +39,18 @@ class OIDCAuthorizationCode(BaseModel):
 
         Parameters
         ----------
-        code : `str`
+        code
             The serialized code.
 
         Returns
         -------
-        decoded_code : `OIDCAuthorizationCode`
+        OIDCAuthorizationCode
             The decoded `OIDCAuthorizationCode`.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidGrantError
-            The provided string is not a valid authorization code.
+        InvalidGrantError
+            Raised if the provided string is not a valid authorization code.
         """
         if not code.startswith("gc-"):
             msg = "Token does not start with gc-"

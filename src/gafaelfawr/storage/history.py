@@ -28,7 +28,7 @@ class AdminHistoryStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.ext.asyncio.async_scoped_session`
+    session
         The database session proxy.
     """
 
@@ -36,7 +36,13 @@ class AdminHistoryStore:
         self._session = session
 
     async def add(self, entry: AdminHistoryEntry) -> None:
-        """Record a change to the token administrators."""
+        """Record a change to the token administrators.
+
+        Parameters
+        ----------
+        entry
+            The change to record.
+        """
         new = AdminHistory(**entry.dict())
         new.event_time = datetime_to_db(entry.event_time)
         self._session.add(new)
@@ -47,7 +53,7 @@ class TokenChangeHistoryStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.ext.asyncio.async_scoped_session`
+    session
         The database session proxy.
     """
 
@@ -59,7 +65,7 @@ class TokenChangeHistoryStore:
 
         Parameters
         ----------
-        entry : `gafaelfawr.models.history.TokenChangeHistoryEntry`
+        entry
             New entry to add to the database.
         """
         entry_dict = entry.dict()
@@ -81,7 +87,7 @@ class TokenChangeHistoryStore:
 
         Parameters
         ----------
-        older_than : `datetime.datetime`
+        older_than
             Delete entries created prior to this date.
         """
         stmt = delete(TokenChangeHistory).where(
@@ -107,34 +113,34 @@ class TokenChangeHistoryStore:
 
         Parameters
         ----------
-        cursor : `gafaelfawr.models.history.HistoryCursor`, optional
+        cursor
             A pagination cursor specifying where to start in the results.
-        limit : `int`, optional
+        limit
             Limit the number of returned results.
-        since : `datetime.datetime`, optional
+        since
             Limit the results to events at or after this time.
-        until : `datetime.datetime`, optional
+        until
             Limit the results to events before or at this time.
-        username : `str`, optional
+        username
             Limit the results to tokens owned by this user.
-        actor : `str`, optional
+        actor
             Limit the results to actions performed by this user.
-        key : `str`, optional
+        key
             Limit the results to this token and any subtokens of this token.
             Note that this will currently pick up direct subtokens but not
             subtokens of subtokens.
-        token : `str`, optional
+        token
             Limit the results to only this token.
-        token_type : `gafaelfawr.models.token.TokenType`, optional
+        token_type
             Limit the results to tokens of this type.
-        ip_or_cidr : `str`, optional
+        ip_or_cidr
             Limit the results to changes made from this IPv4 or IPv6 address
             or CIDR block.  Unless the underlying database is PostgreSQL, the
             CIDR block must be on an octet boundary.
 
         Returns
         -------
-        entries : List[`gafaelfawr.models.history.TokenChangeHistoryEntry`]
+        list of TokenChangeHistoryEntry
             List of change history entries, which may be empty.
         """
         stmt = select(TokenChangeHistory)

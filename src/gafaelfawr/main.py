@@ -41,7 +41,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
 
     Parameters
     ----------
-    load_config : `bool`, optional
+    load_config
         If set to `False`, do not try to load the configuration.  Configure
         `~safir.middleware.x_forwarded.XForwardedMiddleware` with the default
         set of proxy IP addresses.  This is used primarily for OpenAPI

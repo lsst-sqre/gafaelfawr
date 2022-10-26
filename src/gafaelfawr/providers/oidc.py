@@ -38,15 +38,15 @@ class OIDCProvider(Provider):
 
     Parameters
     ----------
-    config : `gafaelfawr.config.OIDCConfig`
+    config
         OpenID Connect authentication provider configuration.
-    verifier : `OIDCTokenVerifier`
+    verifier
         JWT token verifier for OpenID Connect tokens.
-    user_info_service : `gafaelfawr.services.userinfo.UserInfoService`
+    user_info_service
         Service for retrieving user metadata like UID.
-    http_client : ``httpx.AsyncClient``
+    http_client
         Session to use to make HTTP requests.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for any log messages.
     """
 
@@ -70,12 +70,12 @@ class OIDCProvider(Provider):
 
         Parameters
         ----------
-        state : `str`
+        state
             A random string used for CSRF protection.
 
         Returns
         -------
-        url : `str`
+        str
             The encoded URL to which to redirect the user.
         """
         scopes = ["openid"]
@@ -101,29 +101,31 @@ class OIDCProvider(Provider):
 
         Parameters
         ----------
-        code : `str`
+        code
             Code returned by a successful authentication.
-        state : `str`
+        state
             The same random string used for the redirect URL, not used.
-        session : `gafaelfawr.models.state.State`
+        session
             The session state, not used by this provider.
 
         Returns
         -------
-        user_info : `gafaelfawr.models.token.TokenUserInfo`
+        TokenUserInfo
             The user information corresponding to that authentication.
 
         Raises
         ------
-        gafaelfawr.exceptions.FirestoreError
-            Retrieving or assigning a UID from Firestore failed.
-        gafaelfawr.exceptions.OIDCError
-            The OpenID Connect provider responded with an error to a request
-            or the group membership in the resulting token was not valid.
-        gafaelfawr.exceptions.LDAPError
-            Gafaelfawr was configured to get user groups, username, or numeric
-            UID from LDAP, but the attempt failed due to some error.
-        ``httpx.HTTPError``
+        FirestoreError
+            Raised if retrieving or assigning a UID from Firestore failed.
+        LDAPError
+            Raised if Gafaelfawr was configured to get user groups, username,
+            or numeric UID from LDAP, but the attempt failed due to some
+            error.
+        OIDCError
+            Raised if the OpenID Connect provider responded with an error to a
+            request or the group membership in the resulting token was not
+            valid.
+        httpx.HTTPError
             An HTTP client error occurred trying to talk to the authentication
             provider.
         """
@@ -181,7 +183,7 @@ class OIDCProvider(Provider):
 
         Parameters
         ----------
-        session : `gafaelfawr.models.state.State`
+        session
             The session state, which contains the GitHub access token.
         """
         pass
@@ -192,11 +194,11 @@ class OIDCTokenVerifier:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.OIDCConfig`
+    config
         OpenID Connect authentication provider configuration.
-    http_client : ``httpx.AsyncClient``
+    http_client
         Session to use to make HTTP requests.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for any log messages.
     """
 
@@ -212,20 +214,20 @@ class OIDCTokenVerifier:
 
         Parameters
         ----------
-        token : `gafaelfawr.models.oidc.OIDCToken`
+        token
             JWT to verify.
 
         Returns
         -------
-        verified_token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        OIDCVerifiedToken
             The verified token contents.
 
         Raises
         ------
         jwt.exceptions.InvalidTokenError
-            The token is invalid.
-        gafaelfawr.exceptions.VerifyTokenError
-            The token failed to verify or was invalid in some way.
+            Raised if the token is invalid.
+        VerifyTokenError
+            Raised if the token failed to verify or was invalid in some way.
         """
         unverified_header = jwt.get_unverified_header(token.encoded)
         unverified_token = jwt.decode(
@@ -273,26 +275,27 @@ class OIDCTokenVerifier:
 
         Parameters
         ----------
-        issuer_url : `str`
+        issuer_url
             The URL of the issuer.
-        key_id : `str`
+        key_id
             The key ID to retrieve for the issuer in question.
 
         Returns
         -------
-        key : `bytes`
+        bytes
             The issuer's key in PEM format.
 
         Raises
         ------
-        gafaelfawr.exceptions.FetchKeysError
-            Unable to retrieve the key set for the specified issuer.
-        gafaelfawr.exceptions.UnknownAlgorithError
-            The requested key ID was found, but is for an unsupported
-            algorithm.
-        gafaelfawr.exceptions.UnknownKeyIdError
-            The requested key ID was not present in the issuer configuration
-            or was not found in that issuer's JWKS.
+        FetchKeysError
+            Raised if unable to retrieve the key set for the specified
+            issuer.
+        UnknownAlgorithError
+            Raised if the requested key ID was found, but is for an
+            unsupported algorithm.
+        UnknownKeyIdError
+            Raised if the requested key ID was not present in the issuer
+            configuration or was not found in that issuer's JWKS.
         """
         self._logger.debug("Getting key %s from %s", key_id, issuer_url)
 
@@ -334,18 +337,18 @@ class OIDCTokenVerifier:
 
         Parameters
         ----------
-        issuer_url : `str`
+        issuer_url
             URL of the issuer.
 
         Returns
         -------
-        body : List[Dict[`str`, `str`]]
+        list of dict
             List of keys (in JWKS format) for the given issuer.
 
         Raises
         ------
-        gafaelfawr.exceptions.FetchKeysError
-            On failure to retrieve a set of keys from the issuer.
+        FetchKeysError
+            Raised if failed to retrieve a set of keys from the issuer.
         """
         url = await self._get_jwks_uri(issuer_url)
         if not url:
@@ -375,19 +378,19 @@ class OIDCTokenVerifier:
 
         Parameters
         ----------
-        issuer_url : `str`
+        issuer_url
             URL of the issuer.
 
         Returns
         -------
-        url : `str` or `None`
-            URI for the JWKS of that issuer, or None if the OpenID Connect
+        str or None
+            URI for the JWKS of that issuer, or `None` if the OpenID Connect
             metadata is not present.
 
         Raises
         ------
-        gafaelfawr.exceptions.FetchKeysError
-            If the OpenID Connect metadata doesn't contain the expected
+        FetchKeysError
+            Raised if the OpenID Connect metadata doesn't contain the expected
             parameter.
         """
         url = issuer_url.rstrip("/") + "/.well-known/openid-configuration"
