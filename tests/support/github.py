@@ -27,15 +27,15 @@ class MockGitHub:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.GitHubConfig`
+    config
         Configuration of the GitHub provider.
-    code : `str`
+    code
         The code that Gafaelfawr must send to redeem for a token.
-    user_info : `gafaelfawr.providers.github.GitHubUserInfo`
+    user_info
         User information to use to synthesize GitHub API responses.
-    paginate_teams : `bool`
+    paginate_teams
         Whether to paginate the team results.
-    expect_revoke : `bool`
+    expect_revoke
         Whether to expect a revocation of the token after returning all user
         information.
     """
@@ -160,17 +160,17 @@ async def mock_github(
 
     Parameters
     ----------
-    respx_mock : `respx.Router`
+    respx_mock
         The mock router.
-    code : `str`
+    code
         The code that Gafaelfawr must send to redeem a token.
-    user_info : `gafaelfawr.providers.github.GitHubUserInfo`
+    user_info
         User information to use to synthesize GitHub API responses.
-    paginate_teams : `bool`, optional
-        Whether to paginate the team results.  Default: `False`
-    expect_revoke : `bool`, optional
+    paginate_teams
+        Whether to paginate the team results.
+    expect_revoke
         Whether to expect a revocation of the token after returning all user
-        information.  Default: `False`
+        information.
     """
     config = await config_dependency()
     assert config.github

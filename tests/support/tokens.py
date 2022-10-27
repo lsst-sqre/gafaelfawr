@@ -45,13 +45,13 @@ async def add_expired_session_token(
 
     Parameters
     ----------
-    user_info : `gafaelfawr.models.token.TokenUserInfo`
+    user_info
         The user information to associate with the token.
-    scopes : List[`str`]
+    scopes
         The scopes of the token.
-    ip_address : `str`
+    ip_address
         The IP address from which the request came.
-    session : `sqlalchemy.ext.asyncio.AsyncSession`
+    session
         The database session.
     """
     token_db_store = TokenDatabaseStore(session)
@@ -95,18 +95,18 @@ async def create_session_token(
 
     Parameters
     ----------
-    factory : `gafaelfawr.factory.Factory`
+    factory
         Factory used to create services to add the token.
-    username : `str`, optional
+    username
         Override the username of the generated token.
-    group_namess : List[`str`], optional
+    group_names
         Group memberships the generated token should have.
-    scopes : List[`str`], optional
+    scopes
         Scope for the generated token.
 
     Returns
     -------
-    data : `gafaelfawr.models.token.TokenData`
+    TokenData
         The data for the generated token.
     """
     if not username:

@@ -17,12 +17,12 @@ def parse_log(caplog: LogCaptureFixture) -> List[Dict[str, Any]]:
 
     Parameters
     ----------
-    caplog : `_pytest.logging.LogCaptureFixture`
+    caplog
         The log capture fixture.
 
     Returns
     -------
-    messages : List[Dict[`str`, Any]]
+    list of dict
         List of parsed JSON dictionaries with the common log attributes
         removed (after validation).
     """

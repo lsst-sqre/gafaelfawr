@@ -34,13 +34,13 @@ class MockLDAP(Mock):
 
         Parameters
         ----------
-        base_dn : `str`
+        base_dn
             The base DN of a search that should return this entry.
-        attr : `str`
+        attr
             The search attribute that will be used to retrieve this entry.
-        value : `str`
+        value
             The value of that search attribute.
-        entries : List[Dict[`str`, List[`str`]]]
+        entries
             The entries returned by that search, which will be filtered by the
             attribute list.
         """
@@ -88,7 +88,7 @@ def patch_ldap() -> Iterator[MockLDAP]:
 
     Returns
     -------
-    mock : `MockLDAP`
+    MockLDAP
         The mock LDAP API.
     """
     mock_ldap = MockLDAP()

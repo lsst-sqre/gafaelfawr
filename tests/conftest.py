@@ -76,13 +76,7 @@ def config(tmp_path: Path) -> Config:
 
 @pytest.fixture(scope="session")
 def driver() -> Iterator[webdriver.Chrome]:
-    """Create a driver for Selenium testing.
-
-    Returns
-    -------
-    driver : `selenium.webdriver.Chrome`
-        The web driver to use in Selenium tests.
-    """
+    """Create a driver for Selenium testing."""
     driver = selenium_driver()
     try:
         yield driver
@@ -170,25 +164,13 @@ async def initialize_empty_database(engine: AsyncEngine) -> None:
 
 @pytest.fixture
 def mock_firestore(tmp_path: Path) -> Iterator[MockFirestore]:
-    """Configure for Firestore UID/GID assignment and mock the Firestore API.
-
-    Returns
-    -------
-    mock_firestore : `tests.support.firestore.MockFirestore`
-        The mocked Firestore API.
-    """
+    """Configure Firestore UID/GID assignment and mock the Firestore API."""
     yield from patch_firestore()
 
 
 @pytest.fixture
 def mock_ldap() -> Iterator[MockLDAP]:
-    """Replace the bonsai LDAP API with a mock class.
-
-    Returns
-    -------
-    mock_ldap : `tests.support.ldap.MockLDAP`
-        The mock LDAP API object.
-    """
+    """Replace the bonsai LDAP API with a mock class."""
     yield from patch_ldap()
 
 
@@ -196,13 +178,7 @@ def mock_ldap() -> Iterator[MockLDAP]:
 def mock_slack(
     config: Config, respx_mock: respx.Router
 ) -> Optional[MockSlack]:
-    """Mock a Slack webhook.
-
-    Returns
-    -------
-    mock_slack : `tests.support.slack.MockSlack`
-        Object that accumulates posted Slack messages.
-    """
+    """Mock a Slack webhook."""
     if not config.slack_webhook:
         return None
     return mock_slack_webhook(config.slack_webhook, respx_mock)
@@ -220,7 +196,7 @@ async def selenium_config(
 
     Returns
     -------
-    config : `tests.support.selenium.SeleniumConfig`
+    SeleniumConfig
         Configuration information for the server.
     """
     settings_path = build_settings(tmp_path, "selenium")

@@ -24,14 +24,14 @@ async def set_session_cookie(client: AsyncClient, token: Token) -> str:
 
     Parameters
     ----------
-    client : ``httpx.AsyncClient``
+    client
         The client to add the session cookie to.
-    token : `gafaelfawr.models.token.Token`
+    token
         The token for the client identity to use.
 
     Returns
     -------
-    csrf : `str`
+    str
         The CSRF token to use in subsequent API requests.
     """
     cookie = await State(token=token).as_cookie()
@@ -46,7 +46,7 @@ def clear_session_cookie(client: AsyncClient) -> None:
 
     Parameters
     ----------
-    client : `httpx.AsyncClient`
+    client
         The client from which to remove the session cookie.
     """
     del client.cookies[COOKIE_NAME]

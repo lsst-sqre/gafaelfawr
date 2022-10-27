@@ -30,11 +30,11 @@ def assert_unauthorized_is_correct(
 
     Parameters
     ----------
-    r : `httpx.Response`
+    r
         The unauthorized response.
-    config : `gafaelfawr.config.Config`
+    config
         The Gafaelfawr configuration.
-    auth_type : `gafaelfawr.auth.AuthType`
+    auth_type
         Expected authentication type.
     """
     assert r.status_code == 401
@@ -103,12 +103,12 @@ def query_from_url(url: str) -> Dict[str, List[str]]:
 
     Parameters
     ----------
-    url : `str`
+    url
         The URL.
 
     Returns
     -------
-    query : Dict[`str`, List[`str`]]
+    dict
         The query in the form returned by :py:func:`urllib.parse.parse_qs`.
     """
     parsed_url = urlparse(url)

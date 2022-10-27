@@ -38,11 +38,11 @@ def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
 
     Parameters
     ----------
-    tmp_path : `pathlib.Path`
+    tmp_path
         The root of the temporary area.
-    name : `str`
+    name
         The name of the secret to construct nice file names.
-    secret : `bytes`
+    secret
         The value of the secret.
     """
     secret_path = tmp_path / name
@@ -57,16 +57,16 @@ def _build_settings_file(
 
     Parameters
     ----------
-    tmp_path : `pathlib.Path`
+    tmp_path
         The root of the temporary area.
-    template : `str`
+    template
         Name of the configuration template to use.
-    **kwargs : `str`
+    **kwargs
         The values to substitute into the template.
 
     Returns
     -------
-    settings_path : `pathlib.Path`
+    pathlib.Path
         The path to the newly-constructed configuration file.
     """
     template_file = template + ".yaml.in"
@@ -89,18 +89,18 @@ def build_settings(
 
     Parameters
     ----------
-    tmp_path : `pathlib.Path`
+    tmp_path
         The root of the temporary area.
-    template : `str`
+    template
         Settings template to use.
-    oidc_clients : List[`gafaelfawr.config.OIDCClient`] or `None`
+    oidc_clients
         Configuration information for clients of the OpenID Connect server.
-    **settings : `str`
+    **settings
         Any additional settings to add to the settings file.
 
     Returns
     -------
-    settings_path : `pathlib.Path`
+    pathlib.Path
         The path of the settings file.
     """
     bootstrap_token = str(Token()).encode()
@@ -156,26 +156,26 @@ def configure(
     This cannot be used to change the database URL because sessions will not
     be recreated or the database reinitialized.
 
-    Notes
-    -----
-    This is used for tests that cannot be async, so itself must not be async.
-
     Parameters
     ----------
-    tmp_path : `pathlib.Path`
+    tmp_path
         Root of the test temporary directory, used to write the settings
         file.
-    template : `str`
+    template
         Settings template to use.
-    oidc_clients : List[`gafaelfawr.config.OIDCClient`], optional
+    oidc_clients
         Configuration information for clients of the OpenID Connect server.
-    **settings : str, optional
+    **settings
         Any additional settings to add to the settings file.
 
     Returns
     -------
-    config : `gafaelfawr.config.Config`
+    Config
         The new configuration.
+
+    Notes
+    -----
+    This is used for tests that cannot be async, so itself must not be async.
     """
     settings_path = build_settings(
         tmp_path,
@@ -202,21 +202,21 @@ async def reconfigure(
 
     Parameters
     ----------
-    tmp_path : `pathlib.Path`
+    tmp_path
         Root of the test temporary directory, used to write the settings
         file.
-    template : `str`
+    template
         Settings template to use.
-    factory : `gafaelfawr.factory.Factory`, optional
+    factory
         The factory to reconfigure.
-    oidc_clients : List[`gafaelfawr.config.OIDCClient`], optional
+    oidc_clients
         Configuration information for clients of the OpenID Connect server.
-    **settings : str, optional
+    **settings
         Any additional settings to add to the settings file.
 
     Returns
     -------
-    config : `gafaelfawr.config.Config`
+    Config
         The new configuration.
     """
     config = configure(
