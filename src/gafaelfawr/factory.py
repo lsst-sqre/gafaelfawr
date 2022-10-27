@@ -97,12 +97,12 @@ class ProcessContext:
 
         Parameters
         ----------
-        config : `gafaelfawr.config.Config`
+        config
             The Gafaelfawr configuration.
 
         Returns
         -------
-        context : `ProcessContext`
+        ProcessContext
             Shared context for a Gafaelfawr process.
         """
         ldap_pool = None
@@ -159,11 +159,11 @@ class Factory:
 
     Parameters
     ----------
-    context : `ProcessContext`
+    context
         Shared process context.
-    session : `sqlalchemy.ext.asyncio.async_scoped_session`
+    session
         Database session.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to use for errors.
     """
 
@@ -185,17 +185,17 @@ class Factory:
 
         Parameters
         ----------
-        config : `gafaelfawr.config.Config`
+        config
             Gafaelfawr configuration.
-        engine : `sqlalchemy.ext.asyncio.AsyncEngine`
+        engine
             Database engine to use for connections.
-        check_db : `bool`, optional
+        check_db
             If set to `True`, check database connectivity before returning by
             doing a simple query.
 
         Returns
         -------
-        factory : `gafaelfawr.factory.Factory`
+        Factory
             Newly-created factory.  The caller must call `aclose` on the
             returned object during shutdown.
         """
@@ -222,17 +222,17 @@ class Factory:
 
         Parameters
         ----------
-        config : `gafaelfawr.config.Config`
+        config
             Gafaelfawr configuration.
-        engine : `sqlalchemy.ext.asyncio.AsyncEngine`
+        engine
             Database engine to use for connections.
-        check_db : `bool`, optional
+        check_db
             If set to `True`, check database connectivity before returning by
             doing a simple query.
 
         Yields
         ------
-        factory : `Factory`
+        Factory
             The factory.  Must be used as an async context manager.
 
         Examples
@@ -279,7 +279,7 @@ class Factory:
 
         Returns
         -------
-        admin_service : `gafaelfawr.services.admin.AdminService`
+        AdminService
             The new token administrator manager.
         """
         admin_store = AdminStore(self.session)
@@ -291,7 +291,7 @@ class Factory:
 
         Returns
         -------
-        firestore : `gafaelfawr.services.firestore.FirestoreService`
+        FirestoreService
             Newly-created Firestore service.
         """
         storage = self.create_firestore_storage()
@@ -309,7 +309,7 @@ class Factory:
 
         Returns
         -------
-        firestore : `gafaelfawr.storage.firestore.FirestoreStorage`
+        FirestoreStorage
             Newly-created Firestore storage.
         """
         if not self._context.config.firestore:
@@ -323,12 +323,12 @@ class Factory:
 
         Parameters
         ----------
-        api_client : ``kubernetes_asyncio.client.ApiClient``
+        api_client
             The Kubernetes client.
 
         Returns
         -------
-        service : `gafaelfawr.services.kubernetes.KubernetesTokenService`
+        KubernetesTokenService
             Newly-created Kubernetes service.
         """
         storage = KubernetesTokenStorage(api_client, self._logger)
@@ -345,7 +345,7 @@ class Factory:
 
         Returns
         -------
-        oidc_service : `gafaelfawr.services.oidc.OIDCService`
+        OIDCService
             A new OpenID Connect server.
         """
         if not self._context.config.oidc_server:
@@ -371,13 +371,14 @@ class Factory:
 
         Returns
         -------
-        user_info_service : `gafaelfawr.services.userinfo.OIDCUserInfoService`
+        OIDCUserInfoService
             A new user information service.
 
         Raises
         ------
-        gafaelfawr.exceptions.NotConfiguredError
-            The configured authentication provider is not OpenID Connect.
+        NotConfiguredError
+            Raised if the configured authentication provider is not OpenID
+            Connect.
         """
         if not self._context.config.oidc:
             raise NotConfiguredError("OpenID Connect is not configured")
@@ -414,7 +415,7 @@ class Factory:
 
         Returns
         -------
-        verifier : `gafaelfawr.providers.oidc.OIDCTokenVerifier`
+        OIDCTokenVerifier
             A new JWT token verifier.
         """
         if not self._context.config.oidc:
@@ -434,13 +435,13 @@ class Factory:
 
         Returns
         -------
-        provider : `gafaelfawr.providers.base.Provider`
+        Provider
             A new Provider.
 
         Raises
         ------
         NotImplementedError
-            None of the authentication providers are configured.
+            Raised if none of the authentication providers are configured.
         """
         if self._context.config.github:
             return GitHubProvider(
@@ -467,7 +468,7 @@ class Factory:
 
         Returns
         -------
-        cache : `gafaelfawr.services.token_cache.TokenCacheService`
+        TokenCacheService
             A new token cache.
         """
         key = self._context.config.session_secret
@@ -490,7 +491,7 @@ class Factory:
 
         Returns
         -------
-        token_service : `gafaelfawr.services.token.TokenService`
+        TokenService
             The new token manager.
         """
         token_db_store = TokenDatabaseStore(self.session)
@@ -526,7 +527,7 @@ class Factory:
 
         Returns
         -------
-        info_service : `gafaelfawr.services.userinfo.UserInfoService`
+        UserInfoService
             Newly created service.
         """
         firestore = None
@@ -561,7 +562,7 @@ class Factory:
 
         Parameters
         ----------
-        context : `ProcessContext`
+        context
             New process context.
         """
         self._context = context
@@ -574,7 +575,7 @@ class Factory:
 
         Parameters
         ----------
-        logger : `structlog.stdlib.BoundLogger`
+        logger
             New logger.
         """
         self._logger = logger

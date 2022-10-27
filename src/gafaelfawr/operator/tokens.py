@@ -50,19 +50,19 @@ async def create(
 
     Parameters
     ----------
-    name : `str`
+    name
         Name of the object.
-    namespace : `str`
+    namespace
         Namespace of the object.
-    body : `kopf.Body`
+    body
         Body of the object in dictionary form.
-    memo : `kopf.Memo`
+    memo
         Holds global state, used to store the
         `~gafaelfawr.services.kubernetes.KubernetesTokenService` object.
 
     Returns
     -------
-    status : Dict[`str`, Union[`int`, `str`]] or `None`
+    dict or None
         Status information to record in the object, or `None` if no changes
         were made.
     """
@@ -88,19 +88,19 @@ async def periodic(
 
     Parameters
     ----------
-    name : `str`
+    name
         Name of the object.
-    namespace : `str`
+    namespace
         Namespace of the object.
-    body : `kopf.Body`
+    body
         Body of the object in dictionary form.
-    memo : `kopf.Memo`
+    memo
         Holds global state, used to store the
         `~gafaelfawr.services.kubernetes.KubernetesTokenService` object.
 
     Returns
     -------
-    status : Dict[`str`, Union[`int`, `str`]] or `None`
+    dict or None
         Status information to record in the object, or `None` if no changes
         were made.
 

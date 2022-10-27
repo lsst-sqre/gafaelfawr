@@ -38,7 +38,7 @@ class GitHubTeam:
 
         Returns
         -------
-        group_name : `str`
+        str
             The name of the group.
 
         Notes

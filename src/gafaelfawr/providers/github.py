@@ -27,11 +27,11 @@ class GitHubProvider(Provider):
 
     Parameters
     ----------
-    config : `gafaelfawr.config.GitHubConfig`
+    config
         Configuration for the GitHub authentication provider.
-    http_client : ``httpx.AsyncClient``
+    http_client
         Session to use to make HTTP requests.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for any log messages.
     """
 
@@ -72,12 +72,12 @@ class GitHubProvider(Provider):
 
         Parameters
         ----------
-        state : `str`
+        state
             A random string used for CSRF protection.
 
         Returns
         -------
-        url : `str`
+        str
             The encoded URL to which to redirect the user.
         """
         params = {
@@ -98,27 +98,27 @@ class GitHubProvider(Provider):
 
         Parameters
         ----------
-        code : `str`
+        code
             Code returned by a successful authentication.
-        state : `str`
+        state
             The same random string used for the redirect URL.
-        session : `gafaelfawr.models.state.State`
+        session
             The session state, used to store the GitHub access token.
 
         Returns
         -------
-        user_info : `gafaelfawr.models.token.TokenUserInfo`
+        TokenUserInfo
             The user information corresponding to that authentication.
 
         Raises
         ------
-        gafaelfawr.exceptions.GitHubError
-            GitHub responded with an error to a request.
-        gafaelfawr.exceptions.PermissionDeniedError
-            The GitHub username is not a valid username for Gafaelfawr.
-        ``httpx.HTTPError``
-            An HTTP client error occurred trying to talk to the authentication
-            provider.
+        GitHubError
+            Raised if GitHub responded with an error to a request.
+        PermissionDeniedError
+            Raised if the GitHub username is not a valid username for
+            Gafaelfawr.
+        httpx.HTTPError
+            Raised if an HTTP client error occurred trying to talk to GitHub.
         """
         github_token = await self._get_access_token(code, state)
         user_info = await self._get_user_info(github_token)
@@ -180,7 +180,7 @@ class GitHubProvider(Provider):
 
         Parameters
         ----------
-        session : `gafaelfawr.models.state.State`
+        session
             The session state, which contains the GitHub access token.
         """
         if not session.github:
@@ -209,23 +209,23 @@ class GitHubProvider(Provider):
 
         Parameters
         ----------
-        code : `str`
+        code
             Code returned by a successful authentication.
-        state : `str`
+        state
             The same random string used for the redirect URL.
 
         Returns
         -------
-        token : `str`
+        str
             Access token used for subsequent API calls.
 
         Raises
         ------
-        gafaelfawr.exceptions.GitHubError
-            GitHub responded with an error to the request for the access
-            token.
-        ``httpx.HTTPError``
-            An error occurred trying to talk to GitHub.
+        GitHubError
+            Raised if GitHub responded with an error to the request for the
+            access token.
+        httpx.HTTPError
+            Raised if an error occurred trying to talk to GitHub.
         """
         data = {
             "client_id": self._config.client_id,
@@ -251,20 +251,20 @@ class GitHubProvider(Provider):
 
         Parameters
         ----------
-        token : `str`
+        token
             The token for that user.
 
         Returns
         -------
-        info : `GitHubUserInfo`
+        info
             Information about that user.
 
         Raises
         ------
-        gafaelfawr.exceptions.GitHubError
-            User has no primary email address.
-        ``httpx.HTTPError``
-            An error occurred trying to talk to GitHub.
+        GitHubError
+            Raised if the user has no primary email address.
+        httpx.HTTPError
+            Raised if an error occurred trying to talk to GitHub.
         """
         self._logger.debug("Fetching user data from %s", self._USER_URL)
         r = await self._http_client.get(
@@ -318,21 +318,22 @@ class GitHubProvider(Provider):
 
         Parameters
         ----------
-        token : `str`
+        token
             The token for that user.
 
         Returns
         -------
-        team_data : List[Dict[`str`, Any]]
+        list of dict
             Team information for that user from GitHub in GitHub's JSON
             format.
 
         Raises
         ------
-        gafaelfawr.exceptions.GitHubError
-            The next URL from a Link header didn't point to the teams API URL.
-        ``httpx.HTTPError``
-            An error occurred trying to talk to GitHub.
+        GitHubError
+            Raised if the next URL from a Link header didn't point to the
+            teams API URL.
+        httpx.HTTPError
+            Raised if an error occurred trying to talk to GitHub.
         """
         self._logger.debug("Fetching user team data from %s", self._TEAMS_URL)
         r = await self._http_client.get(

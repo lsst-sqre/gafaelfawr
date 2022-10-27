@@ -39,24 +39,22 @@ class Authenticate:
 
     Parameters
     ----------
-    require_session : `bool`, optional
+    require_session
         Require that the credentials come from a cookie, not an
-        ``Authorization`` header.  The default is `False`.
-    require_scope : `str`, optional
+        ``Authorization`` header.
+    require_scope
         If set, access will be denied if the authentication token does not
         have this scope.
-    redirect_if_unauthenticated : `bool`, optional
+    redirect_if_unauthenticated
         If the request is unauthenticated, redirect it to the ``/login`` route
-        rather than returning a challenge.  The default is `False`.
-    allow_bootstrap_token : `bool`, optional
-        Allow use of the bootstrap token to authenticate to this route.  The
-        default is `False`.
-    auth_type : `gafaelfawr.auth.AuthType`
-        The type of the challenge if the user is not authenticated.  The
-        default is `gafaelfawr.auth.AuthType.Bearer`.
-    ajax_forbidden : `bool`, optional
+        rather than returning a challenge.
+    allow_bootstrap_token
+        Allow use of the bootstrap token to authenticate to this route.
+    auth_type
+        The type of the challenge if the user is not authenticated.
+    ajax_forbidden
         If set to `True`, check to see if the request was sent via AJAX (see
-        Notes) and, if so, convert it to a 403 error.  The default is `False`.
+        Notes) and, if so, convert it to a 403 error.
     """
 
     def __init__(
@@ -91,20 +89,20 @@ class Authenticate:
 
         Parameters
         ----------
-        context : `gafaelfawr.dependencies.context.RequestContext`
+        context
             The request context.
-        x_csrf_token : `str`, optional
+        x_csrf_token
             The value of the ``X-CSRF-Token`` header, if provided.
 
         Returns
         -------
-        data : `gafaelfawr.models.token.TokenData`
+        TokenData
             The data associated with the verified token.
 
         Raises
         ------
         fastapi.HTTPException
-            If authentication is not provided or is not valid.
+            Raised if authentication is not provided or is not valid.
         """
         token = context.state.token
         if token:
@@ -161,7 +159,7 @@ class Authenticate:
 
         Returns
         -------
-        exc : ``fastapi.HTTPException``
+        exc
             The redirect.
         """
         if not self.redirect_if_unauthenticated:
@@ -184,8 +182,8 @@ class Authenticate:
         Raises
         ------
         fastapi.HTTPException
-            If no CSRF token was provided or if it was incorrect, and the
-            method was something other than GET or OPTIONS.
+            Raised if no CSRF token was provided or if it was incorrect, and
+            the method was something other than GET or OPTIONS.
         """
         if context.request.method in ("GET", "OPTIONS"):
             return
@@ -200,7 +198,10 @@ class Authenticate:
 
 
 class AuthenticateRead(Authenticate):
-    """Authenticate a read API."""
+    """Authenticate a read API.
+
+    Should be used as a FastAPI dependency.
+    """
 
     async def __call__(
         self, context: RequestContext = Depends(context_dependency)
@@ -209,7 +210,10 @@ class AuthenticateRead(Authenticate):
 
 
 class AuthenticateWrite(Authenticate):
-    """Authenticate a write API."""
+    """Authenticate a write API.
+
+    Should be used as a FastAPI dependency.
+    """
 
     async def __call__(
         self,
@@ -235,7 +239,8 @@ async def verified_oidc_token(
     Raises
     ------
     fastapi.HTTPException
-        An authorization challenge if no token is provided.
+        Raised if no token is provided or if the token is not valid. Contains
+        an authorization challenge.
     """
     try:
         encoded_token = parse_authorization(context)

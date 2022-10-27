@@ -27,7 +27,18 @@ class LinkData:
 
     @classmethod
     def from_header(cls, header: Optional[str]) -> LinkData:
-        """Parse an RFC 8288 ``Link`` with pagination URLs."""
+        """Parse an RFC 8288 ``Link`` with pagination URLs.
+
+        Parameters
+        ----------
+        header
+            The contents of an RFC 8288 ``Link`` header.
+
+        Returns
+        -------
+        LinkData
+            The parsed form of that header.
+        """
         links = {}
         if header:
             elements = header.split(",")

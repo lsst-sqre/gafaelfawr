@@ -20,7 +20,7 @@ class AdminStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.ext.asyncio.async_scoped_session`
+    session
         The database session proxy.
     """
 
@@ -32,7 +32,7 @@ class AdminStore:
 
         Parameters
         ----------
-        admin : `gafaelfawr.models.admin.Admin`
+        admin
             The administrator to add.
         """
         new = SQLAdmin(username=admin.username)
@@ -43,12 +43,12 @@ class AdminStore:
 
         Parameters
         ----------
-        admin : `gafaelfawr.models.admin.Admin`
+        admin
             The administrator to delete.
 
         Returns
         -------
-        result : `bool`
+        bool
             `True` if the administrator was found and deleted, `False`
             otherwise.
         """
@@ -61,7 +61,7 @@ class AdminStore:
 
         Returns
         -------
-        admins : List[`gafaelfawr.models.admin.Admin`]
+        list of Admin
             Current administrators.
         """
         stmt = select(SQLAdmin).order_by(SQLAdmin.username)

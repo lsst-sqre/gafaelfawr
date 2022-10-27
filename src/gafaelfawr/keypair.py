@@ -37,18 +37,18 @@ class RSAKeyPair:
 
         Parameters
         ----------
-        pem : `bytes`
+        pem
             The PEM-encoded key (must not be password-protected).
 
         Returns
         -------
-        keypair : `RSAKeyPair`
+        RSAKeyPair
             The corresponding key pair.
 
         Raises
         ------
         cryptography.exceptions.UnsupportedAlgorithm
-            The provided key is not an RSA private key.
+            Raised if the provided key is not an RSA private key.
         """
         private_key = load_pem_private_key(
             pem, password=None, backend=default_backend()
@@ -63,7 +63,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        keypair : `RSAKeyPair`
+        RSAKeyPair
             Newly-generated key pair.
         """
         private_key = rsa.generate_private_key(
@@ -83,7 +83,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        key : `bytes`
+        bytes
             Private key encoded using PKCS#8 with no encryption.
         """
         if not self._private_key_as_pem:
@@ -97,13 +97,13 @@ class RSAKeyPair:
 
         Parameters
         ----------
-        kid : `str`, optional
+        kid
             The key ID.  If not included, the kid will be omitted, making the
             result invalid JWKS.
 
         Returns
         -------
-        key : `gafaelfawr.models.oidc.JWKS`
+        JWKS
             The public key in JWKS format.
         """
         public_numbers = self.public_numbers()
@@ -122,7 +122,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        public_key : `bytes`
+        bytes
             The public key in PEM encoding and SubjectPublicKeyInfo format.
         """
         if not self._public_key_as_pem:
@@ -137,7 +137,7 @@ class RSAKeyPair:
 
         Returns
         -------
-        nums : `cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicNumbers`
+        cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicNumbers
             The public numbers.
         """
         return self.private_key.public_key().public_numbers()

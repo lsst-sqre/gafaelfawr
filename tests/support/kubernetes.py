@@ -41,7 +41,7 @@ async def install_crds(api_client: ApiClient) -> None:
 
     Parameters
     ----------
-    api_client : ``kubernetes_asyncio.client.ApiClient``
+    api_client
         Kubernetes API client to use.
     """
     extensions_api = ApiextensionsV1Api(api_client)
@@ -63,7 +63,7 @@ def operator_running(module: str) -> Iterator[None]:
 
     Parameters
     ----------
-    module : `str`
+    module
         Name of the module that provides the operator.
     """
     kopf_command = [
@@ -89,9 +89,9 @@ async def run_operator_once(module: str, *, delay: float = 1) -> None:
 
     Parameters
     ----------
-    module : `str`
+    module
         Name of the module that provides the operator.
-    delay : `float`, optional
+    delay
         How long to wait after the operator has started before shutting it
         down again.
     """
@@ -107,6 +107,11 @@ async def temporary_namespace(api_client: ApiClient) -> AsyncIterator[str]:
     delete namespaces.  Try to remove the finalizers on any custom objects in
     the namespace before deleting it so that Kubernetes will actually clean
     up.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client to use.
     """
     core_api = CoreV1Api(api_client)
     custom_api = CustomObjectsApi(api_client)

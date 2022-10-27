@@ -21,11 +21,11 @@ class AdminService:
 
     Parameters
     ----------
-    admin_store : `gafaelfawr.storage.admin.AdminStore`
+    admin_store
         The backing store for token administrators.
-    admin_history_store : `gafaelfawr.storage.history.AdminHistoryStore`
+    admin_history_store
         The backing store for history of changes to token administrators.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to use for messages.
     """
 
@@ -46,16 +46,16 @@ class AdminService:
 
         Parameters
         ----------
-        username : `str`
+        username
             The administrator to delete.
-        actor : `str`
+        actor
             The person doing the deleting.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
 
         Raises
         ------
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             If the actor is not an admin.
         """
         if not await self.is_admin(actor) and actor != "<bootstrap>":
@@ -81,7 +81,7 @@ class AdminService:
 
         Parameters
         ----------
-        admins : List[`str`]
+        admins
             Usernames of initial admins.
         """
         if not await self._admin_store.list():
@@ -96,22 +96,22 @@ class AdminService:
 
         Parameters
         ----------
-        username : `str`
+        username
             The administrator to delete.
-        actor : `str`
+        actor
             The person doing the deleting.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
 
         Returns
         -------
-        success : `bool`
+        bool
             `True` if the administrator was found and deleted, `False` if they
             were not found.
 
         Raises
         ------
-        gafaelfawr.exceptions.PermissionDeniedError
+        PermissionDeniedError
             If the actor is not an admin.
         """
         if not await self.is_admin(actor) and actor != "<bootstrap>":
@@ -137,5 +137,11 @@ class AdminService:
         return await self._admin_store.list()
 
     async def is_admin(self, username: str) -> bool:
-        """Returns whether the given user is a token administrator."""
+        """Returns whether the given user is a token administrator.
+
+        Parameters
+        ----------
+        username
+            Username to check.
+        """
         return any((username == a.username for a in await self.get_admins()))

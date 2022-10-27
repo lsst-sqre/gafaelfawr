@@ -62,7 +62,7 @@ class GafaelfawrServiceToken(KubernetesResource):
 
         Parameters
         ----------
-        obj : Dict[`str`, Any]
+        obj
             The object as returned by the Kubernetes API.
 
         Raises
@@ -102,7 +102,7 @@ class GafaelfawrServiceToken(KubernetesResource):
 
     @property
     def key(self) -> str:
-        """Return a unique key for this custom object."""
+        """A unique key for this custom object."""
         return f"{self.namespace}/{self.name}"
 
 
@@ -143,10 +143,15 @@ class KubernetesResourceStatus:
 
         Parameters
         ----------
-        service_token : `KubernetesResource`
+        service_token
             The object being processed.
-        message : `str`
+        message
             The error message for the failure.
+
+        Returns
+        -------
+        KubernetesResourceStatus
+            The corresponding status object.
         """
         return cls(
             message=message,
@@ -155,7 +160,14 @@ class KubernetesResourceStatus:
         )
 
     def to_dict(self) -> Dict[str, Union[str, int]]:
-        """Convert the status update to a dictionary for Kubernetes."""
+        """Convert the status update to a dictionary for Kubernetes.
+
+        Returns
+        -------
+        dict
+            Information to store in the ``status`` field of the Kubernetes
+            resource.
+        """
         transition_time = self.timestamp.isoformat().split("+")[0] + "Z"
         status = "False" if self.reason == StatusReason.Failed else "True"
         return {

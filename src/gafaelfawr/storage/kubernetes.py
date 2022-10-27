@@ -47,6 +47,13 @@ class KubernetesTokenStorage:
 
     This abstracts storage of Gafaelfawr service tokens in Kubernetes objects
     by wrapping the underlying Kubernetes Python client.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes async client to use.
+    logger
+        Logger to use.
     """
 
     def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
@@ -65,14 +72,14 @@ class KubernetesTokenStorage:
 
         Parameters
         ----------
-        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+        parent
             The parent object for the secret.
-        token : `gafaelfawr.models.token.Token`
+        token
             The token to store.
 
         Returns
         -------
-        status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
+        KubernetesResourceStatus
             Status information to store in the parent object.
         """
         secret = self._build_secret(parent, token)
@@ -91,12 +98,12 @@ class KubernetesTokenStorage:
 
         Parameters
         ----------
-        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+        parent
             The parent object.
 
         Returns
         -------
-        secret : ``kubernetes_asyncio.client.V1Secret`` or `None`
+        kubernetes_asyncio.client.V1Secret or None
             The Kubernetes secret, or `None` if that secret does not exist.
         """
         try:
@@ -118,14 +125,14 @@ class KubernetesTokenStorage:
 
         Parameters
         ----------
-        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+        parent
             The parent object for the ``Secret``.
-        token : `gafaelfawr.models.token.Token`
+        token
             The token to store.
 
         Returns
         -------
-        status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
+        KubernetesResourceStatus
             Status information to store in the parent object.
         """
         secret = self._build_secret(parent, token)
@@ -146,7 +153,7 @@ class KubernetesTokenStorage:
 
         Parameters
         ----------
-        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+        parent
             The parent object for the ``Secret``.
         """
         await self._api.patch_namespaced_secret(
@@ -173,14 +180,14 @@ class KubernetesTokenStorage:
 
         Parameters
         ----------
-        parent : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+        parent
             The parent object.
-        token : `gafaelfawr.models.token.Token`
+        token
             The Gafaelfawr token to store in the secret.
 
         Returns
         -------
-        secret : ``kubernetes_asyncio.client.V1Secret``
+        kubernetes_asyncio.client.V1Secret
             Newly created secret.
 
         Notes

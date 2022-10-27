@@ -34,13 +34,13 @@ class OIDCService:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.OIDCServerConfig`
+    config
         OpenID Connect server configuration.
-    authorization_store : `gafaelfawr.storage.oidc.OIDCAuthorizationStore`
+    authorization_store
         The underlying storage for OpenID Connect authorizations.
-    token_service : `gafaelfawr.services.token.TokenService`
+    token_service
         Token manipulation service.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for diagnostics.
 
     Notes
@@ -92,7 +92,13 @@ class OIDCService:
         )
 
     def is_valid_client(self, client_id: str) -> bool:
-        """Whether a client_id is a valid registered client."""
+        """Whether a client_id is a valid registered client.
+
+        Parameters
+        ----------
+        client_id
+            ``client_id`` parameter from the client.
+        """
         return any(c.client_id == client_id for c in self._config.clients)
 
     async def issue_code(
@@ -102,21 +108,21 @@ class OIDCService:
 
         Parameters
         ----------
-        client_id : `str`
+        client_id
             The client ID with access to this authorization.
-        redirect_uri : `str`
+        redirect_uri
             The intended return URI for this authorization.
-        token : `gafaelfawr.models.token.Token`
+        token
             The underlying authentication token.
 
         Returns
         -------
-        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
+        OIDCAuthorizationCode
             The code for a newly-created and stored authorization.
 
         Raises
         ------
-        gafaelfawr.exceptions.UnauthorizedClientError
+        UnauthorizedClientError
             The provided client ID is not registered as an OpenID Connect
             client.
         """
@@ -136,14 +142,14 @@ class OIDCService:
 
         Parameters
         ----------
-        user_info : `gafaelfawr.models.token.TokenData`
+        user_info
             The token data on which to base the token.
-        **claims : `str`
+        **claims
             Additional claims to add to the token.
 
         Returns
         -------
-        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        OIDCVerifiedToken
             The new token.
         """
         now = datetime.now(timezone.utc)
@@ -184,27 +190,27 @@ class OIDCService:
 
         Parameters
         ----------
-        client_id : `str`
+        client_id
             The client ID of the OpenID Connect client.
-        client_secret : `str` or `None`
+        client_secret
             The secret for that client.  A secret of `None` will never be
             valid, but is accepted so that error handling can be unified.
-        redirect_uri : `str`
+        redirect_uri
             The return URI of the OpenID Connect client.
-        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
+        code
             The OpenID Connect authorization code.
 
         Returns
         -------
-        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        OIDCVerifiedToken
             A newly-issued JWT for this client.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidClientError
+        InvalidClientError
             If the client ID is not known or the client secret does not match
             the client ID.
-        gafaelfawr.exceptions.InvalidGrantError
+        InvalidGrantError
             If the code is not valid, the client is not allowed to use it,
             or the underlying authorization or session does not exist.
         """
@@ -249,17 +255,17 @@ class OIDCService:
 
         Parameters
         ----------
-        token : `gafaelfawr.models.oidc.OIDCToken`
+        token
             An encoded token.
 
         Returns
         -------
-        verified_token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        OIDCVerifiedToken
             The verified token.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidTokenError
+        InvalidTokenError
             The issuer of this token is unknown and therefore the token cannot
             be verified.
         """
@@ -288,14 +294,14 @@ class OIDCService:
 
         Parameters
         ----------
-        client_id : `str`
+        client_id
             The OpenID Connect client ID.
-        client_secret : `str` or `None`
+        client_secret
             The secret for that client ID.
 
         Raises
         ------
-        gafaelfawr.exceptions.InvalidClientError
+        InvalidClientError
             If the client ID isn't known or the secret doesn't match.
         """
         if not client_secret:

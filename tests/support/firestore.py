@@ -79,11 +79,11 @@ class MockTransaction(MagicMock):
 class MockFirestore(Mock):
     """Mock Firestore API for testing.
 
-    This mock should be installed with ``mock_firestore``.
+    This mock should be installed with `patch_firestore`.
 
     Parameters
     ----------
-    config : `gafaelfawr.config.FirestoreConfig`
+    config
         Configuration for Google Firestore.
     """
 
@@ -105,7 +105,7 @@ def patch_firestore() -> Iterator[MockFirestore]:
 
     Returns
     -------
-    mock : `MockFirestore`
+    MockFirestore
         The mock Firestore API.
     """
     mock = MockFirestore()

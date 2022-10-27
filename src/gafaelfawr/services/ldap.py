@@ -22,15 +22,15 @@ class LDAPService:
 
     Parameters
     ----------
-    ldap : `gafaelfawr.storage.ldap.LDAPStorage`
+    ldap
         The underlying LDAP query layer.
-    group_cache : `gafaelfawr.cache.LDAPCache`
+    group_cache
         Cache of user group information (including GIDs).
-    group_name_cache : `gafaelfawr.cache.LDAPCache`
+    group_name_cache
         Cache of group names.
-    user_cache : `gafaelfawr.cache.LDAPCache`
+    user_cache
         Cache of user information from LDAP.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to use.
     """
 
@@ -56,9 +56,9 @@ class LDAPService:
 
         Parameters
         ----------
-        username : `str`
+        username
             Username of the user.
-        gid : `int` or `None`
+        gid
             Primary GID if set.  If not `None`, search for the group with this
             GID and add it to the user's group memberships.  This handles LDAP
             configurations where the user's primary group is represented only
@@ -66,7 +66,7 @@ class LDAPService:
 
         Returns
         -------
-        groups : List[`str`]
+        List of str
             The names of the user's groups according to LDAP.
         """
         groups = self._group_name_cache.get(username)
@@ -87,9 +87,9 @@ class LDAPService:
 
         Parameters
         ----------
-        username : `str`
+        username
             Username for which to get information.
-        gid : `int` or `None`
+        gid
             Primary GID if set.  If not `None`, the user's groups will be
             checked for this GID.  If it's not found, search for the group
             with this GID and add it to the user's group memberships.  This
@@ -98,12 +98,12 @@ class LDAPService:
 
         Returns
         -------
-        groups : List[`gafaelfawr.models.token.TokenGroup`]
+        List of TokenGroup
             Groups of the user.
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPError
+        LDAPError
             An error occurred when retrieving user information from LDAP.
         """
         groups = self._group_cache.get(username)
@@ -124,12 +124,12 @@ class LDAPService:
 
         Parameters
         ----------
-        username : `str`
+        username
             Username of the user.
 
         Returns
         -------
-        data : `gafaelfawr.models.ldap.LDAPUserData`
+        LDAPUserData
             The retrieved data.
         """
         data = self._user_cache.get(username)

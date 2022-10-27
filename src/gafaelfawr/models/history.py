@@ -105,7 +105,23 @@ class HistoryCursor:
 
     @classmethod
     def from_str(cls, cursor: str) -> HistoryCursor:
-        """Build cursor from the string serialization form."""
+        """Build cursor from the string serialization form.
+
+        Parameters
+        ----------
+        cursor
+            Serialized form of the cursor.
+
+        Returns
+        -------
+        HistoryCursor
+            The cursor represented as an object.
+
+        Raises
+        ------
+        InvalidCursorError
+            Raised if the cursor is not valid.
+        """
         previous = cursor.startswith("p")
         if previous:
             cursor = cursor[1:]
@@ -121,7 +137,18 @@ class HistoryCursor:
 
     @classmethod
     def invert(cls, cursor: HistoryCursor) -> HistoryCursor:
-        """Return the inverted cursor (going the opposite direction)."""
+        """Return the inverted cursor (going the opposite direction).
+
+        Parameters
+        ----------
+        cursor
+            Cursor to invert.
+
+        Returns
+        -------
+        HistoryCursor
+            The inverted cursor.
+        """
         return cls(
             time=cursor.time, id=cursor.id, previous=not cursor.previous
         )
@@ -156,7 +183,13 @@ class PaginatedHistory(Generic[E]):
     """Cursor for the previous batch of entries."""
 
     def link_header(self, base_url: URL) -> str:
-        """Construct an RFC 8288 ``Link`` header for a paginated result."""
+        """Construct an RFC 8288 ``Link`` header for a paginated result.
+
+        Parameters
+        ----------
+        base_url
+            The starting URL of the current group of entries.
+        """
         first_url = base_url.remove_query_params("cursor")
         header = f' <{str(first_url)}>; rel="first"'
         params = parse_qs(first_url.query)
@@ -343,6 +376,11 @@ class TokenChangeHistoryEntry(BaseModel):
 
         Excludes the ``old_`` fields for changes other than edits, and when
         the edit doesn't change those fields.
+
+        Returns
+        -------
+        dict
+            Dictionary representation of the object.
 
         Notes
         -----

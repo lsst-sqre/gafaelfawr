@@ -29,16 +29,16 @@ def create_upstream_oidc_jwt(
 
     Parameters
     ----------
-    kid : `str`, optional
-        Key ID for the token header.  Default is ``orig-kid``.
-    groups : List[`str`], optional
+    kid
+        Key ID for the token header.
+    groups
         Group memberships the generated token should have.
-    **claims : `str`, optional
+    **claims
         Other claims to set or override in the token.
 
     Returns
     -------
-    token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+    OIDCVerifiedToken
         The new token.
     """
     config = config_dependency.config()

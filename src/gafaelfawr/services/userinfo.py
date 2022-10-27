@@ -44,13 +44,13 @@ class UserInfoService:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
+    config
         Gafaelfawr configuration.
-    ldap : `gafaelfawr.services.ldap.LDAPService`, optional
+    ldap
         LDAP service for user metadata, if LDAP was configured.
-    firestore : `gafaelfawr.services.firestore.FirestoreService`, optional
+    firestore
         Service for Firestore UID/GID lookups, if Firestore was configured.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to use.
     """
 
@@ -78,20 +78,20 @@ class UserInfoService:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             Data from the authentication token.
 
         Returns
         -------
-        user_info : `gafaelfawr.models.token.TokenUserInfo`
+        TokenUserInfo
             User information for the holder of that token.
 
         Raises
         ------
-        gafaelfawr.exceptions.FirestoreError
+        FirestoreError
             UID/GID allocation using Firestore failed, probably because the UID
             or GID space has been exhausted.
-        gafaelfawr.exceptions.LDAPError
+        LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
         """
@@ -160,12 +160,12 @@ class UserInfoService:
 
         Parameters
         ----------
-        user_info : `gafaelfawr.models.token.TokenUserInfo`
+        TokenUserInfo
             User information for a user.
 
         Returns
         -------
-        scopes : List[`str`] or `None`
+        List of str or None
             The scopes generated from the group membership based on the
             ``group_mapping`` configuration parameter, or `None` if the user
             was not a member of any known group.
@@ -201,13 +201,13 @@ class OIDCUserInfoService(UserInfoService):
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
+    config
         Gafaelfawr configuration.
-    ldap : `gafaelfawr.services.ldap.LDAPService`, optional
+    ldap
         LDAP service for user metadata, if LDAP was configured.
-    firestore : `gafaelfawr.services.firestore.FirestoreService`, optional
+    firestore
         Service for Firestore UID/GID lookups, if Firestore was configured.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to use.
     """
 
@@ -243,21 +243,21 @@ class OIDCUserInfoService(UserInfoService):
 
         Parameters
         ----------
-        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        token
             The verified ID token from the OpenID Connect provider.
 
         Returns
         -------
-        user_info : `gafaelfawr.models.token.TokenUserInfo`
+        TokenUserInfo
             User information derived from external data sources and the
             provided token.
 
         Raises
         ------
-        gafaelfawr.exceptions.LDAPError
+        LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
-        gafaelfawr.exceptions.VerifyTokenError
+        VerifyTokenError
             The token is missing required claims.
         """
         username = self._get_username_from_oidc_token(token)
@@ -299,21 +299,21 @@ class OIDCUserInfoService(UserInfoService):
 
         Parameters
         ----------
-        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        token
             The previously verified token.
-        username : `str`
+        username
             Authenticated username (for error reporting).
 
         Returns
         -------
-        groups : List[`gafaelfawr.models.token.TokenGroup`]
+        List of TokenGroup
             List of groups derived from the token claim.
 
         Raises
         ------
-        gafaelfawr.exceptions.FirestoreError
+        FirestoreError
             An error occured obtaining the GID from Firestore.
-        gafaelfawr.exceptions.InvalidTokenClaimsError
+        InvalidTokenClaimsError
             The ``isMemberOf`` claim has an invalid syntax.
         """
         claim = self._oidc_config.groups_claim
@@ -364,22 +364,22 @@ class OIDCUserInfoService(UserInfoService):
 
         Parameters
         ----------
-        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        token
             The previously verified token.
-        username : `str`
+        username
             Authenticated username (for error reporting).
 
         Returns
         -------
-        gid : `int` or `None`
+        int or None
             The primary GID of the user as obtained from the token, or `None`
             if not configured to get a primary GID from the claims.
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingGIDClaimError
+        MissingGIDClaimError
             The token is missing the required numeric GID claim.
-        gafaelfawr.exceptions.InvalidTokenClaimsError
+        InvalidTokenClaimsError
             The GID claim contains something that is not a number.
         """
         if not self._oidc_config.gid_claim:
@@ -403,21 +403,21 @@ class OIDCUserInfoService(UserInfoService):
 
         Parameters
         ----------
-        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        token
             The previously verified token.
-        username : `str`
+        username
             Authenticated username (for error reporting).
 
         Returns
         -------
-        uid : `int`
+        int
             The numeric UID of the user as obtained from the token.
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingUIDClaimError
+        MissingUIDClaimError
             The token is missing the required numeric UID claim.
-        gafaelfawr.exceptions.InvalidTokenClaimsError
+        InvalidTokenClaimsError
             The numeric UID claim contains something that is not a number.
         """
         if self._oidc_config.uid_claim not in token.claims:
@@ -437,17 +437,17 @@ class OIDCUserInfoService(UserInfoService):
 
         Parameters
         ----------
-        token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+        token
             The previously verified token.
 
         Returns
         -------
-        username : `str`
+        str
             The username of the user as obtained from the token.
 
         Raises
         ------
-        gafaelfawr.exceptions.MissingUsernameClaimError
+        MissingUsernameClaimError
             The token is missing the required username claim.
         """
         if self._oidc_config.username_claim not in token.claims:

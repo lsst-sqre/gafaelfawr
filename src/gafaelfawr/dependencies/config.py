@@ -47,7 +47,7 @@ class ConfigDependency:
 
         Parameters
         ----------
-        path : `str`
+        path
             The new configuration path.
         """
         self._settings_path = path

@@ -49,17 +49,17 @@ class State(BaseState):
 
         Parameters
         ----------
-        cookie : `str`
+        cookie
             The encrypted cookie value.
-        key : `bytes`
+        key
             The `~cryptography.fernet.Fernet` key used to decrypt it.
-        request : ``fastapi.Request`` or `None`
+        request
             The request, used for logging.  If not provided (primarily for the
             test suite), invalid state cookies will not be logged.
 
         Returns
         -------
-        state : `State`
+        State
             The state represented by the cookie.
         """
         config = await config_dependency()
@@ -92,7 +92,7 @@ class State(BaseState):
 
         Returns
         -------
-        cookie : `str`
+        str
             The encrypted cookie value.
         """
         data = {}

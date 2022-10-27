@@ -18,7 +18,7 @@ class OIDCAuthorizationStore:
 
     Parameters
     ----------
-    storage : `gafaelfawr.storage.base.RedisStorage`
+    storage
         The underlying storage for `~gafaelfawr.models.oidc.OIDCAuthorization`.
     """
 
@@ -32,16 +32,16 @@ class OIDCAuthorizationStore:
 
         Parameters
         ----------
-        client_id : `str`
+        client_id
             The client ID with access to this authorization.
-        redirect_uri : `str`
+        redirect_uri
             The intended return URI for this authorization.
-        token : `gafaelfawr.models.token.Token`
+        token
             The underlying authentication token.
 
         Returns
         -------
-        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
+        OIDCAuthorizationCode
             The code for a newly-created and stored authorization.
         """
         authorization = OIDCAuthorization(
@@ -59,7 +59,7 @@ class OIDCAuthorizationStore:
 
         Parameters
         ----------
-        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
+        code
             The authorization code.
         """
         await self._storage.delete(f"oidc:{code.key}")
@@ -75,19 +75,19 @@ class OIDCAuthorizationStore:
 
         Parameters
         ----------
-        code : `gafaelfawr.models.oidc.OIDCAuthorizationCode`
+        code
             The authorization code.
 
         Returns
         -------
-        authorization : `gafaelfawr.models.oidc.OIDCAuthorization` or `None`
+        OIDCAuthorization or None
             The corresponding authorization, or `None` if no such
             authorization exists.
 
         Raises
         ------
-        gafaelfawr.exceptions.DeserializeError
-            If the authorization exists but cannot be deserialized.
+        DeserializeError
+            Raised if the authorization exists but cannot be deserialized.
         """
         authorization = await self._storage.get(f"oidc:{code.key}")
         if not authorization:

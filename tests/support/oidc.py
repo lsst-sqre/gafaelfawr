@@ -29,9 +29,9 @@ class MockOIDCConfig:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.OIDCConfig`
+    config
         Configuration for the OpenID Connect provider.
-    kid : `str`
+    kid
         The key ID to return.
     """
 
@@ -56,11 +56,11 @@ class MockOIDCToken:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.OIDCConfig`
+    config
         Configuration for Gafaelfawr.
-    code : `str`
+    code
         The code that Gafaelfawr must send to redeem for a token.
-    token : `gafaelfawr.models.oidc.OIDCToken`
+    token
         The token to return after authentication.
     """
 
@@ -92,9 +92,9 @@ async def mock_oidc_provider_config(
 
     Parameters
     ----------
-    respx_mock : `respx.Router`
+    respx_mock
         The mock router.
-    kid : `str`
+    kid
         The key ID to return.
     """
     config = await config_dependency()
@@ -114,11 +114,11 @@ async def mock_oidc_provider_token(
 
     Parameters
     ----------
-    respx_mock : `respx.Router`
+    respx_mock
         The mock router.
-    code : `str`
+    code
         The code that Gafaelfawr must send to redeem for a token.
-    token : `gafaelfawr.models.oidc.OIDCToken`
+    token
         The token to return after authentication.
     """
     config = await config_dependency()
@@ -141,29 +141,29 @@ async def simulate_oidc_login(
 
     Parameters
     ----------
-    client : `httpx.AsyncClient`
+    client
         Client to use to make calls to the application.
-    respx_mock : `respx.Router`
+    respx_mock
         Mock for httpx calls.
-    token : `gafaelfawr.models.oidc.OIDCVerifiedToken`
+    token
         Authentication token the upstream OpenID Connect provider should
         return.
-    return_url : `str`, optional
+    return_url
         The return URL to pass to the login process.  If not provided, a
         simple one will be used.
-    use_redirect_header : `bool`, optional
+    use_redirect_header
         If set to `True`, pass the return URL in a header instead of as a
         parameter to the ``/login`` route.
-    callback_route : `str`, optional
+    callback_route
         Override the callback route to which the upstream OpenID Connect
         provider is expected to send the redirect.
-    expect_enrollment : `bool`, optional
+    expect_enrollment
         If set to `True`, expect a redirect to the enrollment URL after login
         rather than to the return URL.
 
     Returns
     -------
-    response : ``httpx.Response``
+    httpx.Response
         The response from the return to the ``/login`` handler.
     """
     config = await config_dependency()

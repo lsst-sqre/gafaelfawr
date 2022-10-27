@@ -23,6 +23,13 @@ async def startup(memo: kopf.Memo, **_: Any) -> None:
     via shallow copy, in the ``memo`` argument to any other handler.  Use this
     to initialize the database and Redis pools, create service objects, and so
     forth.
+
+    Parameters
+    ----------
+    memo
+        Holds global state, used to store the
+        `~gafaelfawr.services.kubernetes.KubernetesTokenService` object and
+        other state that needs to be freed cleanly during shutdown.
     """
     config = await config_dependency()
     memo.engine = create_database_engine(
@@ -37,7 +44,15 @@ async def startup(memo: kopf.Memo, **_: Any) -> None:
 
 @kopf.on.cleanup()
 async def shutdown(memo: kopf.Memo, **_: Any) -> None:
-    """Shut down a running Kubernetes operator."""
+    """Shut down a running Kubernetes operator.
+
+    Parameters
+    ----------
+    memo
+        Holds global state, used to store the
+        `~gafaelfawr.services.kubernetes.KubernetesTokenService` object and
+        other state that needs to be freed cleanly during shutdown.
+    """
     await memo.api_client.close()
     await memo.factory.aclose()
     await memo.engine.dispose()

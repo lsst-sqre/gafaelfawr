@@ -4,7 +4,7 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 7.0.0 (unreleased)
+## 7.0.0 (2022-10-27)
 
 ### Backwards-incompatible changes
 
@@ -14,6 +14,10 @@ Dependencies are updated to the latest available version during each release. Th
 ### New features
 
 - While the Kubernetes operator is running, all `Secret` objects created from `GafaelfawrServiceToken` objects are checked for validity every half-hour and replaced if needed.
+
+### Other changes
+
+- Drop types from docstrings where possible and take advantage of the new support in Sphinx for type annotations when rendering internal API documentation. This produces higher-quality output in many cases.
 
 ## 6.2.0 (2022-10-13)
 

@@ -16,7 +16,11 @@ from fastapi import Depends, Header, Query
 from ..exceptions import InvalidReturnURLError
 from .context import RequestContext, context_dependency
 
-__all__ = ["parsed_redirect_uri", "return_url", "return_url_with_header"]
+__all__ = [
+    "parsed_redirect_uri",
+    "return_url",
+    "return_url_with_header",
+]
 
 
 def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
@@ -24,17 +28,17 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
 
     Parameters
     ----------
-    url : `str`
+    url
         The URL to check.
-    param : `str`
+    param
         The name of the query parameter in which the URL was found, for error
         reporting purposes.
-    context : `gafaelfawr.dependencies.RequestContext`
+    context
         The context of the request.
 
     Returns
     -------
-    parsed_url : `urllib.parse.ParseResult`
+    urllib.parse.ParseResult
         The parsed URL.
 
     Raises
@@ -73,7 +77,7 @@ async def return_url(
 
     Returns
     -------
-    return_url : `str` or `None`
+    urllib.parse.ParseResult
         The verified return URL, or `None` if none was given.
 
     Raises
@@ -108,13 +112,13 @@ async def return_url_with_header(
 ) -> Optional[str]:
     """Validate a return URL in an ``rd`` parameter or header.
 
-    Same as :py:func:`return_url` except also accepts a return URL in the
+    Same as `return_url` except also accepts a return URL in the
     ``X-Auth-Request-Redirect`` header if the ``rd`` query parameter was not
     set.
 
     Returns
     -------
-    return_url : `str` or `None`
+    urllib.parse.ParseResult
         The verified return URL, or `None` if none was given.
 
     Raises
@@ -140,13 +144,12 @@ async def parsed_redirect_uri(
 ) -> ParseResult:
     """Validate a return URL in a ``redirect_uri`` parameter.
 
-    Same as :py:func:`return_url` except expects the URL in a ``return_uri``
-    parameter instead of ``rd`` and returns a parsed URL instead of the `str`
-    form.
+    Same as `return_url` except expects the URL in a ``return_uri`` parameter
+    instead of ``rd`` and returns a parsed URL instead of the `str` form.
 
     Returns
     -------
-    redirect_uri : `urllib.parse.ParseResult`
+    urllib.parse.ParseResult
         The verified, parsed redirect URI.
 
     Raises

@@ -31,19 +31,19 @@ class TokenCacheService:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.Config`
+    config
         The Gafaelfawr configuration.
-    internal_cache : `gafaelfawr.cache.InternalTokenCache`
+    internal_cache
         Cache for internal tokens.
-    notebook_cache : `gafaelfawr.cache.NotebookTokenCache`
+    notebook_cache
         Cache for notebook tokens.
-    token_db_store : `gafaelfawr.storage.token.TokenDatabaseStore`
+    token_db_store
         The database backing store for tokens.
-    token_redis_store : `gafaelfawr.storage.token.TokenRedisStore`
+    token_redis_store
         The Redis backing store for tokens.
-    token_change_store : `gafaelfawr.storage.history.TokenChangeHistoryStore`
+    token_change_store
         The backing store for history of changes to tokens.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to use.
 
     Notes
@@ -109,20 +109,20 @@ class TokenCacheService:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
-        service : `str`
+        service
             The service of the internal token.
-        scopes : List[`str`]
+        scopes
             The scopes the internal token should have.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
-        minimum_lifetime : `datetime.timedelta` or `None`, optional
+        minimum_lifetime
             If set, the minimum required lifetime of the token.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token`
+        Token
             The cached token or newly-created token.
         """
         # Awkward code is to convince mypy that token is not None.
@@ -160,17 +160,17 @@ class TokenCacheService:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
-        minimum_lifetime : `datetime.timedelta` or `None`, optional
+        minimum_lifetime
             If set, the minimum required lifetime of the token.
 
         Returns
         -------
-        token : `gafaelfawr.models.token.Token` or `None`
-            The cached token or `None` if no matching token is cached.
+        Token or None
+            The cached token, or `None` if no matching token is cached.
         """
         token = self._notebook_cache.get(token_data)
         if token and await self._is_token_valid(token, minimum_lifetime):
@@ -201,16 +201,21 @@ class TokenCacheService:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
-        service : `str`
+        service
             The service of the internal token.
-        scopes : List[`str`]
+        scopes
             The scopes the internal token should have.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
-        minimum_lifetime : `datetime.timedelta` or `None`, optional
+        minimum_lifetime
             If set, the minimum required lifetime of the token.
+
+        Returns
+        -------
+        Token
+            The retrieved or newly-created internal token.
         """
         # See if there's already a matching internal token.
         key = await self._token_db_store.get_internal_token_key(
@@ -288,12 +293,17 @@ class TokenCacheService:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The authentication data for the parent token.
-        ip_address : `str`
+        ip_address
             The IP address from which the request came.
-        minimum_lifetime : `datetime.timedelta` or `None`, optional
+        minimum_lifetime
             If set, the minimum required lifetime of the token.
+
+        Returns
+        -------
+        Token
+            The retrieved or newly-created notebook token.
         """
         # See if there's already a matching notebook token.
         key = await self._token_db_store.get_notebook_token_key(
@@ -363,19 +373,20 @@ class TokenCacheService:
 
         Parameters
         ----------
-        token : `gafaelfawr.models.token.Token` or `None`
-            The token to check for validity.
-        scopes : List[`str`], optional
+        token
+            The token to check for validity.  `None` is accepted to simplify
+            type checking, but will always return `False`.
+        scopes
             If provided, ensure that the token has scopes that are a subset of
             this scope list.  This is used to force a cache miss if an
             internal token is requested but the requesting token no longer has
             the scopes that the internal token provides.
-        minimum_lifetime : `datetime.timedelta` or `None`, optional
+        minimum_lifetime
             If set, the minimum required lifetime of the token.
 
         Returns
         -------
-        valid : `bool`
+        bool
             Whether the token is valid.
         """
         if not token:
@@ -404,15 +415,15 @@ class TokenCacheService:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The data for the parent token for which a child token was
             requested.
-        minimum_lifetime : `datetime.timedelta` or `None`, optional
+        minimum_lifetime
             If set, the minimum required lifetime of the token.
 
         Returns
         -------
-        min_expires : `datetime.datetime`
+        datetime
             The minimum acceptable expiration time for the child token.  If
             no child tokens with at least this expiration time exist, a new
             child token should be created.

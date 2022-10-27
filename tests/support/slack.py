@@ -16,7 +16,7 @@ class MockSlack:
 
     Attributes
     ----------
-    messages : List[Dict[`str`, Any]]
+    messages
         The messages that have been posted to the webhook so far.
     """
 
@@ -47,10 +47,15 @@ def mock_slack_webhook(hook_url: str, respx_mock: respx.Router) -> MockSlack:
 
     Parameters
     ----------
-    hook_url : `str`
+    hook_url
         URL for the Slack incoming webhook to mock.
-    respx_mock : `respx.Router`
+    respx_mock
         The mock router.
+
+    Returns
+    -------
+    MockSlack
+        The mock Slack API object.
     """
     mock = MockSlack()
     respx_mock.post(hook_url).mock(side_effect=mock.post_webhook)

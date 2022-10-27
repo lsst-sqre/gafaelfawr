@@ -32,7 +32,7 @@ class TokenDatabaseStore:
 
     Parameters
     ----------
-    session : `sqlalchemy.ext.asyncio.async_scoped_session`
+    session
         The database session proxy.
     """
 
@@ -51,19 +51,19 @@ class TokenDatabaseStore:
 
         Parameters
         ----------
-        data : `gafaelfawr.models.token.TokenData`
+        data
             The corresponding data.
-        token_name : `str`, optional
+        token_name
             The human-given name for the token.
-        service : `str`, optional
+        service
             The service for an internal token.
-        parent : `str`, optional
+        parent
             The key of the parent of this token.
 
         Raises
         ------
-        gafaelfawr.exceptions.DuplicateTokenNameError
-            The user already has a token by that name.
+        DuplicateTokenNameError
+            Raised if the user already has a token by that name.
         """
         if token_name:
             await self._check_name_conflict(data.username, token_name)
@@ -88,12 +88,12 @@ class TokenDatabaseStore:
 
         Parameters
         ----------
-        token : `str`
+        token
             The key of the token to delete.
 
         Returns
         -------
-        success : `bool`
+        bool
             Whether the token was found to be deleted.
         """
         stmt = delete(SQLToken).where(SQLToken.token == key)
@@ -105,7 +105,7 @@ class TokenDatabaseStore:
 
         Returns
         -------
-        deleted : List[`gafaelfawr.models.token.TokenInfo`]
+        list of TokenInfo
             The deleted tokens.
         """
         now = datetime.utcnow()
@@ -144,12 +144,12 @@ class TokenDatabaseStore:
 
         Parameters
         ----------
-        key : `str`
+        str
             The key of the token.
 
         Returns
         -------
-        children : List[`str`]
+        list of str
             The keys of all child tokens of that token, recursively.  The
             direct child tokens will be at the beginning of the list, and
             other tokens will be listed in a breadth-first search order.
@@ -169,23 +169,20 @@ class TokenDatabaseStore:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key of the token.
 
         Returns
         -------
-        info : `gafaelfawr.models.token.TokenInfo` or `None`
+        TokenInfo or None
             Information about that token or `None` if it doesn't exist in the
             database.
-
-        Notes
-        -----
-        There is probably some way to materialize parent as a relationship
-        field on the ORM Token objects, but that gets into gnarly and
-        hard-to-understand SQLAlchemy ORM internals.  This approach still does
-        only one database query without fancy ORM mappings at the cost of some
-        irritating mangling of the return value.
         """
+        # There is probably some way to materialize parent as a relationship
+        # field on the ORM Token objects, but that gets into gnarly and
+        # hard-to-understand SQLAlchemy ORM internals.  This approach still
+        # does only one database query without fancy ORM mappings at the cost
+        # of some irritating mangling of the return value.
         stmt = (
             select(SQLToken, Subtoken.parent)
             .where(SQLToken.token == key)
@@ -210,18 +207,18 @@ class TokenDatabaseStore:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The data for the parent token.
-        service : `str`
+        service
             The service to which the internal token is delegated.
-        scopes : List[`str`]
+        scopes
             The scopes of the delegated token.
-        min_expires : `datetime.datetime`
+        min_expires
             The minimum expiration time for the token.
 
         Returns
         -------
-        key : `str` or `None`
+        str or None
             The key of an existing internal child token with the desired
             properties, or `None` if none exist.
         """
@@ -246,14 +243,14 @@ class TokenDatabaseStore:
 
         Parameters
         ----------
-        token_data : `gafaelfawr.models.token.TokenData`
+        token_data
             The data for the parent token.
-        min_expires : `datetime.datetime`
+        min_expires
             The minimum expiration time for the token.
 
         Returns
         -------
-        key : `str` or `None`
+        str or None
             The key of an existing notebook child token, or `None` if none
             exist.
         """
@@ -274,12 +271,12 @@ class TokenDatabaseStore:
 
         Parameters
         ----------
-        username : `str` or `None`
+        username
             Limit the returned tokens to ones for the given username.
 
         Returns
         -------
-        tokens : List[`gafaelfawr.models.token.TokenInfo`]
+        list of TokenInfo
             Information about the tokens.
         """
         stmt = select(SQLToken)
@@ -301,7 +298,7 @@ class TokenDatabaseStore:
 
         Returns
         -------
-        tokens : List[`gafaelfawr.models.token.TokenInfo`]
+        list of TokenInfo
             Information about the tokens.
         """
         stmt = (
@@ -320,7 +317,7 @@ class TokenDatabaseStore:
 
         Returns
         -------
-        tokens : List[`gafaelfawr.models.token.TokenInfo`]
+        list of TokenInfo
             Information about the tokens.
         """
         stmt = (
@@ -354,27 +351,27 @@ class TokenDatabaseStore:
 
         Parameters
         ----------
-        token : `str`
+        token
             The token to modify.
-        token_name : `str`, optional
+        token_name
             The new name for the token.
-        scopes : List[`str`], optional
+        scopes
             The new scopes for the token.
-        expires : `datetime`, optional
+        expires
             The new expiration time for the token.
-        no_expire : `bool`
+        no_expire
             If set, the token should not expire.  This is a separate parameter
             because passing `None` to ``expires`` is ambiguous.
 
         Returns
         -------
-        info : `gafaelfawr.models.token.TokenInfo` or `None`
+        TokenInfo or None
             Information for the updated token or `None` if it was not found.
 
         Raises
         ------
-        gafaelfawr.exceptions.DuplicateTokenNameError
-            The user already has a token by that name.
+        DuplicateTokenNameError
+            Raised if the user already has a token by that name.
         """
         stmt = select(SQLToken).where(SQLToken.token == key)
         token = await self._session.scalar(stmt)
@@ -418,9 +415,9 @@ class TokenRedisStore:
 
     Parameters
     ----------
-    storage : `gafaelfawr.storage.base.RedisStorage`
+    storage
         The underlying storage.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for diagnostics.
     """
 
@@ -441,12 +438,12 @@ class TokenRedisStore:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key portion of the token.
 
         Returns
         -------
-        success : `bool`
+        bool
             `True` if the token was found and deleted, `False` otherwise.
         """
         return await self._storage.delete(f"token:{key}")
@@ -462,12 +459,12 @@ class TokenRedisStore:
 
         Parameters
         ----------
-        token : `gafaelfawr.models.token.Token`
+        token
             The token.
 
         Returns
         -------
-        data : `gafaelfawr.models.token.TokenData` or `None`
+        TokenData or None
             The data underlying the token, or `None` if the token is not
             valid.
         """
@@ -491,12 +488,12 @@ class TokenRedisStore:
 
         Parameters
         ----------
-        key : `str`
+        key
             The key of the token.
 
         Returns
         -------
-        data : `gafaelfawr.models.token.TokenData` or `None`
+        TokenData or None
             The data underlying the token, or `None` if the token is not
             valid.
         """
@@ -512,7 +509,7 @@ class TokenRedisStore:
 
         Returns
         -------
-        tokens : List[`str`]
+        list of str
             The tokens found in Redis (by looking for valid keys).
         """
         keys = []
@@ -525,7 +522,7 @@ class TokenRedisStore:
 
         Parameters
         ----------
-        data : `gafaelfawr.models.token.TokenData`
+        data
             The data underlying that token.
         """
         lifetime = None

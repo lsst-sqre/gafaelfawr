@@ -28,14 +28,14 @@ class BaseState(ABC):
 
         Parameters
         ----------
-        cookie : `str`
+        cookie
             The encrypted cookie value.
-        request : ``fastapi.Request``
+        request
             The request, used for logging.
 
         Returns
         -------
-        state : `BaseState`
+        BaseState
             The state represented by the cookie.
         """
 
@@ -45,7 +45,7 @@ class BaseState(ABC):
 
         Returns
         -------
-        cookie : `str`
+        str
             The encrypted cookie value.
         """
 
@@ -69,11 +69,11 @@ class StateMiddleware(BaseHTTPMiddleware):
 
     Parameters
     ----------
-    app : ``fastapi.FastAPI``
+    app
         The ASGI application.
-    cookie_name : `str`
+    cookie_name
         The name of the state cookie.
-    state_class : `BaseState`
+    state_class
         The class to use to parse the cookie.  Must be derived from
         `BaseState`.
     """
@@ -120,12 +120,12 @@ class StateMiddleware(BaseHTTPMiddleware):
 
         Parameters
         ----------
-        request : ``fastapi.Request``
+        request
             The incoming request.
 
         Returns
         -------
-        secure : `bool`
+        bool
             Whether to mark the cookie as secure.
 
         Notes

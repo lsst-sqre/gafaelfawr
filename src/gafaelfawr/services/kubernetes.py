@@ -43,13 +43,13 @@ class KubernetesTokenService:
 
     Parameters
     ----------
-    token_service : `gafaelfawr.services.token.TokenService`
+    token_service
         Token management service.
-    storage : `gafaelfawr.storage.kubernetes.KubernetesTokenStorage`
+    storage
         Storage layer for the Kubernetes cluster.
-    session : `sqlalchemy.ext.asyncio.async_scoped_session`
+    session
         Database session, used for transaction management.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to report issues.
     """
 
@@ -73,22 +73,22 @@ class KubernetesTokenService:
 
         Parameters
         ----------
-        name : `str`
+        name
             Name of the ``GafaelfawrServiceToken`` Kubernetes object.
-        namespace : `str`
+        namespace
             Namespace of the ``GafaelfawrServiceToken`` Kubernetes object.
-        body : `gafaelfawr.models.kubernetes.GafaelfawrServiceToken`
+        body
             Contents of the ``GafaelfawrServiceToken`` Kubernetes object.
 
         Returns
         -------
-        status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
+        KubernetesResourceStatus or None
             Information to put into the ``status`` portion of the object, or
-            `None` if no status update was required.
+            `None` if no status update is required.
 
         Raises
         ------
-        error : `gafaelfawr.exceptions.KubernetesError`
+        KubernetesError
             Some error occurred while trying to write to Kubernetes.
         """
         try:
@@ -159,7 +159,7 @@ class KubernetesTokenService:
 
         Returns
         -------
-        status : `gafaelfawr.models.kubernetes.KubernetesResourceStatus`
+        KubernetesResourceStatus or None
             Information to put into the ``status`` field of the
             ``GafaelfawrServiceToken`` Kubernetes object, or `None` if no
             status update is required.

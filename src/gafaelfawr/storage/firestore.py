@@ -41,9 +41,9 @@ class FirestoreStorage:
 
     Parameters
     ----------
-    config : `gafaelfawr.config.FirestoreConfig`
+    config
         Configuration for Google Firestore.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for debug messages and errors.
     """
 
@@ -60,20 +60,20 @@ class FirestoreStorage:
 
         Parameters
         ----------
-        group : `str`
+        group
             Name of the group.
 
         Returns
         -------
-        gid : `int`
+        int
             GID of the group.
 
         Raises
         ------
-        gafaelfawr.exceptions.FirestoreNotInitializedError
-            Firestore has not been initialized.
-        gafaelfawr.exceptions.NoAvailableGidError
-            No more GIDs are available in that range.
+        FirestoreNotInitializedError
+            Raised if Firestore has not been initialized.
+        NoAvailableGidError
+            Raised if no more GIDs are available in that range.
         """
         transaction = self._db.transaction()
         group_ref = self._db.collection("groups").document(group)
@@ -94,24 +94,24 @@ class FirestoreStorage:
 
         Parameters
         ----------
-        username : `str`
+        username
             Name of the user.
-        bot : `bool`, optional
+        bot
             If set to true, this is a bot user and should use the bot user
             range instead of the regular user range if a UID hasn't already
             been assigned.
 
         Returns
         -------
-        uid : `int`
+        int
             UID of the user.
 
         Raises
         ------
-        gafaelfawr.exceptions.FirestoreNotInitializedError
-            Firestore has not been initialized.
-        gafaelfawr.exceptions.NoAvailableUidError
-            No more UIDs are available in that range.
+        FirestoreNotInitializedError
+            Raised if Firestore has not been initialized.
+        NoAvailableUidError
+            Raised if no more UIDs are available in that range.
         """
         transaction = self._db.transaction()
         user_ref = self._db.collection("users").document(username)
@@ -160,28 +160,28 @@ async def _get_or_assign_gid(
 
     Parameters
     ----------
-    transaction : `google.cloud.firestore.Transaction`
+    transaction
         The open transaction.
-    group_name : `str`
+    group_name
         Name of the group, for logging.
-    group_ref : `google.cloud.firestore.AsyncDocumentReference`
+    group_ref
         Reference to the group's (possibly nonexistent) GID document.
-    counter_ref : `google.cloud.firestore.AsyncDocumentReference`
+    counter_ref
         Reference to the document holding the GID counter.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for messages.
 
     Returns
     -------
-    gid : `int`
+    int
         GID of the group.
 
     Raises
     ------
-    gafaelfawr.exceptions.FirestoreNotInitializedError
-        Firestore has not been initialized.
-    gafaelfawr.exceptions.NoAvailableGidError
-        No more UIDs are available in that range.
+    FirestoreNotInitializedError
+        Raised if Firestore has not been initialized.
+    NoAvailableGidError
+        Raised if no more UIDs are available in that range.
     """
     group = await group_ref.get(transaction=transaction)
     if group.exists:
@@ -215,32 +215,32 @@ async def _get_or_assign_uid(
 
     Parameters
     ----------
-    transaction : `google.cloud.firestore.Transaction`
+    transaction
         The open transaction.
-    username : `str`
+    username
         Username of user, for logging.
-    user_ref : `google.cloud.firestore.AsyncDocumentReference`
+    user_ref
         Reference to the user's (possibly nonexistent) UID document.
-    counter_ref : `google.cloud.firestore.AsyncDocumentReference`
+    counter_ref
         Reference to the document holding the UID counter.
-    bot : `bool`, optional
+    bot
         If set to true, this is a bot user and should use the bot user
         range instead of the regular user range if a UID hasn't already
         been assigned.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for messages.
 
     Returns
     -------
-    uid : `int`
+    int
         UID of the user.
 
     Raises
     ------
-    gafaelfawr.exceptions.FirestoreNotInitializedError
-        Firestore has not been initialized.
-    gafaelfawr.exceptions.NoAvailableUidError
-        No more UIDs are available in that range.
+    FirestoreNotInitializedError
+        Raised if Firestore has not been initialized.
+    NoAvailableUidError
+        Raised if no more UIDs are available in that range.
     """
     user = await user_ref.get(transaction=transaction)
     if user.exists:
@@ -273,11 +273,11 @@ async def _initialize_in_transaction(
 
     Parameters
     ----------
-    transaction : `google.cloud.firestore.Transaction`
+    transaction
         The open transaction.
-    counter_refs : Dict[str, `google.cloud.firestore.AsyncDocumentReference`]
+    counter_refs
         References to the documents holding the counters.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger for messages.
     """
     # We have to do this in two passes since the Firestore transaction

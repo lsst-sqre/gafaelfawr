@@ -53,7 +53,7 @@ def selenium_driver() -> webdriver.Chrome:
 
     Returns
     -------
-    driver : `selenium.webdriver.Chrome`
+    selenium.webdriver.Chrome
         The web driver to use in Selenium tests.
     """
     options = webdriver.ChromeOptions()
@@ -171,12 +171,19 @@ async def run_app(
 ) -> AsyncIterator[SeleniumConfig]:
     """Run the application as a separate process for Selenium access.
 
+    Must be used as an async context manager.
+
     Parameters
     ----------
-    tmp_path : `pathlib.Path`
+    tmp_path
         The temporary directory for testing.
-    settings_path : `pathlib.Path`
+    settings_path
         The path to the settings file.
+
+    Yields
+    ------
+    SeleniumConfig
+        The Selenium configuration.
     """
     config_dependency.set_settings_path(str(settings_path))
     config = await config_dependency()

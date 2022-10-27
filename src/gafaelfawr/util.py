@@ -29,12 +29,12 @@ def add_padding(encoded: str) -> str:
 
     Parameters
     ----------
-    encoded : `str`
+    encoded
         A base64-encoded string, possibly with the padding removed.
 
     Returns
     -------
-    result : `str`
+    str
         A correctly-padded version of the encoded string.
     """
     underflow = len(encoded) % 4
@@ -49,12 +49,12 @@ def base64_to_number(data: str) -> int:
 
     Parameters
     ----------
-    data : `str`
+    data
         Base64-encoded number, possibly without padding.
 
     Returns
     -------
-    result : `int`
+    int
         The result converted to a number.  Note that Python ints can be
         arbitrarily large.
 
@@ -77,12 +77,12 @@ def format_datetime_for_logging(date: Optional[datetime]) -> Optional[str]:
 
     Parameters
     ----------
-    date : `datetime.datetime` or `None`
+    date
         The object to format.
 
     Returns
     -------
-    date_str : `str` or `None`
+    str or None
         The datetime in ISO format with seconds, or `None` if the input was
         `None`.
     """
@@ -93,7 +93,13 @@ def format_datetime_for_logging(date: Optional[datetime]) -> Optional[str]:
 
 
 def is_bot_user(username: str) -> bool:
-    """Return whether the given username is a bot user."""
+    """Return whether the given username is a bot user.
+
+    Parameters
+    ----------
+    username
+        Username to check.
+    """
     return re.search(BOT_USERNAME_REGEX, username) is not None
 
 
@@ -107,12 +113,12 @@ def normalize_datetime(
 
     Parameters
     ----------
-    v : `int` or `datetime.datetime` or `None`
+    v
         The field representing a `datetime`
 
     Returns
     -------
-    v : `datetime.datetime` or `None`
+    datetime.datetime or None
         The timezone-aware `datetime.datetime` or `None` if the input was
         `None`.
     """
@@ -136,12 +142,12 @@ def normalize_ip_address(
 
     Parameters
     ----------
-    v : `str` or `ipaddress.IPv4Address` or `ipaddress.IPv6Address` or `None`
+    v
         The field representing an IP address.
 
     Returns
     -------
-    v : `str` or `None`
+    str or None
         The converted IP address.
     """
     if v is None:
@@ -163,12 +169,12 @@ def normalize_scopes(
 
     Parameters
     ----------
-    v : `str` or List[`str`] or `None`
+    v
         The field representing token scopes.
 
     Returns
     -------
-    v : List[`str`] or `None`
+    list of str or None
         The scopes as a list.
     """
     if v is None:
@@ -188,12 +194,12 @@ def number_to_base64(data: int) -> bytes:
 
     Parameters
     ----------
-    data : `int`
+    data
         Arbitrarily large number
 
     Returns
     -------
-    result : `bytes`
+    bytes
         The equivalent URL-safe base64-encoded string corresponding to the
         number in big endian order.
     """

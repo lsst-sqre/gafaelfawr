@@ -43,11 +43,11 @@ class SlackAlertClient:
 
     Parameters
     ----------
-    hook_url : `str`
+    hook_url
         The URL of the incoming webhook to use to publish the message.
-    application : `str`
+    application
         Name of the application reporting an error.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to which to report errors sending messages to Slack.
     """
 
@@ -66,7 +66,7 @@ class SlackAlertClient:
 
         Parameters
         ----------
-        message : `str`
+        message
             The message to post, in Markdown format.
         """
         if len(message) > 3000:
@@ -90,7 +90,7 @@ class SlackAlertClient:
 
         Parameters
         ----------
-        exc : `Exception`
+        exc
             The exception to report.
         """
         date = current_datetime().strftime(SLACK_DATE_FORMAT)
@@ -197,11 +197,11 @@ def initialize_slack_alerts(
 
     Parameters
     ----------
-    hook_url : `str`
+    hook_url
         The URL of the incoming webhook to use to publish the message.
-    application : `str`
+    application
         Name of the application reporting an error.
-    logger : `structlog.stdlib.BoundLogger`
+    logger
         Logger to which to report errors sending messages to Slack.
     """
     global _slack_alert_client

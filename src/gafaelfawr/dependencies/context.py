@@ -65,7 +65,7 @@ class RequestContext:
 
         Parameters
         ----------
-        **values : `typing.Any`
+        **values
             Additional values that should be added to the logging context.
         """
         self.logger = self.logger.bind(**values)
@@ -125,7 +125,7 @@ class ContextDependency:
 
         Parameters
         ----------
-        config : `gafaelfawr.config.Config`
+        config
             Gafaelfawr configuration.
         """
         if self._process_context:
