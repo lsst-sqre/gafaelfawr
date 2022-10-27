@@ -83,7 +83,7 @@ Gafaelfawr provides an ``.nvmrc`` file that sets the version of Node.js to what 
 Running tests
 =============
 
-To test the library, run tox_, which tests the library the same way that the CI workflow does:
+To test all components of Gafaelfawr other than the Kubernetes operator (see below), run tox_, which tests the library the same way that the CI workflow does:
 
 .. code-block:: sh
 
@@ -94,18 +94,73 @@ This uses tox-docker to start PostgreSQL and Redis Docker containers for the tes
 To run the Selenium tests, you will need to have ``chromedriver`` installed.
 On Debian and Ubuntu systems, you can install this with ``apt install chromium-driver``.
 
+To run the tests with coverage analysis and generate a report, run:
+
+.. code-block:: sh
+
+   tox -e py-coverage,coverage-report
+
 To see a listing of test environments, run:
 
 .. code-block:: sh
 
    tox -av
 
-To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` tox environment.
+To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` or ``py-full`` tox environment.
 For example:
 
 .. code-block:: sh
 
    tox -e py -- tests/handlers/api_tokens_test.py
+
+Testing the Kubernetes operator
+-------------------------------
+
+To test the Kubernetes operator, you must have a Kubernetes cluster available that is not already running Gafaelfawr.
+This is only tested with Minikube_, which is the approach used by CI.
+
+.. _Minikube: https://minikube.sigs.k8s.io/docs/
+
+.. warning::
+
+   The default Kubernetes credentials in your local Kubernetes configuration will be used to run the tests, whatever cluster that points to.
+   In theory, you can use a regular Kubernetes cluster and only test namespaces starting with ``test-`` will be affected.
+
+   In practice, this is not tested, and it is possible the tests will damage or destroy other applications or data running on the same Kubernetes cluster.
+
+   If you want to run these tests manually rather than via CI, using Minikube for tests and carefully verifying that the default Kubernetes credentials are for the Minikube environment is strongly encouraged.
+
+To set up Minikube:
+
+#. `Install Minikube <https://minikube.sigs.k8s.io/docs/start/>`__ for your platform.
+
+#. Start a cluster using the Docker driver with the minimum recommended resources:
+
+   .. code-block:: sh
+
+      minikube start --driver=docker --cpus=4 --memory=8g --disk-size=100g  --kubernetes-version=1.21.5
+
+   The ``--kubernetes-version`` option can be used to specify the Kubernetes version to use.
+
+#. Enable the NGINX Ingress Controller using the  `Minikube ingress addon <https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/>`__:
+
+   .. code-block:: sh
+
+   minikube addons enable ingress
+
+To run all of the tests including Kubernetes tests, first check that your default Kubernetes environment is the one in which you want to run tests:
+
+.. code-block:: sh
+
+   kubectl config current-context
+
+Then, run:
+
+.. code-block:: sh
+
+   tox -e py-full
+
+Add the ``coverage-report`` environment to also get a test coverage report.
 
 .. _dev-server:
 

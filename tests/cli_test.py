@@ -12,16 +12,12 @@ import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
 
 import pytest
 import structlog
-from _pytest.logging import LogCaptureFixture
 from click.testing import CliRunner
 from cryptography.fernet import Fernet
-from kubernetes_asyncio.client import ApiException
 from safir.database import initialize_database
-from safir.testing.kubernetes import MockKubernetesApi
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
@@ -38,7 +34,6 @@ from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import current_datetime
 
-from .support.logging import parse_log
 from .support.settings import configure
 from .support.slack import MockSlack
 
@@ -297,74 +292,3 @@ def test_openapi_schema(tmp_path: Path) -> None:
     result = runner.invoke(main, ["openapi-schema", "--add-back-link"])
     assert result.exit_code == 0
     assert "Return to Gafaelfawr documentation" in result.output
-
-
-def test_update_service_tokens(
-    tmp_path: Path,
-    engine: AsyncEngine,
-    config: Config,
-    event_loop: asyncio.AbstractEventLoop,
-    mock_kubernetes: MockKubernetesApi,
-) -> None:
-    event_loop.run_until_complete(_initialize_database(engine, config))
-    event_loop.run_until_complete(
-        mock_kubernetes.create_namespaced_custom_object(
-            "gafaelfawr.lsst.io",
-            "v1alpha1",
-            "mobu",
-            "gafaelfawrservicetokens",
-            {
-                "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
-                "kind": "GafaelfawrServiceToken",
-                "metadata": {
-                    "name": "gafaelfawr-secret",
-                    "namespace": "mobu",
-                    "generation": 1,
-                },
-                "spec": {
-                    "service": "bot-mobu",
-                    "scopes": ["admin:token"],
-                },
-            },
-        )
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(main, ["update-service-tokens"])
-
-    assert result.exit_code == 0
-    assert mock_kubernetes.get_all_objects_for_test("Secret")
-
-
-def test_update_service_tokens_error(
-    tmp_path: Path,
-    engine: AsyncEngine,
-    config: Config,
-    event_loop: asyncio.AbstractEventLoop,
-    mock_kubernetes: MockKubernetesApi,
-    caplog: LogCaptureFixture,
-) -> None:
-    event_loop.run_until_complete(_initialize_database(engine, config))
-    caplog.clear()
-
-    def error_callback(method: str, *args: Any) -> None:
-        if method == "list_cluster_custom_object":
-            raise ApiException(status=500, reason="Some error")
-
-    mock_kubernetes.error_callback = error_callback
-    runner = CliRunner()
-    result = runner.invoke(main, ["update-service-tokens"])
-
-    assert result.exit_code == 1
-    assert parse_log(caplog) == [
-        {
-            "event": "Unable to list GafaelfawrServiceToken objects",
-            "error": "Kubernetes API error: (500)\nReason: Some error\n",
-            "severity": "error",
-        },
-        {
-            "error": "Kubernetes API error: (500)\nReason: Some error\n",
-            "event": "Failed to update service token secrets",
-            "severity": "error",
-        },
-    ]

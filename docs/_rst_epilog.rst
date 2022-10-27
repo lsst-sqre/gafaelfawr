@@ -1,3 +1,4 @@
+.. _Kopf: https://kopf.readthedocs.io/en/stable/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/

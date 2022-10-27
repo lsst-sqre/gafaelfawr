@@ -430,6 +430,10 @@ class TokenService:
 
         Raises
         ------
+        gafaelfawr.exceptions.InvalidExpiresError
+            The provided expiration time is not valid.
+        gafaelfawr.exceptions.InvalidScopesError
+            The requested scopes are not permitted.
         gafaelfawr.exceptions.PermissionDeniedError
             If the provided username is invalid.
         """

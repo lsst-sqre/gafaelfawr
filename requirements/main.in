@@ -21,6 +21,7 @@ click
 cryptography
 google-cloud-firestore
 httpx
+kopf
 kubernetes_asyncio
 jinja2
 pydantic

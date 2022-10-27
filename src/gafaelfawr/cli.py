@@ -12,14 +12,11 @@ import structlog
 import uvicorn
 from cryptography.fernet import Fernet
 from fastapi.openapi.utils import get_openapi
-from kubernetes_asyncio.client import ApiClient
 from safir.asyncio import run_with_asyncio
 from safir.database import create_database_engine, initialize_database
-from safir.kubernetes import initialize_kubernetes
 from sqlalchemy import text
 
 from .dependencies.config import config_dependency
-from .exceptions import KubernetesError
 from .factory import Factory
 from .keypair import RSAKeyPair
 from .main import create_app
@@ -33,12 +30,10 @@ __all__ = [
     "generate_token",
     "help",
     "init",
-    "kubernetes_controller",
     "main",
     "maintenance",
     "openapi_schema",
     "run",
-    "update_service_tokens",
 ]
 
 
@@ -215,38 +210,6 @@ async def init(settings: Optional[str]) -> None:
     help="Application settings file.",
 )
 @run_with_asyncio
-async def kubernetes_controller(settings: Optional[str]) -> None:
-    """Run forever, watching service token objects and creating secrets."""
-    if settings:
-        config_dependency.set_settings_path(settings)
-    config = await config_dependency()
-    logger = structlog.get_logger("gafaelfawr")
-    logger.debug("Starting Kubernetes controller")
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    async with Factory.standalone(config, engine, check_db=True) as factory:
-        await initialize_kubernetes()
-        async with ApiClient() as api_client:
-            kubernetes_service = factory.create_kubernetes_service(api_client)
-            logger.debug("Updating all service tokens")
-            await kubernetes_service.update_service_tokens()
-            logger.debug("Starting Kubernetes watcher")
-            queue = await kubernetes_service.start_watcher()
-            logger.debug("Starting continuous processing")
-            await kubernetes_service.update_service_tokens_from_queue(queue)
-    await engine.dispose()
-
-
-@main.command()
-@click.option(
-    "--settings",
-    envvar="GAFAELFAWR_SETTINGS_PATH",
-    type=str,
-    default=None,
-    help="Application settings file.",
-)
-@run_with_asyncio
 async def maintenance(settings: Optional[str]) -> None:
     """Perform background maintenance."""
     if settings:
@@ -314,36 +277,3 @@ def run(port: int) -> None:
         reload=True,
         reload_dirs=["src"],
     )
-
-
-@main.command()
-@click.option(
-    "--settings",
-    envvar="GAFAELFAWR_SETTINGS_PATH",
-    type=str,
-    default=None,
-    help="Application settings file.",
-)
-@run_with_asyncio
-async def update_service_tokens(settings: Optional[str]) -> None:
-    """Update service tokens stored in Kubernetes secrets."""
-    if settings:
-        config_dependency.set_settings_path(settings)
-    config = await config_dependency()
-    logger = structlog.get_logger("gafaelfawr")
-    logger.debug("Starting update of all service tokens")
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    async with Factory.standalone(config, engine, check_db=True) as factory:
-        await initialize_kubernetes()
-        async with ApiClient() as api_client:
-            kubernetes_service = factory.create_kubernetes_service(api_client)
-            try:
-                await kubernetes_service.update_service_tokens()
-            except KubernetesError as e:
-                msg = "Failed to update service token secrets"
-                logger.error(msg, error=str(e))
-                sys.exit(1)
-    await engine.dispose()
-    logger.debug("Finished update of service tokens")

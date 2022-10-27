@@ -14,6 +14,8 @@ __all__ = [
     "GROUPNAME_REGEX",
     "HTTP_TIMEOUT",
     "ID_CACHE_SIZE",
+    "KUBERNETES_TIMER_DELAY",
+    "KUBERNETES_TOKEN_INTERVAL",
     "LDAP_CACHE_SIZE",
     "LDAP_CACHE_LIFETIME",
     "LDAP_TIMEOUT",
@@ -36,6 +38,23 @@ COOKIE_NAME = "gafaelfawr"
 
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
+
+KUBERNETES_TIMER_DELAY = 5
+"""How long (in seconds) to delay timers after startup and changes.
+
+Gafaelfawr uses a Kopf_ timer to periodically re-check service tokens stored
+in secrets and regenerate them if needed.  This timer can conflict with the
+update handler if changes were made to the ``GafaelfawrServiceToken`` object
+while the operator was not running.  Wait this long after startup and after
+any detected change to the object before processing it with the timer to try
+to avoid that conflict.
+
+This could be longer for production operation, but the test suite needs to
+wait for at least this long to test timer operation, so this is a compromise.
+"""
+
+KUBERNETES_TOKEN_INTERVAL = 60 * 60
+"""How frequently (in seconds) to validate service tokens stored in secrets."""
 
 LDAP_TIMEOUT = 5.0
 """Timeout (in seconds) for LDAP queries."""

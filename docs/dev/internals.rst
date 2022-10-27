@@ -37,6 +37,8 @@ Python internal API
 
 .. automodapi:: gafaelfawr.models.history
 
+.. automodapi:: gafaelfawr.models.kubernetes
+
 .. automodapi:: gafaelfawr.models.ldap
 
 .. automodapi:: gafaelfawr.models.link
@@ -46,6 +48,12 @@ Python internal API
 .. automodapi:: gafaelfawr.models.state
 
 .. automodapi:: gafaelfawr.models.token
+
+.. automodapi:: gafaelfawr.operator
+
+.. automodapi:: gafaelfawr.operator.startup
+
+.. automodapi:: gafaelfawr.operator.tokens
 
 .. automodapi:: gafaelfawr.providers.base
 

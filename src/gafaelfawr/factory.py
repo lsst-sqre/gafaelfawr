@@ -29,7 +29,7 @@ from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
 from .services.firestore import FirestoreService
-from .services.kubernetes import KubernetesService
+from .services.kubernetes import KubernetesTokenService
 from .services.ldap import LDAPService
 from .services.oidc import OIDCService
 from .services.token import TokenService
@@ -39,7 +39,7 @@ from .storage.admin import AdminStore
 from .storage.base import RedisStorage
 from .storage.firestore import FirestoreStorage
 from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
-from .storage.kubernetes import KubernetesStorage
+from .storage.kubernetes import KubernetesTokenStorage
 from .storage.ldap import LDAPStorage
 from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
@@ -168,11 +168,52 @@ class Factory:
     """
 
     @classmethod
+    async def create(
+        cls, config: Config, engine: AsyncEngine, check_db: bool = False
+    ) -> Factory:
+        """Create a component factory outside of a request.
+
+        Intended for long-running daemons other than the FastAPI web
+        application, such as the Kubernetes operator.  This class method
+        should only be used in situations where an async context manager
+        cannot be used.  Do not use this factory inside the web application or
+        anywhere that may use the default `Factory`, since they will interfere
+        with each other's Redis pools.
+
+        If an async context manager can be used, call `standalone` rather than
+        this method.
+
+        Parameters
+        ----------
+        config : `gafaelfawr.config.Config`
+            Gafaelfawr configuration.
+        engine : `sqlalchemy.ext.asyncio.AsyncEngine`
+            Database engine to use for connections.
+        check_db : `bool`, optional
+            If set to `True`, check database connectivity before returning by
+            doing a simple query.
+
+        Returns
+        -------
+        factory : `gafaelfawr.factory.Factory`
+            Newly-created factory.  The caller must call `aclose` on the
+            returned object during shutdown.
+        """
+        logger = structlog.get_logger("gafaelfawr")
+        statement = select(SQLAdmin) if check_db else None
+        session = await create_async_session(engine, statement=statement)
+        try:
+            context = await ProcessContext.from_config(config)
+            return cls(context, session, logger)
+        finally:
+            await session.remove()
+
+    @classmethod
     @asynccontextmanager
     async def standalone(
         cls, config: Config, engine: AsyncEngine, check_db: bool = False
     ) -> AsyncIterator[Factory]:
-        """Build Gafaelfawr components outside of a request.
+        """Async context manager for Gafaelfawr components.
 
         Intended for background jobs.  Uses the non-request default values for
         the dependencies of `Factory`.  Do not use this factory inside the web
@@ -192,17 +233,20 @@ class Factory:
         Yields
         ------
         factory : `Factory`
-            The factory.  Must be used as a context manager.
+            The factory.  Must be used as an async context manager.
+
+        Examples
+        --------
+        .. code-block:: python
+
+           async with Factory.standalone(config, engine) as factory:
+               token_service = factory.create_token_service()
+               async with factory.session.begin():
+                   alerts = await token_service.audit(fix=fix)
         """
-        logger = structlog.get_logger("gafaelfawr")
-        statement = select(SQLAdmin) if check_db else None
-        session = await create_async_session(engine, statement=statement)
-        try:
-            context = await ProcessContext.from_config(config)
-            async with aclosing(context):
-                yield cls(context, session, logger)
-        finally:
-            await session.remove()
+        factory = await cls.create(config, engine, check_db)
+        async with aclosing(factory):
+            yield factory
 
     def __init__(
         self,
@@ -218,6 +262,17 @@ class Factory:
     def redis(self) -> Redis:
         """Underlying Redis connection pool, mainly for tests."""
         return self._context.redis
+
+    async def aclose(self) -> None:
+        """Shut down the factory.
+
+        After this method is called, the factory object is no longer valid and
+        must not be used.
+        """
+        try:
+            await self._context.aclose()
+        finally:
+            await self.session.remove()
 
     def create_admin_service(self) -> AdminService:
         """Create a new manager object for token administrators.
@@ -261,10 +316,10 @@ class Factory:
             raise NotConfiguredError("Firestore is not configured")
         return FirestoreStorage(self._context.config.firestore, self._logger)
 
-    def create_kubernetes_service(
+    def create_kubernetes_token_service(
         self, api_client: ApiClient
-    ) -> KubernetesService:
-        """Create a Kubernetes service.
+    ) -> KubernetesTokenService:
+        """Create a service for managing tokens stored in Kubernetes.
 
         Parameters
         ----------
@@ -273,12 +328,12 @@ class Factory:
 
         Returns
         -------
-        kubernetes_service : `gafaelfawr.services.kubernetes.KubernetesService`
+        service : `gafaelfawr.services.kubernetes.KubernetesTokenService`
             Newly-created Kubernetes service.
         """
-        storage = KubernetesStorage(api_client, self._logger)
+        storage = KubernetesTokenStorage(api_client, self._logger)
         token_service = self.create_token_service()
-        return KubernetesService(
+        return KubernetesTokenService(
             token_service=token_service,
             storage=storage,
             session=self.session,

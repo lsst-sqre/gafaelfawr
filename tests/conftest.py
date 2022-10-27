@@ -16,7 +16,6 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from safir.database import create_database_engine, initialize_database
 from safir.dependencies.db_session import db_session_dependency
-from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from seleniumwire import webdriver
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -179,18 +178,6 @@ def mock_firestore(tmp_path: Path) -> Iterator[MockFirestore]:
         The mocked Firestore API.
     """
     yield from patch_firestore()
-
-
-@pytest.fixture
-def mock_kubernetes() -> Iterator[MockKubernetesApi]:
-    """Replace the Kubernetes API with a mock class.
-
-    Returns
-    -------
-    mock_kubernetes : `safir.testing.kubernetes.MockKubernetesApi`
-        The mock Kubernetes API object.
-    """
-    yield from patch_kubernetes()
 
 
 @pytest.fixture

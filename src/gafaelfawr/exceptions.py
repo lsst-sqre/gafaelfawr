@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import ClassVar, Dict, List, Union
 
+import kopf
 from fastapi import status
 
 from .slack import SlackIgnoredException
@@ -61,7 +62,7 @@ class ErrorLocation(Enum):
     query = "query"
 
 
-class ValidationError(SlackIgnoredException):
+class ValidationError(SlackIgnoredException, kopf.PermanentError):
     """Represents an input validation error.
 
     There is a global handler for this exception and all exceptions derived
@@ -352,7 +353,7 @@ class NotConfiguredError(SlackIgnoredException):
     """The requested operation was not configured."""
 
 
-class PermissionDeniedError(SlackIgnoredException):
+class PermissionDeniedError(SlackIgnoredException, kopf.PermanentError):
     """The user does not have permission to perform this operation."""
 
 
