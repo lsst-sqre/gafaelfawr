@@ -21,6 +21,7 @@ selenium-wire
 sqlalchemy[mypy]
 types-cachetools
 types-PyYAML
+types-redis
 
 # Local test instance
 holdup
@@ -30,6 +31,3 @@ documenteer[guide]>=0.7.0b2
 sphinx-click
 sphinx-diagrams
 sphinxcontrib-redoc
-
-# Temporary until https://github.com/Teemu/pytest-sugar/issues/241 is fixed.
-py
