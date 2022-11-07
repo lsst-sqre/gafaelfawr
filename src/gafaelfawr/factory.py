@@ -6,8 +6,8 @@ from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
 from typing import AsyncIterator, List, Optional
 
+import redis.asyncio as redis
 import structlog
-from aioredis import Redis
 from bonsai import LDAPClient
 from bonsai.asyncio import AIOConnectionPool
 from httpx import AsyncClient
@@ -67,7 +67,7 @@ class ProcessContext:
     ldap_pool: Optional[AIOConnectionPool]
     """Connection pool to talk to LDAP, if configured."""
 
-    redis: Redis
+    redis: redis.Redis
     """Connection pool to use to talk to Redis."""
 
     uid_cache: IdCache
@@ -120,7 +120,7 @@ class ProcessContext:
             config=config,
             http_client=await http_client_dependency(),
             ldap_pool=ldap_pool,
-            redis=Redis.from_url(
+            redis=redis.from_url(
                 config.redis_url, password=config.redis_password
             ),
             uid_cache=IdCache(),
@@ -259,7 +259,7 @@ class Factory:
         self._logger = logger
 
     @property
-    def redis(self) -> Redis:
+    def redis(self) -> redis.Redis:
         """Underlying Redis connection pool, mainly for tests."""
         return self._context.redis
 
