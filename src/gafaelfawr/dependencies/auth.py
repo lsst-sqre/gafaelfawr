@@ -6,7 +6,6 @@ from urllib.parse import urlencode, urlparse
 from fastapi import Depends, Header, HTTPException, status
 
 from ..auth import (
-    AuthType,
     generate_challenge,
     generate_unauthorized_challenge,
     parse_authorization,
@@ -17,6 +16,7 @@ from ..exceptions import (
     InvalidTokenError,
     PermissionDeniedError,
 )
+from ..models.auth import AuthType
 from ..models.oidc import OIDCToken, OIDCVerifiedToken
 from ..models.token import Token, TokenData
 from .context import RequestContext, context_dependency
