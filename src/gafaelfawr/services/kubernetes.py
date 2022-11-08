@@ -102,9 +102,9 @@ class KubernetesTokenService:
     async def _create_token(self, parent: GafaelfawrServiceToken) -> Token:
         """Create a service token for a ``GafaelfawrServiceToken``."""
         request = AdminTokenRequest(
-            username=parent.service,
+            username=parent.spec.service,
             token_type=TokenType.service,
-            scopes=parent.scopes,
+            scopes=parent.spec.scopes,
         )
         async with self._session.begin():
             return await self._token_service.create_token_from_admin_request(
@@ -118,9 +118,9 @@ class KubernetesTokenService:
         token_data = await self._token_service.get_data(token)
         if not token_data:
             return False
-        if token_data.username != parent.service:
+        if token_data.username != parent.spec.service:
             return False
-        if sorted(token_data.scopes) != sorted(parent.scopes):
+        if sorted(token_data.scopes) != sorted(parent.spec.scopes):
             return False
         return True
 
@@ -144,8 +144,8 @@ class KubernetesTokenService:
     ) -> bool:
         """Check if a secret needs its metadata updated."""
         return not (
-            secret.metadata.annotations == parent.annotations
-            and secret.metadata.labels == parent.labels
+            secret.metadata.annotations == parent.metadata.annotations
+            and secret.metadata.labels == parent.metadata.labels
         )
 
     async def _update_secret(
@@ -191,6 +191,6 @@ class KubernetesTokenService:
             else:
                 msg = f"Created {parent.key} secret"
             self._logger.info(
-                msg, service=parent.service, scopes=parent.scopes
+                msg, service=parent.spec.service, scopes=parent.spec.scopes
             )
             return status

@@ -83,11 +83,12 @@ class KubernetesTokenStorage:
             Status information to store in the parent object.
         """
         secret = self._build_secret(parent, token)
-        await self._api.create_namespaced_secret(parent.namespace, secret)
+        namespace = parent.metadata.namespace
+        await self._api.create_namespaced_secret(namespace, secret)
         return KubernetesResourceStatus(
             message="Secret was created",
             reason=StatusReason.Created,
-            generation=parent.generation,
+            generation=parent.metadata.generation,
         )
 
     @_convert_exception
@@ -108,7 +109,7 @@ class KubernetesTokenStorage:
         """
         try:
             secret = await self._api.read_namespaced_secret(
-                parent.name, parent.namespace
+                parent.metadata.name, parent.metadata.namespace
             )
         except ApiException as e:
             if e.status == 404:
@@ -137,12 +138,12 @@ class KubernetesTokenStorage:
         """
         secret = self._build_secret(parent, token)
         await self._api.replace_namespaced_secret(
-            parent.name, parent.namespace, secret
+            parent.metadata.name, parent.metadata.namespace, secret
         )
         return KubernetesResourceStatus(
             message="Secret was updated",
             reason=StatusReason.Updated,
-            generation=parent.generation,
+            generation=parent.metadata.generation,
         )
 
     @_convert_exception
@@ -157,18 +158,18 @@ class KubernetesTokenStorage:
             The parent object for the ``Secret``.
         """
         await self._api.patch_namespaced_secret(
-            parent.name,
-            parent.namespace,
+            parent.metadata.name,
+            parent.metadata.namespace,
             [
                 {
                     "op": "replace",
                     "path": "/metadata/annotations",
-                    "value": parent.annotations,
+                    "value": parent.metadata.annotations,
                 },
                 {
                     "op": "replace",
                     "path": "/metadata/labels",
-                    "value": parent.labels,
+                    "value": parent.metadata.labels,
                 },
             ],
         )
@@ -201,18 +202,18 @@ class KubernetesTokenStorage:
             kind="Secret",
             data={"token": b64encode(str(token).encode()).decode()},
             metadata=V1ObjectMeta(
-                name=parent.name,
-                namespace=parent.namespace,
-                annotations=parent.annotations,
-                labels=parent.labels,
+                name=parent.metadata.name,
+                namespace=parent.metadata.namespace,
+                annotations=parent.metadata.annotations,
+                labels=parent.metadata.labels,
                 owner_references=[
                     V1OwnerReference(
                         api_version="gafaelfawr.lsst.io/v1alpha1",
                         block_owner_deletion=True,
                         controller=True,
                         kind="GafaelfawrServiceToken",
-                        name=parent.name,
-                        uid=parent.uid,
+                        name=parent.metadata.name,
+                        uid=parent.metadata.uid,
                     ),
                 ],
             ),

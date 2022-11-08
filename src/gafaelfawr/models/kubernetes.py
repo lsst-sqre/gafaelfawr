@@ -5,27 +5,24 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Mapping, Union
+from typing import Dict, List, Optional, Union
 
-from ..exceptions import KubernetesObjectError
+from pydantic import BaseModel, validator
+
 from ..util import current_datetime
 
 __all__ = [
     "GafaelfawrServiceToken",
+    "GafaelfawrServiceTokenSpec",
+    "KubernetesMetadata",
     "KubernetesResource",
     "KubernetesResourceStatus",
     "StatusReason",
 ]
 
 
-@dataclass
-class KubernetesResource:
-    """A Kubernetes resource being processed by an operator.
-
-    Intended for use as a parent class for all operator resources.  This holds
-    generic data that is used by parts of the Kubernetes plumbing.  It should
-    be extended with resource-specific data.
-    """
+class KubernetesMetadata(BaseModel):
+    """The metadata section of a Kubernetes resource."""
 
     name: str
     """The name of the object."""
@@ -33,10 +30,10 @@ class KubernetesResource:
     namespace: str
     """The namespace in which the object is located."""
 
-    annotations: Dict[str, str]
+    annotations: Optional[Dict[str, str]] = None
     """The annotations of the object."""
 
-    labels: Dict[str, str]
+    labels: Optional[Dict[str, str]] = None
     """The labels of the object."""
 
     uid: str
@@ -45,10 +42,39 @@ class KubernetesResource:
     generation: int
     """The generation of the object."""
 
+    @validator("annotations")
+    def _filter_kopf_annotations(
+        cls, v: Optional[Dict[str, str]]
+    ) -> Optional[Dict[str, str]]:
+        """Filter out the annotations added by Kopf."""
+        if not v:
+            return v
+        return {
+            key: value
+            for key, value in v.items()
+            if not key.startswith("kopf.zalando.org/")
+        }
 
-@dataclass
-class GafaelfawrServiceToken(KubernetesResource):
-    """The key data from a GafaelfawrServiceToken Kubernetes object."""
+
+class KubernetesResource(BaseModel):
+    """A Kubernetes resource being processed by an operator.
+
+    Intended for use as a parent class for all operator resources.  This holds
+    generic data that is used by parts of the Kubernetes plumbing.  It should
+    be extended with resource-specific data.
+    """
+
+    metadata: KubernetesMetadata
+    """Metadata section of the Kubernetes resource."""
+
+    @property
+    def key(self) -> str:
+        """A unique key for this custom object."""
+        return f"{self.metadata.namespace}/{self.metadata.name}"
+
+
+class GafaelfawrServiceTokenSpec(BaseModel):
+    """Holds the ``spec`` section of a ``GafaelfawrServiceToken`` resource."""
 
     service: str
     """The username of the service token."""
@@ -56,54 +82,12 @@ class GafaelfawrServiceToken(KubernetesResource):
     scopes: List[str]
     """The scopes to grant to the service token."""
 
-    @classmethod
-    def from_dict(cls, obj: Mapping[str, Any]) -> GafaelfawrServiceToken:
-        """Convert from the dict returned by Kubernetes.
 
-        Parameters
-        ----------
-        obj
-            The object as returned by the Kubernetes API.
+class GafaelfawrServiceToken(KubernetesResource):
+    """Representation of a ``GafaelfawrServiceToken`` resource."""
 
-        Raises
-        ------
-        KubernetesObjectError
-            The dict could not be parsed.
-        """
-        name = None
-        namespace = None
-        try:
-            name = obj["metadata"]["name"]
-            namespace = obj["metadata"]["namespace"]
-            annotations = {
-                k: v
-                for k, v in obj["metadata"].get("annotations", {}).items()
-                if not k.startswith("kopf.zalando.org/")
-            }
-            return cls(
-                name=name,
-                namespace=namespace,
-                annotations=annotations,
-                labels=obj["metadata"].get("labels", {}),
-                uid=obj["metadata"]["uid"],
-                generation=obj["metadata"]["generation"],
-                service=obj["spec"]["service"],
-                scopes=obj["spec"]["scopes"],
-            )
-        except KeyError as e:
-            if name and namespace:
-                msg = (
-                    f"GafaelfawrServiceToken {namespace}/{name} is"
-                    f" malformed: {str(e)}"
-                )
-            else:
-                msg = f"GafaelfawrServiceToken is malformed: {str(e)}"
-            raise KubernetesObjectError(msg) from e
-
-    @property
-    def key(self) -> str:
-        """A unique key for this custom object."""
-        return f"{self.namespace}/{self.name}"
+    spec: GafaelfawrServiceTokenSpec
+    """Specification for the ``Secret`` resource to create."""
 
 
 class StatusReason(Enum):
@@ -155,7 +139,7 @@ class KubernetesResourceStatus:
         """
         return cls(
             message=message,
-            generation=resource.generation,
+            generation=resource.metadata.generation,
             reason=StatusReason.Failed,
         )
 
