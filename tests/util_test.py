@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
+
+import pytest
 
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.util import (
@@ -10,7 +12,9 @@ from gafaelfawr.util import (
     base64_to_number,
     format_datetime_for_logging,
     is_bot_user,
+    normalize_timedelta,
     number_to_base64,
+    to_camel_case,
 )
 
 
@@ -55,6 +59,21 @@ def test_is_bot_user() -> None:
     assert not is_bot_user("bot-in!valid")
 
 
+def test_normalize_timedelta() -> None:
+    assert normalize_timedelta(None) is None
+    assert normalize_timedelta(10) == timedelta(seconds=10)
+
+    with pytest.raises(ValueError):
+        normalize_timedelta("not an int")  # type: ignore[arg-type]
+
+
 def test_number_to_base64() -> None:
     assert number_to_base64(0) == b"AA"
     assert number_to_base64(65537) == b"AQAB"
+
+
+def test_to_camel_case() -> None:
+    assert to_camel_case("foo") == "foo"
+    assert to_camel_case("minimum_lifetime") == "minimumLifetime"
+    assert to_camel_case("replace_403") == "replace403"
+    assert to_camel_case("foo_bar_baz") == "fooBarBaz"

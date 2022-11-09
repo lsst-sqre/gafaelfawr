@@ -10,6 +10,7 @@ from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
     ApiClient,
     ApiException,
+    V1Ingress,
     V1ObjectMeta,
     V1OwnerReference,
     V1Secret,
@@ -18,6 +19,7 @@ from structlog.stdlib import BoundLogger
 
 from ..exceptions import KubernetesError
 from ..models.kubernetes import (
+    GafaelfawrIngress,
     GafaelfawrServiceToken,
     KubernetesResourceStatus,
     StatusReason,
@@ -26,7 +28,10 @@ from ..models.token import Token
 
 F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
-__all__ = ["KubernetesTokenStorage"]
+__all__ = [
+    "KubernetesIngressStorage",
+    "KubernetesTokenStorage",
+]
 
 
 def _convert_exception(f: F) -> F:
@@ -40,6 +45,139 @@ def _convert_exception(f: F) -> F:
             raise KubernetesError(f"Kubernetes API error: {str(e)}") from e
 
     return cast(F, wrapper)
+
+
+class KubernetesIngressStorage:
+    """Kubernetes storage layer for ingress objects.
+
+    This abstracts creation of ``Ingress`` resources based on configuration
+    and templates in ``GafaelfawrIngress`` resources by wrapping the
+    underlying Kubernetes Python client.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes async client to use.
+    logger
+        Logger to use.
+
+    Notes
+    -----
+    Unlike `KubernetesTokenStorage`, this storage layer is very lightweight,
+    since the API is defined in terms of Kubernetes API objects (there was no
+    compelling reason to create parallel models) and the service is
+    responsible for assembling those objects based on the template in
+    ``GafaelfawrIngress``.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        self._api = client.NetworkingV1Api(api_client)
+        self._custom_api = client.CustomObjectsApi(api_client)
+        self._logger = logger
+
+    @_convert_exception
+    async def create_ingress(
+        self, ingress: V1Ingress, parent: GafaelfawrIngress
+    ) -> KubernetesResourceStatus:
+        """Create a Kubernetes ``Ingress`` resource.
+
+        Parameters
+        ----------
+        ingress
+            The ``Ingress`` object to create. This will be modified in place
+            to add owner metadata.
+        parent
+            The parent object for the ingress
+
+        Returns
+        -------
+        KubernetesResourceStatus
+            Status information to store in the parent object.
+        """
+        self._add_owner(ingress, parent)
+        namespace = ingress.metadata.namespace
+        await self._api.create_namespaced_ingress(namespace, ingress)
+        return KubernetesResourceStatus(
+            message="Ingress was created",
+            reason=StatusReason.Created,
+            generation=parent.metadata.generation,
+        )
+
+    @_convert_exception
+    async def get_ingress(
+        self, name: str, namespace: str
+    ) -> Optional[V1Ingress]:
+        """Retrieve a Kubernetes ``Ingress`` resource.
+
+        Parameters
+        ----------
+        name
+            Name of the ingress
+        namespace
+            Namespace in which the ingress is located
+
+        Returns
+        -------
+        kubernetes_asyncio.client.V1Ingress or None
+            The Kubernetes ingress object, or `None` if it doesn't exist.
+        """
+        try:
+            return await self._api.read_namespaced_ingress(name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return None
+            raise
+
+    @_convert_exception
+    async def replace_ingress(
+        self, ingress: V1Ingress, parent: GafaelfawrIngress
+    ) -> KubernetesResourceStatus:
+        """Replace a Kubernetes ``Ingress`` resource.
+
+        Parameters
+        ----------
+        ingress
+            The ``Ingress`` object to replace. This will be modified in place
+            to add owner metadata.
+        parent
+            The parent object for the ingress
+
+        Returns
+        -------
+        KubernetesResourceStatus
+            Status information to store in the parent object.
+        """
+        self._add_owner(ingress, parent)
+        name = ingress.metadata.name
+        namespace = ingress.metadata.namespace
+        await self._api.replace_namespaced_ingress(name, namespace, ingress)
+        return KubernetesResourceStatus(
+            message="Ingress was updated",
+            reason=StatusReason.Updated,
+            generation=parent.metadata.generation,
+        )
+
+    def _add_owner(
+        self, ingress: V1Ingress, parent: GafaelfawrIngress
+    ) -> V1Ingress:
+        """Add ownership information to an ingress object.
+
+        Parameters
+        ----------
+        ingress
+             Object to which to add ownership. The object is modified in
+             place.
+        """
+        ingress.metadata.owner_references = [
+            V1OwnerReference(
+                api_version="gafaelfawr.lsst.io/v1alpha1",
+                block_owner_deletion=True,
+                controller=True,
+                kind="GafaelfawrIngress",
+                name=parent.metadata.name,
+                uid=parent.metadata.uid,
+            )
+        ]
 
 
 class KubernetesTokenStorage:
@@ -57,7 +195,6 @@ class KubernetesTokenStorage:
     """
 
     def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
-        self._api_client = api_client
         self._api = client.CoreV1Api(api_client)
         self._custom_api = client.CustomObjectsApi(api_client)
         self._logger = logger
@@ -108,15 +245,13 @@ class KubernetesTokenStorage:
             The Kubernetes secret, or `None` if that secret does not exist.
         """
         try:
-            secret = await self._api.read_namespaced_secret(
+            return await self._api.read_namespaced_secret(
                 parent.metadata.name, parent.metadata.namespace
             )
         except ApiException as e:
             if e.status == 404:
                 return None
             raise
-
-        return secret
 
     @_convert_exception
     async def replace_secret(

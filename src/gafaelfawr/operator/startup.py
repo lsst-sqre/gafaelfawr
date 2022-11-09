@@ -27,19 +27,26 @@ async def startup(memo: kopf.Memo, **_: Any) -> None:
     Parameters
     ----------
     memo
-        Holds global state, used to store the
-        `~gafaelfawr.services.kubernetes.KubernetesTokenService` object and
-        other state that needs to be freed cleanly during shutdown.
+        Holds global state, used to store the service objects and the various
+        infrastructure used to create them, and which needs to be freed
+        cleanly during shutdown.
     """
     config = await config_dependency()
-    memo.engine = create_database_engine(
+    await initialize_kubernetes()
+
+    engine = create_database_engine(
         config.database_url, config.database_password
     )
-    memo.factory = await Factory.create(config, memo.engine, check_db=True)
-    await initialize_kubernetes()
-    memo.api_client = ApiClient()
-    service = memo.factory.create_kubernetes_token_service(memo.api_client)
-    memo.token_service = service
+    factory = await Factory.create(config, engine, check_db=True)
+    api_client = ApiClient()
+    ingress_service = factory.create_kubernetes_ingress_service(api_client)
+    token_service = factory.create_kubernetes_token_service(api_client)
+
+    memo.engine = engine
+    memo.factory = factory
+    memo.api_client = api_client
+    memo.ingress_service = ingress_service
+    memo.token_service = token_service
 
 
 @kopf.on.cleanup()
@@ -49,8 +56,7 @@ async def shutdown(memo: kopf.Memo, **_: Any) -> None:
     Parameters
     ----------
     memo
-        Holds global state, used to store the
-        `~gafaelfawr.services.kubernetes.KubernetesTokenService` object and
+        Holds global state, used to store the factory, Kubernetes client, and
         other state that needs to be freed cleanly during shutdown.
     """
     await memo.api_client.close()

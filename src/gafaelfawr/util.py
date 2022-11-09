@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from ipaddress import IPv4Address, IPv6Address
 from typing import List, Optional, Union
 
@@ -19,8 +19,12 @@ __all__ = [
     "current_datetime",
     "is_bot_user",
     "normalize_datetime",
+    "normalize_ip_address",
+    "normalize_scopes",
+    "normalize_timedelta",
     "number_to_base64",
     "random_128_bits",
+    "to_camel_case",
 ]
 
 
@@ -185,6 +189,28 @@ def normalize_scopes(
         return v
 
 
+def normalize_timedelta(v: Optional[int]) -> Optional[timedelta]:
+    """Pydantic validator for timedelta fields.
+
+    Parameters
+    ----------
+    v
+        The field representing a duration, in seconds
+
+    Returns
+    -------
+    datetime.timedelta or None
+        The corresponding `datetime.timedelta` or `None` if the input was
+        `None`.
+    """
+    if v is None:
+        return v
+    elif isinstance(v, int):
+        return timedelta(seconds=v)
+    else:
+        raise ValueError("invalid timedelta (should be in seconds)")
+
+
 def number_to_base64(data: int) -> bytes:
     """Convert an integer to base64-encoded bytes in big endian order.
 
@@ -212,3 +238,24 @@ def number_to_base64(data: int) -> bytes:
 def random_128_bits() -> str:
     """Generate random 128 bits encoded in base64 without padding."""
     return base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
+
+
+def to_camel_case(string: str) -> str:
+    """Convert a string to camel case.
+
+    Originally written for use with Pydantic as an alias generator so that the
+    model can be initialized from camel-case input (such as Kubernetes
+    objects).
+
+    Parameters
+    ----------
+    string
+        Input string
+
+    Returns
+    -------
+    str
+        String converted to camel-case with the first character in lowercase.
+    """
+    components = string.split("_")
+    return components[0] + "".join(c.title() for c in components[1:])

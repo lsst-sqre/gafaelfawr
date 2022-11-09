@@ -29,9 +29,9 @@ nitpick_ignore = [
     ["py:exc", "fastapi.exceptions.RequestValidationError"],
     ["py:exc", "httpx.HTTPError"],
     ["py:obj", "fastapi.routing.APIRoute"],
+    ["py:class", "kubernetes_asyncio.client.V1Ingress"],
     ["py:class", "kubernetes_asyncio.client.V1Secret"],
     ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
-    ["py:class", "kubernetes_asyncio.client.models.v1_secret.V1Secret"],
     ["py:class", "pydantic.env_settings.BaseSettings"],
     ["py:class", "pydantic.main.BaseModel"],
     ["py:class", "pydantic.networks.AnyHttpUrl"],
@@ -61,6 +61,9 @@ nitpick_ignore = [
     ["py:obj", "gafaelfawr.models.history.E"],
     ["py:class", "gafaelfawr.storage.base.S"],
     ["py:obj", "gafaelfawr.storage.base.S"],
+]
+nitpick_ignore_regex = [
+    ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
 ]
 python_api_dir = "dev/internals"
 rst_epilog_file = "_rst_epilog.rst"
