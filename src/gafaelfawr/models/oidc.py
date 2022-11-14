@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
-from ..constants import ALGORITHM
+from ..constants import ALGORITHM, OIDC_AUTHORIZATION_LIFETIME
 from ..exceptions import InvalidGrantError
-from ..util import normalize_datetime, random_128_bits
+from ..util import current_datetime, normalize_datetime, random_128_bits
 from .token import Token
 
 __all__ = [
@@ -122,6 +122,9 @@ class OIDCAuthorization(BaseModel):
     @property
     def lifetime(self) -> int:
         """The object lifetime in seconds."""
+        age = (current_datetime() - self.created_at).total_seconds()
+        remaining = OIDC_AUTHORIZATION_LIFETIME - age
+        return int(remaining) if remaining > 0 else 0
 
 
 class OIDCToken(BaseModel):
