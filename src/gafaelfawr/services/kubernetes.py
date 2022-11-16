@@ -157,9 +157,6 @@ class KubernetesIngressService:
         Compare an existing ``Ingress`` resource with one generated from a
         ``GafaelfawrIngress`` and see if it needs an update.
         """
-        key = f"{new.metadata.namespace}/{new.metadata.name}"
-        msg = f"Checking if {key} needs updates"
-        self._logger.debug(msg, old=old.to_dict(), new=new.to_dict())
         return (
             old.metadata.annotations != new.metadata.annotations
             or old.metadata.labels != new.metadata.labels
