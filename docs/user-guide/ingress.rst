@@ -93,9 +93,11 @@ The ``template`` section is a template for the ``Ingress`` resource.
 It uses a subset of the ``Ingress`` schema.
 
 ``template.metadata.name`` specifies the name of the ``Ingress`` resource to create and must be present.
-``template.metadata.rules`` are the normal ``Ingress`` routing rules.
+``template.metadata.labels`` and ``template.metadata.annotations`` may be set to add labels and annotations to the created ``Ingress``, in addition to the annotations that will be added by Gafaelfawr.
+
+``template.spec.rules`` are the normal ``Ingress`` routing rules.
 Only the above structure is supported, but all standard ``pathType`` options are supported, as is using either ``name`` or ``number`` for the port.
-``template.metadata.tls`` may also be given and, if present, uses the same schema as the normal ``tls`` section of an ``Ingress``.
+``template.spec.tls`` may also be given and, if present, uses the same schema as the normal ``tls`` section of an ``Ingress``.
 
 For the configuration options discussed in the rest of this page, only the relevant portion of the ``GafaelfawrIngress`` resource is shown.
 Add the example configuration to the above full resource to get a valid ``GafaelfawrIngress`` resource.
