@@ -33,6 +33,7 @@ nitpick_ignore = [
     ["py:class", "kubernetes_asyncio.client.V1Secret"],
     ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
     ["py:class", "pydantic.env_settings.BaseSettings"],
+    ["py:class", "pydantic.error_wrappers.ValidationError"],
     ["py:class", "pydantic.main.BaseModel"],
     ["py:class", "pydantic.networks.AnyHttpUrl"],
     ["py:class", "pydantic.networks.IPvAnyNetwork"],

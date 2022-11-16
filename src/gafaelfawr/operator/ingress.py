@@ -54,10 +54,9 @@ async def create(
     try:
         ingress = GafaelfawrIngress.parse_obj(body)
     except ValidationError as e:
-        msg = (
-            f"GafaelfawrIngress {namespace}/{name} is" f" malformed: {str(e)}"
-        )
-        raise KubernetesObjectError(msg) from e
+        raise KubernetesObjectError(
+            "GafaelfawrIngress", name, namespace, e
+        ) from e
 
     # Update the corresponding Ingress and return the new status information.
     status = await ingress_service.update(ingress)
