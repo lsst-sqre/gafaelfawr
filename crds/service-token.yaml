@@ -72,7 +72,7 @@ spec:
               description: >-
                 The observed state of the GafaelfawrServiceToken.
               x-kubernetes-preserve-unknown-fields: true
-              parameters:
+              properties:
                 create:
                   type: object
                   description: >-
