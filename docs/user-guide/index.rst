@@ -18,6 +18,7 @@ While there is nothing intrinsic in Gafaelfawr that would prevent it from workin
    :caption: Protecting services
 
    ingress
+   manual-ingress
    service-tokens
    openid-connect
 
