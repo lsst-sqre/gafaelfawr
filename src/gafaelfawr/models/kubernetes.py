@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -16,9 +17,14 @@ from kubernetes_asyncio.client import (
     V1IngressTLS,
     V1ServiceBackendPort,
 )
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Extra, Field, validator
 
-from ..util import current_datetime, normalize_timedelta, to_camel_case
+from ..util import (
+    current_datetime,
+    normalize_timedelta,
+    to_camel_case,
+    validate_exactly_one_of,
+)
 from .auth import AuthType, Satisfy
 
 __all__ = [
@@ -31,10 +37,13 @@ __all__ = [
     "GafaelfawrIngressPath",
     "GafaelfawrIngressPathBackend",
     "GafaelfawrIngressPathService",
-    "GafaelfawrIngressPathServicePort",
+    "GafaelfawrServicePortName",
+    "GafaelfawrServicePortNumber",
     "GafaelfawrIngressRule",
     "GafaelfawrIngressRuleHTTP",
-    "GafaelfawrIngressScopes",
+    "GafaelfawrIngressScopesAll",
+    "GafaelfawrIngressScopesAny",
+    "GafaelfawrIngressScopesBase",
     "GafaelfawrIngressSpec",
     "GafaelfawrIngressTLS",
     "GafaelfawrIngressTemplate",
@@ -138,58 +147,73 @@ class GafaelfawrIngressDelegate(BaseModel):
         "minimum_lifetime", allow_reuse=True, pre=True
     )(normalize_timedelta)
 
+    _validate_type = validator("internal", always=True, allow_reuse=True)(
+        validate_exactly_one_of("notebook", "internal")
+    )
+
     class Config:
         """Pydantic configuration."""
 
         alias_generator = to_camel_case
 
-    @validator("internal", always=True)
-    def _validate_type(
-        cls,
-        v: Optional[GafaelfawrIngressDelegateInternal],
-        values: Dict[str, Any],
-    ) -> Optional[GafaelfawrIngressDelegateInternal]:
-        """Check that either notebook is true or internal was provided."""
-        if not v and not values["notebook"]:
-            raise ValueError("either internal or notebook must be configured")
-        if v and values["notebook"]:
-            raise ValueError("only one of internal or notebook may be given")
-        return v
+
+class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
+    """Base class for specifying the required scopes.
+
+    Required scopes can be specified in one of two ways: a list of scopes that
+    must all be present, or a list of scopes where any one of those scopes
+    must be present.  This base class represents the common interface with the
+    rest of Gafaelfawr.
+    """
+
+    @property
+    @abstractmethod
+    def satisfy(self) -> Satisfy:
+        """The authorization satisfy strategy."""
+
+    @property
+    @abstractmethod
+    def scopes(self) -> List[str]:
+        """List of scopes."""
+
+    class Config:
+        """Pydantic configuration."""
+
+        extra = Extra.forbid
 
 
-class GafaelfawrIngressScopes(BaseModel):
-    """Configuration of scopes required for access."""
+class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
+    """Represents scopes where all scopes are required."""
 
-    any: Optional[List[str]] = None
-    """Any one of these scopes is sufficient to allow access."""
-
-    all: Optional[List[str]] = None
+    all: List[str]
     """All of these scopes are required to allow access."""
 
     @property
     def satisfy(self) -> Satisfy:
-        """Return the authorization satisfy strategy."""
-        return Satisfy.ANY if self.any is not None else Satisfy.ALL
+        """The authorization satisfy strategy."""
+        return Satisfy.ALL
 
     @property
     def scopes(self) -> List[str]:
-        """Returns the list of scopes, whether from any or all."""
-        if self.any is not None:
-            return self.any
-        else:
-            assert self.all is not None
-            return self.all
+        """List of scopes."""
+        return self.all
 
-    @validator("all", always=True)
-    def _validate_scopes(
-        cls, v: Optional[List[str]], values: Dict[str, Any]
-    ) -> Optional[List[str]]:
-        """Check that either any or all was given."""
-        if v is None and values["any"] is None:
-            raise ValueError("either any or all must be given")
-        if v is not None and values["any"] is not None:
-            raise ValueError("only one of any or all may be given")
-        return v
+
+class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
+    """Represents scopes where any scope is sufficient."""
+
+    any: List[str]
+    """Any of these scopes is sufficient to allow access."""
+
+    @property
+    def satisfy(self) -> Satisfy:
+        """The authorization satisfy strategy."""
+        return Satisfy.ANY
+
+    @property
+    def scopes(self) -> List[str]:
+        """List of scopes."""
+        return self.any
 
 
 class GafaelfawrIngressConfig(BaseModel):
@@ -198,7 +222,7 @@ class GafaelfawrIngressConfig(BaseModel):
     base_url: str
     """The base URL for Gafaelfawr URLs in Ingress annotations."""
 
-    scopes: GafaelfawrIngressScopes
+    scopes: GafaelfawrIngressScopesAll | GafaelfawrIngressScopesAny
     """The scopes to require for access."""
 
     auth_type: Optional[AuthType] = None
@@ -245,29 +269,36 @@ class PathType(Enum):
     """Use longest prefix matching to find the correct rule."""
 
 
-class GafaelfawrIngressPathServicePort(BaseModel):
+class GafaelfawrServicePortName(BaseModel):
     """Port for a service."""
 
-    name: Optional[str] = None
+    name: str
     """Port name."""
 
-    number: Optional[int] = None
-    """Port number."""
+    class Config:
+        """Pydantic configuration."""
 
-    @validator("number", always=True)
-    def _validate_name_number(
-        cls, v: Optional[str], values: Dict[str, Any]
-    ) -> Optional[str]:
-        """Check that either name or number is set."""
-        if v is None and values["name"] is None:
-            raise ValueError("either name or number must be given")
-        if v is not None and values["name"] is not None:
-            raise ValueError("only one of name or number may be given")
-        return v
+        extra = Extra.forbid
 
     def to_kubernetes(self) -> V1ServiceBackendPort:
         """Convert to the Kubernetes API object."""
-        return V1ServiceBackendPort(name=self.name, number=self.number)
+        return V1ServiceBackendPort(name=self.name)
+
+
+class GafaelfawrServicePortNumber(BaseModel):
+    """Port for a service."""
+
+    number: int
+    """Port number."""
+
+    class Config:
+        """Pydantic configuration."""
+
+        extra = Extra.forbid
+
+    def to_kubernetes(self) -> V1ServiceBackendPort:
+        """Convert to the Kubernetes API object."""
+        return V1ServiceBackendPort(number=self.number)
 
 
 class GafaelfawrIngressPathService(BaseModel):
@@ -276,7 +307,7 @@ class GafaelfawrIngressPathService(BaseModel):
     name: str
     """Name of the service to which to route the request."""
 
-    port: GafaelfawrIngressPathServicePort
+    port: GafaelfawrServicePortName | GafaelfawrServicePortNumber
     """Port to which to route the request."""
 
     def to_kubernetes(self) -> V1IngressServiceBackend:
