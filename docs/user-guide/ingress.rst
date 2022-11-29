@@ -201,7 +201,7 @@ The following headers will be added by Gafaelfawr to the incoming request before
 ``X-Auth-Request-User``
     The username of the authenticated user.
 
-In addition, if a delegated token waas requested, it will be sent in the ``X-Auth-Request-Token`` HTTP header as discussed in :ref:`delegated-tokens`.
+In addition, if a delegated token was requested, it will be sent in the ``X-Auth-Request-Token`` HTTP header as discussed in :ref:`delegated-tokens`.
 
 HTTP headers starting with ``X-Auth-Request-*`` are reserved for Gafaelfawr.
 More headers may be added in the future.
