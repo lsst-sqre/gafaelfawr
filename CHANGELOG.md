@@ -450,7 +450,7 @@ Gafaelfawr can now analyze the `X-Forwarded-For` header to determine the true cl
 
 ## 1.2.0 (2020-05-07)
 
-New in this release is an `/auth/forbidden` route that can be used to provide a non-cached 403 error page. See [the documentation](https://gafaelfawr.lsst.io/user-guide/ingress.html#disabling-error-caching) for more information.
+New in this release is an `/auth/forbidden` route that can be used to provide a non-cached 403 error page. See [the documentation](https://gafaelfawr.lsst.io/user-guide/gafaelfawringress.html#disabling-error-caching) for more information.
 
 This release changes Gafaelfawr's logging format and standardizes the contents of the logs. All logs are now in JSON. See [the new logging documentation](https://gafaelfawr.lsst.io/user-guide/logging.html) for more information.
 
