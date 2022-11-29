@@ -1,7 +1,7 @@
 .. _ingress:
 
 #############################################
-Configuring an ingress with GafaelfawrIngress
+Configuring ingress with GafaelfawrIngress
 #############################################
 
 The recommended way to configure ``Ingress`` resources for protected services is by using the ``GafaelafwrIngress`` custom resource.
