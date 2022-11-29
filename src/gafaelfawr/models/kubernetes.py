@@ -113,7 +113,7 @@ class GafaelfawrIngressDelegateInternal(BaseModel):
     """Configuration for a delegated internal token."""
 
     service: str
-    """The service of the delegated token."""
+    """The name of the service to which the token is being delegated."""
 
     scopes: List[str]
     """The requested scopes of the delegated token."""
