@@ -1,3 +1,4 @@
+.. _ingress-nginx: https://kubernetes.github.io/ingress-nginx/
 .. _Kopf: https://kopf.readthedocs.io/en/stable/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
 .. _pre-commit: https://pre-commit.com

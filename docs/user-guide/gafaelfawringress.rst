@@ -1,44 +1,15 @@
 .. _ingress:
 
-#############################################
+##########################################
 Configuring ingress with GafaelfawrIngress
-#############################################
+##########################################
 
 The recommended way to configure ``Ingress`` resources for protected services is by using the ``GafaelafwrIngress`` custom resource.
 
-Prerequisites
-=============
-
-Gafaelfawr requires ingress-nginx_.
-
-.. _ingress-nginx: https://kubernetes.github.io/ingress-nginx/deploy/
-
-Kubernetes 1.19 or later is required to use ``GafaelfawrIngress``, since the generated ingress will use the ``networking.k8s.io/v1`` API introduced in that version.
-
-Gafaelfawr's routes must be exposed under the same hostname as the service that it is protecting.
-IF you need to protect services running under multiple hostnames, you will need to configure Gafaelfawr's ingress to add its routes (specifically ``/auth`` and ``/login``) to each of those hostnames.
-
-Gafaelfawr only supports HTTP ingresses and only supports a limited subset of the full syntax for the ``rules`` and ``tls`` keys for the ``Ingress`` resource.
-
+Gafaelfawr only supports HTTP ingresses and only supports a limited subset of the full syntax for the ``rules`` and ``tls`` keys for the ``GafaelfawrIngress`` resource.
 If you need other ``Ingress`` functionality, or if you need to add Gafaelfawr support to an ingress created outside of your control (such as by a third-party Helm chart), see :ref:`manual-ingress`.
 
-How Gafaelfawr works
-====================
-
-Gafaelfawr is introduced into the HTTP request path for your services as an NGINX ``auth_request`` subhandler.
-This is done via annotations added to the Kubernetes ``Ingress`` resource that are interpreted by ingress-nginx.
-
-For each HTTP request to a protected service, NGINX will send a request to the Gafaelfawr ``/auth`` route with the headers of the incoming request (including, for example, any cookies or ``Authorization`` header).
-
-Gafaelfawr, when receiving that request, will find the user's authentication token, check that it is valid, and check that the user has the required scope.
-
-If the user is not authenticated, it will either return a 401 error with an appropriate ``WWW-Authenticate`` challenge, or a redirect to the sign-in URL, depending on Gafaelfawr's configuration.
-The sign-in URL would then send the user to CILogon, an OpenID Connect server, or GitHub to authenticate.
-
-If the user is already authenticated but does not have the desired scope, Gafaelfawr will return a 403 error, which will be passed back to the user.
-
-If the user is authenticated and authorized, Gafaelfawr will return a 200 response with some additional headers containing information about the user and (optionally) a delegated token.
-NGINX will then send the user's HTTP request along to the protected service, including those headers in the request.
+See :ref:`ingress-overview` for an overview of how Gafaelfawr protects services.
 
 Basic configuration
 ===================

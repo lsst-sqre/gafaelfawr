@@ -17,7 +17,8 @@ While there is nothing intrinsic in Gafaelfawr that would prevent it from workin
 .. toctree::
    :caption: Protecting services
 
-   ingress
+   ingress-overview
+   gafaelfawringress
    manual-ingress
    service-tokens
    openid-connect

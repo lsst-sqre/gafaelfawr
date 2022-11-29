@@ -10,11 +10,12 @@ This is documented in :ref:`ingress`.
 
 However, sometimes you can't create the ``Ingress`` resource via other means and instead need to manually configure it with annotations.
 The most common example is third-party Helm charts that allow changing the ingress class and annotations, but not (easily) delegating it to a custom resource.
-
 For those cases, follow this documentation to construct the ingress annotations manually.
 
 This documentation only discusses how to create annotations that are equivalent to what ``GafaelfawrIngress`` would have done, and does not describe in detail what those annotations do.
-See :ref:`ingress` for those details.
+To use this documentation, find the configuration that you need in :ref:`ingress`, read that section to understand the configuration options, and then find the corresponding section in this guide to see what annotations to add.
+
+See :ref:`ingress-overview` for an overview of how Gafaelfawr protects services.
 
 Basic configuration
 ===================
