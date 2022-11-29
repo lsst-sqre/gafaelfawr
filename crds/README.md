@@ -1,5 +1,4 @@
-Kubermetes custom resource definitions
-======================================
+# Kubernetes custom resource definitions
 
 This directory contains custom resource definitions (CRDs) for Kubernetes.
 The resulting resources are read by the Gafaelfawr Kubernetes operator and used as templates and configuration to create and manage other resources.
