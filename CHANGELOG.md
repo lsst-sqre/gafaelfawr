@@ -4,6 +4,12 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
+## 7.1.0 (2022-11-29)
+
+### New features
+
+- Gafaelfawr now supports creating `Ingress` resources from `GafaelfawrIngress` custom resources. This provides a more convenient and simpler way of describing the Gafaelfawr configuration and shifts the tedious work of constructing the ingress-nginx annotations to Gafaelfawr, and therefore is the recommended way to create an ingress. The annotation-based configuration method may still be used (and is sometimes needed for ingresses created by third-party charts).
+
 ## 7.0.0 (2022-10-27)
 
 ### Backwards-incompatible changes

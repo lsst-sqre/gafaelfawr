@@ -1,3 +1,5 @@
+# The canonical version of this file is in the Gafaelfawr repository:
+# https://github.com/lsst-sqre/gafaelfawr/blob/main/crds/service-token.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -72,7 +74,7 @@ spec:
               description: >-
                 The observed state of the GafaelfawrServiceToken.
               x-kubernetes-preserve-unknown-fields: true
-              parameters:
+              properties:
                 create:
                   type: object
                   description: >-

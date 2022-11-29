@@ -65,7 +65,7 @@ exclude_lines = [
 
 [tool.black]
 line-length = 79
-target-version = ["py39"]
+target-version = ["py310"]
 exclude = '''
 /(
     \.eggs
@@ -112,6 +112,7 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 ignore_missing_imports = true
 plugins = "sqlalchemy.ext.mypy.plugin"
+show_error_codes = true
 strict_equality = true
 warn_redundant_casts = true
 warn_unreachable = true

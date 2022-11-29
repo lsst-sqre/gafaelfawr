@@ -45,7 +45,7 @@ async def install_crds(api_client: ApiClient) -> None:
         Kubernetes API client to use.
     """
     extensions_api = ApiextensionsV1Api(api_client)
-    crds_path = Path(__file__).parent.parent / "crds"
+    crds_path = Path(__file__).parent.parent.parent / "crds"
     for crd in crds_path.iterdir():
         if crd.suffix != ".yaml":
             continue

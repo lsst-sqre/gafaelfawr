@@ -9,6 +9,8 @@ Gafaelfawr also expects TLS termination to be done by the ingress controller.
 Some additional NGINX configuration is required for accurate logging of client IPs.
 See :ref:`Logging client IP addresses <client-ips>` for more information.
 
+Kubernetes 1.19 or later is required to use ``GafaelfawrIngress`` (see :ref:`ingress`), since the generated ingress will use the ``networking.k8s.io/v1`` API introduced in that version.
+
 A PostgreSQL database is required but not provided by the Helm chart.
 You must provision this database and configure it as described below.
 Google Cloud SQL (including the Google Cloud SQL Auth Proxy) is supported (and preferred).
@@ -17,6 +19,13 @@ Redis is also required for storage, but the Gafaelfawr Helm chart will configure
 However, you will need to configure persistent storage for that Redis server for any non-test deployment, which means that the Kubernetes cluster must provide persistent storage.
 
 Gafaelfawr requires Vault_ to store secrets and `Vault Secrets Operator`_ to materialize those secrets as Kubernetes secrets.
+
+Gafaelfawr's routes must be exposed under the same hostname any service that it is protecting.
+Currently, the only supported way to do this is to run Gafaelfawr and all of the services protected by that Gafaelfawr instance under the same host name.
+
+If you need to protect services running under multiple host names, you will need to configure Gafaelfawr's ingress to add its routes (specifically ``/auth`` and ``/login``) to each of those host names.
+There is no supported way to do this in Gafaelfawr's Helm configurstion.
+You will need to add additional ``Ingress`` Kubernetes resources based off of those in the `Gafaelfawr Helm chart <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr>`__.
 
 .. _client-ips:
 

@@ -6,8 +6,10 @@ import logging
 from typing import Any, Dict, Optional, Union
 
 import kopf
+from pydantic import ValidationError
 
 from ..constants import KUBERNETES_TIMER_DELAY, KUBERNETES_TOKEN_INTERVAL
+from ..exceptions import KubernetesObjectError
 from ..models.kubernetes import GafaelfawrServiceToken
 from ..services.kubernetes import KubernetesTokenService
 
@@ -32,7 +34,15 @@ async def _update_token(
     if not name or not namespace:
         return None
 
-    service_token = GafaelfawrServiceToken.from_dict(body)
+    # Parse the GafaelafwrServiceToken resource.
+    try:
+        service_token = GafaelfawrServiceToken.parse_obj(body)
+    except ValidationError as e:
+        raise KubernetesObjectError(
+            "GafaelfawrServiceToken", name, namespace, e
+        ) from e
+
+    # Update the corresponding Secret and return the new status information.
     status = await token_service.update(name, namespace, service_token)
     return status.to_dict() if status else None
 

@@ -6,6 +6,7 @@ from enum import Enum
 from typing import ClassVar, Dict, List, Union
 
 import kopf
+import pydantic
 from fastapi import status
 
 from .slack import SlackIgnoredException
@@ -346,7 +347,29 @@ class KubernetesError(Exception):
 
 
 class KubernetesObjectError(KubernetesError):
-    """A Kubernetes object could not be parsed."""
+    """A Kubernetes object could not be parsed.
+
+    Parameters
+    ----------
+    kind
+        Kind of the malformed Kubernetes object.
+    name
+        Name of the malformed Kubernetes object.
+    namespace
+        Namespace of the malformed Kubernetes object.
+    exc
+        Exception from attempting to parse the object.
+    """
+
+    def __init__(
+        self,
+        kind: str,
+        name: str,
+        namespace: str,
+        exc: pydantic.ValidationError,
+    ) -> None:
+        msg = f"{kind} {namespace}/{name} is malformed: {str(exc)}"
+        super().__init__(msg)
 
 
 class LDAPError(Exception):

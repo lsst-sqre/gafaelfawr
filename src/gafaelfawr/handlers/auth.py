@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
-from enum import Enum
 from typing import Dict, List, Optional, Set
 
 from fastapi import (
@@ -18,13 +17,7 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse
 
-from ..auth import (
-    AuthError,
-    AuthErrorChallenge,
-    AuthType,
-    generate_challenge,
-    generate_unauthorized_challenge,
-)
+from ..auth import generate_challenge, generate_unauthorized_challenge
 from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
@@ -34,6 +27,7 @@ from ..exceptions import (
     InvalidMinimumLifetimeError,
     InvalidTokenError,
 )
+from ..models.auth import AuthError, AuthErrorChallenge, AuthType, Satisfy
 from ..models.token import TokenData
 from ..slack import SlackRouteErrorHandler
 from ..util import current_datetime
@@ -41,19 +35,6 @@ from ..util import current_datetime
 router = APIRouter(route_class=SlackRouteErrorHandler)
 
 __all__ = ["get_auth"]
-
-
-class Satisfy(Enum):
-    """Authorization strategies.
-
-    Controls how to do authorization when there are multiple required scopes.
-    A strategy of ANY allows the request if the authentication token has any
-    of the required scopes.  A strategy of ALL requires that the
-    authentication token have all the required scopes.
-    """
-
-    ANY = "any"
-    ALL = "all"
 
 
 @dataclass

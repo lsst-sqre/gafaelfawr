@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import base64
-import re
-from dataclasses import dataclass
-from enum import Enum, auto
 from typing import Optional, Set
 
 from fastapi import HTTPException, status
@@ -16,93 +13,13 @@ from .exceptions import (
     InvalidTokenError,
     OAuthBearerError,
 )
+from .models.auth import AuthChallenge, AuthError, AuthErrorChallenge, AuthType
 
 __all__ = [
-    "AuthType",
-    "AuthChallenge",
-    "AuthError",
-    "AuthErrorChallenge",
     "generate_challenge",
     "generate_unauthorized_challenge",
     "parse_authorization",
 ]
-
-
-class AuthType(str, Enum):
-    """Authentication types for the WWW-Authenticate header."""
-
-    Basic = "basic"
-    """HTTP Basic Authentication (RFC 7617)."""
-
-    Bearer = "bearer"
-    """HTTP Bearer Authentication (RFC 6750)."""
-
-
-class AuthError(Enum):
-    """Valid authentication errors for a WWW-Authenticate header.
-
-    Defined in RFC 6750.
-    """
-
-    invalid_request = auto()
-    invalid_token = auto()
-    insufficient_scope = auto()
-
-
-@dataclass
-class AuthChallenge:
-    """Represents a ``WWW-Authenticate`` header for a simple challenge."""
-
-    auth_type: AuthType
-    """The authentication type (the first part of the header)."""
-
-    realm: str
-    """The value of the realm attribute."""
-
-    def as_header(self) -> str:
-        """Construct the WWW-Authenticate header for this challenge.
-
-        Returns
-        -------
-        str
-            Contents of the WWW-Authenticate header.
-        """
-        return f'{self.auth_type.name} realm="{self.realm}"'
-
-
-@dataclass
-class AuthErrorChallenge(AuthChallenge):
-    """Represents a ``WWW-Authenticate`` header for an error challenge."""
-
-    error: AuthError
-    """Short error code."""
-
-    error_description: str
-    """Human-readable error description."""
-
-    scope: Optional[str] = None
-    """Scope required to access this URL."""
-
-    def as_header(self) -> str:
-        """Construct the WWW-Authenticate header for this challenge.
-
-        Returns
-        -------
-        str
-            Contents of the WWW-Authenticate header.
-        """
-        if self.auth_type == AuthType.Basic:
-            # Basic doesn't support error information.
-            return f'{self.auth_type.name} realm="{self.realm}"'
-
-        # Strip invalid characters from the description.
-        error_description = re.sub(r'["\\]', "", self.error_description)
-
-        info = f'realm="{self.realm}", error="{self.error.name}"'
-        info += f', error_description="{error_description}"'
-        if self.scope:
-            info += f', scope="{self.scope}"'
-        return f"{self.auth_type.name} {info}"
 
 
 def generate_challenge(

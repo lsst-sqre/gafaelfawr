@@ -29,7 +29,10 @@ from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
 from .services.firestore import FirestoreService
-from .services.kubernetes import KubernetesTokenService
+from .services.kubernetes import (
+    KubernetesIngressService,
+    KubernetesTokenService,
+)
 from .services.ldap import LDAPService
 from .services.oidc import OIDCService
 from .services.token import TokenService
@@ -39,7 +42,10 @@ from .storage.admin import AdminStore
 from .storage.base import RedisStorage
 from .storage.firestore import FirestoreStorage
 from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
-from .storage.kubernetes import KubernetesTokenStorage
+from .storage.kubernetes import (
+    KubernetesIngressStorage,
+    KubernetesTokenStorage,
+)
 from .storage.ldap import LDAPStorage
 from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
@@ -315,6 +321,24 @@ class Factory:
         if not self._context.config.firestore:
             raise NotConfiguredError("Firestore is not configured")
         return FirestoreStorage(self._context.config.firestore, self._logger)
+
+    def create_kubernetes_ingress_service(
+        self, api_client: ApiClient
+    ) -> KubernetesIngressService:
+        """Create a service for managing Kubernetes ingresses.
+
+        Parameters
+        ----------
+        api_client
+            The Kubernetes client.
+
+        Returns
+        -------
+        KubernetesIngressService
+            Newly-created Kubernetes service.
+        """
+        storage = KubernetesIngressStorage(api_client, self._logger)
+        return KubernetesIngressService(storage, self._logger)
 
     def create_kubernetes_token_service(
         self, api_client: ApiClient
