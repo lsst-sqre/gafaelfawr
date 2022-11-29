@@ -4,7 +4,7 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 7.1.0 (unreleased)
+## 7.1.0 (2022-11-29)
 
 ### New features
 
