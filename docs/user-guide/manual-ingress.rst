@@ -8,7 +8,7 @@ Normally, you should create Kubernetes ``Ingress`` resources for protected appli
 This is simpler, allows Gafaelfawr to do a lot of the work for you, and avoids annoying-to-debug syntax errors.
 This is documented in :ref:`ingress`.
 
-However, sometimes you can't create the ``Ingress`` resource via other means and instead need to manually configure ith with annotations.
+However, sometimes you can't create the ``Ingress`` resource via other means and instead need to manually configure it with annotations.
 The most common example is third-party Helm charts that allow changing the ingress class and annotations, but not (easily) delegating it to a custom resource.
 
 For those cases, follow this documentation to construct the ingress annotations manually.
