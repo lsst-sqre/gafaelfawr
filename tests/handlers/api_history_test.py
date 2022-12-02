@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 from urllib.parse import urlencode
 
 import pytest

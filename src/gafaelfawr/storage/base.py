@@ -8,7 +8,8 @@ confined to this file.
 
 from __future__ import annotations
 
-from typing import AsyncIterator, Generic, Optional, TypeVar
+from collections.abc import AsyncIterator
+from typing import Generic, Optional, TypeVar
 
 import redis.asyncio as redis
 from cryptography.fernet import Fernet, InvalidToken

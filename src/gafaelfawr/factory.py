@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator, Optional
+from typing import Optional
 
 import redis.asyncio as redis
 import structlog

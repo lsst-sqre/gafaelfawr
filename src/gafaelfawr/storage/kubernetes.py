@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from base64 import b64encode
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, Awaitable, Callable, Optional, TypeVar, cast
+from typing import Any, Optional, TypeVar, cast
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (

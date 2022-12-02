@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Iterator, Optional
+from collections.abc import Iterator
+from typing import Any, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 from google.cloud import firestore

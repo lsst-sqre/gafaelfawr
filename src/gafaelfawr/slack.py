@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Coroutine, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any, Optional
 
 from fastapi import HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError

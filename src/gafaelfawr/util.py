@@ -5,9 +5,10 @@ from __future__ import annotations
 import base64
 import os
 import re
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 
 from safir.database import datetime_from_db
 
