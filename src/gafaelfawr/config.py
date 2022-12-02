@@ -28,6 +28,7 @@ from pydantic import (
     validator,
 )
 from safir.logging import configure_logging
+from safir.pydantic import validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .keypair import RSAKeyPair
@@ -356,17 +357,6 @@ class Settings(BaseSettings):
             raise ValueError("invalid logging level")
         return v
 
-    @validator("oidc", always=True)
-    def _exactly_one_provider(
-        cls, v: OIDCSettings | None, values: dict[str, object]
-    ) -> OIDCSettings | None:
-        """Ensure either github or oidc is set, not both."""
-        if v and "github" in values and values["github"]:
-            raise ValueError("both github and oidc settings present")
-        if not v and ("github" not in values or not values["github"]):
-            raise ValueError("neither github nor oidc settings present")
-        return v
-
     @validator("ldap", always=True)
     def _valid_ldap_config(
         cls, v: LDAPSettings | None, values: dict[str, object]
@@ -416,6 +406,10 @@ class Settings(BaseSettings):
         if not v:
             raise ValueError("initial_admins is empty")
         return v
+
+    _validate_provider = validator("oidc", always=True)(
+        validate_exactly_one_of("github", "oidc")
+    )
 
 
 @dataclass(frozen=True)
