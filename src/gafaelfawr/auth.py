@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from typing import Optional, Set
+from typing import Optional
 
 from fastapi import HTTPException, status
 
@@ -26,7 +26,7 @@ def generate_challenge(
     context: RequestContext,
     auth_type: AuthType,
     exc: OAuthBearerError,
-    scopes: Optional[Set[str]] = None,
+    scopes: Optional[set[str]] = None,
 ) -> HTTPException:
     """Convert an exception into an HTTP error with ``WWW-Authenticate``.
 

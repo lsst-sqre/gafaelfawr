@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Optional, Set
+from typing import Optional
 
 from fastapi import (
     APIRouter,
@@ -41,7 +41,7 @@ __all__ = ["get_auth"]
 class AuthConfig:
     """Configuration for an authorization request."""
 
-    scopes: Set[str]
+    scopes: set[str]
     """The scopes the authentication token must have."""
 
     satisfy: Satisfy
@@ -56,7 +56,7 @@ class AuthConfig:
     delegate_to: Optional[str]
     """Internal service for which to create an internal token."""
 
-    delegate_scopes: Set[str]
+    delegate_scopes: set[str]
     """List of scopes the delegated token should have."""
 
     minimum_lifetime: Optional[timedelta]
