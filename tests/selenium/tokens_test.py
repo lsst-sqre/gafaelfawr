@@ -48,7 +48,7 @@ async def test_create_token(
 async def test_token_info(
     driver: webdriver.Chrome, selenium_config: SeleniumConfig
 ) -> None:
-    cookie = await State(token=selenium_config.token).as_cookie()
+    cookie = State(token=selenium_config.token).to_cookie()
 
     # Create a notebook token and an internal token.
     r = httpx.get(

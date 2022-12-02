@@ -52,7 +52,7 @@ class AuthChallenge:
     realm: str
     """The value of the realm attribute."""
 
-    def as_header(self) -> str:
+    def to_header(self) -> str:
         """Construct the WWW-Authenticate header for this challenge.
 
         Returns
@@ -76,7 +76,7 @@ class AuthErrorChallenge(AuthChallenge):
     scope: Optional[str] = None
     """Scope required to access this URL."""
 
-    def as_header(self) -> str:
+    def to_header(self) -> str:
         """Construct the WWW-Authenticate header for this challenge.
 
         Returns

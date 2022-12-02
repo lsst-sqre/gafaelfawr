@@ -200,7 +200,7 @@ async def selenium_config(
     settings_path = build_settings(tmp_path, "selenium")
     config_dependency.set_settings_path(str(settings_path))
     async with run_app(tmp_path, settings_path) as config:
-        cookie = await State(token=config.token).as_cookie()
+        cookie = State(token=config.token).to_cookie()
         driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}
 
         # The synthetic cookie doesn't have a CSRF token, so we want to

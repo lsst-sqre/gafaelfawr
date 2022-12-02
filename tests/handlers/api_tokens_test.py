@@ -392,7 +392,7 @@ async def test_token_info(
     state = State(token=session_token)
     r = await client.get(
         "/auth/api/v1/users/example/tokens",
-        cookies={COOKIE_NAME: await state.as_cookie()},
+        cookies={COOKIE_NAME: state.to_cookie()},
     )
 
 
@@ -407,7 +407,7 @@ async def test_auth_required(
     # Replace the cookie with one containing the CSRF token but not the
     # authentication token.
     clear_session_cookie(client)
-    client.cookies[COOKIE_NAME] = await State(csrf=csrf).as_cookie()
+    client.cookies[COOKIE_NAME] = State(csrf=csrf).to_cookie()
 
     r = await client.post(
         "/auth/api/v1/tokens",
