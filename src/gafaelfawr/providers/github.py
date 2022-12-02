@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict
+from typing import Any
 from urllib.parse import urlencode
 
 from httpx import AsyncClient, HTTPError
@@ -313,7 +313,7 @@ class GitHubProvider(Provider):
             teams=teams,
         )
 
-    async def _get_user_teams_data(self, token: str) -> list[Dict[str, Any]]:
+    async def _get_user_teams_data(self, token: str) -> list[dict[str, Any]]:
         """Retrieve team membership for a user from GitHub.
 
         Parameters

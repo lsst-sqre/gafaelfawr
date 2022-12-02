@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Generic, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
@@ -371,7 +371,7 @@ class TokenChangeHistoryEntry(BaseModel):
         "ip_address", allow_reuse=True, pre=True
     )(normalize_ip_address)
 
-    def reduced_dict(self) -> Dict[str, Any]:
+    def reduced_dict(self) -> dict[str, Any]:
         """Custom ``dict`` method to suppress some fields.
 
         Excludes the ``old_`` fields for changes other than edits, and when

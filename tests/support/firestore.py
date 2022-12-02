@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 from google.cloud import firestore
@@ -14,7 +14,7 @@ __all__ = ["MockFirestore", "patch_firestore"]
 class MockDocument:
     """Mock document contents."""
 
-    def __init__(self, data: Optional[Dict[str, Any]]) -> None:
+    def __init__(self, data: Optional[dict[str, Any]]) -> None:
         self._data = data
         self.exists = data is not None
 
@@ -28,7 +28,7 @@ class MockDocumentRef(Mock):
 
     def __init__(self) -> None:
         super().__init__(spec=firestore.AsyncDocumentReference)
-        self.document: Optional[Dict[str, Any]] = None
+        self.document: Optional[dict[str, Any]] = None
 
     async def get(self, *, transaction: MockTransaction) -> MockDocument:
         assert isinstance(transaction, MockTransaction)
@@ -48,7 +48,7 @@ class MockCollection(Mock):
 
     def __init__(self) -> None:
         super().__init__(spec=firestore.AsyncCollectionReference)
-        self._documents: Dict[str, MockDocumentRef] = defaultdict(
+        self._documents: dict[str, MockDocumentRef] = defaultdict(
             MockDocumentRef
         )
 
@@ -64,14 +64,14 @@ class MockTransaction(MagicMock):
         self._id = None
         self._max_attempts = 1
 
-    def create(self, ref: MockDocumentRef, data: Dict[str, Any]) -> None:
+    def create(self, ref: MockDocumentRef, data: dict[str, Any]) -> None:
         assert ref.document is None
         ref.document = data
 
     def delete(self, ref: MockDocumentRef) -> None:
         ref.document = None
 
-    def update(self, ref: MockDocumentRef, data: Dict[str, Any]) -> None:
+    def update(self, ref: MockDocumentRef, data: dict[str, Any]) -> None:
         assert ref.document is not None
         ref.document.update(data)
 
@@ -89,7 +89,7 @@ class MockFirestore(Mock):
 
     def __init__(self) -> None:
         super().__init__()
-        self._collections: Dict[str, MockCollection] = defaultdict(
+        self._collections: dict[str, MockCollection] = defaultdict(
             MockCollection
         )
 

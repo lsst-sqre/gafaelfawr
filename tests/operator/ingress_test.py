@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import ANY
 
 import pytest
@@ -27,7 +27,7 @@ from gafaelfawr.models.kubernetes import StatusReason
 
 from ..support.kubernetes import operator_running, requires_kubernetes
 
-_SMALL_INGRESS: Dict[str, Any] = {
+_SMALL_INGRESS: dict[str, Any] = {
     "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
     "kind": "GafaelfawrIngress",
     "metadata": {"name": "small-ingress"},

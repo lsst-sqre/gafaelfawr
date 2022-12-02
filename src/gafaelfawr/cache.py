@@ -13,7 +13,7 @@ only intended for use via their service layer
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Dict, Generic, Literal, Optional, Type, TypeVar
+from typing import Generic, Literal, Optional, Type, TypeVar
 
 from cachetools import LRUCache, TTLCache
 
@@ -206,7 +206,7 @@ class PerUserCache(BaseCache):
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        self._user_locks: Dict[str, asyncio.Lock] = {}
+        self._user_locks: dict[str, asyncio.Lock] = {}
 
     async def clear(self) -> None:
         """Invalidate the cache.

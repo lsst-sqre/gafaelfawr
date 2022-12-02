@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import kopf
 from pydantic import ValidationError
@@ -25,7 +25,7 @@ async def _update_token(
     body: kopf.Body,
     memo: kopf.Memo,
     **_: Any,
-) -> Optional[Dict[str, Union[int, str]]]:
+) -> Optional[dict[str, Union[int, str]]]:
     """Do the work of updating the token, shared by `create` and `periodic`."""
     token_service: KubernetesTokenService = memo.token_service
 
@@ -55,7 +55,7 @@ async def create(
     body: kopf.Body,
     memo: kopf.Memo,
     **_: Any,
-) -> Optional[Dict[str, Union[int, str]]]:
+) -> Optional[dict[str, Union[int, str]]]:
     """Handle creation or modification of a GafaelfawrServiceToken object.
 
     Parameters
@@ -93,7 +93,7 @@ async def periodic(
     body: kopf.Body,
     memo: kopf.Memo,
     **_: Any,
-) -> Optional[Dict[str, Union[int, str]]]:
+) -> Optional[dict[str, Union[int, str]]]:
     """Periodically re-check all GafaelfawrServiceToken objects.
 
     Parameters

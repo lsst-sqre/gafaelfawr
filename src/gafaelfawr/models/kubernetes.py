@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -66,10 +66,10 @@ class KubernetesMetadata(BaseModel):
     namespace: str
     """The namespace in which the object is located."""
 
-    annotations: Optional[Dict[str, str]] = None
+    annotations: Optional[dict[str, str]] = None
     """The annotations of the object."""
 
-    labels: Optional[Dict[str, str]] = None
+    labels: Optional[dict[str, str]] = None
     """The labels of the object."""
 
     uid: str
@@ -80,8 +80,8 @@ class KubernetesMetadata(BaseModel):
 
     @validator("annotations")
     def _filter_kopf_annotations(
-        cls, v: Optional[Dict[str, str]]
-    ) -> Optional[Dict[str, str]]:
+        cls, v: Optional[dict[str, str]]
+    ) -> Optional[dict[str, str]]:
         """Filter out the annotations added by Kopf."""
         if not v:
             return v
@@ -249,10 +249,10 @@ class GafaelfawrIngressMetadata(BaseModel):
     name: str
     """Name of the ingress."""
 
-    annotations: Dict[str, str] = Field(default_factory=dict)
+    annotations: dict[str, str] = Field(default_factory=dict)
     """Annotations to add to the ingress."""
 
-    labels: Optional[Dict[str, str]] = None
+    labels: Optional[dict[str, str]] = None
     """Labels to add to the ingress."""
 
 
@@ -502,7 +502,7 @@ class KubernetesResourceStatus:
             reason=StatusReason.Failed,
         )
 
-    def to_dict(self) -> Dict[str, Union[str, int]]:
+    def to_dict(self) -> dict[str, Union[str, int]]:
         """Convert the status update to a dictionary for Kubernetes.
 
         Returns

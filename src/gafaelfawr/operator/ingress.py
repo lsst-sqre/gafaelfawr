@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import kopf
 from pydantic import ValidationError
@@ -22,7 +22,7 @@ async def create(
     body: kopf.Body,
     memo: kopf.Memo,
     **_: Any,
-) -> Optional[Dict[str, Union[int, str]]]:
+) -> Optional[dict[str, Union[int, str]]]:
     """Handle creation or modiication of a GafaelfawrIngress object.
 
     Parameters

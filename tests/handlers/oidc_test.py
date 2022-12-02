@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Dict
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -352,7 +351,7 @@ async def test_token_errors(
     code = await oidc_service.issue_code("some-id", redirect_uri, token)
 
     # Missing parameters.
-    request: Dict[str, str] = {}
+    request: dict[str, str] = {}
     caplog.clear()
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400

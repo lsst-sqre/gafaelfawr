@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -308,7 +308,7 @@ class TokenUserInfo(BaseModel):
         description="Groups of which the user is a member",
     )
 
-    def to_userinfo_dict(self) -> Dict[str, Any]:
+    def to_userinfo_dict(self) -> dict[str, Any]:
         """Convert to a dictionary for logging purposes.
 
         This method converts only the `TokenUserInfo` portion of a token to a
@@ -326,7 +326,7 @@ class TokenUserInfo(BaseModel):
             ensuring that only its data is included even if called on a
             subclass such as `TokenData`.
         """
-        token_userinfo: Dict[str, Any] = {}
+        token_userinfo: dict[str, Any] = {}
         if self.name is not None:
             token_userinfo["name"] = self.name
         if self.email is not None:
@@ -527,7 +527,7 @@ class AdminTokenRequest(BaseModel):
 
     @validator("token_name", always=True)
     def _valid_token_name(
-        cls, v: Optional[str], values: Dict[str, Any]
+        cls, v: Optional[str], values: dict[str, Any]
     ) -> Optional[str]:
         if "token_type" not in values:
             # Validation already failed, so the return value doesn't matter.

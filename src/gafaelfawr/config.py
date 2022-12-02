@@ -16,7 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
-from typing import Any, Dict, FrozenSet, Mapping, Optional
+from typing import Any, FrozenSet, Mapping, Optional
 
 import yaml
 from pydantic import (
@@ -72,7 +72,7 @@ class OIDCSettings(BaseModel):
     login_url: AnyHttpUrl
     """URL to which to send the user to initiate authentication."""
 
-    login_params: Dict[str, str] = {}
+    login_params: dict[str, str] = {}
     """Additional parameters to the login URL."""
 
     redirect_url: AnyHttpUrl
@@ -320,10 +320,10 @@ class Settings(BaseSettings):
     initial_admins: list[str]
     """Initial token administrators to configure when initializing database."""
 
-    known_scopes: Dict[str, str] = {}
+    known_scopes: dict[str, str] = {}
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    group_mapping: Dict[str, list[str]] = {}
+    group_mapping: dict[str, list[str]] = {}
     """Mappings of scopes to lists of groups that provide them."""
 
     error_footer: Optional[str] = None
@@ -339,7 +339,7 @@ class Settings(BaseSettings):
         return v
 
     @validator("known_scopes")
-    def _valid_known_scopes(cls, v: Dict[str, str]) -> Dict[str, str]:
+    def _valid_known_scopes(cls, v: dict[str, str]) -> dict[str, str]:
         for scope in v.keys():
             if not re.match(SCOPE_REGEX, scope):
                 raise ValueError(f"invalid scope {scope}")
@@ -357,7 +357,7 @@ class Settings(BaseSettings):
 
     @validator("oidc", always=True)
     def _exactly_one_provider(
-        cls, v: Optional[OIDCSettings], values: Dict[str, object]
+        cls, v: Optional[OIDCSettings], values: dict[str, object]
     ) -> Optional[OIDCSettings]:
         """Ensure either github or oidc is set, not both."""
         if v and "github" in values and values["github"]:
@@ -368,7 +368,7 @@ class Settings(BaseSettings):
 
     @validator("ldap", always=True)
     def _valid_ldap_config(
-        cls, v: Optional[LDAPSettings], values: Dict[str, object]
+        cls, v: Optional[LDAPSettings], values: dict[str, object]
     ) -> Optional[LDAPSettings]:
         """Ensure all fields are non-empty if url is non-empty."""
         if v and v.url and not v.group_base_dn:
@@ -378,7 +378,7 @@ class Settings(BaseSettings):
         return v
 
     @validator("group_mapping", pre=True)
-    def _convert_github_orgs(cls, v: Dict[str, Any]) -> Dict[str, list[str]]:
+    def _convert_github_orgs(cls, v: dict[str, Any]) -> dict[str, list[str]]:
         """Convert GitHub org/team pairs to group names."""
         if not isinstance(v, dict):
             raise ValueError("group_mapping must be a dictionary")

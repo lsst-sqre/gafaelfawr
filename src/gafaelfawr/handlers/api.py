@@ -9,7 +9,7 @@ models.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from urllib.parse import quote
 
 from fastapi import (
@@ -226,7 +226,7 @@ async def get_admin_token_change_history(
     ),
     auth_data: TokenData = Depends(authenticate_admin_read),
     context: RequestContext = Depends(context_dependency),
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         results = await token_service.get_change_history(
@@ -427,7 +427,7 @@ async def get_user_token_change_history(
     ),
     auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         results = await token_service.get_change_history(
@@ -668,7 +668,7 @@ async def get_token_change_history(
     ),
     auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         results = await token_service.get_change_history(

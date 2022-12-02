@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from urllib.parse import urljoin
 
 import jwt
@@ -30,7 +30,7 @@ from ..support.settings import reconfigure
 
 
 def encode_token(
-    payload: Dict[str, Any], keypair: RSAKeyPair, kid: Optional[str] = None
+    payload: dict[str, Any], keypair: RSAKeyPair, kid: Optional[str] = None
 ) -> OIDCToken:
     """Encode a token payload into a token manually."""
     headers = {}
@@ -55,7 +55,7 @@ async def test_verify_token(
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "aud": config.oidc.audience,
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
@@ -93,7 +93,7 @@ async def test_verify_no_kids(
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "aud": config.oidc.audience,
         "iat": int(now.timestamp()),
         "iss": config.oidc.issuer,

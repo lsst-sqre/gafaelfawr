@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 from urllib.parse import urlencode
 
 import pytest
@@ -167,7 +167,7 @@ async def build_history(
     return history.entries
 
 
-def entry_to_dict(entry: TokenChangeHistoryEntry) -> Dict[str, Any]:
+def entry_to_dict(entry: TokenChangeHistoryEntry) -> dict[str, Any]:
     """Convert a history entry to the expected API output."""
     reduced_entry = TokenChangeHistoryEntry(**entry.reduced_dict())
     return json.loads(reduced_entry.json(exclude_unset=True))
@@ -175,7 +175,7 @@ def entry_to_dict(entry: TokenChangeHistoryEntry) -> Dict[str, Any]:
 
 async def check_history_request(
     client: AsyncClient,
-    query: Dict[str, Union[str, int]],
+    query: dict[str, Union[str, int]],
     history: list[TokenChangeHistoryEntry],
     selector: Callable[[TokenChangeHistoryEntry], bool],
     *,

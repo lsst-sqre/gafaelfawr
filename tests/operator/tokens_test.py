@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from base64 import b64decode, b64encode
 from datetime import timedelta
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import ANY
 
 import pytest
@@ -347,7 +347,7 @@ async def test_update(
 ) -> None:
     core_api = client.CoreV1Api(api_client)
     custom_api = client.CustomObjectsApi(api_client)
-    service_token: Dict[str, Any] = {
+    service_token: dict[str, Any] = {
         "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
         "kind": "GafaelfawrServiceToken",
         "metadata": {

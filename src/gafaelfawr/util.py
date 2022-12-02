@@ -7,7 +7,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from safir.database import datetime_from_db
 
@@ -263,7 +263,7 @@ def to_camel_case(string: str) -> str:
 
 def validate_exactly_one_of(
     *settings: str,
-) -> Callable[[Any, Dict[str, Any]], Any]:
+) -> Callable[[Any, dict[str, Any]], Any]:
     """Generate a validator imposing a one and only one constraint.
 
     Sometimes, models have a set of attributes of which one and only one may
@@ -306,7 +306,7 @@ def validate_exactly_one_of(
     else:
         options = ", ".join(settings[:-1]) + ", and " + settings[-1]
 
-    def validator(v: Any, values: Dict[str, Any]) -> Any:
+    def validator(v: Any, values: dict[str, Any]) -> Any:
         seen = v is not None
         for setting in settings:
             if setting in values and values[setting] is not None:

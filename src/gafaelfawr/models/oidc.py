@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -151,7 +151,7 @@ class OIDCVerifiedToken(OIDCToken):
     decoded.
     """
 
-    claims: Dict[str, Any] = Field(
+    claims: dict[str, Any] = Field(
         ..., title="The claims contained in the token"
     )
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import jwt
 
@@ -46,7 +46,7 @@ def create_upstream_oidc_jwt(
 
     now = datetime.now(timezone.utc)
     exp = now + timedelta(days=24)
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "aud": config.oidc.audience,
         "email": "some-user@example.com",
         "iat": int(now.timestamp()),

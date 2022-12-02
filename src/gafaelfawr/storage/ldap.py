@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Dict, Optional
+from typing import Optional
 
 import bonsai
 from bonsai import LDAPSearchScope
@@ -276,7 +276,7 @@ class LDAPStorage:
         scope: LDAPSearchScope,
         filter_exp: str,
         attrlist: list[str],
-    ) -> list[Dict[str, list[str]]]:
+    ) -> list[dict[str, list[str]]]:
         """Perform an LDAP query using the connection pool.
 
         Parameters
