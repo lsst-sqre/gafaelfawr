@@ -9,15 +9,11 @@ from typing import Any, Generic, Optional, TypeVar
 from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
+from safir.pydantic import normalize_datetime
 from starlette.datastructures import URL
 
 from ..exceptions import InvalidCursorError
-from ..util import (
-    current_datetime,
-    normalize_datetime,
-    normalize_ip_address,
-    normalize_scopes,
-)
+from ..util import current_datetime, normalize_ip_address, normalize_scopes
 from .token import TokenType
 
 E = TypeVar("E", bound="BaseModel")
