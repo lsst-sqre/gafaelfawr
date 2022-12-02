@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
@@ -58,8 +56,8 @@ class UserInfoService:
         self,
         *,
         config: Config,
-        ldap: Optional[LDAPService],
-        firestore: Optional[FirestoreService],
+        ldap: LDAPService | None,
+        firestore: FirestoreService | None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
@@ -150,9 +148,7 @@ class UserInfoService:
             groups=sorted(groups, key=lambda g: g.name),
         )
 
-    async def get_scopes(
-        self, user_info: TokenUserInfo
-    ) -> Optional[list[str]]:
+    async def get_scopes(self, user_info: TokenUserInfo) -> list[str] | None:
         """Get scopes from user information.
 
         Used to determine the scope claim of a token issued based on an OpenID
@@ -215,8 +211,8 @@ class OIDCUserInfoService(UserInfoService):
         self,
         *,
         config: Config,
-        ldap: Optional[LDAPService],
-        firestore: Optional[FirestoreService],
+        ldap: LDAPService | None,
+        firestore: FirestoreService | None,
         logger: BoundLogger,
     ) -> None:
         super().__init__(
@@ -359,7 +355,7 @@ class OIDCUserInfoService(UserInfoService):
 
     def _get_gid_from_oidc_token(
         self, token: OIDCVerifiedToken, username: str
-    ) -> Optional[int]:
+    ) -> int | None:
         """Verify and return the primary GID from the token.
 
         Parameters

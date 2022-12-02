@@ -409,7 +409,7 @@ class TokenService:
         request: AdminTokenRequest,
         auth_data: TokenData,
         *,
-        ip_address: Optional[str],
+        ip_address: str | None,
     ) -> Token:
         """Create a new service or user token from an admin request.
 
@@ -664,7 +664,7 @@ class TokenService:
             ip_or_cidr=ip_or_cidr,
         )
 
-    async def get_data(self, token: Token) -> Optional[TokenData]:
+    async def get_data(self, token: Token) -> TokenData | None:
         """Retrieve the data for a token from Redis.
 
         Doubles as a way to check the validity of the token.
@@ -761,8 +761,8 @@ class TokenService:
         )
 
     async def get_token_info(
-        self, key: str, auth_data: TokenData, username: Optional[str]
-    ) -> Optional[TokenInfo]:
+        self, key: str, auth_data: TokenData, username: str
+    ) -> TokenInfo | None:
         """Get information about a token.
 
         Parameters
@@ -773,8 +773,8 @@ class TokenService:
             The authentication data of the person requesting the token
             information, used for authorization checks.
         username
-            If set, constrain the result to tokens from that user and return
-            `None` if the token exists but is for a different user.
+            Constrain the result to tokens from that user and return `None` if
+            the token exists but is for a different user.
 
         Returns
         -------
@@ -797,7 +797,7 @@ class TokenService:
 
     async def get_token_info_unchecked(
         self, key: str, username: Optional[str] = None
-    ) -> Optional[TokenInfo]:
+    ) -> TokenInfo | None:
         """Get information about a token without checking authorization.
 
         Parameters
@@ -822,7 +822,7 @@ class TokenService:
             return None
         return info
 
-    async def get_user_info(self, token: Token) -> Optional[TokenUserInfo]:
+    async def get_user_info(self, token: Token) -> TokenUserInfo | None:
         """Get user information associated with a token.
 
         Parameters
@@ -885,7 +885,7 @@ class TokenService:
         scopes: Optional[list[str]] = None,
         expires: Optional[datetime] = None,
         no_expire: bool = False,
-    ) -> Optional[TokenInfo]:
+    ) -> TokenInfo | None:
         """Modify a token.
 
         Token modification is only allowed for token administrators.  Users
@@ -1014,7 +1014,7 @@ class TokenService:
 
     def _check_authorization(
         self,
-        username: Optional[str],
+        username: str | None,
         auth_data: TokenData,
         *,
         require_admin: bool = False,
@@ -1165,7 +1165,7 @@ class TokenService:
             data.expires = expires
             await self._token_redis_store.store_data(data)
 
-    def _validate_ip_or_cidr(self, ip_or_cidr: Optional[str]) -> None:
+    def _validate_ip_or_cidr(self, ip_or_cidr: str | None) -> None:
         """Check that an IP address or CIDR block is valid.
 
         Arguments
@@ -1190,7 +1190,7 @@ class TokenService:
         except ValueError as e:
             raise InvalidIPAddressError(f"Invalid IP address: {str(e)}") from e
 
-    def _validate_expires(self, expires: Optional[datetime]) -> None:
+    def _validate_expires(self, expires: datetime | None) -> None:
         """Check that a provided token expiration is valid.
 
         Arguments

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from urllib.parse import urlencode
 
 import jwt
@@ -370,7 +369,7 @@ class OIDCTokenVerifier:
             msg = f"No keys property in JWKS metadata for {url}"
             raise FetchKeysError(msg) from e
 
-    async def _get_jwks_uri(self, issuer_url: str) -> Optional[str]:
+    async def _get_jwks_uri(self, issuer_url: str) -> str | None:
         """Retrieve the JWKS URI for a given issuer.
 
         Ask for the OpenID Connect metadata and determine the JWKS URI from

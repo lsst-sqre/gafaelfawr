@@ -80,8 +80,8 @@ class KubernetesMetadata(BaseModel):
 
     @validator("annotations")
     def _filter_kopf_annotations(
-        cls, v: Optional[dict[str, str]]
-    ) -> Optional[dict[str, str]]:
+        cls, v: dict[str, str] | None
+    ) -> dict[str, str] | None:
         """Filter out the annotations added by Kopf."""
         if not v:
             return v

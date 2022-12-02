@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import kopf
 from pydantic import ValidationError
@@ -20,12 +20,12 @@ __all__ = [
 
 
 async def _update_token(
-    name: Optional[str],
-    namespace: Optional[str],
+    name: str | None,
+    namespace: str | None,
     body: kopf.Body,
     memo: kopf.Memo,
     **_: Any,
-) -> Optional[dict[str, int | str]]:
+) -> dict[str, int | str] | None:
     """Do the work of updating the token, shared by `create` and `periodic`."""
     token_service: KubernetesTokenService = memo.token_service
 
@@ -50,12 +50,12 @@ async def _update_token(
 @kopf.on.create("gafaelfawr.lsst.io", "v1alpha1", "gafaelfawrservicetokens")
 @kopf.on.update("gafaelfawr.lsst.io", "v1alpha1", "gafaelfawrservicetokens")
 async def create(
-    name: Optional[str],
-    namespace: Optional[str],
+    name: str | None,
+    namespace: str | None,
     body: kopf.Body,
     memo: kopf.Memo,
     **_: Any,
-) -> Optional[dict[str, int | str]]:
+) -> dict[str, int | str] | None:
     """Handle creation or modification of a GafaelfawrServiceToken object.
 
     Parameters
@@ -88,12 +88,12 @@ async def create(
     initial_delay=KUBERNETES_TIMER_DELAY,
 )
 async def periodic(
-    name: Optional[str],
-    namespace: Optional[str],
+    name: str | None,
+    namespace: str | None,
     body: kopf.Body,
     memo: kopf.Memo,
     **_: Any,
-) -> Optional[dict[str, int | str]]:
+) -> dict[str, int | str] | None:
     """Periodically re-check all GafaelfawrServiceToken objects.
 
     Parameters

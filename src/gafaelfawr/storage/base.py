@@ -67,7 +67,7 @@ class RedisStorage(Generic[S]):
         async for key in self._redis.scan_iter(pattern):
             await self._redis.delete(key)
 
-    async def get(self, key: str) -> Optional[S]:
+    async def get(self, key: str) -> S | None:
         """Retrieve a stored object.
 
         Parameters

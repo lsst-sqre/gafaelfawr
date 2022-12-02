@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 __all__ = ["LinkData"]
 
@@ -16,17 +15,17 @@ _LINK_REGEX = r' *<(?P<target>[^>]+)>; rel="(?P<type>[^"]+)"'
 class LinkData:
     """Holds the data returned in an RFC 8288 ``Link`` header."""
 
-    prev_url: Optional[str]
+    prev_url: str | None
     """The URL of the previous page, or `None` for the first page."""
 
-    next_url: Optional[str]
+    next_url: str | None
     """The URL of the next page, or `None` for the last page."""
 
-    first_url: Optional[str]
+    first_url: str | None
     """The URL of the first page."""
 
     @classmethod
-    def from_header(cls, header: Optional[str]) -> LinkData:
+    def from_header(cls, header: str | None) -> LinkData:
         """Parse an RFC 8288 ``Link`` with pagination URLs.
 
         Parameters

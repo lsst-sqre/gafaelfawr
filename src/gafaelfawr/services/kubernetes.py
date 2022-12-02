@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from base64 import b64decode
-from typing import Optional
 from urllib.parse import urlencode
 
 from kubernetes_asyncio.client import (
@@ -60,7 +59,7 @@ class KubernetesIngressService:
 
     async def update(
         self, parent: GafaelfawrIngress
-    ) -> Optional[KubernetesResourceStatus]:
+    ) -> KubernetesResourceStatus | None:
         """Handle a change to a ``GafaelfawrIngress``.
 
         Parameters
@@ -166,10 +165,10 @@ class KubernetesIngressService:
 
     async def _update_ingress(
         self,
-        old_ingress: Optional[V1Ingress],
+        old_ingress: V1Ingress | None,
         new_ingress: V1Ingress,
         parent: GafaelfawrIngress,
-    ) -> Optional[KubernetesResourceStatus]:
+    ) -> KubernetesResourceStatus | None:
         """Update the ``Ingress`` object in Kubernetes if necessary.
 
         Parameters
@@ -253,7 +252,7 @@ class KubernetesTokenService:
 
     async def update(
         self, name: str, namespace: str, service_token: GafaelfawrServiceToken
-    ) -> Optional[KubernetesResourceStatus]:
+    ) -> KubernetesResourceStatus | None:
         """Handle a change to a ``GafaelfawrServiceToken``.
 
         Parameters
@@ -310,7 +309,7 @@ class KubernetesTokenService:
         return True
 
     async def _secret_needs_update(
-        self, parent: GafaelfawrServiceToken, secret: Optional[V1Secret]
+        self, parent: GafaelfawrServiceToken, secret: V1Secret | None
     ) -> bool:
         """Check if a secret needs to be updated."""
         if not secret:
@@ -335,7 +334,7 @@ class KubernetesTokenService:
 
     async def _update_secret(
         self, parent: GafaelfawrServiceToken, secret: V1Secret
-    ) -> Optional[KubernetesResourceStatus]:
+    ) -> KubernetesResourceStatus | None:
         """Update a service token stored in Kubernetes if necessary.
 
         This checks that the service token stored in the ``Secret`` is still

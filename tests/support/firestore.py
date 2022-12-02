@@ -15,7 +15,7 @@ __all__ = ["MockFirestore", "patch_firestore"]
 class MockDocument:
     """Mock document contents."""
 
-    def __init__(self, data: Optional[dict[str, Any]]) -> None:
+    def __init__(self, data: Optional[dict[str, Any]] = None) -> None:
         self._data = data
         self.exists = data is not None
 

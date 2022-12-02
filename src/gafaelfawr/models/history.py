@@ -62,7 +62,7 @@ class AdminHistoryEntry(BaseModel):
     )
 
     ip_address: Optional[str] = Field(
-        ...,
+        None,
         title="IP address",
         description=(
             "IP address from which the change was made. Will be missing if"

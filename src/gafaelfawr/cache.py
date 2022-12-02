@@ -13,7 +13,7 @@ only intended for use via their service layer
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Generic, Literal, Optional, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from cachetools import LRUCache, TTLCache
 
@@ -87,7 +87,7 @@ class IdCache(BaseCache):
         async with self._lock:
             self._cache = LRUCache(ID_CACHE_SIZE)
 
-    def get(self, name: str) -> Optional[int]:
+    def get(self, name: str) -> int | None:
         """Retrieve the UID or GID for a name, if available.
 
         Parameters
@@ -165,9 +165,9 @@ class UserLockManager:
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[Exception]],
-        exc: Optional[Exception],
-        tb: Optional[TracebackType],
+        exc_type: type[Exception] | None,
+        exc: Exception | None,
+        tb: TracebackType | None,
     ) -> Literal[False]:
         self._user_lock.release()
         return False
@@ -266,7 +266,7 @@ class LDAPCache(PerUserCache, Generic[S]):
         self._cache: TTLCache[str, S]
         self.initialize()
 
-    def get(self, username: str) -> Optional[S]:
+    def get(self, username: str) -> S | None:
         """Retrieve data from the cache.
 
         Parameters
@@ -318,7 +318,7 @@ class InternalTokenCache(TokenCache):
 
     def get(
         self, token_data: TokenData, service: str, scopes: list[str]
-    ) -> Optional[Token]:
+    ) -> Token | None:
         """Retrieve an internal token from the cache.
 
         Parameters
@@ -397,7 +397,7 @@ class InternalTokenCache(TokenCache):
 class NotebookTokenCache(TokenCache):
     """Cache for notebook tokens."""
 
-    def get(self, token_data: TokenData) -> Optional[Token]:
+    def get(self, token_data: TokenData) -> Token | None:
         """Retrieve a notebook token from the cache.
 
         Parameters

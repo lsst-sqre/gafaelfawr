@@ -43,7 +43,7 @@ class State(BaseState):
 
     @classmethod
     async def from_cookie(
-        cls, cookie: str, request: Optional[Request]
+        cls, cookie: str, request: Optional[Request] = None
     ) -> State:
         """Reconstruct state from an encrypted cookie.
 

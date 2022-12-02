@@ -53,13 +53,13 @@ class AuthConfig:
     notebook: bool
     """Whether to generate a notebook token."""
 
-    delegate_to: Optional[str]
+    delegate_to: str | None
     """Internal service for which to create an internal token."""
 
     delegate_scopes: set[str]
     """List of scopes the delegated token should have."""
 
-    minimum_lifetime: Optional[timedelta]
+    minimum_lifetime: timedelta | None
     """Required minimum lifetime of the token."""
 
 

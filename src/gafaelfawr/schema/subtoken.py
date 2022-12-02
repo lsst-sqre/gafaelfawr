@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from sqlalchemy import Column, ForeignKey, Index, String
 
 from .base import Base
@@ -21,7 +19,7 @@ class Subtoken(Base):
         ForeignKey("token.token", ondelete="CASCADE"),
         primary_key=True,
     )
-    parent: Optional[str] = Column(
+    parent: str | None = Column(
         String(64), ForeignKey("token.token", ondelete="SET NULL")
     )
 

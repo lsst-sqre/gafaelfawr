@@ -358,8 +358,8 @@ class Settings(BaseSettings):
 
     @validator("oidc", always=True)
     def _exactly_one_provider(
-        cls, v: Optional[OIDCSettings], values: dict[str, object]
-    ) -> Optional[OIDCSettings]:
+        cls, v: OIDCSettings | None, values: dict[str, object]
+    ) -> OIDCSettings | None:
         """Ensure either github or oidc is set, not both."""
         if v and "github" in values and values["github"]:
             raise ValueError("both github and oidc settings present")
@@ -369,8 +369,8 @@ class Settings(BaseSettings):
 
     @validator("ldap", always=True)
     def _valid_ldap_config(
-        cls, v: Optional[LDAPSettings], values: dict[str, object]
-    ) -> Optional[LDAPSettings]:
+        cls, v: LDAPSettings | None, values: dict[str, object]
+    ) -> LDAPSettings | None:
         """Ensure all fields are non-empty if url is non-empty."""
         if v and v.url and not v.group_base_dn:
             raise ValueError("not all required ldap fields are present")
@@ -659,16 +659,16 @@ class Config:
     database_url: str
     """URL for the PostgreSQL database."""
 
-    database_password: Optional[str]
+    database_password: str | None
     """Password for the PostgreSQL database."""
 
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
-    redis_password: Optional[str]
+    redis_password: str | None
     """Password for the Redis server that stores sessions."""
 
-    bootstrap_token: Optional[Token]
+    bootstrap_token: Token | None
     """Bootstrap authentication token.
 
     This token can be used with specific routes in the admin API to change the
@@ -693,19 +693,19 @@ class Config:
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
 
-    github: Optional[GitHubConfig]
+    github: GitHubConfig | None
     """Configuration for GitHub authentication."""
 
-    ldap: Optional[LDAPConfig]
+    ldap: LDAPConfig | None
     """Configuration for LDAP."""
 
-    firestore: Optional[FirestoreConfig]
+    firestore: FirestoreConfig | None
     """Settings for Firestore-based UID/GID assignment."""
 
-    oidc: Optional[OIDCConfig]
+    oidc: OIDCConfig | None
     """Configuration for OpenID Connect authentication."""
 
-    oidc_server: Optional[OIDCServerConfig]
+    oidc_server: OIDCServerConfig | None
     """Configuration for the OpenID Connect server."""
 
     known_scopes: Mapping[str, str]
@@ -717,10 +717,10 @@ class Config:
     initial_admins: tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
 
-    error_footer: Optional[str] = None
+    error_footer: str | None
     """HTML to add (inside ``<p>``) to login error pages."""
 
-    slack_webhook: Optional[str] = None
+    slack_webhook: str | None
     """Slack webhook to which to post alerts."""
 
     @classmethod

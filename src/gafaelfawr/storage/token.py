@@ -164,7 +164,7 @@ class TokenDatabaseStore:
             parents = children
         return all_children
 
-    async def get_info(self, key: str) -> Optional[TokenInfo]:
+    async def get_info(self, key: str) -> TokenInfo | None:
         """Return information about a token.
 
         Parameters
@@ -202,7 +202,7 @@ class TokenDatabaseStore:
         service: str,
         scopes: list[str],
         min_expires: datetime,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Retrieve an existing internal child token.
 
         Parameters
@@ -238,7 +238,7 @@ class TokenDatabaseStore:
 
     async def get_notebook_token_key(
         self, token_data: TokenData, min_expires: datetime
-    ) -> Optional[str]:
+    ) -> str | None:
         """Retrieve an existing notebook child token.
 
         Parameters
@@ -348,7 +348,7 @@ class TokenDatabaseStore:
         scopes: Optional[list[str]] = None,
         expires: Optional[datetime] = None,
         no_expire: bool = False,
-    ) -> Optional[TokenInfo]:
+    ) -> TokenInfo | None:
         """Modify a token.
 
         Parameters
@@ -454,7 +454,7 @@ class TokenRedisStore:
         """Delete all stored tokens."""
         await self._storage.delete_all("token:*")
 
-    async def get_data(self, token: Token) -> Optional[TokenData]:
+    async def get_data(self, token: Token) -> TokenData | None:
         """Retrieve the data for a token from Redis.
 
         Doubles as a way to check the validity of the token.
@@ -481,7 +481,7 @@ class TokenRedisStore:
 
         return data
 
-    async def get_data_by_key(self, key: str) -> Optional[TokenData]:
+    async def get_data_by_key(self, key: str) -> TokenData | None:
         """Retrieve the data for a token from Redis by its key.
 
         This method allows retrieving a working token while bypassing the

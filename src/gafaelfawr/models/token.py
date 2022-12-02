@@ -527,8 +527,8 @@ class AdminTokenRequest(BaseModel):
 
     @validator("token_name", always=True)
     def _valid_token_name(
-        cls, v: Optional[str], values: dict[str, Any]
-    ) -> Optional[str]:
+        cls, v: str | None, values: dict[str, Any]
+    ) -> str | None:
         if "token_type" not in values:
             # Validation already failed, so the return value doesn't matter.
             return None

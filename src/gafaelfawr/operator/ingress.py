@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import kopf
 from pydantic import ValidationError
@@ -17,12 +17,12 @@ __all__ = ["create"]
 @kopf.on.create("gafaelfawr.lsst.io", "v1alpha1", "gafaelfawringresses")
 @kopf.on.update("gafaelfawr.lsst.io", "v1alpha1", "gafaelfawringresses")
 async def create(
-    name: Optional[str],
-    namespace: Optional[str],
+    name: str | None,
+    namespace: str | None,
     body: kopf.Body,
     memo: kopf.Memo,
     **_: Any,
-) -> Optional[dict[str, int | str]]:
+) -> dict[str, int | str] | None:
     """Handle creation or modiication of a GafaelfawrIngress object.
 
     Parameters

@@ -157,7 +157,7 @@ def generate_unauthorized_challenge(
     )
 
 
-def parse_authorization(context: RequestContext) -> Optional[str]:
+def parse_authorization(context: RequestContext) -> str | None:
     """Find a handle or token in the Authorization header.
 
     Supports either ``Bearer`` or ``Basic`` authorization types.  Rebinds the

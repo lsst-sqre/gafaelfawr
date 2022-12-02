@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Optional
 
 import bonsai
 from bonsai import LDAPSearchScope
@@ -41,7 +40,7 @@ class LDAPStorage:
         self._logger = logger.bind(ldap_url=self._config.url)
 
     async def get_group_names(
-        self, username: str, primary_gid: Optional[int]
+        self, username: str, primary_gid: int | None
     ) -> list[str]:
         """Get names of groups for a user from LDAP.
 
@@ -124,7 +123,7 @@ class LDAPStorage:
         return groups
 
     async def get_groups(
-        self, username: str, primary_gid: Optional[int]
+        self, username: str, primary_gid: int | None
     ) -> list[TokenGroup]:
         """Get groups for a user from LDAP.
 

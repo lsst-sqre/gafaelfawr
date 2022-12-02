@@ -144,22 +144,20 @@ async def get_login(
     return return_url
 
 
-def build_return_url(
-    redirect_uri: ParseResult, **params: Optional[str]
-) -> str:
+def build_return_url(redirect_uri: ParseResult, **params: str | None) -> str:
     """Construct a return URL for a redirect.
 
     Parameters
     ----------
-    redirect_uri : `urllib.parse.ParseResult`
+    redirect_uri
         The parsed return URI from the client.
-    **params : `str` or `None`
+    **params
         Additional parameters to add to that URI to create the return URL.
         Any parameters set to `None` will be ignored.
 
     Returns
     -------
-    return_url : `str`
+    str
         The return URL to which the user should be redirected.
     """
     query = parse_qsl(redirect_uri.query) if redirect_uri.query else []

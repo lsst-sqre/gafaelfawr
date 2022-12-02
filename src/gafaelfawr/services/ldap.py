@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from structlog.stdlib import BoundLogger
 
 from ..cache import LDAPCache
@@ -50,7 +48,7 @@ class LDAPService:
         self._logger = logger
 
     async def get_group_names(
-        self, username: str, gid: Optional[int]
+        self, username: str, gid: int | None
     ) -> list[str]:
         """Get the names of user groups from LDAP.
 
@@ -81,7 +79,7 @@ class LDAPService:
             return groups
 
     async def get_groups(
-        self, username: str, gid: Optional[int]
+        self, username: str, gid: int | None
     ) -> list[TokenGroup]:
         """Get user group membership and GIDs from LDAP.
 

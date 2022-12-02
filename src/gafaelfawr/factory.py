@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
-from typing import Optional
 
 import redis.asyncio as redis
 import structlog
@@ -72,7 +71,7 @@ class ProcessContext:
     http_client: AsyncClient
     """Shared HTTP client."""
 
-    ldap_pool: Optional[AIOConnectionPool]
+    ldap_pool: AIOConnectionPool | None
     """Connection pool to talk to LDAP, if configured."""
 
     redis: redis.Redis

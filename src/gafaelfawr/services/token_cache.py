@@ -361,7 +361,7 @@ class TokenCacheService:
 
     async def _is_token_valid(
         self,
-        token: Optional[Token],
+        token: Token | None,
         minimum_lifetime: Optional[timedelta] = None,
         scopes: Optional[list[str]] = None,
     ) -> bool:

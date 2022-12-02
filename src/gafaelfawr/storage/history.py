@@ -191,8 +191,8 @@ class TokenChangeHistoryStore:
     async def _paginated_query(
         self,
         stmt: Select,
-        cursor: Optional[HistoryCursor],
-        limit: Optional[int],
+        cursor: Optional[HistoryCursor] = None,
+        limit: Optional[int] = None,
     ) -> PaginatedHistory[TokenChangeHistoryEntry]:
         """Run a paginated query (one with a limit or a cursor)."""
         limited_stmt = stmt
