@@ -20,6 +20,7 @@ from kubernetes_asyncio.client import (
 
 from gafaelfawr.constants import KUBERNETES_TIMER_DELAY
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.kubernetes import StatusReason
 from gafaelfawr.models.token import (
     AdminTokenRequest,
     Token,
@@ -27,7 +28,6 @@ from gafaelfawr.models.token import (
     TokenType,
 )
 from gafaelfawr.services.token import TokenService
-from gafaelfawr.storage.kubernetes import StatusReason
 from gafaelfawr.util import current_datetime
 
 from ..support.kubernetes import (

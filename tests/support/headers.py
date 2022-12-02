@@ -8,13 +8,13 @@ from urllib.parse import parse_qs, urlparse
 
 from httpx import Response
 
-from gafaelfawr.auth import (
+from gafaelfawr.config import Config
+from gafaelfawr.models.auth import (
     AuthChallenge,
     AuthError,
     AuthErrorChallenge,
     AuthType,
 )
-from gafaelfawr.config import Config
 
 __all__ = [
     "assert_unauthorized_is_correct",

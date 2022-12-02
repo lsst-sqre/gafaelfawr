@@ -17,9 +17,15 @@ from ..exceptions import (
     InvalidTokenError,
     UnauthorizedClientError,
 )
-from ..models.oidc import JWKS, OIDCConfig, OIDCToken, OIDCVerifiedToken
+from ..models.oidc import (
+    JWKS,
+    OIDCAuthorizationCode,
+    OIDCConfig,
+    OIDCToken,
+    OIDCVerifiedToken,
+)
 from ..models.token import Token, TokenUserInfo
-from ..storage.oidc import OIDCAuthorizationCode, OIDCAuthorizationStore
+from ..storage.oidc import OIDCAuthorizationStore
 from .token import TokenService
 
 __all__ = ["OIDCService"]

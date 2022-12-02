@@ -14,7 +14,8 @@ from httpx import Request, Response
 
 from gafaelfawr.config import GitHubConfig
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.providers.github import GitHubProvider, GitHubUserInfo
+from gafaelfawr.models.github import GitHubUserInfo
+from gafaelfawr.providers.github import GitHubProvider
 
 __all__ = ["mock_github"]
 

@@ -13,11 +13,8 @@ from httpx import AsyncClient, Response
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
-from gafaelfawr.providers.github import (
-    GitHubProvider,
-    GitHubTeam,
-    GitHubUserInfo,
-)
+from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
+from gafaelfawr.providers.github import GitHubProvider
 
 from ..support.github import mock_github
 from ..support.logging import parse_log

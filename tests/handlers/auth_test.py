@@ -9,10 +9,10 @@ from unittest.mock import ANY
 import pytest
 from httpx import AsyncClient
 
-from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import Config
 from gafaelfawr.constants import MINIMUM_LIFETIME
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.token import Token, TokenUserInfo
 from gafaelfawr.util import current_datetime
 

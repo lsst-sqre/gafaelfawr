@@ -13,10 +13,10 @@ import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 
-from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
 
