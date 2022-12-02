@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
@@ -13,11 +13,8 @@ from httpx import AsyncClient, Response
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
-from gafaelfawr.providers.github import (
-    GitHubProvider,
-    GitHubTeam,
-    GitHubUserInfo,
-)
+from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
+from gafaelfawr.providers.github import GitHubProvider
 
 from ..support.github import mock_github
 from ..support.logging import parse_log
@@ -28,7 +25,7 @@ async def simulate_github_login(
     client: AsyncClient,
     respx_mock: respx.Router,
     user_info: GitHubUserInfo,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
     return_url: str = "https://example.com/",
     paginate_teams: bool = False,
     expect_revoke: bool = False,
@@ -41,27 +38,26 @@ async def simulate_github_login(
 
     Parameters
     ----------
-    client : `httpx.AsyncClient`
+    client
         Client to use to make calls to the application.
-    respx_mock : `respx.Router`
+    respx_mock
         Mock for httpx calls.
-    user_info : `gafaelfawr.providers.github.GitHubUserInfo`
+    user_info
         The user information that GitHub should return.
-    headers : Dict[`str`, `str`], optional
+    headers
         Optional headers to send on the initial login request.
-    return_url : `str`, optional
-        The return URL to pass to the login process.  If not provided, a
-        simple one will be used.
-    paginate_teams : `bool`, optional
+    return_url
+        The return URL to pass to the login process.
+    paginate_teams
         Whether to paginate the team list.  If this is set to true, there must
-        be more then two teams.  Default is `False`.
-    expect_revoke : `bool`, optional
+        be more then two teams.
+    expect_revoke
         Whether to expect a call from Gafaelfawr to the token revocation URL
-        immediately after retrieving user information.  Default is `False`.
+        immediately after retrieving user information.
 
     Returns
     -------
-    response : ``httpx.Response``
+    httpx.Response
         The response from the return to the ``/login`` handler.
     """
     config = await config_dependency()

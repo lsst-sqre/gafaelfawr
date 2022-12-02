@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from base64 import b64decode, b64encode
 from datetime import timedelta
-from typing import Any, Dict, Tuple
+from typing import Any
 from unittest.mock import ANY
 
 import pytest
@@ -20,6 +20,7 @@ from kubernetes_asyncio.client import (
 
 from gafaelfawr.constants import KUBERNETES_TIMER_DELAY
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.kubernetes import StatusReason
 from gafaelfawr.models.token import (
     AdminTokenRequest,
     Token,
@@ -27,7 +28,6 @@ from gafaelfawr.models.token import (
     TokenType,
 )
 from gafaelfawr.services.token import TokenService
-from gafaelfawr.storage.kubernetes import StatusReason
 from gafaelfawr.util import current_datetime
 
 from ..support.kubernetes import (
@@ -37,7 +37,7 @@ from ..support.kubernetes import (
 )
 
 
-def secret_sort_key(secret: V1Secret) -> Tuple[str, str]:
+def secret_sort_key(secret: V1Secret) -> tuple[str, str]:
     return (secret.metadata.namespace, secret.metadata.name)
 
 
@@ -347,7 +347,7 @@ async def test_update(
 ) -> None:
     core_api = client.CoreV1Api(api_client)
     custom_api = client.CustomObjectsApi(api_client)
-    service_token: Dict[str, Any] = {
+    service_token: dict[str, Any] = {
         "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
         "kind": "GafaelfawrServiceToken",
         "metadata": {

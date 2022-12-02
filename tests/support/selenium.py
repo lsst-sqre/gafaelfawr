@@ -8,10 +8,10 @@ import os
 import socket
 import subprocess
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 from safir.database import create_database_engine

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
@@ -53,7 +53,7 @@ class FormattedJSONResponse(JSONResponse):
         ).encode()
 
 
-def token_data_to_analysis(token_data: TokenData) -> Dict[str, Dict[str, Any]]:
+def token_data_to_analysis(token_data: TokenData) -> dict[str, dict[str, Any]]:
     """Convert the token data to the legacy analysis format.
 
     This produces the same format (with some missing data) as this route
@@ -99,7 +99,7 @@ def token_data_to_analysis(token_data: TokenData) -> Dict[str, Dict[str, Any]]:
 async def get_analyze(
     token_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """Analyze a token from a web session."""
     return token_data_to_analysis(token_data)
 
@@ -127,7 +127,7 @@ async def post_analyze(
         example="gt-db59fbkT5LrGHvhLMglNWw.G3NEmhWZr8JwO8AQ8sIWpQ",
     ),
     context: RequestContext = Depends(context_dependency),
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """Analyze a token.
 
     Expects a POST with a single parameter, ``token``, containing the token.

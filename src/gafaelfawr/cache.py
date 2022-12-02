@@ -13,7 +13,7 @@ only intended for use via their service layer
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Dict, Generic, List, Literal, Optional, Tuple, Type, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from cachetools import LRUCache, TTLCache
 
@@ -27,7 +27,7 @@ from .models.token import Token, TokenData
 
 S = TypeVar("S")
 
-LRUTokenCache = LRUCache[Tuple[str, ...], Token]
+LRUTokenCache = LRUCache[tuple[str, ...], Token]
 """Type for the underlying token cache."""
 
 __all__ = [
@@ -87,7 +87,7 @@ class IdCache(BaseCache):
         async with self._lock:
             self._cache = LRUCache(ID_CACHE_SIZE)
 
-    def get(self, name: str) -> Optional[int]:
+    def get(self, name: str) -> int | None:
         """Retrieve the UID or GID for a name, if available.
 
         Parameters
@@ -165,9 +165,9 @@ class UserLockManager:
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[Exception]],
-        exc: Optional[Exception],
-        tb: Optional[TracebackType],
+        exc_type: type[Exception] | None,
+        exc: Exception | None,
+        tb: TracebackType | None,
     ) -> Literal[False]:
         self._user_lock.release()
         return False
@@ -206,7 +206,7 @@ class PerUserCache(BaseCache):
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        self._user_locks: Dict[str, asyncio.Lock] = {}
+        self._user_locks: dict[str, asyncio.Lock] = {}
 
     async def clear(self) -> None:
         """Invalidate the cache.
@@ -261,12 +261,12 @@ class LDAPCache(PerUserCache, Generic[S]):
         The type of object being stored.
     """
 
-    def __init__(self, content: Type[S]) -> None:
+    def __init__(self, content: type[S]) -> None:
         super().__init__()
         self._cache: TTLCache[str, S]
         self.initialize()
 
-    def get(self, username: str) -> Optional[S]:
+    def get(self, username: str) -> S | None:
         """Retrieve data from the cache.
 
         Parameters
@@ -317,8 +317,8 @@ class InternalTokenCache(TokenCache):
     """Cache for internal tokens."""
 
     def get(
-        self, token_data: TokenData, service: str, scopes: List[str]
-    ) -> Optional[Token]:
+        self, token_data: TokenData, service: str, scopes: list[str]
+    ) -> Token | None:
         """Retrieve an internal token from the cache.
 
         Parameters
@@ -349,7 +349,7 @@ class InternalTokenCache(TokenCache):
         self,
         token_data: TokenData,
         service: str,
-        scopes: List[str],
+        scopes: list[str],
         token: Token,
     ) -> None:
         """Store an internal token in the cache.
@@ -371,8 +371,8 @@ class InternalTokenCache(TokenCache):
         self._cache[key] = token
 
     def _build_key(
-        self, token_data: TokenData, service: str, scopes: List[str]
-    ) -> Tuple[str, ...]:
+        self, token_data: TokenData, service: str, scopes: list[str]
+    ) -> tuple[str, ...]:
         """Build the cache key for an internal token.
 
         Parameters
@@ -386,7 +386,7 @@ class InternalTokenCache(TokenCache):
 
         Returns
         -------
-        Tuple
+        tuple
             An object suitable for use as a hash key for this internal token.
         """
         expires = str(token_data.expires) if token_data.expires else "None"
@@ -397,7 +397,7 @@ class InternalTokenCache(TokenCache):
 class NotebookTokenCache(TokenCache):
     """Cache for notebook tokens."""
 
-    def get(self, token_data: TokenData) -> Optional[Token]:
+    def get(self, token_data: TokenData) -> Token | None:
         """Retrieve a notebook token from the cache.
 
         Parameters
@@ -435,7 +435,7 @@ class NotebookTokenCache(TokenCache):
         key = self._build_key(token_data)
         self._cache[key] = token
 
-    def _build_key(self, token_data: TokenData) -> Tuple[str, ...]:
+    def _build_key(self, token_data: TokenData) -> tuple[str, ...]:
         """Build the cache key for a notebook token.
 
         Parameters
@@ -445,7 +445,7 @@ class NotebookTokenCache(TokenCache):
 
         Returns
         -------
-        Tuple
+        tuple
             An object suitable for use as a hash key for this internal token.
         """
         expires = str(token_data.expires) if token_data.expires else "None"

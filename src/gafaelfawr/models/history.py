@@ -5,19 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
+from safir.pydantic import normalize_datetime
 from starlette.datastructures import URL
 
 from ..exceptions import InvalidCursorError
-from ..util import (
-    current_datetime,
-    normalize_datetime,
-    normalize_ip_address,
-    normalize_scopes,
-)
+from ..util import current_datetime, normalize_ip_address, normalize_scopes
 from .token import TokenType
 
 E = TypeVar("E", bound="BaseModel")
@@ -62,7 +58,7 @@ class AdminHistoryEntry(BaseModel):
     )
 
     ip_address: Optional[str] = Field(
-        ...,
+        None,
         title="IP address",
         description=(
             "IP address from which the change was made. Will be missing if"
@@ -170,7 +166,7 @@ class PaginatedHistory(Generic[E]):
     type of cursor.
     """
 
-    entries: List[E]
+    entries: list[E]
     """The history entries."""
 
     count: int
@@ -266,7 +262,7 @@ class TokenChangeHistoryEntry(BaseModel):
         example="1NOV_8aPwhCWj6rM-p1XgQ",
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         ..., title="Scopes of the token", example=["read:all"]
     )
 
@@ -309,7 +305,7 @@ class TokenChangeHistoryEntry(BaseModel):
         example="old name",
     )
 
-    old_scopes: Optional[List[str]] = Field(
+    old_scopes: Optional[list[str]] = Field(
         None,
         title="Previous scopes of the token",
         description=(
@@ -371,7 +367,7 @@ class TokenChangeHistoryEntry(BaseModel):
         "ip_address", allow_reuse=True, pre=True
     )(normalize_ip_address)
 
-    def reduced_dict(self) -> Dict[str, Any]:
+    def reduced_dict(self) -> dict[str, Any]:
         """Custom ``dict`` method to suppress some fields.
 
         Excludes the ``old_`` fields for changes other than edits, and when

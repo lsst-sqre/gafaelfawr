@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from ..constants import OIDC_AUTHORIZATION_LIFETIME
 from ..exceptions import DeserializeError
 from ..models.oidc import OIDCAuthorization, OIDCAuthorizationCode
@@ -70,7 +68,7 @@ class OIDCAuthorizationStore:
 
     async def get(
         self, code: OIDCAuthorizationCode
-    ) -> Optional[OIDCAuthorization]:
+    ) -> OIDCAuthorization | None:
         """Retrieve an OpenID Connect authorization.
 
         Parameters

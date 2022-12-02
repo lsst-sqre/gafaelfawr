@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Column, DateTime, Enum, Index, String, UniqueConstraint
 
@@ -21,12 +20,12 @@ class Token(Base):
     token: str = Column(String(64, collation="C"), primary_key=True)
     username: str = Column(String(64), nullable=False)
     token_type: TokenType = Column(Enum(TokenType), nullable=False)
-    token_name: Optional[str] = Column(String(64))
+    token_name: str | None = Column(String(64))
     scopes: str = Column(String(512), nullable=False)
-    service: Optional[str] = Column(String(64))
+    service: str | None = Column(String(64))
     created: datetime = Column(DateTime, nullable=False)
-    last_used: Optional[datetime] = Column(DateTime)
-    expires: Optional[datetime] = Column(DateTime)
+    last_used: datetime | None = Column(DateTime)
+    expires: datetime | None = Column(DateTime)
 
     __table_args__ = (
         UniqueConstraint("username", "token_name"),

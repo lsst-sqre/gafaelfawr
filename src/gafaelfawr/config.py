@@ -13,10 +13,11 @@ import json
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
-from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
+from typing import Any, Optional
 
 import yaml
 from pydantic import (
@@ -27,6 +28,7 @@ from pydantic import (
     validator,
 )
 from safir.logging import configure_logging
+from safir.pydantic import validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .keypair import RSAKeyPair
@@ -72,7 +74,7 @@ class OIDCSettings(BaseModel):
     login_url: AnyHttpUrl
     """URL to which to send the user to initiate authentication."""
 
-    login_params: Dict[str, str] = {}
+    login_params: dict[str, str] = {}
     """Additional parameters to the login URL."""
 
     redirect_url: AnyHttpUrl
@@ -92,7 +94,7 @@ class OIDCSettings(BaseModel):
     URL so that they can register.
     """
 
-    scopes: List[str] = []
+    scopes: list[str] = []
     """Scopes to request from the authentication provider.
 
     The ``openid`` scope will always be added and does not need to be
@@ -287,7 +289,7 @@ class Settings(BaseSettings):
     token_lifetime_minutes: int = 1380  # 23 hours
     """Number of minutes into the future that a token should expire."""
 
-    proxies: Optional[List[IPvAnyNetwork]]
+    proxies: Optional[list[IPvAnyNetwork]]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
     If this is set to a non-empty list, it will be used as the trusted list of
@@ -317,13 +319,13 @@ class Settings(BaseSettings):
     oidc_server: Optional[OIDCServerSettings] = None
     """Settings for the internal OpenID Connect server."""
 
-    initial_admins: List[str]
+    initial_admins: list[str]
     """Initial token administrators to configure when initializing database."""
 
-    known_scopes: Dict[str, str] = {}
+    known_scopes: dict[str, str] = {}
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    group_mapping: Dict[str, List[str]] = {}
+    group_mapping: dict[str, list[str]] = {}
     """Mappings of scopes to lists of groups that provide them."""
 
     error_footer: Optional[str] = None
@@ -339,7 +341,7 @@ class Settings(BaseSettings):
         return v
 
     @validator("known_scopes")
-    def _valid_known_scopes(cls, v: Dict[str, str]) -> Dict[str, str]:
+    def _valid_known_scopes(cls, v: dict[str, str]) -> dict[str, str]:
         for scope in v.keys():
             if not re.match(SCOPE_REGEX, scope):
                 raise ValueError(f"invalid scope {scope}")
@@ -355,21 +357,10 @@ class Settings(BaseSettings):
             raise ValueError("invalid logging level")
         return v
 
-    @validator("oidc", always=True)
-    def _exactly_one_provider(
-        cls, v: Optional[OIDCSettings], values: Dict[str, object]
-    ) -> Optional[OIDCSettings]:
-        """Ensure either github or oidc is set, not both."""
-        if v and "github" in values and values["github"]:
-            raise ValueError("both github and oidc settings present")
-        if not v and ("github" not in values or not values["github"]):
-            raise ValueError("neither github nor oidc settings present")
-        return v
-
     @validator("ldap", always=True)
     def _valid_ldap_config(
-        cls, v: Optional[LDAPSettings], values: Dict[str, object]
-    ) -> Optional[LDAPSettings]:
+        cls, v: LDAPSettings | None, values: dict[str, object]
+    ) -> LDAPSettings | None:
         """Ensure all fields are non-empty if url is non-empty."""
         if v and v.url and not v.group_base_dn:
             raise ValueError("not all required ldap fields are present")
@@ -378,7 +369,7 @@ class Settings(BaseSettings):
         return v
 
     @validator("group_mapping", pre=True)
-    def _convert_github_orgs(cls, v: Dict[str, Any]) -> Dict[str, List[str]]:
+    def _convert_github_orgs(cls, v: dict[str, Any]) -> dict[str, list[str]]:
         """Convert GitHub org/team pairs to group names."""
         if not isinstance(v, dict):
             raise ValueError("group_mapping must be a dictionary")
@@ -411,10 +402,14 @@ class Settings(BaseSettings):
         return v
 
     @validator("initial_admins", pre=True)
-    def _nonempty_list(cls, v: List[str]) -> List[str]:
+    def _nonempty_list(cls, v: list[str]) -> list[str]:
         if not v:
             raise ValueError("initial_admins is empty")
         return v
+
+    _validate_provider = validator("oidc", always=True)(
+        validate_exactly_one_of("github", "oidc")
+    )
 
 
 @dataclass(frozen=True)
@@ -466,7 +461,7 @@ class OIDCConfig:
     URL so that they can register.
     """
 
-    scopes: Tuple[str, ...]
+    scopes: tuple[str, ...]
     """Scopes to request from the authentication provider.
 
     The ``openid`` scope will always be added and does not need to be
@@ -632,7 +627,7 @@ class OIDCServerConfig:
     lifetime: timedelta
     """Lifetime of issued tokens."""
 
-    clients: Tuple[OIDCClient, ...]
+    clients: tuple[OIDCClient, ...]
     """Supported OpenID Connect clients."""
 
 
@@ -658,16 +653,16 @@ class Config:
     database_url: str
     """URL for the PostgreSQL database."""
 
-    database_password: Optional[str]
+    database_password: str | None
     """Password for the PostgreSQL database."""
 
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
-    redis_password: Optional[str]
+    redis_password: str | None
     """Password for the Redis server that stores sessions."""
 
-    bootstrap_token: Optional[Token]
+    bootstrap_token: Token | None
     """Bootstrap authentication token.
 
     This token can be used with specific routes in the admin API to change the
@@ -677,7 +672,7 @@ class Config:
     token_lifetime: timedelta
     """Maximum lifetime of session, notebook, and internal tokens."""
 
-    proxies: Tuple[_BaseNetwork, ...]
+    proxies: tuple[_BaseNetwork, ...]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
     If this is set to a non-empty list, it will be used as the trusted list of
@@ -692,34 +687,34 @@ class Config:
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
 
-    github: Optional[GitHubConfig]
+    github: GitHubConfig | None
     """Configuration for GitHub authentication."""
 
-    ldap: Optional[LDAPConfig]
+    ldap: LDAPConfig | None
     """Configuration for LDAP."""
 
-    firestore: Optional[FirestoreConfig]
+    firestore: FirestoreConfig | None
     """Settings for Firestore-based UID/GID assignment."""
 
-    oidc: Optional[OIDCConfig]
+    oidc: OIDCConfig | None
     """Configuration for OpenID Connect authentication."""
 
-    oidc_server: Optional[OIDCServerConfig]
+    oidc_server: OIDCServerConfig | None
     """Configuration for the OpenID Connect server."""
 
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    group_mapping: Mapping[str, FrozenSet[str]]
+    group_mapping: Mapping[str, frozenset[str]]
     """Mapping of group names to the set of scopes that group grants."""
 
-    initial_admins: Tuple[str, ...]
+    initial_admins: tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
 
-    error_footer: Optional[str] = None
+    error_footer: str | None
     """HTML to add (inside ``<p>``) to login error pages."""
 
-    slack_webhook: Optional[str] = None
+    slack_webhook: str | None
     """Slack webhook to which to post alerts."""
 
     @classmethod

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
 
 import jwt
 from structlog.stdlib import BoundLogger
@@ -17,9 +16,15 @@ from ..exceptions import (
     InvalidTokenError,
     UnauthorizedClientError,
 )
-from ..models.oidc import JWKS, OIDCConfig, OIDCToken, OIDCVerifiedToken
+from ..models.oidc import (
+    JWKS,
+    OIDCAuthorizationCode,
+    OIDCConfig,
+    OIDCToken,
+    OIDCVerifiedToken,
+)
 from ..models.token import Token, TokenUserInfo
-from ..storage.oidc import OIDCAuthorizationCode, OIDCAuthorizationStore
+from ..storage.oidc import OIDCAuthorizationStore
 from .token import TokenService
 
 __all__ = ["OIDCService"]
@@ -182,7 +187,7 @@ class OIDCService:
     async def redeem_code(
         self,
         client_id: str,
-        client_secret: Optional[str],
+        client_secret: str | None,
         redirect_uri: str,
         code: OIDCAuthorizationCode,
     ) -> OIDCVerifiedToken:
@@ -288,7 +293,7 @@ class OIDCService:
             raise InvalidTokenError(f"Missing claim {str(e)}") from e
 
     def _check_client_secret(
-        self, client_id: str, client_secret: Optional[str]
+        self, client_id: str, client_secret: str | None
     ) -> None:
         """Check that the client ID and client secret match.
 

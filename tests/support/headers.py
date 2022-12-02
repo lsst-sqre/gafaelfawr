@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List
 from urllib.parse import parse_qs, urlparse
 
 from httpx import Response
 
-from gafaelfawr.auth import (
+from gafaelfawr.config import Config
+from gafaelfawr.models.auth import (
     AuthChallenge,
     AuthError,
     AuthErrorChallenge,
     AuthType,
 )
-from gafaelfawr.config import Config
 
 __all__ = [
     "assert_unauthorized_is_correct",
@@ -98,7 +97,7 @@ def parse_www_authenticate(header: str) -> AuthChallenge:
         return AuthChallenge(auth_type=auth_type, realm=realm)
 
 
-def query_from_url(url: str) -> Dict[str, List[str]]:
+def query_from_url(url: str) -> dict[str, list[str]]:
     """Parse a URL and return its query.
 
     Parameters

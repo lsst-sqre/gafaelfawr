@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from typing import Optional, Set
+from typing import Optional
 
 from fastapi import HTTPException, status
 
@@ -26,7 +26,7 @@ def generate_challenge(
     context: RequestContext,
     auth_type: AuthType,
     exc: OAuthBearerError,
-    scopes: Optional[Set[str]] = None,
+    scopes: Optional[set[str]] = None,
 ) -> HTTPException:
     """Convert an exception into an HTTP error with ``WWW-Authenticate``.
 
@@ -157,7 +157,7 @@ def generate_unauthorized_challenge(
     )
 
 
-def parse_authorization(context: RequestContext) -> Optional[str]:
+def parse_authorization(context: RequestContext) -> str | None:
     """Find a handle or token in the Authorization header.
 
     Supports either ``Bearer`` or ``Basic`` authorization types.  Rebinds the

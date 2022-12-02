@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, Iterator, List, Tuple
+from typing import Any
 from unittest.mock import Mock, patch
 
 import bonsai
@@ -14,8 +15,8 @@ from bonsai.utils import escape_filter_exp
 from gafaelfawr import factory
 from gafaelfawr.constants import LDAP_TIMEOUT
 
-_SearchResults = List[Dict[str, List[str]]]
-_MockData = Dict[str, Dict[Tuple[str, str], _SearchResults]]
+_SearchResults = list[dict[str, list[str]]]
+_MockData = dict[str, dict[tuple[str, str], _SearchResults]]
 
 __all__ = ["MockLDAP", "patch_ldap"]
 
@@ -55,9 +56,9 @@ class MockLDAP(Mock):
         base: str,
         scope: bonsai.LDAPSearchScope,
         filter_exp: str,
-        attrlist: List[str],
+        attrlist: list[str],
         timeout: float,
-    ) -> List[Dict[str, List[str]]]:
+    ) -> list[dict[str, list[str]]]:
         assert scope in (
             bonsai.LDAPSearchScope.SUB,
             bonsai.LDAPSearchScope.ONELEVEL,

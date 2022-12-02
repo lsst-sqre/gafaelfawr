@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Coroutine, Dict, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any, Optional
 
 from fastapi import HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -123,7 +124,7 @@ class SlackAlertClient:
         }
         await self._post(alert)
 
-    async def _post(self, alert: Dict[str, Any]) -> None:
+    async def _post(self, alert: dict[str, Any]) -> None:
         """Send an alert to Slack."""
         self._logger.debug("Sending alert to Slack")
         try:

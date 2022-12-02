@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator, List, Optional
 
 import redis.asyncio as redis
 import structlog
@@ -22,6 +22,7 @@ from .cache import IdCache, InternalTokenCache, LDAPCache, NotebookTokenCache
 from .config import Config
 from .exceptions import NotConfiguredError
 from .models.ldap import LDAPUserData
+from .models.oidc import OIDCAuthorization
 from .models.token import TokenData, TokenGroup
 from .providers.base import Provider
 from .providers.github import GitHubProvider
@@ -47,7 +48,7 @@ from .storage.kubernetes import (
     KubernetesTokenStorage,
 )
 from .storage.ldap import LDAPStorage
-from .storage.oidc import OIDCAuthorization, OIDCAuthorizationStore
+from .storage.oidc import OIDCAuthorizationStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
 
 __all__ = ["Factory", "ProcessContext"]
@@ -70,7 +71,7 @@ class ProcessContext:
     http_client: AsyncClient
     """Shared HTTP client."""
 
-    ldap_pool: Optional[AIOConnectionPool]
+    ldap_pool: AIOConnectionPool | None
     """Connection pool to talk to LDAP, if configured."""
 
     redis: redis.Redis
@@ -82,10 +83,10 @@ class ProcessContext:
     gid_cache: IdCache
     """Shared GID cache."""
 
-    ldap_group_cache: LDAPCache[List[TokenGroup]]
+    ldap_group_cache: LDAPCache[list[TokenGroup]]
     """Cache of LDAP group information."""
 
-    ldap_group_name_cache: LDAPCache[List[str]]
+    ldap_group_name_cache: LDAPCache[list[str]]
     """Cache of LDAP group names."""
 
     ldap_user_cache: LDAPCache[LDAPUserData]
@@ -131,8 +132,8 @@ class ProcessContext:
             ),
             uid_cache=IdCache(),
             gid_cache=IdCache(),
-            ldap_group_cache=LDAPCache(List[TokenGroup]),
-            ldap_group_name_cache=LDAPCache(List[str]),
+            ldap_group_cache=LDAPCache(list[TokenGroup]),
+            ldap_group_name_cache=LDAPCache(list[str]),
             ldap_user_cache=LDAPCache(LDAPUserData),
             internal_token_cache=InternalTokenCache(),
             notebook_token_cache=NotebookTokenCache(),

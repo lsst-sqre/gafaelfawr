@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from base64 import b64encode
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, Awaitable, Callable, Optional, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
@@ -104,9 +105,7 @@ class KubernetesIngressStorage:
         )
 
     @_convert_exception
-    async def get_ingress(
-        self, name: str, namespace: str
-    ) -> Optional[V1Ingress]:
+    async def get_ingress(self, name: str, namespace: str) -> V1Ingress | None:
         """Retrieve a Kubernetes ``Ingress`` resource.
 
         Parameters
@@ -231,7 +230,7 @@ class KubernetesTokenStorage:
     @_convert_exception
     async def get_secret(
         self, parent: GafaelfawrServiceToken
-    ) -> Optional[V1Secret]:
+    ) -> V1Secret | None:
         """Retrieve the secret corresponding to a ``GafaelfawrServiceToken``.
 
         Parameters

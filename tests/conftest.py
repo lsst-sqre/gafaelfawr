@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from typing import AsyncIterator, Iterator, Optional
 from urllib.parse import urljoin
 
 import pytest
@@ -40,7 +40,7 @@ from .support.slack import MockSlack, mock_slack_webhook
 
 @pytest_asyncio.fixture
 async def app(
-    engine: AsyncEngine, empty_database: None, mock_slack: Optional[MockSlack]
+    engine: AsyncEngine, empty_database: None, mock_slack: MockSlack | None
 ) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
@@ -175,9 +175,7 @@ def mock_ldap() -> Iterator[MockLDAP]:
 
 
 @pytest.fixture
-def mock_slack(
-    config: Config, respx_mock: respx.Router
-) -> Optional[MockSlack]:
+def mock_slack(config: Config, respx_mock: respx.Router) -> MockSlack | None:
     """Mock a Slack webhook."""
     if not config.slack_webhook:
         return None

@@ -108,7 +108,7 @@ async def get_login(
 
 
 async def redirect_to_provider(
-    return_url: Optional[str], context: RequestContext
+    return_url: str | None, context: RequestContext
 ) -> RedirectResponse:
     """Redirect the user to an external authentication provider.
 
@@ -117,14 +117,14 @@ async def redirect_to_provider(
 
     Parameters
     ----------
-    return_url : `str`, optional
+    return_url
         The return URL to which to send the user after authentication.
-    context : `gafaelfawr.dependencies.config.RequestContext`
+    context
         The context of the incoming request.
 
     Returns
     -------
-    response : `fastapi.RedirectResponse`
+    fastapi.RedirectResponse
         A redirect to the authentication provider.
 
     Raises
@@ -173,7 +173,7 @@ async def redirect_to_provider(
 
 
 async def handle_provider_return(
-    code: str, state: Optional[str], context: RequestContext
+    code: str, state: str | None, context: RequestContext
 ) -> Response:
     """Handle the return from an external authentication provider.
 
@@ -182,18 +182,18 @@ async def handle_provider_return(
 
     Parameters
     ----------
-    code : `str`
+    code
         The authentication code from the provider.
-    state : `str`, optional
+    state
         The opaque state used to verify that this user initiated the
         authentication.  This can be `None`, but that will always be an
         error.
-    context : `gafaelfawr.dependencies.config.RequestContext`
+    context
         The context of the incoming request.
 
     Returns
     -------
-    response : ``fastapi.Response``
+    fastapi.Response
         Either a redirect to the resource the user was trying to reach before
         authentication or an HTML page with an error message if the
         authentication failed.
@@ -279,16 +279,16 @@ def login_error(
 
     Parameters
     ----------
-    context : `gafaelfawr.dependencies.config.RequestContext`
+    context
         The context of the incoming request.
-    error : `LoginError`
+    error
         The type of error.
-    details : `str`, optional
+    details
         Additional error details, if provided.
 
     Returns
     -------
-    response : ``fastapi.Response``
+    fastapi.Response
         The response to send back to the user.
     """
     if details:

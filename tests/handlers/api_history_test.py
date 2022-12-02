@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Optional
 from urllib.parse import urlencode
 
 import pytest
@@ -33,7 +34,7 @@ from ..support.tokens import create_session_token
 
 async def build_history(
     factory: Factory,
-) -> List[TokenChangeHistoryEntry]:
+) -> list[TokenChangeHistoryEntry]:
     """Perform a bunch of token manipulations and return the history entries.
 
     Assume that all token manipulations generate the correct history entries,
@@ -167,7 +168,7 @@ async def build_history(
     return history.entries
 
 
-def entry_to_dict(entry: TokenChangeHistoryEntry) -> Dict[str, Any]:
+def entry_to_dict(entry: TokenChangeHistoryEntry) -> dict[str, Any]:
     """Convert a history entry to the expected API output."""
     reduced_entry = TokenChangeHistoryEntry(**entry.reduced_dict())
     return json.loads(reduced_entry.json(exclude_unset=True))
@@ -175,8 +176,8 @@ def entry_to_dict(entry: TokenChangeHistoryEntry) -> Dict[str, Any]:
 
 async def check_history_request(
     client: AsyncClient,
-    query: Dict[str, Union[str, int]],
-    history: List[TokenChangeHistoryEntry],
+    query: dict[str, str | int],
+    history: list[TokenChangeHistoryEntry],
     selector: Callable[[TokenChangeHistoryEntry], bool],
     *,
     username: Optional[str] = None,
@@ -200,7 +201,7 @@ async def check_history_request(
 
 async def check_pagination(
     client: AsyncClient,
-    history: List[TokenChangeHistoryEntry],
+    history: list[TokenChangeHistoryEntry],
     *,
     username: Optional[str] = None,
 ) -> None:

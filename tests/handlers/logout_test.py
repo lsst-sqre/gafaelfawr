@@ -9,7 +9,7 @@ from httpx import AsyncClient
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
-from gafaelfawr.providers.github import GitHubTeam, GitHubUserInfo
+from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import set_session_cookie

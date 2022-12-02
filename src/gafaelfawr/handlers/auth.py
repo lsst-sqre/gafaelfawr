@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Dict, List, Optional, Set
+from typing import Optional
 
 from fastapi import (
     APIRouter,
@@ -41,7 +41,7 @@ __all__ = ["get_auth"]
 class AuthConfig:
     """Configuration for an authorization request."""
 
-    scopes: Set[str]
+    scopes: set[str]
     """The scopes the authentication token must have."""
 
     satisfy: Satisfy
@@ -53,13 +53,13 @@ class AuthConfig:
     notebook: bool
     """Whether to generate a notebook token."""
 
-    delegate_to: Optional[str]
+    delegate_to: str | None
     """Internal service for which to create an internal token."""
 
-    delegate_scopes: Set[str]
+    delegate_scopes: set[str]
     """List of scopes the delegated token should have."""
 
-    minimum_lifetime: Optional[timedelta]
+    minimum_lifetime: timedelta | None
     """Required minimum lifetime of the token."""
 
 
@@ -85,7 +85,7 @@ def auth_uri(
 
 
 def auth_config(
-    scope: List[str] = Query(
+    scope: list[str] = Query(
         ...,
         title="Required scopes",
         description=(
@@ -214,7 +214,7 @@ async def get_auth(
     auth_config: AuthConfig = Depends(auth_config),
     token_data: TokenData = Depends(authenticate_with_type),
     context: RequestContext = Depends(context_dependency),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Authenticate and authorize a token.
 
     Notes
@@ -361,21 +361,21 @@ async def get_auth_forbidden(
 
 async def build_success_headers(
     context: RequestContext, auth_config: AuthConfig, token_data: TokenData
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Construct the headers for successful authorization.
 
     Parameters
     ----------
-    context : `gafaelfawr.dependencies.context.RequestContext`
+    context
         The context of the incoming request.
-    auth_config : `AuthConfig`
+    auth_config
         Configuration parameters for the authorization.
-    token_data : `gafaelfawr.models.token.TokenData`
+    token_data
         The data from the authentication token.
 
     Returns
     -------
-    headers : Dict[`str`, `str`]
+    headers
         Headers to include in the response.
     """
     headers = {"X-Auth-Request-User": token_data.username}

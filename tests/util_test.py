@@ -14,7 +14,6 @@ from gafaelfawr.util import (
     is_bot_user,
     normalize_timedelta,
     number_to_base64,
-    to_camel_case,
 )
 
 
@@ -70,10 +69,3 @@ def test_normalize_timedelta() -> None:
 def test_number_to_base64() -> None:
     assert number_to_base64(0) == b"AA"
     assert number_to_base64(65537) == b"AQAB"
-
-
-def test_to_camel_case() -> None:
-    assert to_camel_case("foo") == "foo"
-    assert to_camel_case("minimum_lifetime") == "minimumLifetime"
-    assert to_camel_case("replace_403") == "replace403"
-    assert to_camel_case("foo_bar_baz") == "fooBarBaz"

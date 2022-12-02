@@ -7,7 +7,7 @@ risking confusion in other contexts.
 
 from __future__ import annotations
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import pytest_asyncio
 from kubernetes_asyncio.client import ApiClient

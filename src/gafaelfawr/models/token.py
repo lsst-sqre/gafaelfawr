@@ -4,18 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, validator
+from safir.pydantic import normalize_datetime
 
 from ..constants import GROUPNAME_REGEX, USERNAME_REGEX
 from ..exceptions import InvalidTokenError
-from ..util import (
-    current_datetime,
-    normalize_datetime,
-    normalize_scopes,
-    random_128_bits,
-)
+from ..util import current_datetime, normalize_scopes, random_128_bits
 
 __all__ = [
     "AdminTokenRequest",
@@ -174,7 +170,7 @@ class TokenBase(BaseModel):
         example="session",
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         ..., title="Token scopes", example=["read:all", "user:token"]
     )
 
@@ -302,13 +298,13 @@ class TokenUserInfo(BaseModel):
         ge=1,
     )
 
-    groups: Optional[List[TokenGroup]] = Field(
+    groups: Optional[list[TokenGroup]] = Field(
         None,
         title="Groups",
         description="Groups of which the user is a member",
     )
 
-    def to_userinfo_dict(self) -> Dict[str, Any]:
+    def to_userinfo_dict(self) -> dict[str, Any]:
         """Convert to a dictionary for logging purposes.
 
         This method converts only the `TokenUserInfo` portion of a token to a
@@ -326,7 +322,7 @@ class TokenUserInfo(BaseModel):
             ensuring that only its data is included even if called on a
             subclass such as `TokenData`.
         """
-        token_userinfo: Dict[str, Any] = {}
+        token_userinfo: dict[str, Any] = {}
         if self.name is not None:
             token_userinfo["name"] = self.name
         if self.email is not None:
@@ -446,7 +442,7 @@ class AdminTokenRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         default_factory=list,
         title="Token scopes",
         example=["read:all"],
@@ -509,7 +505,7 @@ class AdminTokenRequest(BaseModel):
         ge=1,
     )
 
-    groups: Optional[List[TokenGroup]] = Field(
+    groups: Optional[list[TokenGroup]] = Field(
         None,
         title="Groups",
         description=(
@@ -527,8 +523,8 @@ class AdminTokenRequest(BaseModel):
 
     @validator("token_name", always=True)
     def _valid_token_name(
-        cls, v: Optional[str], values: Dict[str, Any]
-    ) -> Optional[str]:
+        cls, v: str | None, values: dict[str, Any]
+    ) -> str | None:
         if "token_type" not in values:
             # Validation already failed, so the return value doesn't matter.
             return None
@@ -550,7 +546,7 @@ class UserTokenRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         default_factory=list,
         title="Token scope",
         example=["read:all"],
@@ -579,7 +575,7 @@ class UserTokenModifyRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: Optional[List[str]] = Field(
+    scopes: Optional[list[str]] = Field(
         None, title="Token scopes", example=["read:all"]
     )
 

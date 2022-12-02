@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -130,7 +130,7 @@ class APIConfig(BaseModel):
     to a UI and therefore is returned as part of a login response.
     """
 
-    scopes: List[Scope] = Field(
+    scopes: list[Scope] = Field(
         ...,
         title="All known scopes",
         description=(
@@ -166,7 +166,7 @@ class APILoginResponse(BaseModel):
         example="someuser",
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         ...,
         title="Access scopes",
         description="Access scopes for this authenticated user",

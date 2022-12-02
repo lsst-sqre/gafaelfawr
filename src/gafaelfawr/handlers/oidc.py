@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Mapping, Optional, Union
+from collections.abc import Mapping
+from typing import Any, Optional
 from urllib.parse import ParseResult, parse_qsl, urlencode
 
 from fastapi import (
@@ -143,22 +144,20 @@ async def get_login(
     return return_url
 
 
-def build_return_url(
-    redirect_uri: ParseResult, **params: Optional[str]
-) -> str:
+def build_return_url(redirect_uri: ParseResult, **params: str | None) -> str:
     """Construct a return URL for a redirect.
 
     Parameters
     ----------
-    redirect_uri : `urllib.parse.ParseResult`
+    redirect_uri
         The parsed return URI from the client.
-    **params : `str` or `None`
+    **params
         Additional parameters to add to that URI to create the return URL.
         Any parameters set to `None` will be ignored.
 
     Returns
     -------
-    return_url : `str`
+    str
         The return URL to which the user should be redirected.
     """
     query = parse_qsl(redirect_uri.query) if redirect_uri.query else []
@@ -208,7 +207,7 @@ async def post_token(
         example="https://example.com/",
     ),
     context: RequestContext = Depends(context_dependency),
-) -> Union[OIDCTokenReply, JSONResponse]:
+) -> OIDCTokenReply | JSONResponse:
     oidc_service = context.factory.create_oidc_service()
     try:
         if not grant_type or not client_id or not code or not redirect_uri:

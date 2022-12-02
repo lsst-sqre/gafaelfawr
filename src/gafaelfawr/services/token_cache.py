@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Optional
 
 from structlog.stdlib import BoundLogger
 
@@ -92,7 +92,7 @@ class TokenCacheService:
         self,
         token_data: TokenData,
         service: str,
-        scopes: List[str],
+        scopes: list[str],
         ip_address: str,
         *,
         minimum_lifetime: Optional[timedelta] = None,
@@ -189,7 +189,7 @@ class TokenCacheService:
         self,
         token_data: TokenData,
         service: str,
-        scopes: List[str],
+        scopes: list[str],
         ip_address: str,
         minimum_lifetime: Optional[timedelta] = None,
     ) -> Token:
@@ -361,9 +361,9 @@ class TokenCacheService:
 
     async def _is_token_valid(
         self,
-        token: Optional[Token],
+        token: Token | None,
         minimum_lifetime: Optional[timedelta] = None,
-        scopes: Optional[List[str]] = None,
+        scopes: Optional[list[str]] = None,
     ) -> bool:
         """Check whether a token is valid.
 

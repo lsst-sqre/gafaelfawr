@@ -175,7 +175,7 @@ class Authenticate:
         )
 
     def _verify_csrf(
-        self, context: RequestContext, x_csrf_token: Optional[str]
+        self, context: RequestContext, x_csrf_token: str | None
     ) -> None:
         """Check the provided CSRF token is correct.
 

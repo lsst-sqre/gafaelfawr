@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Optional
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -18,13 +18,9 @@ from kubernetes_asyncio.client import (
     V1ServiceBackendPort,
 )
 from pydantic import BaseModel, Extra, Field, validator
+from safir.pydantic import to_camel_case, validate_exactly_one_of
 
-from ..util import (
-    current_datetime,
-    normalize_timedelta,
-    to_camel_case,
-    validate_exactly_one_of,
-)
+from ..util import current_datetime, normalize_timedelta
 from .auth import AuthType, Satisfy
 
 __all__ = [
@@ -66,10 +62,10 @@ class KubernetesMetadata(BaseModel):
     namespace: str
     """The namespace in which the object is located."""
 
-    annotations: Optional[Dict[str, str]] = None
+    annotations: Optional[dict[str, str]] = None
     """The annotations of the object."""
 
-    labels: Optional[Dict[str, str]] = None
+    labels: Optional[dict[str, str]] = None
     """The labels of the object."""
 
     uid: str
@@ -80,8 +76,8 @@ class KubernetesMetadata(BaseModel):
 
     @validator("annotations")
     def _filter_kopf_annotations(
-        cls, v: Optional[Dict[str, str]]
-    ) -> Optional[Dict[str, str]]:
+        cls, v: dict[str, str] | None
+    ) -> dict[str, str] | None:
         """Filter out the annotations added by Kopf."""
         if not v:
             return v
@@ -115,7 +111,7 @@ class GafaelfawrIngressDelegateInternal(BaseModel):
     service: str
     """The name of the service to which the token is being delegated."""
 
-    scopes: List[str]
+    scopes: list[str]
     """The requested scopes of the delegated token."""
 
 
@@ -173,7 +169,7 @@ class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def scopes(self) -> List[str]:
+    def scopes(self) -> list[str]:
         """List of scopes."""
 
     class Config:
@@ -185,7 +181,7 @@ class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
 class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
     """Represents scopes where all scopes are required."""
 
-    all: List[str]
+    all: list[str]
     """All of these scopes are required to allow access."""
 
     @property
@@ -194,7 +190,7 @@ class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
         return Satisfy.ALL
 
     @property
-    def scopes(self) -> List[str]:
+    def scopes(self) -> list[str]:
         """List of scopes."""
         return self.all
 
@@ -202,7 +198,7 @@ class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
 class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
     """Represents scopes where any scope is sufficient."""
 
-    any: List[str]
+    any: list[str]
     """Any of these scopes is sufficient to allow access."""
 
     @property
@@ -211,7 +207,7 @@ class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
         return Satisfy.ANY
 
     @property
-    def scopes(self) -> List[str]:
+    def scopes(self) -> list[str]:
         """List of scopes."""
         return self.any
 
@@ -249,10 +245,10 @@ class GafaelfawrIngressMetadata(BaseModel):
     name: str
     """Name of the ingress."""
 
-    annotations: Dict[str, str] = Field(default_factory=dict)
+    annotations: dict[str, str] = Field(default_factory=dict)
     """Annotations to add to the ingress."""
 
-    labels: Optional[Dict[str, str]] = None
+    labels: Optional[dict[str, str]] = None
     """Labels to add to the ingress."""
 
 
@@ -357,7 +353,7 @@ class GafaelfawrIngressPath(BaseModel):
 class GafaelfawrIngressRuleHTTP(BaseModel):
     """Routing rules for HTTP access."""
 
-    paths: List[GafaelfawrIngressPath]
+    paths: list[GafaelfawrIngressPath]
     """Path routing rules for this host."""
 
     def to_kubernetes(self) -> V1HTTPIngressRuleValue:
@@ -384,7 +380,7 @@ class GafaelfawrIngressRule(BaseModel):
 class GafaelfawrIngressTLS(BaseModel):
     """A TLS certificate rule for an ingress."""
 
-    hosts: List[str]
+    hosts: list[str]
     """The hosts to which this certificate applies.
 
     These should match the host parameters to the path rules."""
@@ -405,10 +401,10 @@ class GafaelfawrIngressTLS(BaseModel):
 class GafaelfawrIngressSpec(BaseModel):
     """Template for ``spec`` portion of ``Ingress`` resource."""
 
-    rules: List[GafaelfawrIngressRule]
+    rules: list[GafaelfawrIngressRule]
     """The ingress routing rules."""
 
-    tls: Optional[List[GafaelfawrIngressTLS]] = None
+    tls: Optional[list[GafaelfawrIngressTLS]] = None
     """The TLS certificate rules."""
 
 
@@ -438,7 +434,7 @@ class GafaelfawrServiceTokenSpec(BaseModel):
     service: str
     """The username of the service token."""
 
-    scopes: List[str]
+    scopes: list[str]
     """The scopes to grant to the service token."""
 
 
@@ -502,7 +498,7 @@ class KubernetesResourceStatus:
             reason=StatusReason.Failed,
         )
 
-    def to_dict(self) -> Dict[str, Union[str, int]]:
+    def to_dict(self) -> dict[str, str | int]:
         """Convert the status update to a dictionary for Kubernetes.
 
         Returns

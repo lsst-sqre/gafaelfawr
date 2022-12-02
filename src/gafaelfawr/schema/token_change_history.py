@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Column, DateTime, Enum, Index, Integer, String
 from sqlalchemy.dialects import postgresql
@@ -24,17 +23,17 @@ class TokenChangeHistory(Base):
     token: str = Column(String(64), nullable=False)
     username: str = Column(String(64), nullable=False)
     token_type: TokenType = Column(Enum(TokenType), nullable=False)
-    token_name: Optional[str] = Column(String(64))
+    token_name: str | None = Column(String(64))
     parent: str = Column(String(64))
     scopes: str = Column(String(512), nullable=False)
-    service: Optional[str] = Column(String(64))
-    expires: Optional[datetime] = Column(DateTime)
-    actor: Optional[str] = Column(String(64))
+    service: str | None = Column(String(64))
+    expires: datetime | None = Column(DateTime)
+    actor: str | None = Column(String(64))
     action: TokenChange = Column(Enum(TokenChange), nullable=False)
-    old_token_name: Optional[str] = Column(String(64))
-    old_scopes: Optional[str] = Column(String(512))
-    old_expires: Optional[datetime] = Column(DateTime)
-    ip_address: Optional[str] = Column(
+    old_token_name: str | None = Column(String(64))
+    old_scopes: str | None = Column(String(512))
+    old_expires: datetime | None = Column(DateTime)
+    ip_address: str | None = Column(
         String(64).with_variant(postgresql.INET, "postgresql")
     )
     event_time: datetime = Column(DateTime, nullable=False)

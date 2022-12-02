@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
-
 from google.cloud import firestore
 from structlog.stdlib import BoundLogger
 
@@ -263,7 +261,7 @@ async def _get_or_assign_uid(
 @firestore.async_transactional
 async def _initialize_in_transaction(
     transaction: firestore.Transaction,
-    counter_refs: Dict[str, firestore.AsyncDocumentReference],
+    counter_refs: dict[str, firestore.AsyncDocumentReference],
     logger: BoundLogger,
 ) -> None:
     """Initialize Firestore for UID/GID assignment.
@@ -282,7 +280,7 @@ async def _initialize_in_transaction(
     """
     # We have to do this in two passes since the Firestore transaction
     # model requires all reads happen before any writes.
-    to_create: List[Tuple[str, firestore.AsyncDocumentReference]] = []
+    to_create: list[tuple[str, firestore.AsyncDocumentReference]] = []
     for name in _INITIAL_COUNTERS:
         counter_ref = counter_refs[name]
         counter = await counter_ref.get(transaction=transaction)

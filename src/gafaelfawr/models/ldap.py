@@ -17,14 +17,14 @@ class LDAPUserData:
     based on configuration.
     """
 
-    name: Optional[str]
+    name: Optional[str] = None
     """Preferred full name."""
 
-    email: Optional[str]
+    email: Optional[str] = None
     """Preferred email address."""
 
-    uid: Optional[int]
+    uid: Optional[int] = None
     """UID number."""
 
-    gid: Optional[int]
+    gid: Optional[int] = None
     """Primary GID."""

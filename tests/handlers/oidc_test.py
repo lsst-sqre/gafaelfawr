@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Dict
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -13,10 +12,10 @@ import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 
-from gafaelfawr.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
 
@@ -352,7 +351,7 @@ async def test_token_errors(
     code = await oidc_service.issue_code("some-id", redirect_uri, token)
 
     # Missing parameters.
-    request: Dict[str, str] = {}
+    request: dict[str, str] = {}
     caplog.clear()
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
