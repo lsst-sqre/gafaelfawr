@@ -187,6 +187,21 @@ class UserInfoService:
 
         return sorted(scopes) if found else None
 
+    async def invalidate_cache(self, username: str) -> None:
+        """Invalidate any cached data for a given user.
+
+        Used after failed login due to missing group memberships, so that if
+        the user immediately fixes the problem, they don't have to wait for
+        the LDAP cache to expire.
+
+        Parameters
+        ----------
+        username
+            User for which to invalidate cached data.
+        """
+        if self._ldap:
+            await self._ldap.invalidate_cache(username)
+
 
 class OIDCUserInfoService(UserInfoService):
     """Retrieve user metadata from external systems for OIDC authentication.
