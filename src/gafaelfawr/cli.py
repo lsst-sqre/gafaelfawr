@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import click
 import structlog
@@ -47,7 +47,7 @@ def main() -> None:
 @main.command()
 @click.argument("topic", default=None, required=False, nargs=1)
 @click.pass_context
-def help(ctx: click.Context, topic: Union[None, str]) -> None:
+def help(ctx: click.Context, topic: Optional[str]) -> None:
     """Show help for any command."""
     # The help command implementation is taken from
     # https://www.burgundywall.com/post/having-click-help-subcommand

@@ -6,7 +6,7 @@ import json
 from collections.abc import Callable
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from urllib.parse import urlencode
 
 import pytest
@@ -176,7 +176,7 @@ def entry_to_dict(entry: TokenChangeHistoryEntry) -> dict[str, Any]:
 
 async def check_history_request(
     client: AsyncClient,
-    query: dict[str, Union[str, int]],
+    query: dict[str, str | int],
     history: list[TokenChangeHistoryEntry],
     selector: Callable[[TokenChangeHistoryEntry], bool],
     *,

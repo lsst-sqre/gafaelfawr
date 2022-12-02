@@ -8,7 +8,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Optional, Union
+from typing import Any
 
 from safir.database import datetime_from_db
 
@@ -77,7 +77,7 @@ def current_datetime() -> datetime:
     return datetime.now(tz=timezone.utc).replace(microsecond=0)
 
 
-def format_datetime_for_logging(date: Optional[datetime]) -> Optional[str]:
+def format_datetime_for_logging(date: datetime | None) -> str | None:
     """Format a datetime for logging.
 
     Parameters
@@ -108,9 +108,7 @@ def is_bot_user(username: str) -> bool:
     return re.search(BOT_USERNAME_REGEX, username) is not None
 
 
-def normalize_datetime(
-    v: Optional[Union[int, datetime]]
-) -> Optional[datetime]:
+def normalize_datetime(v: int | datetime | None) -> datetime | None:
     """Pydantic validator for datetime fields.
 
     This decodes fields encoded as seconds since epoch and ensures that
@@ -138,8 +136,8 @@ def normalize_datetime(
 
 
 def normalize_ip_address(
-    v: Optional[Union[str, IPv4Address, IPv6Address]]
-) -> Optional[str]:
+    v: str | IPv4Address | IPv6Address | None,
+) -> str | None:
     """Pydantic validator for IP address fields.
 
     Convert the PostgreSQL INET type to `str` to support reading entries from
@@ -163,9 +161,7 @@ def normalize_ip_address(
         return v
 
 
-def normalize_scopes(
-    v: Optional[Union[str, list[str]]]
-) -> Optional[list[str]]:
+def normalize_scopes(v: str | list[str] | None) -> list[str] | None:
     """Pydantic validator for scope fields.
 
     Scopes are stored in the database as a comma-delimited, sorted list.
@@ -190,7 +186,7 @@ def normalize_scopes(
         return v
 
 
-def normalize_timedelta(v: Optional[int]) -> Optional[timedelta]:
+def normalize_timedelta(v: int | None) -> timedelta | None:
     """Pydantic validator for timedelta fields.
 
     Parameters

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from urllib.parse import ParseResult, parse_qsl, urlencode
 
 from fastapi import (
@@ -209,7 +209,7 @@ async def post_token(
         example="https://example.com/",
     ),
     context: RequestContext = Depends(context_dependency),
-) -> Union[OIDCTokenReply, JSONResponse]:
+) -> OIDCTokenReply | JSONResponse:
     oidc_service = context.factory.create_oidc_service()
     try:
         if not grant_type or not client_id or not code or not redirect_uri:

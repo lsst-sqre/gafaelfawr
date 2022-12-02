@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 from cryptography.fernet import Fernet
 
@@ -51,7 +51,7 @@ def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
 
 
 def _build_settings_file(
-    tmp_path: Path, template: str, **kwargs: Union[str, Path]
+    tmp_path: Path, template: str, **kwargs: str | Path
 ) -> Path:
     """Construct a settings file from a format template.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import ClassVar, Union
+from typing import ClassVar
 
 import kopf
 import pydantic
@@ -105,7 +105,7 @@ class ValidationError(SlackIgnoredException, kopf.PermanentError):
         self.location = location
         self.field = field
 
-    def to_dict(self) -> dict[str, Union[list[str], str]]:
+    def to_dict(self) -> dict[str, list[str] | str]:
         """Convert the exception to a dictionary suitable for the exception.
 
         Returns

@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -502,7 +502,7 @@ class KubernetesResourceStatus:
             reason=StatusReason.Failed,
         )
 
-    def to_dict(self) -> dict[str, Union[str, int]]:
+    def to_dict(self) -> dict[str, str | int]:
         """Convert the status update to a dictionary for Kubernetes.
 
         Returns
