@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from base64 import b64decode, b64encode
 from datetime import timedelta
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 from unittest.mock import ANY
 
 import pytest
@@ -37,7 +37,7 @@ from ..support.kubernetes import (
 )
 
 
-def secret_sort_key(secret: V1Secret) -> Tuple[str, str]:
+def secret_sort_key(secret: V1Secret) -> tuple[str, str]:
     return (secret.metadata.namespace, secret.metadata.name)
 
 

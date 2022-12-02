@@ -13,7 +13,7 @@ only intended for use via their service layer
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Dict, Generic, Literal, Optional, Tuple, Type, TypeVar
+from typing import Dict, Generic, Literal, Optional, Type, TypeVar
 
 from cachetools import LRUCache, TTLCache
 
@@ -27,7 +27,7 @@ from .models.token import Token, TokenData
 
 S = TypeVar("S")
 
-LRUTokenCache = LRUCache[Tuple[str, ...], Token]
+LRUTokenCache = LRUCache[tuple[str, ...], Token]
 """Type for the underlying token cache."""
 
 __all__ = [
@@ -372,7 +372,7 @@ class InternalTokenCache(TokenCache):
 
     def _build_key(
         self, token_data: TokenData, service: str, scopes: list[str]
-    ) -> Tuple[str, ...]:
+    ) -> tuple[str, ...]:
         """Build the cache key for an internal token.
 
         Parameters
@@ -386,7 +386,7 @@ class InternalTokenCache(TokenCache):
 
         Returns
         -------
-        Tuple
+        tuple
             An object suitable for use as a hash key for this internal token.
         """
         expires = str(token_data.expires) if token_data.expires else "None"
@@ -435,7 +435,7 @@ class NotebookTokenCache(TokenCache):
         key = self._build_key(token_data)
         self._cache[key] = token
 
-    def _build_key(self, token_data: TokenData) -> Tuple[str, ...]:
+    def _build_key(self, token_data: TokenData) -> tuple[str, ...]:
         """Build the cache key for a notebook token.
 
         Parameters
@@ -445,7 +445,7 @@ class NotebookTokenCache(TokenCache):
 
         Returns
         -------
-        Tuple
+        tuple
             An object suitable for use as a hash key for this internal token.
         """
         expires = str(token_data.expires) if token_data.expires else "None"

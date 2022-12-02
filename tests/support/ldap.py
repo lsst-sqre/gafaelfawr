@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, Iterator, Tuple
+from typing import Any, AsyncIterator, Dict, Iterator
 from unittest.mock import Mock, patch
 
 import bonsai
@@ -15,7 +15,7 @@ from gafaelfawr import factory
 from gafaelfawr.constants import LDAP_TIMEOUT
 
 _SearchResults = list[Dict[str, list[str]]]
-_MockData = Dict[str, Dict[Tuple[str, str], _SearchResults]]
+_MockData = Dict[str, Dict[tuple[str, str], _SearchResults]]
 
 __all__ = ["MockLDAP", "patch_ldap"]
 

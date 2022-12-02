@@ -16,7 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
-from typing import Any, Dict, FrozenSet, Mapping, Optional, Tuple
+from typing import Any, Dict, FrozenSet, Mapping, Optional
 
 import yaml
 from pydantic import (
@@ -466,7 +466,7 @@ class OIDCConfig:
     URL so that they can register.
     """
 
-    scopes: Tuple[str, ...]
+    scopes: tuple[str, ...]
     """Scopes to request from the authentication provider.
 
     The ``openid`` scope will always be added and does not need to be
@@ -632,7 +632,7 @@ class OIDCServerConfig:
     lifetime: timedelta
     """Lifetime of issued tokens."""
 
-    clients: Tuple[OIDCClient, ...]
+    clients: tuple[OIDCClient, ...]
     """Supported OpenID Connect clients."""
 
 
@@ -677,7 +677,7 @@ class Config:
     token_lifetime: timedelta
     """Maximum lifetime of session, notebook, and internal tokens."""
 
-    proxies: Tuple[_BaseNetwork, ...]
+    proxies: tuple[_BaseNetwork, ...]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
     If this is set to a non-empty list, it will be used as the trusted list of
@@ -713,7 +713,7 @@ class Config:
     group_mapping: Mapping[str, FrozenSet[str]]
     """Mapping of group names to the set of scopes that group grants."""
 
-    initial_admins: Tuple[str, ...]
+    initial_admins: tuple[str, ...]
     """Initial token administrators to configure when initializing database."""
 
     error_footer: Optional[str] = None
