@@ -13,7 +13,7 @@ only intended for use via their service layer
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Generic, Literal, Optional, Type, TypeVar
+from typing import Generic, Literal, Optional, TypeVar
 
 from cachetools import LRUCache, TTLCache
 
@@ -165,7 +165,7 @@ class UserLockManager:
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[Exception]],
+        exc_type: Optional[type[Exception]],
         exc: Optional[Exception],
         tb: Optional[TracebackType],
     ) -> Literal[False]:
@@ -261,7 +261,7 @@ class LDAPCache(PerUserCache, Generic[S]):
         The type of object being stored.
     """
 
-    def __init__(self, content: Type[S]) -> None:
+    def __init__(self, content: type[S]) -> None:
         super().__init__()
         self._cache: TTLCache[str, S]
         self.initialize()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import replace
-from typing import Awaitable, Callable, Type
+from typing import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -79,7 +79,7 @@ class StateMiddleware(BaseHTTPMiddleware):
     """
 
     def __init__(
-        self, app: FastAPI, *, cookie_name: str, state_class: Type[BaseState]
+        self, app: FastAPI, *, cookie_name: str, state_class: type[BaseState]
     ) -> None:
         super().__init__(app)
         self.cookie_name = cookie_name

@@ -8,7 +8,7 @@ confined to this file.
 
 from __future__ import annotations
 
-from typing import AsyncIterator, Generic, Optional, Type, TypeVar
+from typing import AsyncIterator, Generic, Optional, TypeVar
 
 import redis.asyncio as redis
 from cryptography.fernet import Fernet, InvalidToken
@@ -34,7 +34,7 @@ class RedisStorage(Generic[S]):
         A Redis client configured to talk to the backend store.
     """
 
-    def __init__(self, content: Type[S], key: str, redis: redis.Redis) -> None:
+    def __init__(self, content: type[S], key: str, redis: redis.Redis) -> None:
         self._content = content
         self._fernet = Fernet(key.encode())
         self._redis = redis
