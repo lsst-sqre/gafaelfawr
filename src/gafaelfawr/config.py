@@ -16,7 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
-from typing import Any, FrozenSet, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 import yaml
 from pydantic import (
@@ -710,7 +710,7 @@ class Config:
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    group_mapping: Mapping[str, FrozenSet[str]]
+    group_mapping: Mapping[str, frozenset[str]]
     """Mapping of group names to the set of scopes that group grants."""
 
     initial_admins: tuple[str, ...]
