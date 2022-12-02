@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, cast
+from typing import cast
 
 from sqlalchemy import delete
 from sqlalchemy.engine import CursorResult
@@ -56,7 +56,7 @@ class AdminStore:
         result = cast(CursorResult, await self._session.execute(stmt))
         return result.rowcount > 0
 
-    async def list(self) -> List[Admin]:
+    async def list(self) -> list[Admin]:
         """Return a list of current administrators.
 
         Returns

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import respx
 from httpx import Request, Response
@@ -21,7 +21,7 @@ class MockSlack:
     """
 
     def __init__(self) -> None:
-        self.messages: List[Dict[str, Any]] = []
+        self.messages: list[Dict[str, Any]] = []
 
     def post_webhook(self, request: Request) -> Response:
         """Callback called whenever a Slack message is posted.

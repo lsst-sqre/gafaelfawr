@@ -16,7 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
-from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
+from typing import Any, Dict, FrozenSet, Mapping, Optional, Tuple
 
 import yaml
 from pydantic import (
@@ -92,7 +92,7 @@ class OIDCSettings(BaseModel):
     URL so that they can register.
     """
 
-    scopes: List[str] = []
+    scopes: list[str] = []
     """Scopes to request from the authentication provider.
 
     The ``openid`` scope will always be added and does not need to be
@@ -287,7 +287,7 @@ class Settings(BaseSettings):
     token_lifetime_minutes: int = 1380  # 23 hours
     """Number of minutes into the future that a token should expire."""
 
-    proxies: Optional[List[IPvAnyNetwork]]
+    proxies: Optional[list[IPvAnyNetwork]]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
     If this is set to a non-empty list, it will be used as the trusted list of
@@ -317,13 +317,13 @@ class Settings(BaseSettings):
     oidc_server: Optional[OIDCServerSettings] = None
     """Settings for the internal OpenID Connect server."""
 
-    initial_admins: List[str]
+    initial_admins: list[str]
     """Initial token administrators to configure when initializing database."""
 
     known_scopes: Dict[str, str] = {}
     """Known scopes (the keys) and their descriptions (the values)."""
 
-    group_mapping: Dict[str, List[str]] = {}
+    group_mapping: Dict[str, list[str]] = {}
     """Mappings of scopes to lists of groups that provide them."""
 
     error_footer: Optional[str] = None
@@ -378,7 +378,7 @@ class Settings(BaseSettings):
         return v
 
     @validator("group_mapping", pre=True)
-    def _convert_github_orgs(cls, v: Dict[str, Any]) -> Dict[str, List[str]]:
+    def _convert_github_orgs(cls, v: Dict[str, Any]) -> Dict[str, list[str]]:
         """Convert GitHub org/team pairs to group names."""
         if not isinstance(v, dict):
             raise ValueError("group_mapping must be a dictionary")
@@ -411,7 +411,7 @@ class Settings(BaseSettings):
         return v
 
     @validator("initial_admins", pre=True)
-    def _nonempty_list(cls, v: List[str]) -> List[str]:
+    def _nonempty_list(cls, v: list[str]) -> list[str]:
         if not v:
             raise ValueError("initial_admins is empty")
         return v

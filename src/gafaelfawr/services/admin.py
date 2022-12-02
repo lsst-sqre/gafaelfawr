@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Iterable, List
+from typing import Iterable
 
 from structlog.stdlib import BoundLogger
 
@@ -132,7 +132,7 @@ class AdminService:
             self._logger.info(f"Deleted admin {username}")
         return result
 
-    async def get_admins(self) -> List[Admin]:
+    async def get_admins(self) -> list[Admin]:
         """Get the current administrators."""
         return await self._admin_store.list()
 

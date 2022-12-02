@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from selenium.webdriver.remote.webelement import WebElement
 from seleniumwire import webdriver
 
@@ -19,7 +17,7 @@ class BasePage:
     def find_element(self, by: str, name: str) -> WebElement:
         return self.root.find_element(by, name)
 
-    def find_elements(self, by: str, name: str) -> List[WebElement]:
+    def find_elements(self, by: str, name: str) -> list[WebElement]:
         return self.root.find_elements(by, name)
 
 
@@ -30,7 +28,7 @@ class BaseElement:
     def find_element(self, by: str, name: str) -> WebElement:
         return self.root.find_element(by, name)
 
-    def find_elements(self, by: str, name: str) -> List[WebElement]:
+    def find_elements(self, by: str, name: str) -> list[WebElement]:
         return self.root.find_elements(by, name)
 
 

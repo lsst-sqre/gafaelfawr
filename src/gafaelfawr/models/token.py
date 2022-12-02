@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -174,7 +174,7 @@ class TokenBase(BaseModel):
         example="session",
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         ..., title="Token scopes", example=["read:all", "user:token"]
     )
 
@@ -302,7 +302,7 @@ class TokenUserInfo(BaseModel):
         ge=1,
     )
 
-    groups: Optional[List[TokenGroup]] = Field(
+    groups: Optional[list[TokenGroup]] = Field(
         None,
         title="Groups",
         description="Groups of which the user is a member",
@@ -446,7 +446,7 @@ class AdminTokenRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         default_factory=list,
         title="Token scopes",
         example=["read:all"],
@@ -509,7 +509,7 @@ class AdminTokenRequest(BaseModel):
         ge=1,
     )
 
-    groups: Optional[List[TokenGroup]] = Field(
+    groups: Optional[list[TokenGroup]] = Field(
         None,
         title="Groups",
         description=(
@@ -550,7 +550,7 @@ class UserTokenRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         default_factory=list,
         title="Token scope",
         example=["read:all"],
@@ -579,7 +579,7 @@ class UserTokenModifyRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: Optional[List[str]] = Field(
+    scopes: Optional[list[str]] = Field(
         None, title="Token scopes", example=["read:all"]
     )
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List
+from typing import Dict
 from urllib.parse import parse_qs, urlparse
 
 from httpx import Response
@@ -98,7 +98,7 @@ def parse_www_authenticate(header: str) -> AuthChallenge:
         return AuthChallenge(auth_type=auth_type, realm=realm)
 
 
-def query_from_url(url: str) -> Dict[str, List[str]]:
+def query_from_url(url: str) -> Dict[str, list[str]]:
     """Parse a URL and return its query.
 
     Parameters

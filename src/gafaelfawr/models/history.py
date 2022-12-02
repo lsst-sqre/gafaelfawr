@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, Optional, TypeVar
 from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
@@ -170,7 +170,7 @@ class PaginatedHistory(Generic[E]):
     type of cursor.
     """
 
-    entries: List[E]
+    entries: list[E]
     """The history entries."""
 
     count: int
@@ -266,7 +266,7 @@ class TokenChangeHistoryEntry(BaseModel):
         example="1NOV_8aPwhCWj6rM-p1XgQ",
     )
 
-    scopes: List[str] = Field(
+    scopes: list[str] = Field(
         ..., title="Scopes of the token", example=["read:all"]
     )
 
@@ -309,7 +309,7 @@ class TokenChangeHistoryEntry(BaseModel):
         example="old name",
     )
 
-    old_scopes: Optional[List[str]] = Field(
+    old_scopes: Optional[list[str]] = Field(
         None,
         title="Previous scopes of the token",
         description=(

@@ -5,7 +5,7 @@ from __future__ import annotations
 import ipaddress
 import re
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Optional
 
 from structlog.stdlib import BoundLogger
 
@@ -79,7 +79,7 @@ class TokenService:
         self._token_change_store = token_change_store
         self._logger = logger
 
-    async def audit(self, fix: bool = False) -> List[str]:
+    async def audit(self, fix: bool = False) -> list[str]:
         """Check Gafaelfawr data stores for consistency.
 
         If any errors are found and Slack is configured, report them to Slack
@@ -93,7 +93,7 @@ class TokenService:
 
         Returns
         -------
-        List of str
+        list of str
             A list of human-readable alert messages formatted in Markdown.
         """
         alerts = []
@@ -239,7 +239,7 @@ class TokenService:
         return alerts
 
     async def create_session_token(
-        self, user_info: TokenUserInfo, *, scopes: List[str], ip_address: str
+        self, user_info: TokenUserInfo, *, scopes: list[str], ip_address: str
     ) -> Token:
         """Create a new session token.
 
@@ -310,7 +310,7 @@ class TokenService:
         username: str,
         *,
         token_name: str,
-        scopes: List[str],
+        scopes: list[str],
         expires: Optional[datetime] = None,
         ip_address: str,
     ) -> Token:
@@ -686,7 +686,7 @@ class TokenService:
         self,
         token_data: TokenData,
         service: str,
-        scopes: List[str],
+        scopes: list[str],
         *,
         ip_address: str,
         minimum_lifetime: Optional[timedelta] = None,
@@ -849,7 +849,7 @@ class TokenService:
 
     async def list_tokens(
         self, auth_data: TokenData, username: Optional[str] = None
-    ) -> List[TokenInfo]:
+    ) -> list[TokenInfo]:
         """List tokens.
 
         Parameters
@@ -862,7 +862,7 @@ class TokenService:
 
         Returns
         -------
-        List of TokenInfo
+        list of TokenInfo
             Information for all matching tokens.
 
         Raises
@@ -872,7 +872,7 @@ class TokenService:
             authentication information.
         """
         self._check_authorization(username, auth_data)
-        return await self._token_db_store.list(username=username)
+        return await self._token_db_store.list_tokens(username=username)
 
     async def modify_token(
         self,
@@ -882,7 +882,7 @@ class TokenService:
         *,
         ip_address: str,
         token_name: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        scopes: Optional[list[str]] = None,
         expires: Optional[datetime] = None,
         no_expire: bool = False,
     ) -> Optional[TokenInfo]:
@@ -1218,7 +1218,7 @@ class TokenService:
 
     def _validate_scopes(
         self,
-        scopes: List[str],
+        scopes: list[str],
         auth_data: Optional[TokenData] = None,
     ) -> None:
         """Check that the requested scopes are valid.

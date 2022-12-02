@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -115,7 +115,7 @@ class GafaelfawrIngressDelegateInternal(BaseModel):
     service: str
     """The name of the service to which the token is being delegated."""
 
-    scopes: List[str]
+    scopes: list[str]
     """The requested scopes of the delegated token."""
 
 
@@ -173,7 +173,7 @@ class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def scopes(self) -> List[str]:
+    def scopes(self) -> list[str]:
         """List of scopes."""
 
     class Config:
@@ -185,7 +185,7 @@ class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
 class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
     """Represents scopes where all scopes are required."""
 
-    all: List[str]
+    all: list[str]
     """All of these scopes are required to allow access."""
 
     @property
@@ -194,7 +194,7 @@ class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
         return Satisfy.ALL
 
     @property
-    def scopes(self) -> List[str]:
+    def scopes(self) -> list[str]:
         """List of scopes."""
         return self.all
 
@@ -202,7 +202,7 @@ class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
 class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
     """Represents scopes where any scope is sufficient."""
 
-    any: List[str]
+    any: list[str]
     """Any of these scopes is sufficient to allow access."""
 
     @property
@@ -211,7 +211,7 @@ class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
         return Satisfy.ANY
 
     @property
-    def scopes(self) -> List[str]:
+    def scopes(self) -> list[str]:
         """List of scopes."""
         return self.any
 
@@ -357,7 +357,7 @@ class GafaelfawrIngressPath(BaseModel):
 class GafaelfawrIngressRuleHTTP(BaseModel):
     """Routing rules for HTTP access."""
 
-    paths: List[GafaelfawrIngressPath]
+    paths: list[GafaelfawrIngressPath]
     """Path routing rules for this host."""
 
     def to_kubernetes(self) -> V1HTTPIngressRuleValue:
@@ -384,7 +384,7 @@ class GafaelfawrIngressRule(BaseModel):
 class GafaelfawrIngressTLS(BaseModel):
     """A TLS certificate rule for an ingress."""
 
-    hosts: List[str]
+    hosts: list[str]
     """The hosts to which this certificate applies.
 
     These should match the host parameters to the path rules."""
@@ -405,10 +405,10 @@ class GafaelfawrIngressTLS(BaseModel):
 class GafaelfawrIngressSpec(BaseModel):
     """Template for ``spec`` portion of ``Ingress`` resource."""
 
-    rules: List[GafaelfawrIngressRule]
+    rules: list[GafaelfawrIngressRule]
     """The ingress routing rules."""
 
-    tls: Optional[List[GafaelfawrIngressTLS]] = None
+    tls: Optional[list[GafaelfawrIngressTLS]] = None
     """The TLS certificate rules."""
 
 
@@ -438,7 +438,7 @@ class GafaelfawrServiceTokenSpec(BaseModel):
     service: str
     """The username of the service token."""
 
-    scopes: List[str]
+    scopes: list[str]
     """The scopes to grant to the service token."""
 
 

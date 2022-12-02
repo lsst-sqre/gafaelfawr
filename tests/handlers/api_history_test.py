@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 from urllib.parse import urlencode
 
 import pytest
@@ -33,7 +33,7 @@ from ..support.tokens import create_session_token
 
 async def build_history(
     factory: Factory,
-) -> List[TokenChangeHistoryEntry]:
+) -> list[TokenChangeHistoryEntry]:
     """Perform a bunch of token manipulations and return the history entries.
 
     Assume that all token manipulations generate the correct history entries,
@@ -176,7 +176,7 @@ def entry_to_dict(entry: TokenChangeHistoryEntry) -> Dict[str, Any]:
 async def check_history_request(
     client: AsyncClient,
     query: Dict[str, Union[str, int]],
-    history: List[TokenChangeHistoryEntry],
+    history: list[TokenChangeHistoryEntry],
     selector: Callable[[TokenChangeHistoryEntry], bool],
     *,
     username: Optional[str] = None,
@@ -200,7 +200,7 @@ async def check_history_request(
 
 async def check_pagination(
     client: AsyncClient,
-    history: List[TokenChangeHistoryEntry],
+    history: list[TokenChangeHistoryEntry],
     *,
     username: Optional[str] = None,
 ) -> None:

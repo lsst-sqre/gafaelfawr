@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Dict, List, Optional, Set
+from typing import Dict, Optional, Set
 
 from fastapi import (
     APIRouter,
@@ -85,7 +85,7 @@ def auth_uri(
 
 
 def auth_config(
-    scope: List[str] = Query(
+    scope: list[str] = Query(
         ...,
         title="Required scopes",
         description=(

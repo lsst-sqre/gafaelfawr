@@ -11,7 +11,6 @@ from __future__ import annotations
 import base64
 import hashlib
 from dataclasses import dataclass
-from typing import List
 
 __all__ = [
     "GitHubTeam",
@@ -72,5 +71,5 @@ class GitHubUserInfo:
     email: str
     """The primary email address of the user."""
 
-    teams: List[GitHubTeam]
+    teams: list[GitHubTeam]
     """The teams of which the user is a member."""

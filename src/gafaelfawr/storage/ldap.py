@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import bonsai
 from bonsai import LDAPSearchScope
@@ -42,7 +42,7 @@ class LDAPStorage:
 
     async def get_group_names(
         self, username: str, primary_gid: Optional[int]
-    ) -> List[str]:
+    ) -> list[str]:
         """Get names of groups for a user from LDAP.
 
         Parameters
@@ -125,7 +125,7 @@ class LDAPStorage:
 
     async def get_groups(
         self, username: str, primary_gid: Optional[int]
-    ) -> List[TokenGroup]:
+    ) -> list[TokenGroup]:
         """Get groups for a user from LDAP.
 
         Parameters
@@ -275,8 +275,8 @@ class LDAPStorage:
         base: str,
         scope: LDAPSearchScope,
         filter_exp: str,
-        attrlist: List[str],
-    ) -> List[Dict[str, List[str]]]:
+        attrlist: list[str],
+    ) -> list[Dict[str, list[str]]]:
         """Perform an LDAP query using the connection pool.
 
         Parameters

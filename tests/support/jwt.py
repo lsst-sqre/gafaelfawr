@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import jwt
 
@@ -19,7 +19,7 @@ __all__ = ["create_upstream_oidc_jwt"]
 def create_upstream_oidc_jwt(
     *,
     kid: str = "orig-kid",
-    groups: Optional[List[str]] = None,
+    groups: Optional[list[str]] = None,
     **claims: Any,
 ) -> OIDCVerifiedToken:
     """Create a signed token using the OpenID Connect issuer.

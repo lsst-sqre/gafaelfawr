@@ -9,7 +9,7 @@ models.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import quote
 
 from fastapi import (
@@ -79,13 +79,13 @@ _pagination_headers = {
 @router.get(
     "/admins",
     dependencies=[Depends(authenticate_admin_read)],
-    response_model=List[Admin],
+    response_model=list[Admin],
     summary="List all administrators",
     tags=["admin"],
 )
 async def get_admins(
     context: RequestContext = Depends(context_dependency),
-) -> List[Admin]:
+) -> list[Admin]:
     admin_service = context.factory.create_admin_service()
     async with context.session.begin():
         return await admin_service.get_admins()
@@ -153,7 +153,7 @@ async def delete_admin(
         " `X-Total-Count` header."
     ),
     responses={200: {"headers": _pagination_headers}},
-    response_model=List[TokenChangeHistoryEntry],
+    response_model=list[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
     summary="Get token change history",
     tags=["admin"],
@@ -226,7 +226,7 @@ async def get_admin_token_change_history(
     ),
     auth_data: TokenData = Depends(authenticate_admin_read),
     context: RequestContext = Depends(context_dependency),
-) -> List[Dict[str, Any]]:
+) -> list[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         results = await token_service.get_change_history(
@@ -364,7 +364,7 @@ async def get_user_info(
         " in the `X-Total-Count` header."
     ),
     responses={200: {"headers": _pagination_headers}},
-    response_model=List[TokenChangeHistoryEntry],
+    response_model=list[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
     summary="Get token change history",
     tags=["user"],
@@ -427,7 +427,7 @@ async def get_user_token_change_history(
     ),
     auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
-) -> List[Dict[str, Any]]:
+) -> list[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         results = await token_service.get_change_history(
@@ -449,7 +449,7 @@ async def get_user_token_change_history(
 
 @router.get(
     "/users/{username}/tokens",
-    response_model=List[TokenInfo],
+    response_model=list[TokenInfo],
     response_model_exclude_none=True,
     summary="List tokens",
     tags=["user"],
@@ -465,7 +465,7 @@ async def get_tokens(
     ),
     auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
-) -> List[TokenInfo]:
+) -> list[TokenInfo]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         return await token_service.list_tokens(auth_data, username)
@@ -643,7 +643,7 @@ async def patch_token(
 
 @router.get(
     "/users/{username}/tokens/{key}/change-history",
-    response_model=List[TokenChangeHistoryEntry],
+    response_model=list[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
     summary="Get change history of token",
@@ -668,7 +668,7 @@ async def get_token_change_history(
     ),
     auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
-) -> List[Dict[str, Any]]:
+) -> list[Dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
         results = await token_service.get_change_history(

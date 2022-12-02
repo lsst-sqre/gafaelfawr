@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List, Optional, cast
+from typing import Optional, cast
 
 from safir.database import datetime_to_db
 from sqlalchemy import delete
@@ -100,7 +100,7 @@ class TokenDatabaseStore:
         result = cast(CursorResult, await self._session.execute(stmt))
         return result.rowcount >= 1
 
-    async def delete_expired(self) -> List[TokenInfo]:
+    async def delete_expired(self) -> list[TokenInfo]:
         """Delete entries for expired tokens from the database.
 
         Returns
@@ -139,7 +139,7 @@ class TokenDatabaseStore:
         # Return the info for the deleted tokens.
         return deleted
 
-    async def get_children(self, key: str) -> List[str]:
+    async def get_children(self, key: str) -> list[str]:
         """Return all children (recursively) of a token.
 
         Parameters
@@ -200,7 +200,7 @@ class TokenDatabaseStore:
         self,
         token_data: TokenData,
         service: str,
-        scopes: List[str],
+        scopes: list[str],
         min_expires: datetime,
     ) -> Optional[str]:
         """Retrieve an existing internal child token.
@@ -266,7 +266,9 @@ class TokenDatabaseStore:
         )
         return await self._session.scalar(stmt)
 
-    async def list(self, *, username: Optional[str] = None) -> List[TokenInfo]:
+    async def list_tokens(
+        self, *, username: Optional[str] = None
+    ) -> list[TokenInfo]:
         """List tokens.
 
         Parameters
@@ -290,7 +292,7 @@ class TokenDatabaseStore:
         result = await self._session.scalars(stmt)
         return [TokenInfo.from_orm(t) for t in result.all()]
 
-    async def list_orphaned(self) -> List[TokenInfo]:
+    async def list_orphaned(self) -> list[TokenInfo]:
         """List all orphaned tokens.
 
         Tokens are orphaned if they appear in the subtoken table but their
@@ -309,7 +311,7 @@ class TokenDatabaseStore:
         result = await self._session.scalars(stmt)
         return [TokenInfo.from_orm(t) for t in result.all()]
 
-    async def list_with_parents(self) -> List[TokenInfo]:
+    async def list_with_parents(self) -> list[TokenInfo]:
         """List all tokens including parent information.
 
         This is a slower and more expensive query than `list`, used for
@@ -343,7 +345,7 @@ class TokenDatabaseStore:
         key: str,
         *,
         token_name: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        scopes: Optional[list[str]] = None,
         expires: Optional[datetime] = None,
         no_expire: bool = False,
     ) -> Optional[TokenInfo]:
@@ -504,7 +506,7 @@ class TokenRedisStore:
             return None
         return data
 
-    async def list(self) -> List[str]:
+    async def list(self) -> list[str]:
         """List all token keys stored in Redis.
 
         Returns

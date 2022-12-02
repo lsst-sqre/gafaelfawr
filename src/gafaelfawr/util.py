@@ -7,7 +7,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from safir.database import datetime_from_db
 
@@ -163,8 +163,8 @@ def normalize_ip_address(
 
 
 def normalize_scopes(
-    v: Optional[Union[str, List[str]]]
-) -> Optional[List[str]]:
+    v: Optional[Union[str, list[str]]]
+) -> Optional[list[str]]:
     """Pydantic validator for scope fields.
 
     Scopes are stored in the database as a comma-delimited, sorted list.

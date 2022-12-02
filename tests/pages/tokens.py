@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
@@ -24,7 +22,7 @@ class TokensPage(BasePage):
         element = self.find_element(By.ID, "qa-new-token-modal")
         return NewTokenModal(element)
 
-    def get_tokens(self, token_type: TokenType) -> List[TokenRow]:
+    def get_tokens(self, token_type: TokenType) -> list[TokenRow]:
         try:
             table = self.find_element(By.ID, f"tokens-{token_type.value}")
         except NoSuchElementException:
@@ -101,7 +99,7 @@ class TokenDataPage(BasePage):
     def _data(self) -> WebElement:
         return self.find_element(By.CLASS_NAME, "qa-token-data")
 
-    def get_change_history(self) -> List[TokenChangeRow]:
+    def get_change_history(self) -> list[TokenChangeRow]:
         return [
             TokenChangeRow(e)
             for e in self.find_elements(By.CLASS_NAME, "qa-token-change-row")

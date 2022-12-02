@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from _pytest.logging import LogCaptureFixture
 
 
-def parse_log(caplog: LogCaptureFixture) -> List[Dict[str, Any]]:
+def parse_log(caplog: LogCaptureFixture) -> list[Dict[str, Any]]:
     """Parse the accumulated logs as JSON.
 
     Checks and strips off common log attributes and returns the rest as a list

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from structlog.stdlib import BoundLogger
 
@@ -152,7 +152,7 @@ class UserInfoService:
 
     async def get_scopes(
         self, user_info: TokenUserInfo
-    ) -> Optional[List[str]]:
+    ) -> Optional[list[str]]:
         """Get scopes from user information.
 
         Used to determine the scope claim of a token issued based on an OpenID
@@ -165,7 +165,7 @@ class UserInfoService:
 
         Returns
         -------
-        List of str or None
+        list of str or None
             The scopes generated from the group membership based on the
             ``group_mapping`` configuration parameter, or `None` if the user
             was not a member of any known group.
@@ -289,7 +289,7 @@ class OIDCUserInfoService(UserInfoService):
         self,
         token: OIDCVerifiedToken,
         username: str,
-    ) -> List[TokenGroup]:
+    ) -> list[TokenGroup]:
         """Determine the user's groups from token claims.
 
         Invalid groups are logged and ignored.  The token claim containing the
@@ -306,7 +306,7 @@ class OIDCUserInfoService(UserInfoService):
 
         Returns
         -------
-        List of TokenGroup
+        list of TokenGroup
             List of groups derived from the token claim.
 
         Raises

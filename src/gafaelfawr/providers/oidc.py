@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from urllib.parse import urlencode
 
 import jwt
@@ -332,7 +332,7 @@ class OIDCTokenVerifier:
             encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo
         ).decode()
 
-    async def _get_keys(self, issuer_url: str) -> List[Dict[str, str]]:
+    async def _get_keys(self, issuer_url: str) -> list[Dict[str, str]]:
         """Fetch the key set for an issuer.
 
         Parameters

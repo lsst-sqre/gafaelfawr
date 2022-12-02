@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy.ext.asyncio import async_scoped_session
 
@@ -29,7 +29,7 @@ __all__ = [
 async def add_expired_session_token(
     user_info: TokenUserInfo,
     *,
-    scopes: List[str],
+    scopes: list[str],
     ip_address: str,
     session: async_scoped_session,
 ) -> None:
@@ -88,8 +88,8 @@ async def create_session_token(
     factory: Factory,
     *,
     username: Optional[str] = None,
-    group_names: Optional[List[str]] = None,
-    scopes: Optional[List[str]] = None,
+    group_names: Optional[list[str]] = None,
+    scopes: Optional[list[str]] = None,
 ) -> TokenData:
     """Create a session token.
 

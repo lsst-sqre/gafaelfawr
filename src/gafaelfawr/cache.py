@@ -13,7 +13,7 @@ only intended for use via their service layer
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Dict, Generic, List, Literal, Optional, Tuple, Type, TypeVar
+from typing import Dict, Generic, Literal, Optional, Tuple, Type, TypeVar
 
 from cachetools import LRUCache, TTLCache
 
@@ -317,7 +317,7 @@ class InternalTokenCache(TokenCache):
     """Cache for internal tokens."""
 
     def get(
-        self, token_data: TokenData, service: str, scopes: List[str]
+        self, token_data: TokenData, service: str, scopes: list[str]
     ) -> Optional[Token]:
         """Retrieve an internal token from the cache.
 
@@ -349,7 +349,7 @@ class InternalTokenCache(TokenCache):
         self,
         token_data: TokenData,
         service: str,
-        scopes: List[str],
+        scopes: list[str],
         token: Token,
     ) -> None:
         """Store an internal token in the cache.
@@ -371,7 +371,7 @@ class InternalTokenCache(TokenCache):
         self._cache[key] = token
 
     def _build_key(
-        self, token_data: TokenData, service: str, scopes: List[str]
+        self, token_data: TokenData, service: str, scopes: list[str]
     ) -> Tuple[str, ...]:
         """Build the cache key for an internal token.
 

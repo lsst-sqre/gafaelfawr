@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator, List, Optional
+from typing import AsyncIterator, Optional
 
 import redis.asyncio as redis
 import structlog
@@ -83,10 +83,10 @@ class ProcessContext:
     gid_cache: IdCache
     """Shared GID cache."""
 
-    ldap_group_cache: LDAPCache[List[TokenGroup]]
+    ldap_group_cache: LDAPCache[list[TokenGroup]]
     """Cache of LDAP group information."""
 
-    ldap_group_name_cache: LDAPCache[List[str]]
+    ldap_group_name_cache: LDAPCache[list[str]]
     """Cache of LDAP group names."""
 
     ldap_user_cache: LDAPCache[LDAPUserData]
@@ -132,8 +132,8 @@ class ProcessContext:
             ),
             uid_cache=IdCache(),
             gid_cache=IdCache(),
-            ldap_group_cache=LDAPCache(List[TokenGroup]),
-            ldap_group_name_cache=LDAPCache(List[str]),
+            ldap_group_cache=LDAPCache(list[TokenGroup]),
+            ldap_group_name_cache=LDAPCache(list[str]),
             ldap_user_cache=LDAPCache(LDAPUserData),
             internal_token_cache=InternalTokenCache(),
             notebook_token_cache=NotebookTokenCache(),
