@@ -87,4 +87,4 @@ def test_config_invalid_token(tmp_path: Path) -> None:
         tmp_path, "bad-token", bootstrap_token_file=str(bootstrap_token_file)
     )
     with pytest.raises(InvalidTokenError):
-        Config.from_file(str(config_path))
+        Config.from_file(config_path)

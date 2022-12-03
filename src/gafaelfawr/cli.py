@@ -68,12 +68,12 @@ def help(ctx: click.Context, topic: Optional[str]) -> None:
 @click.option(
     "--config-path",
     envvar="GAFAELFAWR_CONFIG_PATH",
-    type=str,
+    type=click.Path(path_type=Path),
     default=None,
     help="Application configuration file.",
 )
 @run_with_asyncio
-async def audit(fix: bool, config_path: Optional[str]) -> None:
+async def audit(fix: bool, config_path: Optional[Path]) -> None:
     """Run a consistency check on Gafaelfawr's data stores.
 
     Any problems found will be reported to Slack.
@@ -109,12 +109,12 @@ async def audit(fix: bool, config_path: Optional[str]) -> None:
 @click.option(
     "--config-path",
     envvar="GAFAELFAWR_CONFIG_PATH",
-    type=str,
+    type=click.Path(path_type=Path),
     default=None,
     help="Application configuration file.",
 )
 @run_with_asyncio
-async def delete_all_data(config_path: Optional[str]) -> None:
+async def delete_all_data(config_path: Optional[Path]) -> None:
     """Delete all data from Redis and the database.
 
     Intended for destructive upgrades, such as when switching from one
@@ -172,12 +172,12 @@ def generate_token() -> None:
 @click.option(
     "--config-path",
     envvar="GAFAELFAWR_CONFIG_PATH",
-    type=str,
+    type=click.Path(path_type=Path),
     default=None,
     help="Application configuration file.",
 )
 @run_with_asyncio
-async def init(config_path: Optional[str]) -> None:
+async def init(config_path: Optional[Path]) -> None:
     """Initialize the database storage."""
     if config_path:
         config_dependency.set_config_path(config_path)
@@ -205,12 +205,12 @@ async def init(config_path: Optional[str]) -> None:
 @click.option(
     "--config-path",
     envvar="GAFAELFAWR_CONFIG_PATH",
-    type=str,
+    type=click.Path(path_type=Path),
     default=None,
     help="Application configuration file.",
 )
 @run_with_asyncio
-async def maintenance(config_path: Optional[str]) -> None:
+async def maintenance(config_path: Optional[Path]) -> None:
     """Perform background maintenance."""
     if config_path:
         config_dependency.set_config_path(config_path)

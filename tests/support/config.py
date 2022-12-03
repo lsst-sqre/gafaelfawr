@@ -183,7 +183,7 @@ def configure(
         oidc_clients=oidc_clients,
         **settings,
     )
-    config_dependency.set_config_path(str(config_path))
+    config_dependency.set_config_path(config_path)
     return config_dependency.config()
 
 

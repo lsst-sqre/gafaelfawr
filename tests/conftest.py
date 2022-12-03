@@ -199,7 +199,7 @@ async def selenium_config(
         Configuration information for the server.
     """
     config_path = build_config(tmp_path, "selenium")
-    config_dependency.set_config_path(str(config_path))
+    config_dependency.set_config_path(config_path)
     async with run_app(tmp_path, config_path) as config:
         cookie = State(token=config.token).to_cookie()
         driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}

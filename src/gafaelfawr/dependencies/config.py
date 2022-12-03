@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Optional
 
 from ..config import Config
@@ -23,7 +24,8 @@ class ConfigDependency:
     """
 
     def __init__(self) -> None:
-        self._config_path = os.getenv("GAFAELFAWR_CONFIG_PATH", CONFIG_PATH)
+        config_path = os.getenv("GAFAELFAWR_CONFIG_PATH", CONFIG_PATH)
+        self._config_path = Path(config_path)
         self._config: Optional[Config] = None
 
     async def __call__(self) -> Config:
@@ -40,7 +42,7 @@ class ConfigDependency:
             self._config = Config.from_file(self._config_path)
         return self._config
 
-    def set_config_path(self, path: str) -> None:
+    def set_config_path(self, path: Path) -> None:
         """Change the configuration path and reload the config.
 
         Parameters
