@@ -18,12 +18,12 @@ from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
 from gafaelfawr.util import current_datetime, format_datetime_for_logging
 
+from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.firestore import MockFirestore
 from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
-from ..support.settings import reconfigure
 from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 

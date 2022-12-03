@@ -66,20 +66,20 @@ def help(ctx: click.Context, topic: Optional[str]) -> None:
     "--fix", default=False, is_flag=True, help="Fix issues found, if possible"
 )
 @click.option(
-    "--settings",
-    envvar="GAFAELFAWR_SETTINGS_PATH",
+    "--config-path",
+    envvar="GAFAELFAWR_CONFIG_PATH",
     type=str,
     default=None,
-    help="Application settings file.",
+    help="Application configuration file.",
 )
 @run_with_asyncio
-async def audit(fix: bool, settings: Optional[str]) -> None:
+async def audit(fix: bool, config_path: Optional[str]) -> None:
     """Run a consistency check on Gafaelfawr's data stores.
 
     Any problems found will be reported to Slack.
     """
-    if settings:
-        config_dependency.set_settings_path(settings)
+    if config_path:
+        config_dependency.set_config_path(config_path)
     config = await config_dependency()
     if not config.slack_webhook:
         msg = "Slack alerting required for audit but not configured"
@@ -107,14 +107,14 @@ async def audit(fix: bool, settings: Optional[str]) -> None:
 
 @main.command()
 @click.option(
-    "--settings",
-    envvar="GAFAELFAWR_SETTINGS_PATH",
+    "--config-path",
+    envvar="GAFAELFAWR_CONFIG_PATH",
     type=str,
     default=None,
-    help="Application settings file.",
+    help="Application configuration file.",
 )
 @run_with_asyncio
-async def delete_all_data(settings: Optional[str]) -> None:
+async def delete_all_data(config_path: Optional[str]) -> None:
     """Delete all data from Redis and the database.
 
     Intended for destructive upgrades, such as when switching from one
@@ -122,8 +122,8 @@ async def delete_all_data(settings: Optional[str]) -> None:
     change.  This does not delete or reset UID and GID assignments from
     Firestore.
     """
-    if settings:
-        config_dependency.set_settings_path(settings)
+    if config_path:
+        config_dependency.set_config_path(config_path)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Starting to delete all data")
@@ -170,17 +170,17 @@ def generate_token() -> None:
 
 @main.command()
 @click.option(
-    "--settings",
-    envvar="GAFAELFAWR_SETTINGS_PATH",
+    "--config-path",
+    envvar="GAFAELFAWR_CONFIG_PATH",
     type=str,
     default=None,
-    help="Application settings file.",
+    help="Application configuration file.",
 )
 @run_with_asyncio
-async def init(settings: Optional[str]) -> None:
+async def init(config_path: Optional[str]) -> None:
     """Initialize the database storage."""
-    if settings:
-        config_dependency.set_settings_path(settings)
+    if config_path:
+        config_dependency.set_config_path(config_path)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Initializing database")
@@ -203,17 +203,17 @@ async def init(settings: Optional[str]) -> None:
 
 @main.command()
 @click.option(
-    "--settings",
-    envvar="GAFAELFAWR_SETTINGS_PATH",
+    "--config-path",
+    envvar="GAFAELFAWR_CONFIG_PATH",
     type=str,
     default=None,
-    help="Application settings file.",
+    help="Application configuration file.",
 )
 @run_with_asyncio
-async def maintenance(settings: Optional[str]) -> None:
+async def maintenance(config_path: Optional[str]) -> None:
     """Perform background maintenance."""
-    if settings:
-        config_dependency.set_settings_path(settings)
+    if config_path:
+        config_dependency.set_config_path(config_path)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Starting background maintenance")

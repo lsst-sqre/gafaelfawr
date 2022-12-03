@@ -14,11 +14,11 @@ from httpx import AsyncClient, ConnectError
 from gafaelfawr.constants import GID_MIN, UID_BOT_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
 
+from ..support.config import reconfigure
 from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.logging import parse_log
 from ..support.oidc import mock_oidc_provider_token, simulate_oidc_login
-from ..support.settings import reconfigure
 from ..support.slack import MockSlack
 
 
@@ -133,7 +133,7 @@ async def test_login_redirect_header(
 async def test_claim_names(
     tmp_path: Path, client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    """Uses an alternate settings environment with non-default claims."""
+    """Uses an alternate configuration file with non-default claims."""
     config = await reconfigure(tmp_path, "oidc-claims")
     assert config.oidc
     claims = {

@@ -19,7 +19,7 @@ from gafaelfawr.exceptions import (
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.oidc import OIDCAuthorizationCode
 
-from ..support.settings import reconfigure
+from ..support.config import reconfigure
 from ..support.tokens import create_session_token
 
 

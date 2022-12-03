@@ -1,10 +1,10 @@
 """Configuration for Gafaelfawr.
 
 There are two, mostly-parallel models defined here.  The ones ending in
-``Settings`` are the pydantic models used to read the settings file from disk,
-the root of which is `Settings`.  This is then processed and broken up into
-configuration dataclasses for various components and then exposed to the rest
-of Gafaelfawr as the `Config` object.
+``Settings`` are the pydantic models used to read the configuration file from
+disk, the root of which is `Settings`.  This is then processed and broken up
+into configuration dataclasses for various components and then exposed to the
+rest of Gafaelfawr as the `Config` object.
 """
 
 from __future__ import annotations
@@ -244,12 +244,12 @@ class OIDCServerSettings(BaseModel):
 
 
 class Settings(BaseSettings):
-    """pydantic model of Gafaelfawr settings file.
+    """pydantic model of Gafaelfawr configuration file.
 
-    This describes the settings file as parsed from disk.  This model will be
-    converted to a `Config` dataclass for internal use so that some settings
-    can be duplicated, rewritten, or parsed into internal formats for later
-    convenience.
+    This describes the configuration file as parsed from disk.  This model
+    will be converted to a `Config` dataclass for internal use so that some
+    settings can be duplicated, rewritten, or parsed into internal formats for
+    later convenience.
 
     Several fields use an empty dictionary or empty list as a default value.
     Due to a quirk in how Python handles empty dict and list constructors, the
@@ -638,7 +638,7 @@ class Config:
     The internal representation of the configuration, created from the
     `Settings` model.
 
-    Some configuration parameters from the settings file are copied into
+    Some configuration parameters from the configuration file are copied into
     multiple configuration dataclasses.  This allows the configuration for
     each internal component to be self-contained and unaware of the
     configuration of the rest of the application.
@@ -719,12 +719,12 @@ class Config:
 
     @classmethod
     def from_file(cls, path: str) -> Config:
-        """Construct a Config object from a settings file.
+        """Construct a Config object from a configuration file.
 
         Parameters
         ----------
         path
-            Path to the settings file in YAML.
+            Path to the configuration file in YAML.
 
         Returns
         -------

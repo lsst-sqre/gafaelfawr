@@ -167,7 +167,7 @@ def selenium_create_app() -> FastAPI:
 
 @asynccontextmanager
 async def run_app(
-    tmp_path: Path, settings_path: Path
+    tmp_path: Path, config_path: Path
 ) -> AsyncIterator[SeleniumConfig]:
     """Run the application as a separate process for Selenium access.
 
@@ -177,15 +177,15 @@ async def run_app(
     ----------
     tmp_path
         The temporary directory for testing.
-    settings_path
-        The path to the settings file.
+    config_path
+        The path to the configuration file.
 
     Yields
     ------
     SeleniumConfig
         The Selenium configuration.
     """
-    config_dependency.set_settings_path(str(settings_path))
+    config_dependency.set_config_path(str(config_path))
     config = await config_dependency()
     token_path = tmp_path / "token"
 
@@ -209,7 +209,7 @@ async def run_app(
         stdin=s.fileno(),
         env={
             **os.environ,
-            "GAFAELFAWR_SETTINGS_PATH": str(settings_path),
+            "GAFAELFAWR_CONFIG_PATH": str(config_path),
             "GAFAELFAWR_TEST_TOKEN_PATH": str(token_path),
             "PYTHONPATH": os.getcwd(),
         },

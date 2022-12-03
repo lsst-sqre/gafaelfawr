@@ -19,6 +19,7 @@ from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
 from gafaelfawr.util import number_to_base64
 
+from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import set_session_cookie
 from ..support.headers import (
@@ -27,7 +28,6 @@ from ..support.headers import (
     query_from_url,
 )
 from ..support.logging import parse_log
-from ..support.settings import reconfigure
 from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 

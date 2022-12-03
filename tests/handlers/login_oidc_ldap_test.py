@@ -11,11 +11,11 @@ from httpx import AsyncClient
 from gafaelfawr.constants import GID_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
 
+from ..support.config import reconfigure
 from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.ldap import MockLDAP
 from ..support.oidc import simulate_oidc_login
-from ..support.settings import reconfigure
 
 
 @pytest.mark.asyncio

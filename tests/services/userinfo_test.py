@@ -14,7 +14,7 @@ from gafaelfawr.exceptions import (
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.oidc import OIDCVerifiedToken
 
-from ..support.settings import reconfigure
+from ..support.config import reconfigure
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ __all__ = [
     "ALGORITHM",
     "BOT_USERNAME_REGEX",
     "CHANGE_HISTORY_RETENTION",
+    "CONFIG_PATH",
     "COOKIE_NAME",
     "CURSOR_REGEX",
     "GID_MIN",
@@ -21,7 +22,6 @@ __all__ = [
     "LDAP_TIMEOUT",
     "MINIMUM_LIFETIME",
     "OIDC_AUTHORIZATION_LIFETIME",
-    "SETTINGS_PATH",
     "SCOPE_REGEX",
     "TOKEN_CACHE_SIZE",
     "UID_BOT_MIN",
@@ -32,6 +32,9 @@ __all__ = [
 
 ALGORITHM = "RS256"
 """JWT algorithm to use for all tokens."""
+
+CONFIG_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
+"""Default configuration path."""
 
 COOKIE_NAME = "gafaelfawr"
 """Name of the state cookie."""
@@ -67,9 +70,6 @@ MINIMUM_LIFETIME = timedelta(minutes=5)
 
 OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 """How long (in seconds) an authorization code is good for."""
-
-SETTINGS_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
-"""Default configuration path."""
 
 # The following constants define per-process cache sizes.
 
