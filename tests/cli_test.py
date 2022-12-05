@@ -34,7 +34,7 @@ from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import current_datetime
 
-from .support.settings import configure
+from .support.config import configure
 from .support.slack import MockSlack
 
 

@@ -18,4 +18,5 @@ It may not work with other applications without additional changes.
 
 .. _Chronograf: https://docs.influxdata.com/chronograf/v1.8/administration/managing-security/
 
-Gafaelfawr also deploys a Kubernetes operator to maintain service tokens in Kubernetes secrets for the use of other services deployed in the same cluster, a ``CronJob`` to perform maintenance on its storage, and a ``CronJob`` to audit storage for inconsistencies.
+Gafaelfawr also deploys a Kubernetes operator to create Gafaelfawr-protected ingresses and maintain service tokens in Kubernetes secrets for the use of other services deployed in the same cluster.
+Finally, Gafaelfawr deploys a ``CronJob`` to perform maintenance on its storage, and a ``CronJob`` to audit storage for inconsistencies.

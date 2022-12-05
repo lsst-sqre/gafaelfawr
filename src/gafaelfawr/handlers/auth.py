@@ -350,7 +350,7 @@ async def get_auth_forbidden(
     )
     headers = {
         "Cache-Control": "no-cache, must-revalidate",
-        "WWW-Authenticate": challenge.as_header(),
+        "WWW-Authenticate": challenge.to_header(),
     }
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,

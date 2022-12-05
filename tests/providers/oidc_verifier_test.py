@@ -23,10 +23,10 @@ from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
 
+from ..support.config import reconfigure
 from ..support.constants import TEST_KEYPAIR
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.oidc import mock_oidc_provider_config
-from ..support.settings import reconfigure
 
 
 def encode_token(

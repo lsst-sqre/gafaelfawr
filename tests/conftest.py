@@ -30,11 +30,11 @@ from gafaelfawr.models.token import TokenType
 from gafaelfawr.schema import Base
 
 from .pages.tokens import TokensPage
+from .support.config import build_config, configure
 from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
-from .support.settings import build_settings, configure
 from .support.slack import MockSlack, mock_slack_webhook
 
 
@@ -95,12 +95,13 @@ async def empty_database(
 
     Notes
     -----
-    This always uses a settings file configured for GitHub authentication for
-    the database initialization and initial app configuration.  Use
-    `tests.support.settings.configure` after the test has started to change
-    this if needed for a given test, or avoid this fixture and any that depend
-    on it if control over the configuration prior to database initialization
-    is required.
+
+    This always uses a configuration file configured for GitHub authentication
+    for the database initialization and initial app configuration.  Use
+    `tests.support.config.configure` after the test has started to change this
+    if needed for a given test, or avoid this fixture and any that depend on
+    it if control over the configuration prior to database initialization is
+    required.
     """
     tables = (t.name for t in Base.metadata.sorted_tables)
     async with Factory.standalone(config, engine) as factory:
@@ -197,10 +198,10 @@ async def selenium_config(
     SeleniumConfig
         Configuration information for the server.
     """
-    settings_path = build_settings(tmp_path, "selenium")
-    config_dependency.set_settings_path(str(settings_path))
-    async with run_app(tmp_path, settings_path) as config:
-        cookie = await State(token=config.token).as_cookie()
+    config_path = build_config(tmp_path, "selenium")
+    config_dependency.set_config_path(config_path)
+    async with run_app(tmp_path, config_path) as config:
+        cookie = State(token=config.token).to_cookie()
         driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}
 
         # The synthetic cookie doesn't have a CSRF token, so we want to

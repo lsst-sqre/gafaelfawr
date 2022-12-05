@@ -58,7 +58,7 @@ def generate_challenge(
     )
     headers = {
         "Cache-Control": "no-cache, must-revalidate",
-        "WWW-Authenticate": challenge.as_header(),
+        "WWW-Authenticate": challenge.to_header(),
     }
     return HTTPException(
         headers=headers,
@@ -138,7 +138,7 @@ def generate_unauthorized_challenge(
 
     headers = {
         "Cache-Control": "no-cache, must-revalidate",
-        "WWW-Authenticate": challenge.as_header(),
+        "WWW-Authenticate": challenge.to_header(),
     }
 
     # If the request was sent via AJAX and ajax_forbidden was set (which will

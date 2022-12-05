@@ -110,7 +110,7 @@ def _wait_for_server(port: int, timeout: float = 5.0) -> None:
         time.sleep(0.1)
 
 
-async def _selenium_startup(token_path: str) -> None:
+async def _selenium_startup(token_path: Path) -> None:
     """Startup hook for the app run in Selenium testing mode."""
     config = await config_dependency()
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
@@ -137,8 +137,7 @@ async def _selenium_startup(token_path: str) -> None:
             )
     await engine.dispose()
 
-    with open(token_path, "w") as f:
-        f.write(str(token))
+    token_path.write_text(str(token))
 
 
 def selenium_create_app() -> FastAPI:
@@ -156,7 +155,7 @@ def selenium_create_app() -> FastAPI:
     run in the main pytest process, it will break other tests.
     """
     app = create_app()
-    token_path = os.environ["GAFAELFAWR_TEST_TOKEN_PATH"]
+    token_path = Path(os.environ["GAFAELFAWR_TEST_TOKEN_PATH"])
 
     @app.on_event("startup")
     async def selenium_startup_event() -> None:
@@ -167,7 +166,7 @@ def selenium_create_app() -> FastAPI:
 
 @asynccontextmanager
 async def run_app(
-    tmp_path: Path, settings_path: Path
+    tmp_path: Path, config_path: Path
 ) -> AsyncIterator[SeleniumConfig]:
     """Run the application as a separate process for Selenium access.
 
@@ -177,15 +176,15 @@ async def run_app(
     ----------
     tmp_path
         The temporary directory for testing.
-    settings_path
-        The path to the settings file.
+    config_path
+        The path to the configuration file.
 
     Yields
     ------
     SeleniumConfig
         The Selenium configuration.
     """
-    config_dependency.set_settings_path(str(settings_path))
+    config_dependency.set_config_path(config_path)
     config = await config_dependency()
     token_path = tmp_path / "token"
 
@@ -209,7 +208,7 @@ async def run_app(
         stdin=s.fileno(),
         env={
             **os.environ,
-            "GAFAELFAWR_SETTINGS_PATH": str(settings_path),
+            "GAFAELFAWR_CONFIG_PATH": str(config_path),
             "GAFAELFAWR_TEST_TOKEN_PATH": str(token_path),
             "PYTHONPATH": os.getcwd(),
         },

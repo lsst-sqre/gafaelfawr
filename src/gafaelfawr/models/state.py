@@ -87,7 +87,7 @@ class State(BaseState):
             state=data.get("state"),
         )
 
-    async def as_cookie(self) -> str:
+    def to_cookie(self) -> str:
         """Build an encrypted cookie representation of the state.
 
         Returns
@@ -107,7 +107,7 @@ class State(BaseState):
         if self.state:
             data["state"] = self.state
 
-        config = await config_dependency()
+        config = config_dependency.config()
         key = config.session_secret.encode()
         fernet = Fernet(key)
         return fernet.encrypt(json.dumps(data).encode()).decode()

@@ -12,19 +12,19 @@ from gafaelfawr.config import Config, Settings
 from gafaelfawr.exceptions import InvalidTokenError
 from gafaelfawr.models.token import Token
 
-from .support.settings import build_settings
+from .support.config import build_config
 
 
-def parse_settings(path: Path, fix_token: bool = False) -> None:
-    """Parse the settings file and see if any exceptions are thrown.
+def parse_config(path: Path, fix_token: bool = False) -> None:
+    """Parse the configuration file and see if any exceptions are thrown.
 
     Parameters
     ----------
     path : `pathlib.Path`
-        The path to the settings file to test.
+        The path to the configuration file to test.
     fix_token : `bool`, optional
         Whether to fix an invalid ``bootstrap_token`` before checking the
-        settings file.  Some examples have intentionally invalid tokens.
+        configuration file.  Some examples have intentionally invalid tokens.
     """
     with path.open("r") as f:
         settings = yaml.safe_load(f)
@@ -39,52 +39,52 @@ def parse_settings(path: Path, fix_token: bool = False) -> None:
 def test_config_examples() -> None:
     """Check that all of the example configuration files validate."""
     examples_path = Path(__file__).parent.parent / "examples"
-    for settings_path in examples_path.iterdir():
-        if settings_path.name.endswith(".yaml"):
-            parse_settings(settings_path, fix_token=True)
+    for config_path in examples_path.iterdir():
+        if config_path.name.endswith(".yaml"):
+            parse_config(config_path, fix_token=True)
 
 
 def test_config_no_provider() -> None:
-    settings_path = Path(__file__).parent / "settings" / "no-provider.yaml"
+    config_path = Path(__file__).parent / "config" / "no-provider.yaml"
     with pytest.raises(ValidationError):
-        parse_settings(settings_path)
+        parse_config(config_path)
 
 
 def test_config_both_providers() -> None:
-    settings_path = Path(__file__).parent / "settings" / "both-providers.yaml"
+    config_path = Path(__file__).parent / "config" / "both-providers.yaml"
     with pytest.raises(ValidationError):
-        parse_settings(settings_path)
+        parse_config(config_path)
 
 
 def test_config_invalid_admin() -> None:
-    settings_path = Path(__file__).parent / "settings" / "bad-admin.yaml"
+    config_path = Path(__file__).parent / "config" / "bad-admin.yaml"
     with pytest.raises(ValidationError):
-        parse_settings(settings_path)
+        parse_config(config_path)
 
 
 def test_config_invalid_loglevel() -> None:
-    settings_path = Path(__file__).parent / "settings" / "bad-loglevel.yaml"
+    config_path = Path(__file__).parent / "config" / "bad-loglevel.yaml"
     with pytest.raises(ValidationError):
-        parse_settings(settings_path)
+        parse_config(config_path)
 
 
 def test_config_invalid_scope() -> None:
-    settings_path = Path(__file__).parent / "settings" / "bad-scope.yaml"
+    config_path = Path(__file__).parent / "config" / "bad-scope.yaml"
     with pytest.raises(ValidationError):
-        parse_settings(settings_path)
+        parse_config(config_path)
 
 
 def test_config_missing_scope() -> None:
-    settings_path = Path(__file__).parent / "settings" / "missing-scope.yaml"
+    config_path = Path(__file__).parent / "config" / "missing-scope.yaml"
     with pytest.raises(ValidationError):
-        parse_settings(settings_path)
+        parse_config(config_path)
 
 
 def test_config_invalid_token(tmp_path: Path) -> None:
     bootstrap_token_file = tmp_path / "bootstrap-bad"
     bootstrap_token_file.write_bytes(b"bad-token")
-    settings_path = build_settings(
+    config_path = build_config(
         tmp_path, "bad-token", bootstrap_token_file=str(bootstrap_token_file)
     )
     with pytest.raises(InvalidTokenError):
-        Config.from_file(str(settings_path))
+        Config.from_file(config_path)

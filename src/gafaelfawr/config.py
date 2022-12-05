@@ -1,10 +1,10 @@
 """Configuration for Gafaelfawr.
 
 There are two, mostly-parallel models defined here.  The ones ending in
-``Settings`` are the pydantic models used to read the settings file from disk,
-the root of which is `Settings`.  This is then processed and broken up into
-configuration dataclasses for various components and then exposed to the rest
-of Gafaelfawr as the `Config` object.
+``Settings`` are the pydantic models used to read the configuration file from
+disk, the root of which is `Settings`.  This is then processed and broken up
+into configuration dataclasses for various components and then exposed to the
+rest of Gafaelfawr as the `Config` object.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
+from pathlib import Path
 from typing import Any, Optional
 
 import yaml
@@ -58,7 +59,7 @@ class GitHubSettings(BaseModel):
     client_id: str
     """Client ID of the GitHub App."""
 
-    client_secret_file: str
+    client_secret_file: Path
     """File containing secret for the GitHub App."""
 
 
@@ -68,7 +69,7 @@ class OIDCSettings(BaseModel):
     client_id: str
     """Client ID for talking to the OpenID Connect provider."""
 
-    client_secret_file: str
+    client_secret_file: Path
     """File containing secret for talking to the OpenID Connect provider."""
 
     login_url: AnyHttpUrl
@@ -133,7 +134,7 @@ class LDAPSettings(BaseModel):
     user_dn: Optional[str] = None
     """Simple bind user DN for the LDAP server."""
 
-    password_file: Optional[str] = None
+    password_file: Optional[Path] = None
     """File containing simple bind password for the LDAP server."""
 
     group_base_dn: str
@@ -236,20 +237,20 @@ class OIDCServerSettings(BaseModel):
     audience: str
     """aud (audience) field in issued tokens."""
 
-    key_file: str
+    key_file: Path
     """File containing RSA private key for signing issued tokens."""
 
-    secrets_file: str
+    secrets_file: Path
     """Path to file containing OpenID Connect client secrets in JSON."""
 
 
 class Settings(BaseSettings):
-    """pydantic model of Gafaelfawr settings file.
+    """pydantic model of Gafaelfawr configuration file.
 
-    This describes the settings file as parsed from disk.  This model will be
-    converted to a `Config` dataclass for internal use so that some settings
-    can be duplicated, rewritten, or parsed into internal formats for later
-    convenience.
+    This describes the configuration file as parsed from disk.  This model
+    will be converted to a `Config` dataclass for internal use so that some
+    settings can be duplicated, rewritten, or parsed into internal formats for
+    later convenience.
 
     Several fields use an empty dictionary or empty list as a default value.
     Due to a quirk in how Python handles empty dict and list constructors, the
@@ -264,22 +265,22 @@ class Settings(BaseSettings):
     loglevel: str = "INFO"
     """Logging level."""
 
-    session_secret_file: str
+    session_secret_file: Path
     """File containing encryption secret for session cookie and store."""
 
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
-    redis_password_file: Optional[str] = None
+    redis_password_file: Optional[Path] = None
     """File containing the password to use when connecting to Redis."""
 
     database_url: str
     """URL for the PostgreSQL database."""
 
-    database_password_file: Optional[str] = None
+    database_password_file: Optional[Path] = None
     """File containing the password for the PostgreSQL database."""
 
-    bootstrap_token_file: Optional[str] = None
+    bootstrap_token_file: Optional[Path] = None
     """File containing the bootstrap authentication token.
 
     This token can be used with specific routes in the admin API to change the
@@ -331,7 +332,7 @@ class Settings(BaseSettings):
     error_footer: Optional[str] = None
     """HTML to add (inside ``<p>``) to login error pages."""
 
-    slack_webhook_file: Optional[str] = None
+    slack_webhook_file: Optional[Path] = None
     """File containing the Slack webhook to which to post alerts."""
 
     @validator("initial_admins", each_item=True)
@@ -638,7 +639,7 @@ class Config:
     The internal representation of the configuration, created from the
     `Settings` model.
 
-    Some configuration parameters from the settings file are copied into
+    Some configuration parameters from the configuration file are copied into
     multiple configuration dataclasses.  This allows the configuration for
     each internal component to be self-contained and unaware of the
     configuration of the rest of the application.
@@ -718,22 +719,21 @@ class Config:
     """Slack webhook to which to post alerts."""
 
     @classmethod
-    def from_file(cls, path: str) -> Config:
-        """Construct a Config object from a settings file.
+    def from_file(cls, path: Path) -> Config:
+        """Construct a Config object from a configuration file.
 
         Parameters
         ----------
         path
-            Path to the settings file in YAML.
+            Path to the configuration file in YAML.
 
         Returns
         -------
         Config
             The corresponding `Config` object.
         """
-        with open(path, "r") as f:
-            raw_settings = yaml.safe_load(f)
-        settings = Settings.parse_obj(raw_settings)
+        with path.open("r") as f:
+            settings = Settings.parse_obj(yaml.safe_load(f))
 
         # Build the GitHub configuration if needed.
         github_config = None
@@ -894,9 +894,9 @@ class Config:
         return config
 
     @staticmethod
-    def _load_secret(path: str) -> bytes:
+    def _load_secret(path: Path) -> bytes:
         """Load a secret from a file."""
-        with open(path, "rb") as fh:
-            secret = fh.read().strip()
-            assert len(secret), f"Secret file {path} is empty"
-            return secret
+        secret = path.read_bytes()
+        if len(secret) == 0:
+            raise ValueError(f"Secret file {path} is empty")
+        return secret

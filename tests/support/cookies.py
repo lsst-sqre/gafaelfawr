@@ -34,7 +34,7 @@ async def set_session_cookie(client: AsyncClient, token: Token) -> str:
     str
         The CSRF token to use in subsequent API requests.
     """
-    cookie = await State(token=token).as_cookie()
+    cookie = State(token=token).to_cookie()
     client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)
     r = await client.get("/auth/api/v1/login")
     assert r.status_code == 200

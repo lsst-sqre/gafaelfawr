@@ -1,4 +1,4 @@
-"""Build test settings for Gafaelfawr."""
+"""Build test configuration for Gafaelfawr."""
 
 from __future__ import annotations
 
@@ -22,11 +22,11 @@ _ISSUER_KEY = RSAKeyPair.generate()
 
 Generating this takes a surprisingly long time when summed across every test,
 so generate one statically at import time for each test run and use it for
-every settings file.
+every configuration file.
 """
 
 __all__ = [
-    "build_settings",
+    "build_config",
     "configure",
     "reconfigure",
     "store_secret",
@@ -50,10 +50,10 @@ def store_secret(tmp_path: Path, name: str, secret: bytes) -> Path:
     return secret_path
 
 
-def _build_settings_file(
+def _build_config_file(
     tmp_path: Path, template: str, **kwargs: str | Path
 ) -> Path:
-    """Construct a settings file from a format template.
+    """Construct a configuration file from a format template.
 
     Parameters
     ----------
@@ -70,22 +70,22 @@ def _build_settings_file(
         The path to the newly-constructed configuration file.
     """
     template_file = template + ".yaml.in"
-    template_path = Path(__file__).parent.parent / "settings" / template_file
+    template_path = Path(__file__).parent.parent / "config" / template_file
     template = template_path.read_text()
-    settings = template.format(**kwargs)
-    settings_path = tmp_path / "gafaelfawr.yaml"
-    settings_path.write_text(settings)
-    return settings_path
+    config = template.format(**kwargs)
+    config_path = tmp_path / "gafaelfawr.yaml"
+    config_path.write_text(config)
+    return config_path
 
 
-def build_settings(
+def build_config(
     tmp_path: Path,
     template: str,
     *,
     oidc_clients: Optional[list[OIDCClient]] = None,
     **settings: str,
 ) -> Path:
-    """Generate a test Gafaelfawr settings file with secrets.
+    """Generate a test Gafaelfawr configuration file with secrets.
 
     Parameters
     ----------
@@ -96,12 +96,12 @@ def build_settings(
     oidc_clients
         Configuration information for clients of the OpenID Connect server.
     **settings
-        Any additional settings to add to the settings file.
+        Any additional settings to add to the configuration file.
 
     Returns
     -------
     pathlib.Path
-        The path of the settings file.
+        The path of the configuration file.
     """
     bootstrap_token = str(Token()).encode()
     bootstrap_token_file = store_secret(tmp_path, "bootstrap", bootstrap_token)
@@ -123,7 +123,7 @@ def build_settings(
         ]
         oidc_path.write_text(json.dumps(clients_data))
 
-    settings_path = _build_settings_file(
+    config_path = _build_config_file(
         tmp_path,
         template,
         database_url=TEST_DATABASE_URL,
@@ -137,11 +137,11 @@ def build_settings(
     )
 
     if settings:
-        with settings_path.open("a") as f:
+        with config_path.open("a") as f:
             for key, value in settings.items():
                 f.write(f"{key}: {value}\n")
 
-    return settings_path
+    return config_path
 
 
 def configure(
@@ -159,14 +159,14 @@ def configure(
     Parameters
     ----------
     tmp_path
-        Root of the test temporary directory, used to write the settings
+        Root of the test temporary directory, used to write the configuration
         file.
     template
-        Settings template to use.
+        Configuration template to use.
     oidc_clients
         Configuration information for clients of the OpenID Connect server.
     **settings
-        Any additional settings to add to the settings file.
+        Any additional settings to add to the configuration file.
 
     Returns
     -------
@@ -177,13 +177,13 @@ def configure(
     -----
     This is used for tests that cannot be async, so itself must not be async.
     """
-    settings_path = build_settings(
+    config_path = build_config(
         tmp_path,
         template,
         oidc_clients=oidc_clients,
         **settings,
     )
-    config_dependency.set_settings_path(str(settings_path))
+    config_dependency.set_config_path(config_path)
     return config_dependency.config()
 
 
@@ -203,16 +203,16 @@ async def reconfigure(
     Parameters
     ----------
     tmp_path
-        Root of the test temporary directory, used to write the settings
+        Root of the test temporary directory, used to write the configuration
         file.
     template
-        Settings template to use.
+        Configuration template to use.
     factory
         The factory to reconfigure.
     oidc_clients
         Configuration information for clients of the OpenID Connect server.
     **settings
-        Any additional settings to add to the settings file.
+        Any additional settings to add to the configuration file.
 
     Returns
     -------

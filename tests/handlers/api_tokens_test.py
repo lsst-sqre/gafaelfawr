@@ -18,12 +18,12 @@ from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
 from gafaelfawr.util import current_datetime, format_datetime_for_logging
 
+from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.firestore import MockFirestore
 from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
-from ..support.settings import reconfigure
 from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
@@ -392,7 +392,7 @@ async def test_token_info(
     state = State(token=session_token)
     r = await client.get(
         "/auth/api/v1/users/example/tokens",
-        cookies={COOKIE_NAME: await state.as_cookie()},
+        cookies={COOKIE_NAME: state.to_cookie()},
     )
 
 
@@ -407,7 +407,7 @@ async def test_auth_required(
     # Replace the cookie with one containing the CSRF token but not the
     # authentication token.
     clear_session_cookie(client)
-    client.cookies[COOKIE_NAME] = await State(csrf=csrf).as_cookie()
+    client.cookies[COOKIE_NAME] = State(csrf=csrf).to_cookie()
 
     r = await client.post(
         "/auth/api/v1/tokens",

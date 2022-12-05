@@ -40,7 +40,7 @@ class BaseState(ABC):
         """
 
     @abstractmethod
-    async def as_cookie(self) -> str:
+    def to_cookie(self) -> str:
         """Build an encrypted cookie representation of the state.
 
         Returns
@@ -106,7 +106,7 @@ class StateMiddleware(BaseHTTPMiddleware):
 
         # If the state has changed, write out the new state.
         if request.state.cookie != state:
-            cookie = await request.state.cookie.as_cookie()
+            cookie = request.state.cookie.to_cookie()
             secure = self.is_cookie_secure(request)
             response.set_cookie(
                 self.cookie_name, cookie, secure=secure, httponly=True
