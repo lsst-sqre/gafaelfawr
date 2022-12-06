@@ -198,6 +198,42 @@ class UserInfoService:
         ----------
         username
             User for which to invalidate cached data.
+
+        Notes
+        -----
+        This should be sufficient for the most common cases of invalid group
+        membership even if there are multiple instances of Gafaelfawr
+        running.
+
+        Retrieving LDAP information for a user only happens either (a) during
+        the login process, or (b) when checking a user's token (via the /auth
+        route, the API, etc.). For the typical case of a user who hasn't
+        onboarded yet, (b) is impossible since they haven't previously
+        authenticated and have no tokens. When they go through the login
+        process, we will retrieve their LDAP information and cache it, but
+        then we ask whether they're authorized. If not, we don't issue them a
+        token and then invalidate the cache using this method. These both
+        happen as part of processing the same request, so they can't be split
+        across multiple instances.
+
+        Therefore, in that normal case, this method will remove information
+        that was cached as part of the same request, and no other instance of
+        Gafaelfawr could have cached LDAP data because the user has not
+        successfully authenticated.
+
+        This cache invalidation could be insufficient if the user had
+        previously authenticated and then their user information in LDAP
+        changed such that they're no longer a member of an eligible group. In
+        that case, a cache invalidation done by the login process may be
+        undone by the user using an existing unexpired token to authenticate
+        to something else, resulting in an LDAP query that will be cached.
+        This could cause the confusing behavior that we were hoping to avoid:
+        bad LDAP data cached until the cache timeout.
+
+        That said, hopefully this case will be rare compared to the more
+        typical case of some onboarding problem. In the case where a user is
+        being invalidated entirely, we would normally delete all of their
+        tokens as well, avoiding this conflict.
         """
         if self._ldap:
             await self._ldap.invalidate_cache(username)
