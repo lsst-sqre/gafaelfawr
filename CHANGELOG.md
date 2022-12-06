@@ -11,6 +11,10 @@ Dependencies are updated to the latest available version during each release. Th
 - All commands that took a `--settings` option to specify the path to the configuration file now take a `--config-path` option instead. This name is clearer and avoids introducing a separate "settings" term.
 - The default path to the Gafaelfawr configuration file is now taken from the `GAFAELFAWR_CONFIG_PATH` environment variable rather than `GAFAELFAWR_SETTINGS_PATH`, for the same reason.
 
+### Bug fixes
+
+- If a user's login was rejected because they were not a member of any known groups, invalidate the LDAP cache for that user before returning the error. The user is likely to immediately try to fix this problem, and making them wait until the LDAP cache times out to see if the fix worked is confusing.
+
 ## 7.1.0 (2022-11-29)
 
 ### New features

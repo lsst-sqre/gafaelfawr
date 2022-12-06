@@ -285,6 +285,16 @@ class LDAPCache(PerUserCache, Generic[S]):
         """Initialize the cache."""
         self._cache = TTLCache(LDAP_CACHE_SIZE, LDAP_CACHE_LIFETIME)
 
+    def invalidate(self, username: str) -> None:
+        """Invalidate any cached data for a user.
+
+        Parameters
+        ----------
+        username
+            Username for which to invalidate the cache.
+        """
+        del self._cache[username]
+
     def store(self, username: str, data: S) -> None:
         """Store data in the cache.
 

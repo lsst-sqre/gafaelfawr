@@ -140,3 +140,21 @@ class LDAPService:
             data = await self._ldap.get_data(username)
             self._user_cache.store(username, data)
             return data
+
+    async def invalidate_cache(self, username: str) -> None:
+        """Invalidate the cache for a given user.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+        """
+        if self._group_name_cache.get(username) is not None:
+            async with await self._group_name_cache.lock(username):
+                self._group_name_cache.invalidate(username)
+        if self._group_cache.get(username) is not None:
+            async with await self._group_cache.lock(username):
+                self._group_cache.invalidate(username)
+        if self._user_cache.get(username) is not None:
+            async with await self._user_cache.lock(username):
+                self._user_cache.invalidate(username)

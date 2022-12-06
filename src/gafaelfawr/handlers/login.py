@@ -245,6 +245,7 @@ async def handle_provider_return(
     if scopes is None:
         await provider.logout(context.state)
         msg = f"{user_info.username} is not a member of any authorized groups"
+        await user_info_service.invalidate_cache(user_info.username)
         return login_error(context, LoginError.GROUPS_MISSING, details=msg)
 
     # Construct a token.
