@@ -4,10 +4,11 @@
 Helm configuration
 ##################
 
-The supported way of deploying Gafaelfawr is as a Phalanx service, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr/>`__.
+Gafaelfawr is configured as a Phalanx_ application, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr/>`__.
 You will need to provide a ``values-<environment>.yaml`` file for your Phalanx environment.
 Below are the most-commonly-used settings.
-For a complete reference, see `the Helm chart documentation <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr>`__.
+
+For a complete reference, see the `Gafaelfawr application documentation <https://phalanx.lsst.io/applications/gafaelfawr/index.html>`__.
 For examples, see the other ``values-<environment>.yaml`` files in that directory.
 
 In the below examples, the full key hierarchy is shown for each setting.
@@ -493,7 +494,7 @@ To change this, set ``config.loglevel``:
 
 Valid values are ``DEBUG`` (to increase the logging), ``INFO`` (the default), ``WARNING``, or ``ERROR``.
 
-Gafaelfawr is meant to be deployed behind an NGINX proxy server.
+Gafaelfawr is deployed behind a proxy server.
 In order to accurately log the IP address of the client, instead of the IP address of the proxy server, it must know what IP ranges correspond to possible proxy servers rather than clients.
 Set this with ``config.proxies``:
 
@@ -504,7 +505,7 @@ Set this with ``config.proxies``:
        - "192.0.2.0/24"
 
 If not set, defaults to the `RFC 1918 private address spaces <https://datatracker.ietf.org/doc/html/rfc1918>`__.
-See :ref:`client-ips` for more information.
+See :ref:`client-ips` for more details.
 
 .. _slack-alerts:
 

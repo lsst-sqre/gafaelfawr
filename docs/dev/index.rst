@@ -11,6 +11,7 @@ The Gafaelfawr code structure follows the guidelines in :sqr:`072`.
    :caption: Architecture
 
    overview
+   requirements
    configuration
    providers
    scopes

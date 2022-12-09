@@ -3,6 +3,7 @@
 [![Build](https://github.com/lsst-sqre/gafaelfawr/workflows/CI/badge.svg)](https://github.com/lsst-sqre/gafaelfawr/actions)
 
 Gafaelfawr is a [FastAPI](https://fastapi.tiangolo.com/) service for the authorization and management of tokens, including their issuance and revocation.
+It is deployed via [Phalanx](https://phalanx.lsst.io/).
 
 It is part of the Rubin Science Platform identity management system.
 The overall design is documented in [DMTN-234](https://dmtn-234.lsst.io), and its implementation in [DMTN-224](https://dmtn-224.lsst.io).
