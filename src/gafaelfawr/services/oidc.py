@@ -18,6 +18,7 @@ from ..exceptions import (
 )
 from ..models.oidc import (
     JWKS,
+    OIDCAuthorization,
     OIDCAuthorizationCode,
     OIDCConfig,
     OIDCToken,
@@ -133,9 +134,11 @@ class OIDCService:
         """
         if not self.is_valid_client(client_id):
             raise UnauthorizedClientError(f"Unknown client ID {client_id}")
-        return await self._authorization_store.create(
-            client_id, redirect_uri, token
+        authorization = OIDCAuthorization(
+            client_id=client_id, redirect_uri=redirect_uri, token=token
         )
+        await self._authorization_store.create(authorization)
+        return authorization.code
 
     def issue_token(
         self, user_info: TokenUserInfo, **claims: str
