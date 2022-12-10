@@ -1,0 +1,8 @@
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrServiceToken
+metadata:
+  name: gafaelfawr-secret
+  namespace: {namespace}
+spec:
+  service: mobu
+  scopes: []
