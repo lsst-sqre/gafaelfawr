@@ -1,0 +1,23 @@
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrServiceToken
+metadata:
+  name: gafaelfawr-secret
+  namespace: {namespace}
+spec:
+  service: bot-mobu
+  scopes: ["admin:token"]
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrServiceToken
+metadata:
+  name: gafaelfawr
+  namespace: {namespace}
+  labels:
+    foo: bar
+    other: blah
+  annotations:
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  service: bot-nublado-hub
+  scopes: []

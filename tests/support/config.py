@@ -27,6 +27,7 @@ every configuration file.
 
 __all__ = [
     "build_config",
+    "config_path",
     "configure",
     "reconfigure",
     "store_secret",
@@ -66,16 +67,14 @@ def _build_config_file(
 
     Returns
     -------
-    pathlib.Path
+    Path
         The path to the newly-constructed configuration file.
     """
-    template_file = template + ".yaml.in"
-    template_path = Path(__file__).parent.parent / "config" / template_file
-    template = template_path.read_text()
+    template = config_path(template + ".yaml.in").read_text()
     config = template.format(**kwargs)
-    config_path = tmp_path / "gafaelfawr.yaml"
-    config_path.write_text(config)
-    return config_path
+    path = tmp_path / "gafaelfawr.yaml"
+    path.write_text(config)
+    return path
 
 
 def build_config(
@@ -100,7 +99,7 @@ def build_config(
 
     Returns
     -------
-    pathlib.Path
+    Path
         The path of the configuration file.
     """
     bootstrap_token = str(Token()).encode()
@@ -142,6 +141,22 @@ def build_config(
                 f.write(f"{key}: {value}\n")
 
     return config_path
+
+
+def config_path(filename: str) -> Path:
+    """Return the path to a test configuration file.
+
+    Parameters
+    ----------
+    filename
+        The base name of a test configuration file or template.
+
+    Returns
+    -------
+    Path
+        The path to that file.
+    """
+    return Path(__file__).parent.parent / "data" / "config" / filename
 
 
 def configure(

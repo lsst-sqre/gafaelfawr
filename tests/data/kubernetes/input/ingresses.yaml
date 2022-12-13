@@ -1,0 +1,96 @@
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: small-ingress
+  namespace: {namespace}
+config:
+  baseUrl: "https://foo.example.com"
+  scopes:
+    all: ["read:all"]
+template:
+  metadata:
+    name: small
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: notebook-ingress
+  namespace: {namespace}
+config:
+  baseUrl: "https://foo.example.com"
+  scopes:
+    any: ["read:all"]
+  authType: basic
+  loginRedirect: true
+  replace403: true
+  delegate:
+    notebook: {braces}
+    minimumLifetime: 600
+template:
+  metadata:
+    name: notebook
+    labels:
+      some-label: foo
+    annotations:
+      another.annotation.example.com: bar
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /bar
+              pathType: Exact
+              backend:
+                service:
+                  name: something
+                  port:
+                    number: 80
+    tls:
+      - hosts:
+          - foo.example.com
+        secretName: tls-secret
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: internal-ingress
+  namespace: {namespace}
+config:
+  baseUrl: "https://foo.example.com"
+  scopes:
+    all:
+      - "read:all"
+      - "read:some"
+  delegate:
+    internal:
+      service: some-service
+      scopes:
+        - "read:all"
+        - "read:some"
+template:
+  metadata:
+    name: internal
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /baz
+              pathType: ImplementationSpecific
+              backend:
+                service:
+                  name: something
+                  port:
+                    number: 80
