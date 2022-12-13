@@ -115,7 +115,9 @@ class KubernetesIngressService:
             query.append(("auth_type", ingress.config.auth_type.value))
         auth_url += "?" + urlencode(query)
 
-        headers = "X-Auth-Request-Email,X-Auth-Request-User"
+        headers = (
+            "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
+        )
         if ingress.config.delegate:
             headers += ",X-Auth-Request-Token"
         annotations = {

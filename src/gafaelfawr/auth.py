@@ -1,4 +1,4 @@
-"""Authentication dependencies for route handlers."""
+"""Utility functions for manipulating authentication headers."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import HTTPException, status
 
+from .constants import COOKIE_NAME
 from .dependencies.context import RequestContext
 from .exceptions import (
     InvalidRequestError,
@@ -14,12 +15,109 @@ from .exceptions import (
     OAuthBearerError,
 )
 from .models.auth import AuthChallenge, AuthError, AuthErrorChallenge, AuthType
+from .models.token import Token
 
 __all__ = [
+    "clean_authorization",
+    "clean_cookies",
     "generate_challenge",
     "generate_unauthorized_challenge",
     "parse_authorization",
 ]
+
+
+def _find_token_in_basic_auth(auth: str) -> str | None:
+    """Try to find a Gafaelfawr token in a Basic ``Authorization`` header.
+
+    Parameters
+    ----------
+    auth
+        The HTTP Basic authorization string.
+
+    Returns
+    -------
+    str or None
+        The Gafaelfawr token string if found, else `None`.
+    """
+    try:
+        basic_auth = base64.b64decode(auth).decode()
+        candidates = basic_auth.strip().split(":")
+    except Exception:
+        return None
+    for candidate in candidates:
+        if Token.is_token(candidate):
+            return candidate
+    return None
+
+
+def clean_authorization(headers: list[str]) -> list[str]:
+    """Remove Gafaelfawr tokens from ``Authorization`` headers.
+
+    Parameters
+    ----------
+    headers
+        The ``Authorization`` headers of an incoming request, as a list
+        (allowing for the case that the incoming request had multiple headers
+        named ``Authorization``).
+
+    Returns
+    -------
+    list of str
+        Any remaining ``Authorization`` headers after removing headers
+        containing Gafaelfawr tokens.
+
+    Notes
+    -----
+    We don't drop all ``Authorization`` headers because Jupyter labs use an
+    ``Authorization`` header of type ``token`` to pass their internal tokens
+    around.  That header has to be passed through to the backend for
+    JuptyerHub to work correctly.
+    """
+    output = []
+    for header in headers:
+        if " " not in header:
+            output.append(header)
+            continue
+        auth_type, auth_blob = header.split(" ", 1)
+        if auth_type.lower() == "bearer":
+            if not Token.is_token(auth_blob):
+                output.append(header)
+        elif auth_type.lower() == "basic":
+            if not _find_token_in_basic_auth(auth_blob):
+                output.append(header)
+        else:
+            output.append(header)
+    return output
+
+
+def clean_cookies(headers: list[str]) -> list[str]:
+    """Remove Gafaelfawr cookies from cookie headers.
+
+    Parameters
+    ----------
+    headers
+        The ``Cookie`` headers of an incoming request, as a list (allowing for
+        the case that the incoming request had multiple headers named
+        ``Cookie``).
+
+    Returns
+    -------
+    list of str
+        Any remaining ``Cookie`` headers after removing Gafaelfawr cookies.
+    """
+    output = []
+    for header in headers:
+        keep = []
+        for cookie in header.split("; "):
+            if "=" in cookie:
+                name, _ = cookie.split("=", 1)
+                if name != COOKIE_NAME:
+                    keep.append(cookie)
+            else:
+                keep.append(cookie)
+        if keep:
+            output.append("; ".join(keep))
+    return output
 
 
 def generate_challenge(

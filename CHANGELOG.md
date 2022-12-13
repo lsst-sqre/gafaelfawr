@@ -11,6 +11,10 @@ Dependencies are updated to the latest available version during each release. Th
 - All commands that took a `--settings` option to specify the path to the configuration file now take a `--config-path` option instead. This name is clearer and avoids introducing a separate "settings" term.
 - The default path to the Gafaelfawr configuration file is now taken from the `GAFAELFAWR_CONFIG_PATH` environment variable rather than `GAFAELFAWR_SETTINGS_PATH`, for the same reason.
 
+### New features
+
+- The response from the `/auth` now includes any `Authorization` or `Cookie` headers from the incoming request with Gafaelfawr tokens and secrets filtered out. This is automatically used by `GafaelfawrIngress` resources to filter those secrets out of the request passed to the protected service so that the user's credentials are not leaked to services. Manual ingress configurations should add `Authorization` and `Cookie` to the `nginx.ingress.kubernetes.io/auth-response-headers` annotation.
+
 ### Bug fixes
 
 - If a user's login was rejected because they were not a member of any known groups, invalidate the LDAP cache for that user before returning the error. The user is likely to immediately try to fix this problem, and making them wait until the LDAP cache times out to see if the fix worked is confusing.
@@ -446,7 +450,7 @@ This release changes the construction of identity and groups from GitHub authent
 
 ## 1.2.1 (2020-05-14)
 
-Gafaelfawr can now analyze the `X-Forwarded-For` header to determine the true client IP for logging purposes. This requires some configuration of both Gafaelfawr and the NGINX ingress. See [the logging documentation](https://gafaelfawr.lsst.io/user-guide/prerequisites.html#client-ips) for more information.
+Gafaelfawr can now analyze the `X-Forwarded-For` header to determine the true client IP for logging purposes. This requires some configuration of both Gafaelfawr and the NGINX ingress. See [the logging documentation](https://gafaelfawr.lsst.io/dev/requirements.html#client-ips) for more information.
 
 ### New features
 

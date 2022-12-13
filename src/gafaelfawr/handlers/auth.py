@@ -17,7 +17,12 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse
 
-from ..auth import generate_challenge, generate_unauthorized_challenge
+from ..auth import (
+    clean_authorization,
+    clean_cookies,
+    generate_challenge,
+    generate_unauthorized_challenge,
+)
 from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
@@ -294,7 +299,8 @@ async def get_auth(
     # Log and return the results.
     context.logger.info("Token authorized")
     headers = await build_success_headers(context, auth_config, token_data)
-    response.headers.update(headers)
+    for key, value in headers:
+        response.headers.append(key, value)
     return {"status": "ok"}
 
 
@@ -361,7 +367,7 @@ async def get_auth_forbidden(
 
 async def build_success_headers(
     context: RequestContext, auth_config: AuthConfig, token_data: TokenData
-) -> dict[str, str]:
+) -> list[tuple[str, str]]:
     """Construct the headers for successful authorization.
 
     Parameters
@@ -378,11 +384,11 @@ async def build_success_headers(
     headers
         Headers to include in the response.
     """
-    headers = {"X-Auth-Request-User": token_data.username}
+    headers = [("X-Auth-Request-User", token_data.username)]
     user_info_service = context.factory.create_user_info_service()
     user_info = await user_info_service.get_user_info_from_token(token_data)
     if user_info.email:
-        headers["X-Auth-Request-Email"] = user_info.email
+        headers.append(("X-Auth-Request-Email", user_info.email))
 
     if auth_config.notebook:
         token_service = context.factory.create_token_service()
@@ -392,7 +398,7 @@ async def build_success_headers(
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )
-        headers["X-Auth-Request-Token"] = str(token)
+        headers.append(("X-Auth-Request-Token", str(token)))
     elif auth_config.delegate_to:
         # Delegated scopes are optional; if the authenticating token doesn't
         # have the scope, it's omitted from the delegated token.  (To make it
@@ -411,6 +417,22 @@ async def build_success_headers(
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )
-        headers["X-Auth-Request-Token"] = str(token)
+        headers.append(("X-Auth-Request-Token", str(token)))
+
+    # Strip authentication tokens from the Cookie and Authorization headers of
+    # the incoming request and reflect the remainder back in the response.
+    # ingress-nginx can then be configured to lift those headers up into the
+    # proxy request, preventing the user's cookie from being passed down to
+    # the protected application.
+    if "Authorization" in context.request.headers:
+        raw_authorizations = context.request.headers.getlist("Authorization")
+        authorizations = clean_authorization(raw_authorizations)
+        if authorizations:
+            headers.extend(("Authorization", v) for v in authorizations)
+    if "Cookie" in context.request.headers:
+        raw_cookies = context.request.headers.getlist("Cookie")
+        cookies = clean_cookies(raw_cookies)
+        if cookies:
+            headers.extend(("Cookie", v) for v in cookies)
 
     return headers

@@ -17,3 +17,23 @@ If the user is already authenticated but does not have the desired scope, Gafael
 
 If the user is authenticated and authorized, Gafaelfawr will return a 200 response with some additional headers containing information about the user and (optionally) a delegated token.
 NGINX will then send the user's HTTP request along to the protected service, including those headers in the request.
+
+.. _header-filtering:
+
+Header filtering
+================
+
+Gafaelfawr authentication tokens should only be sent to Gafaelfawr (and, unavoidably, the NGINX ingress), not to protected applications.
+Otherwise, a protected application, even one that didn't request delegated tokens, could take the cookie or token from the incoming request and then impersonate the user to other services.
+Even if no protected services are malicious, they may have security vulnerabilities that would allow an attacker to gain access to their incoming requests.
+Thosse requests unavoidably expose any credentials needed by that service, but they ideally shouldn't expose anything else.
+
+For more details on this security concern, see :sqr:`051`.
+
+To avoid this problem, in addition to authenticating the user and performing authorization checks, Gafaelfawr will also filter the ``Authorization`` and ``Cookie`` headers of the incoming request and return the filtered versions in its response.
+All ``Authorization`` headers containing Gafaelfawr tokens will be removed, as will (if present) the Gafaelfawr session cookie.
+(The headers may be missing if all incoming ``Authorization`` and ``Cookie`` headers only contained Gafaelfawr tokens and cookies.)
+
+The ingress-nginx configuration will then replace the ``Authorization`` and ``Cookie`` headers of the incoming request with the ones filtered by Gafaelfawr before passing the request to the protected service.
+If a header is missing from the Gafaelfawr response, it will be dropped from the request by ingress-nginx.
+This is done with the ``nginx.ingress.kubernetes.io/auth-response-headers`` annotation, normally added automatically to the ``Ingress`` created from a ``GafaelfawrIngress``.
