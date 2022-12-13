@@ -12,6 +12,10 @@ All files are in templated YAML.
 Templating is done through the regular Python `format` syntax.
 The following variables will be expanded before the files are used:
 
+`braces`
+    Expands to `{}`.
+    The same as putting `{{}}` in the input, except that triggers a YAML error.
+
 `namespace`
     The namespace used by the test.
     These namespaces have random names and are created by a fixture before each Kubernetes operator test.

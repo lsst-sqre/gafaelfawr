@@ -19,6 +19,7 @@ from kubernetes_asyncio.client import (
     ApiextensionsV1Api,
     CoreV1Api,
     CustomObjectsApi,
+    NetworkingV1Api,
     V1Namespace,
     V1ObjectMeta,
 )
@@ -37,6 +38,7 @@ __all__ = [
 ]
 
 _PLURALS = {
+    "GafaelfawrIngress": "gafaelfawringresses",
     "GafaelfawrServiceToken": "gafaelfawrservicetokens",
 }
 """Mapping of kinds to plurals for the custom object API."""
@@ -84,7 +86,7 @@ def operator_test_input(filename: str, namespace: str) -> list[dict[str, Any]]:
         / "input"
         / (filename + ".yaml")
     )
-    resources = path.read_text().format(namespace=namespace)
+    resources = path.read_text().format(namespace=namespace, braces="{}")
     return list(yaml.safe_load_all(resources))
 
 
@@ -113,7 +115,9 @@ def operator_test_output(
         / "output"
         / (filename + ".yaml")
     )
-    resources = path.read_text().format(namespace=namespace, any="<ANY>")
+    resources = path.read_text().format(
+        namespace=namespace, braces="{}", any="<ANY>"
+    )
     return _replace_any(yaml.safe_load_all(resources))
 
 
@@ -216,6 +220,9 @@ async def assert_resources_match(
         if kind == "Secret":
             core_api = CoreV1Api(api_client)
             seen = await core_api.read_namespaced_secret(name, namespace)
+        elif kind == "Ingress":
+            net_api = NetworkingV1Api(api_client)
+            seen = await net_api.read_namespaced_ingress(name, namespace)
         else:
             assert False, f"Unknown object kind {kind}"
         assert api_client.sanitize_for_serialization(seen) == expected
@@ -227,6 +234,12 @@ async def assert_resources_match(
         for secret in secrets.items:
             name = secret.metadata.name
             assert name in checked, f"Unexpected secret {name}"
+    elif kind == "Ingress":
+        net_api = NetworkingV1Api(api_client)
+        ingresses = await net_api.list_namespaced_ingress(namespace)
+        for ingress in ingresses.items:
+            name = ingress.metadata.name
+            assert name in checked, f"Unexpected ingress {name}"
     else:
         assert False, f"Unknown object kind {kind}"
 
