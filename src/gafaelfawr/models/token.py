@@ -79,6 +79,29 @@ class Token(BaseModel):
 
         return cls(key=key, secret=secret)
 
+    @classmethod
+    def is_token(cls, token: str) -> bool:
+        """Determine if a string is a Gafaelfawr token.
+
+        Parameters
+        ----------
+        token
+            The string to check.
+
+        Returns
+        -------
+        bool
+            Whether that string looks like a Gafaelfawr token.  The token
+            isn't checked for validity, only format.
+        """
+        if not token.startswith("gt-"):
+            return False
+        trimmed_token = token[len("gt-") :]
+        if "." not in trimmed_token:
+            return False
+        key, secret = trimmed_token.split(".", 1)
+        return len(key) == 22 and len(secret) == 22
+
     def __str__(self) -> str:
         """Return the encoded token."""
         return f"gt-{self.key}.{self.secret}"

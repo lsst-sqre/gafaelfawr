@@ -177,6 +177,9 @@ In addition, if a delegated token was requested, it will be sent in the ``X-Auth
 HTTP headers starting with ``X-Auth-Request-*`` are reserved for Gafaelfawr.
 More headers may be added in the future.
 
+As discussed in :ref:`header-filtering`, Gafaelfawr also modifies the ``Authorization`` and ``Cookie`` headers to hide Gafaelfawr's own tokens and cookies.
+This should be invisible to the protected application, and it can still set and receive its own cookies.
+
 .. _error-caching:
 
 Disabling error caching
