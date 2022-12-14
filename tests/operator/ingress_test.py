@@ -103,3 +103,29 @@ async def test_replace(api_client: ApiClient, namespace: str) -> None:
             "nginx.ingress.kubernetes.io/auth-signin"
         ] = "https://foo.example.com/login"
         await assert_resources_match(api_client, [expected])
+
+
+@requires_kubernetes
+@pytest.mark.asyncio
+async def test_resume(api_client: ApiClient, namespace: str) -> None:
+    """Test periodic rechecking of Ingress resources."""
+    ingress = operator_test_input("ingresses", namespace)[0]
+    expected = operator_test_output("ingresses", namespace)[0]
+    networking_api = client.NetworkingV1Api(api_client)
+    await create_custom_resources(api_client, [ingress])
+
+    await run_operator_once("gafaelfawr.operator")
+    await assert_resources_match(api_client, [expected])
+
+    # Modify the Ingress but not the GafaelfawrIngress.
+    name = expected["metadata"]["name"]
+    generated = await networking_api.read_namespaced_ingress(name, namespace)
+    generated.metadata.annotations = {}
+    await networking_api.replace_namespaced_ingress(
+        expected["metadata"]["name"], namespace, generated
+    )
+
+    # Run the operator again.  This should fix the modified ingress via the
+    # resume event handler.
+    await run_operator_once("gafaelfawr.operator")
+    await assert_resources_match(api_client, [expected])

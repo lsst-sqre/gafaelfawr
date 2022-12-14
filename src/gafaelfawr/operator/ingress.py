@@ -15,6 +15,7 @@ __all__ = ["create"]
 
 
 @kopf.on.create("gafaelfawr.lsst.io", "v1alpha1", "gafaelfawringresses")
+@kopf.on.resume("gafaelfawr.lsst.io", "v1alpha1", "gafaelfawringresses")
 @kopf.on.update("gafaelfawr.lsst.io", "v1alpha1", "gafaelfawringresses")
 async def create(
     name: str | None,
