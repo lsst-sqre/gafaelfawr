@@ -26,7 +26,7 @@ Header filtering
 Gafaelfawr authentication tokens should only be sent to Gafaelfawr (and, unavoidably, the NGINX ingress), not to protected applications.
 Otherwise, a protected application, even one that didn't request delegated tokens, could take the cookie or token from the incoming request and then impersonate the user to other services.
 Even if no protected services are malicious, they may have security vulnerabilities that would allow an attacker to gain access to their incoming requests.
-Thosse requests unavoidably expose any credentials needed by that service, but they ideally shouldn't expose anything else.
+Those requests unavoidably expose any credentials needed by that service, but they ideally shouldn't expose anything else.
 
 For more details on this security concern, see :sqr:`051`.
 
