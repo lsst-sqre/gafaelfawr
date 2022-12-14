@@ -67,6 +67,9 @@ class AuthConfig:
     minimum_lifetime: timedelta | None
     """Required minimum lifetime of the token."""
 
+    use_authorization: bool
+    """Whether to put any delegated token in the ``Authorization`` header."""
+
 
 def auth_uri(
     x_original_uri: Optional[str] = Header(
@@ -147,6 +150,15 @@ def auth_config(
         ge=MINIMUM_LIFETIME.total_seconds(),
         example=86400,
     ),
+    use_authorization: bool = Query(
+        False,
+        title="Put delegated token in Authorization",
+        description=(
+            "If true, also replace the Authorization header with any"
+            " delegated token, passed as a bearer token."
+        ),
+        example=True,
+    ),
     auth_uri: str = Depends(auth_uri),
     context: RequestContext = Depends(context_dependency),
 ) -> AuthConfig:
@@ -187,6 +199,7 @@ def auth_config(
         delegate_to=delegate_to,
         delegate_scopes=delegate_scopes,
         minimum_lifetime=lifetime,
+        use_authorization=use_authorization,
     )
 
 
@@ -390,6 +403,7 @@ async def build_success_headers(
     if user_info.email:
         headers.append(("X-Auth-Request-Email", user_info.email))
 
+    delegated_token = None
     if auth_config.notebook:
         token_service = context.factory.create_token_service()
         async with context.session.begin():
@@ -398,7 +412,8 @@ async def build_success_headers(
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )
-        headers.append(("X-Auth-Request-Token", str(token)))
+        delegated_token = str(token)
+        headers.append(("X-Auth-Request-Token", delegated_token))
     elif auth_config.delegate_to:
         # Delegated scopes are optional; if the authenticating token doesn't
         # have the scope, it's omitted from the delegated token.  (To make it
@@ -417,14 +432,19 @@ async def build_success_headers(
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )
-        headers.append(("X-Auth-Request-Token", str(token)))
+        delegated_token = str(token)
+        headers.append(("X-Auth-Request-Token", delegated_token))
 
-    # Strip authentication tokens from the Cookie and Authorization headers of
+    # If told to put the delegated token in the Authorization header, do that.
+    # Otherwise, strip authentication tokens from the Authorization headers of
     # the incoming request and reflect the remainder back in the response.
-    # ingress-nginx can then be configured to lift those headers up into the
-    # proxy request, preventing the user's cookie from being passed down to
-    # the protected application.
-    if "Authorization" in context.request.headers:
+    # Always do this with the Cookie header.  ingress-nginx can then be
+    # configured to lift those headers up into the proxy request, preventing
+    # the user's cookie from being passed down to the protected application.
+    if auth_config.use_authorization:
+        if delegated_token:
+            headers.append(("Authorization", f"Bearer {delegated_token}"))
+    elif "Authorization" in context.request.headers:
         raw_authorizations = context.request.headers.getlist("Authorization")
         authorizations = clean_authorization(raw_authorizations)
         if authorizations:

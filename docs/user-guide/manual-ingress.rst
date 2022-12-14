@@ -93,6 +93,8 @@ For the special case of notebook tokens, instead use:
 
 In both cases, services designed for API instead of browser access can omit the ``nginx.ingress.kubernetes.io/auth-signin`` to return authentication challenges to the user instead of redirecting them to the login page.
 
+To request that the delegated token also be passed in the ``Authorization`` header as a bearer token, append ``&use_authorization=true`` to the ``nginx.ingress.kubernetes.io/auth-url`` annotation.
+
 Disabling error caching
 =======================
 
@@ -155,5 +157,9 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
 
     If the presented authentication credentials don't satisfy this required lifetime, a 401 error will be returned.
     If the ``nginx.ingress.kubernetes.io/auth-signin`` annotation is set in the ``Ingress``, this will force a user reauthentication.
+
+``use_authorization`` (optional)
+    If set to a true value, replace the ``Authorization`` header with one containing the delegated token as a bearer token.
+    This option only makes sense in combination with ``notebook`` or ``delegate_to``.
 
 These parameters must be URL-encoded as GET parameters to the ``/auth`` route.

@@ -94,3 +94,34 @@ template:
                   name: something
                   port:
                     number: 80
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: authorization-ingress
+  namespace: {namespace}
+config:
+  baseUrl: "https://foo.example.com"
+  scopes:
+    all: ["read:all"]
+  delegate:
+    internal:
+      service: some-service
+      scopes:
+        - "read:all"
+    useAuthorization: true
+template:
+  metadata:
+    name: authorization
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http

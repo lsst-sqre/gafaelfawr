@@ -111,6 +111,8 @@ class KubernetesIngressService:
                 minimum_lifetime = ingress.config.delegate.minimum_lifetime
                 minimum_str = str(int(minimum_lifetime.total_seconds()))
                 query.append(("minimum_lifetime", minimum_str))
+            if ingress.config.delegate.use_authorization:
+                query.append(("use_authorization", "true"))
         if ingress.config.auth_type:
             query.append(("auth_type", ingress.config.auth_type.value))
         auth_url += "?" + urlencode(query)
