@@ -261,7 +261,7 @@ async def test_success_minimal(client: AsyncClient, factory: Factory) -> None:
     r = await client.get(
         "/auth",
         params={"scope": "read:all"},
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer   {token}"},
     )
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "user"
@@ -522,7 +522,7 @@ async def test_basic(client: AsyncClient, factory: Factory) -> None:
     r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
-        headers={"Authorization": f"Basic {basic_b64}"},
+        headers={"Authorization": f"Basic  {basic_b64}"},
     )
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == token_data.username
@@ -812,9 +812,9 @@ async def test_authorization_filtering(
         "/auth",
         params={"scope": "read:all"},
         headers=[
-            ("Authorization", f"Basic {basic_b64}"),
+            ("Authorization", f"Basic  {basic_b64}"),
             ("Authorization", "some broken stuff"),
-            ("Authorization", f"BEARER {token_data.token}"),
+            ("Authorization", f"BEARER   {token_data.token}"),
             ("Authorization", "basic"),
             ("Authorization", "basic notreally:base64"),
         ],

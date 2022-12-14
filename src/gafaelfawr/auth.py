@@ -68,17 +68,17 @@ def clean_authorization(headers: list[str]) -> list[str]:
 
     Notes
     -----
-    We don't drop all ``Authorization`` headers because Jupyter labs use an
-    ``Authorization`` header of type ``token`` to pass their internal tokens
-    around.  That header has to be passed through to the backend for
-    JuptyerHub to work correctly.
+    We don't drop all ``Authorization`` because Gafaelfawr may be doing
+    stripping for anonymous routes that may be in front of services doing
+    their own authentication, possibly with authentication types we don't
+    recognize.
     """
     output = []
     for header in headers:
         if " " not in header:
             output.append(header)
             continue
-        auth_type, auth_blob = header.split(" ", 1)
+        auth_type, auth_blob = header.split(None, 1)
         if auth_type.lower() == "bearer":
             if not Token.is_token(auth_blob):
                 output.append(header)
@@ -292,7 +292,7 @@ def parse_authorization(context: RequestContext) -> str | None:
         return None
     if " " not in header:
         raise InvalidRequestError("Malformed Authorization header")
-    auth_type, auth_blob = header.split(" ")
+    auth_type, auth_blob = header.split(None, 1)
     if auth_type.lower() == "bearer":
         context.rebind_logger(token_source="bearer")
         return auth_blob
