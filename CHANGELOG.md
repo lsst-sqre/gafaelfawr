@@ -13,7 +13,7 @@ Dependencies are updated to the latest available version during each release. Th
 
 ### New features
 
-- The response from the `/auth` now includes any `Authorization` or `Cookie` headers from the incoming request with Gafaelfawr tokens and secrets filtered out. This is automatically used by `GafaelfawrIngress` resources to filter those secrets out of the request passed to the protected service so that the user's credentials are not leaked to services. Manual ingress configurations should add `Authorization` and `Cookie` to the `nginx.ingress.kubernetes.io/auth-response-headers` annotation.
+- The response from the `/auth` now reflects `Authorization` and `Cookie` headers from the incoming request with Gafaelfawr tokens and secrets filtered out. `GafaelfawrIngress` resources use this to filter those secrets out of the request passed to the protected service, avoiding leaking user credentials to services. Manual ingress configurations should add `Authorization` and `Cookie` to the `nginx.ingress.kubernetes.io/auth-response-headers` annotation to get the benefits of this filtering.
 
 ### Bug fixes
 
