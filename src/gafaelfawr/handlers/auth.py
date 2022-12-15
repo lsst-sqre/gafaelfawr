@@ -318,6 +318,34 @@ async def get_auth(
 
 
 @router.get(
+    "/auth/anonymous",
+    description=(
+        "Intended for use as an auth-url handler for anonymous routes. No"
+        " authentication is done and no authorization checks are performed,"
+        " but the `Authorization` and `Cookie` headers are still reflected"
+        " in the response with Gafaelfawr tokens and cookies stripped."
+    ),
+    summary="Filter headers for anonymous routes",
+    tags=["internal"],
+)
+async def get_anonymous(
+    response: Response,
+    context: RequestContext = Depends(context_dependency),
+) -> dict[str, str]:
+    if "Authorization" in context.request.headers:
+        raw_authorizations = context.request.headers.getlist("Authorization")
+        authorizations = clean_authorization(raw_authorizations)
+        for authorization in authorizations:
+            response.headers.append("Authorization", authorization)
+    if "Cookie" in context.request.headers:
+        raw_cookies = context.request.headers.getlist("Cookie")
+        cookies = clean_cookies(raw_cookies)
+        for cookie in cookies:
+            response.headers.append("Cookie", cookie)
+    return {"status": "ok"}
+
+
+@router.get(
     "/auth/forbidden",
     description=(
         "This route exists to set a Cache-Control header on 403 errors so"

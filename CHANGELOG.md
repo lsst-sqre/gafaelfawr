@@ -10,11 +10,13 @@ Dependencies are updated to the latest available version during each release. Th
 
 - All commands that took a `--settings` option to specify the path to the configuration file now take a `--config-path` option instead. This name is clearer and avoids introducing a separate "settings" term.
 - The default path to the Gafaelfawr configuration file is now taken from the `GAFAELFAWR_CONFIG_PATH` environment variable rather than `GAFAELFAWR_SETTINGS_PATH`, for the same reason.
+- A `GafaelfawrIngress` that sets `config.loginRedirect` to true and also sets `config.authType` to `basic` is now rejected with an error, since this combination isn't possible. Previously, the `authType` setting was silently ignored.
 
 ### New features
 
 - The response from the `/auth` now reflects `Authorization` and `Cookie` headers from the incoming request with Gafaelfawr tokens and secrets filtered out. `GafaelfawrIngress` resources use this to filter those secrets out of the request passed to the protected service, avoiding leaking user credentials to services. Manual ingress configurations should add `Authorization` and `Cookie` to the `nginx.ingress.kubernetes.io/auth-response-headers` annotation to get the benefits of this filtering.
-- Added a `config.delegate.useAuthorization` field in `GafaelfawrIngress` and a `use_authorization` query parameter for the `/auth` route that, if set, also puts any delegated token in the `Authorization` header, as a bearer token, in the request sent to the protected service. This allows easier integration with some software that expects tokens in standard headers rather than Gafaelfawr's custom `X-Auth-Request-Token` header.
+- Add support for anonymous ingresses. If `config.scopes.anonymous` in a `GafaelfawrIngress` is set to true, no authentication or authorization will be done but Gafaelfawr will still be invoked as an auth subrequest handler solely to strip Gafaelfawr tokens and cookies from the `Authorization` and `Cookie` headers before passing the request to the protected service. This can also be configured manually using the new `/auth/anonymous` route.
+- Add a `config.delegate.useAuthorization` field in `GafaelfawrIngress` and a `use_authorization` query parameter for the `/auth` route that, if set, also puts any delegated token in the `Authorization` header, as a bearer token, in the request sent to the protected service. This allows easier integration with some software that expects tokens in standard headers rather than Gafaelfawr's custom `X-Auth-Request-Token` header.
 - `Ingress` resources generated from `GafaelfawrIngress` resources will be checked for correctness when Gafaelfawr starts, even if the `GafaelfawrIngress` resource has not been modified. This ensures changes to the generated `Ingress` due to Gafaelfawr code changes are applied to existing resources.
 
 ### Bug fixes

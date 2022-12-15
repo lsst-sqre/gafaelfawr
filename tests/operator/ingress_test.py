@@ -88,6 +88,7 @@ async def test_replace(api_client: ApiClient, namespace: str) -> None:
             "gafaelfawringresses",
             ingress["metadata"]["name"],
         )
+        ingress["config"]["authType"] = "bearer"
         ingress["config"]["loginRedirect"] = True
         await custom_api.replace_namespaced_custom_object(
             "gafaelfawr.lsst.io",
@@ -99,6 +100,9 @@ async def test_replace(api_client: ApiClient, namespace: str) -> None:
         )
         await asyncio.sleep(1)
 
+        expected["metadata"]["annotations"][
+            "nginx.ingress.kubernetes.io/auth-url"
+        ] = "https://foo.example.com/auth?scope=read%3Aall&auth_type=bearer"
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-signin"
         ] = "https://foo.example.com/login"

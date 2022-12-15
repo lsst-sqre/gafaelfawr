@@ -95,6 +95,23 @@ In both cases, services designed for API instead of browser access can omit the 
 
 To request that the delegated token also be passed in the ``Authorization`` header as a bearer token, append ``&use_authorization=true`` to the ``nginx.ingress.kubernetes.io/auth-url`` annotation.
 
+Header filtering for anonymous ingresses
+========================================
+
+If an ingress shares a hostname with any authenticated service, it should still configure Gafaelfawr to perform header filtering even if it allows anonymous access.
+This prevents leakage of Gafaelfawr credentials to underlying services.
+
+To do this with a manually-configured ingress, add the following annotations:
+
+.. code-block:: yaml
+
+   annotations:
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth/anonymous"
+
+Note the different ``auth-url`` route.
+
 Disabling error caching
 =======================
 

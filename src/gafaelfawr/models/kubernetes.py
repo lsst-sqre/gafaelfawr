@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional
+from typing import Any, Literal, Optional
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -17,7 +17,7 @@ from kubernetes_asyncio.client import (
     V1IngressTLS,
     V1ServiceBackendPort,
 )
-from pydantic import BaseModel, Extra, Field, validator
+from pydantic import BaseModel, Extra, Field, root_validator, validator
 from safir.pydantic import to_camel_case, validate_exactly_one_of
 
 from ..util import current_datetime, normalize_timedelta
@@ -175,6 +175,10 @@ class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
     def scopes(self) -> list[str]:
         """List of scopes."""
 
+    @abstractmethod
+    def is_anonymous(self) -> bool:
+        """Whether this ingress is anonymous."""
+
     class Config:
         """Pydantic configuration."""
 
@@ -197,6 +201,10 @@ class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
         """List of scopes."""
         return self.all
 
+    def is_anonymous(self) -> bool:
+        """Whether this ingress is anonymous."""
+        return False
+
 
 class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
     """Represents scopes where any scope is sufficient."""
@@ -214,6 +222,31 @@ class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
         """List of scopes."""
         return self.any
 
+    def is_anonymous(self) -> bool:
+        """Whether this ingress is anonymous."""
+        return False
+
+
+class GafaelfawrIngressScopesAnonymous(GafaelfawrIngressScopesBase):
+    """Represents anonymous access."""
+
+    anonymous: Literal[True]
+    """Mark this ingress as anonymous."""
+
+    @property
+    def satisfy(self) -> Satisfy:
+        """The authorization satisfy strategy."""
+        return Satisfy.ANY
+
+    @property
+    def scopes(self) -> list[str]:
+        """List of scopes."""
+        return []
+
+    def is_anonymous(self) -> bool:
+        """Whether this ingress is anonymous."""
+        return True
+
 
 class GafaelfawrIngressConfig(BaseModel):
     """Configuration settings for an ingress using Gafaelfawr for auth."""
@@ -221,11 +254,11 @@ class GafaelfawrIngressConfig(BaseModel):
     base_url: str
     """The base URL for Gafaelfawr URLs in Ingress annotations."""
 
-    scopes: GafaelfawrIngressScopesAll | GafaelfawrIngressScopesAny
-    """The scopes to require for access."""
-
     auth_type: Optional[AuthType] = None
     """Auth type of challenge for 401 responses."""
+
+    delegate: Optional[GafaelfawrIngressDelegate] = None
+    """Details of the requested delegated token, if any."""
 
     login_redirect: bool = False
     """Whether to redirect unauthenticated users to the login flow."""
@@ -233,8 +266,38 @@ class GafaelfawrIngressConfig(BaseModel):
     replace_403: bool = False
     """Whether to generate a custom error response for 403 errors."""
 
-    delegate: Optional[GafaelfawrIngressDelegate] = None
-    """Details of the requested delegated token, if any."""
+    scopes: (
+        GafaelfawrIngressScopesAll
+        | GafaelfawrIngressScopesAny
+        | GafaelfawrIngressScopesAnonymous
+    )
+    """The scopes to require for access."""
+
+    @root_validator
+    def _validate_conflicts(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Check for conflicts between settings.
+
+        Notes
+        -----
+        Ideally, all of these checks would be represented in the Kubernetes
+        schema to make them much less likely, but my JSON schema validation
+        skill is not up to the task.
+        """
+        if values.get("auth_type") == AuthType.Basic:
+            if values.get("login_redirect"):
+                msg = "authType: basic has no effect when loginRedirect is set"
+                raise ValueError(msg)
+
+        scopes = values.get("scopes")
+        if scopes and scopes.is_anonymous():
+            fields = ("auth_type", "delegate", "login_redirect", "replace_403")
+            for snake_name in fields:
+                if values.get(snake_name):
+                    camel_name = to_camel_case(snake_name)
+                    msg = f"{camel_name} has no effect for anonyous ingresses"
+                    raise ValueError(msg)
+
+        return values
 
     class Config:
         """Pydantic configuration."""
