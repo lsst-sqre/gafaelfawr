@@ -870,3 +870,56 @@ async def test_cookie_filtering(client: AsyncClient, factory: Factory) -> None:
         "also invalid",
         f"{COOKIE_NAME}stuff",
     ]
+
+
+@pytest.mark.asyncio
+async def test_delegate_authorization(
+    client: AsyncClient, factory: Factory
+) -> None:
+    token_data = await create_session_token(factory, scopes=["read:all"])
+
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:all",
+            "notebook": "true",
+            "use_authorization": "true",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    notebook_token = r.headers["X-Auth-Request-Token"]
+    assert notebook_token != token_data.token
+    assert r.headers["Authorization"] == f"Bearer {notebook_token}"
+
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:all",
+            "delegate_to": "service",
+            "delegate_scopes": "read:all",
+            "use_authorization": "true",
+        },
+        headers=[
+            ("Authorization", f"Bearer {token_data.token}"),
+            ("Authorization", "token some-other-token"),
+        ],
+    )
+    assert r.status_code == 200
+    internal_token = r.headers["X-Auth-Request-Token"]
+    assert internal_token != token_data.token
+    assert internal_token != notebook_token
+    assert r.headers["Authorization"] == f"Bearer {internal_token}"
+
+    # If there's no delegation but use_authorization is true, don't pass along
+    # any Authorization headers.
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all", "use_authorization": "true"},
+        headers=[
+            ("Authorization", f"Bearer {token_data.token}"),
+            ("Authorization", "token some-other-token"),
+        ],
+    )
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers

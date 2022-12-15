@@ -159,6 +159,23 @@ Presumably logging in again will create a token with sufficient remaining lifeti
 Obviously, do not request a minimum lifetime longer than the default token lifetime!
 See :ref:`basic-settings` for more details.
 
+Delegate token in Authorization header
+--------------------------------------
+
+The delegated token is passed to the protected service in the ``X-Auth-Request-Token`` header, but this is a custom Gafaelfawr header.
+Some services may expect that token to be passed in the ``Authorization`` header as a bearer token, as specified in :rfc:`6750`.
+To tell Gafaelfawr to do this, use:
+
+.. code-block:: yaml
+
+   config:
+     delegate:
+       useAuthorization: true
+
+The same token will also still be passed in the ``X-Auth-Request-Token`` header.
+
+If this configuration option is set, the incoming ``Authorization`` header will be entirely replaced by one containing only the delegated token, unlike Gafaelfawr's normal behavior of preserving any incoming ``Authorization`` header that doesn't include a Gafaelfawr token.
+
 .. _auth-headers:
 
 Request headers

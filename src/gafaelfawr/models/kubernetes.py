@@ -139,6 +139,9 @@ class GafaelfawrIngressDelegate(BaseModel):
     minimum_lifetime: Optional[timedelta] = None
     """The minimum lifetime of the delegated token."""
 
+    use_authorization: bool = False
+    """Whether to put the delegated token in the ``Authorization`` header."""
+
     _normalize_minimum_lifetime = validator(
         "minimum_lifetime", allow_reuse=True, pre=True
     )(normalize_timedelta)

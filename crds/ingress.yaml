@@ -148,6 +148,12 @@ spec:
                         Minimum lifetime of delegated token in seconds. If
                         the user's token has less than that time
                         remaining, force them to reauthenticate.
+                    useAuthorization:
+                      type: boolean
+                      description: >-
+                        If set to true, put the delegated token in the
+                        Authorization header of the request as a bearer token,
+                        in addition to X-Auth-Request-Token.
                   oneOf:
                     - required:
                         - internal
