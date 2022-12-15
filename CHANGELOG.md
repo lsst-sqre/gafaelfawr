@@ -15,6 +15,7 @@ Dependencies are updated to the latest available version during each release. Th
 
 - The response from the `/auth` now reflects `Authorization` and `Cookie` headers from the incoming request with Gafaelfawr tokens and secrets filtered out. `GafaelfawrIngress` resources use this to filter those secrets out of the request passed to the protected service, avoiding leaking user credentials to services. Manual ingress configurations should add `Authorization` and `Cookie` to the `nginx.ingress.kubernetes.io/auth-response-headers` annotation to get the benefits of this filtering.
 - Added a `config.delegate.useAuthorization` field in `GafaelfawrIngress` and a `use_authorization` query parameter for the `/auth` route that, if set, also puts any delegated token in the `Authorization` header, as a bearer token, in the request sent to the protected service. This allows easier integration with some software that expects tokens in standard headers rather than Gafaelfawr's custom `X-Auth-Request-Token` header.
+- `Ingress` resources generated from `GafaelfawrIngress` resources will be checked for correctness when Gafaelfawr starts, even if the `GafaelfawrIngress` resource has not been modified. This ensures changes to the generated `Ingress` due to Gafaelfawr code changes are applied to existing resources.
 
 ### Bug fixes
 
