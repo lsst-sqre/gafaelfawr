@@ -87,6 +87,21 @@ If you want unauthorized users to be redirected to the login page instead, use t
 
 This setting should be used for services that are accessed interactively from a web browser.
 
+Changing the challenge type
+===========================
+
+When presenting an authentication challenge (a 401 response) instead of redirecting the user to the login page, the default is to request a bearer token (:rfc:`6750`).
+In some cases, you may want Gafaelfawr to request Basic authentication (:rfc:`7617`) instead.
+Do this with the ``config.authType`` parameter:
+
+.. code-block:: yaml
+
+   config:
+     authType: basic
+
+This will normally cause the browser to pop up a request for username and password.
+This setting cannot be used with ``config.loginRedirect``; Gafaelfawr can either redirect the user or present a challenge, but not both.
+
 .. _delegated-tokens:
 
 Requesting delegated tokens

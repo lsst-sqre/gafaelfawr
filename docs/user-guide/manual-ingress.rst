@@ -115,6 +115,7 @@ Configuring authentication
 ==========================
 
 The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts several parameters to customize the authentication request.
+Most but not all of these are discussed above.
 
 ``scope`` (required)
     The scope claim that the client JWT must have.
