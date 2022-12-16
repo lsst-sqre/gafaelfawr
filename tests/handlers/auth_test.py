@@ -923,3 +923,64 @@ async def test_delegate_authorization(
     )
     assert r.status_code == 200
     assert "Authorization" not in r.headers
+
+
+@pytest.mark.asyncio
+async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
+    token_data = await create_session_token(factory, scopes=["read:all"])
+    await set_session_cookie(client, token_data.token)
+
+    r = await client.get("/auth/anonymous")
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+    assert "Cookie" not in r.headers
+
+    client.cookies.set("_other", "somevalue", domain=TEST_HOSTNAME)
+    r = await client.get(
+        "/auth/anonymous", headers={"Authorization": f"Bearer {Token()}"}
+    )
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+    assert r.headers["Cookie"] == "_other=somevalue"
+
+    clear_session_cookie(client)
+    del client.cookies["_other"]
+    r = await client.get(
+        "/auth/anonymous",
+        params={"scope": "read:all"},
+        headers={
+            "Authorization": "token some-other-token",
+            "Cookie": f"foo=bar; {COOKIE_NAME}=blah; {COOKIE_NAME}blah=blah",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["Authorization"] == "token some-other-token"
+    assert r.headers["Cookie"] == f"foo=bar; {COOKIE_NAME}blah=blah"
+
+    basic = f"{Token()}:something-else".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth/anonymous",
+        params={"scope": "read:all"},
+        headers=[
+            ("Authorization", f"Basic  {basic_b64}"),
+            ("Authorization", "some broken stuff"),
+            ("Authorization", f"BEARER   {Token()}"),
+            ("Authorization", "basic"),
+            ("Authorization", "basic notreally:base64"),
+            ("Cookie", f"{COOKIE_NAME}=blah; foo=bar; invalid"),
+            ("Cookie", f"also invalid; {COOKIE_NAME}=stuff"),
+            ("Cookie", f"{COOKIE_NAME}stuff"),
+        ],
+    )
+    assert r.status_code == 200
+    assert r.headers.get_list("Authorization") == [
+        "some broken stuff",
+        "basic",
+        "basic notreally:base64",
+    ]
+    assert r.headers.get_list("Cookie") == [
+        "foo=bar; invalid",
+        "also invalid",
+        f"{COOKIE_NAME}stuff",
+    ]

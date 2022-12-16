@@ -32,7 +32,6 @@ config:
   baseUrl: "https://foo.example.com"
   scopes:
     any: ["read:all"]
-  authType: basic
   loginRedirect: true
   replace403: true
   delegate:
@@ -69,6 +68,7 @@ metadata:
   namespace: {namespace}
 config:
   baseUrl: "https://foo.example.com"
+  authType: basic
   scopes:
     all:
       - "read:all"
@@ -113,6 +113,33 @@ config:
 template:
   metadata:
     name: authorization
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: anonymous-ingress
+  namespace: {namespace}
+config:
+  baseUrl: "https://foo.example.com"
+  scopes:
+    anonymous: true
+template:
+  metadata:
+    name: anonymous
+    annotations:
+      some.annotation: foo
   spec:
     rules:
       - host: foo.example.com

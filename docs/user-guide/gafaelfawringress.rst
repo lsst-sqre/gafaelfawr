@@ -191,6 +191,25 @@ The same token will also still be passed in the ``X-Auth-Request-Token`` header.
 
 If this configuration option is set, the incoming ``Authorization`` header will be entirely replaced by one containing only the delegated token, unlike Gafaelfawr's normal behavior of preserving any incoming ``Authorization`` header that doesn't include a Gafaelfawr token.
 
+.. _anonymous:
+
+Anonymous ingresses
+===================
+
+An anonymous ingress (one that doesn't require authentication and performs no authorization checks) can be configured using ``GafaelfawrIngress`` as follows:
+
+.. code-block:: yaml
+
+   config:
+     scopes:
+       anonymous: true
+
+None of the other configuration options are supported in this mode.
+
+The reason to use this configuration over simply writing an ``Ingress`` resource directly is that Gafaelfawr will still be invoked to strip Gafaelfawr tokens and secrets from the request before it is passed to the underlying service.
+This prevents credential leakage to anonymous services.
+See :ref:`header-filtering` for more details.
+
 .. _auth-headers:
 
 Request headers
