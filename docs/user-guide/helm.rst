@@ -353,6 +353,9 @@ The group can be given in one of two ways: either a simple string giving the nam
      organization: "lsst-sqre"
      team: "friends"
 
+Both ``organization`` and ``team`` must be given.
+It is not possible to do access control based only on organizational membership.
+
 The value of ``organization`` must be the ``login`` attribute of the organization, and the value of ``team`` must be the ``slug`` attribute of the team.
 (Generally the latter is the name of the team converted to lowercase with spaces and other special characters replaced with ``-``.)
 
@@ -362,7 +365,7 @@ A complete setting for GitHub might look something like this:
 
    config:
      groupMapping:
-       "exec:admin":
+       "admin:token":
          - github:
              organization: "lsst-sqre"
              team: "square"
@@ -374,13 +377,6 @@ A complete setting for GitHub might look something like this:
              organization: "lsst-sqre"
              team: "friends"
        "exec:portal":
-         - github:
-             organization: "lsst-sqre"
-             team: "square"
-         - github:
-             organization: "lsst-sqre"
-             team: "friends"
-       "exec:user":
          - github:
              organization: "lsst-sqre"
              team: "square"
