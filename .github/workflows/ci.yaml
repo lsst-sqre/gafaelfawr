@@ -118,6 +118,7 @@ jobs:
           python-version: ${{ matrix.python }}
           tox-envs: "typing,py-full,coverage-report"
           tox-plugins: tox-docker
+          cache-key-prefix: "test"
 
   docs:
     runs-on: ubuntu-latest
@@ -140,6 +141,7 @@ jobs:
         with:
           python-version: "3.10"
           tox-envs: "docs,docs-linkcheck"
+          cache-key-prefix: "docs"
 
       # Only attempt documentation uploads for long-lived branches, tagged
       # releases, and pull requests from ticket branches.  This avoids version
