@@ -294,7 +294,7 @@ class GafaelfawrIngressConfig(BaseModel):
             for snake_name in fields:
                 if values.get(snake_name):
                     camel_name = to_camel_case(snake_name)
-                    msg = f"{camel_name} has no effect for anonyous ingresses"
+                    msg = f"{camel_name} has no effect for anonymous ingresses"
                     raise ValueError(msg)
 
         return values
