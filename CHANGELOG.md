@@ -4,7 +4,7 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 8.0.0 (unreleased)
+## 8.0.0 (2022-12-16)
 
 ### Backwards-incompatible changes
 

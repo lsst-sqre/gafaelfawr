@@ -375,6 +375,7 @@ class Settings(BaseSettings):
         if not isinstance(v, dict):
             raise ValueError("group_mapping must be a dictionary")
 
+        known_keys = {"organization", "team"}
         for scope, groups in v.items():
             new_groups = []
             for group in groups:
@@ -386,8 +387,14 @@ class Settings(BaseSettings):
                 if list(group.keys()) != ["github"]:
                     raise ValueError("group_mapping key is not github")
                 data = group["github"]
-                if sorted(data.keys()) != ["organization", "team"]:
-                    raise ValueError("group_mapping contains unknown keys")
+                if set(data.keys()) < known_keys:
+                    missing = ", ".join(known_keys - set(data.keys()))
+                    msg = f"group_mapping value missing key ({missing})"
+                    raise ValueError(msg)
+                elif set(data.keys()) != known_keys:
+                    unknown = ", ".join(set(data.keys()) - known_keys)
+                    msg = f"group_mapping value has unknown key ({unknown})"
+                    raise ValueError(msg)
                 team = GitHubTeam(
                     slug=data["team"],
                     organization=data["organization"],
