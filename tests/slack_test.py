@@ -30,7 +30,10 @@ async def test_uncaught_exception(
 
     # We need a custom httpx configuration to disable raising server
     # exceptions so that we can inspect the resulting error handling.
-    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    transport = ASGITransport(
+        app=app,  # type: ignore[arg-type]
+        raise_app_exceptions=False,
+    )
     base_url = f"https://{TEST_HOSTNAME}"
     async with AsyncClient(transport=transport, base_url=base_url) as client:
         r = await client.get("/exception")
