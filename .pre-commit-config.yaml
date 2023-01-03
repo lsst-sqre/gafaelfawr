@@ -8,13 +8,13 @@ repos:
       - id: check-toml
 
   - repo: https://github.com/PyCQA/isort
-    rev: 5.10.1
+    rev: 5.11.4
     hooks:
       - id: isort
         additional_dependencies: [toml]
 
   - repo: https://github.com/psf/black
-    rev: 22.12.0
+    rev: 23.1a1
     hooks:
       - id: black
 
@@ -22,7 +22,7 @@ repos:
     rev: v1.12.1
     hooks:
       - id: blacken-docs
-        additional_dependencies: [black==22.12.0]
+        additional_dependencies: [black==23.1a1]
         args: [-l, '79', -t, py311]
 
   - repo: https://github.com/PyCQA/flake8
@@ -38,13 +38,13 @@ repos:
         files: ^src/
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.29.0
+    rev: v8.31.0
     hooks:
       - id: eslint
         additional_dependencies:
           - '@babel/eslint-parser@7.19.1'
           - '@babel/preset-react@7.18.6'
-          - eslint@8.29.0
+          - eslint@8.31.0
           - eslint-config-airbnb@19.0.4
           - eslint-config-prettier@8.5.0
           - eslint-config-wesbos@3.1.4
