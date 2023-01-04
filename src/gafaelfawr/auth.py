@@ -301,23 +301,23 @@ def parse_authorization(context: RequestContext) -> str | None:
     if auth_type.lower() != "basic":
         raise InvalidRequestError(f"Unknown Authorization type {auth_type}")
 
-    # Basic, the complicated part because we are very flexible.
+    # Basic, the complicated part because we are very flexible.  We accept the
+    # token in either username or password.  If there is a token in both, we
+    # use the one in username.
     try:
         basic_auth = base64.b64decode(auth_blob).decode()
         user, password = basic_auth.strip().split(":")
     except Exception as e:
         msg = f"Invalid Basic auth string: {str(e)}"
         raise InvalidRequestError(msg) from e
-    if password == "x-oauth-basic":
+    if Token.is_token(user):
         context.rebind_logger(token_source="basic-username")
+        if Token.is_token(password) and user != password:
+            msg = "Conflicting tokens in Basic username and password fields"
+            raise InvalidRequestError(msg)
         return user
-    elif user == "x-oauth-basic":
+    elif Token.is_token(password):
         context.rebind_logger(token_source="basic-password")
         return password
     else:
-        context.logger.info(
-            "Neither username nor password in HTTP Basic is x-oauth-basic,"
-            " assuming handle or token is username"
-        )
-        context.rebind_logger(token_source="basic-username")
-        return user
+        return None
