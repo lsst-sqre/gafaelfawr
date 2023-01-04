@@ -10,7 +10,9 @@ This is done via annotations added to the Kubernetes ``Ingress`` resource that a
 For each HTTP request to a protected service, NGINX will send a request to the Gafaelfawr ``/auth`` route with the headers of the incoming request (including, for example, any cookies or ``Authorization`` header).
 Gafaelfawr, when receiving that request, will find the user's authentication token, check that it is valid, and check that the user has the required scope.
 
-If the user is not authenticated, it will either return a 401 error with an appropriate ``WWW-Authenticate`` challenge, or a redirect to the sign-in URL, depending on Gafaelfawr's configuration.
+The user may authenticate with a cookie (set by Gafaelfawr by the ``/login`` route), with a bearer token in the ``Authorization`` header, or with a token in either the username or password field of an HTTP Basic Auth ``Authorization`` header.
+
+If the user is not authenticated, Gafaelfawr will either return a 401 error with an appropriate ``WWW-Authenticate`` challenge, or a redirect to the sign-in URL, depending on its configuration.
 The sign-in URL would then send the user to CILogon, an OpenID Connect server, or GitHub to authenticate.
 
 If the user is already authenticated but does not have the desired scope, Gafaelfawr will return a 403 error, which will be passed back to the user.

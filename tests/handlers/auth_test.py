@@ -502,12 +502,14 @@ async def test_success_any(client: AsyncClient, factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_basic(client: AsyncClient, factory: Factory) -> None:
+async def test_basic(
+    client: AsyncClient, config: Config, factory: Factory
+) -> None:
     token_data = await create_session_token(
         factory, group_names=["test"], scopes=["exec:admin"]
     )
 
-    basic = f"{token_data.token}:x-oauth-basic".encode()
+    basic = f"{token_data.token}:blahblahblah".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
@@ -517,7 +519,17 @@ async def test_basic(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == token_data.username
 
-    basic = f"x-oauth-basic:{token_data.token}".encode()
+    basic = f"{token_data.token}:".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == token_data.username
+
+    basic = f"blahblahblah:{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
@@ -527,17 +539,41 @@ async def test_basic(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == token_data.username
 
-    # We currently fall back on using the username if x-oauth-basic doesn't
-    # appear anywhere in the auth string.
-    basic = f"{token_data.token}:something-else".encode()
+    basic = f":{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
-        headers={"Authorization": f"Basic {basic_b64}"},
+        headers={"Authorization": f"Basic  {basic_b64}"},
     )
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == token_data.username
+
+    # If there are two tokens that match, this is fine.
+    basic = f"{token_data.token}:{token_data.token}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic  {basic_b64}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == token_data.username
+
+    # If there are two tokens that conflict, raise an error.
+    basic = f"{token_data.token}:{Token()}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic  {basic_b64}"},
+    )
+    assert r.status_code == 400
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == config.realm
+    assert authenticate.error == AuthError.invalid_request
 
 
 @pytest.mark.asyncio

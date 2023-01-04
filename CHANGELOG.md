@@ -4,6 +4,12 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
+## 8.1.0 (unreleased)
+
+### New features
+
+- Gafaelfawr now accepts tokens in either the username or password portion of HTTP Basic Auth without requiring the other field be ``x-oath-basic``. If both components are tokens, they must match; if they do not, Gafaelfawr raises an error.
+
 ## 8.0.0 (2022-12-16)
 
 ### Backwards-incompatible changes
