@@ -16,6 +16,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import HTMLResponse
+from safir.models import ErrorModel
 
 from ..auth import (
     clean_authorization,
@@ -221,6 +222,7 @@ async def authenticate_with_type(
     "/auth",
     description="Meant to be used as an NGINX auth_request handler",
     responses={
+        400: {"description": "Bad request", "model": ErrorModel},
         401: {"description": "Unauthenticated"},
         403: {"description": "Permission denied"},
     },
@@ -246,6 +248,11 @@ async def get_auth(
     X-Auth-Request-Token
         If requested by ``notebook`` or ``delegate_to``, will be set to the
         delegated token.
+    X-Error-Status
+        The real status of the error, since NGINX can only handle 401 and 403
+        replies from an ``auth_request`` subhandler.
+    X-Error-Body
+        The real body of the error, which NGINX otherwise discards.
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """

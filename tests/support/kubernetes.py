@@ -24,6 +24,7 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
 )
 
+from gafaelfawr.constants import NGINX_SNIPPET
 from gafaelfawr.models.kubernetes import KubernetesResourceStatus, StatusReason
 from gafaelfawr.util import current_datetime
 
@@ -115,8 +116,9 @@ def operator_test_output(
         / "output"
         / (filename + ".yaml")
     )
+    snippet = NGINX_SNIPPET.replace("\n", "\n      ").rstrip(" ")
     resources = path.read_text().format(
-        namespace=namespace, braces="{}", any="<ANY>"
+        namespace=namespace, braces="{}", any="<ANY>", snippet=snippet
     )
     return _replace_any(yaml.safe_load_all(resources))
 

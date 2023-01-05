@@ -245,7 +245,9 @@ async def verified_oidc_token(
     try:
         encoded_token = parse_authorization(context)
     except InvalidRequestError as e:
-        raise generate_challenge(context, AuthType.Bearer, e)
+        raise generate_challenge(
+            context, AuthType.Bearer, e, error_in_headers=False
+        )
     if not encoded_token:
         raise generate_unauthorized_challenge(context, AuthType.Bearer)
     unverified_token = OIDCToken(encoded=encoded_token)
@@ -253,7 +255,9 @@ async def verified_oidc_token(
     try:
         token = oidc_service.verify_token(unverified_token)
     except InvalidTokenError as e:
-        raise generate_challenge(context, AuthType.Bearer, e)
+        raise generate_challenge(
+            context, AuthType.Bearer, e, error_in_headers=False
+        )
 
     # Add user information to the logger.
     context.rebind_logger(token=token.jti, user=token.claims["sub"])

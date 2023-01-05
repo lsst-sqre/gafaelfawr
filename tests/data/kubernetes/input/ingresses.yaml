@@ -113,6 +113,9 @@ config:
 template:
   metadata:
     name: authorization
+    annotations:
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        add_header "X-Foo" "bar";
   spec:
     rules:
       - host: foo.example.com

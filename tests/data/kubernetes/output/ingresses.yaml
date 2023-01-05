@@ -7,6 +7,8 @@ metadata:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
     nginx.ingress.kubernetes.io/auth-url: "https://foo.example.com/auth?scope=read%3Aall"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      {snippet}
   creationTimestamp: {any}
   generation: {any}
   managedFields: {any}
@@ -45,8 +47,8 @@ metadata:
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-signin: "https://foo.example.com/login"
     nginx.ingress.kubernetes.io/auth-url: "https://foo.example.com/auth?scope=read%3Aall&satisfy=any&notebook=true&minimum_lifetime=600"
-    nginx.ingress.kubernetes.io/configuration-snippet: |-
-      error_page 403 = "/auth/forbidden?scope=read%3Aall&satisfy=any&notebook=true&minimum_lifetime=600";
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      {snippet}
   creationTimestamp: {any}
   generation: {any}
   labels:
@@ -89,6 +91,8 @@ metadata:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-url: "https://foo.example.com/auth?scope=read%3Aall&scope=read%3Asome&delegate_to=some-service&delegate_scope=read%3Aall%2Cread%3Asome&auth_type=basic"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      {snippet}
   creationTimestamp: {any}
   generation: {any}
   managedFields: {any}
@@ -125,6 +129,9 @@ metadata:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-url: "https://foo.example.com/auth?scope=read%3Aall&delegate_to=some-service&delegate_scope=read%3Aall&use_authorization=true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header "X-Foo" "bar";
+      {snippet}
   creationTimestamp: {any}
   generation: {any}
   managedFields: {any}

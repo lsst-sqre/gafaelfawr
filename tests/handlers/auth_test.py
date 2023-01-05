@@ -93,7 +93,9 @@ async def test_invalid_auth(
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "400"
+    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -105,7 +107,9 @@ async def test_invalid_auth(
         params={"scope": "exec:admin"},
         headers={"Authorization": "token foo"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "400"
+    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -568,7 +572,9 @@ async def test_basic(
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic  {basic_b64}"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "400"
+    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -586,7 +592,9 @@ async def test_basic_failure(
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "400"
+    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer

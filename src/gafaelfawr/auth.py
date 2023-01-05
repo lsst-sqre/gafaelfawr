@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -125,8 +126,21 @@ def generate_challenge(
     auth_type: AuthType,
     exc: OAuthBearerError,
     scopes: Optional[set[str]] = None,
+    *,
+    error_in_headers: bool = True,
 ) -> HTTPException:
     """Convert an exception into an HTTP error with ``WWW-Authenticate``.
+
+    Always return a status code of 401 or 403, even if we want to return a
+    different status code to the client, but put the actual status code in
+    ``X-Error-Status``.  This works around limitations of the NGINX
+    ``auth_request`` module, which can only handle 401 and 403 status codes.
+    The status code will be retrieved from the headers and fixed by custom
+    NGINX configuration in an ``error_page`` location.
+
+    Similarly, put the actual body of the error in ``X-Error-Body`` so that it
+    can be retrieved and sent to the client.  Normally, NGINX discards the
+    body returned by an ``auth_request`` handler.
 
     Parameters
     ----------
@@ -139,6 +153,9 @@ def generate_challenge(
     scopes
         Optional scopes to include in the challenge, primarily intended for
         `~gafaelfawr.exceptions.InsufficientScopeError` exceptions.
+    error_in_headers
+        Whether to put the actual error status in ``X-Error-Status`` instead
+        of raising it.  Disable this for OpenID Connect routes.
 
     Returns
     -------
@@ -154,14 +171,19 @@ def generate_challenge(
         error_description=str(exc),
         scope=" ".join(sorted(scopes)) if scopes else None,
     )
+    detail = {"msg": str(exc), "type": exc.error}
     headers = {
         "Cache-Control": "no-cache, must-revalidate",
         "WWW-Authenticate": challenge.to_header(),
     }
+    if error_in_headers:
+        headers["X-Error-Status"] = str(exc.status_code)
+        headers["X-Error-Body"] = json.dumps({"detail": detail})
+        status_code = exc.status_code if exc.status_code in (401, 403) else 403
+    else:
+        status_code = exc.status_code
     return HTTPException(
-        headers=headers,
-        status_code=exc.status_code,
-        detail={"msg": str(exc), "type": exc.error},
+        headers=headers, status_code=status_code, detail=detail
     )
 
 

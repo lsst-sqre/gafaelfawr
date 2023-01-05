@@ -50,7 +50,7 @@ If you are using the `ingress-nginx Helm chart <https://github.com/kubernetes/in
 
 .. code-block:: yaml
 
-   nginx-ingress:
+   ingress-nginx:
      controller:
        config:
          compute-full-forwarded-for: "true"
@@ -60,3 +60,30 @@ If you are using the `ingress-nginx Helm chart <https://github.com/kubernetes/in
 
 You may also need to set the ``proxies`` Helm configuration setting to the list of networks used for the NGINX ingress and any other proxies.
 See :ref:`helm-proxies` for more details.
+
+Error handling
+==============
+
+Gafaelfawr-generated ingresses use a custom location as an ``error_page`` target to pass Gafaelfawr errors back to the client.
+This workaround is required because the NGINX ``auth_request`` module can only handle 401 and 403 responses and converts all other failure responses to 500 errors, but Gafaelfawr wants to use other HTTP status codes such as 400.
+
+This custom location must be injected into every NGINX server block so that it is available for Gafaelfawr's use.
+This is done by adding a ``server-snippet`` key to the ingress-nginx ``ConfigMap`` using the following setting in the ``values.yaml`` file for ingress-nginx:
+
+.. code-block:: yaml
+
+   ingress-nginx:
+     controller:
+       config:
+         server-snippet: |
+           location @autherror {
+             add_header Cache-Control "no-cache, must-revalidate" always;
+             add_header WWW-Authenticate $auth_www_authenticate always;
+             if ($auth_status = 400) {
+               add_header Content-Type "application/json" always;
+               return 400 $auth_error_body;
+             }
+             return 403;
+           }
+
+This will be added to every server block, not just the ones used by Gafaelfawr-protected services, and therefore may be unused, but this should be harmless.

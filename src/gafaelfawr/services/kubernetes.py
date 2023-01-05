@@ -14,6 +14,7 @@ from kubernetes_asyncio.client import (
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
+from ..constants import NGINX_SNIPPET
 from ..exceptions import (
     KubernetesError,
     PermissionDeniedError,
@@ -114,6 +115,11 @@ class KubernetesIngressService:
             query.append(("auth_type", ingress.config.auth_type.value))
         auth_url = f"{base_url}/auth?" + urlencode(query)
 
+        snippet_key = "nginx.ingress.kubernetes.io/configuration-snippet"
+        snippet = ingress.template.metadata.annotations.get(snippet_key, "")
+        if snippet and not snippet.endswith("\n"):
+            snippet += "\n"
+        snippet += NGINX_SNIPPET
         headers = (
             "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
         )
@@ -124,15 +130,11 @@ class KubernetesIngressService:
             "nginx.ingress.kubernetes.io/auth-method": "GET",
             "nginx.ingress.kubernetes.io/auth-response-headers": headers,
             "nginx.ingress.kubernetes.io/auth-url": auth_url,
+            snippet_key: snippet,
         }
         if ingress.config.login_redirect:
             url = f"{base_url}/login"
             annotations["nginx.ingress.kubernetes.io/auth-signin"] = url
-        if ingress.config.replace_403:
-            snippet_key = "nginx.ingress.kubernetes.io/configuration-snippet"
-            forbidden_url = f"/auth/forbidden?{urlencode(query)}"
-            snippet = f'error_page 403 = "{forbidden_url}";'
-            annotations[snippet_key] = snippet
 
         return annotations
 
