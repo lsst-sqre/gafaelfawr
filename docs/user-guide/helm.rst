@@ -532,7 +532,7 @@ The audit job looks for data inconsistencies and reports them to Slack.
 By default, it runs once a day at 03:00 in the time zone of the Kubernetes cluster.
 Its schedule can be set with ``config.maintenance.auditSchedule`` (a `cron schedule expression`_).
 
-.. _cron schedule expression: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#cron-schedule-syntax
+.. _cron schedule expression: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
 
 OpenID Connect server
 =====================
