@@ -177,39 +177,6 @@ async def test_access_denied(
 
 
 @pytest.mark.asyncio
-async def test_auth_forbidden(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
-) -> None:
-    r = await client.get(
-        "/auth/forbidden",
-        params=[("scope", "exec:test"), ("scope", "exec:admin")],
-    )
-    assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
-    assert authenticate.error == AuthError.insufficient_scope
-    assert authenticate.scope == "exec:admin exec:test"
-    assert "Token missing required scope" in r.text
-
-    r = await client.get(
-        "/auth/forbidden", params={"scope": "exec:admin", "auth_type": "basic"}
-    )
-    assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Basic
-    assert authenticate.realm == config.realm
-    assert "Token missing required scope" in r.text
-
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
-
-
-@pytest.mark.asyncio
 async def test_satisfy_all(
     client: AsyncClient,
     config: Config,

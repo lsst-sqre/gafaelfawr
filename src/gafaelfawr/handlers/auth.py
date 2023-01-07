@@ -6,16 +6,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    Header,
-    HTTPException,
-    Query,
-    Response,
-    status,
-)
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Header, Query, Response
 from safir.models import ErrorModel
 
 from ..auth import (
@@ -33,7 +24,7 @@ from ..exceptions import (
     InvalidMinimumLifetimeError,
     InvalidTokenError,
 )
-from ..models.auth import AuthError, AuthErrorChallenge, AuthType, Satisfy
+from ..models.auth import AuthType, Satisfy
 from ..models.token import TokenData
 from ..slack import SlackRouteErrorHandler
 from ..util import current_datetime
@@ -350,67 +341,6 @@ async def get_anonymous(
         for cookie in cookies:
             response.headers.append("Cookie", cookie)
     return {"status": "ok"}
-
-
-@router.get(
-    "/auth/forbidden",
-    description=(
-        "This route exists to set a Cache-Control header on 403 errors so"
-        " that the browser will not cache them. This route is configured as"
-        " a custom error page in the ingress configuration. It takes the"
-        " same parameters as the /auth route and uses them to construct an"
-        " appropriate challenge. The response will set the WWW-Authenticate"
-        " header."
-    ),
-    response_class=HTMLResponse,
-    responses={403: {"description": "Permission denied"}},
-    status_code=status.HTTP_403_FORBIDDEN,
-    summary="Generate 403 error",
-    tags=["internal"],
-)
-async def get_auth_forbidden(
-    response: Response,
-    auth_config: AuthConfig = Depends(auth_config),
-    context: RequestContext = Depends(context_dependency),
-) -> Response:
-    """Error page for HTTP Forbidden (403) errors.
-
-    Notes
-    -----
-    This route exists because we want to set a ``Cache-Control`` header on 403
-    errors so that the browser will not cache them.  This doesn't appear to
-    easily be possible with ingress-nginx without using a custom error page,
-    since headers returned by an ``auth_request`` handler are not passed back
-    to the client.
-
-    This route is configured as a custom error page using an annotation like:
-
-    .. code-block:: yaml
-
-       nginx.ingress.kubernetes.io/configuration-snippet: |
-         error_page 403 = "/auth/forbidden?scope=<scope>";
-
-    It takes the same parameters as the ``/auth`` route and uses them to
-    construct an appropriate challenge, assuming that the 403 is due to
-    insufficient token scope.
-    """
-    error = "Token missing required scope"
-    challenge = AuthErrorChallenge(
-        auth_type=auth_config.auth_type,
-        realm=context.config.realm,
-        error=AuthError.insufficient_scope,
-        error_description=error,
-        scope=" ".join(sorted(auth_config.scopes)),
-    )
-    headers = {
-        "Cache-Control": "no-cache, must-revalidate",
-        "WWW-Authenticate": challenge.to_header(),
-    }
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        headers=headers,
-        detail={"msg": error, "type": "permission_denied"},
-    )
 
 
 async def build_success_headers(

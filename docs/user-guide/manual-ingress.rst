@@ -149,20 +149,6 @@ To do this with a manually-configured ingress, add the following annotations:
 
 Note the different ``auth-url`` route.
 
-Disabling error caching
-=======================
-
-To use the Gafaelfawr ``/auth/forbidden`` route as the error page for all 403 errors so that they will not be cached, add the following annotation in addition to the normal Gafaelfawr annotations:
-
-.. code-block:: yaml
-
-   annotations:
-     nginx.ingress.kubernetes.io/configuration-snippet: |
-       error_page 403 = "/auth/forbidden?scope=<scope>";
-
-The parameters to the ``/auth/forbidden`` URL must be the same as the parameters given in the ``auth-url`` annotation.
-The scheme and host of the URL defined for the 403 error must be omitted so that NGINX will generate an internal redirect, which in turn requires (as with the rest of Gafaelfawr) that the Gafaelfawr ``/auth`` route be defined on the same virtual host as the protected service.
-
 .. _auth-config:
 
 Configuring authentication
