@@ -230,27 +230,3 @@ More headers may be added in the future.
 
 As discussed in :ref:`header-filtering`, Gafaelfawr also modifies the ``Authorization`` and ``Cookie`` headers to hide Gafaelfawr's own tokens and cookies.
 This should be invisible to the protected application, and it can still set and receive its own cookies.
-
-.. _error-caching:
-
-Disabling error caching
-=======================
-
-Web browsers cache 403 (HTTP Forbidden) error replies by default.
-Unfortunately, NGINX does not pass a ``Cache-Control`` response header (or any other headers) from an ``auth_request`` handler back to the client.
-It also does not set ``Cache-Control`` on a 403 response itself, and the Kubernetes ingress-nginx ingress controller does not provide a configuration knob to change that.
-This can cause user confusion; if they reauthenticate after a 403 error and obtain additional group memberships, they may still get a 403 error when they return to the page they were trying to access even if they now have access.
-
-This can be avoided by setting a custom error page that sets a ``Cache-Control`` header to tell the browser not to cache the error.
-Gafaelfawr provides ``/auth/forbidden`` as a custom error handler for this purpose.
-To use this, add the following to the ``GafaelfawrIngress`` resource:
-
-.. code-block:: yaml
-
-   config:
-     replace403: true
-
-This will configure NGINX to use the Gafaelfawr ``/auth/forbidden`` route as a custom error page for all 403 errors.
-
-Be aware that this will intercept **all** 403 errors from the protected service, not just ones from Gafaelfawr.
-If the protected service returns its own 403 errors, the resulting error will probably be nonsensical, and this facility may not be usable.

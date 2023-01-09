@@ -21,6 +21,7 @@ __all__ = [
     "LDAP_CACHE_LIFETIME",
     "LDAP_TIMEOUT",
     "MINIMUM_LIFETIME",
+    "NGINX_SNIPPET",
     "OIDC_AUTHORIZATION_LIFETIME",
     "SCOPE_REGEX",
     "TOKEN_CACHE_SIZE",
@@ -67,6 +68,14 @@ CHANGE_HISTORY_RETENTION = timedelta(days=365)
 
 MINIMUM_LIFETIME = timedelta(minutes=5)
 """Minimum expiration lifetime for a token."""
+
+NGINX_SNIPPET = """\
+auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
+auth_request_set $auth_status $upstream_http_x_error_status;
+auth_request_set $auth_error_body $upstream_http_x_error_body;
+error_page 403 = @autherror;
+"""
+"""Code snippet to put into NGINX configuration for each ingress."""
 
 OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 """How long (in seconds) an authorization code is good for."""

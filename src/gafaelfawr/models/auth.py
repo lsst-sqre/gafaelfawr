@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -37,9 +37,9 @@ class AuthError(Enum):
     Defined in RFC 6750.
     """
 
-    invalid_request = auto()
-    invalid_token = auto()
-    insufficient_scope = auto()
+    invalid_request = "invalid_request"
+    invalid_token = "invalid_token"
+    insufficient_scope = "insufficient_scope"
 
 
 @dataclass
