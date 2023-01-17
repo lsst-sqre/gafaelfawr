@@ -128,11 +128,11 @@ class IdCache(BaseCache):
         --------
         .. code-block:: python
 
-            async with id_cache.lock():
-                uid = id_cache.get(username)
-                if not uid:
-                    # do something to allocate a UID
-                    id_cache.store(username, uid)
+           async with id_cache.lock():
+               uid = id_cache.get(username)
+               if not uid:
+                   # do something to allocate a UID
+                   id_cache.store(username, uid)
         """
         self._cache[name] = id
 

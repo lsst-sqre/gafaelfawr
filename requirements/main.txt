@@ -294,9 +294,9 @@ cryptography==39.0.0 \
     --hash=sha256:f964c7dcf7802d133e8dbd1565914fa0194f9d683d82411989889ecd701e8adf \
     --hash=sha256:fec8b932f51ae245121c4671b4bbc030880f363354b2f0e0bd1366017d891458
     # via -r requirements/main.in
-fastapi==0.88.0 \
-    --hash=sha256:263b718bb384422fe3d042ffc9a0c8dece5e034ab6586ff034f6b4b1667c3eee \
-    --hash=sha256:915bf304180a0e7c5605ec81097b7d4cd8826ff87a02bb198e336fb9f3b5ff02
+fastapi==0.89.1 \
+    --hash=sha256:15d9271ee52b572a015ca2ae5c72e1ce4241dd8532a534ad4f7ec70c376a580f \
+    --hash=sha256:f9773ea22290635b2f48b4275b2bf69a8fa721fda2e38228bed47139839dc877
     # via
     #   -r requirements/main.in
     #   safir
@@ -384,9 +384,9 @@ google-api-core[grpc]==2.11.0 \
     # via
     #   google-cloud-core
     #   google-cloud-firestore
-google-auth==2.15.0 \
-    --hash=sha256:6897b93556d8d807ad70701bb89f000183aea366ca7ed94680828b37437a4994 \
-    --hash=sha256:72f12a6cfc968d754d7bdab369c5c5c16032106e52d32c6dfd8484e4c01a6d1f
+google-auth==2.16.0 \
+    --hash=sha256:5045648c821fb72384cdc0e82cc326df195f113a33049d9b62b74589243d2acc \
+    --hash=sha256:ed7057a101af1146f0554a769930ac9de506aeca4fd5af6543ebe791851a9fbd
     # via
     #   google-api-core
     #   google-cloud-core
@@ -394,9 +394,9 @@ google-cloud-core==2.3.2 \
     --hash=sha256:8417acf6466be2fa85123441696c4badda48db314c607cf1e5d543fa8bdc22fe \
     --hash=sha256:b9529ee7047fd8d4bf4a2182de619154240df17fbe60ead399078c1ae152af9a
     # via google-cloud-firestore
-google-cloud-firestore==2.7.3 \
-    --hash=sha256:a5038f4d95e6ce324e7354f4222ea7ebb6dddad3eac710829fe859f59f98cc2b \
-    --hash=sha256:ac7d9a22cb795c712af77157c657c3ade44e2169ccf299aad9438e83d4f69235
+google-cloud-firestore==2.9.0 \
+    --hash=sha256:804813614b1a69cf5d248c4264953f6b18f088daadb544222fa52c921ce3b098 \
+    --hash=sha256:ef5970425e6579ea6f5b87f68db1058c8407d89e4f6d476b634b4bbb73bdd5df
     # via -r requirements/main.in
 googleapis-common-protos==1.58.0 \
     --hash=sha256:c727251ec025947d545184ba17e3578840fc3a24a0516a020479edab660457df \
@@ -869,13 +869,13 @@ pyyaml==6.0 \
     #   kopf
     #   kubernetes-asyncio
     #   uvicorn
-redis==4.4.1 \
-    --hash=sha256:a721fd4d715fcd947848ed8fa02c2efd8224279979e0b721d9fdac6c4db35e93 \
-    --hash=sha256:f7a870c44868ab87bbecd6211c6d7c8720b1e9a796b743fbc4725d7ec75651c3
+redis==4.4.2 \
+    --hash=sha256:a010f6cb7378065040a02839c3f75c7e0fb37a87116fb4a95be82a95552776c7 \
+    --hash=sha256:e6206448e2f8a432871d07d432c13ed6c2abcf6b74edb436c99752b1371be387
     # via -r requirements/main.in
-requests==2.28.1 \
-    --hash=sha256:7c5599b102feddaa661c826c56ab4fee28bfd17f5abca1ebbe3e7f19d7c97983 \
-    --hash=sha256:8fefa2a1a1365bf5520aac41836fbee479da67864514bdb821f31ce07ce65349
+requests==2.28.2 \
+    --hash=sha256:64299f4909223da747622c030b781c0d7811e359c37124b4bd368fb8c6518baa \
+    --hash=sha256:98b1b2782e3c6c4904938b84c0eb932721069dfdb9134313beff7c83c2df24bf
     # via google-api-core
 rfc3986[idna2008]==1.5.0 \
     --hash=sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835 \
@@ -885,13 +885,13 @@ rsa==4.9 \
     --hash=sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7 \
     --hash=sha256:e38464a49c6c85d7f1351b0126661487a7e0a14a50f1675ec50eb34d4f20ef21
     # via google-auth
-safir[db,kubernetes]==3.4.0 \
-    --hash=sha256:02379c630049b7f7f70f568f212090bbf5fb1dfd959a1b1e75dca85e515015e8 \
-    --hash=sha256:888ce44a83b45bc247f85f9eac1a8de8221758ea181bb483186b789339c9b29c
+safir[db,kubernetes]==3.5.0 \
+    --hash=sha256:7e078d174379eaaf47ff8cb7d39e5d939dfd0afdf4389f5961a82da949921c0e \
+    --hash=sha256:b3a43ac1466b139142a84c5e931ca0a1780e5727430d4105911cecc14b68accf
     # via -r requirements/main.in
-setuptools==65.6.3 \
-    --hash=sha256:57f6f22bde4e042978bcd50176fdb381d7c21a9efa4041202288d3737a0c6a54 \
-    --hash=sha256:a7620757bf984b58deaf32fc8a4577a9bbc0850cf92c20e1ce41c38c19e5fb75
+setuptools==66.0.0 \
+    --hash=sha256:a78d01d1e2c175c474884671dde039962c9d74c7223db7369771fcf6e29ceeab \
+    --hash=sha256:bd6eb2d6722568de6d14b87c44a96fac54b2a45ff5e940e639979a3d1792adb6
     # via kubernetes-asyncio
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
@@ -972,9 +972,9 @@ typing-extensions==4.4.0 \
     # via
     #   kopf
     #   pydantic
-urllib3==1.26.13 \
-    --hash=sha256:47cc05d99aaa09c9e72ed5809b60e7ba354e64b59c9c173ac3018642d8bb41fc \
-    --hash=sha256:c083dd0dce68dbfbe1129d5271cb90f9447dea7d52097c6e0126120c521ddea8
+urllib3==1.26.14 \
+    --hash=sha256:076907bf8fd355cde77728471316625a4d2f7e713c125f51953bb5b3eecf4f72 \
+    --hash=sha256:75edcdc2f7d85b137124a6c3c9fc3933cdeaa12ecb9a6a959f22797a0feca7e1
     # via
     #   kubernetes-asyncio
     #   requests

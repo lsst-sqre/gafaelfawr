@@ -6,8 +6,6 @@ in manager objects and the output formatting should be handled by response
 models.
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Any, Optional
 from urllib.parse import quote
