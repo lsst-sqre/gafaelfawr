@@ -72,7 +72,6 @@ rst_epilog_file = "_rst_epilog.rst"
 [sphinx.intersphinx.projects]
 bonsai = "https://bonsai.readthedocs.io/en/latest/"
 cryptography = "https://cryptography.io/en/latest/"
-google-cloud-firestore = "https://googleapis.dev/python/firestore/latest/"
 jwt = "https://pyjwt.readthedocs.io/en/latest/"
 kopf = "https://kopf.readthedocs.io/en/stable/"
 python = "https://docs.python.org/3/"
