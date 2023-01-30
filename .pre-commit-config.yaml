@@ -8,7 +8,7 @@ repos:
       - id: check-toml
 
   - repo: https://github.com/PyCQA/isort
-    rev: 5.11.4
+    rev: 5.12.0
     hooks:
       - id: isort
         additional_dependencies: [toml]
@@ -38,7 +38,7 @@ repos:
         files: ^src/
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.32.0
+    rev: v8.33.0
     hooks:
       - id: eslint
         additional_dependencies:
