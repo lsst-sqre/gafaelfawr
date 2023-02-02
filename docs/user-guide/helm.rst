@@ -4,7 +4,7 @@
 Helm configuration
 ##################
 
-Gafaelfawr is configured as a Phalanx_ application, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr/>`__.
+Gafaelfawr is configured as a Phalanx_ application, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/main/applications/gafaelfawr/>`__.
 You will need to provide a ``values-<environment>.yaml`` file for your Phalanx environment.
 Below are the most-commonly-used settings.
 
