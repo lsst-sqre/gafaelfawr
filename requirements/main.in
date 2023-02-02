@@ -7,7 +7,7 @@
 
 # These dependencies are for fastapi including some optional features.
 aiofiles
-fastapi!=0.89.0
+fastapi
 python-multipart
 starlette
 uvicorn[standard]
@@ -27,6 +27,6 @@ pydantic
 PyJWT
 pyyaml
 redis>=4.2.0rc1
-safir[db,kubernetes]>=3.3.0
+safir[db,kubernetes]>=3.5.0
 sqlalchemy
 structlog
