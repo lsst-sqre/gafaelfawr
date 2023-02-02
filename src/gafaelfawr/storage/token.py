@@ -154,14 +154,14 @@ class TokenDatabaseStore:
             direct child tokens will be at the beginning of the list, and
             other tokens will be listed in a breadth-first search order.
         """
-        all_children = []
+        all_children: list[str] = []
         parents = [key]
         while parents:
             stmt = select(Subtoken.child).where(Subtoken.parent.in_(parents))
             result = await self._session.scalars(stmt)
             children = result.all()
             all_children.extend(children)
-            parents = children
+            parents = list(children)
         return all_children
 
     async def get_info(self, key: str) -> TokenInfo | None:

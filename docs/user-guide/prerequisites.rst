@@ -17,4 +17,4 @@ Currently, the only supported way to do this is to run Gafaelfawr and all of the
 
 If you need to protect services running under multiple host names, you will need to configure Gafaelfawr's ingress to add its routes (specifically ``/auth`` and ``/login``) to each of those host names.
 There is no supported way to do this in Gafaelfawr's Helm configurstion.
-You will need to add additional ``Ingress`` Kubernetes resources based off of those in the `Gafaelfawr Helm chart <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr>`__.
+You will need to add additional ``Ingress`` Kubernetes resources based off of those in the `Gafaelfawr Helm chart <https://github.com/lsst-sqre/phalanx/tree/main/applications/gafaelfawr>`__.
