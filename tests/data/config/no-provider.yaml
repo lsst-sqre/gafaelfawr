@@ -1,16 +1,16 @@
 # Bad configuration file with no authentication provider section.
 
 realm: "testing"
-session_secret_file: "/dummy"
-database_url: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
-initial_admins: ["admin"]
-redis_url: "dummy"
-after_logout_url: "https://example.com/landing"
-group_mapping:
+sessionSecretFile: "/dummy"
+databaseUrl: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
+initialAdmins: ["admin"]
+redisUrl: "redis://localhost:6379/0"
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
   "exec:admin": ["admin"]
   "exec:test": ["test"]
   "read:all": ["foo", "admin", "org-a-team"]
-known_scopes:
+knownScopes:
   "admin:token": "Can create and modify tokens for any user"
   "exec:admin": "admin description"
   "exec:test": "test description"

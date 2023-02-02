@@ -1,19 +1,19 @@
 realm: "localhost"
-session_secret_file: "{session_secret_file}"
-database_url: "{database_url}"
-redis_url: "redis://localhost:6379/0"
-initial_admins: ["admin"]
-after_logout_url: "https://example.com/landing"
-group_mapping:
+sessionSecretFile: "{session_secret_file}"
+databaseUrl: "{database_url}"
+redisUrl: "redis://localhost:6379/0"
+initialAdmins: ["admin"]
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
   "exec:admin": ["admin"]
   "exec:test": ["test"]
   "read:all": ["foo", "admin", "org-a-team"]
-known_scopes:
+knownScopes:
   "admin:token": "Can create and modify tokens for any user"
   "exec:admin": "admin description"
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
 github:
-  client_id: "some-github-client-id"
-  client_secret_file: "{github_secret_file}"
+  clientId: "some-github-client-id"
+  clientSecretFile: "{github_secret_file}"

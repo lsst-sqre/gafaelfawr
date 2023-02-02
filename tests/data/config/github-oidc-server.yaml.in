@@ -1,31 +1,31 @@
 realm: "example.com"
-session_secret_file: "{session_secret_file}"
-database_url: "{database_url}"
-redis_url: "redis://localhost:6379/0"
-bootstrap_token_file: "{bootstrap_token_file}"
-initial_admins: ["admin"]
+sessionSecretFile: "{session_secret_file}"
+databaseUrl: "{database_url}"
+redisUrl: "redis://localhost:6379/0"
+bootstrapTokenFile: "{bootstrap_token_file}"
+initialAdmins: ["admin"]
 proxies:
   - "10.0.0.0/8"
-after_logout_url: "https://example.com/landing"
-group_mapping:
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
   "exec:admin": ["admin"]
   "exec:test": ["test"]
   "read:all": ["foo", "admin", "org-a-team"]
-known_scopes:
+knownScopes:
   "admin:token": "token administration"
   "exec:admin": "admin description"
   "exec:test": "test description"
   "read:all": "can read everything"
   "read:some": "can read some things"
   "user:token": "Can create and modify user tokens"
-oidc_server:
+oidcServer:
   issuer: "https://test.example.com/"
-  key_id: "some-kid"
-  key_file: "{issuer_key_file}"
+  keyId: "some-kid"
+  keyFile: "{issuer_key_file}"
   audience: "https://example.com/"
-  secrets_file: "{oidc_server_secrets_file}"
+  secretsFile: "{oidc_server_secrets_file}"
 github:
-  client_id: "some-github-client-id"
-  client_secret_file: "{github_secret_file}"
-error_footer: |
+  clientId: "some-github-client-id"
+  clientSecretFile: "{github_secret_file}"
+errorFooter: |
   Some <strong>error instructions</strong> with HTML.

@@ -21,15 +21,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 import yaml
-from pydantic import (
-    AnyHttpUrl,
-    BaseModel,
-    BaseSettings,
-    IPvAnyNetwork,
-    validator,
-)
+from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
 from safir.logging import configure_logging
-from safir.pydantic import validate_exactly_one_of
+from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .keypair import RSAKeyPair
@@ -53,7 +47,7 @@ __all__ = [
 ]
 
 
-class GitHubSettings(BaseModel):
+class GitHubSettings(CamelCaseModel):
     """pydantic model of GitHub configuration."""
 
     client_id: str
@@ -63,7 +57,7 @@ class GitHubSettings(BaseModel):
     """File containing secret for the GitHub App."""
 
 
-class OIDCSettings(BaseModel):
+class OIDCSettings(CamelCaseModel):
     """pydantic model of OpenID Connect configuration."""
 
     client_id: str
@@ -121,7 +115,7 @@ class OIDCSettings(BaseModel):
     """Name of claim to use for the group membership."""
 
 
-class LDAPSettings(BaseModel):
+class LDAPSettings(CamelCaseModel):
     """pydantic model of LDAP configuration."""
 
     url: str
@@ -218,14 +212,14 @@ class LDAPSettings(BaseModel):
     """
 
 
-class FirestoreSettings(BaseModel):
+class FirestoreSettings(CamelCaseModel):
     """pydantic model of Firestore configuration."""
 
     project: str
     """Project containing the Firestore collections."""
 
 
-class OIDCServerSettings(BaseModel):
+class OIDCServerSettings(CamelCaseModel):
     """pydantic model of issuer configuration."""
 
     issuer: str
@@ -244,7 +238,7 @@ class OIDCServerSettings(BaseModel):
     """Path to file containing OpenID Connect client secrets in JSON."""
 
 
-class Settings(BaseSettings):
+class Settings(CamelCaseModel):
     """pydantic model of Gafaelfawr configuration file.
 
     This describes the configuration file as parsed from disk.  This model
@@ -420,7 +414,7 @@ class Settings(BaseSettings):
     )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class GitHubConfig:
     """Metadata for GitHub authentication.
 
@@ -436,7 +430,7 @@ class GitHubConfig:
     """Secret for the GitHub App."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class OIDCConfig:
     """Configuration for OpenID Connect authentication."""
 
@@ -495,7 +489,7 @@ class OIDCConfig:
     """Token claim from which to take the group membership."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class LDAPConfig:
     """Configuration for LDAP support.
 
@@ -597,7 +591,7 @@ class LDAPConfig:
     """
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class FirestoreConfig:
     """Configuration for Firestore-based UID/GID assignment."""
 
@@ -605,7 +599,7 @@ class FirestoreConfig:
     """Project containing the Firestore collections."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class OIDCClient:
     """Configuration for a single OpenID Connect client of our server."""
 
@@ -616,7 +610,7 @@ class OIDCClient:
     """Secret used to authenticate this client."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class OIDCServerConfig:
     """Configuration for the OpenID Connect server."""
 
@@ -639,7 +633,7 @@ class OIDCServerConfig:
     """Supported OpenID Connect clients."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Config:
     """Configuration for Gafaelfawr.
 

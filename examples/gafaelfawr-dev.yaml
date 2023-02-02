@@ -13,59 +13,62 @@
 
 realm: "localhost"
 loglevel: "DEBUG"
-session_secret_file: "examples/secrets/session-secret"
-database_url: "postgresql://gafaelfawr:INSECURE@localhost/gafaelfawr"
+sessionSecretFile: "examples/secrets/session-secret"
+databaseUrl: "postgresql://gafaelfawr:INSECURE@localhost/gafaelfawr"
 
 # This Redis will be started by the docker-compose.yaml file at the top
 # level of the repository.
-redis_url: "redis://localhost:6379/0"
-redis_password_file: "examples/secrets/redis-password"
+redisUrl: "redis://localhost:6379/0"
+redisPasswordFile: "examples/secrets/redis-password"
 
 # WARNING: This is public and entirely insecure.  Use only for local
 # development not accessible to the Internet.
-bootstrap_token_file: "examples/secrets/bootstrap-token"
+bootstrapTokenFile: "examples/secrets/bootstrap-token"
 
 # How long Gafaelfawr-issued tokens should live by default.
-token_lifetime_minutes: 1440 # 1 day
+tokenLifetimeMinutes: 1440 # 1 day
 
 # Where to send the user after logging out.
-after_logout_url: "http://localhost:8080"
+afterLogoutUrl: "http://localhost:8080"
 
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
 # application.  Set the homepage URL to http://localhost:8080/ and the
 # authorization callback URL to http://localhost:8080/login.
 github:
-  client_id: "<github-client-id>"
-  client_secret_file: "examples/secrets/github-client-secret"
+  clientId: "<github-client-id>"
+  clientSecretFile: "examples/secrets/github-client-secret"
 
 # Configuration for the Gafaelfawr OpenID Connect server.
-oidc_server:
+oidcServer:
   issuer: "http://localhost:8080"
-  key_id: "localhost-key-id"
+  keyId: "localhost-key-id"
   audience: "http://localhost"
-  key_file: "examples/secrets/issuer-key"
-  secrets_file: "examples/secrets/oidc-clients.json"
+  keyFile: "examples/secrets/issuer-key"
+  secretsFile: "examples/secrets/oidc-clients.json"
 
 # Replace this user with your GitHub username.
-initial_admins:
+initialAdmins:
   - "example"
 
 # Sample values.  You can replace these with anything you want to use
 # for a scope.
-known_scopes:
+knownScopes:
   "admin": "Administrative access"
   "admin:token": "Can create and modify tokens for any user"
   "read:all": "Can read anything"
   "user:token": "Can create and modify user tokens"
 
-# To get scopes based on GitHub team membership, replace <org> with the
-# name of the GitHub organization and <team> with the name of the team
-# in that organization.  (This may be truncated for long names; see the
-# manual.)  Members of that team will then get the scope listed on the
+# To get scopes based on GitHub team membership, replace <org> with the name
+# of the GitHub organization and <team> with the name of the team in that
+# organization.  Members of that team will then get the scope listed on the
 # left.  Add as many entries as you'd like.
-group_mapping:
+groupMapping:
   "admin":
-    - "<org>-<team>"
+    - github:
+        organization: "<org>"
+        team: "<team>"
   "read:all":
-    - "<org>-<other-team>"
+    - github:
+        organization: "<org>"
+        team: "<other-team>"
