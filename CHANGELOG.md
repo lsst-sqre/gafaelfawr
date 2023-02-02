@@ -4,6 +4,12 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
+## 9.0.1 (unreleased)
+
+### Other changes
+
+- Gafaelfawr now supports camel-case in its configuration file to allow using the same names for most configuration settings and Helm chart values.
+
 ## 9.0.0 (2023-01-09)
 
 ### Backwards-incompatible changes
