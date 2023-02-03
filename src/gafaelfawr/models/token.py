@@ -16,6 +16,8 @@ from ..util import current_datetime, normalize_scopes, random_128_bits
 __all__ = [
     "AdminTokenRequest",
     "NewToken",
+    "NotebookQuota",
+    "Quota",
     "Token",
     "TokenBase",
     "TokenData",
@@ -156,6 +158,36 @@ class TokenGroup(BaseModel):
             " numeric GID will be allocated by Firestore if left unset"
             " when creating a token."
         ),
+    )
+
+
+class NotebookQuota(BaseModel):
+    """Notebook Aspect quota information for a user."""
+
+    cpu: float = Field(..., title="CPU equivalents", example=4.0)
+
+    memory: float = Field(..., title="Maximum memory use (GiB)", example=16.0)
+
+
+class Quota(BaseModel):
+    """Quota information for a user."""
+
+    api: dict[str, int] = Field(
+        {},
+        title="API quotas",
+        description=(
+            "Mapping of service names to allowed requests per 15 minutes."
+        ),
+        example={
+            "datalinker": 500,
+            "hips": 2000,
+            "tap": 500,
+            "vo-cutouts": 100,
+        },
+    )
+
+    notebook: Optional[NotebookQuota] = Field(
+        None, title="Notebook Aspect quotas"
     )
 
 
@@ -326,6 +358,8 @@ class TokenUserInfo(BaseModel):
         title="Groups",
         description="Groups of which the user is a member",
     )
+
+    quota: Optional[Quota] = Field(None, title="Quota")
 
     def to_userinfo_dict(self) -> dict[str, Any]:
         """Convert to a dictionary for logging purposes.

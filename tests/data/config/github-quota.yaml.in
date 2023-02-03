@@ -1,0 +1,34 @@
+realm: "example.com"
+sessionSecretFile: "{session_secret_file}"
+databaseUrl: "{database_url}"
+redisUrl: "redis://localhost:6379/0"
+initialAdmins: ["admin"]
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
+  "exec:admin": ["admin"]
+  "read:all":
+    - "foo"
+    - "admin"
+    - github:
+        organization: "org"
+        team: "a-team"
+knownScopes:
+  "admin:token": "token administration"
+  "exec:admin": "admin description"
+  "read:all": "can read everything"
+  "user:token": "Can create and modify user tokens"
+github:
+  clientId: "some-github-client-id"
+  clientSecretFile: "{github_secret_file}"
+quota:
+  default:
+    api:
+      datalinker: 1000
+    notebook:
+      cpu: 8
+      memory: 4.0
+  groups:
+    foo:
+      notebook:
+        cpu: 0.0
+        memory: 4.0

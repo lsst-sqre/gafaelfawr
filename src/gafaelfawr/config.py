@@ -38,11 +38,14 @@ __all__ = [
     "GitHubSettings",
     "LDAPConfig",
     "LDAPSettings",
+    "NotebookQuota",
     "OIDCConfig",
     "OIDCClient",
     "OIDCServerConfig",
     "OIDCServerSettings",
     "OIDCSettings",
+    "Quota",
+    "QuotaGrant",
     "Settings",
 ]
 
@@ -238,6 +241,40 @@ class OIDCServerSettings(CamelCaseModel):
     """Path to file containing OpenID Connect client secrets in JSON."""
 
 
+class NotebookQuotaSettings(CamelCaseModel):
+    """Quota settings for the Notebook Aspect."""
+
+    cpu: float
+    """Maximum number of CPU equivalents."""
+
+    memory: float
+    """Maximum memory usage in GiB."""
+
+
+class QuotaGrantSettings(CamelCaseModel):
+    """One grant of quotas.
+
+    There may be one of these per group, as well as a default one, in the
+    overall quota configuration.
+    """
+
+    api: dict[str, int] = {}
+    """Mapping of service names to quota of requests per 15 minutes."""
+
+    notebook: Optional[NotebookQuotaSettings] = None
+    """Quota settings for the Notebook Aspect."""
+
+
+class QuotaSettings(CamelCaseModel):
+    """Quota settings."""
+
+    default: QuotaGrantSettings
+    """Default quotas for all users."""
+
+    groups: dict[str, QuotaGrantSettings] = {}
+    """Additional quota grants by group name."""
+
+
 class Settings(CamelCaseModel):
     """pydantic model of Gafaelfawr configuration file.
 
@@ -299,6 +336,12 @@ class Settings(CamelCaseModel):
     after_logout_url: AnyHttpUrl
     """Default URL to which to send the user after logging out."""
 
+    error_footer: Optional[str] = None
+    """HTML to add (inside ``<p>``) to login error pages."""
+
+    slack_webhook_file: Optional[Path] = None
+    """File containing the Slack webhook to which to post alerts."""
+
     github: Optional[GitHubSettings] = None
     """Settings for the GitHub authentication provider."""
 
@@ -314,6 +357,9 @@ class Settings(CamelCaseModel):
     oidc_server: Optional[OIDCServerSettings] = None
     """Settings for the internal OpenID Connect server."""
 
+    quota: Optional[QuotaSettings] = None
+    """Quota for users."""
+
     initial_admins: list[str]
     """Initial token administrators to configure when initializing database."""
 
@@ -322,12 +368,6 @@ class Settings(CamelCaseModel):
 
     group_mapping: dict[str, list[str]] = {}
     """Mappings of scopes to lists of groups that provide them."""
-
-    error_footer: Optional[str] = None
-    """HTML to add (inside ``<p>``) to login error pages."""
-
-    slack_webhook_file: Optional[Path] = None
-    """File containing the Slack webhook to which to post alerts."""
 
     @validator("initial_admins", each_item=True)
     def _validate_initial_admins(cls, v: str) -> str:
@@ -634,6 +674,43 @@ class OIDCServerConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class NotebookQuota:
+    """Quota settings for the Notebook Aspect."""
+
+    cpu: float
+    """Maximum number of CPU equivalents."""
+
+    memory: float
+    """Maximum memory usage in GiB."""
+
+
+@dataclass(frozen=True, slots=True)
+class QuotaGrant:
+    """One grant of quotas.
+
+    There may be one of these per group, as well as a default one, in the
+    overall quota configuration.
+    """
+
+    api: Mapping[str, int]
+    """Mapping of service names to quota of requests per 15 minutes."""
+
+    notebook: Optional[NotebookQuota]
+    """Quota settings for the Notebook Aspect."""
+
+
+@dataclass(frozen=True, slots=True)
+class Quota:
+    """Quota settings."""
+
+    default: QuotaGrant
+    """Default quotas for all users."""
+
+    groups: Mapping[str, QuotaGrant]
+    """Additional quota grants by group name."""
+
+
+@dataclass(frozen=True, slots=True)
 class Config:
     """Configuration for Gafaelfawr.
 
@@ -652,17 +729,17 @@ class Config:
     session_secret: str
     """Secret used to encrypt the session cookie and session store."""
 
-    database_url: str
-    """URL for the PostgreSQL database."""
-
-    database_password: str | None
-    """Password for the PostgreSQL database."""
-
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
     redis_password: str | None
     """Password for the Redis server that stores sessions."""
+
+    database_url: str
+    """URL for the PostgreSQL database."""
+
+    database_password: str | None
+    """Password for the PostgreSQL database."""
 
     bootstrap_token: Token | None
     """Bootstrap authentication token.
@@ -689,8 +766,17 @@ class Config:
     after_logout_url: str
     """Default URL to which to send the user after logging out."""
 
+    error_footer: str | None
+    """HTML to add (inside ``<p>``) to login error pages."""
+
+    slack_webhook: str | None
+    """Slack webhook to which to post alerts."""
+
     github: GitHubConfig | None
     """Configuration for GitHub authentication."""
+
+    oidc: OIDCConfig | None
+    """Configuration for OpenID Connect authentication."""
 
     ldap: LDAPConfig | None
     """Configuration for LDAP."""
@@ -698,26 +784,20 @@ class Config:
     firestore: FirestoreConfig | None
     """Settings for Firestore-based UID/GID assignment."""
 
-    oidc: OIDCConfig | None
-    """Configuration for OpenID Connect authentication."""
-
     oidc_server: OIDCServerConfig | None
     """Configuration for the OpenID Connect server."""
+
+    quota: Quota | None
+    """Quota for users."""
+
+    initial_admins: tuple[str, ...]
+    """Initial token administrators to configure when initializing database."""
 
     known_scopes: Mapping[str, str]
     """Known scopes (the keys) and their descriptions (the values)."""
 
     group_mapping: Mapping[str, frozenset[str]]
     """Mapping of group names to the set of scopes that group grants."""
-
-    initial_admins: tuple[str, ...]
-    """Initial token administrators to configure when initializing database."""
-
-    error_footer: str | None
-    """HTML to add (inside ``<p>``) to login error pages."""
-
-    slack_webhook: str | None
-    """Slack webhook to which to post alerts."""
 
     @classmethod
     def from_file(cls, path: Path) -> Config:
@@ -824,6 +904,25 @@ class Config:
                 clients=oidc_clients,
             )
 
+        # Build the quota configuration if needed.
+        quota = None
+        if settings.quota:
+            notebook = None
+            if settings.quota.default.notebook:
+                notebook_default = settings.quota.default.notebook
+                notebook = NotebookQuota(**notebook_default.dict())
+            default = QuotaGrant(
+                api=settings.quota.default.api, notebook=notebook
+            )
+            group_quota = {}
+            for group, grant in settings.quota.groups.items():
+                notebook = None
+                if grant.notebook:
+                    notebook = NotebookQuota(**grant.notebook.dict())
+                frozen_grant = QuotaGrant(api=grant.api, notebook=notebook)
+                group_quota[group] = frozen_grant
+            quota = Quota(default=default, groups=group_quota)
+
         # The group mapping in the settings maps a scope to a list of groups
         # that provide that scope.  This may be conceptually easier for the
         # person writing the configuration, but for our purposes we want a map
@@ -861,24 +960,25 @@ class Config:
         config = cls(
             realm=settings.realm,
             session_secret=session_secret.decode(),
-            database_url=settings.database_url,
-            database_password=database_password,
             redis_url=settings.redis_url,
             redis_password=redis_password,
+            database_url=settings.database_url,
+            database_password=database_password,
             bootstrap_token=bootstrap_token,
             token_lifetime=timedelta(minutes=settings.token_lifetime_minutes),
             proxies=tuple(settings.proxies if settings.proxies else []),
             after_logout_url=str(settings.after_logout_url),
+            error_footer=settings.error_footer,
+            slack_webhook=slack_webhook,
             github=github_config,
             oidc=oidc_config,
             ldap=ldap_config,
             firestore=firestore_config,
             oidc_server=oidc_server_config,
+            quota=quota,
+            initial_admins=tuple(settings.initial_admins),
             known_scopes=settings.known_scopes or {},
             group_mapping=group_mapping_frozen,
-            initial_admins=tuple(settings.initial_admins),
-            error_footer=settings.error_footer,
-            slack_webhook=slack_webhook,
         )
 
         # Configure logging.  Some Safir applications allow customization of
