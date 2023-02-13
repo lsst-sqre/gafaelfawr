@@ -17,6 +17,7 @@ from ..models.ldap import LDAPUserData
 from ..models.oidc import OIDCVerifiedToken
 from ..models.token import TokenData, TokenGroup, TokenUserInfo
 from ..services.firestore import FirestoreService
+from ..services.idm import IDMService
 from ..services.ldap import LDAPService
 
 __all__ = ["OIDCUserInfoService", "UserInfoService"]
@@ -57,11 +58,13 @@ class UserInfoService:
         *,
         config: Config,
         ldap: LDAPService | None,
+        idm: IDMService | None,
         firestore: FirestoreService | None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._ldap = ldap
+        self._idm = idm
         self._firestore = firestore
         self._logger = logger
 
@@ -263,12 +266,14 @@ class OIDCUserInfoService(UserInfoService):
         *,
         config: Config,
         ldap: LDAPService | None,
+        idm: IDMService | None,
         firestore: FirestoreService | None,
         logger: BoundLogger,
     ) -> None:
         super().__init__(
             config=config,
             ldap=ldap,
+            idm=idm,
             firestore=firestore,
             logger=logger,
         )
@@ -369,19 +374,26 @@ class OIDCUserInfoService(UserInfoService):
         try:
             for oidc_group in token.claims.get(claim, []):
                 try:
+                    gid = None
                     if isinstance(oidc_group, str):
                         name = oidc_group.removeprefix("/")
-                        groups.append(TokenGroup(name=name))
+                        if self._idm:
+                            gid = await self._idm.get_group_id(name)
+                            if gid:
+                                groups.append(TokenGroup(name=name, id=gid))
+                        else:
+                            groups.append(TokenGroup(name=name))
                         continue
                     if "name" not in oidc_group:
                         continue
                     name = oidc_group["name"].removeprefix("/")
-                    gid = None
+
                     if self._firestore:
                         gid = await self._firestore.get_gid(name)
                     elif "id" in oidc_group:
                         gid = int(oidc_group["id"])
                     groups.append(TokenGroup(name=name, id=gid))
+
                 except (TypeError, ValueError, ValidationError) as e:
                     invalid_groups[name] = str(e)
         except TypeError as e:
@@ -431,6 +443,7 @@ class OIDCUserInfoService(UserInfoService):
         """
         if not self._oidc_config.gid_claim:
             return None
+
         if self._oidc_config.gid_claim not in token.claims:
             msg = f"No {self._oidc_config.gid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)

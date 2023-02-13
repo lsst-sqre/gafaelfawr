@@ -30,6 +30,7 @@ from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
 from .services.firestore import FirestoreService
+from .services.idm import IDMService
 from .services.kubernetes import (
     KubernetesIngressService,
     KubernetesTokenService,
@@ -387,6 +388,22 @@ class Factory:
             logger=self._logger,
         )
 
+    def create_idm_service(self) -> IDMService:
+        """Create a minimalist IDM server.
+
+        Returns
+        -------
+        IDMService
+            A new IDM server.
+        """
+        if not self._context.config.idm:
+            raise NotConfiguredError("IDM is not configured")
+        return IDMService(
+            config=self._context.config.idm,
+            http_client=self._context.http_client,
+            logger=self._logger,
+        )
+
     def create_oidc_user_info_service(self) -> OIDCUserInfoService:
         """Create a user information service for OpenID Connect providers.
 
@@ -410,6 +427,9 @@ class Factory:
         firestore = None
         if self._context.config.firestore:
             firestore = self.create_firestore_service()
+        idm = None
+        if self._context.config.idm:
+            idm = self.create_idm_service()
         ldap = None
         if self._context.config.ldap and self._context.ldap_pool:
             ldap_storage = LDAPStorage(
@@ -427,6 +447,7 @@ class Factory:
         return OIDCUserInfoService(
             config=self._context.config,
             ldap=ldap,
+            idm=idm,
             firestore=firestore,
             logger=self._logger,
         )
@@ -558,6 +579,9 @@ class Factory:
         firestore = None
         if self._context.config.firestore:
             firestore = self.create_firestore_service()
+        idm = None
+        if self._context.config.idm:
+            idm = self.create_idm_service()
         ldap = None
         if self._context.config.ldap and self._context.ldap_pool:
             ldap_storage = LDAPStorage(
@@ -575,6 +599,7 @@ class Factory:
         return UserInfoService(
             config=self._context.config,
             ldap=ldap,
+            idm=idm,
             firestore=firestore,
             logger=self._logger,
         )
