@@ -32,7 +32,6 @@ config:
   baseUrl: "https://foo.example.com"
   scopes:
     any: ["read:all"]
-  authType: basic
   loginRedirect: true
   replace403: true
   delegate:
@@ -69,6 +68,7 @@ metadata:
   namespace: {namespace}
 config:
   baseUrl: "https://foo.example.com"
+  authType: basic
   scopes:
     all:
       - "read:all"
@@ -94,3 +94,64 @@ template:
                   name: something
                   port:
                     number: 80
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: authorization-ingress
+  namespace: {namespace}
+config:
+  baseUrl: "https://foo.example.com"
+  scopes:
+    all: ["read:all"]
+  delegate:
+    internal:
+      service: some-service
+      scopes:
+        - "read:all"
+    useAuthorization: true
+template:
+  metadata:
+    name: authorization
+    annotations:
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        add_header "X-Foo" "bar";
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: anonymous-ingress
+  namespace: {namespace}
+config:
+  baseUrl: "https://foo.example.com"
+  scopes:
+    anonymous: true
+template:
+  metadata:
+    name: anonymous
+    annotations:
+      some.annotation: foo
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http

@@ -24,7 +24,6 @@ async def _update_token(
     namespace: str | None,
     body: kopf.Body,
     memo: kopf.Memo,
-    **_: Any,
 ) -> dict[str, int | str] | None:
     """Do the work of updating the token, shared by `create` and `periodic`."""
     token_service: KubernetesTokenService = memo.token_service

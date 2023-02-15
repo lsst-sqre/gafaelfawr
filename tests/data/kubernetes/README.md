@@ -25,4 +25,8 @@ The following variables are expanded only in output files:
 `any`
     Becomes `unittest.mock.ANY`.
 
+`snippet`
+    Becomes the value of `gafaelfawr.constants.NGINX_SNIPPET`.
+    Each line except the first is indended six spaces.
+
 Both the `input` and `output` files may contain multiple resources using the normal YAML `---` document separator.

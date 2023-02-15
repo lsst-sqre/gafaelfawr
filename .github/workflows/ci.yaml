@@ -56,7 +56,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       # This has to happen after installing Node modules because we run
       # eslint and it wants react to be already installed.  We therefore
@@ -87,7 +87,6 @@ jobs:
     strategy:
       matrix:
         python:
-          - "3.10"
           - "3.11"
 
     steps:
@@ -107,7 +106,7 @@ jobs:
         run: sudo apt install -y libpq-dev libldap2-dev libsasl2-dev
 
       - name: Set up Minikube
-        uses: manusa/actions-setup-minikube@v2.7.1
+        uses: manusa/actions-setup-minikube@v2.7.2
         with:
           minikube version: 'v1.27.1'
           kubernetes version: 'v1.25.2'
@@ -118,6 +117,7 @@ jobs:
           python-version: ${{ matrix.python }}
           tox-envs: "typing,py-full,coverage-report"
           tox-plugins: tox-docker
+          cache-key-prefix: "test"
 
   docs:
     runs-on: ubuntu-latest
@@ -138,8 +138,9 @@ jobs:
       - name: Run tox
         uses: lsst-sqre/run-tox@v1
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           tox-envs: "docs,docs-linkcheck"
+          cache-key-prefix: "docs"
 
       # Only attempt documentation uploads for long-lived branches, tagged
       # releases, and pull requests from ticket branches.  This avoids version
@@ -193,12 +194,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
         with:
@@ -207,12 +202,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/lsst-sqre/gafaelfawr:${{ steps.vars.outputs.tag }}
-            lsstsqre/gafaelfawr:${{ steps.vars.outputs.tag }}
+          tags: ghcr.io/lsst-sqre/gafaelfawr:${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

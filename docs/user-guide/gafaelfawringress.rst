@@ -87,6 +87,21 @@ If you want unauthorized users to be redirected to the login page instead, use t
 
 This setting should be used for services that are accessed interactively from a web browser.
 
+Changing the challenge type
+===========================
+
+When presenting an authentication challenge (a 401 response) instead of redirecting the user to the login page, the default is to request a bearer token (:rfc:`6750`).
+In some cases, you may want Gafaelfawr to request Basic authentication (:rfc:`7617`) instead.
+Do this with the ``config.authType`` parameter:
+
+.. code-block:: yaml
+
+   config:
+     authType: basic
+
+This will normally cause the browser to pop up a request for username and password.
+This setting cannot be used with ``config.loginRedirect``; Gafaelfawr can either redirect the user or present a challenge, but not both.
+
 .. _delegated-tokens:
 
 Requesting delegated tokens
@@ -159,6 +174,42 @@ Presumably logging in again will create a token with sufficient remaining lifeti
 Obviously, do not request a minimum lifetime longer than the default token lifetime!
 See :ref:`basic-settings` for more details.
 
+Delegate token in Authorization header
+--------------------------------------
+
+The delegated token is passed to the protected service in the ``X-Auth-Request-Token`` header, but this is a custom Gafaelfawr header.
+Some services may expect that token to be passed in the ``Authorization`` header as a bearer token, as specified in :rfc:`6750`.
+To tell Gafaelfawr to do this, use:
+
+.. code-block:: yaml
+
+   config:
+     delegate:
+       useAuthorization: true
+
+The same token will also still be passed in the ``X-Auth-Request-Token`` header.
+
+If this configuration option is set, the incoming ``Authorization`` header will be entirely replaced by one containing only the delegated token, unlike Gafaelfawr's normal behavior of preserving any incoming ``Authorization`` header that doesn't include a Gafaelfawr token.
+
+.. _anonymous:
+
+Anonymous ingresses
+===================
+
+An anonymous ingress (one that doesn't require authentication and performs no authorization checks) can be configured using ``GafaelfawrIngress`` as follows:
+
+.. code-block:: yaml
+
+   config:
+     scopes:
+       anonymous: true
+
+None of the other configuration options are supported in this mode.
+
+The reason to use this configuration over simply writing an ``Ingress`` resource directly is that Gafaelfawr will still be invoked to strip Gafaelfawr tokens and secrets from the request before it is passed to the underlying service.
+This prevents credential leakage to anonymous services.
+See :ref:`header-filtering` for more details.
+
 .. _auth-headers:
 
 Request headers
@@ -177,26 +228,5 @@ In addition, if a delegated token was requested, it will be sent in the ``X-Auth
 HTTP headers starting with ``X-Auth-Request-*`` are reserved for Gafaelfawr.
 More headers may be added in the future.
 
-.. _error-caching:
-
-Disabling error caching
-=======================
-
-Web browsers cache 403 (HTTP Forbidden) error replies by default.
-Unfortunately, NGINX does not pass a ``Cache-Control`` response header (or any other headers) from an ``auth_request`` handler back to the client.
-It also does not set ``Cache-Control`` on a 403 response itself, and the Kubernetes ingress-nginx ingress controller does not provide a configuration knob to change that.
-This can cause user confusion; if they reauthenticate after a 403 error and obtain additional group memberships, they may still get a 403 error when they return to the page they were trying to access even if they now have access.
-
-This can be avoided by setting a custom error page that sets a ``Cache-Control`` header to tell the browser not to cache the error.
-Gafaelfawr provides ``/auth/forbidden`` as a custom error handler for this purpose.
-To use this, add the following to the ``GafaelfawrIngress`` resource:
-
-.. code-block:: yaml
-
-   config:
-     replace403: true
-
-This will configure NGINX to use the Gafaelfawr ``/auth/forbidden`` route as a custom error page for all 403 errors.
-
-Be aware that this will intercept **all** 403 errors from the protected service, not just ones from Gafaelfawr.
-If the protected service returns its own 403 errors, the resulting error will probably be nonsensical, and this facility may not be usable.
+As discussed in :ref:`header-filtering`, Gafaelfawr also modifies the ``Authorization`` and ``Cookie`` headers to hide Gafaelfawr's own tokens and cookies.
+This should be invisible to the protected application, and it can still set and receive its own cookies.

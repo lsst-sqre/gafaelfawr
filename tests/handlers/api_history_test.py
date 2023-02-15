@@ -43,7 +43,6 @@ async def build_history(
     """
     token_service = factory.create_token_service()
     async with factory.session.begin():
-
         user_info_one = TokenUserInfo(username="one")
         token_one = await token_service.create_session_token(
             user_info_one,

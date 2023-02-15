@@ -17,6 +17,8 @@ To use this documentation, find the configuration that you need in :ref:`ingress
 
 See :ref:`ingress-overview` for an overview of how Gafaelfawr protects services.
 
+.. _manual-basic:
+
 Basic configuration
 ===================
 
@@ -26,7 +28,13 @@ The required minimum annotations for a web service that returns 401 if the user 
 
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
+      auth_request_set $auth_status $upstream_http_x_error_status;
+      auth_request_set $auth_error_body $upstream_http_x_error_body;
+      error_page 403 = @autherror;
 
 Replace ``<hostname>`` with the hostname of the ingress on which the Gafaelfawr routes are configured, and ``<scope>`` with the name of the scope that should be required in order to visit this site.
 
@@ -34,20 +42,32 @@ Multiple scopes may be requested by repeating the ``scope`` parameter.
 For example, to require both ``read:tap`` and ``read:image`` scopes, use:
 
 .. code-block:: yaml
+   :emphasize-lines: 4
 
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Email,X-Auth-Request-User"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=read:tap&scope=read:image"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
+      auth_request_set $auth_status $upstream_http_x_error_status;
+      auth_request_set $auth_error_body $upstream_http_x_error_body;
+      error_page 403 = @autherror;
 
 To allow any one of the listed scopes to grant access, instead of requiring the user have all of the scopes, add ``satisfy=any``:
 
 .. code-block:: yaml
+   :emphasize-lines: 4
 
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Email,X-Auth-Request-User"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=read:tap&scope=read:image&satisfy=any"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
+      auth_request_set $auth_status $upstream_http_x_error_status;
+      auth_request_set $auth_error_body $upstream_http_x_error_body;
+      error_page 403 = @autherror;
 
 Redirecting users to log in
 ===========================
@@ -55,12 +75,18 @@ Redirecting users to log in
 To redirect the user to the login page instead of returning a 401 error if the user is not authenticated, add an ``auth-signin`` annotation as well:
 
 .. code-block:: yaml
+   :emphasize-lines: 4
 
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Email,X-Auth-Request-User"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
+      auth_request_set $auth_status $upstream_http_x_error_status;
+      auth_request_set $auth_error_body $upstream_http_x_error_body;
+      error_page 403 = @autherror;
 
 Requesting delegated tokens
 ===========================
@@ -68,13 +94,18 @@ Requesting delegated tokens
 To request a delegated internal token, use these annotations:
 
 .. code-block:: yaml
+   :emphasize-lines: 3, 5
 
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Token"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>&delegate_to=<service>&delegate_scope=<delegate-scope>,<delegate-scope>"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
+      auth_request_set $auth_status $upstream_http_x_error_status;
+      auth_request_set $auth_error_body $upstream_http_x_error_body;
+      error_page 403 = @autherror;
 
 ``<service>`` should be replaced with an internal identifier for the service.
 ``<delegate-scope>`` is a comma-separated list of scopes requested for the internal token.
@@ -84,28 +115,39 @@ The token will be included in the request in an ``X-Auth-Request-Token`` header,
 For the special case of notebook tokens, instead use:
 
 .. code-block:: yaml
+   :emphasize-lines: 3, 5
 
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
     nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>&notebook=true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
+      auth_request_set $auth_status $upstream_http_x_error_status;
+      auth_request_set $auth_error_body $upstream_http_x_error_body;
+      error_page 403 = @autherror;
 
 In both cases, services designed for API instead of browser access can omit the ``nginx.ingress.kubernetes.io/auth-signin`` to return authentication challenges to the user instead of redirecting them to the login page.
 
-Disabling error caching
-=======================
+To request that the delegated token also be passed in the ``Authorization`` header as a bearer token, append ``&use_authorization=true`` to the ``nginx.ingress.kubernetes.io/auth-url`` annotation.
 
-To use the Gafaelfawr ``/auth/forbidden`` route as the error page for all 403 errors so that they will not be cached, add the following annotation in addition to the normal Gafaelfawr annotations:
+Header filtering for anonymous ingresses
+========================================
+
+If an ingress shares a hostname with any authenticated service, it should still configure Gafaelfawr to perform header filtering even if it allows anonymous access.
+This prevents leakage of Gafaelfawr credentials to underlying services.
+
+To do this with a manually-configured ingress, add the following annotations:
 
 .. code-block:: yaml
 
    annotations:
-     nginx.ingress.kubernetes.io/configuration-snippet: |
-       error_page 403 = "/auth/forbidden?scope=<scope>";
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth/anonymous"
 
-The parameters to the ``/auth/forbidden`` URL must be the same as the parameters given in the ``auth-url`` annotation.
-The scheme and host of the URL defined for the 403 error must be omitted so that NGINX will generate an internal redirect, which in turn requires (as with the rest of Gafaelfawr) that the Gafaelfawr ``/auth`` route be defined on the same virtual host as the protected service.
+Note the different ``auth-url`` route.
 
 .. _auth-config:
 
@@ -113,6 +155,7 @@ Configuring authentication
 ==========================
 
 The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts several parameters to customize the authentication request.
+Most but not all of these are discussed above.
 
 ``scope`` (required)
     The scope claim that the client JWT must have.
@@ -155,5 +198,9 @@ The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts sever
 
     If the presented authentication credentials don't satisfy this required lifetime, a 401 error will be returned.
     If the ``nginx.ingress.kubernetes.io/auth-signin`` annotation is set in the ``Ingress``, this will force a user reauthentication.
+
+``use_authorization`` (optional)
+    If set to a true value, replace the ``Authorization`` header with one containing the delegated token as a bearer token.
+    This option only makes sense in combination with ``notebook`` or ``delegate_to``.
 
 These parameters must be URL-encoded as GET parameters to the ``/auth`` route.

@@ -1,14 +1,14 @@
 realm: "example.com"
-session_secret_file: "{session_secret_file}"
-database_url: "{database_url}"
-redis_url: "redis://localhost:6379/0"
-bootstrap_token_file: "{bootstrap_token_file}"
-slack_webhook_file: "{slack_webhook_file}"
-initial_admins: ["admin"]
+sessionSecretFile: "{session_secret_file}"
+databaseUrl: "{database_url}"
+redisUrl: "redis://localhost:6379/0"
+bootstrapTokenFile: "{bootstrap_token_file}"
+slackWebhookFile: "{slack_webhook_file}"
+initialAdmins: ["admin"]
 proxies:
   - "10.0.0.0/8"
-after_logout_url: "https://example.com/landing"
-group_mapping:
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
   "exec:admin": ["admin"]
   "exec:test":
     - "test"
@@ -21,7 +21,7 @@ group_mapping:
     - github:
         organization: "org"
         team: "a-team"
-known_scopes:
+knownScopes:
   "admin:token": "token administration"
   "exec:admin": "admin description"
   "exec:test": "test description"
@@ -29,7 +29,7 @@ known_scopes:
   "read:some": "can read some things"
   "user:token": "Can create and modify user tokens"
 github:
-  client_id: "some-github-client-id"
-  client_secret_file: "{github_secret_file}"
-error_footer: |
+  clientId: "some-github-client-id"
+  clientSecretFile: "{github_secret_file}"
+errorFooter: |
   Some <strong>error instructions</strong> with HTML.

@@ -12,11 +12,11 @@
 realm: "example.com"
 
 # File contents should be the result of gafaelfawr generate-session-secret.
-session_secret_file: "/path/to/session-secret"
+sessionSecretFile: "/path/to/session-secret"
 
 # The URL of and password for a Redis instance used for storing sessions.
-redis_url: "redis://redis.example.com:6379/0"
-redis_password_file: "/path/to/redis-password"
+redisUrl: "redis://redis.example.com:6379/0"
+redisPasswordFile: "/path/to/redis-password"
 
 # Replace <password> with the database password and example.com with the
 # hostname of the PostgreSQL database.  In environments where the
@@ -24,13 +24,13 @@ redis_password_file: "/path/to/redis-password"
 # Kubernetes ConfigMap), use the GAFAELFAWR_DATABASE_URL environment
 # variable to set this parameter and don't include it in the settings
 # file.
-database_url: "postgresql://gafaelfawr:<password>@example.com/gafaelfawr"
+databaseUrl: "postgresql://gafaelfawr:<password>@example.com/gafaelfawr"
 
 # File contents should be a token generated via gafaelfawr generate-token.
-bootstrap_token_file: "/path/to/bootstrap-token"
+bootstrapTokenFile: "/path/to/bootstrap-token"
 
 # How long Gafaelfawr-issued tokens should live by default.
-token_lifetime_minutes: 1440 # 1 day
+tokenLifetimeMinutes: 1440 # 1 day
 
 # The IP address ranges used internally in the Kubernetes cluster.  Used
 # to determine the external IP address for logging purposes.
@@ -38,23 +38,23 @@ proxies:
   - "10.0.0.0/8"
 
 # Where to send the user after logging out.
-after_logout_url: "https://example.com/"
+afterLogoutUrl: "https://example.com/"
 
 # To get these values, go to Settings > Developer Settings for either a
 # GitHub user or an organization, go into OAuth Apps, and create a new
 # application.
 github:
-  client_id: "<github-client-id>"
-  client_secret_file: "/path/to/github-client-secret"
+  clientId: "<github-client-id>"
+  clientSecretFile: "/path/to/github-client-secret"
 
 # Replace this with a list of users who should have admin rights when
 # bootstrapping a fresh database.
-initial_admins:
+initialAdmins:
   - "example"
 
 # Sample values for scopes.  You can replace these with anything you want
 # to use for a scope.  Used to populate the new token creation page.
-known_scopes:
+knownScopes:
   "admin": "Administrative access"
   "admin:token": "Can create and modify tokens for any user"
   "read:all": "Can read anything"
@@ -65,13 +65,16 @@ known_scopes:
 # With an OpenID Connect provider, the groups will be taken from an
 # isMemberOf claim in the token returned by that provider.
 #
-# To get scopes based on GitHub team membership, replace <org> with the
-# name of the GitHub organization and <team> with the name of the team in
-# that organization.  (This may be truncated for long names; see the
-# manual.)  Members of that team will then get the scope listed on the
+# To get scopes based on GitHub team membership, replace <org> with the name
+# of the GitHub organization and <team> with the name of the team in that
+# organization.  Members of that team will then get the scope listed on the
 # left.  Add as many entries as you'd like.
 group_mapping:
   "admin":
-    - "<org>-<team>"
+    - github:
+        organization: "<org>"
+        team: "<team>"
   "read:all":
-    - "<org>-<other-team>"
+    - github:
+        organization: "<org>"
+        team: "<other-team>"

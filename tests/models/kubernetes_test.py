@@ -105,3 +105,74 @@ def test_service_port() -> None:
 
     with pytest.raises(ValidationError):
         GafaelfawrIngressPathService.parse_obj({"name": "", "port": {}})
+
+
+def test_basic_login_redirect() -> None:
+    GafaelfawrIngressConfig.parse_obj(
+        {
+            "baseUrl": "https://example.com/",
+            "authType": "bearer",
+            "loginRedirect": True,
+            "scopes": {"all": ["read:all"]},
+        }
+    )
+    with pytest.raises(ValidationError):
+        GafaelfawrIngressConfig.parse_obj(
+            {
+                "baseUrl": "https://example.com/",
+                "authType": "basic",
+                "loginRedirect": True,
+                "scopes": {"all": ["read:all"]},
+            }
+        )
+
+
+def test_anonymous() -> None:
+    GafaelfawrIngressConfig.parse_obj(
+        {
+            "baseUrl": "https://example.com/",
+            "authType": "basic",
+            "scopes": {"all": ["read:all"]},
+        }
+    )
+    with pytest.raises(ValidationError):
+        GafaelfawrIngressConfig.parse_obj(
+            {
+                "baseUrl": "https://example.com/",
+                "authType": "basic",
+                "scopes": {"anonymous": True},
+            }
+        )
+    GafaelfawrIngressConfig.parse_obj(
+        {
+            "baseUrl": "https://example.com/",
+            "delegate": {"notebook": {}},
+            "scopes": {"all": ["read:all"]},
+        }
+    )
+    with pytest.raises(ValidationError):
+        GafaelfawrIngressConfig.parse_obj(
+            {
+                "baseUrl": "https://example.com/",
+                "delegate": {"notebook": {}},
+                "scopes": {"anonymous": True},
+            }
+        )
+
+    # Boolean fields should produce an error if set to True, but not if False.
+    for field in ("loginRedirect", "replace403"):
+        GafaelfawrIngressConfig.parse_obj(
+            {
+                "baseUrl": "https://example.com/",
+                field: False,
+                "scopes": {"anonymous": True},
+            }
+        )
+        with pytest.raises(ValidationError):
+            GafaelfawrIngressConfig.parse_obj(
+                {
+                    "baseUrl": "https://example.com/",
+                    field: True,
+                    "scopes": {"anonymous": True},
+                }
+            )
