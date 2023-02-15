@@ -36,6 +36,8 @@ __all__ = [
     "FirestoreSettings",
     "GitHubConfig",
     "GitHubSettings",
+    "IDMConfig",
+    "IDMSettings",
     "LDAPConfig",
     "LDAPSettings",
     "OIDCConfig",
@@ -211,6 +213,16 @@ class LDAPSettings(CamelCaseModel):
     requiring it to appear in LDAP.
     """
 
+class IDMSettings(CamelCaseModel):
+    """pydantic model of IDM configuration."""
+
+    url: str
+    """URL for IDM server."""
+    idm_id: str
+    """IDM client_id"""
+    idm_secret_file: Path
+    """IDM secret"""
+
 
 class FirestoreSettings(CamelCaseModel):
     """pydantic model of Firestore configuration."""
@@ -310,6 +322,9 @@ class Settings(CamelCaseModel):
 
     firestore: Optional[FirestoreSettings] = None
     """Settings for Firestore-based UID/GID assignment."""
+
+    idm: Optional[IDMSettings] = None
+    """Settings for IDM GID assignment."""
 
     oidc_server: Optional[OIDCServerSettings] = None
     """Settings for the internal OpenID Connect server."""
@@ -590,6 +605,17 @@ class LDAPConfig:
     requiring it to appear in LDAP.
     """
 
+@dataclass(frozen=True, slots=True)
+class IDMConfig:
+    """Configuration for IDM-based GID assignment."""
+
+    url: str
+    """URL for IDM server."""
+    idm_id: str
+    """IDM client_id"""
+    idm_secret: str
+    """IDM secret"""
+
 
 @dataclass(frozen=True, slots=True)
 class FirestoreConfig:
@@ -698,6 +724,9 @@ class Config:
     firestore: FirestoreConfig | None
     """Settings for Firestore-based UID/GID assignment."""
 
+    idm: IDMConfig | None
+    """Configuration for IDM-based GID assignment."""
+
     oidc: OIDCConfig | None
     """Configuration for OpenID Connect authentication."""
 
@@ -801,6 +830,17 @@ class Config:
                 project=settings.firestore.project
             )
 
+        # Build IDM configuration if needed.
+        idm_config = None
+        if settings.idm:
+            path = settings.idm.idm_secret_file
+            idm_config = IDMConfig(
+                url=settings.idm.url,
+                idm_id=settings.idm.idm_id,
+                idm_secret=cls._load_secret(
+                    path
+                ).decode(),  # settings.idm.idm_secret#
+            )
         # Build the OpenID Connect server configuration if needed.
         oidc_server_config = None
         if settings.oidc_server:
@@ -873,6 +913,7 @@ class Config:
             oidc=oidc_config,
             ldap=ldap_config,
             firestore=firestore_config,
+            idm=idm_config,
             oidc_server=oidc_server_config,
             known_scopes=settings.known_scopes or {},
             group_mapping=group_mapping_frozen,
