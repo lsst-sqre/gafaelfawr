@@ -6,18 +6,15 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    Header,
-    HTTPException,
-    Query,
-    Response,
-    status,
-)
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Header, Query, Response
+from safir.models import ErrorModel
 
-from ..auth import generate_challenge, generate_unauthorized_challenge
+from ..auth import (
+    clean_authorization,
+    clean_cookies,
+    generate_challenge,
+    generate_unauthorized_challenge,
+)
 from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
@@ -27,7 +24,7 @@ from ..exceptions import (
     InvalidMinimumLifetimeError,
     InvalidTokenError,
 )
-from ..models.auth import AuthError, AuthErrorChallenge, AuthType, Satisfy
+from ..models.auth import AuthType, Satisfy
 from ..models.token import TokenData
 from ..slack import SlackRouteErrorHandler
 from ..util import current_datetime
@@ -61,6 +58,9 @@ class AuthConfig:
 
     minimum_lifetime: timedelta | None
     """Required minimum lifetime of the token."""
+
+    use_authorization: bool
+    """Whether to put any delegated token in the ``Authorization`` header."""
 
 
 def auth_uri(
@@ -142,6 +142,15 @@ def auth_config(
         ge=MINIMUM_LIFETIME.total_seconds(),
         example=86400,
     ),
+    use_authorization: bool = Query(
+        False,
+        title="Put delegated token in Authorization",
+        description=(
+            "If true, also replace the Authorization header with any"
+            " delegated token, passed as a bearer token."
+        ),
+        example=True,
+    ),
     auth_uri: str = Depends(auth_uri),
     context: RequestContext = Depends(context_dependency),
 ) -> AuthConfig:
@@ -182,6 +191,7 @@ def auth_config(
         delegate_to=delegate_to,
         delegate_scopes=delegate_scopes,
         minimum_lifetime=lifetime,
+        use_authorization=use_authorization,
     )
 
 
@@ -203,6 +213,7 @@ async def authenticate_with_type(
     "/auth",
     description="Meant to be used as an NGINX auth_request handler",
     responses={
+        400: {"description": "Bad request", "model": ErrorModel},
         401: {"description": "Unauthenticated"},
         403: {"description": "Permission denied"},
     },
@@ -228,6 +239,11 @@ async def get_auth(
     X-Auth-Request-Token
         If requested by ``notebook`` or ``delegate_to``, will be set to the
         delegated token.
+    X-Error-Status
+        The real status of the error, since NGINX can only handle 401 and 403
+        replies from an ``auth_request`` subhandler.
+    X-Error-Body
+        The real body of the error, which NGINX otherwise discards.
     WWW-Authenticate
         If the request is unauthenticated, this header will be set.
     """
@@ -294,74 +310,42 @@ async def get_auth(
     # Log and return the results.
     context.logger.info("Token authorized")
     headers = await build_success_headers(context, auth_config, token_data)
-    response.headers.update(headers)
+    for key, value in headers:
+        response.headers.append(key, value)
     return {"status": "ok"}
 
 
 @router.get(
-    "/auth/forbidden",
+    "/auth/anonymous",
     description=(
-        "This route exists to set a Cache-Control header on 403 errors so"
-        " that the browser will not cache them. This route is configured as"
-        " a custom error page in the ingress configuration. It takes the"
-        " same parameters as the /auth route and uses them to construct an"
-        " appropriate challenge. The response will set the WWW-Authenticate"
-        " header."
+        "Intended for use as an auth-url handler for anonymous routes. No"
+        " authentication is done and no authorization checks are performed,"
+        " but the `Authorization` and `Cookie` headers are still reflected"
+        " in the response with Gafaelfawr tokens and cookies stripped."
     ),
-    response_class=HTMLResponse,
-    responses={403: {"description": "Permission denied"}},
-    status_code=status.HTTP_403_FORBIDDEN,
-    summary="Generate 403 error",
+    summary="Filter headers for anonymous routes",
     tags=["internal"],
 )
-async def get_auth_forbidden(
+async def get_anonymous(
     response: Response,
-    auth_config: AuthConfig = Depends(auth_config),
     context: RequestContext = Depends(context_dependency),
-) -> Response:
-    """Error page for HTTP Forbidden (403) errors.
-
-    Notes
-    -----
-    This route exists because we want to set a ``Cache-Control`` header on 403
-    errors so that the browser will not cache them.  This doesn't appear to
-    easily be possible with ingress-nginx without using a custom error page,
-    since headers returned by an ``auth_request`` handler are not passed back
-    to the client.
-
-    This route is configured as a custom error page using an annotation like:
-
-    .. code-block:: yaml
-
-       nginx.ingress.kubernetes.io/configuration-snippet: |
-         error_page 403 = "/auth/forbidden?scope=<scope>";
-
-    It takes the same parameters as the ``/auth`` route and uses them to
-    construct an appropriate challenge, assuming that the 403 is due to
-    insufficient token scope.
-    """
-    error = "Token missing required scope"
-    challenge = AuthErrorChallenge(
-        auth_type=auth_config.auth_type,
-        realm=context.config.realm,
-        error=AuthError.insufficient_scope,
-        error_description=error,
-        scope=" ".join(sorted(auth_config.scopes)),
-    )
-    headers = {
-        "Cache-Control": "no-cache, must-revalidate",
-        "WWW-Authenticate": challenge.to_header(),
-    }
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        headers=headers,
-        detail={"msg": error, "type": "permission_denied"},
-    )
+) -> dict[str, str]:
+    if "Authorization" in context.request.headers:
+        raw_authorizations = context.request.headers.getlist("Authorization")
+        authorizations = clean_authorization(raw_authorizations)
+        for authorization in authorizations:
+            response.headers.append("Authorization", authorization)
+    if "Cookie" in context.request.headers:
+        raw_cookies = context.request.headers.getlist("Cookie")
+        cookies = clean_cookies(raw_cookies)
+        for cookie in cookies:
+            response.headers.append("Cookie", cookie)
+    return {"status": "ok"}
 
 
 async def build_success_headers(
     context: RequestContext, auth_config: AuthConfig, token_data: TokenData
-) -> dict[str, str]:
+) -> list[tuple[str, str]]:
     """Construct the headers for successful authorization.
 
     Parameters
@@ -378,12 +362,13 @@ async def build_success_headers(
     headers
         Headers to include in the response.
     """
-    headers = {"X-Auth-Request-User": token_data.username}
+    headers = [("X-Auth-Request-User", token_data.username)]
     user_info_service = context.factory.create_user_info_service()
     user_info = await user_info_service.get_user_info_from_token(token_data)
     if user_info.email:
-        headers["X-Auth-Request-Email"] = user_info.email
+        headers.append(("X-Auth-Request-Email", user_info.email))
 
+    delegated_token = None
     if auth_config.notebook:
         token_service = context.factory.create_token_service()
         async with context.session.begin():
@@ -392,7 +377,8 @@ async def build_success_headers(
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )
-        headers["X-Auth-Request-Token"] = str(token)
+        delegated_token = str(token)
+        headers.append(("X-Auth-Request-Token", delegated_token))
     elif auth_config.delegate_to:
         # Delegated scopes are optional; if the authenticating token doesn't
         # have the scope, it's omitted from the delegated token.  (To make it
@@ -411,6 +397,27 @@ async def build_success_headers(
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )
-        headers["X-Auth-Request-Token"] = str(token)
+        delegated_token = str(token)
+        headers.append(("X-Auth-Request-Token", delegated_token))
+
+    # If told to put the delegated token in the Authorization header, do that.
+    # Otherwise, strip authentication tokens from the Authorization headers of
+    # the incoming request and reflect the remainder back in the response.
+    # Always do this with the Cookie header.  ingress-nginx can then be
+    # configured to lift those headers up into the proxy request, preventing
+    # the user's cookie from being passed down to the protected application.
+    if auth_config.use_authorization:
+        if delegated_token:
+            headers.append(("Authorization", f"Bearer {delegated_token}"))
+    elif "Authorization" in context.request.headers:
+        raw_authorizations = context.request.headers.getlist("Authorization")
+        authorizations = clean_authorization(raw_authorizations)
+        if authorizations:
+            headers.extend(("Authorization", v) for v in authorizations)
+    if "Cookie" in context.request.headers:
+        raw_cookies = context.request.headers.getlist("Cookie")
+        cookies = clean_cookies(raw_cookies)
+        if cookies:
+            headers.extend(("Cookie", v) for v in cookies)
 
     return headers

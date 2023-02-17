@@ -14,6 +14,7 @@ from kubernetes_asyncio.client import (
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
+from ..constants import NGINX_SNIPPET
 from ..exceptions import (
     KubernetesError,
     PermissionDeniedError,
@@ -89,13 +90,10 @@ class KubernetesIngressService:
             raise
         return await self._update_ingress(old_ingress, new_ingress, parent)
 
-    def _build_kubernetes_ingress(
-        self, ingress: GafaelfawrIngress
-    ) -> V1Ingress:
-        """Construct a Kubernetes ``Ingress`` from a ``GafaelfawrIngress``."""
+    def _build_annotations(self, ingress: GafaelfawrIngress) -> dict[str, str]:
+        """Build annotations for an ``Ingress``."""
         base_url = ingress.config.base_url.rstrip("/")
 
-        auth_url = f"{base_url}/auth"
         query = [("scope", s) for s in ingress.config.scopes.scopes]
         if ingress.config.scopes.satisfy != Satisfy.ALL:
             query.append(("satisfy", ingress.config.scopes.satisfy.value))
@@ -111,11 +109,20 @@ class KubernetesIngressService:
                 minimum_lifetime = ingress.config.delegate.minimum_lifetime
                 minimum_str = str(int(minimum_lifetime.total_seconds()))
                 query.append(("minimum_lifetime", minimum_str))
+            if ingress.config.delegate.use_authorization:
+                query.append(("use_authorization", "true"))
         if ingress.config.auth_type:
             query.append(("auth_type", ingress.config.auth_type.value))
-        auth_url += "?" + urlencode(query)
+        auth_url = f"{base_url}/auth?" + urlencode(query)
 
-        headers = "X-Auth-Request-Email,X-Auth-Request-User"
+        snippet_key = "nginx.ingress.kubernetes.io/configuration-snippet"
+        snippet = ingress.template.metadata.annotations.get(snippet_key, "")
+        if snippet and not snippet.endswith("\n"):
+            snippet += "\n"
+        snippet += NGINX_SNIPPET
+        headers = (
+            "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
+        )
         if ingress.config.delegate:
             headers += ",X-Auth-Request-Token"
         annotations = {
@@ -123,15 +130,36 @@ class KubernetesIngressService:
             "nginx.ingress.kubernetes.io/auth-method": "GET",
             "nginx.ingress.kubernetes.io/auth-response-headers": headers,
             "nginx.ingress.kubernetes.io/auth-url": auth_url,
+            snippet_key: snippet,
         }
         if ingress.config.login_redirect:
             url = f"{base_url}/login"
             annotations["nginx.ingress.kubernetes.io/auth-signin"] = url
-        if ingress.config.replace_403:
-            snippet_key = "nginx.ingress.kubernetes.io/configuration-snippet"
-            forbidden_url = f"/auth/forbidden?{urlencode(query)}"
-            snippet = f'error_page 403 = "{forbidden_url}";'
-            annotations[snippet_key] = snippet
+
+        return annotations
+
+    def _build_anonymous_annotations(
+        self, ingress: GafaelfawrIngress
+    ) -> dict[str, str]:
+        """Build annotations for an anonymous ``Ingress``."""
+        base_url = ingress.config.base_url.rstrip("/")
+        auth_url = f"{base_url}/auth/anonymous"
+        headers = "Authorization,Cookie"
+        return {
+            **ingress.template.metadata.annotations,
+            "nginx.ingress.kubernetes.io/auth-method": "GET",
+            "nginx.ingress.kubernetes.io/auth-response-headers": headers,
+            "nginx.ingress.kubernetes.io/auth-url": auth_url,
+        }
+
+    def _build_kubernetes_ingress(
+        self, ingress: GafaelfawrIngress
+    ) -> V1Ingress:
+        """Construct a Kubernetes ``Ingress`` from a ``GafaelfawrIngress``."""
+        if ingress.config.scopes.is_anonymous():
+            annotations = self._build_anonymous_annotations(ingress)
+        else:
+            annotations = self._build_annotations(ingress)
 
         tls = None
         if ingress.template.spec.tls:

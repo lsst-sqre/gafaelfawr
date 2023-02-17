@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional
+from typing import Any, Literal, Optional
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -17,8 +17,12 @@ from kubernetes_asyncio.client import (
     V1IngressTLS,
     V1ServiceBackendPort,
 )
-from pydantic import BaseModel, Extra, Field, validator
-from safir.pydantic import to_camel_case, validate_exactly_one_of
+from pydantic import Extra, Field, root_validator, validator
+from safir.pydantic import (
+    CamelCaseModel,
+    to_camel_case,
+    validate_exactly_one_of,
+)
 
 from ..util import current_datetime, normalize_timedelta
 from .auth import AuthType, Satisfy
@@ -53,7 +57,7 @@ __all__ = [
 ]
 
 
-class KubernetesMetadata(BaseModel):
+class KubernetesMetadata(CamelCaseModel):
     """The metadata section of a Kubernetes resource."""
 
     name: str
@@ -88,7 +92,7 @@ class KubernetesMetadata(BaseModel):
         }
 
 
-class KubernetesResource(BaseModel):
+class KubernetesResource(CamelCaseModel):
     """A Kubernetes resource being processed by an operator.
 
     Intended for use as a parent class for all operator resources.  This holds
@@ -105,7 +109,7 @@ class KubernetesResource(BaseModel):
         return f"{self.metadata.namespace}/{self.metadata.name}"
 
 
-class GafaelfawrIngressDelegateInternal(BaseModel):
+class GafaelfawrIngressDelegateInternal(CamelCaseModel):
     """Configuration for a delegated internal token."""
 
     service: str
@@ -115,7 +119,7 @@ class GafaelfawrIngressDelegateInternal(BaseModel):
     """The requested scopes of the delegated token."""
 
 
-class GafaelfawrIngressDelegateNotebook(BaseModel):
+class GafaelfawrIngressDelegateNotebook(CamelCaseModel):
     """Configuration for a delegated notebook token.
 
     Notes
@@ -127,7 +131,7 @@ class GafaelfawrIngressDelegateNotebook(BaseModel):
     """
 
 
-class GafaelfawrIngressDelegate(BaseModel):
+class GafaelfawrIngressDelegate(CamelCaseModel):
     """Configuration for delegated tokens requested for a service."""
 
     notebook: Optional[GafaelfawrIngressDelegateNotebook] = None
@@ -139,6 +143,9 @@ class GafaelfawrIngressDelegate(BaseModel):
     minimum_lifetime: Optional[timedelta] = None
     """The minimum lifetime of the delegated token."""
 
+    use_authorization: bool = False
+    """Whether to put the delegated token in the ``Authorization`` header."""
+
     _normalize_minimum_lifetime = validator(
         "minimum_lifetime", allow_reuse=True, pre=True
     )(normalize_timedelta)
@@ -147,13 +154,8 @@ class GafaelfawrIngressDelegate(BaseModel):
         validate_exactly_one_of("notebook", "internal")
     )
 
-    class Config:
-        """Pydantic configuration."""
 
-        alias_generator = to_camel_case
-
-
-class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
+class GafaelfawrIngressScopesBase(CamelCaseModel, metaclass=ABCMeta):
     """Base class for specifying the required scopes.
 
     Required scopes can be specified in one of two ways: a list of scopes that
@@ -171,6 +173,10 @@ class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
     @abstractmethod
     def scopes(self) -> list[str]:
         """List of scopes."""
+
+    @abstractmethod
+    def is_anonymous(self) -> bool:
+        """Whether this ingress is anonymous."""
 
     class Config:
         """Pydantic configuration."""
@@ -194,6 +200,10 @@ class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
         """List of scopes."""
         return self.all
 
+    def is_anonymous(self) -> bool:
+        """Whether this ingress is anonymous."""
+        return False
+
 
 class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
     """Represents scopes where any scope is sufficient."""
@@ -211,18 +221,43 @@ class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
         """List of scopes."""
         return self.any
 
+    def is_anonymous(self) -> bool:
+        """Whether this ingress is anonymous."""
+        return False
 
-class GafaelfawrIngressConfig(BaseModel):
+
+class GafaelfawrIngressScopesAnonymous(GafaelfawrIngressScopesBase):
+    """Represents anonymous access."""
+
+    anonymous: Literal[True]
+    """Mark this ingress as anonymous."""
+
+    @property
+    def satisfy(self) -> Satisfy:
+        """The authorization satisfy strategy."""
+        return Satisfy.ANY
+
+    @property
+    def scopes(self) -> list[str]:
+        """List of scopes."""
+        return []
+
+    def is_anonymous(self) -> bool:
+        """Whether this ingress is anonymous."""
+        return True
+
+
+class GafaelfawrIngressConfig(CamelCaseModel):
     """Configuration settings for an ingress using Gafaelfawr for auth."""
 
     base_url: str
     """The base URL for Gafaelfawr URLs in Ingress annotations."""
 
-    scopes: GafaelfawrIngressScopesAll | GafaelfawrIngressScopesAny
-    """The scopes to require for access."""
-
     auth_type: Optional[AuthType] = None
     """Auth type of challenge for 401 responses."""
+
+    delegate: Optional[GafaelfawrIngressDelegate] = None
+    """Details of the requested delegated token, if any."""
 
     login_redirect: bool = False
     """Whether to redirect unauthenticated users to the login flow."""
@@ -230,16 +265,41 @@ class GafaelfawrIngressConfig(BaseModel):
     replace_403: bool = False
     """Whether to generate a custom error response for 403 errors."""
 
-    delegate: Optional[GafaelfawrIngressDelegate] = None
-    """Details of the requested delegated token, if any."""
+    scopes: (
+        GafaelfawrIngressScopesAll
+        | GafaelfawrIngressScopesAny
+        | GafaelfawrIngressScopesAnonymous
+    )
+    """The scopes to require for access."""
 
-    class Config:
-        """Pydantic configuration."""
+    @root_validator
+    def _validate_conflicts(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Check for conflicts between settings.
 
-        alias_generator = to_camel_case
+        Notes
+        -----
+        Ideally, all of these checks would be represented in the Kubernetes
+        schema to make them much less likely, but my JSON schema validation
+        skill is not up to the task.
+        """
+        if values.get("auth_type") == AuthType.Basic:
+            if values.get("login_redirect"):
+                msg = "authType: basic has no effect when loginRedirect is set"
+                raise ValueError(msg)
+
+        scopes = values.get("scopes")
+        if scopes and scopes.is_anonymous():
+            fields = ("auth_type", "delegate", "login_redirect", "replace_403")
+            for snake_name in fields:
+                if values.get(snake_name):
+                    camel_name = to_camel_case(snake_name)
+                    msg = f"{camel_name} has no effect for anonymous ingresses"
+                    raise ValueError(msg)
+
+        return values
 
 
-class GafaelfawrIngressMetadata(BaseModel):
+class GafaelfawrIngressMetadata(CamelCaseModel):
     """Metadata used to create an ``Ingress`` object."""
 
     name: str
@@ -265,7 +325,7 @@ class PathType(Enum):
     """Use longest prefix matching to find the correct rule."""
 
 
-class GafaelfawrServicePortName(BaseModel):
+class GafaelfawrServicePortName(CamelCaseModel):
     """Port for a service."""
 
     name: str
@@ -281,7 +341,7 @@ class GafaelfawrServicePortName(BaseModel):
         return V1ServiceBackendPort(name=self.name)
 
 
-class GafaelfawrServicePortNumber(BaseModel):
+class GafaelfawrServicePortNumber(CamelCaseModel):
     """Port for a service."""
 
     number: int
@@ -297,7 +357,7 @@ class GafaelfawrServicePortNumber(BaseModel):
         return V1ServiceBackendPort(number=self.number)
 
 
-class GafaelfawrIngressPathService(BaseModel):
+class GafaelfawrIngressPathService(CamelCaseModel):
     """Service that serves a given path."""
 
     name: str
@@ -313,7 +373,7 @@ class GafaelfawrIngressPathService(BaseModel):
         )
 
 
-class GafaelfawrIngressPathBackend(BaseModel):
+class GafaelfawrIngressPathBackend(CamelCaseModel):
     """Backend that serves a given path."""
 
     service: GafaelfawrIngressPathService
@@ -324,7 +384,7 @@ class GafaelfawrIngressPathBackend(BaseModel):
         return V1IngressBackend(service=self.service.to_kubernetes())
 
 
-class GafaelfawrIngressPath(BaseModel):
+class GafaelfawrIngressPath(CamelCaseModel):
     """A path routing rule for an ingress."""
 
     path: str
@@ -336,11 +396,6 @@ class GafaelfawrIngressPath(BaseModel):
     backend: GafaelfawrIngressPathBackend
     """Backend that serves this path."""
 
-    class Config:
-        """Pydantic configuration."""
-
-        alias_generator = to_camel_case
-
     def to_kubernetes(self) -> V1HTTPIngressPath:
         """Convert to the Kubernetes API object."""
         return V1HTTPIngressPath(
@@ -350,7 +405,7 @@ class GafaelfawrIngressPath(BaseModel):
         )
 
 
-class GafaelfawrIngressRuleHTTP(BaseModel):
+class GafaelfawrIngressRuleHTTP(CamelCaseModel):
     """Routing rules for HTTP access."""
 
     paths: list[GafaelfawrIngressPath]
@@ -363,7 +418,7 @@ class GafaelfawrIngressRuleHTTP(BaseModel):
         )
 
 
-class GafaelfawrIngressRule(BaseModel):
+class GafaelfawrIngressRule(CamelCaseModel):
     """A routing rule for an ingress."""
 
     host: str
@@ -377,7 +432,7 @@ class GafaelfawrIngressRule(BaseModel):
         return V1IngressRule(host=self.host, http=self.http.to_kubernetes())
 
 
-class GafaelfawrIngressTLS(BaseModel):
+class GafaelfawrIngressTLS(CamelCaseModel):
     """A TLS certificate rule for an ingress."""
 
     hosts: list[str]
@@ -388,17 +443,12 @@ class GafaelfawrIngressTLS(BaseModel):
     secret_name: str
     """The name of the secret containing the TLS certificate."""
 
-    class Config:
-        """Pydantic configuration."""
-
-        alias_generator = to_camel_case
-
     def to_kubernetes(self) -> V1IngressTLS:
         """Convert to the Kubernetes API object."""
         return V1IngressTLS(hosts=self.hosts, secret_name=self.secret_name)
 
 
-class GafaelfawrIngressSpec(BaseModel):
+class GafaelfawrIngressSpec(CamelCaseModel):
     """Template for ``spec`` portion of ``Ingress`` resource."""
 
     rules: list[GafaelfawrIngressRule]
@@ -408,7 +458,7 @@ class GafaelfawrIngressSpec(BaseModel):
     """The TLS certificate rules."""
 
 
-class GafaelfawrIngressTemplate(BaseModel):
+class GafaelfawrIngressTemplate(CamelCaseModel):
     """Template for ``Ingress`` created from ``GafaelfawrIngress`` resource."""
 
     metadata: GafaelfawrIngressMetadata
@@ -428,7 +478,7 @@ class GafaelfawrIngress(KubernetesResource):
     """Template for the ``Ingress`` resource to create."""
 
 
-class GafaelfawrServiceTokenSpec(BaseModel):
+class GafaelfawrServiceTokenSpec(CamelCaseModel):
     """Holds the ``spec`` section of a ``GafaelfawrServiceToken`` resource."""
 
     service: str

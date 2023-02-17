@@ -10,12 +10,14 @@ import pytest
 from httpx import AsyncClient
 
 from gafaelfawr.config import Config
-from gafaelfawr.constants import MINIMUM_LIFETIME
+from gafaelfawr.constants import COOKIE_NAME, MINIMUM_LIFETIME
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.token import Token, TokenUserInfo
 from gafaelfawr.util import current_datetime
 
+from ..support.constants import TEST_HOSTNAME
+from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
@@ -91,7 +93,9 @@ async def test_invalid_auth(
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "400"
+    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -103,7 +107,9 @@ async def test_invalid_auth(
         params={"scope": "exec:admin"},
         headers={"Authorization": "token foo"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "400"
+    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -171,39 +177,6 @@ async def test_access_denied(
 
 
 @pytest.mark.asyncio
-async def test_auth_forbidden(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
-) -> None:
-    r = await client.get(
-        "/auth/forbidden",
-        params=[("scope", "exec:test"), ("scope", "exec:admin")],
-    )
-    assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
-    assert authenticate.error == AuthError.insufficient_scope
-    assert authenticate.scope == "exec:admin exec:test"
-    assert "Token missing required scope" in r.text
-
-    r = await client.get(
-        "/auth/forbidden", params={"scope": "exec:admin", "auth_type": "basic"}
-    )
-    assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert not isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Basic
-    assert authenticate.realm == config.realm
-    assert "Token missing required scope" in r.text
-
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
-
-
-@pytest.mark.asyncio
 async def test_satisfy_all(
     client: AsyncClient,
     config: Config,
@@ -259,7 +232,7 @@ async def test_success_minimal(client: AsyncClient, factory: Factory) -> None:
     r = await client.get(
         "/auth",
         params={"scope": "read:all"},
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer   {token}"},
     )
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "user"
@@ -500,12 +473,14 @@ async def test_success_any(client: AsyncClient, factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_basic(client: AsyncClient, factory: Factory) -> None:
+async def test_basic(
+    client: AsyncClient, config: Config, factory: Factory
+) -> None:
     token_data = await create_session_token(
         factory, group_names=["test"], scopes=["exec:admin"]
     )
 
-    basic = f"{token_data.token}:x-oauth-basic".encode()
+    basic = f"{token_data.token}:blahblahblah".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
@@ -515,7 +490,7 @@ async def test_basic(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == token_data.username
 
-    basic = f"x-oauth-basic:{token_data.token}".encode()
+    basic = f"{token_data.token}:".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
@@ -525,17 +500,53 @@ async def test_basic(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == token_data.username
 
-    # We currently fall back on using the username if x-oauth-basic doesn't
-    # appear anywhere in the auth string.
-    basic = f"{token_data.token}:something-else".encode()
+    basic = f"blahblahblah:{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
         "/auth",
         params={"scope": "exec:admin"},
-        headers={"Authorization": f"Basic {basic_b64}"},
+        headers={"Authorization": f"Basic  {basic_b64}"},
     )
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == token_data.username
+
+    basic = f":{token_data.token}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic  {basic_b64}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == token_data.username
+
+    # If there are two tokens that match, this is fine.
+    basic = f"{token_data.token}:{token_data.token}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic  {basic_b64}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == token_data.username
+
+    # If there are two tokens that conflict, raise an error.
+    basic = f"{token_data.token}:{Token()}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "exec:admin"},
+        headers={"Authorization": f"Basic  {basic_b64}"},
+    )
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "400"
+    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == config.realm
+    assert authenticate.error == AuthError.invalid_request
 
 
 @pytest.mark.asyncio
@@ -548,7 +559,9 @@ async def test_basic_failure(
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "400"
+    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -746,3 +759,239 @@ async def test_default_minimum_lifetime(
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.error == AuthError.invalid_token
+
+
+@pytest.mark.asyncio
+async def test_authorization_filtering(
+    client: AsyncClient, factory: Factory
+) -> None:
+    token_data = await create_session_token(factory, scopes=["read:all"])
+
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers={"Authorization": f"bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+
+    basic = f"{token_data.token}:x-oauth-basic".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers=[
+            ("Authorization", f"Basic {basic_b64}"),
+            ("Authorization", "token some-other-token"),
+        ],
+    )
+    assert r.status_code == 200
+    assert r.headers["Authorization"] == "token some-other-token"
+
+    basic = f"x-oauth-basic:{token_data.token}".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers=[
+            ("Authorization", f"BASIC {basic_b64}"),
+            ("Authorization", f"bearer {token_data.token}"),
+        ],
+    )
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+
+    basic = f"{token_data.token}:something-else".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers={"Authorization": f"Basic {basic_b64}"},
+    )
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers=[
+            ("Authorization", f"Basic  {basic_b64}"),
+            ("Authorization", "some broken stuff"),
+            ("Authorization", f"BEARER   {token_data.token}"),
+            ("Authorization", "basic"),
+            ("Authorization", "basic notreally:base64"),
+        ],
+    )
+    assert r.status_code == 200
+    assert r.headers.get_list("Authorization") == [
+        "some broken stuff",
+        "basic",
+        "basic notreally:base64",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_cookie_filtering(client: AsyncClient, factory: Factory) -> None:
+    token_data = await create_session_token(factory, scopes=["read:all"])
+    await set_session_cookie(client, token_data.token)
+
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert "Cookie" not in r.headers
+
+    client.cookies.set("_other", "somevalue", domain=TEST_HOSTNAME)
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["Cookie"] == "_other=somevalue"
+
+    clear_session_cookie(client)
+    del client.cookies["_other"]
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers={
+            "Authorization": f"bearer {token_data.token}",
+            "Cookie": f"foo=bar; {COOKIE_NAME}=blah; {COOKIE_NAME}blah=blah",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["Cookie"] == f"foo=bar; {COOKIE_NAME}blah=blah"
+
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all"},
+        headers=[
+            ("Authorization", f"bearer {token_data.token}"),
+            ("Cookie", f"{COOKIE_NAME}=blah; foo=bar; invalid"),
+            ("Cookie", f"also invalid; {COOKIE_NAME}=stuff"),
+            ("Cookie", f"{COOKIE_NAME}stuff"),
+        ],
+    )
+    assert r.status_code == 200
+    assert r.headers.get_list("Cookie") == [
+        "foo=bar; invalid",
+        "also invalid",
+        f"{COOKIE_NAME}stuff",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_delegate_authorization(
+    client: AsyncClient, factory: Factory
+) -> None:
+    token_data = await create_session_token(factory, scopes=["read:all"])
+
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:all",
+            "notebook": "true",
+            "use_authorization": "true",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    notebook_token = r.headers["X-Auth-Request-Token"]
+    assert notebook_token != token_data.token
+    assert r.headers["Authorization"] == f"Bearer {notebook_token}"
+
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:all",
+            "delegate_to": "service",
+            "delegate_scopes": "read:all",
+            "use_authorization": "true",
+        },
+        headers=[
+            ("Authorization", f"Bearer {token_data.token}"),
+            ("Authorization", "token some-other-token"),
+        ],
+    )
+    assert r.status_code == 200
+    internal_token = r.headers["X-Auth-Request-Token"]
+    assert internal_token != token_data.token
+    assert internal_token != notebook_token
+    assert r.headers["Authorization"] == f"Bearer {internal_token}"
+
+    # If there's no delegation but use_authorization is true, don't pass along
+    # any Authorization headers.
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all", "use_authorization": "true"},
+        headers=[
+            ("Authorization", f"Bearer {token_data.token}"),
+            ("Authorization", "token some-other-token"),
+        ],
+    )
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+
+
+@pytest.mark.asyncio
+async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
+    token_data = await create_session_token(factory, scopes=["read:all"])
+    await set_session_cookie(client, token_data.token)
+
+    r = await client.get("/auth/anonymous")
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+    assert "Cookie" not in r.headers
+
+    client.cookies.set("_other", "somevalue", domain=TEST_HOSTNAME)
+    r = await client.get(
+        "/auth/anonymous", headers={"Authorization": f"Bearer {Token()}"}
+    )
+    assert r.status_code == 200
+    assert "Authorization" not in r.headers
+    assert r.headers["Cookie"] == "_other=somevalue"
+
+    clear_session_cookie(client)
+    del client.cookies["_other"]
+    r = await client.get(
+        "/auth/anonymous",
+        params={"scope": "read:all"},
+        headers={
+            "Authorization": "token some-other-token",
+            "Cookie": f"foo=bar; {COOKIE_NAME}=blah; {COOKIE_NAME}blah=blah",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["Authorization"] == "token some-other-token"
+    assert r.headers["Cookie"] == f"foo=bar; {COOKIE_NAME}blah=blah"
+
+    basic = f"{Token()}:something-else".encode()
+    basic_b64 = base64.b64encode(basic).decode()
+    r = await client.get(
+        "/auth/anonymous",
+        params={"scope": "read:all"},
+        headers=[
+            ("Authorization", f"Basic  {basic_b64}"),
+            ("Authorization", "some broken stuff"),
+            ("Authorization", f"BEARER   {Token()}"),
+            ("Authorization", "basic"),
+            ("Authorization", "basic notreally:base64"),
+            ("Cookie", f"{COOKIE_NAME}=blah; foo=bar; invalid"),
+            ("Cookie", f"also invalid; {COOKIE_NAME}=stuff"),
+            ("Cookie", f"{COOKIE_NAME}stuff"),
+        ],
+    )
+    assert r.status_code == 200
+    assert r.headers.get_list("Authorization") == [
+        "some broken stuff",
+        "basic",
+        "basic notreally:base64",
+    ]
+    assert r.headers.get_list("Cookie") == [
+        "foo=bar; invalid",
+        "also invalid",
+        f"{COOKIE_NAME}stuff",
+    ]

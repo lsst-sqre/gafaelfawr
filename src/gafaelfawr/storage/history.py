@@ -224,9 +224,9 @@ class TokenChangeHistoryStore:
         # Execute the query twice, once to get the next bach of results and
         # once to get the count of all entries without pagination.
         result = await self._session.scalars(limited_stmt)
-        entries = result.all()
+        entries = list(result.all())
         count_stmt = select(func.count()).select_from(stmt.subquery())
-        count = await self._session.scalar(count_stmt)
+        count = await self._session.scalar(count_stmt) or 0
 
         # Calculate the cursors, remove the extra element we asked for, and
         # reverse the results again if we did a reverse sort because we were

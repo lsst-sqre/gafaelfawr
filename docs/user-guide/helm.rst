@@ -4,7 +4,7 @@
 Helm configuration
 ##################
 
-Gafaelfawr is configured as a Phalanx_ application, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/master/services/gafaelfawr/>`__.
+Gafaelfawr is configured as a Phalanx_ application, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/main/applications/gafaelfawr/>`__.
 You will need to provide a ``values-<environment>.yaml`` file for your Phalanx environment.
 Below are the most-commonly-used settings.
 
@@ -353,6 +353,9 @@ The group can be given in one of two ways: either a simple string giving the nam
      organization: "lsst-sqre"
      team: "friends"
 
+Both ``organization`` and ``team`` must be given.
+It is not possible to do access control based only on organizational membership.
+
 The value of ``organization`` must be the ``login`` attribute of the organization, and the value of ``team`` must be the ``slug`` attribute of the team.
 (Generally the latter is the name of the team converted to lowercase with spaces and other special characters replaced with ``-``.)
 
@@ -362,7 +365,7 @@ A complete setting for GitHub might look something like this:
 
    config:
      groupMapping:
-       "exec:admin":
+       "admin:token":
          - github:
              organization: "lsst-sqre"
              team: "square"
@@ -374,13 +377,6 @@ A complete setting for GitHub might look something like this:
              organization: "lsst-sqre"
              team: "friends"
        "exec:portal":
-         - github:
-             organization: "lsst-sqre"
-             team: "square"
-         - github:
-             organization: "lsst-sqre"
-             team: "friends"
-       "exec:user":
          - github:
              organization: "lsst-sqre"
              team: "square"
@@ -536,7 +532,7 @@ The audit job looks for data inconsistencies and reports them to Slack.
 By default, it runs once a day at 03:00 in the time zone of the Kubernetes cluster.
 Its schedule can be set with ``config.maintenance.auditSchedule`` (a `cron schedule expression`_).
 
-.. _cron schedule expression: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#cron-schedule-syntax
+.. _cron schedule expression: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
 
 OpenID Connect server
 =====================

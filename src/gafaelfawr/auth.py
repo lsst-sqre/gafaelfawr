@@ -1,12 +1,14 @@
-"""Authentication dependencies for route handlers."""
+"""Utility functions for manipulating authentication headers."""
 
 from __future__ import annotations
 
 import base64
+import json
 from typing import Optional
 
 from fastapi import HTTPException, status
 
+from .constants import COOKIE_NAME
 from .dependencies.context import RequestContext
 from .exceptions import (
     InvalidRequestError,
@@ -14,12 +16,109 @@ from .exceptions import (
     OAuthBearerError,
 )
 from .models.auth import AuthChallenge, AuthError, AuthErrorChallenge, AuthType
+from .models.token import Token
 
 __all__ = [
+    "clean_authorization",
+    "clean_cookies",
     "generate_challenge",
     "generate_unauthorized_challenge",
     "parse_authorization",
 ]
+
+
+def _find_token_in_basic_auth(auth: str) -> str | None:
+    """Try to find a Gafaelfawr token in a Basic ``Authorization`` header.
+
+    Parameters
+    ----------
+    auth
+        The HTTP Basic authorization string.
+
+    Returns
+    -------
+    str or None
+        The Gafaelfawr token string if found, else `None`.
+    """
+    try:
+        basic_auth = base64.b64decode(auth).decode()
+        candidates = basic_auth.strip().split(":")
+    except Exception:
+        return None
+    for candidate in candidates:
+        if Token.is_token(candidate):
+            return candidate
+    return None
+
+
+def clean_authorization(headers: list[str]) -> list[str]:
+    """Remove Gafaelfawr tokens from ``Authorization`` headers.
+
+    Parameters
+    ----------
+    headers
+        The ``Authorization`` headers of an incoming request, as a list
+        (allowing for the case that the incoming request had multiple headers
+        named ``Authorization``).
+
+    Returns
+    -------
+    list of str
+        Any remaining ``Authorization`` headers after removing headers
+        containing Gafaelfawr tokens.
+
+    Notes
+    -----
+    We don't drop all ``Authorization`` because Gafaelfawr may be doing
+    stripping for anonymous routes that may be in front of services doing
+    their own authentication, possibly with authentication types we don't
+    recognize.
+    """
+    output = []
+    for header in headers:
+        if " " not in header:
+            output.append(header)
+            continue
+        auth_type, auth_blob = header.split(None, 1)
+        if auth_type.lower() == "bearer":
+            if not Token.is_token(auth_blob):
+                output.append(header)
+        elif auth_type.lower() == "basic":
+            if not _find_token_in_basic_auth(auth_blob):
+                output.append(header)
+        else:
+            output.append(header)
+    return output
+
+
+def clean_cookies(headers: list[str]) -> list[str]:
+    """Remove Gafaelfawr cookies from cookie headers.
+
+    Parameters
+    ----------
+    headers
+        The ``Cookie`` headers of an incoming request, as a list (allowing for
+        the case that the incoming request had multiple headers named
+        ``Cookie``).
+
+    Returns
+    -------
+    list of str
+        Any remaining ``Cookie`` headers after removing Gafaelfawr cookies.
+    """
+    output = []
+    for header in headers:
+        keep = []
+        for cookie in header.split("; "):
+            if "=" in cookie:
+                name, _ = cookie.split("=", 1)
+                if name != COOKIE_NAME:
+                    keep.append(cookie)
+            else:
+                keep.append(cookie)
+        if keep:
+            output.append("; ".join(keep))
+    return output
 
 
 def generate_challenge(
@@ -27,8 +126,21 @@ def generate_challenge(
     auth_type: AuthType,
     exc: OAuthBearerError,
     scopes: Optional[set[str]] = None,
+    *,
+    error_in_headers: bool = True,
 ) -> HTTPException:
     """Convert an exception into an HTTP error with ``WWW-Authenticate``.
+
+    Always return a status code of 401 or 403, even if we want to return a
+    different status code to the client, but put the actual status code in
+    ``X-Error-Status``.  This works around limitations of the NGINX
+    ``auth_request`` module, which can only handle 401 and 403 status codes.
+    The status code will be retrieved from the headers and fixed by custom
+    NGINX configuration in an ``error_page`` location.
+
+    Similarly, put the actual body of the error in ``X-Error-Body`` so that it
+    can be retrieved and sent to the client.  Normally, NGINX discards the
+    body returned by an ``auth_request`` handler.
 
     Parameters
     ----------
@@ -41,6 +153,9 @@ def generate_challenge(
     scopes
         Optional scopes to include in the challenge, primarily intended for
         `~gafaelfawr.exceptions.InsufficientScopeError` exceptions.
+    error_in_headers
+        Whether to put the actual error status in ``X-Error-Status`` instead
+        of raising it.  Disable this for OpenID Connect routes.
 
     Returns
     -------
@@ -56,14 +171,19 @@ def generate_challenge(
         error_description=str(exc),
         scope=" ".join(sorted(scopes)) if scopes else None,
     )
+    detail = {"msg": str(exc), "type": exc.error}
     headers = {
         "Cache-Control": "no-cache, must-revalidate",
         "WWW-Authenticate": challenge.to_header(),
     }
+    if error_in_headers:
+        headers["X-Error-Status"] = str(exc.status_code)
+        headers["X-Error-Body"] = json.dumps({"detail": detail})
+        status_code = exc.status_code if exc.status_code in (401, 403) else 403
+    else:
+        status_code = exc.status_code
     return HTTPException(
-        headers=headers,
-        status_code=exc.status_code,
-        detail={"msg": str(exc), "type": exc.error},
+        headers=headers, status_code=status_code, detail=detail
     )
 
 
@@ -194,7 +314,7 @@ def parse_authorization(context: RequestContext) -> str | None:
         return None
     if " " not in header:
         raise InvalidRequestError("Malformed Authorization header")
-    auth_type, auth_blob = header.split(" ")
+    auth_type, auth_blob = header.split(None, 1)
     if auth_type.lower() == "bearer":
         context.rebind_logger(token_source="bearer")
         return auth_blob
@@ -203,23 +323,23 @@ def parse_authorization(context: RequestContext) -> str | None:
     if auth_type.lower() != "basic":
         raise InvalidRequestError(f"Unknown Authorization type {auth_type}")
 
-    # Basic, the complicated part because we are very flexible.
+    # Basic, the complicated part because we are very flexible.  We accept the
+    # token in either username or password.  If there is a token in both, we
+    # use the one in username.
     try:
         basic_auth = base64.b64decode(auth_blob).decode()
         user, password = basic_auth.strip().split(":")
     except Exception as e:
         msg = f"Invalid Basic auth string: {str(e)}"
         raise InvalidRequestError(msg) from e
-    if password == "x-oauth-basic":
+    if Token.is_token(user):
         context.rebind_logger(token_source="basic-username")
+        if Token.is_token(password) and user != password:
+            msg = "Conflicting tokens in Basic username and password fields"
+            raise InvalidRequestError(msg)
         return user
-    elif user == "x-oauth-basic":
+    elif Token.is_token(password):
         context.rebind_logger(token_source="basic-password")
         return password
     else:
-        context.logger.info(
-            "Neither username nor password in HTTP Basic is x-oauth-basic,"
-            " assuming handle or token is username"
-        )
-        context.rebind_logger(token_source="basic-username")
-        return user
+        return None
