@@ -213,6 +213,7 @@ class LDAPSettings(CamelCaseModel):
     requiring it to appear in LDAP.
     """
 
+
 class IDMSettings(CamelCaseModel):
     """pydantic model of IDM configuration."""
 
@@ -604,6 +605,7 @@ class LDAPConfig:
     matches the username and UID, adding it to the group list without
     requiring it to appear in LDAP.
     """
+
 
 @dataclass(frozen=True, slots=True)
 class IDMConfig:
