@@ -343,12 +343,7 @@ async def test_token_info(
         "email": "example@example.com",
         "uid": 45613,
         "gid": 12345,
-        "groups": [
-            {
-                "name": "foo",
-                "id": 12313,
-            }
-        ],
+        "groups": [{"name": "foo", "id": 12313}],
     }
 
     # Check the same with a user token, which has some additional associated
@@ -777,9 +772,7 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
     assert r.json()["expires"] == int(expires.timestamp())
 
     r = await client.patch(
-        token_url,
-        headers={"X-CSRF-Token": csrf},
-        json={"expires": None},
+        token_url, headers={"X-CSRF-Token": csrf}, json={"expires": None}
     )
     assert r.status_code == 200
     assert "expires" not in r.json()
@@ -1328,10 +1321,7 @@ async def test_create_admin_firestore(
         headers={"Authorization": f"bearer {str(service_token)}"},
     )
     assert r.status_code == 200
-    assert r.json() == {
-        "username": "bot-user",
-        "uid": UID_BOT_MIN,
-    }
+    assert r.json() == {"username": "bot-user", "uid": UID_BOT_MIN}
 
 
 @pytest.mark.asyncio

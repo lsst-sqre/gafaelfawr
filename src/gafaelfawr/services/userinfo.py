@@ -15,7 +15,13 @@ from ..exceptions import (
 )
 from ..models.ldap import LDAPUserData
 from ..models.oidc import OIDCVerifiedToken
-from ..models.token import TokenData, TokenGroup, TokenUserInfo
+from ..models.token import (
+    NotebookQuota,
+    Quota,
+    TokenData,
+    TokenGroup,
+    TokenUserInfo,
+)
 from ..services.firestore import FirestoreService
 from ..services.ldap import LDAPService
 
@@ -108,6 +114,7 @@ class UserInfoService:
                 gid=token_data.gid,
                 email=token_data.email,
                 groups=token_data.groups,
+                quota=self._calculate_quota(token_data.groups),
             )
 
         # Otherwise, try retrieving data from LDAP if it's not already set in
@@ -146,6 +153,7 @@ class UserInfoService:
             gid=gid,
             email=token_data.email or ldap_data.email,
             groups=sorted(groups, key=lambda g: g.name),
+            quota=self._calculate_quota(groups),
         )
 
     async def get_scopes(self, user_info: TokenUserInfo) -> list[str] | None:
@@ -237,6 +245,49 @@ class UserInfoService:
         """
         if self._ldap:
             await self._ldap.invalidate_cache(username)
+
+    def _calculate_quota(
+        self, groups: list[TokenGroup] | None
+    ) -> Quota | None:
+        """Calculate the quota for a user.
+
+        Parameters
+        ----------
+        groups
+            The user's group membership.
+
+        Returns
+        -------
+        gafaelfawr.models.token.Quota
+            Quota information for that user.
+        """
+        if not self._config.quota:
+            return None
+        api = dict(self._config.quota.default.api)
+        notebook = None
+        if self._config.quota.default.notebook:
+            notebook = NotebookQuota(
+                cpu=self._config.quota.default.notebook.cpu,
+                memory=self._config.quota.default.notebook.memory,
+            )
+        for group in groups or []:
+            if group.name in self._config.quota.groups:
+                extra = self._config.quota.groups[group.name]
+                if extra.notebook:
+                    if notebook:
+                        notebook.cpu += extra.notebook.cpu
+                        notebook.memory += extra.notebook.memory
+                    else:
+                        notebook = NotebookQuota(
+                            cpu=extra.notebook.cpu,
+                            memory=extra.notebook.memory,
+                        )
+                for service in extra.api:
+                    if service in api:
+                        api[service] += extra.api[service]
+                    else:
+                        api[service] = extra.api[service]
+        return Quota(api=api, notebook=notebook)
 
 
 class OIDCUserInfoService(UserInfoService):
