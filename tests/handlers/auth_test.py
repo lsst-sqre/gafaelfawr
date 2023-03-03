@@ -122,7 +122,7 @@ async def test_invalid_auth(
         headers={"Authorization": "Bearer token"},
     )
     assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -137,7 +137,7 @@ async def test_invalid_auth(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -163,7 +163,7 @@ async def test_access_denied(
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -191,7 +191,7 @@ async def test_satisfy_all(
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer

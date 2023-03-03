@@ -224,7 +224,8 @@ async def handle_provider_return(
         if context.config.oidc and context.config.oidc.enrollment_url:
             url = context.config.oidc.enrollment_url
             context.logger.info("Redirecting user to enrollment URL", url=url)
-            return RedirectResponse(url)
+            headers = {"Cache-Control": "no-cache, no-store"}
+            return RedirectResponse(url, headers=headers)
         else:
             return login_error(context, LoginError.NOT_ENROLLED, str(e))
     except FirestoreError as e:
@@ -305,6 +306,6 @@ def login_error(
             "details": details,
             "error_footer": context.config.error_footer,
         },
-        headers={"Cache-Control": "no-cache, must-revalidate"},
+        headers={"Cache-Control": "no-cache, no-store"},
         status_code=status.HTTP_403_FORBIDDEN,
     )

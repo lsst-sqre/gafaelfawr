@@ -37,7 +37,7 @@ def assert_unauthorized_is_correct(
         Expected authentication type.
     """
     assert r.status_code == 401
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
     challenge = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(challenge, AuthErrorChallenge)
     assert challenge.auth_type == auth_type

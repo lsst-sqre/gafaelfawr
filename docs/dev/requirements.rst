@@ -76,14 +76,19 @@ This is done by adding a ``server-snippet`` key to the ingress-nginx ``ConfigMap
      controller:
        config:
          server-snippet: |
-           location @autherror {
-             add_header Cache-Control "no-cache, must-revalidate" always;
-             add_header WWW-Authenticate $auth_www_authenticate always;
-             if ($auth_status = 400) {
-               add_header Content-Type "application/json" always;
-               return 400 $auth_error_body;
-             }
-             return 403;
-           }
+            set $auth_error_body '';
+            set $auth_status '';
+            set $auth_www_authenticate '';
+            location @autherror {
+              default_type application/json;
+              if ($auth_status = 400) {
+                add_header Cache-Control "no-cache, no-store" always;
+                add_header WWW-Authenticate $auth_www_authenticate always;
+                return 400 $auth_error_body;
+              }
+              add_header Cache-Control "no-cache, no-store" always;
+              add_header WWW-Authenticate $auth_www_authenticate always;
+              return 403;
+            }
 
 This will be added to every server block, not just the ones used by Gafaelfawr-protected services, and therefore may be unused, but this should be harmless.
