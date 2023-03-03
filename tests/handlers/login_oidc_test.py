@@ -437,7 +437,7 @@ async def test_no_valid_groups(
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
     username = token.claims[config.oidc.username_claim]
     expected = f"{username} is not a member of any authorized groups"
     assert expected in r.text
@@ -572,6 +572,7 @@ async def test_enrollment_url(
         client, respx_mock, token, expect_enrollment=True
     )
     assert r.status_code == 307
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
 
 
 @pytest.mark.asyncio
@@ -587,7 +588,7 @@ async def test_no_enrollment_url(
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
     assert "User is not enrolled" in r.text
 
     # None of these errors should have resulted in Slack alerts.

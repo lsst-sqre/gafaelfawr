@@ -499,7 +499,7 @@ async def test_no_valid_groups(
         client, respx_mock, user_info, expect_revoke=True
     )
     assert r.status_code == 403
-    assert r.headers["Cache-Control"] == "no-cache, must-revalidate"
+    assert r.headers["Cache-Control"] == "no-cache, no-store"
     assert "githubuser is not a member of any authorized groups" in r.text
     assert "Some <strong>error instructions</strong> with HTML." in r.text
 

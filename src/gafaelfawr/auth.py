@@ -173,7 +173,7 @@ def generate_challenge(
     )
     detail = {"msg": str(exc), "type": exc.error}
     headers = {
-        "Cache-Control": "no-cache, must-revalidate",
+        "Cache-Control": "no-cache, no-store",
         "WWW-Authenticate": challenge.to_header(),
     }
     if error_in_headers:
@@ -257,7 +257,7 @@ def generate_unauthorized_challenge(
         msg = "Authentication required"
 
     headers = {
-        "Cache-Control": "no-cache, must-revalidate",
+        "Cache-Control": "no-cache, no-store",
         "WWW-Authenticate": challenge.to_header(),
     }
 
