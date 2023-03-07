@@ -22,7 +22,7 @@ from .keypair import RSAKeyPair
 from .main import create_app
 from .models.token import Token
 from .schema import Base
-from .slack import SlackAlertClient
+from .slack import SlackClient
 
 __all__ = [
     "delete_all_data",
@@ -86,7 +86,7 @@ async def audit(fix: bool, config_path: Optional[Path]) -> None:
         raise click.UsageError(msg)
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Starting audit")
-    slack = SlackAlertClient(config.slack_webhook, "Gafaelfawr", logger)
+    slack = SlackClient(config.slack_webhook, "Gafaelfawr", logger)
     engine = create_database_engine(
         config.database_url, config.database_password
     )

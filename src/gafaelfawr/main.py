@@ -19,6 +19,7 @@ from safir.models import ErrorModel
 from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
+from .dependencies.slack import slack_client_dependency
 from .exceptions import (
     NotConfiguredError,
     PermissionDeniedError,
@@ -27,7 +28,6 @@ from .exceptions import (
 from .handlers import analyze, api, auth, index, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
-from .slack import initialize_slack_alerts
 
 __all__ = ["create_app"]
 
@@ -130,7 +130,9 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     # Configure Slack alerts.
     if load_config and config.slack_webhook:
         logger = structlog.get_logger("gafaelfawr")
-        initialize_slack_alerts(config.slack_webhook, "Gafaelfawr", logger)
+        slack_client_dependency.initialize(
+            config.slack_webhook, "Gafaelfawr", logger
+        )
         logger.debug("Initialized Slack webhook")
 
     # Register lifecycle handlers.

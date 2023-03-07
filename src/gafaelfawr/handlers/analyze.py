@@ -12,7 +12,7 @@ from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidTokenError
 from ..models.token import Token, TokenData
-from ..slack import SlackRouteErrorHandler
+from ..route import SlackRouteErrorHandler
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 authenticate = AuthenticateRead(

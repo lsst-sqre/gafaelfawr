@@ -2,27 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Coroutine
-from typing import Any, Optional
+from typing import Any
 
-from fastapi import HTTPException, Request, Response
-from fastapi.exceptions import RequestValidationError
-from fastapi.routing import APIRoute
 from safir.datetime import current_datetime
 from safir.dependencies.http_client import http_client_dependency
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from structlog.stdlib import BoundLogger
 
-SLACK_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+_SLACK_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 """Date format to use for dates in Slack alerts."""
 
-_slack_alert_client: Optional[SlackAlertClient] = None
-
 __all__ = [
-    "SlackAlertClient",
+    "SlackClient",
     "SlackIgnoredException",
-    "SlackRouteErrorHandler",
-    "initialize_slack_alerts",
 ]
 
 
@@ -36,7 +27,7 @@ class SlackIgnoredException(Exception):
     """
 
 
-class SlackAlertClient:
+class SlackClient:
     """Publish alerts to Slack.
 
     Use an incoming webhook to publish an alert to a Slack channel.
@@ -93,7 +84,7 @@ class SlackAlertClient:
         exc
             The exception to report.
         """
-        date = current_datetime().strftime(SLACK_DATE_FORMAT)
+        date = current_datetime().strftime(_SLACK_DATE_FORMAT)
         error = f"{type(exc).__name__}: {str(exc)}"
         alert = {
             "blocks": [
@@ -133,76 +124,3 @@ class SlackAlertClient:
         except Exception:
             msg = "Posting Slack alert failed"
             self._logger.exception(msg, alert=alert)
-
-
-class SlackRouteErrorHandler(APIRoute):
-    """Custom `fastapi.routing.APIRoute` that reports exceptions to Slack.
-
-    Dynamically wrap FastAPI route handlers in an exception handler that
-    reports uncaught exceptions (other than :exc:`fastapi.HTTPException`,
-    :exc:`fastapi.exceptions.RequestValidationError`,
-    :exc:`starlette.exceptions.HTTPException`, and exceptions inheriting from
-    `SlackIgnoredException`) to Slack.
-
-    Examples
-    --------
-    Specify this class when creating a router.  All uncaught exceptions from
-    handlers managed by that router will be reported to Slack, if Slack alerts
-    are configured.
-
-    .. code-block:: python
-
-       router = APIRouter(route_class=SlackRouteErrorHandler)
-
-    Notes
-    -----
-    Based on `this StackOverflow question
-    <https://stackoverflow.com/questions/61596911/>`__.
-    """
-
-    def get_route_handler(
-        self,
-    ) -> Callable[[Request], Coroutine[Any, Any, Response]]:
-        """Wrap route handler with an exception handler."""
-        original_route_handler = super().get_route_handler()
-
-        async def wrapped_route_handler(request: Request) -> Response:
-            try:
-                return await original_route_handler(request)
-            except Exception as e:
-                if not _slack_alert_client:
-                    raise
-                if isinstance(
-                    e,
-                    (
-                        HTTPException,
-                        RequestValidationError,
-                        StarletteHTTPException,
-                        SlackIgnoredException,
-                    ),
-                ):
-                    raise
-                await _slack_alert_client.uncaught_exception(e)
-                raise
-
-        return wrapped_route_handler
-
-
-def initialize_slack_alerts(
-    hook_url: str, application: str, logger: BoundLogger
-) -> None:
-    """Configure Slack alerting.
-
-    Until this function is called, all Slack alerting will be disabled.
-
-    Parameters
-    ----------
-    hook_url
-        The URL of the incoming webhook to use to publish the message.
-    application
-        Name of the application reporting an error.
-    logger
-        Logger to which to report errors sending messages to Slack.
-    """
-    global _slack_alert_client
-    _slack_alert_client = SlackAlertClient(hook_url, application, logger)

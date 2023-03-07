@@ -38,7 +38,7 @@ from ..models.token import (
     UserTokenModifyRequest,
     UserTokenRequest,
 )
-from ..slack import SlackRouteErrorHandler
+from ..route import SlackRouteErrorHandler
 from ..util import random_128_bits
 
 __all__ = ["router"]

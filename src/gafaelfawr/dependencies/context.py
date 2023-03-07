@@ -18,6 +18,8 @@ from structlog.stdlib import BoundLogger
 from ..config import Config
 from ..factory import Factory, ProcessContext
 from ..models.state import State
+from ..slack import SlackClient
+from .slack import slack_client_dependency
 
 __all__ = ["RequestContext", "context_dependency"]
 
@@ -43,6 +45,9 @@ class RequestContext:
 
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
+
+    slack_client: SlackClient | None
+    """Client for reporting alerts to Slack, if configured."""
 
     session: async_scoped_session
     """The database session."""
@@ -89,6 +94,7 @@ class ContextDependency:
         self,
         request: Request,
         session: async_scoped_session = Depends(db_session_dependency),
+        slack_client: SlackClient | None = Depends(slack_client_dependency),
         logger: BoundLogger = Depends(logger_dependency),
     ) -> RequestContext:
         """Creates a per-request context and returns it."""
@@ -109,6 +115,7 @@ class ContextDependency:
             ip_address=ip_address,
             config=self._config,
             logger=logger,
+            slack_client=slack_client,
             session=session,
             factory=Factory(self._process_context, session, logger),
         )

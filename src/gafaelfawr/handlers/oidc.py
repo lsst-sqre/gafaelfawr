@@ -36,7 +36,7 @@ from ..models.oidc import (
     OIDCVerifiedToken,
 )
 from ..models.token import TokenData
-from ..slack import SlackRouteErrorHandler
+from ..route import SlackRouteErrorHandler
 
 __all__ = ["router"]
 

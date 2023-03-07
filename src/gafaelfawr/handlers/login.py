@@ -19,7 +19,7 @@ from ..exceptions import (
     PermissionDeniedError,
     ProviderError,
 )
-from ..slack import SlackRouteErrorHandler
+from ..route import SlackRouteErrorHandler
 from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)

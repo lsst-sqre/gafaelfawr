@@ -9,7 +9,7 @@ from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from gafaelfawr.config import Config
-from gafaelfawr.slack import SlackRouteErrorHandler
+from gafaelfawr.route import SlackRouteErrorHandler
 
 from .support.constants import TEST_HOSTNAME
 from .support.slack import MockSlack
