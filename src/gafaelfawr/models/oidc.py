@@ -266,7 +266,7 @@ class JWK(BaseModel):
         example="sig",
     )
 
-    kid: str = Field(
+    kid: Optional[str] = Field(
         None,
         title="Key ID",
         description=(

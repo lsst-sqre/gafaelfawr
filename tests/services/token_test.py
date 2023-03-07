@@ -80,9 +80,9 @@ async def test_session_token(config: Config, factory: Factory) -> None:
         token_name=None,
         token_type=TokenType.session,
         scopes=data.scopes,
-        created=int(data.created.timestamp()),
+        created=data.created,
         last_used=None,
-        expires=int(data.expires.timestamp()),
+        expires=data.expires,
         parent=None,
     )
     assert await token_service.get_user_info(token) == user_info
@@ -155,7 +155,7 @@ async def test_user_token(factory: Factory) -> None:
         scopes=["exec:admin", "read:all"],
         created=info.created,
         last_used=None,
-        expires=int(expires.timestamp()),
+        expires=expires,
         parent=None,
     )
     assert_is_now(info.created)
@@ -1229,7 +1229,7 @@ async def test_invalid(config: Config, factory: Factory) -> None:
         username="example",
         token_type=TokenType.session,
         scopes=[],
-        created=int(current_datetime().timestamp()),
+        created=current_datetime(),
         name="Some User",
         uid=12345,
     )
