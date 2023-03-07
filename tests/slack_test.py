@@ -8,7 +8,6 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from gafaelfawr.config import Config
 from gafaelfawr.route import SlackRouteErrorHandler
 
 from .support.constants import TEST_HOSTNAME
@@ -17,7 +16,7 @@ from .support.slack import MockSlack
 
 @pytest.mark.asyncio
 async def test_uncaught_exception(
-    app: FastAPI, client: AsyncClient, config: Config, mock_slack: MockSlack
+    app: FastAPI, client: AsyncClient, mock_slack: MockSlack
 ) -> None:
     """Test Slack alerts for uncaught exceptions."""
     router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -46,26 +45,33 @@ async def test_uncaught_exception(
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "Uncaught exception in Gafaelfawr",
+                        "text": "Uncaught ValueError exception in Gafaelfawr",
                     },
                 },
                 {
                     "type": "section",
-                    "fields": [{"type": "mrkdwn", "text": ANY}],
+                    "fields": [
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True}
+                    ],
                 },
+            ],
+            "attachments": [
                 {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": (
-                            "*Exception*\n```\n"
-                            "ValueError: Test exception\n```"
-                        ),
-                        "verbatim": True,
-                    },
-                },
-                {"type": "divider"},
-            ]
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": (
+                                    "*Exception*\n```\n"
+                                    "ValueError: Test exception\n```"
+                                ),
+                                "verbatim": True,
+                            },
+                        }
+                    ]
+                }
+            ],
         }
     ]
     assert mock_slack.messages[0]["blocks"][1]["fields"][0]["text"].startswith(

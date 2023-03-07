@@ -22,7 +22,7 @@ from .keypair import RSAKeyPair
 from .main import create_app
 from .models.token import Token
 from .schema import Base
-from .slack import SlackClient
+from .slack import SlackClient, SlackMessage
 
 __all__ = [
     "delete_all_data",
@@ -98,9 +98,8 @@ async def audit(fix: bool, config_path: Optional[Path]) -> None:
             message = (
                 "Gafaelfawr data inconsistencies found:\n• "
                 + "\n• ".join(alerts)
-                + "\n"
             )
-            await slack.message(message)
+            await slack.post(SlackMessage(message=message))
     await engine.dispose()
     logger.debug("Finished audit")
 

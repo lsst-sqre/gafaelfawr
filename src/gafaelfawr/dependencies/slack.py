@@ -27,11 +27,6 @@ class SlackClientDependency:
         """Returns the Slack client if one is available."""
         return self._slack_client
 
-    @property
-    def client(self) -> SlackClient | None:
-        """The Slack client, if configured."""
-        return self._slack_client
-
     def initialize(
         self, hook_url: str, application: str, logger: BoundLogger
     ) -> None:

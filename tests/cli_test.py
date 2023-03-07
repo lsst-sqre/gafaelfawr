@@ -79,9 +79,7 @@ def test_audit(
         " but not Redis",
     ]
     expected_alert = (
-        "Gafaelfawr data inconsistencies found:\n• "
-        + "\n• ".join(alerts)
-        + "\n"
+        "Gafaelfawr data inconsistencies found:\n• " + "\n• ".join(alerts)
     )
     assert mock_slack.messages == [
         {

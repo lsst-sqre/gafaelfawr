@@ -51,7 +51,7 @@ class SlackRouteErrorHandler(APIRoute):
             try:
                 return await original_route_handler(request)
             except Exception as e:
-                client = slack_client_dependency.client
+                client = await slack_client_dependency()
                 if not client:
                     raise
                 if isinstance(
@@ -64,7 +64,7 @@ class SlackRouteErrorHandler(APIRoute):
                     ),
                 ):
                     raise
-                await client.uncaught_exception(e)
+                await client.post_uncaught_exception(e)
                 raise
 
         return wrapped_route_handler
