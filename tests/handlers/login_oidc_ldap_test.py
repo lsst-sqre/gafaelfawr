@@ -432,5 +432,5 @@ async def test_duplicate_username(
     )
 
     r = await simulate_oidc_login(client, respx_mock, token)
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "token verification failed" in r.text

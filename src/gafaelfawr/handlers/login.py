@@ -205,14 +205,14 @@ async def handle_provider_return(
         information from the provider failed.
     """
     if not state:
-        return login_error(context, LoginError.STATE_MISSING)
+        return _login_error_user(context, LoginError.STATE_MISSING)
 
     # Extract details from the reply, check state, and get the return URL.
     if state != context.state.state:
-        return login_error(context, LoginError.STATE_INVALID)
+        return _login_error_user(context, LoginError.STATE_INVALID)
     return_url = context.state.return_url
     if not return_url:
-        return login_error(context, LoginError.RETURN_URL_MISSING)
+        return _login_error_user(context, LoginError.RETURN_URL_MISSING)
     context.rebind_logger(return_url=return_url)
 
     # Retrieve the user identity and authorization information based on the
@@ -227,41 +227,41 @@ async def handle_provider_return(
             headers = {"Cache-Control": "no-cache, no-store"}
             return RedirectResponse(url, headers=headers)
         else:
-            return login_error(context, LoginError.NOT_ENROLLED, str(e))
+            return _login_error_user(context, LoginError.NOT_ENROLLED, str(e))
     except FirestoreError as e:
-        return login_error(context, LoginError.FIRESTORE_FAILED, str(e))
+        return _login_error_system(context, LoginError.FIRESTORE_FAILED, e)
     except HTTPError as e:
-        return login_error(context, LoginError.PROVIDER_NETWORK, str(e))
+        return _login_error_system(context, LoginError.PROVIDER_NETWORK, e)
     except LDAPError as e:
-        return login_error(context, LoginError.LDAP_FAILED, str(e))
+        return _login_error_system(context, LoginError.LDAP_FAILED, e)
     except ProviderError as e:
-        return login_error(context, LoginError.PROVIDER_FAILED, str(e))
+        return _login_error_system(context, LoginError.PROVIDER_FAILED, e)
     except PermissionDeniedError as e:
         await provider.logout(context.state)
-        return login_error(context, LoginError.INVALID_USERNAME, str(e))
+        return _login_error_user(context, LoginError.INVALID_USERNAME, str(e))
 
     # Get the scopes for this user.
     user_info_service = context.factory.create_user_info_service()
     scopes = await user_info_service.get_scopes(user_info)
     if scopes is None:
         await provider.logout(context.state)
-        msg = f"{user_info.username} is not a member of any authorized groups"
         await user_info_service.invalidate_cache(user_info.username)
-        return login_error(context, LoginError.GROUPS_MISSING, details=msg)
+        msg = f"{user_info.username} is not a member of any authorized groups"
+        return _login_error_user(context, LoginError.GROUPS_MISSING, msg)
 
     # Construct a token.
     admin_service = context.factory.create_admin_service()
-    async with context.session.begin():
-        if await admin_service.is_admin(user_info.username):
-            scopes = sorted(scopes + ["admin:token"])
-        token_service = context.factory.create_token_service()
-        try:
+    token_service = context.factory.create_token_service()
+    try:
+        async with context.session.begin():
+            if await admin_service.is_admin(user_info.username):
+                scopes = sorted(scopes + ["admin:token"])
             token = await token_service.create_session_token(
                 user_info, scopes=scopes, ip_address=context.ip_address
             )
-        except PermissionDeniedError as e:
-            await provider.logout(context.state)
-            return login_error(context, LoginError.INVALID_USERNAME, str(e))
+    except PermissionDeniedError as e:
+        await provider.logout(context.state)
+        return _login_error_user(context, LoginError.INVALID_USERNAME, str(e))
     context.state.token = token
 
     # Successful login, so clear the login state and send the user back to
@@ -271,13 +271,53 @@ async def handle_provider_return(
     return RedirectResponse(return_url)
 
 
-def login_error(
-    context: RequestContext, error: LoginError, details: Optional[str] = None
+def _login_error_system(
+    context: RequestContext, error: LoginError, exc: Exception
 ) -> Response:
-    """Generate an error page for a login failure.
+    """Generate an error page for a system login failure.
 
     Report errors back to the user in a somewhat more human-readable form than
-    a JSON error message.
+    a JSON error message. This function is for errors on the Gafaelfawr side
+    that should also be reported to Slack. Use `_login_error_system` for
+    errors internal to Gafaelfawr.
+
+    Parameters
+    ----------
+    context
+        The context of the incoming request.
+    error
+        The type of error.
+    exc
+        The exception representing the error.
+
+    Returns
+    -------
+    fastapi.Response
+        The response to send back to the user.
+    """
+    context.logger.error(error.value, error=str(exc))
+    return templates.TemplateResponse(
+        "login-error.html",
+        context={
+            "request": context.request,
+            "error": error,
+            "message": error.value,
+            "details": str(exc),
+            "error_footer": context.config.error_footer,
+        },
+        headers={"Cache-Control": "no-cache, no-store"},
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )
+
+
+def _login_error_user(
+    context: RequestContext, error: LoginError, details: Optional[str] = None
+) -> Response:
+    """Generate an error page for a user login failure.
+
+    Report errors back to the user in a somewhat more human-readable form than
+    a JSON error message. This function is for errors on the user's side. Use
+    `_login_error_system` for errors internal to Gafaelfawr.
 
     Parameters
     ----------
