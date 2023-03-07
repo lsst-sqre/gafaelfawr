@@ -356,7 +356,7 @@ class OIDCUserInfoService(UserInfoService):
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
         VerifyTokenError
-            The token is missing required claims.
+            The token is missing required claims, or those claims are invalid.
         """
         username = self._get_username_from_oidc_token(token)
         groups = None
@@ -552,4 +552,11 @@ class OIDCUserInfoService(UserInfoService):
             msg = f"No {self._oidc_config.username_claim} claim in token"
             self._logger.warning(msg, claims=token.claims)
             raise MissingUsernameClaimError(msg)
-        return token.claims[self._oidc_config.username_claim]
+        username = token.claims[self._oidc_config.username_claim]
+        if not isinstance(username, str):
+            msg = (
+                f"Invalid {self._oidc_config.username_claim} claim in token:"
+                f" {username}"
+            )
+            raise InvalidTokenClaimsError(msg)
+        return username
