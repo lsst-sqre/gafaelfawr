@@ -21,7 +21,7 @@ from typing import Any, Optional
 
 import yaml
 from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
-from safir.logging import LogLevel, Profile, configure_logging
+from safir.logging import LogLevel
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -718,6 +718,9 @@ class Config:
     realm: str
     """Realm for HTTP authentication."""
 
+    loglevel: LogLevel
+    """Level for logging."""
+
     session_secret: str
     """Secret used to encrypt the session cookie and session store."""
 
@@ -949,8 +952,9 @@ class Config:
         if settings.slack_webhook_file:
             path = settings.slack_webhook_file
             slack_webhook = cls._load_secret(path).decode()
-        config = cls(
+        return cls(
             realm=settings.realm,
+            loglevel=settings.loglevel,
             session_secret=session_secret.decode(),
             redis_url=settings.redis_url,
             redis_password=redis_password,
@@ -972,19 +976,6 @@ class Config:
             known_scopes=settings.known_scopes or {},
             group_mapping=group_mapping_frozen,
         )
-
-        # Configure logging.  Some Safir applications allow customization of
-        # these parameters, but Gafaelfawr only allows customizing the log
-        # level.
-        configure_logging(
-            profile=Profile.production,
-            log_level=settings.loglevel,
-            name="gafaelfawr",
-            add_timestamp=True,
-        )
-
-        # Return the completed configuration.
-        return config
 
     @staticmethod
     def _load_secret(path: Path) -> bytes:

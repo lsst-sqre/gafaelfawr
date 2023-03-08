@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
-from safir.logging import configure_uvicorn_logging
+from safir.logging import Profile, configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 
@@ -141,6 +141,15 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     app.exception_handler(NotConfiguredError)(not_configured_handler)
     app.exception_handler(PermissionDeniedError)(permission_handler)
     app.exception_handler(ValidationError)(validation_handler)
+
+    # Configure logging.
+    if load_config:
+        configure_logging(
+            profile=Profile.production,
+            log_level=config.loglevel,
+            name="gafaelfawr",
+            add_timestamp=True,
+        )
 
     # Customize uvicorn logging to use the same structlog configuration as
     # main application logging.
