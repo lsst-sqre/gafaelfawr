@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, root_validator, validator
@@ -14,20 +15,11 @@ _SLACK_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 __all__ = [
     "SlackClient",
+    "SlackException",
     "SlackField",
     "SlackIgnoredException",
     "SlackMessage",
 ]
-
-
-class SlackIgnoredException(Exception):
-    """Parent class for exceptions that should not be reported to Slack.
-
-    This exception has no built-in behavior or meaning except to suppress
-    Slack notifications if it is thrown uncaught.  Application exceptions that
-    should not result in a Slack alert (because, for example, they're intended
-    to be caught by exception handlers) should inherit from this class.
-    """
 
 
 def _truncate_string_at_end(string: str, extra_needed: int = 0) -> str:
@@ -199,6 +191,62 @@ class SlackMessage(BaseModel):
         return result
 
 
+class SlackException(Exception):
+    """Parent class of exceptions that can be reported to Slack.
+
+    Intended to be subclassed.  Subclasses may wish to override the
+    ``to_slack`` method.
+
+    Parameters
+    ----------
+    message
+        Exception string value, which is the default Slack message.
+    user
+        Identity of user triggering the exception, if known.
+    failed_at
+        When the exception happened. Omit to use the current time.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        user: Optional[str] = None,
+        *,
+        failed_at: Optional[datetime] = None,
+    ) -> None:
+        self.user = user
+        self.failed_at = failed_at if failed_at else current_datetime()
+        super().__init__(message)
+
+    def to_slack(self) -> SlackMessage:
+        """Format the exception as a Slack message.
+
+        This is the generic version that only reports the text of the
+        exception and the base fields. Child exceptions may want to override
+        it to add more metadata.
+
+        Returns
+        -------
+        SlackMessage
+            Slack message suitable for posting with `SlackClient`.
+        """
+        failed_at = self.failed_at.strftime(_SLACK_DATE_FORMAT)
+        fields = [SlackField(heading="Failed at", text=failed_at)]
+        if self.user:
+            fields.append(SlackField(heading="User", text=self.user))
+        return SlackMessage(message=str(self), fields=fields)
+
+
+class SlackIgnoredException(Exception):
+    """Parent class for exceptions that should not be reported to Slack.
+
+    This exception has no built-in behavior or meaning except to suppress
+    Slack notifications if it is thrown uncaught.  Application exceptions that
+    should not result in a Slack alert (because, for example, they're intended
+    to be caught by exception handlers) should inherit from this class.
+    """
+
+
 class SlackClient:
     """Publish alerts to Slack.
 
@@ -238,6 +286,16 @@ class SlackClient:
         except Exception:
             msg = "Posting Slack message failed"
             self._logger.exception(msg, message=body)
+
+    async def post_exception(self, exc: SlackException) -> None:
+        """Post an alert to Slack about an exception.
+
+        Parameters
+        ----------
+        exc
+            The exception to report.
+        """
+        await self.post(exc.to_slack())
 
     async def post_uncaught_exception(self, exc: Exception) -> None:
         """Post an alert to Slack about an uncaught webapp exception.

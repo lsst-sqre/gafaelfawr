@@ -16,6 +16,7 @@ from jwt.exceptions import InvalidIssuerError
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.exceptions import (
     FetchKeysError,
+    ProviderWebError,
     UnknownAlgorithmError,
     UnknownKeyIdError,
 )
@@ -151,7 +152,7 @@ async def test_key_retrieval(
 
     # Return a 404 error.
     respx_mock.get(jwks_url).respond(404)
-    with pytest.raises(FetchKeysError):
+    with pytest.raises(ProviderWebError):
         await verifier.verify_token(token)
 
     # Fix the JWKS handler but register a malformed URL as the OpenID Connect

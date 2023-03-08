@@ -7,7 +7,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse, Response
-from httpx import HTTPError
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import return_url_with_header
@@ -18,6 +17,7 @@ from ..exceptions import (
     OIDCNotEnrolledError,
     PermissionDeniedError,
     ProviderError,
+    ProviderWebError,
 )
 from ..route import SlackRouteErrorHandler
 from ..templates import templates
@@ -230,7 +230,7 @@ async def handle_provider_return(
             return _login_error_user(context, LoginError.NOT_ENROLLED, str(e))
     except FirestoreError as e:
         return _login_error_system(context, LoginError.FIRESTORE_FAILED, e)
-    except HTTPError as e:
+    except ProviderWebError as e:
         return _login_error_system(context, LoginError.PROVIDER_NETWORK, e)
     except LDAPError as e:
         return _login_error_system(context, LoginError.LDAP_FAILED, e)

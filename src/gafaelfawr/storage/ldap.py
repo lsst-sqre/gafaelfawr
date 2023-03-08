@@ -73,6 +73,7 @@ class LDAPStorage:
             bonsai.LDAPSearchScope.SUB,
             search,
             ["cn"],
+            username,
         )
         logger.debug("LDAP groups found", ldap_results=results)
 
@@ -83,11 +84,8 @@ class LDAPStorage:
             try:
                 name = result["cn"][0]
             except Exception as e:
-                logger.warning(
-                    "Invalid LDAP group result, ignoring",
-                    error=str(e),
-                    ldap_result=result,
-                )
+                msg = "Invalid LDAP group result, ignoring"
+                logger.warning(msg, error=str(e), ldap_result=result)
             if valid_group_regex.match(name):
                 groups.append(name)
             else:
@@ -102,6 +100,7 @@ class LDAPStorage:
                 bonsai.LDAPSearchScope.SUB,
                 search,
                 ["cn"],
+                username,
             )
             logger.debug(
                 "Results for primary group",
@@ -157,6 +156,7 @@ class LDAPStorage:
             bonsai.LDAPSearchScope.SUB,
             search,
             ["cn", "gidNumber"],
+            username,
         )
         logger.debug("LDAP groups found", ldap_results=results)
 
@@ -169,9 +169,8 @@ class LDAPStorage:
                 gid = int(result["gidNumber"][0])
                 groups.append(TokenGroup(name=name, id=gid))
             except Exception as e:
-                logger.warning(
-                    f"LDAP group {name} invalid, ignoring", error=str(e)
-                )
+                msg = f"LDAP group {name} invalid, ignoring"
+                logger.warning(msg, error=str(e))
 
         # Check that the primary group is included, and if not, try to add it.
         if primary_gid and not any(g.id == primary_gid for g in groups):
@@ -182,6 +181,7 @@ class LDAPStorage:
                 bonsai.LDAPSearchScope.SUB,
                 search,
                 ["cn"],
+                username,
             )
             logger.debug(
                 "Results for primary group",
@@ -242,6 +242,7 @@ class LDAPStorage:
             bonsai.LDAPSearchScope.ONE,
             search,
             attrs,
+            username,
         )
         logger.debug("LDAP entries for user data", ldap_results=results)
 
@@ -266,8 +267,9 @@ class LDAPStorage:
                 gid = int(result[self._config.gid_attr][0])
             return LDAPUserData(name=name, email=email, uid=uid, gid=gid)
         except Exception as e:
-            logger.error("LDAP user entry invalid", error=str(e))
-            raise LDAPError("LDAP user entry invalid") from e
+            msg = "LDAP user entry invalid"
+            logger.error(msg, error=str(e))
+            raise LDAPError(msg, username) from e
 
     async def _query(
         self,
@@ -275,6 +277,7 @@ class LDAPStorage:
         scope: LDAPSearchScope,
         filter_exp: str,
         attrlist: list[str],
+        username: str,
     ) -> list[dict[str, list[str]]]:
         """Perform an LDAP query using the connection pool.
 
@@ -288,6 +291,8 @@ class LDAPStorage:
             Search filter.
         attrlist
             List of attributes to retrieve.
+        username
+            User for which the query is being performed, for error reporting.
 
         Returns
         -------
@@ -316,7 +321,10 @@ class LDAPStorage:
         clear whether that's true if there are other active coroutines.
         """
         logger = self._logger.bind(
-            ldap_attrs=attrlist, ldap_base=base, ldap_search=filter_exp
+            ldap_attrs=attrlist,
+            ldap_base=base,
+            ldap_search=filter_exp,
+            user=username,
         )
 
         try:
@@ -336,9 +344,9 @@ class LDAPStorage:
                         conn.close()
         except bonsai.LDAPError as e:
             logger.error("Cannot query LDAP", error=str(e))
-            raise LDAPError("Error querying LDAP") from e
+            raise LDAPError("Error querying LDAP", username) from e
 
         # Failed due to timeout or closed connection twice.
         msg = f"LDAP query timed out after {LDAP_TIMEOUT}s"
         logger.error("Cannot query LDAP", error=msg)
-        raise LDAPError(msg)
+        raise LDAPError(msg, username)

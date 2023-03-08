@@ -44,19 +44,19 @@ async def test_login(
     assert r.status_code == 307
 
     # Verify the logging.
-    login_url = config.oidc.login_url
     expected_scopes = set(config.group_mapping["admin"])
     expected_scopes.add("user:token")
     username = token.claims[config.oidc.username_claim]
     uid = int(token.claims[config.oidc.uid_claim])
     assert parse_log(caplog) == [
         {
-            "event": f"Redirecting user to {login_url} for authentication",
+            "event": "Redirecting user for authentication",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
+            "login_url": config.oidc.login_url,
             "return_url": return_url,
             "severity": "info",
         },
@@ -261,7 +261,7 @@ async def test_callback_error(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 500
-    assert "Cannot contact authentication provider" in r.text
+    assert f"Response from {config.oidc.token_url} not valid JSON" in r.text
 
     # None of these errors should have resulted in Slack alerts.
     assert mock_slack.messages == []
@@ -327,7 +327,7 @@ async def test_verify_error(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 500
-    assert "token verification failed" in r.text
+    assert "Cannot contact authentication provider" in r.text
 
     # None of these errors should have resulted in Slack alerts.
     assert mock_slack.messages == []
