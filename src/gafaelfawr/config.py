@@ -10,7 +10,6 @@ rest of Gafaelfawr as the `Config` object.
 from __future__ import annotations
 
 import json
-import logging
 import re
 from collections import defaultdict
 from collections.abc import Mapping
@@ -22,8 +21,7 @@ from typing import Any, Optional
 
 import yaml
 from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
-from safir.logging import configure_logging
-from safir.models import LogLevel, Profile
+from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -384,13 +382,6 @@ class Settings(CamelCaseModel):
         for required in ("admin:token", "user:token"):
             if required not in v:
                 raise ValueError(f"required scope {scope} missing")
-        return v
-
-    @validator("loglevel")
-    def _valid_loglevel(cls, v: str) -> str:
-        level = getattr(logging, v, None)
-        if not level:
-            raise ValueError("invalid logging level")
         return v
 
     @validator("ldap", always=True)
