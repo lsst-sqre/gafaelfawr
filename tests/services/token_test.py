@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
+from safir.datetime import current_datetime
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
@@ -30,7 +31,6 @@ from gafaelfawr.models.token import (
 from gafaelfawr.schema.subtoken import Subtoken
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
-from gafaelfawr.util import current_datetime
 
 from ..support.tokens import create_session_token
 from ..support.util import assert_is_now

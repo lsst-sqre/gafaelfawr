@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from ipaddress import IPv4Address, IPv6Address
 
 from .constants import BOT_USERNAME_REGEX
@@ -13,7 +13,6 @@ from .constants import BOT_USERNAME_REGEX
 __all__ = [
     "add_padding",
     "base64_to_number",
-    "current_datetime",
     "is_bot_user",
     "normalize_ip_address",
     "normalize_scopes",
@@ -64,11 +63,6 @@ def base64_to_number(data: str) -> int:
     """
     decoded = base64.urlsafe_b64decode(add_padding(data))
     return int.from_bytes(decoded, byteorder="big")
-
-
-def current_datetime() -> datetime:
-    """Return the current time without microseconds."""
-    return datetime.now(tz=timezone.utc).replace(microsecond=0)
 
 
 def format_datetime_for_logging(date: datetime | None) -> str | None:

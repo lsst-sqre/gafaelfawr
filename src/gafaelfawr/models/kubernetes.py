@@ -18,13 +18,14 @@ from kubernetes_asyncio.client import (
     V1ServiceBackendPort,
 )
 from pydantic import Extra, Field, root_validator, validator
+from safir.datetime import current_datetime
 from safir.pydantic import (
     CamelCaseModel,
     to_camel_case,
     validate_exactly_one_of,
 )
 
-from ..util import current_datetime, normalize_timedelta
+from ..util import normalize_timedelta
 from .auth import AuthType, Satisfy
 
 __all__ = [

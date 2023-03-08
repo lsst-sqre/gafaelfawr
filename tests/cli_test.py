@@ -18,6 +18,7 @@ import structlog
 from click.testing import CliRunner
 from cryptography.fernet import Fernet
 from safir.database import initialize_database
+from safir.datetime import current_datetime
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
@@ -32,7 +33,6 @@ from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 from gafaelfawr.schema import Base
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
-from gafaelfawr.util import current_datetime
 
 from .support.config import configure
 from .support.slack import MockSlack

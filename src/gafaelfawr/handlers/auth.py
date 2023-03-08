@@ -7,6 +7,7 @@ from datetime import timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, Query, Response
+from safir.datetime import current_datetime
 from safir.models import ErrorModel
 
 from ..auth import (
@@ -27,7 +28,6 @@ from ..exceptions import (
 from ..models.auth import AuthType, Satisfy
 from ..models.token import TokenData
 from ..slack import SlackRouteErrorHandler
-from ..util import current_datetime
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 

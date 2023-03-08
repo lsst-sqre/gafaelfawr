@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Optional
 
+from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
 from ..cache import InternalTokenCache, NotebookTokenCache
@@ -13,7 +14,7 @@ from ..models.history import TokenChange, TokenChangeHistoryEntry
 from ..models.token import Token, TokenData, TokenType
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
-from ..util import current_datetime, format_datetime_for_logging
+from ..util import format_datetime_for_logging
 
 __all__ = ["TokenCacheService"]
 

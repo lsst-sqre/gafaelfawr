@@ -10,13 +10,14 @@ from unittest.mock import ANY
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
+from safir.datetime import current_datetime
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
-from gafaelfawr.util import current_datetime, format_datetime_for_logging
+from gafaelfawr.util import format_datetime_for_logging
 
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME

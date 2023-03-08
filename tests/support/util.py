@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from gafaelfawr.util import current_datetime
+from safir.datetime import current_datetime
 
 
 def assert_is_now(date: datetime) -> None:

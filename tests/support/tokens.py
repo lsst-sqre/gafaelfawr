@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Optional
 
+from safir.datetime import current_datetime
 from sqlalchemy.ext.asyncio import async_scoped_session
 
 from gafaelfawr.factory import Factory
@@ -18,7 +19,6 @@ from gafaelfawr.models.token import (
 )
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
-from gafaelfawr.util import current_datetime
 
 __all__ = [
     "add_expired_session_token",

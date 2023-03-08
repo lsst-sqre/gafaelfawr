@@ -23,10 +23,10 @@ from kubernetes_asyncio.client import (
     V1Namespace,
     V1ObjectMeta,
 )
+from safir.datetime import current_datetime
 
 from gafaelfawr.constants import NGINX_SNIPPET
 from gafaelfawr.models.kubernetes import KubernetesResourceStatus, StatusReason
-from gafaelfawr.util import current_datetime
 
 __all__ = [
     "assert_resources_match",
