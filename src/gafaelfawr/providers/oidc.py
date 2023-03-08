@@ -157,7 +157,7 @@ class OIDCProvider(Provider):
                     msg = result["error"] + ": " + description
                 else:
                     msg = result["error"]
-                raise OIDCError(msg)
+                raise OIDCError(f"Error retrieving ID token: {msg}")
             else:
                 raise ProviderWebError.from_exception(e) from e
         except Exception as e:

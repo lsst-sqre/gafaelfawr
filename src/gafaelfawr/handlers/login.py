@@ -20,6 +20,7 @@ from ..exceptions import (
     ProviderWebError,
 )
 from ..route import SlackRouteErrorHandler
+from ..slack import SlackException
 from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -205,14 +206,14 @@ async def handle_provider_return(
         information from the provider failed.
     """
     if not state:
-        return _login_error_user(context, LoginError.STATE_MISSING)
+        return _error_user(context, LoginError.STATE_MISSING)
 
     # Extract details from the reply, check state, and get the return URL.
     if state != context.state.state:
-        return _login_error_user(context, LoginError.STATE_INVALID)
+        return _error_user(context, LoginError.STATE_INVALID)
     return_url = context.state.return_url
     if not return_url:
-        return _login_error_user(context, LoginError.RETURN_URL_MISSING)
+        return _error_user(context, LoginError.RETURN_URL_MISSING)
     context.rebind_logger(return_url=return_url)
 
     # Retrieve the user identity and authorization information based on the
@@ -227,18 +228,18 @@ async def handle_provider_return(
             headers = {"Cache-Control": "no-cache, no-store"}
             return RedirectResponse(url, headers=headers)
         else:
-            return _login_error_user(context, LoginError.NOT_ENROLLED, str(e))
+            return _error_user(context, LoginError.NOT_ENROLLED, str(e))
     except FirestoreError as e:
-        return _login_error_system(context, LoginError.FIRESTORE_FAILED, e)
+        return await _error_system(context, LoginError.FIRESTORE_FAILED, e)
     except ProviderWebError as e:
-        return _login_error_system(context, LoginError.PROVIDER_NETWORK, e)
+        return await _error_system(context, LoginError.PROVIDER_NETWORK, e)
     except LDAPError as e:
-        return _login_error_system(context, LoginError.LDAP_FAILED, e)
+        return await _error_system(context, LoginError.LDAP_FAILED, e)
     except ProviderError as e:
-        return _login_error_system(context, LoginError.PROVIDER_FAILED, e)
+        return await _error_system(context, LoginError.PROVIDER_FAILED, e)
     except PermissionDeniedError as e:
         await provider.logout(context.state)
-        return _login_error_user(context, LoginError.INVALID_USERNAME, str(e))
+        return _error_user(context, LoginError.INVALID_USERNAME, str(e))
 
     # Get the scopes for this user.
     user_info_service = context.factory.create_user_info_service()
@@ -247,7 +248,7 @@ async def handle_provider_return(
         await provider.logout(context.state)
         await user_info_service.invalidate_cache(user_info.username)
         msg = f"{user_info.username} is not a member of any authorized groups"
-        return _login_error_user(context, LoginError.GROUPS_MISSING, msg)
+        return _error_user(context, LoginError.GROUPS_MISSING, msg)
 
     # Construct a token.
     admin_service = context.factory.create_admin_service()
@@ -261,7 +262,7 @@ async def handle_provider_return(
             )
     except PermissionDeniedError as e:
         await provider.logout(context.state)
-        return _login_error_user(context, LoginError.INVALID_USERNAME, str(e))
+        return _error_user(context, LoginError.INVALID_USERNAME, str(e))
     context.state.token = token
 
     # Successful login, so clear the login state and send the user back to
@@ -271,15 +272,15 @@ async def handle_provider_return(
     return RedirectResponse(return_url)
 
 
-def _login_error_system(
-    context: RequestContext, error: LoginError, exc: Exception
+async def _error_system(
+    context: RequestContext, error: LoginError, exc: SlackException
 ) -> Response:
     """Generate an error page for a system login failure.
 
     Report errors back to the user in a somewhat more human-readable form than
     a JSON error message. This function is for errors on the Gafaelfawr side
-    that should also be reported to Slack. Use `_login_error_system` for
-    errors internal to Gafaelfawr.
+    that should also be reported to Slack. Use `_error_user` for errors caused
+    by the user.
 
     Parameters
     ----------
@@ -296,6 +297,8 @@ def _login_error_system(
         The response to send back to the user.
     """
     context.logger.error(error.value, error=str(exc))
+    if context.slack_client:
+        await context.slack_client.post_exception(exc)
     return templates.TemplateResponse(
         "login-error.html",
         context={
@@ -310,14 +313,14 @@ def _login_error_system(
     )
 
 
-def _login_error_user(
+def _error_user(
     context: RequestContext, error: LoginError, details: Optional[str] = None
 ) -> Response:
     """Generate an error page for a user login failure.
 
     Report errors back to the user in a somewhat more human-readable form than
     a JSON error message. This function is for errors on the user's side. Use
-    `_login_error_system` for errors internal to Gafaelfawr.
+    `_error_system` for errors internal to Gafaelfawr.
 
     Parameters
     ----------

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import ANY
 
 import pytest
 import respx
@@ -16,6 +17,7 @@ from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.ldap import MockLDAP
 from ..support.oidc import simulate_oidc_login
+from ..support.slack import MockSlack
 
 
 @pytest.mark.asyncio
@@ -412,6 +414,7 @@ async def test_duplicate_username(
     client: AsyncClient,
     respx_mock: respx.Router,
     mock_ldap: MockLDAP,
+    mock_slack: MockSlack,
 ) -> None:
     """Test error handling of a multivalued ``uid`` attribute."""
     config = await reconfigure(tmp_path, "oidc-ldap")
@@ -434,3 +437,28 @@ async def test_duplicate_username(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 500
     assert "token verification failed" in r.text
+
+    # This error should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "OpenID Connect token verification failed: "
+                            "Invalid uid claim in token: ['one', 'two']"
+                        ),
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]

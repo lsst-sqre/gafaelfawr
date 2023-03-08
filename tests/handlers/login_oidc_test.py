@@ -209,7 +209,7 @@ async def test_callback_error(
             "severity": "info",
         },
         {
-            "error": "error_code: description",
+            "error": "Error retrieving ID token: error_code: description",
             "event": "Authentication provider failed",
             "httpRequest": {
                 "requestMethod": "GET",
@@ -263,8 +263,139 @@ async def test_callback_error(
     assert r.status_code == 500
     assert f"Response from {config.oidc.token_url} not valid JSON" in r.text
 
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
+    # Most of these errors should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error retrieving ID token: error_code:"
+                            " description"
+                        ),
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Status 400 from POST "
+                            "https://upstream.example.com/token"
+                        ),
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": (
+                                "*URL*\nhttps://upstream.example.com/token"
+                            ),
+                            "verbatim": True,
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Reason*\n" "Bad Request",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+            ],
+            "attachments": [
+                {
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": '*Response*\n```\n{"foo": "bar"}\n```',
+                                "verbatim": True,
+                            },
+                        }
+                    ]
+                }
+            ],
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "No id_token in token reply from "
+                            "https://upstream.example.com/token"
+                        ),
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Response from "
+                            "https://upstream.example.com/token not valid JSON"
+                        ),
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Response from "
+                            "https://upstream.example.com/token not valid JSON"
+                        ),
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -293,8 +424,34 @@ async def test_connection_error(
     assert r.status_code == 500
     assert "Cannot contact authentication provider" in r.text
 
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
+    # This error should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "ConnectError: Mock Error",
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": (
+                                "*URL*\nhttps://upstream.example.com/token"
+                            ),
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -329,8 +486,45 @@ async def test_verify_error(
     assert r.status_code == 500
     assert "Cannot contact authentication provider" in r.text
 
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
+    # This error should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Status 404 from GET "
+                            "https://upstream.example.com/.well-known"
+                            "/jwks.json"
+                        ),
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": (
+                                "*URL*\n"
+                                "https://upstream.example.com/.well-known"
+                                "/jwks.json"
+                            ),
+                            "verbatim": True,
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Reason*\nNot Found",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -367,8 +561,31 @@ async def test_invalid_group_syntax(
     assert r.status_code == 500
     assert "isMemberOf claim has invalid format" in r.text
 
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
+    # This should have been reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "OpenID Connect token verification failed:"
+                            " isMemberOf claim has invalid format: 'int'"
+                            " object is not iterable"
+                        ),
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
 
 
 @pytest.mark.asyncio
