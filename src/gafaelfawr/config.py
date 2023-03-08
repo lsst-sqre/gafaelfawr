@@ -23,6 +23,7 @@ from typing import Any, Optional
 import yaml
 from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
 from safir.logging import configure_logging
+from safir.models import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -293,7 +294,7 @@ class Settings(CamelCaseModel):
     realm: str
     """Realm for HTTP authentication."""
 
-    loglevel: str = "INFO"
+    loglevel: LogLevel = LogLevel.INFO
     """Logging level."""
 
     session_secret_file: Path
@@ -985,7 +986,7 @@ class Config:
         # these parameters, but Gafaelfawr only allows customizing the log
         # level.
         configure_logging(
-            profile="production",
+            profile=Profile.production,
             log_level=settings.loglevel,
             name="gafaelfawr",
             add_timestamp=True,
