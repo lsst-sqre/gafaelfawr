@@ -58,6 +58,8 @@ nitpick_ignore = [
     # TypeVar references that shouldn't be documented.
     ["py:class", "gafaelfawr.cache.S"],
     ["py:obj", "gafaelfawr.cache.S"],
+    ["py:class", "gafaelfawr.middleware.state.T"],
+    ["py:obj", "gafaelfawr.middleware.state.T"],
     ["py:class", "gafaelfawr.models.history.E"],
     ["py:obj", "gafaelfawr.models.history.E"],
     ["py:class", "gafaelfawr.storage.base.S"],
