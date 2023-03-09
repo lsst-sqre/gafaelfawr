@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
+from fastapi import HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, root_validator, validator
 from safir.datetime import current_datetime
 from safir.dependencies.http_client import http_client_dependency
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from structlog.stdlib import BoundLogger
 
 _SLACK_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -16,73 +21,12 @@ _SLACK_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 __all__ = [
     "SlackClient",
     "SlackException",
+    "SlackIgnoredException",
     "SlackField",
     "SlackIgnoredException",
     "SlackMessage",
+    "SlackRouteErrorHandler",
 ]
-
-
-def _truncate_string_at_end(string: str, extra_needed: int = 0) -> str:
-    """Truncate a string at 3000 characters from the end.
-
-    Slack prohibits text blocks longer than 3000 characters anywhere in the
-    mesage and, if present, the whole mesage is rejected with an HTTP error.
-    Truncate a potentially long message at the end.
-
-    Parameters
-    ----------
-    string
-        String to truncate.
-    extra_needed
-        Additional characters needed (for a heading, for instance).
-
-    Returns
-    -------
-    str
-        The truncated string.
-    """
-    if len(string) < 3000 - extra_needed:
-        return string
-    truncated = "\n... truncated ...\n"
-    last_newline = string.rfind("\n", 0, 3000 - len(truncated) - extra_needed)
-    if last_newline == -1:
-        return string[: 3000 - len(truncated) - extra_needed] + truncated
-    else:
-        return string[:last_newline] + truncated
-
-
-def _truncate_string_at_start(string: str, extra_needed: int = 0) -> str:
-    """Truncate a string at 3000 characters from the start.
-
-    Slack prohibits text blocks longer than 3000 characters anywhere in the
-    message and, if present, the whole message is rejected with an HTTP error.
-    Truncate a potentially long message at the start. Use this for tracebacks
-    and similar
-
-    Parameters
-    ----------
-    string
-        String to truncate.
-    extra_needed
-        Additional characters needed (for a heading, for instance).
-
-    Returns
-    -------
-    str
-        The truncated string.
-    """
-    length = len(string)
-    if length < 3000 - extra_needed:
-        return string
-    lines = string.split("\n")
-    if len(lines) == 1:
-        truncated = "... truncated ...\n"
-        start = length - 3000 + len(truncated) + extra_needed
-        return truncated + string[start:]
-    while length >= 3000 - extra_needed:
-        line = lines.pop(0)
-        length -= len(line) + 1
-    return "\n".join(lines)
 
 
 class SlackField(BaseModel):
@@ -314,3 +258,151 @@ class SlackClient:
             attachments=[SlackField(heading="Exception", code=error)],
         )
         await self.post(message)
+
+
+def _truncate_string_at_end(string: str, extra_needed: int = 0) -> str:
+    """Truncate a string at 3000 characters from the end.
+
+    Slack prohibits text blocks longer than 3000 characters anywhere in the
+    mesage and, if present, the whole mesage is rejected with an HTTP error.
+    Truncate a potentially long message at the end.
+
+    Parameters
+    ----------
+    string
+        String to truncate.
+    extra_needed
+        Additional characters needed (for a heading, for instance).
+
+    Returns
+    -------
+    str
+        The truncated string.
+    """
+    if len(string) < 3000 - extra_needed:
+        return string
+    truncated = "\n... truncated ...\n"
+    last_newline = string.rfind("\n", 0, 3000 - len(truncated) - extra_needed)
+    if last_newline == -1:
+        return string[: 3000 - len(truncated) - extra_needed] + truncated
+    else:
+        return string[:last_newline] + truncated
+
+
+def _truncate_string_at_start(string: str, extra_needed: int = 0) -> str:
+    """Truncate a string at 3000 characters from the start.
+
+    Slack prohibits text blocks longer than 3000 characters anywhere in the
+    message and, if present, the whole message is rejected with an HTTP error.
+    Truncate a potentially long message at the start. Use this for tracebacks
+    and similar
+
+    Parameters
+    ----------
+    string
+        String to truncate.
+    extra_needed
+        Additional characters needed (for a heading, for instance).
+
+    Returns
+    -------
+    str
+        The truncated string.
+    """
+    length = len(string)
+    if length < 3000 - extra_needed:
+        return string
+    lines = string.split("\n")
+    if len(lines) == 1:
+        truncated = "... truncated ...\n"
+        start = length - 3000 + len(truncated) + extra_needed
+        return truncated + string[start:]
+    while length >= 3000 - extra_needed:
+        line = lines.pop(0)
+        length -= len(line) + 1
+    return "\n".join(lines)
+
+
+class SlackRouteErrorHandler(APIRoute):
+    """Custom `fastapi.routing.APIRoute` that reports exceptions to Slack.
+
+    Dynamically wrap FastAPI route handlers in an exception handler that
+    reports uncaught exceptions (other than :exc:`fastapi.HTTPException`,
+    :exc:`fastapi.exceptions.RequestValidationError`,
+    :exc:`starlette.exceptions.HTTPException`, and exceptions inheriting from
+    `~gafaelfawr.slack.SlackIgnoredException`) to Slack.
+
+    This class must be initialized by calling its `initialize` method to send
+    alerts. Until that has been done, it will silently do nothing.
+
+    Examples
+    --------
+    Specify this class when creating a router. All uncaught exceptions from
+    handlers managed by that router will be reported to Slack, if Slack alerts
+    are configured.
+
+    .. code-block:: python
+
+       router = APIRouter(route_class=SlackRouteErrorHandler)
+
+    Notes
+    -----
+    Based on `this StackOverflow question
+    <https://stackoverflow.com/questions/61596911/>`__.
+    """
+
+    _IGNORED_EXCEPTIONS = (
+        HTTPException,
+        RequestValidationError,
+        StarletteHTTPException,
+        SlackIgnoredException,
+    )
+    """Uncaught exceptions that should not be sent to Slack."""
+
+    _alert_client: ClassVar[Optional[SlackClient]] = None
+    """Global Slack alert client used by `SlackRouteErrorHandler`.
+
+    Initialize with `initialize`. This object caches the alert confguration
+    and desired logger for the use of `SlackRouteErrorHandler` as a
+    process-global variable, since the route handler only has access to the
+    incoming request and global variables.
+    """
+
+    @classmethod
+    def initialize(
+        cls, hook_url: str, application: str, logger: BoundLogger
+    ) -> None:
+        """Configure Slack alerting.
+
+        Until this function is called, all Slack alerting for uncaught
+        exceptions will be disabled.
+
+        Parameters
+        ----------
+        hook_url
+            The URL of the incoming webhook to use to publish the message.
+        application
+            Name of the application reporting an error.
+        logger
+            Logger to which to report errors sending messages to Slack.
+        """
+        cls._alert_client = SlackClient(hook_url, application, logger)
+
+    def get_route_handler(
+        self,
+    ) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        """Wrap route handler with an exception handler."""
+        original_route_handler = super().get_route_handler()
+
+        async def wrapped_route_handler(request: Request) -> Response:
+            try:
+                return await original_route_handler(request)
+            except Exception as e:
+                if isinstance(e, self._IGNORED_EXCEPTIONS):
+                    raise
+                if not self._alert_client:
+                    raise
+                await self._alert_client.post_uncaught_exception(e)
+                raise
+
+        return wrapped_route_handler

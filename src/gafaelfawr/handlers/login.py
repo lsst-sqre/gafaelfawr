@@ -19,8 +19,7 @@ from ..exceptions import (
     ProviderError,
     ProviderWebError,
 )
-from ..route import SlackRouteErrorHandler
-from ..slack import SlackException
+from ..slack import SlackException, SlackRouteErrorHandler
 from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -297,8 +296,9 @@ async def _error_system(
         The response to send back to the user.
     """
     context.logger.error(error.value, error=str(exc))
-    if context.slack_client:
-        await context.slack_client.post_exception(exc)
+    slack_client = context.factory.create_slack_client()
+    if slack_client:
+        await slack_client.post_exception(exc)
     return templates.TemplateResponse(
         "login-error.html",
         context={

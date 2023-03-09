@@ -8,7 +8,7 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from gafaelfawr.route import SlackRouteErrorHandler
+from gafaelfawr.slack import SlackRouteErrorHandler
 
 from .support.constants import TEST_HOSTNAME
 from .support.slack import MockSlack

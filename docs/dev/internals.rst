@@ -24,9 +24,6 @@ Python internal API
 
 .. automodapi:: gafaelfawr.dependencies.return_url
 
-.. automodapi:: gafaelfawr.dependencies.slack
-   :include-all-objects:
-
 .. automodapi:: gafaelfawr.exceptions
 
 .. automodapi:: gafaelfawr.factory
@@ -58,8 +55,6 @@ Python internal API
 .. automodapi:: gafaelfawr.operator.startup
 
 .. automodapi:: gafaelfawr.operator.tokens
-
-.. automodapi:: gafaelfawr.route
 
 .. automodapi:: gafaelfawr.providers.base
 

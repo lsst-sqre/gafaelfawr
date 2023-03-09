@@ -27,7 +27,7 @@ from ..exceptions import (
 )
 from ..models.auth import AuthType, Satisfy
 from ..models.token import TokenData
-from ..route import SlackRouteErrorHandler
+from ..slack import SlackRouteErrorHandler
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 

@@ -40,6 +40,7 @@ from .services.oidc import OIDCService
 from .services.token import TokenService
 from .services.token_cache import TokenCacheService
 from .services.userinfo import OIDCUserInfoService, UserInfoService
+from .slack import SlackClient
 from .storage.admin import AdminStore
 from .storage.base import RedisStorage
 from .storage.firestore import FirestoreStorage
@@ -488,6 +489,21 @@ class Factory:
         else:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
+
+    def create_slack_client(self) -> SlackClient | None:
+        """Create a client for sending messages to Slack.
+
+        Returns
+        -------
+        SlackClient or None
+            Configured Slack client if a Slack webhook was configured,
+            otherwise `None`.
+        """
+        if not self._context.config.slack_webhook:
+            return None
+        return SlackClient(
+            self._context.config.slack_webhook, "Gafaelfawr", self._logger
+        )
 
     def create_token_cache_service(self) -> TokenCacheService:
         """Create a token cache.
