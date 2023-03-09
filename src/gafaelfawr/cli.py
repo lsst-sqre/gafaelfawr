@@ -22,9 +22,10 @@ from .keypair import RSAKeyPair
 from .main import create_app
 from .models.token import Token
 from .schema import Base
-from .slack import SlackClient, SlackMessage
+from .slack import SlackMessage
 
 __all__ = [
+    "audit",
     "delete_all_data",
     "generate_key",
     "generate_token",
@@ -81,16 +82,16 @@ async def audit(fix: bool, config_path: Optional[Path]) -> None:
     if config_path:
         config_dependency.set_config_path(config_path)
     config = await config_dependency()
-    if not config.slack_webhook:
-        msg = "Slack alerting required for audit but not configured"
-        raise click.UsageError(msg)
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Starting audit")
-    slack = SlackClient(config.slack_webhook, "Gafaelfawr", logger)
     engine = create_database_engine(
         config.database_url, config.database_password
     )
     async with Factory.standalone(config, engine) as factory:
+        slack = factory.create_slack_client()
+        if not slack:
+            msg = "Slack alerting required for audit but not configured"
+            raise click.UsageError(msg)
         token_service = factory.create_token_service()
         async with factory.session.begin():
             alerts = await token_service.audit(fix=fix)
