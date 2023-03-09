@@ -195,7 +195,7 @@ async def test_callback_error(
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "error_code: description" in r.text
     assert parse_log(caplog) == [
         {
@@ -217,7 +217,7 @@ async def test_callback_error(
                 "remoteIp": "127.0.0.1",
             },
             "return_url": return_url,
-            "severity": "warning",
+            "severity": "error",
         },
     ]
 
@@ -230,7 +230,7 @@ async def test_callback_error(
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "Cannot contact authentication provider" in r.text
 
     # Now try a reply that returns 200 but doesn't have the field we need.
@@ -240,7 +240,7 @@ async def test_callback_error(
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
@@ -250,7 +250,7 @@ async def test_callback_error(
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
@@ -260,7 +260,7 @@ async def test_callback_error(
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "Cannot contact authentication provider" in r.text
 
     # None of these errors should have resulted in Slack alerts.
@@ -290,7 +290,7 @@ async def test_connection_error(
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "Cannot contact authentication provider" in r.text
 
     # None of these errors should have resulted in Slack alerts.
@@ -326,7 +326,7 @@ async def test_verify_error(
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "token verification failed" in r.text
 
     # None of these errors should have resulted in Slack alerts.
@@ -364,7 +364,7 @@ async def test_invalid_group_syntax(
     token = create_upstream_oidc_jwt(isMemberOf=47)
 
     r = await simulate_oidc_login(client, respx_mock, token)
-    assert r.status_code == 403
+    assert r.status_code == 500
     assert "isMemberOf claim has invalid format" in r.text
 
     # None of these errors should have resulted in Slack alerts.

@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import ClassVar
 
 import kopf
 import pydantic
 from fastapi import status
+from safir.models import ErrorLocation
 
 from .slack import SlackIgnoredException
 
 __all__ = [
     "DeserializeError",
     "DuplicateTokenNameError",
-    "ErrorLocation",
     "FetchKeysError",
     "FirestoreError",
     "FirestoreNotInitializedError",
@@ -52,15 +51,6 @@ __all__ = [
     "ValidationError",
     "VerifyTokenError",
 ]
-
-
-class ErrorLocation(Enum):
-    """Specifies the request component that triggered a `ValidationError`."""
-
-    body = "body"
-    header = "header"
-    path = "path"
-    query = "query"
 
 
 class ValidationError(SlackIgnoredException, kopf.PermanentError):

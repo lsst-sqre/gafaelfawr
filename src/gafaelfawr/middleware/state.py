@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+import copy
+from abc import ABCMeta, abstractmethod
 from collections.abc import Awaitable, Callable
-from dataclasses import replace
+from typing import Generic, TypeVar
 
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+T = TypeVar("T", bound="BaseState")
+
 __all__ = ["BaseState", "StateMiddleware"]
 
 
-class BaseState(ABC):
+class BaseState(metaclass=ABCMeta):
     """Base class for state information stored in a cookie.
 
     Each application must implement this abstract base class and provide the
@@ -50,7 +53,7 @@ class BaseState(ABC):
         """
 
 
-class StateMiddleware(BaseHTTPMiddleware):
+class StateMiddleware(BaseHTTPMiddleware, Generic[T]):
     """Middleware to read and update an encrypted state cookie.
 
     If a cookie by the given name exists, it will be parsed by the given class
@@ -79,7 +82,7 @@ class StateMiddleware(BaseHTTPMiddleware):
     """
 
     def __init__(
-        self, app: FastAPI, *, cookie_name: str, state_class: type[BaseState]
+        self, app: FastAPI, *, cookie_name: str, state_class: type[T]
     ) -> None:
         super().__init__(app)
         self.cookie_name = cookie_name
@@ -96,26 +99,25 @@ class StateMiddleware(BaseHTTPMiddleware):
         else:
             state = self.state_class()
 
-        # Put a copy of the state into the request object.  replace() with no
-        # additional parameters makes a copy of a dataclass.  We need to store
-        # a copy rather than the original so that we can determine if the
-        # state has changed and therefore whether to replace the cookie after
-        # the request handler runs.
-        request.state.cookie = replace(state)
+        # Put a copy of the state into the request object.  We need to store a
+        # copy rather than the original so that we can determine if the state
+        # has changed and therefore whether to replace the cookie after the
+        # request handler runs.
+        request.state.cookie = copy.copy(state)
         response = await call_next(request)
 
         # If the state has changed, write out the new state.
         if request.state.cookie != state:
             cookie = request.state.cookie.to_cookie()
-            secure = self.is_cookie_secure(request)
+            secure = self._is_cookie_secure(request)
             response.set_cookie(
                 self.cookie_name, cookie, secure=secure, httponly=True
             )
 
         return response
 
-    @staticmethod
-    def is_cookie_secure(request: Request) -> bool:
+    @classmethod
+    def _is_cookie_secure(cls, request: Request) -> bool:
         """Whether the cookie should be marked as secure.
 
         Parameters

@@ -8,13 +8,13 @@ from unittest.mock import ANY
 
 import pytest
 from httpx import AsyncClient
+from safir.datetime import current_datetime
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, MINIMUM_LIFETIME
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.token import Token, TokenUserInfo
-from gafaelfawr.util import current_datetime
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie

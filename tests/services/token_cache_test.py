@@ -6,13 +6,13 @@ from datetime import timedelta
 
 import pytest
 import structlog
+from safir.datetime import current_datetime
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token, TokenData, TokenType
 from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.token import TokenRedisStore
-from gafaelfawr.util import current_datetime
 
 from ..support.tokens import create_session_token
 

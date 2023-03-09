@@ -6,11 +6,12 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, validator
+from safir.datetime import current_datetime
 from safir.pydantic import normalize_datetime
 
 from ..constants import ALGORITHM, OIDC_AUTHORIZATION_LIFETIME
 from ..exceptions import InvalidGrantError
-from ..util import current_datetime, random_128_bits
+from ..util import random_128_bits
 from .token import Token
 
 __all__ = [
@@ -266,7 +267,7 @@ class JWK(BaseModel):
         example="sig",
     )
 
-    kid: str = Field(
+    kid: Optional[str] = Field(
         None,
         title="Key ID",
         description=(

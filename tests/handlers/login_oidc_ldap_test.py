@@ -404,3 +404,33 @@ async def test_invalidate_cache(
     )
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
+
+
+@pytest.mark.asyncio
+async def test_duplicate_username(
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_ldap: MockLDAP,
+) -> None:
+    """Test error handling of a multivalued ``uid`` attribute."""
+    config = await reconfigure(tmp_path, "oidc-ldap")
+    token = create_upstream_oidc_jwt(groups=["admin"], uid=["one", "two"])
+    assert config.ldap
+    assert config.ldap.user_base_dn
+    mock_ldap.add_entries_for_test(
+        config.ldap.user_base_dn,
+        config.ldap.user_search_attr,
+        "one",
+        [{"uidNumber": ["2000"]}],
+    )
+    mock_ldap.add_entries_for_test(
+        config.ldap.group_base_dn,
+        "member",
+        "one",
+        [{"cn": ["foo"], "gidNumber": ["1222"]}],
+    )
+
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 500
+    assert "token verification failed" in r.text

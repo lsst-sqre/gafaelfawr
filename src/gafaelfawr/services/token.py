@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Optional
 
+from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
@@ -37,7 +38,7 @@ from ..models.token import (
 )
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
-from ..util import current_datetime, format_datetime_for_logging, is_bot_user
+from ..util import format_datetime_for_logging, is_bot_user
 from .token_cache import TokenCacheService
 
 __all__ = ["TokenService"]

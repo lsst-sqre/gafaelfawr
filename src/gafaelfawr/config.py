@@ -10,7 +10,6 @@ rest of Gafaelfawr as the `Config` object.
 from __future__ import annotations
 
 import json
-import logging
 import re
 from collections import defaultdict
 from collections.abc import Mapping
@@ -22,7 +21,7 @@ from typing import Any, Optional
 
 import yaml
 from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
-from safir.logging import configure_logging
+from safir.logging import LogLevel
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -293,7 +292,7 @@ class Settings(CamelCaseModel):
     realm: str
     """Realm for HTTP authentication."""
 
-    loglevel: str = "INFO"
+    loglevel: LogLevel = LogLevel.INFO
     """Logging level."""
 
     session_secret_file: Path
@@ -383,13 +382,6 @@ class Settings(CamelCaseModel):
         for required in ("admin:token", "user:token"):
             if required not in v:
                 raise ValueError(f"required scope {scope} missing")
-        return v
-
-    @validator("loglevel")
-    def _valid_loglevel(cls, v: str) -> str:
-        level = getattr(logging, v, None)
-        if not level:
-            raise ValueError("invalid logging level")
         return v
 
     @validator("ldap", always=True)
@@ -726,6 +718,9 @@ class Config:
     realm: str
     """Realm for HTTP authentication."""
 
+    loglevel: LogLevel
+    """Level for logging."""
+
     session_secret: str
     """Secret used to encrypt the session cookie and session store."""
 
@@ -957,8 +952,9 @@ class Config:
         if settings.slack_webhook_file:
             path = settings.slack_webhook_file
             slack_webhook = cls._load_secret(path).decode()
-        config = cls(
+        return cls(
             realm=settings.realm,
+            loglevel=settings.loglevel,
             session_secret=session_secret.decode(),
             redis_url=settings.redis_url,
             redis_password=redis_password,
@@ -980,19 +976,6 @@ class Config:
             known_scopes=settings.known_scopes or {},
             group_mapping=group_mapping_frozen,
         )
-
-        # Configure logging.  Some Safir applications allow customization of
-        # these parameters, but Gafaelfawr only allows customizing the log
-        # level.
-        configure_logging(
-            profile="production",
-            log_level=settings.loglevel,
-            name="gafaelfawr",
-            add_timestamp=True,
-        )
-
-        # Return the completed configuration.
-        return config
 
     @staticmethod
     def _load_secret(path: Path) -> bytes:

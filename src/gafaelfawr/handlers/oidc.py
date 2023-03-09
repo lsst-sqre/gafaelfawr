@@ -254,16 +254,16 @@ async def post_token(
             "content": {
                 "application/json": {
                     "example": {
+                        "aud": "https://example.com/",
+                        "iss": "https://gafaelfawr.example.com/",
                         "exp": 1616993932,
                         "iat": 1614993932,
-                        "isMemberOf": [
-                            {"name": "g_special_users", "id": 139131}
-                        ],
+                        "jti": "TqgAlCVtMYU6uPIA6Z1FyQ",
                         "name": "Alice Example",
-                        "scope": "read:all user:token",
+                        "preferred_username": "someuser",
+                        "scope": "openid",
                         "sub": "someuser",
-                        "uid": "someuser",
-                        "uidNumber": 4151,
+                        "uid_number": 4151,
                     }
                 }
             }

@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-import errno
-import logging
 import os
-import socket
-import subprocess
-import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -15,6 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from safir.database import create_database_engine
+from safir.testing.uvicorn import spawn_uvicorn
 from seleniumwire import webdriver
 
 from gafaelfawr.config import Config
@@ -86,28 +82,6 @@ def selenium_driver() -> webdriver.Chrome:
     driver = webdriver.Chrome(options=options)
     driver.implicitly_wait(1)
     return driver
-
-
-def _wait_for_server(port: int, timeout: float = 5.0) -> None:
-    """Wait until a server accepts connections on the specified port."""
-    deadline = time.time() + timeout
-    while True:
-        socket_timeout = deadline - time.time()
-        if socket_timeout < 0.0:
-            assert False, f"Server did not start on port {port} in {timeout}s"
-        try:
-            s = socket.socket()
-            s.settimeout(socket_timeout)
-            s.connect(("localhost", port))
-        except socket.timeout:
-            pass
-        except socket.error as e:
-            if e.errno not in [errno.ETIMEDOUT, errno.ECONNREFUSED]:
-                raise
-        else:
-            s.close()
-            return
-        time.sleep(0.1)
 
 
 async def _selenium_startup(token_path: Path) -> None:
@@ -188,42 +162,22 @@ async def run_app(
     config = await config_dependency()
     token_path = tmp_path / "token"
 
-    # Create the socket that the app will listen on.
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-
-    # Spawn the app in a separate process using uvicorn.
-    cmd = [
-        "uvicorn",
-        "--fd",
-        "0",
-        "--factory",
-        "tests.support.selenium:selenium_create_app",
-    ]
-    logging.info("Starting server with command %s", " ".join(cmd))
-    p = subprocess.Popen(
-        cmd,
-        cwd=str(tmp_path),
-        stdin=s.fileno(),
+    # Start the server.
+    uvicorn = spawn_uvicorn(
+        working_directory=tmp_path,
+        factory="tests.support.selenium:selenium_create_app",
         env={
-            **os.environ,
             "GAFAELFAWR_CONFIG_PATH": str(config_path),
             "GAFAELFAWR_TEST_TOKEN_PATH": str(token_path),
-            "PYTHONPATH": os.getcwd(),
         },
     )
-    s.close()
 
-    logging.info("Waiting for server to start")
-    _wait_for_server(port)
-
+    # Return the configuration, terminating the server on any failure.
     try:
-        selenium_config = SeleniumConfig(
+        yield SeleniumConfig(
             config=config,
             token=Token.from_str(token_path.read_text()),
-            url=f"http://localhost:{port}",
+            url=uvicorn.url,
         )
-        yield selenium_config
     finally:
-        p.terminate()
+        uvicorn.process.terminate()

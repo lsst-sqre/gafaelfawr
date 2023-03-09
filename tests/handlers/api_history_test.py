@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 import pytest
 from httpx import AsyncClient
 from safir.database import datetime_to_db
+from safir.datetime import current_datetime
 from sqlalchemy.future import select
 
 from gafaelfawr.factory import Factory
@@ -24,7 +25,6 @@ from gafaelfawr.models.token import (
     TokenUserInfo,
 )
 from gafaelfawr.schema import TokenChangeHistory
-from gafaelfawr.util import current_datetime
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import set_session_cookie

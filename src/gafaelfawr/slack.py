@@ -8,11 +8,10 @@ from typing import Any, Optional
 from fastapi import HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
+from safir.datetime import current_datetime
 from safir.dependencies.http_client import http_client_dependency
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from structlog.stdlib import BoundLogger
-
-from .util import current_datetime
 
 SLACK_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 """Date format to use for dates in Slack alerts."""

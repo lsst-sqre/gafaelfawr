@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
 import jwt
 from structlog.stdlib import BoundLogger
@@ -162,7 +163,7 @@ class OIDCService:
         """
         now = datetime.now(timezone.utc)
         expires = now + self._config.lifetime
-        payload = {
+        payload: dict[str, Any] = {
             "aud": self._config.audience,
             "iat": int(now.timestamp()),
             "iss": self._config.issuer,
@@ -180,11 +181,7 @@ class OIDCService:
             headers={"kid": self._config.key_id},
         )
         return OIDCVerifiedToken(
-            encoded=encoded_token,
-            claims=payload,
-            username=payload["sub"],
-            uid=payload["uid_number"],
-            jti=payload.get("jti"),
+            encoded=encoded_token, claims=payload, jti=payload.get("jti")
         )
 
     async def redeem_code(
@@ -285,10 +282,7 @@ class OIDCService:
                 audience=self._config.audience,
             )
             return OIDCVerifiedToken(
-                encoded=token.encoded,
-                claims=payload,
-                jti=payload["jti"],
-                username=payload["sub"],
+                encoded=token.encoded, claims=payload, jti=payload["jti"]
             )
         except jwt.InvalidTokenError as e:
             raise InvalidTokenError(str(e)) from e

@@ -16,6 +16,7 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1Secret,
 )
+from safir.datetime import current_datetime
 
 from gafaelfawr.constants import KUBERNETES_TIMER_DELAY
 from gafaelfawr.factory import Factory
@@ -31,7 +32,6 @@ from gafaelfawr.models.token import (
     TokenType,
 )
 from gafaelfawr.services.token import TokenService
-from gafaelfawr.util import current_datetime
 
 from ..support.kubernetes import (
     assert_custom_resource_status_is,

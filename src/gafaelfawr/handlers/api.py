@@ -19,12 +19,12 @@ from fastapi import (
     Response,
     status,
 )
-from safir.models import ErrorModel
+from safir.models import ErrorLocation, ErrorModel
 
 from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
 from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import ErrorLocation, NotFoundError
+from ..exceptions import NotFoundError
 from ..models.admin import Admin
 from ..models.auth import APIConfig, APILoginResponse, Scope
 from ..models.history import TokenChangeHistoryEntry

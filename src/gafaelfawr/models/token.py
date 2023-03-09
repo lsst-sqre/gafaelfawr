@@ -7,11 +7,12 @@ from enum import Enum
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, validator
+from safir.datetime import current_datetime
 from safir.pydantic import normalize_datetime
 
 from ..constants import GROUPNAME_REGEX, USERNAME_REGEX
 from ..exceptions import InvalidTokenError
-from ..util import current_datetime, normalize_scopes, random_128_bits
+from ..util import normalize_scopes, random_128_bits
 
 __all__ = [
     "AdminTokenRequest",

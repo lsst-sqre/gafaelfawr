@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from safir.datetime import current_datetime
+
 from gafaelfawr.constants import OIDC_AUTHORIZATION_LIFETIME
 from gafaelfawr.models.oidc import OIDCAuthorization
 from gafaelfawr.models.token import Token
-from gafaelfawr.util import current_datetime
 
 
 def test_authorization_lifetime() -> None:
