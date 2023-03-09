@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Self
 
 __all__ = ["LinkData"]
 
@@ -25,7 +26,7 @@ class LinkData:
     """The URL of the first page."""
 
     @classmethod
-    def from_header(cls, header: str | None) -> LinkData:
+    def from_header(cls, header: str | None) -> Self:
         """Parse an RFC 8288 ``Link`` with pagination URLs.
 
         Parameters

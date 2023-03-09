@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Self
 
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
@@ -32,7 +32,7 @@ class RSAKeyPair:
     """
 
     @classmethod
-    def from_pem(cls, pem: bytes) -> RSAKeyPair:
+    def from_pem(cls, pem: bytes) -> Self:
         """Import an RSA key pair from a PEM-encoded private key.
 
         Parameters
@@ -58,7 +58,7 @@ class RSAKeyPair:
         return cls(private_key)
 
     @classmethod
-    def generate(cls) -> RSAKeyPair:
+    def generate(cls) -> Self:
         """Generate a new RSA key pair.
 
         Returns

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Self
 
 from cryptography.fernet import Fernet
 from fastapi import Request
@@ -44,7 +44,7 @@ class State(BaseState):
     @classmethod
     async def from_cookie(
         cls, cookie: str, request: Optional[Request] = None
-    ) -> State:
+    ) -> Self:
         """Reconstruct state from an encrypted cookie.
 
         Parameters

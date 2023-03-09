@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 from abc import ABCMeta, abstractmethod
 from collections.abc import Awaitable, Callable
-from typing import Generic, TypeVar
+from typing import Generic, Self, TypeVar
 
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -26,7 +26,7 @@ class BaseState(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    async def from_cookie(cls, cookie: str, request: Request) -> BaseState:
+    async def from_cookie(cls, cookie: str, request: Request) -> Self:
         """Reconstruct state from an encrypted cookie.
 
         Parameters
@@ -116,8 +116,7 @@ class StateMiddleware(BaseHTTPMiddleware, Generic[T]):
 
         return response
 
-    @classmethod
-    def _is_cookie_secure(cls, request: Request) -> bool:
+    def _is_cookie_secure(self, request: Request) -> bool:
         """Whether the cookie should be marked as secure.
 
         Parameters

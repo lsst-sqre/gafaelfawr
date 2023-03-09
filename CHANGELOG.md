@@ -11,6 +11,7 @@ Dependencies are updated to the latest available version during each release. Th
 - Explicitly disable caching of enrollment redirects. Some browsers appear to cache 307 redirects and redirected the user back to enrollment the next time they logged in.
 - Uniformly use `Cache-Control: no-cache, no-store` to disable caching of errors and redirects. Previously, Gafaelfawr also added `must-revalidate` (but not `max-age`). This appears to not be necessary or useful with modern browsers.
 - Correctly expand backtraces of uncaught exceptions in Uvicorn logs.
+- Diagnose and display a proper error if the OpenID Connect token from the authentication provider contains multiple usernames.
 
 ### Other changes
 

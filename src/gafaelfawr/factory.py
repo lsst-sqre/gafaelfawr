@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
+from typing import Self
 
 import redis.asyncio as redis
 import structlog
@@ -99,7 +100,7 @@ class ProcessContext:
     """Shared notebook token cache."""
 
     @classmethod
-    async def from_config(cls, config: Config) -> ProcessContext:
+    async def from_config(cls, config: Config) -> Self:
         """Create a new process context from the Gafaelfawr configuration.
 
         Parameters
@@ -177,7 +178,7 @@ class Factory:
     @classmethod
     async def create(
         cls, config: Config, engine: AsyncEngine, check_db: bool = False
-    ) -> Factory:
+    ) -> Self:
         """Create a component factory outside of a request.
 
         Intended for long-running daemons other than the FastAPI web
@@ -219,7 +220,7 @@ class Factory:
     @asynccontextmanager
     async def standalone(
         cls, config: Config, engine: AsyncEngine, check_db: bool = False
-    ) -> AsyncIterator[Factory]:
+    ) -> AsyncIterator[Self]:
         """Async context manager for Gafaelfawr components.
 
         Intended for background jobs.  Uses the non-request default values for
