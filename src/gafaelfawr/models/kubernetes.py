@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Self
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -526,9 +526,7 @@ class KubernetesResourceStatus:
     """Time of the status event."""
 
     @classmethod
-    def failure(
-        cls, resource: KubernetesResource, message: str
-    ) -> KubernetesResourceStatus:
+    def failure(cls, resource: KubernetesResource, message: str) -> Self:
         """Create a status object for a failure.
 
         Parameters

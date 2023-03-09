@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, Optional, Self, TypeVar
 from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
@@ -101,7 +101,7 @@ class HistoryCursor:
     """Whether to search backwards instead of forwards."""
 
     @classmethod
-    def from_str(cls, cursor: str) -> HistoryCursor:
+    def from_str(cls, cursor: str) -> Self:
         """Build cursor from the string serialization form.
 
         Parameters
@@ -133,7 +133,7 @@ class HistoryCursor:
             raise InvalidCursorError(f"Invalid cursor: {str(e)}") from e
 
     @classmethod
-    def invert(cls, cursor: HistoryCursor) -> HistoryCursor:
+    def invert(cls, cursor: HistoryCursor) -> Self:
         """Return the inverted cursor (going the opposite direction).
 
         Parameters

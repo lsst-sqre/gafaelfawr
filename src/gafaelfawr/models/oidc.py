@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, Self
 
 from pydantic import BaseModel, Field, validator
 from safir.datetime import current_datetime
@@ -36,7 +36,7 @@ class OIDCAuthorizationCode(BaseModel):
     secret: str = Field(default_factory=random_128_bits)
 
     @classmethod
-    def from_str(cls, code: str) -> OIDCAuthorizationCode:
+    def from_str(cls, code: str) -> Self:
         """Parse a serialized token into an `OIDCAuthorizationCode`.
 
         Parameters

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Self
 
 from pydantic import BaseModel, Field, validator
 from safir.datetime import current_datetime
@@ -51,7 +51,7 @@ class Token(BaseModel):
     secret: str = Field(default_factory=random_128_bits)
 
     @classmethod
-    def from_str(cls, token: str) -> Token:
+    def from_str(cls, token: str) -> Self:
         """Parse a serialized token into a `Token`.
 
         Parameters
@@ -411,7 +411,7 @@ class TokenData(TokenBase, TokenUserInfo):
         json_encoders = {datetime: lambda v: int(v.timestamp())}
 
     @classmethod
-    def bootstrap_token(cls) -> TokenData:
+    def bootstrap_token(cls) -> Self:
         """Build authentication data for the bootstrap token.
 
         This token doesn't exist in the backing store, so instead synthesize a
@@ -431,7 +431,7 @@ class TokenData(TokenBase, TokenUserInfo):
         )
 
     @classmethod
-    def internal_token(cls) -> TokenData:
+    def internal_token(cls) -> Self:
         """Build authentication data for the internal token.
 
         Similar to the bootstrap token, this does not exist in the backing

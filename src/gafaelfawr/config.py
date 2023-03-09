@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Self
 
 import yaml
 from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
@@ -795,7 +795,7 @@ class Config:
     """Mapping of group names to the set of scopes that group grants."""
 
     @classmethod
-    def from_file(cls, path: Path) -> Config:
+    def from_file(cls, path: Path) -> Self:
         """Construct a Config object from a configuration file.
 
         Parameters
