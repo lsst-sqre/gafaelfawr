@@ -19,6 +19,7 @@ Dependencies are updated to the latest available version during each release. Th
 - Diagnose and display a proper error if the OpenID Connect token from the authentication provider contains multiple usernames.
 - Return a status code of 500 instead of 403 for server-side errors during login.
 - Errors in querying an external source of user information, such as Firestore or LDAP, are now caught in the `/auth` route and only logged, not reported to Slack as uncaught exceptions. The `/auth` route may receive multiple requests per second and should not report every error due to a possible external outage to Slack.
+- Errors in querying an external source of user information in the `/auth/api/v1/user-info` route are now caught, reported to Slack, and result in an orderly error message instead of an uncaught exception.
 
 ### Other changes
 

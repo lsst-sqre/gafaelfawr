@@ -25,7 +25,7 @@ from safir.slack import SlackRouteErrorHandler
 from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
 from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import NotFoundError
+from ..exceptions import ExternalUserInfoError, NotFoundError
 from ..models.admin import Admin
 from ..models.auth import APIConfig, APILoginResponse, Scope
 from ..models.history import TokenChangeHistoryEntry
@@ -350,7 +350,19 @@ async def get_user_info(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenUserInfo:
     user_info_service = context.factory.create_user_info_service()
-    return await user_info_service.get_user_info_from_token(auth_data)
+    try:
+        return await user_info_service.get_user_info_from_token(auth_data)
+    except ExternalUserInfoError as e:
+        msg = "Unable to get user information"
+        context.logger.exception(msg, error=str(e))
+        slack_client = context.factory.create_slack_client()
+        if slack_client:
+            await slack_client.post_exception(e)
+        raise HTTPException(
+            headers={"Cache-Control": "no-cache, no-store"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=[{"msg": msg, "type": "user_info_failed"}],
+        )
 
 
 @router.get(

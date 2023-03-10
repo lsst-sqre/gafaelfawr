@@ -1477,3 +1477,72 @@ async def test_scope_modify(
         headers={"Authorization": f"bearer {user_token}"},
     )
     assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_ldap_error(
+    tmp_path: Path,
+    client: AsyncClient,
+    factory: Factory,
+    mock_ldap: MockLDAP,
+    mock_slack: MockSlack,
+) -> None:
+    config = await reconfigure(tmp_path, "oidc-ldap-uid", factory)
+    assert config.ldap
+    assert config.ldap.user_base_dn
+    mock_ldap.add_entries_for_test(
+        config.ldap.user_base_dn,
+        config.ldap.user_search_attr,
+        "ldap-user",
+        [
+            {
+                "displayName": ["LDAP User"],
+                "mail": ["ldap-user@example.com"],
+                "uidNumber": ["bogus"],
+            }
+        ],
+    )
+    token_data = await create_session_token(
+        factory, username="ldap-user", scopes=["read:all"], minimal=True
+    )
+    await set_session_cookie(client, token_data.token)
+
+    # The request should fail with a 500 error since the LDAP data is invalid.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 500
+    assert r.json()["detail"][0]["type"] == "user_info_failed"
+
+    # This error should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: LDAP user entry invalid"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nLDAPError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": "*User*\nldap-user",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]

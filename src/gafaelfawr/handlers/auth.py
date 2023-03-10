@@ -386,7 +386,7 @@ async def build_success_headers(
         raise HTTPException(
             headers={"Cache-Control": "no-cache, no-store"},
             status_code=500,
-            detail={"msg": msg, "type": "user_info_failed"},
+            detail=[{"msg": msg, "type": "user_info_failed"}],
         )
 
     headers = [("X-Auth-Request-User", token_data.username)]
