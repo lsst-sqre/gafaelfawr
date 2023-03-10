@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, Query, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from safir.datetime import current_datetime
 from safir.models import ErrorModel
 from safir.slack import SlackRouteErrorHandler
@@ -21,6 +21,7 @@ from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
+    ExternalUserInfoError,
     InsufficientScopeError,
     InvalidDelegateToError,
     InvalidMinimumLifetimeError,
@@ -361,10 +362,34 @@ async def build_success_headers(
     -------
     headers
         Headers to include in the response.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        Raised if user information could not be retrieved from external
+        systems.
     """
+    info_service = context.factory.create_user_info_service()
+    try:
+        user_info = await info_service.get_user_info_from_token(token_data)
+    except ExternalUserInfoError as e:
+        # Catch these exceptions rather than raising an uncaught exception or
+        # reporting the exception to Slack. This route is called on every user
+        # request and may be called multiple times per second, so if we
+        # reported every exception during an LDAP outage to Slack, we would
+        # get rate-limited or destroy the Slack channel. Instead, log the
+        # exception and return 403 and rely on failures during login (which
+        # are reported to Slack) and external testing to detect these
+        # problems.
+        msg = "Unable to get user information"
+        context.logger.exception(msg, user=token_data.username, error=str(e))
+        raise HTTPException(
+            headers={"Cache-Control": "no-cache, no-store"},
+            status_code=500,
+            detail={"msg": msg, "type": "user_info_failed"},
+        )
+
     headers = [("X-Auth-Request-User", token_data.username)]
-    user_info_service = context.factory.create_user_info_service()
-    user_info = await user_info_service.get_user_info_from_token(token_data)
     if user_info.email:
         headers.append(("X-Auth-Request-Email", user_info.email))
 

@@ -21,6 +21,7 @@ from safir.slack import (
 __all__ = [
     "DeserializeError",
     "DuplicateTokenNameError",
+    "ExternalUserInfoError",
     "FetchKeysError",
     "FirestoreError",
     "FirestoreNotInitializedError",
@@ -324,7 +325,19 @@ class DeserializeError(Exception):
     """
 
 
-class FirestoreError(SlackException):
+class ExternalUserInfoError(SlackException):
+    """Error in external user information source.
+
+    This is the base exception for any error in retrieving information from an
+    external source of user data. External sources of data may be affected by
+    an external outage, and we don't want to report uncaught exceptions for
+    every attempt to query them (possibly multiple times per second), so this
+    exception base class is used to catch those errors in the high-traffic
+    ``/auth`` route and only log them.
+    """
+
+
+class FirestoreError(ExternalUserInfoError):
     """An error occurred while reading or updating Firestore data."""
 
 
@@ -338,6 +351,10 @@ class NoAvailableGidError(FirestoreError):
 
 class NoAvailableUidError(FirestoreError):
     """The assigned UID space has been exhausted."""
+
+
+class LDAPError(ExternalUserInfoError):
+    """User or group information in LDAP was invalid or LDAP calls failed."""
 
 
 class KubernetesError(Exception):
@@ -368,10 +385,6 @@ class KubernetesObjectError(KubernetesError):
     ) -> None:
         msg = f"{kind} {namespace}/{name} is malformed: {str(exc)}"
         super().__init__(msg)
-
-
-class LDAPError(SlackException):
-    """User or group information in LDAP was invalid or LDAP calls failed."""
 
 
 class NotConfiguredError(SlackIgnoredException):
