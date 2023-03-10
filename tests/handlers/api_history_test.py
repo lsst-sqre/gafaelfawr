@@ -13,6 +13,7 @@ import pytest
 from httpx import AsyncClient
 from safir.database import datetime_to_db
 from safir.datetime import current_datetime
+from safir.testing.slack import MockSlack
 from sqlalchemy.future import select
 
 from gafaelfawr.factory import Factory
@@ -28,7 +29,6 @@ from gafaelfawr.schema import TokenChangeHistory
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import set_session_cookie
-from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 

@@ -11,6 +11,7 @@ import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 from safir.datetime import current_datetime
+from safir.testing.slack import MockSlack
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
@@ -25,7 +26,6 @@ from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.firestore import MockFirestore
 from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
-from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 

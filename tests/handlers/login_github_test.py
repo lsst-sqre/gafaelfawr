@@ -10,6 +10,7 @@ import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, Response
+from safir.testing.slack import MockSlack
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
@@ -18,7 +19,6 @@ from gafaelfawr.providers.github import GitHubProvider
 
 from ..support.github import mock_github
 from ..support.logging import parse_log
-from ..support.slack import MockSlack
 
 
 async def simulate_github_login(

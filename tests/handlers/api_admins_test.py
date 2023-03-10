@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
+from safir.testing.slack import MockSlack
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
 
 from ..support.cookies import set_session_cookie
-from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 

@@ -14,6 +14,7 @@ from cryptography.fernet import Fernet
 from fastapi.openapi.utils import get_openapi
 from safir.asyncio import run_with_asyncio
 from safir.database import create_database_engine, initialize_database
+from safir.slack import SlackMessage
 from sqlalchemy import text
 
 from .dependencies.config import config_dependency
@@ -22,7 +23,6 @@ from .keypair import RSAKeyPair
 from .main import create_app
 from .models.token import Token
 from .schema import Base
-from .slack import SlackMessage
 
 __all__ = [
     "audit",

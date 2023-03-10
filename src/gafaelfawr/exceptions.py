@@ -10,8 +10,8 @@ import pydantic
 from fastapi import status
 from httpx import HTTPError, HTTPStatusError, RequestError
 from safir.models import ErrorLocation
-
-from .slack import (
+from safir.slack import (
+    SlackAttachment,
     SlackException,
     SlackField,
     SlackIgnoredException,
@@ -486,8 +486,8 @@ class ProviderWebError(ProviderError):
             field = SlackField(heading="Reason", text=self.reason)
             message.fields.append(field)
         if self.body:
-            field = SlackField(heading="Response", code=self.body)
-            message.attachments.append(field)
+            attachment = SlackAttachment(heading="Response", code=self.body)
+            message.attachments.append(attachment)
         return message
 
 

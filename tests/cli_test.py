@@ -19,6 +19,7 @@ from click.testing import CliRunner
 from cryptography.fernet import Fernet
 from safir.database import initialize_database
 from safir.datetime import current_datetime
+from safir.testing.slack import MockSlack
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
@@ -35,7 +36,6 @@ from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
 from .support.config import configure
-from .support.slack import MockSlack
 
 
 async def _initialize_database(engine: AsyncEngine, config: Config) -> None:
@@ -86,7 +86,11 @@ def test_audit(
             "blocks": [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": expected_alert},
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": expected_alert,
+                        "verbatim": True,
+                    },
                 }
             ]
         }

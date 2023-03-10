@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse, Response
+from safir.slack import SlackException, SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import return_url_with_header
@@ -19,7 +20,6 @@ from ..exceptions import (
     ProviderError,
     ProviderWebError,
 )
-from ..slack import SlackException, SlackRouteErrorHandler
 from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)

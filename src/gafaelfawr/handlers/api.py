@@ -20,6 +20,7 @@ from fastapi import (
     status,
 )
 from safir.models import ErrorLocation, ErrorModel
+from safir.slack import SlackRouteErrorHandler
 
 from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
 from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
@@ -38,7 +39,6 @@ from ..models.token import (
     UserTokenModifyRequest,
     UserTokenRequest,
 )
-from ..slack import SlackRouteErrorHandler
 from ..util import random_128_bits
 
 __all__ = ["router"]

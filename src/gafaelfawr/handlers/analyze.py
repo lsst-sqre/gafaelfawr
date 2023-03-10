@@ -7,12 +7,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
+from safir.slack import SlackRouteErrorHandler
 
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidTokenError
 from ..models.token import Token, TokenData
-from ..slack import SlackRouteErrorHandler
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 authenticate = AuthenticateRead(

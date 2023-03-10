@@ -15,6 +15,7 @@ from safir.dependencies.http_client import http_client_dependency
 from safir.logging import Profile, configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
+from safir.slack import SlackRouteErrorHandler
 
 from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
@@ -27,7 +28,6 @@ from .exceptions import (
 from .handlers import analyze, api, auth, index, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
-from .slack import SlackRouteErrorHandler
 
 __all__ = ["create_app"]
 

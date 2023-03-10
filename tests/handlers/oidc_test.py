@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
+from safir.testing.slack import MockSlack
 
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import ALGORITHM
@@ -28,7 +29,6 @@ from ..support.headers import (
     query_from_url,
 )
 from ..support.logging import parse_log
-from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 

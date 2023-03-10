@@ -10,6 +10,7 @@ import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, ConnectError
+from safir.testing.slack import MockSlack
 
 from gafaelfawr.constants import GID_MIN, UID_BOT_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
@@ -19,7 +20,6 @@ from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.logging import parse_log
 from ..support.oidc import mock_oidc_provider_token, simulate_oidc_login
-from ..support.slack import MockSlack
 
 
 @pytest.mark.asyncio
@@ -272,15 +272,21 @@ async def test_callback_error(
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            "Error retrieving ID token: error_code:"
-                            " description"
+                            "Error in Gafaelfawr: Error retrieving ID token:"
+                            " error_code: description"
                         ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                     ],
                 },
                 {"type": "divider"},
@@ -293,15 +299,21 @@ async def test_callback_error(
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            "Status 400 from POST "
+                            "Error in Gafaelfawr: Status 400 from POST "
                             "https://upstream.example.com/token"
                         ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nProviderWebError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                         {
                             "type": "mrkdwn",
                             "text": (
@@ -339,15 +351,21 @@ async def test_callback_error(
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            "No id_token in token reply from "
-                            "https://upstream.example.com/token"
+                            "Error in Gafaelfawr: No id_token in token reply"
+                            " from https://upstream.example.com/token"
                         ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                     ],
                 },
                 {"type": "divider"},
@@ -360,15 +378,21 @@ async def test_callback_error(
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            "Response from "
+                            "Error in Gafaelfawr: Response from "
                             "https://upstream.example.com/token not valid JSON"
                         ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                     ],
                 },
                 {"type": "divider"},
@@ -381,15 +405,21 @@ async def test_callback_error(
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            "Response from "
+                            "Error in Gafaelfawr: Response from "
                             "https://upstream.example.com/token not valid JSON"
                         ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                     ],
                 },
                 {"type": "divider"},
@@ -432,13 +462,21 @@ async def test_connection_error(
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "ConnectError: Mock Error",
+                        "text": (
+                            "Error in Gafaelfawr: ConnectError: Mock Error"
+                        ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nProviderWebError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                         {
                             "type": "mrkdwn",
                             "text": (
@@ -495,16 +533,22 @@ async def test_verify_error(
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            "Status 404 from GET "
+                            "Error in Gafaelfawr: Status 404 from GET "
                             "https://upstream.example.com/.well-known"
                             "/jwks.json"
                         ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nProviderWebError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                         {
                             "type": "mrkdwn",
                             "text": (
@@ -570,16 +614,22 @@ async def test_invalid_group_syntax(
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            "OpenID Connect token verification failed:"
-                            " isMemberOf claim has invalid format: 'int'"
-                            " object is not iterable"
+                            "Error in Gafaelfawr: OpenID Connect token"
+                            " verification failed: isMemberOf claim has"
+                            " invalid format: 'int' object is not iterable"
                         ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                     ],
                 },
                 {"type": "divider"},

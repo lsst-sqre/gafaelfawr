@@ -6,6 +6,7 @@ import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
+from safir.testing.slack import MockSlack
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
@@ -16,7 +17,6 @@ from ..support.cookies import set_session_cookie
 from ..support.github import mock_github
 from ..support.headers import query_from_url
 from ..support.logging import parse_log
-from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 

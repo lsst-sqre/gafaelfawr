@@ -15,6 +15,7 @@ from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from safir.database import create_async_session
 from safir.dependencies.http_client import http_client_dependency
+from safir.slack import SlackClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
@@ -40,7 +41,6 @@ from .services.oidc import OIDCService
 from .services.token import TokenService
 from .services.token_cache import TokenCacheService
 from .services.userinfo import OIDCUserInfoService, UserInfoService
-from .slack import SlackClient
 from .storage.admin import AdminStore
 from .storage.base import RedisStorage
 from .storage.firestore import FirestoreStorage
@@ -495,7 +495,7 @@ class Factory:
 
         Returns
         -------
-        SlackClient or None
+        safir.slack.SlackClient or None
             Configured Slack client if a Slack webhook was configured,
             otherwise `None`.
         """

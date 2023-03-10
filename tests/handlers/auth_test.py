@@ -9,6 +9,7 @@ from unittest.mock import ANY
 import pytest
 from httpx import AsyncClient
 from safir.datetime import current_datetime
+from safir.testing.slack import MockSlack
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, MINIMUM_LIFETIME
@@ -22,7 +23,6 @@ from ..support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
 )
-from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 

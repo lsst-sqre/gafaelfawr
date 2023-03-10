@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from safir.database import create_database_engine, initialize_database
 from safir.dependencies.db_session import db_session_dependency
+from safir.testing.slack import MockSlack, mock_slack_webhook
 from seleniumwire import webdriver
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -35,7 +36,6 @@ from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
-from .support.slack import MockSlack, mock_slack_webhook
 
 
 @pytest_asyncio.fixture

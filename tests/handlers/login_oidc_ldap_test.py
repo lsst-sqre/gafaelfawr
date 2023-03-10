@@ -8,6 +8,7 @@ from unittest.mock import ANY
 import pytest
 import respx
 from httpx import AsyncClient
+from safir.testing.slack import MockSlack
 
 from gafaelfawr.constants import GID_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
@@ -17,7 +18,6 @@ from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.ldap import MockLDAP
 from ..support.oidc import simulate_oidc_login
-from ..support.slack import MockSlack
 
 
 @pytest.mark.asyncio
@@ -447,15 +447,22 @@ async def test_duplicate_username(
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            "OpenID Connect token verification failed: "
-                            "Invalid uid claim in token: ['one', 'two']"
+                            "Error in Gafaelfawr: OpenID Connect token"
+                            " verification failed: Invalid uid claim in"
+                            " token: ['one', 'two']"
                         ),
+                        "verbatim": True,
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"text": ANY, "type": "mrkdwn", "verbatim": True}
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
                     ],
                 },
                 {"type": "divider"},
