@@ -4,7 +4,11 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 9.0.1 (unreleased)
+## 9.1.0 (unreleased)
+
+### New features
+
+- Gafaelfawr now supports setting API and notebook quotas in its configuration, and calculates the quota for a given user based on their group membership. This quota information is returned by the `/auth/api/v1/user-info` route, but is not otherwise used by Gafaelfawr (yet).
 
 ### Bug fixes
 

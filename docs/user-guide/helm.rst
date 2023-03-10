@@ -416,6 +416,46 @@ a ``scope`` claim of ``exec:admin`` will be added to the token.
 Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
 The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
 
+Quotas
+======
+
+Gafaelfawr supports calculating user quotas based on group membership and providing quota information through its API.
+These quotas are not enforced by Gafaelfawr.
+
+To configure quotas, set a base quota for all users, and then optionally add additional quota for members of specific groups.
+Here is an example:
+
+.. code-block:: yaml
+
+   config:
+     quota:
+       default:
+         api:
+           datalinker: 1000
+         notebook:
+           cpu: 2.0
+           memory: 4.0
+       groups:
+         g_developers:
+           notebook:
+             cpu: 8.0
+             memory: 4.0
+
+API quotas are in requests per 15 minutes.
+Notebook quotas are in CPU equivalents and GiB of memory.
+
+Therefore, the above example sets an API quota for the ``datalinker`` service of 1000 requests per 15 minutes, and a default quota for user notebooks of 2.0 CPU equivalents and 4.0GiB of memory.
+Users who are members of the ``g_developers`` group get an additional 4.0GiB of memory for their notebooks.
+
+The keys for API quotas are names of services.
+This is the same name the service should use in the ``config.delegate.internal.service`` key of a ``GafaelfawrIngress`` resource (see :ref:`ingress`) or the ``delegate_to`` argument to the ``/auth`` route in a manually-configured ingress (see :ref:`manual-ingress`).
+If a service name has no corresponding quota setting, access to that service will be unrestricted.
+
+All group stanzas matching the group membership of a user are added to the ``default`` quota, and the results are reported as the quota for that user by the user information API.
+
+Members of specific groups cannot be granted unrestricted access to an API service since a missing key for a service instead means that this group contributes no additional quota for that service.
+Instead, grant effectively unlimited access by granting a very large quota number.
+
 Redis storage
 =============
 
