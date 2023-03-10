@@ -10,7 +10,7 @@ from unittest.mock import ANY
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
-from safir.datetime import current_datetime
+from safir.datetime import current_datetime, format_datetime_for_logging
 from safir.testing.slack import MockSlack
 
 from gafaelfawr.config import Config
@@ -18,7 +18,6 @@ from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
-from gafaelfawr.util import format_datetime_for_logging
 
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
@@ -950,6 +949,9 @@ async def test_create_admin(
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
 
+    # Intentionally pass in a datetime with microseconds. They should be
+    # stripped off so that the expiration is rounded to seconds, which we will
+    # check when examining the log message.
     now = datetime.now(tz=timezone.utc)
     expires = now + timedelta(days=2)
     caplog.clear()
@@ -960,7 +962,7 @@ async def test_create_admin(
             "username": "bot-a-service",
             "token_type": "service",
             "scopes": ["admin:token"],
-            "expires": int(expires.timestamp()),
+            "expires": expires.isoformat(),
             "name": "A Service",
             "uid": 1234,
             "gid": 4567,
@@ -975,6 +977,7 @@ async def test_create_admin(
     assert r.headers["Location"] == token_url
 
     # Check the logging.
+    expected_expires = expires.replace(microsecond=0)
     assert parse_log(caplog) == [
         {
             "event": "Created new service token",
@@ -987,7 +990,7 @@ async def test_create_admin(
             "severity": "info",
             "token": token_data.token.key,
             "token_key": service_token.key,
-            "token_expires": format_datetime_for_logging(expires),
+            "token_expires": format_datetime_for_logging(expected_expires),
             "token_scopes": ["admin:token"],
             "token_source": "cookie",
             "token_userinfo": {
