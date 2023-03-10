@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import RedirectResponse
-from safir.slack import SlackRouteErrorHandler
+from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import return_url

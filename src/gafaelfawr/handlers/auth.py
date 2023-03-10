@@ -9,7 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from safir.datetime import current_datetime
 from safir.models import ErrorModel
-from safir.slack import SlackRouteErrorHandler
+from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..auth import (
     clean_authorization,

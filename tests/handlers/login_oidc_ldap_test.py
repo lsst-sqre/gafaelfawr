@@ -8,7 +8,7 @@ from unittest.mock import ANY
 import pytest
 import respx
 from httpx import AsyncClient
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.constants import GID_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
@@ -414,7 +414,7 @@ async def test_duplicate_username(
     client: AsyncClient,
     respx_mock: respx.Router,
     mock_ldap: MockLDAP,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test error handling of a multivalued ``uid`` attribute."""
     config = await reconfigure(tmp_path, "oidc-ldap")

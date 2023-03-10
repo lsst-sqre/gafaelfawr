@@ -10,7 +10,7 @@ import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, Response
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
@@ -228,7 +228,7 @@ async def test_redirect_header(
 
 @pytest.mark.asyncio
 async def test_no_destination(
-    client: AsyncClient, mock_slack: MockSlack
+    client: AsyncClient, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get("/login")
     assert r.status_code == 422
@@ -277,7 +277,7 @@ async def test_cookie_and_token(
 
 @pytest.mark.asyncio
 async def test_bad_redirect(
-    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlack
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -383,7 +383,7 @@ async def test_github_admin(
 
 @pytest.mark.asyncio
 async def test_invalid_username(
-    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlack
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
 ) -> None:
     """Test that invalid usernames are rejected."""
     user_info = GitHubUserInfo(
@@ -485,7 +485,7 @@ async def test_paginated_teams(
 
 @pytest.mark.asyncio
 async def test_no_valid_groups(
-    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlack
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",

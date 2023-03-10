@@ -10,7 +10,7 @@ from unittest.mock import ANY
 import pytest
 from httpx import AsyncClient
 from safir.datetime import current_datetime
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, MINIMUM_LIFETIME
@@ -31,7 +31,7 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_no_auth(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
+    client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert_unauthorized_is_correct(r, config)
@@ -57,7 +57,7 @@ async def test_no_auth(
 
 @pytest.mark.asyncio
 async def test_invalid(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token = await create_session_token(factory)
 
@@ -89,7 +89,7 @@ async def test_invalid(
 
 @pytest.mark.asyncio
 async def test_invalid_auth(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
+    client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get(
         "/auth",
@@ -156,7 +156,7 @@ async def test_access_denied(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     token_data = await create_session_token(factory)
 
@@ -184,7 +184,7 @@ async def test_satisfy_all(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:test"])
 
@@ -430,7 +430,7 @@ async def test_internal_scopes(client: AsyncClient, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_internal_errors(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory, scopes=["read:some"])
 
@@ -554,7 +554,7 @@ async def test_basic(
 
 @pytest.mark.asyncio
 async def test_basic_failure(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
+    client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
     basic_b64 = base64.b64encode(b"bogus-string").decode()
     r = await client.get(
@@ -1006,7 +1006,7 @@ async def test_ldap_error(
     client: AsyncClient,
     factory: Factory,
     mock_ldap: MockLDAP,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc-ldap-uid", factory)
     assert config.ldap

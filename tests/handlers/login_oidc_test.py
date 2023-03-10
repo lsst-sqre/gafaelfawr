@@ -10,7 +10,7 @@ import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, ConnectError
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.constants import GID_MIN, UID_BOT_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
@@ -170,7 +170,7 @@ async def test_callback_error(
     client: AsyncClient,
     respx_mock: respx.Router,
     caplog: LogCaptureFixture,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
     config = await reconfigure(tmp_path, "oidc")
@@ -433,7 +433,7 @@ async def test_connection_error(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
@@ -497,7 +497,7 @@ async def test_verify_error(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
@@ -576,7 +576,7 @@ async def test_invalid_username(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
@@ -596,7 +596,7 @@ async def test_invalid_group_syntax(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(isMemberOf=47)
@@ -696,7 +696,7 @@ async def test_no_valid_groups(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
@@ -847,7 +847,7 @@ async def test_no_enrollment_url(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test a missing username claim in the ID token but no enrollment URL."""
     await reconfigure(tmp_path, "oidc-claims")
@@ -867,7 +867,7 @@ async def test_gid(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test getting the primary GID from the OIDC claims."""
     await reconfigure(tmp_path, "oidc-gid")

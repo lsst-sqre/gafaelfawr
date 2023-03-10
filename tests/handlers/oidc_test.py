@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import ALGORITHM
@@ -209,7 +209,7 @@ async def test_login_errors(
     client: AsyncClient,
     factory: Factory,
     caplog: LogCaptureFixture,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     await reconfigure(
@@ -335,7 +335,7 @@ async def test_token_errors(
     client: AsyncClient,
     factory: Factory,
     caplog: LogCaptureFixture,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     clients = [
         OIDCClient(client_id="some-id", client_secret="some-secret"),
@@ -514,7 +514,7 @@ async def test_token_errors(
 
 @pytest.mark.asyncio
 async def test_no_auth(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
+    client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get("/auth/openid/userinfo")
     assert_unauthorized_is_correct(r, config)
@@ -529,7 +529,7 @@ async def test_invalid(
     client: AsyncClient,
     factory: Factory,
     caplog: LogCaptureFixture,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     config = await reconfigure(

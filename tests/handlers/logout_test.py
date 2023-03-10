@@ -6,7 +6,7 @@ import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
@@ -102,7 +102,7 @@ async def test_logout_not_logged_in(
 
 @pytest.mark.asyncio
 async def test_logout_bad_url(
-    client: AsyncClient, mock_slack: MockSlack
+    client: AsyncClient, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get("/logout", params={"rd": "https://foo.example.com/"})
     assert r.status_code == 422

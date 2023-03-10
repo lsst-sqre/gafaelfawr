@@ -19,7 +19,7 @@ from click.testing import CliRunner
 from cryptography.fernet import Fernet
 from safir.database import initialize_database
 from safir.datetime import current_datetime
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
@@ -49,7 +49,7 @@ def test_audit(
     config: Config,
     engine: AsyncEngine,
     event_loop: asyncio.AbstractEventLoop,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     logger = structlog.get_logger("gafaelfawr")
     now = current_datetime()

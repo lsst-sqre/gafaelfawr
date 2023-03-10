@@ -11,7 +11,7 @@ import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 from safir.datetime import current_datetime, format_datetime_for_logging
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
@@ -393,7 +393,7 @@ async def test_token_info(
 
 @pytest.mark.asyncio
 async def test_auth_required(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -448,7 +448,7 @@ async def test_auth_required(
 
 @pytest.mark.asyncio
 async def test_csrf_required(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
@@ -519,7 +519,7 @@ async def test_no_bootstrap(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -563,7 +563,7 @@ async def test_no_bootstrap(
 
 @pytest.mark.asyncio
 async def test_no_scope(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     token_service = factory.create_token_service()
@@ -614,7 +614,7 @@ async def test_no_scope(
 
 @pytest.mark.asyncio
 async def test_modify_nonuser(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -634,7 +634,7 @@ async def test_modify_nonuser(
 
 @pytest.mark.asyncio
 async def test_wrong_user(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     csrf = await set_session_cookie(client, token_data.token)
@@ -784,7 +784,7 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_duplicate_token_name(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     """Test duplicate token names."""
     token_data = await create_session_token(
@@ -829,7 +829,7 @@ async def test_duplicate_token_name(
 
 @pytest.mark.asyncio
 async def test_bad_expires(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     """Test creating or modifying a token with bogus expirations."""
     token_data = await create_session_token(
@@ -880,7 +880,7 @@ async def test_bad_scopes(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test creating or modifying a token with bogus scopes."""
     known_scopes = list(config.known_scopes.keys())
@@ -1333,7 +1333,7 @@ async def test_no_form_post(
     client: AsyncClient,
     factory: Factory,
     caplog: LogCaptureFixture,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Ensure that the token creation API does not support a form POST.
 
@@ -1485,7 +1485,7 @@ async def test_ldap_error(
     client: AsyncClient,
     factory: Factory,
     mock_ldap: MockLDAP,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc-ldap-uid", factory)
     assert config.ldap

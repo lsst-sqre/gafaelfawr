@@ -8,7 +8,7 @@ from unittest.mock import ANY
 import pytest
 from cryptography.fernet import Fernet
 from httpx import AsyncClient
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
@@ -55,7 +55,7 @@ async def test_login_no_auth(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     r = await client.get("/auth/api/v1/login")
     assert_unauthorized_is_correct(r, config)

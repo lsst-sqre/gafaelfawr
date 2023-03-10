@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
-from safir.testing.slack import MockSlack
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
@@ -15,7 +15,7 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_admins(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get("/auth/api/v1/admins")
     assert r.status_code == 401
