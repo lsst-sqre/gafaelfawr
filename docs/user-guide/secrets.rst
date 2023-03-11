@@ -24,6 +24,11 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     The GitHub secret, obtained when creating the OAuth App as described above.
     This is only required if you're using GitHub for authentication.
 
+``forgerock-password`` (optional)
+    The password used for HTTP Basic authentication to a ForgeRock Identity Management server when resolving group names to GIDs.
+    Only used if ForgeRock Identity Management support is enabled.
+    See :ref:`forgerock` for more information.
+
 ``ldap-password`` (optional)
     The password used for simple binds to the LDAP server used as a source of data about users.
     Only used if LDAP lookups are enabled.

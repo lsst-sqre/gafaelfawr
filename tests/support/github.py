@@ -17,7 +17,7 @@ from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.github import GitHubUserInfo
 from gafaelfawr.providers.github import GitHubProvider
 
-__all__ = ["mock_github"]
+__all__ = ["MockGitHub", "mock_github"]
 
 
 class MockGitHub:

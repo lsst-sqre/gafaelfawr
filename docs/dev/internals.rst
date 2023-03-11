@@ -84,6 +84,8 @@ Python internal API
 
 .. automodapi:: gafaelfawr.storage.firestore
 
+.. automodapi:: gafaelfawr.storage.forgerock
+
 .. automodapi:: gafaelfawr.storage.history
 
 .. automodapi:: gafaelfawr.storage.kubernetes

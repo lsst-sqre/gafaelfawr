@@ -33,10 +33,10 @@ __all__ = [
     "Config",
     "FirestoreConfig",
     "FirestoreSettings",
+    "ForgeRockConfig",
+    "ForgeRockSettings",
     "GitHubConfig",
     "GitHubSettings",
-    "IDMConfig",
-    "IDMSettings",
     "LDAPConfig",
     "LDAPSettings",
     "NotebookQuota",
@@ -216,17 +216,17 @@ class LDAPSettings(CamelCaseModel):
     """
 
 
-class IDMSettings(CamelCaseModel):
-    """pydantic model of IDM configuration."""
+class ForgeRockSettings(CamelCaseModel):
+    """pydantic model of ForgeRock Identity Management configuration."""
 
     url: str
-    """URL for IDM server."""
+    """Base URL for ForgeRock Identity Management server."""
 
-    idm_id: str
-    """IDM client_id"""
+    username: str
+    """Username for authenticated queries."""
 
-    idm_secret_file: Path
-    """IDM secret"""
+    password_file: Path
+    """File containing the password for authenticated queries."""
 
 
 class FirestoreSettings(CamelCaseModel):
@@ -368,8 +368,8 @@ class Settings(CamelCaseModel):
     firestore: Optional[FirestoreSettings] = None
     """Settings for Firestore-based UID/GID assignment."""
 
-    idm: Optional[IDMSettings] = None
-    """Settings for IDM GID assignment."""
+    forgerock: Optional[ForgeRockSettings] = None
+    """Settings for ForgeRock Identity Management server."""
 
     oidc_server: Optional[OIDCServerSettings] = None
     """Settings for the internal OpenID Connect server."""
@@ -642,17 +642,17 @@ class LDAPConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class IDMConfig:
-    """Configuration for IDM-based GID assignment."""
+class ForgeRockConfig:
+    """Configuration for ForgeRock Identity Management server."""
 
     url: str
-    """URL for IDM server."""
+    """Base URL for ForgeRock Identity Management server."""
 
-    idm_id: str
-    """IDM client_id"""
+    username: str
+    """Username for authenticated queries to server."""
 
-    idm_secret: str
-    """IDM secret"""
+    password: str
+    """Password for authenticated queries to server."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -811,8 +811,8 @@ class Config:
     firestore: FirestoreConfig | None
     """Settings for Firestore-based UID/GID assignment."""
 
-    idm: IDMConfig | None
-    """Configuration for IDM-based GID assignment."""
+    forgerock: ForgeRockConfig | None
+    """Configuration for ForgeRock Identity Management server."""
 
     oidc_server: OIDCServerConfig | None
     """Configuration for the OpenID Connect server."""
@@ -911,17 +911,17 @@ class Config:
                 project=settings.firestore.project
             )
 
-        # Build IDM configuration if needed.
-        idm_config = None
-        if settings.idm:
-            path = settings.idm.idm_secret_file
-            idm_config = IDMConfig(
-                url=settings.idm.url,
-                idm_id=settings.idm.idm_id,
-                idm_secret=cls._load_secret(
-                    path
-                ).decode(),  # settings.idm.idm_secret#
+        # Build ForgeRock configuration if needed.
+        forgerock_config = None
+        if settings.forgerock:
+            path = settings.forgerock.password_file
+            forgerock_password = cls._load_secret(path).decode()
+            forgerock_config = ForgeRockConfig(
+                url=settings.forgerock.url,
+                username=settings.forgerock.username,
+                password=forgerock_password,
             )
+
         # Build the OpenID Connect server configuration if needed.
         oidc_server_config = None
         if settings.oidc_server:
@@ -1016,7 +1016,7 @@ class Config:
             oidc=oidc_config,
             ldap=ldap_config,
             firestore=firestore_config,
-            idm=idm_config,
+            forgerock=forgerock_config,
             oidc_server=oidc_server_config,
             quota=quota,
             initial_admins=tuple(settings.initial_admins),
