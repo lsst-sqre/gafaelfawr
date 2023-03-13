@@ -38,7 +38,7 @@ repos:
         files: ^src/
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.35.0
+    rev: v8.36.0
     hooks:
       - id: eslint
         additional_dependencies:
