@@ -90,6 +90,7 @@ async def create_session_token(
     username: Optional[str] = None,
     group_names: Optional[list[str]] = None,
     scopes: Optional[list[str]] = None,
+    minimal: bool = False,
 ) -> TokenData:
     """Create a session token.
 
@@ -103,6 +104,11 @@ async def create_session_token(
         Group memberships the generated token should have.
     scopes
         Scope for the generated token.
+    minimal
+        Whether to generate a minimal token (one without any user
+        information). Use this to test with external user information sources
+        such as LDAP or Firestore, since otherwise the data stored with the
+        token overrides the external source.
 
     Returns
     -------
@@ -115,14 +121,17 @@ async def create_session_token(
         groups = [TokenGroup(name=g, id=1000) for g in group_names]
     else:
         groups = []
-    user_info = TokenUserInfo(
-        username=username,
-        name="Some User",
-        email="someuser@example.com",
-        uid=1000,
-        gid=2000,
-        groups=groups,
-    )
+    if minimal:
+        user_info = TokenUserInfo(username=username, groups=groups)
+    else:
+        user_info = TokenUserInfo(
+            username=username,
+            name="Some User",
+            email="someuser@example.com",
+            uid=1000,
+            gid=2000,
+            groups=groups,
+        )
     if not scopes:
         scopes = ["user:token"]
     token_service = factory.create_token_service()

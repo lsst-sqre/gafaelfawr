@@ -10,14 +10,14 @@ from unittest.mock import ANY
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
-from safir.datetime import current_datetime
+from safir.datetime import current_datetime, format_datetime_for_logging
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
-from gafaelfawr.util import format_datetime_for_logging
 
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
@@ -25,7 +25,6 @@ from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.firestore import MockFirestore
 from ..support.ldap import MockLDAP
 from ..support.logging import parse_log
-from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
@@ -394,7 +393,7 @@ async def test_token_info(
 
 @pytest.mark.asyncio
 async def test_auth_required(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -449,7 +448,7 @@ async def test_auth_required(
 
 @pytest.mark.asyncio
 async def test_csrf_required(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
@@ -520,7 +519,7 @@ async def test_no_bootstrap(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -564,7 +563,7 @@ async def test_no_bootstrap(
 
 @pytest.mark.asyncio
 async def test_no_scope(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     token_service = factory.create_token_service()
@@ -615,7 +614,7 @@ async def test_no_scope(
 
 @pytest.mark.asyncio
 async def test_modify_nonuser(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -635,7 +634,7 @@ async def test_modify_nonuser(
 
 @pytest.mark.asyncio
 async def test_wrong_user(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     csrf = await set_session_cookie(client, token_data.token)
@@ -785,7 +784,7 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_duplicate_token_name(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     """Test duplicate token names."""
     token_data = await create_session_token(
@@ -830,7 +829,7 @@ async def test_duplicate_token_name(
 
 @pytest.mark.asyncio
 async def test_bad_expires(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     """Test creating or modifying a token with bogus expirations."""
     token_data = await create_session_token(
@@ -881,7 +880,7 @@ async def test_bad_scopes(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test creating or modifying a token with bogus scopes."""
     known_scopes = list(config.known_scopes.keys())
@@ -950,6 +949,9 @@ async def test_create_admin(
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
 
+    # Intentionally pass in a datetime with microseconds. They should be
+    # stripped off so that the expiration is rounded to seconds, which we will
+    # check when examining the log message.
     now = datetime.now(tz=timezone.utc)
     expires = now + timedelta(days=2)
     caplog.clear()
@@ -960,7 +962,7 @@ async def test_create_admin(
             "username": "bot-a-service",
             "token_type": "service",
             "scopes": ["admin:token"],
-            "expires": int(expires.timestamp()),
+            "expires": expires.isoformat(),
             "name": "A Service",
             "uid": 1234,
             "gid": 4567,
@@ -975,6 +977,7 @@ async def test_create_admin(
     assert r.headers["Location"] == token_url
 
     # Check the logging.
+    expected_expires = expires.replace(microsecond=0)
     assert parse_log(caplog) == [
         {
             "event": "Created new service token",
@@ -987,7 +990,7 @@ async def test_create_admin(
             "severity": "info",
             "token": token_data.token.key,
             "token_key": service_token.key,
-            "token_expires": format_datetime_for_logging(expires),
+            "token_expires": format_datetime_for_logging(expected_expires),
             "token_scopes": ["admin:token"],
             "token_source": "cookie",
             "token_userinfo": {
@@ -1330,7 +1333,7 @@ async def test_no_form_post(
     client: AsyncClient,
     factory: Factory,
     caplog: LogCaptureFixture,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Ensure that the token creation API does not support a form POST.
 
@@ -1474,3 +1477,72 @@ async def test_scope_modify(
         headers={"Authorization": f"bearer {user_token}"},
     )
     assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_ldap_error(
+    tmp_path: Path,
+    client: AsyncClient,
+    factory: Factory,
+    mock_ldap: MockLDAP,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    config = await reconfigure(tmp_path, "oidc-ldap-uid", factory)
+    assert config.ldap
+    assert config.ldap.user_base_dn
+    mock_ldap.add_entries_for_test(
+        config.ldap.user_base_dn,
+        config.ldap.user_search_attr,
+        "ldap-user",
+        [
+            {
+                "displayName": ["LDAP User"],
+                "mail": ["ldap-user@example.com"],
+                "uidNumber": ["bogus"],
+            }
+        ],
+    )
+    token_data = await create_session_token(
+        factory, username="ldap-user", scopes=["read:all"], minimal=True
+    )
+    await set_session_cookie(client, token_data.token)
+
+    # The request should fail with a 500 error since the LDAP data is invalid.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 500
+    assert r.json()["detail"][0]["type"] == "user_info_failed"
+
+    # This error should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: LDAP user entry invalid"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nLDAPError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": "*User*\nldap-user",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]

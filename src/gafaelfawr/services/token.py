@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Optional
 
-from safir.datetime import current_datetime
+from safir.datetime import current_datetime, format_datetime_for_logging
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
@@ -38,7 +38,7 @@ from ..models.token import (
 )
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
-from ..util import format_datetime_for_logging, is_bot_user
+from ..util import is_bot_user
 from .token_cache import TokenCacheService
 
 __all__ = ["TokenService"]
@@ -360,6 +360,8 @@ class TokenService:
         self._validate_username(username)
         self._validate_expires(expires)
         self._validate_scopes(scopes, auth_data)
+        if expires:
+            expires = expires.replace(microsecond=0)
         scopes = sorted(scopes)
 
         token = Token()
@@ -444,6 +446,9 @@ class TokenService:
         self._validate_username(request.username)
         self._validate_scopes(request.scopes)
         self._validate_expires(request.expires)
+        expires = request.expires
+        if expires:
+            expires = expires.replace(microsecond=0)
 
         # Service tokens must be for bot users.
         if request.token_type == TokenType.service:
@@ -459,7 +464,7 @@ class TokenService:
             token_type=request.token_type,
             scopes=sorted(request.scopes),
             created=created,
-            expires=request.expires,
+            expires=expires,
             name=request.name,
             email=request.email,
             uid=request.uid,
@@ -472,7 +477,7 @@ class TokenService:
             token_type=data.token_type,
             token_name=request.token_name,
             scopes=data.scopes,
-            expires=request.expires,
+            expires=expires,
             actor=auth_data.username,
             action=TokenChange.create,
             ip_address=ip_address,
@@ -488,7 +493,7 @@ class TokenService:
                 "Created new user token as administrator",
                 token_key=token.key,
                 token_username=request.username,
-                token_expires=format_datetime_for_logging(request.expires),
+                token_expires=format_datetime_for_logging(expires),
                 token_name=request.token_name,
                 token_scopes=data.scopes,
                 token_userinfo=data.to_userinfo_dict(),
@@ -498,7 +503,7 @@ class TokenService:
                 "Created new service token",
                 token_key=token.key,
                 token_username=request.username,
-                token_expires=format_datetime_for_logging(request.expires),
+                token_expires=format_datetime_for_logging(expires),
                 token_scopes=data.scopes,
                 token_userinfo=data.to_userinfo_dict(),
             )

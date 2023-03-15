@@ -3,6 +3,7 @@ loglevel: "DEBUG"
 sessionSecretFile: "{session_secret_file}"
 databaseUrl: "{database_url}"
 redisUrl: "redis://localhost:6379/0"
+slackWebhookFile: "{slack_webhook_file}"
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:

@@ -9,6 +9,7 @@ Dependencies are updated to the latest available version during each release. Th
 ### New features
 
 - Gafaelfawr now supports setting API and notebook quotas in its configuration, and calculates the quota for a given user based on their group membership. This quota information is returned by the `/auth/api/v1/user-info` route, but is not otherwise used by Gafaelfawr (yet).
+- Server-side failures during login, such as inability to reach the authentication provider or invalid responses from the authentication provider, are now reported to Slack if a Slack webhook is configured.
 
 ### Bug fixes
 
@@ -16,10 +17,14 @@ Dependencies are updated to the latest available version during each release. Th
 - Uniformly use `Cache-Control: no-cache, no-store` to disable caching of errors and redirects. Previously, Gafaelfawr also added `must-revalidate` (but not `max-age`). This appears to not be necessary or useful with modern browsers.
 - Correctly expand backtraces of uncaught exceptions in Uvicorn logs.
 - Diagnose and display a proper error if the OpenID Connect token from the authentication provider contains multiple usernames.
+- Return a status code of 500 instead of 403 for server-side errors during login.
+- Errors in querying an external source of user information, such as Firestore or LDAP, are now caught in the `/auth` route and only logged, not reported to Slack as uncaught exceptions. The `/auth` route may receive multiple requests per second and should not report every error due to a possible external outage to Slack.
+- Errors in querying an external source of user information in the `/auth/api/v1/user-info` route are now caught, reported to Slack, and result in an orderly error message instead of an uncaught exception.
 
 ### Other changes
 
 - Gafaelfawr now supports camel-case in its configuration file to allow using the same names for most configuration settings and Helm chart values.
+- More log messages related to retrieving user metadata, particularly those during initial login, now include the username of the user.
 
 ## 9.0.0 (2023-01-09)
 

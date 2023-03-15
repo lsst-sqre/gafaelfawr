@@ -13,6 +13,7 @@ import pytest
 from httpx import AsyncClient
 from safir.database import datetime_to_db
 from safir.datetime import current_datetime
+from safir.testing.slack import MockSlackWebhook
 from sqlalchemy.future import select
 
 from gafaelfawr.factory import Factory
@@ -28,7 +29,6 @@ from gafaelfawr.schema import TokenChangeHistory
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import set_session_cookie
-from ..support.slack import MockSlack
 from ..support.tokens import create_session_token
 
 
@@ -473,7 +473,7 @@ async def test_user_change_history(
 
 @pytest.mark.asyncio
 async def test_auth_required(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     username = token_data.username
@@ -496,7 +496,7 @@ async def test_auth_required(
 
 @pytest.mark.asyncio
 async def test_admin_required(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
@@ -510,7 +510,7 @@ async def test_admin_required(
 
 @pytest.mark.asyncio
 async def test_no_scope(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory)
     username = token_data.username

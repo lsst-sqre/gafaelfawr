@@ -2,8 +2,7 @@
 
 from fastapi import APIRouter
 from safir.metadata import Metadata, get_metadata
-
-from ..slack import SlackRouteErrorHandler
+from safir.slack.webhook import SlackRouteErrorHandler
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 

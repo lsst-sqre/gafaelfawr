@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import timedelta
 from ipaddress import IPv4Address, IPv6Address
 
 from .constants import BOT_USERNAME_REGEX
@@ -63,26 +63,6 @@ def base64_to_number(data: str) -> int:
     """
     decoded = base64.urlsafe_b64decode(add_padding(data))
     return int.from_bytes(decoded, byteorder="big")
-
-
-def format_datetime_for_logging(date: datetime | None) -> str | None:
-    """Format a datetime for logging.
-
-    Parameters
-    ----------
-    date
-        The object to format.
-
-    Returns
-    -------
-    str or None
-        The datetime in ISO format with seconds, or `None` if the input was
-        `None`.
-    """
-    if date:
-        return date.isoformat(sep=" ", timespec="seconds")
-    else:
-        return None
 
 
 def is_bot_user(username: str) -> bool:

@@ -18,6 +18,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse, RedirectResponse
 from safir.models import ErrorModel
+from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.auth import AuthenticateRead, verified_oidc_token
 from ..dependencies.context import RequestContext, context_dependency
@@ -36,7 +37,6 @@ from ..models.oidc import (
     OIDCVerifiedToken,
 )
 from ..models.token import TokenData
-from ..slack import SlackRouteErrorHandler
 
 __all__ = ["router"]
 

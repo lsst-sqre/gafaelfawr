@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 from urllib.parse import urlencode
 
 from httpx import AsyncClient, HTTPError
@@ -12,7 +11,7 @@ from structlog.stdlib import BoundLogger
 
 from ..config import GitHubConfig
 from ..constants import USERNAME_REGEX
-from ..exceptions import GitHubError, PermissionDeniedError
+from ..exceptions import GitHubError, PermissionDeniedError, ProviderWebError
 from ..models.github import GitHubTeam, GitHubUserInfo
 from ..models.link import LinkData
 from ..models.state import State
@@ -133,6 +132,7 @@ class GitHubProvider(Provider):
                 for t in user_info.teams
             ],
         )
+        username = user_info.username.lower()
 
         # Map GitHub teams to groups.
         groups = []
@@ -144,14 +144,15 @@ class GitHubProvider(Provider):
                 invalid_groups[team.group_name] = str(e)
         if invalid_groups:
             self._logger.warning(
-                "Ignoring invalid groups", invalid_groups=invalid_groups
+                "Ignoring invalid groups",
+                invalid_groups=invalid_groups,
+                user=username,
             )
 
         # Always synthesize a user private group with the same name as the
         # username and a GID matching the UID.  This is not truly a valid
         # approach because GitHub team IDs may clash with GitHub user IDs, but
         # the space of both is large enough that we take the risk.
-        username = user_info.username.lower()
         if not re.match(USERNAME_REGEX, username):
             raise PermissionDeniedError(f"Invalid username: {username}")
         groups.append(TokenGroup(name=username, id=user_info.uid))
@@ -262,21 +263,64 @@ class GitHubProvider(Provider):
         Raises
         ------
         GitHubError
-            Raised if the user has no primary email address.
-        httpx.HTTPError
+            Raised if the user's GitHub data is invalid.
+        ProviderWebError
             Raised if an error occurred trying to talk to GitHub.
         """
         self._logger.debug("Fetching user data from %s", self._USER_URL)
-        r = await self._http_client.get(
-            self._USER_URL,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"token {token}",
-            },
-        )
-        r.raise_for_status()
-        user_data = r.json()
-        self._logger.debug("Fetching user data from %s", self._EMAILS_URL)
+        username = None
+        try:
+            r = await self._http_client.get(
+                self._USER_URL,
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"token {token}",
+                },
+            )
+            r.raise_for_status()
+            user_data = r.json()
+            username = user_data["login"].lower()
+            logger = self._logger.bind(user=username)
+            return GitHubUserInfo(
+                name=user_data["name"],
+                username=user_data["login"],
+                uid=user_data["id"],
+                email=await self._get_user_email(token, username, logger),
+                teams=await self._get_user_teams(token, username, logger),
+            )
+        except HTTPError as e:
+            raise ProviderWebError.from_exception(e, username) from e
+        except KeyError as e:
+            msg = f"GitHub user data is invalid: KeyError: {str(e)}"
+            raise GitHubError(msg, username)
+
+    async def _get_user_email(
+        self, token: str, username: str, logger: BoundLogger
+    ) -> str:
+        """Retrieve the primary email address for a user from GitHub.
+
+        Parameters
+        ----------
+        token
+            Token for that user.
+        username
+            Username of user, for error reporting.
+        logger
+            Logger for debug and error messages.
+
+        Returns
+        -------
+        str
+            User's primary email address.
+
+        Raises
+        ------
+        GitHubError
+            Raised if the user does not have a primary email address.
+        httpx.HTTPError
+            Raised if an error occurred trying to talk to GitHub.
+        """
+        logger.debug("Fetching email data from %s", self._EMAILS_URL)
         r = await self._http_client.get(
             self._EMAILS_URL,
             headers={
@@ -286,46 +330,34 @@ class GitHubProvider(Provider):
         )
         r.raise_for_status()
         emails_data = r.json()
-        teams_data = await self._get_user_teams_data(token)
 
-        teams = [
-            GitHubTeam(
-                slug=team["slug"],
-                organization=team["organization"]["login"],
-                gid=team["id"],
-            )
-            for team in teams_data
-        ]
-
-        email = None
+        # Find the primary email address and return it.
         for email_data in emails_data:
             if email_data.get("primary"):
-                email = email_data["email"]
-        if not email:
-            msg = f"{user_data['login']} has no primary email address"
-            raise GitHubError(msg)
+                return email_data["email"]
 
-        return GitHubUserInfo(
-            name=user_data["name"],
-            username=user_data["login"],
-            uid=user_data["id"],
-            email=email,
-            teams=teams,
-        )
+        # If we fell through, there is no primary email address.
+        msg = f"{username} has no primary email address"
+        raise GitHubError(msg, username)
 
-    async def _get_user_teams_data(self, token: str) -> list[dict[str, Any]]:
+    async def _get_user_teams(
+        self, token: str, username: str, logger: BoundLogger
+    ) -> list[GitHubTeam]:
         """Retrieve team membership for a user from GitHub.
 
         Parameters
         ----------
         token
-            The token for that user.
+            Token for that user.
+        username
+            Username of user, for error reporting.
+        logger
+            Logger for debug and error messages.
 
         Returns
         -------
-        list of dict
-            Team information for that user from GitHub in GitHub's JSON
-            format.
+        list of GitHubTeam
+            Team information for that user from GitHub.
 
         Raises
         ------
@@ -335,7 +367,7 @@ class GitHubProvider(Provider):
         httpx.HTTPError
             Raised if an error occurred trying to talk to GitHub.
         """
-        self._logger.debug("Fetching user team data from %s", self._TEAMS_URL)
+        logger.debug("Fetching user team data from %s", self._TEAMS_URL)
         r = await self._http_client.get(
             self._TEAMS_URL,
             headers={
@@ -350,17 +382,13 @@ class GitHubProvider(Provider):
         # URL.  Retrieve each page until we run out of Link headers.
         link_data = LinkData.from_header(r.headers.get("Link"))
         while link_data.next_url:
-            if not link_data.next_url.startswith(self._TEAMS_URL):
-                msg = (
-                    "Invalid next URL for team data from GitHub: "
-                    + link_data.next_url
-                )
-                raise GitHubError(msg)
-            self._logger.debug(
-                "Fetching user team data from %s", link_data.next_url
-            )
+            next_url = link_data.next_url
+            if not next_url.startswith(self._TEAMS_URL):
+                msg = f"Invalid next URL for team data from GitHub: {next_url}"
+                raise GitHubError(msg, username)
+            self._logger.debug("Fetching user team data from %s", next_url)
             r = await self._http_client.get(
-                link_data.next_url,
+                next_url,
                 headers={
                     "Accept": "application/vnd.github+json",
                     "Authorization": f"token {token}",
@@ -370,4 +398,11 @@ class GitHubProvider(Provider):
             teams_data.extend(r.json())
             link_data = LinkData.from_header(r.headers.get("Link"))
 
-        return teams_data
+        return [
+            GitHubTeam(
+                slug=team["slug"],
+                organization=team["organization"]["login"],
+                gid=team["id"],
+            )
+            for team in teams_data
+        ]

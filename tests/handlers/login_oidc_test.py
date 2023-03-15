@@ -10,6 +10,7 @@ import pytest
 import respx
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, ConnectError
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.constants import GID_MIN, UID_BOT_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
@@ -19,7 +20,6 @@ from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.logging import parse_log
 from ..support.oidc import mock_oidc_provider_token, simulate_oidc_login
-from ..support.slack import MockSlack
 
 
 @pytest.mark.asyncio
@@ -44,19 +44,19 @@ async def test_login(
     assert r.status_code == 307
 
     # Verify the logging.
-    login_url = config.oidc.login_url
     expected_scopes = set(config.group_mapping["admin"])
     expected_scopes.add("user:token")
     username = token.claims[config.oidc.username_claim]
     uid = int(token.claims[config.oidc.uid_claim])
     assert parse_log(caplog) == [
         {
-            "event": f"Redirecting user to {login_url} for authentication",
+            "event": "Redirecting user for authentication",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
+            "login_url": config.oidc.login_url,
             "return_url": return_url,
             "severity": "info",
         },
@@ -170,7 +170,7 @@ async def test_callback_error(
     client: AsyncClient,
     respx_mock: respx.Router,
     caplog: LogCaptureFixture,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
     config = await reconfigure(tmp_path, "oidc")
@@ -209,7 +209,7 @@ async def test_callback_error(
             "severity": "info",
         },
         {
-            "error": "error_code: description",
+            "error": "Error retrieving ID token: error_code: description",
             "event": "Authentication provider failed",
             "httpRequest": {
                 "requestMethod": "GET",
@@ -261,10 +261,166 @@ async def test_callback_error(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 500
-    assert "Cannot contact authentication provider" in r.text
+    assert f"Response from {config.oidc.token_url} not valid JSON" in r.text
 
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
+    # Most of these errors should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Error retrieving ID token:"
+                            " error_code: description"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Status 400 from POST "
+                            "https://upstream.example.com/token"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nProviderWebError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": (
+                                "*URL*\nhttps://upstream.example.com/token"
+                            ),
+                            "verbatim": True,
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Reason*\n" "Bad Request",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": '*Response*\n```\n{"foo": "bar"}\n```',
+                        "verbatim": True,
+                    },
+                },
+                {"type": "divider"},
+            ],
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: No id_token in token reply"
+                            " from https://upstream.example.com/token"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Response from "
+                            "https://upstream.example.com/token not valid JSON"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Response from "
+                            "https://upstream.example.com/token not valid JSON"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -272,7 +428,7 @@ async def test_connection_error(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
@@ -293,8 +449,42 @@ async def test_connection_error(
     assert r.status_code == 500
     assert "Cannot contact authentication provider" in r.text
 
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
+    # This error should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: ConnectError: Mock Error"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nProviderWebError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": (
+                                "*URL*\nhttps://upstream.example.com/token"
+                            ),
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -302,7 +492,7 @@ async def test_verify_error(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(groups=["admin"])
@@ -327,10 +517,53 @@ async def test_verify_error(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 500
-    assert "token verification failed" in r.text
+    assert "Cannot contact authentication provider" in r.text
 
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
+    # This error should be reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Status 404 from GET "
+                            "https://upstream.example.com/.well-known"
+                            "/jwks.json"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nProviderWebError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": (
+                                "*URL*\n"
+                                "https://upstream.example.com/.well-known"
+                                "/jwks.json"
+                            ),
+                            "verbatim": True,
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Reason*\nNot Found",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -338,7 +571,7 @@ async def test_invalid_username(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(
@@ -358,7 +591,7 @@ async def test_invalid_group_syntax(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     await reconfigure(tmp_path, "oidc")
     token = create_upstream_oidc_jwt(isMemberOf=47)
@@ -367,8 +600,37 @@ async def test_invalid_group_syntax(
     assert r.status_code == 500
     assert "isMemberOf claim has invalid format" in r.text
 
-    # None of these errors should have resulted in Slack alerts.
-    assert mock_slack.messages == []
+    # This should have been reported to Slack.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: OpenID Connect token"
+                            " verification failed: isMemberOf claim has"
+                            " invalid format: 'int' object is not iterable"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nOIDCError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                    ],
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -429,7 +691,7 @@ async def test_no_valid_groups(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     assert config.oidc
@@ -580,7 +842,7 @@ async def test_no_enrollment_url(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test a missing username claim in the ID token but no enrollment URL."""
     await reconfigure(tmp_path, "oidc-claims")
@@ -600,7 +862,7 @@ async def test_gid(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test getting the primary GID from the OIDC claims."""
     await reconfigure(tmp_path, "oidc-gid")

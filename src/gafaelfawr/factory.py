@@ -15,6 +15,7 @@ from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from safir.database import create_async_session
 from safir.dependencies.http_client import http_client_dependency
+from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
@@ -488,6 +489,21 @@ class Factory:
         else:
             # This should be caught during configuration file parsing.
             raise NotImplementedError("No authentication provider configured")
+
+    def create_slack_client(self) -> SlackWebhookClient | None:
+        """Create a client for sending messages to Slack.
+
+        Returns
+        -------
+        safir.slack.webhook.SlackWebhookClient or None
+            Configured Slack client if a Slack webhook was configured,
+            otherwise `None`.
+        """
+        if not self._context.config.slack_webhook:
+            return None
+        return SlackWebhookClient(
+            self._context.config.slack_webhook, "Gafaelfawr", self._logger
+        )
 
     def create_token_cache_service(self) -> TokenCacheService:
         """Create a token cache.

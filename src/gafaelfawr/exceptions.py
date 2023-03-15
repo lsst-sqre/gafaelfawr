@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from datetime import datetime
+from typing import ClassVar, Optional, Self
 
 import kopf
 import pydantic
 from fastapi import status
+from httpx import HTTPError, HTTPStatusError, RequestError
 from safir.models import ErrorLocation
-
-from .slack import SlackIgnoredException
+from safir.slack.blockkit import (
+    SlackCodeBlock,
+    SlackException,
+    SlackMessage,
+    SlackTextField,
+)
+from safir.slack.webhook import SlackIgnoredException
 
 __all__ = [
     "DeserializeError",
     "DuplicateTokenNameError",
+    "ExternalUserInfoError",
     "FetchKeysError",
     "FirestoreError",
     "FirestoreNotInitializedError",
@@ -45,6 +53,7 @@ __all__ = [
     "OIDCError",
     "PermissionDeniedError",
     "ProviderError",
+    "ProviderWebError",
     "UnauthorizedClientError",
     "UnknownAlgorithmError",
     "UnknownKeyIdError",
@@ -316,7 +325,19 @@ class DeserializeError(Exception):
     """
 
 
-class FirestoreError(Exception):
+class ExternalUserInfoError(SlackException):
+    """Error in external user information source.
+
+    This is the base exception for any error in retrieving information from an
+    external source of user data. External sources of data may be affected by
+    an external outage, and we don't want to report uncaught exceptions for
+    every attempt to query them (possibly multiple times per second), so this
+    exception base class is used to catch those errors in the high-traffic
+    ``/auth`` route and only log them.
+    """
+
+
+class FirestoreError(ExternalUserInfoError):
     """An error occurred while reading or updating Firestore data."""
 
 
@@ -330,6 +351,10 @@ class NoAvailableGidError(FirestoreError):
 
 class NoAvailableUidError(FirestoreError):
     """The assigned UID space has been exhausted."""
+
+
+class LDAPError(ExternalUserInfoError):
+    """User or group information in LDAP was invalid or LDAP calls failed."""
 
 
 class KubernetesError(Exception):
@@ -362,10 +387,6 @@ class KubernetesObjectError(KubernetesError):
         super().__init__(msg)
 
 
-class LDAPError(Exception):
-    """Group information for the user in LDAP was invalid."""
-
-
 class NotConfiguredError(SlackIgnoredException):
     """The requested operation was not configured."""
 
@@ -374,8 +395,113 @@ class PermissionDeniedError(SlackIgnoredException, kopf.PermanentError):
     """The user does not have permission to perform this operation."""
 
 
-class ProviderError(Exception):
-    """An authentication provider returned an error from an API call."""
+class ProviderError(SlackException):
+    """Something failed while talking to an authentication provider."""
+
+
+class ProviderWebError(ProviderError):
+    """An HTTP request to an authentication provider failed.
+
+    Parameters
+    ----------
+    message
+        Exception string value, which is the default Slack message.
+    failed_at
+        When the exception happened. Omit to use the current time.
+    method
+        Method of request.
+    url
+        URL of the request.
+    user
+        Username on whose behalf the request is being made.
+    status
+        Status code of failure, if any.
+    reason
+        Reason string of failure, if any.
+    body
+        Body of failure message, if any.
+    """
+
+    @classmethod
+    def from_exception(
+        cls, exc: HTTPError, user: Optional[str] = None
+    ) -> Self:
+        """Create an exception from an httpx exception.
+
+        Parameters
+        ----------
+        exc
+            Exception from httpx.
+        user
+            User on whose behalf the request is being made, if known.
+
+        Returns
+        -------
+        ProviderWebError
+            Newly-constructed exception.
+        """
+        if isinstance(exc, HTTPStatusError):
+            status = exc.response.status_code
+            method = exc.request.method
+            message = f"Status {status} from {method} {exc.request.url}"
+            return cls(
+                message,
+                method=exc.request.method,
+                url=str(exc.request.url),
+                user=user,
+                status=status,
+                reason=exc.response.reason_phrase,
+                body=exc.response.text,
+            )
+        else:
+            message = f"{type(exc).__name__}: {str(exc)}"
+            if isinstance(exc, RequestError):
+                return cls(
+                    message,
+                    method=exc.request.method,
+                    url=str(exc.request.url),
+                    user=user,
+                )
+            else:
+                return cls(message, user=user)
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failed_at: Optional[datetime] = None,
+        method: Optional[str] = None,
+        url: Optional[str] = None,
+        user: Optional[str] = None,
+        status: Optional[int] = None,
+        reason: Optional[str] = None,
+        body: Optional[str] = None,
+    ) -> None:
+        self.method = method
+        self.url = url
+        self.status = status
+        self.reason = reason
+        self.body = body
+        super().__init__(message, user, failed_at=failed_at)
+
+    def to_slack(self) -> SlackMessage:
+        """Convert to a Slack message for Slack alerting.
+
+        Returns
+        -------
+        SlackMessage
+            Slack message suitable for posting as an alert.
+        """
+        message = super().to_slack()
+        if self.url:
+            message.fields.append(SlackTextField(heading="URL", text=self.url))
+        if self.reason:
+            field = SlackTextField(heading="Reason", text=self.reason)
+            message.fields.append(field)
+        if self.body:
+            block = SlackCodeBlock(heading="Response", code=self.body)
+            message.blocks.append(block)
+        return message
 
 
 class GitHubError(ProviderError):
@@ -402,11 +528,11 @@ class UnauthorizedClientError(Exception):
     """
 
 
-class VerifyTokenError(Exception):
+class VerifyTokenError(SlackException):
     """Base exception class for failure in verifying a token."""
 
 
-class FetchKeysError(VerifyTokenError):
+class FetchKeysError(ProviderWebError):
     """Cannot retrieve the keys from an issuer."""
 
 

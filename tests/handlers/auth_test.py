@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import base64
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
 from httpx import AsyncClient
 from safir.datetime import current_datetime
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, MINIMUM_LIFETIME
@@ -16,19 +18,20 @@ from gafaelfawr.factory import Factory
 from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.token import Token, TokenUserInfo
 
+from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
 )
-from ..support.slack import MockSlack
+from ..support.ldap import MockLDAP
 from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio
 async def test_no_auth(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
+    client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get("/auth", params={"scope": "exec:admin"})
     assert_unauthorized_is_correct(r, config)
@@ -54,7 +57,7 @@ async def test_no_auth(
 
 @pytest.mark.asyncio
 async def test_invalid(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token = await create_session_token(factory)
 
@@ -86,7 +89,7 @@ async def test_invalid(
 
 @pytest.mark.asyncio
 async def test_invalid_auth(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
+    client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get(
         "/auth",
@@ -153,7 +156,7 @@ async def test_access_denied(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     token_data = await create_session_token(factory)
 
@@ -181,7 +184,7 @@ async def test_satisfy_all(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:test"])
 
@@ -427,7 +430,7 @@ async def test_internal_scopes(client: AsyncClient, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_internal_errors(
-    client: AsyncClient, factory: Factory, mock_slack: MockSlack
+    client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory, scopes=["read:some"])
 
@@ -551,7 +554,7 @@ async def test_basic(
 
 @pytest.mark.asyncio
 async def test_basic_failure(
-    client: AsyncClient, config: Config, mock_slack: MockSlack
+    client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
     basic_b64 = base64.b64encode(b"bogus-string").decode()
     r = await client.get(
@@ -995,3 +998,40 @@ async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
         "also invalid",
         f"{COOKIE_NAME}stuff",
     ]
+
+
+@pytest.mark.asyncio
+async def test_ldap_error(
+    tmp_path: Path,
+    client: AsyncClient,
+    factory: Factory,
+    mock_ldap: MockLDAP,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    config = await reconfigure(tmp_path, "oidc-ldap-uid", factory)
+    assert config.ldap
+    assert config.ldap.user_base_dn
+    mock_ldap.add_entries_for_test(
+        config.ldap.user_base_dn,
+        config.ldap.user_search_attr,
+        "ldap-user",
+        [
+            {
+                "displayName": ["LDAP User"],
+                "mail": ["ldap-user@example.com"],
+                "uidNumber": ["bogus"],
+            }
+        ],
+    )
+    token_data = await create_session_token(
+        factory, username="ldap-user", scopes=["read:all"], minimal=True
+    )
+    await set_session_cookie(client, token_data.token)
+
+    # The request should fail with a 500 error since the LDAP data is invalid.
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 500
+
+    # We should not report any error message to Slack, however. If we did, we
+    # would risk drowning the alert channel during an LDAP outage.
+    assert mock_slack.messages == []

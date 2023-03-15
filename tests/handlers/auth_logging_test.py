@@ -8,10 +8,10 @@ from unittest.mock import ANY
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
+from safir.datetime import format_datetime_for_logging
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token
-from gafaelfawr.util import format_datetime_for_logging
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.logging import parse_log

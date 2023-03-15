@@ -20,6 +20,7 @@ Python internal API
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.context
+   :include-all-objects:
 
 .. automodapi:: gafaelfawr.dependencies.return_url
 
@@ -76,8 +77,6 @@ Python internal API
 .. automodapi:: gafaelfawr.services.token_cache
 
 .. automodapi:: gafaelfawr.services.userinfo
-
-.. automodapi:: gafaelfawr.slack
 
 .. automodapi:: gafaelfawr.storage.admin
 

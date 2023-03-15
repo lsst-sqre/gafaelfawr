@@ -6,6 +6,7 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..exceptions import (
+    FirestoreError,
     InvalidTokenClaimsError,
     MissingGIDClaimError,
     MissingUIDClaimError,
@@ -133,7 +134,11 @@ class UserInfoService:
                 group_names = await self._ldap.get_group_names(username, gid)
                 groups = []
                 for group_name in group_names:
-                    group_gid = await self._firestore.get_gid(group_name)
+                    try:
+                        group_gid = await self._firestore.get_gid(group_name)
+                    except FirestoreError as e:
+                        e.user = username
+                        raise
                     groups.append(TokenGroup(name=group_name, id=group_gid))
             else:
                 groups = await self._ldap.get_groups(username, gid)
@@ -435,6 +440,9 @@ class OIDCUserInfoService(UserInfoService):
                     groups.append(TokenGroup(name=name, id=gid))
                 except (TypeError, ValueError, ValidationError) as e:
                     invalid_groups[name] = str(e)
+        except FirestoreError as e:
+            e.user = username
+            raise
         except TypeError as e:
             msg = f"{claim} claim has invalid format: {str(e)}"
             self._logger.error(
@@ -443,7 +451,7 @@ class OIDCUserInfoService(UserInfoService):
                 claim=token.claims.get(claim, []),
                 user=username,
             )
-            raise InvalidTokenClaimsError(msg) from e
+            raise InvalidTokenClaimsError(msg, username) from e
 
         if invalid_groups:
             self._logger.warning(
@@ -485,13 +493,13 @@ class OIDCUserInfoService(UserInfoService):
         if self._oidc_config.gid_claim not in token.claims:
             msg = f"No {self._oidc_config.gid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise MissingGIDClaimError(msg)
+            raise MissingGIDClaimError(msg, username)
         try:
             gid = int(token.claims[self._oidc_config.gid_claim])
         except Exception as e:
             msg = f"Invalid {self._oidc_config.gid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise InvalidTokenClaimsError(msg) from e
+            raise InvalidTokenClaimsError(msg, username) from e
         return gid
 
     def _get_uid_from_oidc_token(
@@ -521,13 +529,13 @@ class OIDCUserInfoService(UserInfoService):
         if self._oidc_config.uid_claim not in token.claims:
             msg = f"No {self._oidc_config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise MissingUIDClaimError(msg)
+            raise MissingUIDClaimError(msg, username)
         try:
             uid = int(token.claims[self._oidc_config.uid_claim])
         except Exception as e:
             msg = f"Invalid {self._oidc_config.uid_claim} claim in token"
             self._logger.warning(msg, claims=token.claims, user=username)
-            raise InvalidTokenClaimsError(msg) from e
+            raise InvalidTokenClaimsError(msg, username) from e
         return uid
 
     def _get_username_from_oidc_token(self, token: OIDCVerifiedToken) -> str:

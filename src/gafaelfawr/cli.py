@@ -14,6 +14,7 @@ from cryptography.fernet import Fernet
 from fastapi.openapi.utils import get_openapi
 from safir.asyncio import run_with_asyncio
 from safir.database import create_database_engine, initialize_database
+from safir.slack.blockkit import SlackMessage
 from sqlalchemy import text
 
 from .dependencies.config import config_dependency
@@ -22,9 +23,9 @@ from .keypair import RSAKeyPair
 from .main import create_app
 from .models.token import Token
 from .schema import Base
-from .slack import SlackAlertClient
 
 __all__ = [
+    "audit",
     "delete_all_data",
     "generate_key",
     "generate_token",
@@ -81,16 +82,16 @@ async def audit(fix: bool, config_path: Optional[Path]) -> None:
     if config_path:
         config_dependency.set_config_path(config_path)
     config = await config_dependency()
-    if not config.slack_webhook:
-        msg = "Slack alerting required for audit but not configured"
-        raise click.UsageError(msg)
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Starting audit")
-    slack = SlackAlertClient(config.slack_webhook, "Gafaelfawr", logger)
     engine = create_database_engine(
         config.database_url, config.database_password
     )
     async with Factory.standalone(config, engine) as factory:
+        slack = factory.create_slack_client()
+        if not slack:
+            msg = "Slack alerting required for audit but not configured"
+            raise click.UsageError(msg)
         token_service = factory.create_token_service()
         async with factory.session.begin():
             alerts = await token_service.audit(fix=fix)
@@ -98,9 +99,8 @@ async def audit(fix: bool, config_path: Optional[Path]) -> None:
             message = (
                 "Gafaelfawr data inconsistencies found:\n• "
                 + "\n• ".join(alerts)
-                + "\n"
             )
-            await slack.message(message)
+            await slack.post(SlackMessage(message=message))
     await engine.dispose()
     logger.debug("Finished audit")
 

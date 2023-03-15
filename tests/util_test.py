@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -10,7 +10,6 @@ from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.util import (
     add_padding,
     base64_to_number,
-    format_datetime_for_logging,
     is_bot_user,
     normalize_timedelta,
     number_to_base64,
@@ -42,12 +41,6 @@ def test_base64_to_number() -> None:
         assert base64_to_number(n_b64) == n
 
     assert base64_to_number("AQAB") == 65537
-
-
-def test_format_datetime_for_logging() -> None:
-    assert format_datetime_for_logging(None) is None
-    date = datetime.fromisoformat("2022-09-16T12:03:45.123+00:00")
-    assert format_datetime_for_logging(date) == "2022-09-16 12:03:45+00:00"
 
 
 def test_is_bot_user() -> None:

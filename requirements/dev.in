@@ -27,7 +27,7 @@ types-redis
 holdup
 
 # Documentation
-documenteer[guide]>=0.7.0b2
+documenteer[guide]>=0.7.0
 sphinx-click
 sphinx-diagrams
 sphinxcontrib-redoc

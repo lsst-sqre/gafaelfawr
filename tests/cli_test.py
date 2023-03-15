@@ -19,6 +19,7 @@ from click.testing import CliRunner
 from cryptography.fernet import Fernet
 from safir.database import initialize_database
 from safir.datetime import current_datetime
+from safir.testing.slack import MockSlackWebhook
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
@@ -35,7 +36,6 @@ from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
 from .support.config import configure
-from .support.slack import MockSlack
 
 
 async def _initialize_database(engine: AsyncEngine, config: Config) -> None:
@@ -49,7 +49,7 @@ def test_audit(
     config: Config,
     engine: AsyncEngine,
     event_loop: asyncio.AbstractEventLoop,
-    mock_slack: MockSlack,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     logger = structlog.get_logger("gafaelfawr")
     now = current_datetime()
@@ -79,16 +79,18 @@ def test_audit(
         " but not Redis",
     ]
     expected_alert = (
-        "Gafaelfawr data inconsistencies found:\n• "
-        + "\n• ".join(alerts)
-        + "\n"
+        "Gafaelfawr data inconsistencies found:\n• " + "\n• ".join(alerts)
     )
     assert mock_slack.messages == [
         {
             "blocks": [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": expected_alert},
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": expected_alert,
+                        "verbatim": True,
+                    },
                 }
             ]
         }

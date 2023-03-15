@@ -8,7 +8,7 @@ import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from httpx import AsyncClient, RequestError
+from httpx import AsyncClient, HTTPError, HTTPStatusError
 from structlog.stdlib import BoundLogger
 
 from ..config import OIDCConfig
@@ -18,6 +18,7 @@ from ..exceptions import (
     MissingUsernameClaimError,
     OIDCError,
     OIDCNotEnrolledError,
+    ProviderWebError,
     UnknownAlgorithmError,
     UnknownKeyIdError,
     VerifyTokenError,
@@ -88,8 +89,8 @@ class OIDCProvider(Provider):
         }
         params.update(self._config.login_params)
         self._logger.info(
-            "Redirecting user to %s for authentication",
-            self._config.login_url,
+            "Redirecting user for authentication",
+            login_url=self._config.login_url,
         )
         return f"{self._config.login_url}?{urlencode(params)}"
 
@@ -124,7 +125,7 @@ class OIDCProvider(Provider):
             Raised if the OpenID Connect provider responded with an error to a
             request or the group membership in the resulting token was not
             valid.
-        httpx.HTTPError
+        ProviderWebError
             An HTTP client error occurred trying to talk to the authentication
             provider.
         """
@@ -137,27 +138,31 @@ class OIDCProvider(Provider):
             "redirect_uri": self._config.redirect_url,
         }
         self._logger.info("Retrieving ID token from %s", token_url)
-        r = await self._http_client.post(
-            token_url,
-            data=data,
-            headers={"Accept": "application/json"},
-        )
 
         # If the call failed, try to extract an error from the reply.  If that
         # fails, just raise an exception for the HTTP status.
+        result = None
         try:
+            r = await self._http_client.post(
+                token_url,
+                data=data,
+                headers={"Accept": "application/json"},
+            )
             result = r.json()
-        except Exception as e:
-            if r.status_code != 200:
-                r.raise_for_status()
-            else:
-                msg = "Response from {token_url} not valid JSON"
-                raise OIDCError(msg) from e
-        if r.status_code != 200 and "error" in result:
-            msg = result["error"] + ": " + result["error_description"]
-            raise OIDCError(msg)
-        elif r.status_code != 200:
             r.raise_for_status()
+        except HTTPError as e:
+            if result and "error" in result:
+                description = result.get("error_description")
+                if description:
+                    msg = result["error"] + ": " + description
+                else:
+                    msg = result["error"]
+                raise OIDCError(f"Error retrieving ID token: {msg}")
+            else:
+                raise ProviderWebError.from_exception(e) from e
+        except Exception as e:
+            msg = f"Response from {token_url} not valid JSON"
+            raise OIDCError(msg) from e
         if "id_token" not in result:
             msg = f"No id_token in token reply from {token_url}"
             raise OIDCError(msg)
@@ -225,6 +230,8 @@ class OIDCTokenVerifier:
         ------
         jwt.exceptions.InvalidTokenError
             Raised if the token is invalid.
+        ProviderWebError
+            Raised if unable to retrieve signing keys from the provider.
         VerifyTokenError
             Raised if the token failed to verify or was invalid in some way.
         """
@@ -287,8 +294,10 @@ class OIDCTokenVerifier:
         Raises
         ------
         FetchKeysError
-            Raised if unable to retrieve the key set for the specified
-            issuer.
+            Raised if provider key data doesn't contain the needed key or
+            is syntactically invalid.
+        ProviderWebError
+            Raised if unable to retrieve signing keys from the provider.
         UnknownAlgorithError
             Raised if the requested key ID was found, but is for an
             unsupported algorithm.
@@ -347,7 +356,9 @@ class OIDCTokenVerifier:
         Raises
         ------
         FetchKeysError
-            Raised if failed to retrieve a set of keys from the issuer.
+            Raised if unable to parse the key data or find the needed key.
+        ProviderWebError
+            Raised if unable to retrieve signing keys from the provider.
         """
         url = await self._get_jwks_uri(issuer_url)
         if not url:
@@ -355,12 +366,9 @@ class OIDCTokenVerifier:
 
         try:
             r = await self._http_client.get(url)
-            if r.status_code != 200:
-                reason = f"{r.status_code} {r.reason_phrase}"
-                msg = f"Cannot retrieve keys from {url}: {reason}"
-                raise FetchKeysError(msg)
-        except RequestError as e:
-            raise FetchKeysError(f"Cannot retrieve keys from {url}") from e
+            r.raise_for_status()
+        except HTTPError as e:
+            raise ProviderWebError.from_exception(e) from e
 
         try:
             body = r.json()
@@ -391,14 +399,19 @@ class OIDCTokenVerifier:
         FetchKeysError
             Raised if the OpenID Connect metadata doesn't contain the expected
             parameter.
+        ProviderWebError
+            Raised if unable to retrieve signing keys from the provider.
         """
         url = issuer_url.rstrip("/") + "/.well-known/openid-configuration"
         try:
             r = await self._http_client.get(url)
-            if r.status_code != 200:
+            r.raise_for_status()
+        except HTTPStatusError as e:
+            if r.status_code == 404:
                 return None
-        except RequestError:
-            return None
+            raise ProviderWebError.from_exception(e) from e
+        except HTTPError as e:
+            raise ProviderWebError.from_exception(e) from e
 
         try:
             body = r.json()
