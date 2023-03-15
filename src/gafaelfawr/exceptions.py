@@ -11,7 +11,7 @@ from fastapi import status
 from httpx import HTTPError, HTTPStatusError, RequestError
 from safir.models import ErrorLocation
 from safir.slack.blockkit import (
-    SlackCodeAttachment,
+    SlackCodeBlock,
     SlackException,
     SlackMessage,
     SlackTextField,
@@ -499,10 +499,8 @@ class ProviderWebError(ProviderError):
             field = SlackTextField(heading="Reason", text=self.reason)
             message.fields.append(field)
         if self.body:
-            attachment = SlackCodeAttachment(
-                heading="Response", code=self.body
-            )
-            message.attachments.append(attachment)
+            block = SlackCodeBlock(heading="Response", code=self.body)
+            message.blocks.append(block)
         return message
 
 

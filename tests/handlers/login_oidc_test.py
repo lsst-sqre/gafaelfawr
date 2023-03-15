@@ -328,20 +328,15 @@ async def test_callback_error(
                         },
                     ],
                 },
-            ],
-            "attachments": [
                 {
-                    "blocks": [
-                        {
-                            "type": "section",
-                            "text": {
-                                "type": "mrkdwn",
-                                "text": '*Response*\n```\n{"foo": "bar"}\n```',
-                                "verbatim": True,
-                            },
-                        }
-                    ]
-                }
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": '*Response*\n```\n{"foo": "bar"}\n```',
+                        "verbatim": True,
+                    },
+                },
+                {"type": "divider"},
             ],
         },
         {
