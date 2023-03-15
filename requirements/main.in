@@ -27,10 +27,10 @@ pydantic
 PyJWT
 pyyaml
 redis>=4.2.0rc1
-#safir[db,kubernetes]>=3.5.0
+safir[db,kubernetes]>=3.8.0
 sqlalchemy
 structlog
 
 # Uncomment this, change the branch, comment out safir above, and run make
 # update-deps-no-hashes to test against an unreleased version of Safir.
-safir[db,kubernetes] @ git+https://github.com/lsst-sqre/safir@tickets/DM-38272
+#safir[db,kubernetes] @ git+https://github.com/lsst-sqre/safir@tickets/DM-38272
