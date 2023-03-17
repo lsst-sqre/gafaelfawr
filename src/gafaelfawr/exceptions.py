@@ -357,11 +357,11 @@ class LDAPError(ExternalUserInfoError):
     """User or group information in LDAP was invalid or LDAP calls failed."""
 
 
-class KubernetesError(Exception):
-    """An error occurred during Kubernetes secret processing."""
+class KubernetesError(kopf.TemporaryError):
+    """An error occurred performing a Kubernetes operation."""
 
 
-class KubernetesObjectError(KubernetesError):
+class KubernetesObjectError(kopf.PermanentError):
     """A Kubernetes object could not be parsed.
 
     Parameters

@@ -20,6 +20,8 @@ Dependencies are updated to the latest available version during each release. Th
 - Return a status code of 500 instead of 403 for server-side errors during login.
 - Errors in querying an external source of user information, such as Firestore or LDAP, are now caught in the `/auth` route and only logged, not reported to Slack as uncaught exceptions. The `/auth` route may receive multiple requests per second and should not report every error due to a possible external outage to Slack.
 - Errors in querying an external source of user information in the `/auth/api/v1/user-info` route are now caught, reported to Slack, and result in an orderly error message instead of an uncaught exception.
+- Set a timeout on Kubernetes watches in the Kubernetes operator to work around a Kubernetes server bug where watches of unlimited duration will sometimes go silent and stop receiving events.
+- Mark Kubernetes object parsing failures as Kopf permanent failures so that the same version of the object will not be retried. Mark Kubernetes API failures as temporary failures so that the retry schedule is configurable.
 
 ### Other changes
 
