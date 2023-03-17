@@ -21,7 +21,7 @@ from typing import Any, Optional, Self
 
 import yaml
 from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
-from safir.logging import LogLevel
+from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -1022,6 +1022,15 @@ class Config:
             initial_admins=tuple(settings.initial_admins),
             known_scopes=settings.known_scopes or {},
             group_mapping=group_mapping_frozen,
+        )
+
+    def configure_logging(self) -> None:
+        """Configure logging based on the Gafaelfawr configuration."""
+        configure_logging(
+            profile=Profile.production,
+            log_level=self.loglevel,
+            name="gafaelfawr",
+            add_timestamp=True,
         )
 
     @staticmethod

@@ -40,6 +40,7 @@ class ConfigDependency:
         """
         if not self._config:
             self._config = Config.from_file(self._config_path)
+            self._config.configure_logging()
         return self._config
 
     def set_config_path(self, path: Path) -> None:
@@ -52,6 +53,7 @@ class ConfigDependency:
         """
         self._config_path = path
         self._config = Config.from_file(path)
+        self._config.configure_logging()
 
 
 config_dependency = ConfigDependency()

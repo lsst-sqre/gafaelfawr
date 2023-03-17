@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
-from safir.logging import Profile, configure_logging, configure_uvicorn_logging
+from safir.logging import configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -117,18 +117,24 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         StaticFiles(directory=str(static_path), html=True, check_dir=False),
     )
 
+    # Load configuration if it is available to us and configure Uvicorn
+    # logging.
+    config = None
+    if load_config:
+        config = config_dependency.config()
+        configure_uvicorn_logging()
+
     # Install the middleware.
     app.add_middleware(
         StateMiddleware, cookie_name=COOKIE_NAME, state_class=State
     )
-    if load_config:
-        config = config_dependency.config()
+    if config:
         app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
     else:
         app.add_middleware(XForwardedMiddleware)
 
     # Configure Slack alerts.
-    if load_config and config.slack_webhook:
+    if config and config.slack_webhook:
         logger = structlog.get_logger("gafaelfawr")
         SlackRouteErrorHandler.initialize(
             config.slack_webhook, "Gafaelfawr", logger
@@ -143,19 +149,6 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     app.exception_handler(NotConfiguredError)(not_configured_handler)
     app.exception_handler(PermissionDeniedError)(permission_handler)
     app.exception_handler(ValidationError)(validation_handler)
-
-    # Configure logging.
-    if load_config:
-        configure_logging(
-            profile=Profile.production,
-            log_level=config.loglevel,
-            name="gafaelfawr",
-            add_timestamp=True,
-        )
-
-    # Customize uvicorn logging to use the same structlog configuration as
-    # main application logging.
-    configure_uvicorn_logging()
 
     return app
 
