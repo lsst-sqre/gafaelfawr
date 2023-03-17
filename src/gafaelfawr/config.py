@@ -21,7 +21,7 @@ from typing import Any, Optional, Self
 
 import yaml
 from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
-from safir.logging import LogLevel
+from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -33,6 +33,8 @@ __all__ = [
     "Config",
     "FirestoreConfig",
     "FirestoreSettings",
+    "ForgeRockConfig",
+    "ForgeRockSettings",
     "GitHubConfig",
     "GitHubSettings",
     "LDAPConfig",
@@ -214,6 +216,19 @@ class LDAPSettings(CamelCaseModel):
     """
 
 
+class ForgeRockSettings(CamelCaseModel):
+    """pydantic model of ForgeRock Identity Management configuration."""
+
+    url: str
+    """Base URL for ForgeRock Identity Management server."""
+
+    username: str
+    """Username for authenticated queries."""
+
+    password_file: Path
+    """File containing the password for authenticated queries."""
+
+
 class FirestoreSettings(CamelCaseModel):
     """pydantic model of Firestore configuration."""
 
@@ -352,6 +367,9 @@ class Settings(CamelCaseModel):
 
     firestore: Optional[FirestoreSettings] = None
     """Settings for Firestore-based UID/GID assignment."""
+
+    forgerock: Optional[ForgeRockSettings] = None
+    """Settings for ForgeRock Identity Management server."""
 
     oidc_server: Optional[OIDCServerSettings] = None
     """Settings for the internal OpenID Connect server."""
@@ -624,6 +642,20 @@ class LDAPConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class ForgeRockConfig:
+    """Configuration for ForgeRock Identity Management server."""
+
+    url: str
+    """Base URL for ForgeRock Identity Management server."""
+
+    username: str
+    """Username for authenticated queries to server."""
+
+    password: str
+    """Password for authenticated queries to server."""
+
+
+@dataclass(frozen=True, slots=True)
 class FirestoreConfig:
     """Configuration for Firestore-based UID/GID assignment."""
 
@@ -779,6 +811,9 @@ class Config:
     firestore: FirestoreConfig | None
     """Settings for Firestore-based UID/GID assignment."""
 
+    forgerock: ForgeRockConfig | None
+    """Configuration for ForgeRock Identity Management server."""
+
     oidc_server: OIDCServerConfig | None
     """Configuration for the OpenID Connect server."""
 
@@ -876,6 +911,17 @@ class Config:
                 project=settings.firestore.project
             )
 
+        # Build ForgeRock configuration if needed.
+        forgerock_config = None
+        if settings.forgerock:
+            path = settings.forgerock.password_file
+            forgerock_password = cls._load_secret(path).decode()
+            forgerock_config = ForgeRockConfig(
+                url=settings.forgerock.url,
+                username=settings.forgerock.username,
+                password=forgerock_password,
+            )
+
         # Build the OpenID Connect server configuration if needed.
         oidc_server_config = None
         if settings.oidc_server:
@@ -970,11 +1016,21 @@ class Config:
             oidc=oidc_config,
             ldap=ldap_config,
             firestore=firestore_config,
+            forgerock=forgerock_config,
             oidc_server=oidc_server_config,
             quota=quota,
             initial_admins=tuple(settings.initial_admins),
             known_scopes=settings.known_scopes or {},
             group_mapping=group_mapping_frozen,
+        )
+
+    def configure_logging(self) -> None:
+        """Configure logging based on the Gafaelfawr configuration."""
+        configure_logging(
+            profile=Profile.production,
+            log_level=self.loglevel,
+            name="gafaelfawr",
+            add_timestamp=True,
         )
 
     @staticmethod

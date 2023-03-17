@@ -4,12 +4,13 @@ Versioning follows [semver](https://semver.org/). Versioning assumes that Gafael
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-## 9.1.0 (unreleased)
+## 9.1.0 (2023-03-17)
 
 ### New features
 
 - Gafaelfawr now supports setting API and notebook quotas in its configuration, and calculates the quota for a given user based on their group membership. This quota information is returned by the `/auth/api/v1/user-info` route, but is not otherwise used by Gafaelfawr (yet).
 - Server-side failures during login, such as inability to reach the authentication provider or invalid responses from the authentication provider, are now reported to Slack if a Slack webhook is configured.
+- When using an OpenID Connect authentication provider, Gafaelfawr now supports looking up the GIDs of user groups in a ForgeRock Identity Management server (specifically, in the ``groups`` collection of the ``freeipa`` component).
 
 ### Bug fixes
 

@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..exceptions import (
+    ExternalUserInfoError,
     FirestoreError,
     InvalidTokenClaimsError,
     MissingGIDClaimError,
     MissingUIDClaimError,
     MissingUsernameClaimError,
     NotConfiguredError,
-    ValidationError,
 )
 from ..models.ldap import LDAPUserData
 from ..models.oidc import OIDCVerifiedToken
@@ -23,8 +26,9 @@ from ..models.token import (
     TokenGroup,
     TokenUserInfo,
 )
-from ..services.firestore import FirestoreService
-from ..services.ldap import LDAPService
+from ..storage.forgerock import ForgeRockStorage
+from .firestore import FirestoreService
+from .ldap import LDAPService
 
 __all__ = ["OIDCUserInfoService", "UserInfoService"]
 
@@ -310,6 +314,9 @@ class OIDCUserInfoService(UserInfoService):
         LDAP service for user metadata, if LDAP was configured.
     firestore
         Service for Firestore UID/GID lookups, if Firestore was configured.
+    forgerock
+        Service for ForgeRock Identity Management service queries, if
+        ForgeRock was configured.
     logger
         Logger to use.
     """
@@ -320,6 +327,7 @@ class OIDCUserInfoService(UserInfoService):
         config: Config,
         ldap: LDAPService | None,
         firestore: FirestoreService | None,
+        forgerock: ForgeRockStorage | None,
         logger: BoundLogger,
     ) -> None:
         super().__init__(
@@ -328,6 +336,7 @@ class OIDCUserInfoService(UserInfoService):
             firestore=firestore,
             logger=logger,
         )
+        self._forgerock = forgerock
         if not config.oidc:
             raise NotConfiguredError("OpenID Connect not configured")
         self._oidc_config = config.oidc
@@ -414,33 +423,24 @@ class OIDCUserInfoService(UserInfoService):
 
         Raises
         ------
-        FirestoreError
-            An error occured obtaining the GID from Firestore.
+        ExternalUserInfoError
+            Raised if an error occurred getting a GID from an external source.
         InvalidTokenClaimsError
-            The ``isMemberOf`` claim has an invalid syntax.
+            The group claim has an invalid syntax.
         """
         claim = self._oidc_config.groups_claim
         groups = []
-        invalid_groups = {}
+        invalid_groups = []
         try:
             for oidc_group in token.claims.get(claim, []):
                 try:
-                    if isinstance(oidc_group, str):
-                        name = oidc_group.removeprefix("/")
-                        groups.append(TokenGroup(name=name))
-                        continue
-                    if "name" not in oidc_group:
-                        continue
-                    name = oidc_group["name"].removeprefix("/")
-                    gid = None
-                    if self._firestore:
-                        gid = await self._firestore.get_gid(name)
-                    elif "id" in oidc_group:
-                        gid = int(oidc_group["id"])
-                    groups.append(TokenGroup(name=name, id=gid))
-                except (TypeError, ValueError, ValidationError) as e:
-                    invalid_groups[name] = str(e)
-        except FirestoreError as e:
+                    group = await self._get_group_from_oidc_claim(oidc_group)
+                except (TypeError, ValidationError):
+                    invalid_groups.append(oidc_group)
+                    continue
+                if group:
+                    groups.append(group)
+        except ExternalUserInfoError as e:
             e.user = username
             raise
         except TypeError as e:
@@ -456,12 +456,63 @@ class OIDCUserInfoService(UserInfoService):
         if invalid_groups:
             self._logger.warning(
                 "Ignoring invalid groups in OIDC token",
-                error=f"{claim} claim value could not be parsed",
+                error=f"{claim} claim value contained invalid groups",
                 invalid_groups=invalid_groups,
                 user=username,
             )
 
         return groups
+
+    async def _get_group_from_oidc_claim(
+        self, group: str | dict[str, Any]
+    ) -> TokenGroup | None:
+        """Translate one member of the OIDC group claim into a group.
+
+        Parameters
+        ----------
+        group
+            One member of the groups claim of the OpenID Connect token. This
+            may be a simple group name or it may be a dict with group name and
+            GID elements.
+
+        Returns
+        -------
+        TokenGroup or None
+            The equivalent group model, or `None` if this member of the claim
+            could not be resolved into a group.
+
+        Raises
+        ------
+        TypeError
+            Raised if some part of the claim has an unexpected type.
+        ValidationError
+            Raised if the group is invalid (malformatted name, for instance).
+        """
+        # First, check if it's a simple group name. If so, treat that as the
+        # group name. Otherwise, assume this is a dictionary and try to get
+        # the group name and GID from name and id elements. One installation's
+        # identity management system insisted on adding leading slashes.
+        if isinstance(group, str):
+            name = group.removeprefix("/")
+        else:
+            if "name" not in group:
+                return None
+            name = group["name"].removeprefix("/")
+
+        # Now, try to resolve that group name to a GID. Prefer ForgeRock if
+        # configured, then try Firestore if configured, and if not try to
+        # extract the GID from the OpenID Connect claim. Failing all of those,
+        # create a group without a GID.
+        gid = None
+        if self._forgerock:
+            gid = await self._forgerock.get_gid(name)
+        elif self._firestore:
+            gid = await self._firestore.get_gid(name)
+        elif isinstance(group, dict) and "id" in group:
+            gid = int(group["id"])
+
+        # Return the resulting group.
+        return TokenGroup(name=name, id=gid)
 
     def _get_gid_from_oidc_token(
         self, token: OIDCVerifiedToken, username: str

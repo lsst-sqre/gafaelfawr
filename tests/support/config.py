@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from cryptography.fernet import Fernet
+from safir.logging import Profile, configure_logging
 
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.dependencies.config import config_dependency
@@ -113,6 +114,7 @@ def build_config(
     slack_webhook_file = store_secret(
         tmp_path, "slack-webhook", b"https://slack.example.com/webhook"
     )
+    forgerock_password_file = store_secret(tmp_path, "forgerock", b"password")
 
     oidc_path = tmp_path / "oidc.json"
     if oidc_clients:
@@ -133,6 +135,7 @@ def build_config(
         oidc_secret_file=oidc_secret_file,
         oidc_server_secrets_file=oidc_path if oidc_clients else "",
         slack_webhook_file=slack_webhook_file,
+        forgerock_password_file=forgerock_password_file,
     )
 
     if settings:
@@ -199,7 +202,17 @@ def configure(
         **settings,
     )
     config_dependency.set_config_path(config_path)
-    return config_dependency.config()
+    config = config_dependency.config()
+
+    # Pick up any change to the log level.
+    configure_logging(
+        profile=Profile.production,
+        log_level=config.loglevel,
+        name="gafaelfawr",
+        add_timestamp=True,
+    )
+
+    return config
 
 
 async def reconfigure(

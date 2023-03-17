@@ -25,6 +25,8 @@ __all__ = [
     "FetchKeysError",
     "FirestoreError",
     "FirestoreNotInitializedError",
+    "ForgeRockError",
+    "ForgeRockWebError",
     "GitHubError",
     "InsufficientScopeError",
     "InvalidClientError",
@@ -54,6 +56,7 @@ __all__ = [
     "PermissionDeniedError",
     "ProviderError",
     "ProviderWebError",
+    "SlackWebException",
     "UnauthorizedClientError",
     "UnknownAlgorithmError",
     "UnknownKeyIdError",
@@ -316,91 +319,8 @@ class InsufficientScopeError(OAuthBearerError):
     status_code = status.HTTP_403_FORBIDDEN
 
 
-class DeserializeError(Exception):
-    """A stored object could not be decrypted or deserialized.
-
-    Used for data stored in the backing store, such as sessions or user
-    tokens.  Should normally be treated the same as a missing object, but
-    reported separately so that an error can be logged.
-    """
-
-
-class ExternalUserInfoError(SlackException):
-    """Error in external user information source.
-
-    This is the base exception for any error in retrieving information from an
-    external source of user data. External sources of data may be affected by
-    an external outage, and we don't want to report uncaught exceptions for
-    every attempt to query them (possibly multiple times per second), so this
-    exception base class is used to catch those errors in the high-traffic
-    ``/auth`` route and only log them.
-    """
-
-
-class FirestoreError(ExternalUserInfoError):
-    """An error occurred while reading or updating Firestore data."""
-
-
-class FirestoreNotInitializedError(FirestoreError):
-    """Firestore has not been initialized."""
-
-
-class NoAvailableGidError(FirestoreError):
-    """The assigned UID space has been exhausted."""
-
-
-class NoAvailableUidError(FirestoreError):
-    """The assigned UID space has been exhausted."""
-
-
-class LDAPError(ExternalUserInfoError):
-    """User or group information in LDAP was invalid or LDAP calls failed."""
-
-
-class KubernetesError(kopf.TemporaryError):
-    """An error occurred performing a Kubernetes operation."""
-
-
-class KubernetesObjectError(kopf.PermanentError):
-    """A Kubernetes object could not be parsed.
-
-    Parameters
-    ----------
-    kind
-        Kind of the malformed Kubernetes object.
-    name
-        Name of the malformed Kubernetes object.
-    namespace
-        Namespace of the malformed Kubernetes object.
-    exc
-        Exception from attempting to parse the object.
-    """
-
-    def __init__(
-        self,
-        kind: str,
-        name: str,
-        namespace: str,
-        exc: pydantic.ValidationError,
-    ) -> None:
-        msg = f"{kind} {namespace}/{name} is malformed: {str(exc)}"
-        super().__init__(msg)
-
-
-class NotConfiguredError(SlackIgnoredException):
-    """The requested operation was not configured."""
-
-
-class PermissionDeniedError(SlackIgnoredException, kopf.PermanentError):
-    """The user does not have permission to perform this operation."""
-
-
-class ProviderError(SlackException):
-    """Something failed while talking to an authentication provider."""
-
-
-class ProviderWebError(ProviderError):
-    """An HTTP request to an authentication provider failed.
+class SlackWebException(SlackException):
+    """An HTTP request to a remote service failed.
 
     Parameters
     ----------
@@ -504,6 +424,101 @@ class ProviderWebError(ProviderError):
         return message
 
 
+class DeserializeError(Exception):
+    """A stored object could not be decrypted or deserialized.
+
+    Used for data stored in the backing store, such as sessions or user
+    tokens.  Should normally be treated the same as a missing object, but
+    reported separately so that an error can be logged.
+    """
+
+
+class ExternalUserInfoError(SlackException):
+    """Error in external user information source.
+
+    This is the base exception for any error in retrieving information from an
+    external source of user data. External sources of data may be affected by
+    an external outage, and we don't want to report uncaught exceptions for
+    every attempt to query them (possibly multiple times per second), so this
+    exception base class is used to catch those errors in the high-traffic
+    ``/auth`` route and only log them.
+    """
+
+
+class FirestoreError(ExternalUserInfoError):
+    """An error occurred while reading or updating Firestore data."""
+
+
+class FirestoreNotInitializedError(FirestoreError):
+    """Firestore has not been initialized."""
+
+
+class ForgeRockError(ExternalUserInfoError):
+    """An error occurred querying ForgeRock Identity Management."""
+
+
+class ForgeRockWebError(ForgeRockError, SlackWebException):
+    """An HTTP error occurred querying ForgeRock Identity Management."""
+
+
+class NoAvailableGidError(FirestoreError):
+    """The assigned UID space has been exhausted."""
+
+
+class NoAvailableUidError(FirestoreError):
+    """The assigned UID space has been exhausted."""
+
+
+class LDAPError(ExternalUserInfoError):
+    """User or group information in LDAP was invalid or LDAP calls failed."""
+
+
+class KubernetesError(kopf.TemporaryError):
+    """An error occurred during Kubernetes secret processing."""
+
+
+class KubernetesObjectError(kopf.PermanentError):
+    """A Kubernetes object could not be parsed.
+
+    Parameters
+    ----------
+    kind
+        Kind of the malformed Kubernetes object.
+    name
+        Name of the malformed Kubernetes object.
+    namespace
+        Namespace of the malformed Kubernetes object.
+    exc
+        Exception from attempting to parse the object.
+    """
+
+    def __init__(
+        self,
+        kind: str,
+        name: str,
+        namespace: str,
+        exc: pydantic.ValidationError,
+    ) -> None:
+        msg = f"{kind} {namespace}/{name} is malformed: {str(exc)}"
+        super().__init__(msg)
+
+
+class NotConfiguredError(SlackIgnoredException):
+    """The requested operation was not configured."""
+
+
+class PermissionDeniedError(SlackIgnoredException, kopf.PermanentError):
+    """The user does not have permission to perform this operation."""
+
+
+class ProviderError(SlackException):
+    """Something failed while talking to an authentication provider."""
+
+
+class ProviderWebError(SlackWebException, ProviderError):
+    """A web request to an authentication provider failed."""
+
+
 class GitHubError(ProviderError):
     """GitHub returned an error from an API call."""
 
@@ -532,7 +547,7 @@ class VerifyTokenError(SlackException):
     """Base exception class for failure in verifying a token."""
 
 
-class FetchKeysError(ProviderWebError):
+class FetchKeysError(SlackWebException, VerifyTokenError):
     """Cannot retrieve the keys from an issuer."""
 
 
