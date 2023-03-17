@@ -9,6 +9,7 @@ from kubernetes_asyncio.client import ApiClient
 from safir.database import create_database_engine
 from safir.kubernetes import initialize_kubernetes
 
+from ..constants import KUBERNETES_WATCH_TIMEOUT
 from ..dependencies.config import config_dependency
 from ..factory import Factory
 
@@ -16,13 +17,15 @@ __all__ = ["startup", "shutdown"]
 
 
 @kopf.on.startup()
-async def startup(memo: kopf.Memo, **_: Any) -> None:
+async def startup(
+    memo: kopf.Memo, settings: kopf.OperatorSettings, **_: Any
+) -> None:
     """Initialize global data for Kubernetes operators.
 
     Anything stored in the provided ``memo`` argument will be made available,
-    via shallow copy, in the ``memo`` argument to any other handler.  Use this
+    via shallow copy, in the ``memo`` argument to any other handler. Use this
     to initialize the database and Redis pools, create service objects, and so
-    forth.
+    forth. Also add some configuration settings to Kopf.
 
     Parameters
     ----------
@@ -30,7 +33,12 @@ async def startup(memo: kopf.Memo, **_: Any) -> None:
         Holds global state, used to store the service objects and the various
         infrastructure used to create them, and which needs to be freed
         cleanly during shutdown.
+    settings
+        Holds the Kopf settings.
     """
+    settings.watching.server_timeout = KUBERNETES_WATCH_TIMEOUT
+    settings.watching.client_timeout = KUBERNETES_WATCH_TIMEOUT + 60
+
     config = await config_dependency()
     await initialize_kubernetes()
 

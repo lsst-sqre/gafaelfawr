@@ -43,6 +43,20 @@ COOKIE_NAME = "gafaelfawr"
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
 
+KUBERNETES_WATCH_TIMEOUT = 10 * 60
+"""Timeout (in seconds) for the Kubernetes operator watch operation.
+
+If this is not set, Kopf attempts to connect without a timeout. This sometimes
+triggers a bug in Kubernetes where the server stops responding without closing
+the connection (see https://github.com/nolar/kopf/issues/585). Instead, set an
+explicit timeout.
+
+This is the timeout sent to the Kubernetes server and is supposed to be
+handled on the server side. A client-side timeout will be set for one minute
+longer than this timeout in case the server doesn't handle its timeout
+properly.
+"""
+
 KUBERNETES_TIMER_DELAY = 5
 """How long (in seconds) to delay timers after startup and changes.
 
