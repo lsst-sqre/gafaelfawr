@@ -399,7 +399,7 @@ class Settings(CamelCaseModel):
                 raise ValueError(f"invalid scope {scope}")
         for required in ("admin:token", "user:token"):
             if required not in v:
-                raise ValueError(f"required scope {scope} missing")
+                raise ValueError(f"required scope {required} missing")
         return v
 
     @validator("ldap", always=True)
