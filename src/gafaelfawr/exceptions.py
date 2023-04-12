@@ -357,7 +357,7 @@ class SlackWebException(SlackException):
 
         Returns
         -------
-        ProviderWebError
+        SlackWebException
             Newly-constructed exception.
         """
         if isinstance(exc, HTTPStatusError):
