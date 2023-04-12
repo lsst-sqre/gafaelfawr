@@ -26,7 +26,7 @@ jinja2
 pydantic
 PyJWT
 pyyaml
-redis>=4.2.0rc1,!=4.5.2  # https://github.com/redis/redis-py/issues/2633
+redis>=4.2.0
 safir[db,kubernetes]>=3.8.0
 sqlalchemy
 structlog
