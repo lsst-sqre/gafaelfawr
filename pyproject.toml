@@ -23,9 +23,15 @@ requires-python = ">=3.11"
 dependencies = []
 dynamic = ["version"]
 
+[[project.authors]]
+name = "Association of Universities for Research in Astronomy, Inc. (AURA)"
+email = "sqre-admin@lists.lsst.org"
+
 [project.urls]
 Homepage = "https://gafaelfawr.lsst.io/"
 Source = "https://github.com/lsst-sqre/gafaelfawr"
+"Change log" = "https://gafaelfawr.lsst.io/changelog.html"
+"Issue tracker" = "https://github.com/lsst-sqre/gafaelfawr/issues"
 
 [build-system]
 requires = [
