@@ -185,7 +185,7 @@ async def test_unauthenticated(
     assert not url.scheme
     assert not url.netloc
     assert url.path == "/login"
-    params = urlencode(login_params)
+    params = urlencode(login_params, safe="/")
     expected_url = f"https://{TEST_HOSTNAME}/auth/openid/login?{params}"
     assert query_from_url(r.headers["Location"]) == {"rd": [str(expected_url)]}
 
