@@ -75,7 +75,7 @@ _pagination_headers = {
 
 
 @router.get(
-    "/admins",
+    "/auth/api/v1/admins",
     dependencies=[Depends(authenticate_admin_read)],
     response_model=list[Admin],
     summary="List all administrators",
@@ -90,7 +90,7 @@ async def get_admins(
 
 
 @router.post(
-    "/admins",
+    "/auth/api/v1/admins",
     status_code=204,
     summary="Add new administrator",
     tags=["admin"],
@@ -110,7 +110,7 @@ async def add_admin(
 
 
 @router.delete(
-    "/admins/{username}",
+    "/auth/api/v1/admins/{username}",
     responses={
         403: {"description": "Permission denied", "model": ErrorModel},
         404: {"description": "Specified user is not an administrator"},
@@ -143,7 +143,7 @@ async def delete_admin(
 
 
 @router.get(
-    "/history/token-changes",
+    "/auth/api/v1/history/token-changes",
     description=(
         "Get the change history of tokens for any user. If a limit or cursor"
         " was specified, links to paginated results may be found in the `Link`"
@@ -246,7 +246,7 @@ async def get_admin_token_change_history(
 
 
 @router.get(
-    "/login",
+    "/auth/api/v1/login",
     description=(
         "Used by the JavaScript UI to obtain a CSRF token, user metadata,"
         " and server configuration. Not used with regular API calls."
@@ -275,7 +275,7 @@ async def get_login(
 
 
 @router.get(
-    "/token-info",
+    "/auth/api/v1/token-info",
     description="Return metadata about the authentication token",
     response_model=TokenInfo,
     response_model_exclude_none=True,
@@ -304,7 +304,7 @@ async def get_token_info(
 
 
 @router.post(
-    "/tokens",
+    "/auth/api/v1/tokens",
     responses={
         201: {
             "headers": {
@@ -338,7 +338,7 @@ async def post_admin_tokens(
 
 
 @router.get(
-    "/user-info",
+    "/auth/api/v1/user-info",
     description="Get metadata about the autheticated user",
     response_model=TokenUserInfo,
     response_model_exclude_none=True,
@@ -366,7 +366,7 @@ async def get_user_info(
 
 
 @router.get(
-    "/users/{username}/token-change-history",
+    "/auth/api/v1/users/{username}/token-change-history",
     description=(
         "Get the change history of tokens for the current user. If a limit"
         " or cursor was specified, links to paginated results may be found"
@@ -458,7 +458,7 @@ async def get_user_token_change_history(
 
 
 @router.get(
-    "/users/{username}/tokens",
+    "/auth/api/v1/users/{username}/tokens",
     response_model=list[TokenInfo],
     response_model_exclude_none=True,
     summary="List tokens",
@@ -482,7 +482,7 @@ async def get_tokens(
 
 
 @router.post(
-    "/users/{username}/tokens",
+    "/auth/api/v1/users/{username}/tokens",
     responses={
         201: {
             "headers": {
@@ -528,7 +528,7 @@ async def post_tokens(
 
 
 @router.get(
-    "/users/{username}/tokens/{key}",
+    "/auth/api/v1/users/{username}/tokens/{key}",
     response_model=TokenInfo,
     response_model_exclude_none=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
@@ -564,7 +564,7 @@ async def get_token(
 
 
 @router.delete(
-    "/users/{username}/tokens/{key}",
+    "/auth/api/v1/users/{username}/tokens/{key}",
     responses={404: {"description": "Token not found", "model": ErrorModel}},
     summary="Revoke token",
     status_code=204,
@@ -599,7 +599,7 @@ async def delete_token(
 
 
 @router.patch(
-    "/users/{username}/tokens/{key}",
+    "/auth/api/v1/users/{username}/tokens/{key}",
     description=(
         "Replace metadata of a user token with provided values. Only the"
         " token name, scope, and expiration may be changed. Only token"
@@ -652,7 +652,7 @@ async def patch_token(
 
 
 @router.get(
-    "/users/{username}/tokens/{key}/change-history",
+    "/auth/api/v1/users/{username}/tokens/{key}/change-history",
     response_model=list[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
