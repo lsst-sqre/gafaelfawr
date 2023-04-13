@@ -315,19 +315,17 @@ async def test_callback_error(
                             "verbatim": True,
                         },
                         {"type": "mrkdwn", "text": ANY, "verbatim": True},
-                        {
-                            "type": "mrkdwn",
-                            "text": (
-                                "*URL*\nhttps://upstream.example.com/token"
-                            ),
-                            "verbatim": True,
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": "*Reason*\n" "Bad Request",
-                            "verbatim": True,
-                        },
                     ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "*URL*\nPOST https://upstream.example.com/token"
+                        ),
+                        "verbatim": True,
+                    },
                 },
                 {
                     "type": "section",
@@ -473,14 +471,17 @@ async def test_connection_error(
                             "verbatim": True,
                         },
                         {"type": "mrkdwn", "text": ANY, "verbatim": True},
-                        {
-                            "type": "mrkdwn",
-                            "text": (
-                                "*URL*\nhttps://upstream.example.com/token"
-                            ),
-                            "verbatim": True,
-                        },
                     ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "*URL*\nPOST https://upstream.example.com/token"
+                        ),
+                        "verbatim": True,
+                    },
                 },
                 {"type": "divider"},
             ]
@@ -545,21 +546,19 @@ async def test_verify_error(
                             "verbatim": True,
                         },
                         {"type": "mrkdwn", "text": ANY, "verbatim": True},
-                        {
-                            "type": "mrkdwn",
-                            "text": (
-                                "*URL*\n"
-                                "https://upstream.example.com/.well-known"
-                                "/jwks.json"
-                            ),
-                            "verbatim": True,
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": "*Reason*\nNot Found",
-                            "verbatim": True,
-                        },
                     ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "*URL*\n"
+                            "GET https://upstream.example.com/.well-known"
+                            "/jwks.json"
+                        ),
+                        "verbatim": True,
+                    },
                 },
                 {"type": "divider"},
             ]

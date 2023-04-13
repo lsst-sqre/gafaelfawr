@@ -2,20 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import ClassVar, Optional, Self
+from typing import ClassVar
 
 import kopf
 import pydantic
 from fastapi import status
-from httpx import HTTPError, HTTPStatusError, RequestError
 from safir.models import ErrorLocation
-from safir.slack.blockkit import (
-    SlackCodeBlock,
-    SlackException,
-    SlackMessage,
-    SlackTextField,
-)
+from safir.slack.blockkit import SlackException, SlackWebException
 from safir.slack.webhook import SlackIgnoredException
 
 __all__ = [
@@ -56,7 +49,6 @@ __all__ = [
     "PermissionDeniedError",
     "ProviderError",
     "ProviderWebError",
-    "SlackWebException",
     "UnauthorizedClientError",
     "UnknownAlgorithmError",
     "UnknownKeyIdError",
@@ -317,111 +309,6 @@ class InsufficientScopeError(OAuthBearerError):
     error = "insufficient_scope"
     message = "Permission denied"
     status_code = status.HTTP_403_FORBIDDEN
-
-
-class SlackWebException(SlackException):
-    """An HTTP request to a remote service failed.
-
-    Parameters
-    ----------
-    message
-        Exception string value, which is the default Slack message.
-    failed_at
-        When the exception happened. Omit to use the current time.
-    method
-        Method of request.
-    url
-        URL of the request.
-    user
-        Username on whose behalf the request is being made.
-    status
-        Status code of failure, if any.
-    reason
-        Reason string of failure, if any.
-    body
-        Body of failure message, if any.
-    """
-
-    @classmethod
-    def from_exception(
-        cls, exc: HTTPError, user: Optional[str] = None
-    ) -> Self:
-        """Create an exception from an httpx exception.
-
-        Parameters
-        ----------
-        exc
-            Exception from httpx.
-        user
-            User on whose behalf the request is being made, if known.
-
-        Returns
-        -------
-        SlackWebException
-            Newly-constructed exception.
-        """
-        if isinstance(exc, HTTPStatusError):
-            status = exc.response.status_code
-            method = exc.request.method
-            message = f"Status {status} from {method} {exc.request.url}"
-            return cls(
-                message,
-                method=exc.request.method,
-                url=str(exc.request.url),
-                user=user,
-                status=status,
-                reason=exc.response.reason_phrase,
-                body=exc.response.text,
-            )
-        else:
-            message = f"{type(exc).__name__}: {str(exc)}"
-            if isinstance(exc, RequestError):
-                return cls(
-                    message,
-                    method=exc.request.method,
-                    url=str(exc.request.url),
-                    user=user,
-                )
-            else:
-                return cls(message, user=user)
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        failed_at: Optional[datetime] = None,
-        method: Optional[str] = None,
-        url: Optional[str] = None,
-        user: Optional[str] = None,
-        status: Optional[int] = None,
-        reason: Optional[str] = None,
-        body: Optional[str] = None,
-    ) -> None:
-        self.method = method
-        self.url = url
-        self.status = status
-        self.reason = reason
-        self.body = body
-        super().__init__(message, user, failed_at=failed_at)
-
-    def to_slack(self) -> SlackMessage:
-        """Convert to a Slack message for Slack alerting.
-
-        Returns
-        -------
-        SlackMessage
-            Slack message suitable for posting as an alert.
-        """
-        message = super().to_slack()
-        if self.url:
-            message.fields.append(SlackTextField(heading="URL", text=self.url))
-        if self.reason:
-            field = SlackTextField(heading="Reason", text=self.reason)
-            message.fields.append(field)
-        if self.body:
-            block = SlackCodeBlock(heading="Response", code=self.body)
-            message.blocks.append(block)
-        return message
 
 
 class DeserializeError(Exception):
