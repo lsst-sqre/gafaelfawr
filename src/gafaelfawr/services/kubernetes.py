@@ -16,9 +16,9 @@ from structlog.stdlib import BoundLogger
 
 from ..constants import NGINX_SNIPPET
 from ..exceptions import (
+    InputValidationError,
     KubernetesError,
     PermissionDeniedError,
-    ValidationError,
 )
 from ..models.auth import Satisfy
 from ..models.kubernetes import (
@@ -393,7 +393,11 @@ class KubernetesTokenService:
                 status = await storage.replace_secret(parent, token)
             else:
                 status = await storage.create_secret(parent, token)
-        except (KubernetesError, PermissionDeniedError, ValidationError) as e:
+        except (
+            KubernetesError,
+            PermissionDeniedError,
+            InputValidationError,
+        ) as e:
             msg = f"Updating Secret {parent.key} failed"
             self._logger.error(msg, error=str(e))
             return KubernetesResourceStatus.failure(parent, str(e))

@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import ClassVar
 
 import kopf
-import pydantic
 from fastapi import status
+from pydantic import ValidationError
+from safir.fastapi import ClientRequestError
 from safir.models import ErrorLocation
 from safir.slack.blockkit import SlackException, SlackWebException
 from safir.slack.webhook import SlackIgnoredException
@@ -21,6 +22,7 @@ __all__ = [
     "ForgeRockError",
     "ForgeRockWebError",
     "GitHubError",
+    "InputValidationError",
     "InsufficientScopeError",
     "InvalidClientError",
     "InvalidCSRFError",
@@ -52,153 +54,101 @@ __all__ = [
     "UnauthorizedClientError",
     "UnknownAlgorithmError",
     "UnknownKeyIdError",
-    "ValidationError",
     "VerifyTokenError",
 ]
 
 
-class ValidationError(SlackIgnoredException, kopf.PermanentError):
+class InputValidationError(ClientRequestError, kopf.PermanentError):
     """Represents an input validation error.
 
-    There is a global handler for this exception and all exceptions derived
-    from it that returns an HTTP 422 status code with a body that's consistent
-    with the error messages generated internally by FastAPI.  It should be
-    used for input and parameter validation errors that cannot be caught by
-    FastAPI for whatever reason.
-
-    Parameters
-    ----------
-    message
-        The error message (used as the ``msg`` key).
-    location
-        The part of the request giving rise to the error.
-    field
-        The field within that part of the request giving rise to the error.
-
-    Notes
-    -----
-    The FastAPI body format supports returning multiple errors at a time as a
-    list in the ``details`` key.  The Gafaelfawr code is not currently capable
-    of diagnosing multiple errors at once, so this functionality hasn't been
-    implemented.
+    This is a thin wrapper around `~safir.fastapi.ClientRequestError` to add
+    inheritance from `kopf.PermanentError` for the Kubernetes operator.
     """
 
-    error: ClassVar[str] = "validation_failed"
-    """Used as the ``type`` field of the error message.
 
-    Should be overridden by any subclass.
-    """
-
-    status_code: ClassVar[int] = status.HTTP_422_UNPROCESSABLE_ENTITY
-    """HTTP status code for this type of validation error."""
-
-    def __init__(
-        self, message: str, location: ErrorLocation, field: str
-    ) -> None:
-        super().__init__(message)
-        self.location = location
-        self.field = field
-
-    def to_dict(self) -> dict[str, list[str] | str]:
-        """Convert the exception to a dictionary suitable for the exception.
-
-        Returns
-        -------
-        dict
-            Serialized error emssage to pass as the ``detail`` parameter to a
-            ``fastapi.HTTPException``.  It is designed to produce the same
-            JSON structure as native FastAPI errors.
-        """
-        return {
-            "loc": [self.location.value, self.field],
-            "msg": str(self),
-            "type": self.error,
-        }
-
-
-class DuplicateTokenNameError(ValidationError):
+class DuplicateTokenNameError(InputValidationError):
     """The user tried to reuse the name of a token."""
 
     error = "duplicate_token_name"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.body, "token_name")
+        super().__init__(message, ErrorLocation.body, ["token_name"])
 
 
-class InvalidCSRFError(ValidationError):
+class InvalidCSRFError(InputValidationError):
     """Invalid or missing CSRF token."""
 
     error = "invalid_csrf"
     status_code = status.HTTP_403_FORBIDDEN
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.header, "X-CSRF-Token")
+        super().__init__(message, ErrorLocation.header, ["X-CSRF-Token"])
 
 
-class InvalidCursorError(ValidationError):
+class InvalidCursorError(InputValidationError):
     """The provided cursor was invalid."""
 
     error = "invalid_cursor"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.query, "cursor")
+        super().__init__(message, ErrorLocation.query, ["cursor"])
 
 
-class InvalidDelegateToError(ValidationError):
+class InvalidDelegateToError(InputValidationError):
     """The ``delegate_to`` parameter was set to an invalid value."""
 
     error = "invalid_delegate_to"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.query, "delegate_to")
+        super().__init__(message, ErrorLocation.query, ["delegate_to"])
 
 
-class InvalidExpiresError(ValidationError):
+class InvalidExpiresError(InputValidationError):
     """The provided token expiration time was invalid."""
 
     error = "invalid_expires"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.body, "expires")
+        super().__init__(message, ErrorLocation.body, ["expires"])
 
 
-class InvalidIPAddressError(ValidationError):
+class InvalidIPAddressError(InputValidationError):
     """The provided IP address has invalid syntax."""
 
     error = "invalid_ip_address"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.query, "ip_address")
+        super().__init__(message, ErrorLocation.query, ["ip_address"])
 
 
-class InvalidMinimumLifetimeError(ValidationError):
+class InvalidMinimumLifetimeError(InputValidationError):
     """The ``minimum_lifetime`` parameter was set to an invalid value."""
 
     error = "invalid_minimum_lifetime"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.query, "minimum_lifetime")
+        super().__init__(message, ErrorLocation.query, ["minimum_lifetime"])
 
 
-class InvalidReturnURLError(ValidationError):
+class InvalidReturnURLError(InputValidationError):
     """Client specified an unsafe return URL."""
 
     error = "invalid_return_url"
 
     def __init__(self, message: str, field: str) -> None:
-        super().__init__(message, ErrorLocation.query, field)
+        super().__init__(message, ErrorLocation.query, [field])
 
 
-class InvalidScopesError(ValidationError):
+class InvalidScopesError(InputValidationError):
     """The provided token scopes are invalid or not available."""
 
     error = "invalid_scopes"
 
     def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.body, "scopes")
+        super().__init__(message, ErrorLocation.body, ["scopes"])
 
 
-class NotFoundError(ValidationError):
+class NotFoundError(InputValidationError):
     """The named resource does not exist."""
 
     error = "not_found"
@@ -384,7 +334,7 @@ class KubernetesObjectError(kopf.PermanentError):
         kind: str,
         name: str,
         namespace: str,
-        exc: pydantic.ValidationError,
+        exc: ValidationError,
     ) -> None:
         msg = f"{kind} {namespace}/{name} is malformed: {str(exc)}"
         super().__init__(msg)
