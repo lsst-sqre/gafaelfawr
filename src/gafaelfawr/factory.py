@@ -15,6 +15,7 @@ from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from safir.database import create_async_session
 from safir.dependencies.http_client import http_client_dependency
+from safir.redis import EncryptedPydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
 from sqlalchemy.future import select
@@ -42,7 +43,6 @@ from .services.token import TokenService
 from .services.token_cache import TokenCacheService
 from .services.userinfo import OIDCUserInfoService, UserInfoService
 from .storage.admin import AdminStore
-from .storage.base import RedisStorage
 from .storage.firestore import FirestoreStorage
 from .storage.forgerock import ForgeRockStorage
 from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
@@ -381,8 +381,12 @@ class Factory:
         if not self._context.config.oidc_server:
             msg = "OpenID Connect server not configured"
             raise NotConfiguredError(msg)
-        key = self._context.config.session_secret
-        storage = RedisStorage(OIDCAuthorization, key, self._context.redis)
+        storage = EncryptedPydanticRedisStorage(
+            datatype=OIDCAuthorization,
+            redis=self._context.redis,
+            encryption_key=self._context.config.session_secret,
+            key_prefix="oidc:",
+        )
         authorization_store = OIDCAuthorizationStore(storage)
         token_service = self.create_token_service()
         return OIDCService(
@@ -524,8 +528,12 @@ class Factory:
         TokenCacheService
             A new token cache.
         """
-        key = self._context.config.session_secret
-        storage = RedisStorage(TokenData, key, self._context.redis)
+        storage = EncryptedPydanticRedisStorage(
+            datatype=TokenData,
+            redis=self._context.redis,
+            encryption_key=self._context.config.session_secret,
+            key_prefix="token:",
+        )
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_db_store = TokenDatabaseStore(self.session)
         token_change_store = TokenChangeHistoryStore(self.session)
@@ -548,8 +556,12 @@ class Factory:
             The new token manager.
         """
         token_db_store = TokenDatabaseStore(self.session)
-        key = self._context.config.session_secret
-        storage = RedisStorage(TokenData, key, self._context.redis)
+        storage = EncryptedPydanticRedisStorage(
+            datatype=TokenData,
+            redis=self._context.redis,
+            encryption_key=self._context.config.session_secret,
+            key_prefix="token:",
+        )
         token_redis_store = TokenRedisStore(storage, self._logger)
         token_change_store = TokenChangeHistoryStore(self.session)
         token_cache_service = TokenCacheService(

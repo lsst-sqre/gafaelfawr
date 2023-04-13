@@ -6,17 +6,17 @@ from datetime import datetime, timezone
 from typing import Optional, cast
 
 from safir.database import datetime_to_db
+from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
 from sqlalchemy import delete
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
-from ..exceptions import DeserializeError, DuplicateTokenNameError
+from ..exceptions import DuplicateTokenNameError
 from ..models.token import Token, TokenData, TokenInfo, TokenType
 from ..schema.subtoken import Subtoken
 from ..schema.token import Token as SQLToken
-from .base import RedisStorage
 
 __all__ = ["TokenDatabaseStore", "TokenRedisStore"]
 
@@ -418,14 +418,14 @@ class TokenRedisStore:
     Parameters
     ----------
     storage
-        The underlying storage.
+        Underlying storage for token data.
     logger
         Logger for diagnostics.
     """
 
     def __init__(
         self,
-        storage: RedisStorage[TokenData],
+        storage: EncryptedPydanticRedisStorage[TokenData],
         logger: BoundLogger,
     ) -> None:
         self._storage = storage
@@ -448,11 +448,11 @@ class TokenRedisStore:
         bool
             `True` if the token was found and deleted, `False` otherwise.
         """
-        return await self._storage.delete(f"token:{key}")
+        return await self._storage.delete(key)
 
     async def delete_all(self) -> None:
         """Delete all stored tokens."""
-        await self._storage.delete_all("token:*")
+        await self._storage.delete_all("*")
 
     async def get_data(self, token: Token) -> TokenData | None:
         """Retrieve the data for a token from Redis.
@@ -500,7 +500,7 @@ class TokenRedisStore:
             valid.
         """
         try:
-            data = await self._storage.get(f"token:{key}")
+            data = await self._storage.get(key)
         except DeserializeError as e:
             self._logger.error("Cannot retrieve token", error=str(e))
             return None
@@ -515,8 +515,8 @@ class TokenRedisStore:
             The tokens found in Redis (by looking for valid keys).
         """
         keys = []
-        async for key in self._storage.scan("token:*"):
-            keys.append(key[len("token:") :])
+        async for key in self._storage.scan("*"):
+            keys.append(key)
         return keys
 
     async def store_data(self, data: TokenData) -> None:
@@ -531,4 +531,4 @@ class TokenRedisStore:
         if data.expires:
             now = datetime.now(tz=timezone.utc)
             lifetime = int((data.expires - now).total_seconds())
-        await self._storage.store(f"token:{data.token.key}", data, lifetime)
+        await self._storage.store(data.token.key, data, lifetime)

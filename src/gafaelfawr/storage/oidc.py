@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
+
 from ..constants import OIDC_AUTHORIZATION_LIFETIME
-from ..exceptions import DeserializeError
 from ..models.oidc import OIDCAuthorization, OIDCAuthorizationCode
-from .base import RedisStorage
 
 __all__ = ["OIDCAuthorizationStore"]
 
@@ -16,10 +16,12 @@ class OIDCAuthorizationStore:
     Parameters
     ----------
     storage
-        The underlying storage for `~gafaelfawr.models.oidc.OIDCAuthorization`.
+        Underlying storage for `~gafaelfawr.models.oidc.OIDCAuthorization`.
     """
 
-    def __init__(self, storage: RedisStorage[OIDCAuthorization]) -> None:
+    def __init__(
+        self, storage: EncryptedPydanticRedisStorage[OIDCAuthorization]
+    ) -> None:
         self._storage = storage
 
     async def create(self, authorization: OIDCAuthorization) -> None:
@@ -31,7 +33,7 @@ class OIDCAuthorizationStore:
             The authorization to create.
         """
         await self._storage.store(
-            f"oidc:{authorization.code.key}",
+            authorization.code.key,
             authorization,
             OIDC_AUTHORIZATION_LIFETIME,
         )
@@ -44,11 +46,11 @@ class OIDCAuthorizationStore:
         code
             The authorization code.
         """
-        await self._storage.delete(f"oidc:{code.key}")
+        await self._storage.delete(code.key)
 
     async def delete_all(self) -> None:
         """Delete all stored OpenID Connect authorizations."""
-        await self._storage.delete_all("oidc:*")
+        await self._storage.delete_all("*")
 
     async def get(
         self, code: OIDCAuthorizationCode
@@ -68,13 +70,13 @@ class OIDCAuthorizationStore:
 
         Raises
         ------
-        DeserializeError
+        safir.redis.DeserializeError
             Raised if the authorization exists but cannot be deserialized.
         """
-        authorization = await self._storage.get(f"oidc:{code.key}")
+        authorization = await self._storage.get(code.key)
         if not authorization:
             return None
         if authorization.code != code:
             msg = "Secret does not match stored authorization"
-            raise DeserializeError(msg)
+            raise DeserializeError(msg, f"oidc:{code.key}", msg)
         return authorization
