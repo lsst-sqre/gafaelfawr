@@ -90,7 +90,6 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     app.include_router(analyze.router)
     app.include_router(
         api.router,
-        prefix="/auth/api/v1",
         responses={
             401: {"description": "Unauthenticated"},
             403: {"description": "Permission denied", "model": ErrorModel},
