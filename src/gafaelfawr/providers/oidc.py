@@ -18,7 +18,7 @@ from ..exceptions import (
     MissingUsernameClaimError,
     OIDCError,
     OIDCNotEnrolledError,
-    ProviderWebError,
+    OIDCWebError,
     UnknownAlgorithmError,
     UnknownKeyIdError,
     VerifyTokenError,
@@ -125,7 +125,7 @@ class OIDCProvider(Provider):
             Raised if the OpenID Connect provider responded with an error to a
             request or the group membership in the resulting token was not
             valid.
-        ProviderWebError
+        OIDCWebError
             An HTTP client error occurred trying to talk to the authentication
             provider.
         """
@@ -159,7 +159,7 @@ class OIDCProvider(Provider):
                     msg = result["error"]
                 raise OIDCError(f"Error retrieving ID token: {msg}")
             else:
-                raise ProviderWebError.from_exception(e) from e
+                raise OIDCWebError.from_exception(e) from e
         except Exception as e:
             msg = f"Response from {token_url} not valid JSON"
             raise OIDCError(msg) from e
@@ -230,7 +230,7 @@ class OIDCTokenVerifier:
         ------
         jwt.exceptions.InvalidTokenError
             Raised if the token is invalid.
-        ProviderWebError
+        OIDCWebError
             Raised if unable to retrieve signing keys from the provider.
         VerifyTokenError
             Raised if the token failed to verify or was invalid in some way.
@@ -296,7 +296,7 @@ class OIDCTokenVerifier:
         FetchKeysError
             Raised if provider key data doesn't contain the needed key or
             is syntactically invalid.
-        ProviderWebError
+        OIDCWebError
             Raised if unable to retrieve signing keys from the provider.
         UnknownAlgorithError
             Raised if the requested key ID was found, but is for an
@@ -357,7 +357,7 @@ class OIDCTokenVerifier:
         ------
         FetchKeysError
             Raised if unable to parse the key data or find the needed key.
-        ProviderWebError
+        OIDCWebError
             Raised if unable to retrieve signing keys from the provider.
         """
         url = await self._get_jwks_uri(issuer_url)
@@ -368,7 +368,7 @@ class OIDCTokenVerifier:
             r = await self._http_client.get(url)
             r.raise_for_status()
         except HTTPError as e:
-            raise ProviderWebError.from_exception(e) from e
+            raise OIDCWebError.from_exception(e) from e
 
         try:
             body = r.json()
@@ -399,7 +399,7 @@ class OIDCTokenVerifier:
         FetchKeysError
             Raised if the OpenID Connect metadata doesn't contain the expected
             parameter.
-        ProviderWebError
+        OIDCWebError
             Raised if unable to retrieve signing keys from the provider.
         """
         url = issuer_url.rstrip("/") + "/.well-known/openid-configuration"
@@ -409,9 +409,9 @@ class OIDCTokenVerifier:
         except HTTPStatusError as e:
             if r.status_code == 404:
                 return None
-            raise ProviderWebError.from_exception(e) from e
+            raise OIDCWebError.from_exception(e) from e
         except HTTPError as e:
-            raise ProviderWebError.from_exception(e) from e
+            raise OIDCWebError.from_exception(e) from e
 
         try:
             body = r.json()

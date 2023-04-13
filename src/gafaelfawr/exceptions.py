@@ -21,6 +21,7 @@ __all__ = [
     "ForgeRockError",
     "ForgeRockWebError",
     "GitHubError",
+    "GitHubWebError",
     "InputValidationError",
     "InsufficientScopeError",
     "InvalidClientError",
@@ -50,6 +51,7 @@ __all__ = [
     "OAuthBearerError",
     "OIDCError",
     "OIDCNotEnrolledError",
+    "OIDCWebError",
     "PermissionDeniedError",
     "ProviderError",
     "ProviderWebError",
@@ -366,20 +368,28 @@ class ProviderWebError(SlackWebException, ProviderError):
 
 
 class GitHubError(ProviderError):
-    """GitHub returned an error from an API call."""
+    """The response from GitHub for a request was invalid."""
+
+
+class GitHubWebError(ProviderWebError):
+    """A web request to GitHub failed."""
 
 
 class OIDCError(ProviderError):
-    """The OpenID Connect provider returned an error from an API call."""
+    """Response from the OpenID Connect provider was invalid or an error."""
 
 
-class OIDCNotEnrolledError(ProviderError):
+class OIDCNotEnrolledError(OIDCError):
     """The user is not enrolled in the upstream OpenID Connect provider.
 
     This is raised when the username claim is missing from the ID token,
     which is how CILogon indicates that no matching enrolled user record
     could be found in LDAP for the federated identity.
     """
+
+
+class OIDCWebError(ProviderWebError):
+    """A web request to the OpenID Connect provider failed."""
 
 
 class UnauthorizedClientError(Exception):
