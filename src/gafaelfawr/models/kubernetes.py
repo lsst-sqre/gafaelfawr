@@ -151,7 +151,7 @@ class GafaelfawrIngressDelegate(CamelCaseModel):
         "minimum_lifetime", allow_reuse=True, pre=True
     )(normalize_timedelta)
 
-    _validate_type = validator("internal", always=True, allow_reuse=True)(
+    _validate_type = root_validator(allow_reuse=True)(
         validate_exactly_one_of("notebook", "internal")
     )
 
