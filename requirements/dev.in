@@ -28,6 +28,7 @@ holdup
 
 # Documentation
 documenteer[guide]>=0.7.0
+scriv[toml]
 sphinx-click
 sphinx-diagrams
 sphinxcontrib-redoc

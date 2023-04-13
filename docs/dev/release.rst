@@ -24,11 +24,22 @@ Release tags are semantic version identifiers following the :pep:`440` specifica
 1. Change log and documentation
 -------------------------------
 
-Each PR should include updates to the change log.
-If the change log or documentation needs additional updates, now is the time to make those changes through the regular branch-and-PR development method against the ``main`` branch.
+Change log messages for each release are accumulated using scriv_ (see :ref:`dev-change-log`).
+When it comes time to make the release, there should be a collection of change log fragments in :file:`changelog.d`.
+Those fragments will make up the change log for the new release.
 
-In particular, replace the "Unreleased" section headline with the semantic version and date.
-See :ref:`dev-change-log` in the *Developer guide* for details.
+Review those fragments to determine the version number of the next release.
+Gafaelfawr follows semver_, so follow its rules to pick the next version:
+
+- If there are any backward-incompatible changes, incremeent the major version number and set the other numbers to 0.
+- If there are any new features, increment the minor version number and set the patch version to 0.
+- Otherwise, increment the patch version number.
+
+Then, run ``scriv collect --version <version>`` specifying the version number you decided on.
+This will delete the fragment files and collect them into :file:`CHANGELOG.md` under an entry for the new release.
+Review that entry and edit it as needed (proofread, change the order to put more important things first, etc.).
+
+Finally, create a PR from those changes and merge it before continuing with the release process.
 
 2. Tag the release
 ------------------
@@ -52,7 +63,10 @@ The `ci.yaml`_ GitHub Actions workflow uploads the new release to Docker Hub.
 
 Add a new GitHub release for this version.
 The release title should be the same as the version number.
-The description of the release should be the :file:`CHANGELOG.md` entry for this release.
+
+Start the description of the release by using the :guilabel:`Generate release notes` button to include the GitHub-generated summary of pull requests.
+Then, above that, paste the contents of the :file:`CHANGELOG.md` entry for this release, without the initial heading specifying the version number and date.
+Adjust the heading depth of the subsections to use ``##`` instead of ``###`` to match the pull request summary.
 
 .. _backport-release:
 

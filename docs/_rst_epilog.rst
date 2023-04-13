@@ -5,6 +5,8 @@
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/
 .. _Safir: https://safir.lsst.io/
+.. _scriv: https://scriv.readthedocs.io/
+.. _semver: https://semver.org/
 .. _structlog: https://www.structlog.org/en/stable/
 .. _tox: https://tox.wiki/en/latest/
 .. _uvicorn: https://www.uvicorn.org/
