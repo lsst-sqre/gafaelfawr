@@ -1,7 +1,7 @@
-# Bad configuration file with invalid loglevel setting.
+# Bad configuration file with invalid logLevel setting.
 
 realm: "testing"
-loglevel: "INVALID"
+logLevel: "INVALID"
 sessionSecretFile: "{session_secret_file}"
 databaseUrl: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
 initialAdmins: ["admin"]

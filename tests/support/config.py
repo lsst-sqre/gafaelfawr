@@ -207,7 +207,7 @@ def configure(
     # Pick up any change to the log level.
     configure_logging(
         profile=Profile.production,
-        log_level=config.loglevel,
+        log_level=config.log_level,
         name="gafaelfawr",
         add_timestamp=True,
     )

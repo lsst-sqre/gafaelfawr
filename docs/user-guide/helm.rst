@@ -551,12 +551,12 @@ Logging and proxies
 ===================
 
 The default logging level of Gafaelfawr is ``INFO``, which will log a message for every action it takes.
-To change this, set ``config.loglevel``:
+To change this, set ``config.logLevel``:
 
 .. code-block:: yaml
 
    config:
-     loglevel: "WARNING"
+     logLevel: "WARNING"
 
 Valid values are ``DEBUG`` (to increase the logging), ``INFO`` (the default), ``WARNING``, or ``ERROR``.
 

@@ -307,7 +307,7 @@ class Settings(CamelCaseModel):
     realm: str
     """Realm for HTTP authentication."""
 
-    loglevel: LogLevel = LogLevel.INFO
+    log_level: LogLevel = LogLevel.INFO
     """Logging level."""
 
     session_secret_file: Path
@@ -750,7 +750,7 @@ class Config:
     realm: str
     """Realm for HTTP authentication."""
 
-    loglevel: LogLevel
+    log_level: LogLevel
     """Level for logging."""
 
     session_secret: str
@@ -1000,7 +1000,7 @@ class Config:
             slack_webhook = cls._load_secret(path).decode()
         return cls(
             realm=settings.realm,
-            loglevel=settings.loglevel,
+            log_level=settings.log_level,
             session_secret=session_secret.decode(),
             redis_url=settings.redis_url,
             redis_password=redis_password,
@@ -1028,7 +1028,7 @@ class Config:
         """Configure logging based on the Gafaelfawr configuration."""
         configure_logging(
             profile=Profile.production,
-            log_level=self.loglevel,
+            log_level=self.log_level,
             name="gafaelfawr",
             add_timestamp=True,
         )

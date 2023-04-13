@@ -12,7 +12,7 @@
 # any server that uses these settings.
 
 realm: "localhost"
-loglevel: "DEBUG"
+logLevel: "DEBUG"
 sessionSecretFile: "/run/secrets/session-secret"
 databaseUrl: "postgresql://gafaelfawr:INSECURE@postgresql/gafaelfawr"
 bootstrapTokenFile: "/run/secrets/bootstrap-token"

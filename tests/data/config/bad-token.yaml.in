@@ -1,7 +1,7 @@
 # Configuration file supporting invalid bootstrap_token_file contents.
 
 realm: "testing"
-loglevel: "INFO"
+logLevel: "INFO"
 sessionSecretFile: "{session_secret_file}"
 databaseUrl: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
 initialAdmins: ["admin"]

@@ -59,9 +59,9 @@ def test_config_invalid_admin() -> None:
         parse_config(config_path("bad-admin.yaml"))
 
 
-def test_config_invalid_loglevel() -> None:
+def test_config_invalid_log_level() -> None:
     with pytest.raises(ValidationError):
-        parse_config(config_path("bad-loglevel.yaml"))
+        parse_config(config_path("bad-log-level.yaml"))
 
 
 def test_config_invalid_scope() -> None:
