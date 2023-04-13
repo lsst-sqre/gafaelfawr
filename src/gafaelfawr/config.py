@@ -1030,7 +1030,6 @@ class Config:
             profile=Profile.production,
             log_level=self.log_level,
             name="gafaelfawr",
-            add_timestamp=True,
         )
 
     @staticmethod
