@@ -140,53 +140,46 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         )
         logger.debug("Initialized Slack webhook")
 
-    # Register lifecycle handlers.
-    app.on_event("startup")(startup_event)
-    app.on_event("shutdown")(shutdown_event)
+    @app.on_event("startup")
+    async def startup_event() -> None:
+        config = config_dependency.config()
+        await context_dependency.initialize(config)
+        await db_session_dependency.initialize(
+            config.database_url, config.database_password
+        )
 
-    # Register exception handlers.
-    app.exception_handler(NotConfiguredError)(not_configured_handler)
-    app.exception_handler(PermissionDeniedError)(permission_handler)
-    app.exception_handler(ValidationError)(validation_handler)
+    @app.on_event("shutdown")
+    async def shutdown_event() -> None:
+        await http_client_dependency.aclose()
+        await db_session_dependency.aclose()
+        await context_dependency.aclose()
+
+    @app.exception_handler(NotConfiguredError)
+    async def not_configured_handler(
+        request: Request, exc: NotConfiguredError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": [{"type": "not_supported", "msg": str(exc)}]},
+        )
+
+    @app.exception_handler(PermissionDeniedError)
+    async def permission_handler(
+        request: Request, exc: PermissionDeniedError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "detail": [{"msg": str(exc), "type": "permission_denied"}]
+            },
+        )
+
+    @app.exception_handler(ValidationError)
+    async def validation_handler(
+        request: Request, exc: ValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code, content={"detail": [exc.to_dict()]}
+        )
 
     return app
-
-
-async def startup_event() -> None:
-    config = config_dependency.config()
-    await context_dependency.initialize(config)
-    await db_session_dependency.initialize(
-        config.database_url, config.database_password
-    )
-
-
-async def shutdown_event() -> None:
-    await http_client_dependency.aclose()
-    await db_session_dependency.aclose()
-    await context_dependency.aclose()
-
-
-async def not_configured_handler(
-    request: Request, exc: NotConfiguredError
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={"detail": [{"type": "not_supported", "msg": str(exc)}]},
-    )
-
-
-async def permission_handler(
-    request: Request, exc: PermissionDeniedError
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_403_FORBIDDEN,
-        content={"detail": [{"msg": str(exc), "type": "permission_denied"}]},
-    )
-
-
-async def validation_handler(
-    request: Request, exc: ValidationError
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=exc.status_code, content={"detail": [exc.to_dict()]}
-    )
