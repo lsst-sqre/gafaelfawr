@@ -1,8 +1,10 @@
 # Change log
 
-Versioning follows [semver](https://semver.org/). Versioning assumes that Gafaelfawr is installed and configured via [Phalanx](https://phalanx.lsst.io/), so only changes to configuration changes exposed in the Helm values file are considered breaking changes. The internal configuration format may change in minor releases.
+Versioning follows [semver](https://semver.org/). Versioning assumes that Gafaelfawr is installed and configured via [Phalanx](https://phalanx.lsst.io/), so only changes to configuration exposed in the Helm values file are considered breaking changes. The internal configuration format may change in minor releases.
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
+
+<!-- scriv-insert-here -->
 
 ## 9.1.0 (2023-03-17)
 
