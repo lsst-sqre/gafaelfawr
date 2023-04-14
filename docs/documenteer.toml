@@ -6,6 +6,11 @@ copyright = "2020-2022 Association of Universities for Research in Astronomy, In
 package = "gafaelfawr"
 
 [sphinx]
+disable_primary_sidebars = [
+    "**/index",
+    "changelog",
+    "dev/internals",
+]
 extensions = [
     "sphinx_click",
     "sphinx_diagrams",

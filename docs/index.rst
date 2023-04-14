@@ -21,11 +21,9 @@ Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arth
 Gafaelfawr is pronounced (very roughly) gah-VILE-vahwr.
 (If you speak Welsh and can provide a better pronunciation guide, please open an issue!)
 
-Usage
-=====
-
 .. toctree::
    :maxdepth: 2
+   :caption: Usage
 
    user-guide/index
    api
@@ -35,10 +33,8 @@ Usage
 
    changelog
 
-Development
-===========
-
 .. toctree::
    :maxdepth: 2
+   :caption: Development
 
    dev/index
