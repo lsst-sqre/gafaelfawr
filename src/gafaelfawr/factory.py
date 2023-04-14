@@ -536,7 +536,10 @@ class Factory:
             encryption_key=self._context.config.session_secret,
             key_prefix="token:",
         )
-        token_redis_store = TokenRedisStore(storage, self._logger)
+        slack_client = self.create_slack_client()
+        token_redis_store = TokenRedisStore(
+            storage, slack_client, self._logger
+        )
         token_db_store = TokenDatabaseStore(self.session)
         token_change_store = TokenChangeHistoryStore(self.session)
         return TokenCacheService(
@@ -564,7 +567,10 @@ class Factory:
             encryption_key=self._context.config.session_secret,
             key_prefix="token:",
         )
-        token_redis_store = TokenRedisStore(storage, self._logger)
+        slack_client = self.create_slack_client()
+        token_redis_store = TokenRedisStore(
+            storage, slack_client, self._logger
+        )
         token_change_store = TokenChangeHistoryStore(self.session)
         token_cache_service = TokenCacheService(
             config=self._context.config,
