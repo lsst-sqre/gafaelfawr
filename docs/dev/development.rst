@@ -87,7 +87,7 @@ To test all components of Gafaelfawr other than the Kubernetes operator (see bel
 
 .. code-block:: sh
 
-   tox
+   tox run
 
 This uses tox-docker to start PostgreSQL and Redis Docker containers for the tess to use, so Docker must be installed and the user running tox must have permission to create Docker containers.
 
@@ -98,20 +98,20 @@ To run the tests with coverage analysis and generate a report, run:
 
 .. code-block:: sh
 
-   tox -e py-coverage,coverage-report
+   tox run -e py-coverage,coverage-report
 
 To see a listing of test environments, run:
 
 .. code-block:: sh
 
-   tox -av
+   tox list
 
 To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` or ``py-full`` tox environment.
 For example:
 
 .. code-block:: sh
 
-   tox -e py -- tests/handlers/api_tokens_test.py
+   tox run -e py -- tests/handlers/api_tokens_test.py
 
 Testing the Kubernetes operator
 -------------------------------
@@ -158,7 +158,7 @@ Then, run:
 
 .. code-block:: sh
 
-   tox -e py-full
+   tox run -e py-full
 
 Add the ``coverage-report`` environment to also get a test coverage report.
 
@@ -190,19 +190,17 @@ Run:
 
 .. code-block:: sh
 
-   tox -e run
+   tox run -e run
 
 This will use ``docker-compose`` to start Redis and PostgreSQL servers, and then will start Gafaelfawr in the foreground outside of Docker.
 You can now go to ``http://localhost:8080/auth/tokens`` and will be redirected to GitHub for authentication.
 
 To stop the running server, use Ctrl-C.
-You will then need to run:
+You will then need to manually shut down the Redis and PostgreSQL containers, since tox doesn't support shutdown commands.
 
 .. code-block:: sh
 
    docker-compose down
-
-to stop the Redis and PostgreSQL containers.
 
 The advantage of this method is that the running code and UI will be taken from your current working directory, so you can update it on the fly and immediately see the effects.
 
@@ -237,9 +235,15 @@ Documentation is built with Sphinx_:
 
 .. code-block:: sh
 
-   tox -e docs
+   tox run -e docs
 
 The build documentation is located in the :file:`docs/_build/html` directory.
+
+To check the documentation for broken links, run:
+
+.. code-block:: sh
+
+   tox run -e docs-linkcheck
 
 .. _dev-change-log:
 
@@ -281,10 +285,12 @@ Style guide
 Code
 ----
 
-- The code style follows :pep:`8`, though in practice lean on Black and isort to format the code for you.
+- Gafaelfawr follows the :sqr:`072` Python style guide.
+
+- The code formatting follows :pep:`8`, though in practice lean on Black and isort to format the code for you.
 
 - Use :pep:`484` type annotations.
-  The ``tox -e typing`` test environment, which runs mypy_, ensures that the project's types are consistent.
+  The ``tox run -e typing`` test environment, which runs mypy_, ensures that the project's types are consistent.
 
 - Write tests for Pytest_.
 
