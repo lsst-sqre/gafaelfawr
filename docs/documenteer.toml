@@ -61,13 +61,6 @@ nitpick_ignore = [
     # Bug in autodoc_pydantic.
     ["py:obj", "gafaelfawr.models.kubernetes.GafaelfawrIngressDelegate.all fields"],
     ["py:obj", "gafaelfawr.config.Settings.all fields"],
-    # TypeVar references that shouldn't be documented.
-    ["py:class", "gafaelfawr.cache.S"],
-    ["py:obj", "gafaelfawr.cache.S"],
-    ["py:class", "gafaelfawr.middleware.state.T"],
-    ["py:obj", "gafaelfawr.middleware.state.T"],
-    ["py:class", "gafaelfawr.models.history.E"],
-    ["py:obj", "gafaelfawr.models.history.E"],
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],

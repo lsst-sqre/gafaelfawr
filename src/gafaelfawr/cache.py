@@ -28,6 +28,7 @@ from .constants import (
 from .models.token import Token, TokenData
 
 S = TypeVar("S")
+"""Type of content stored in a cache."""
 
 _LRUTokenCache = LRUCache[tuple[str, ...], Token]
 """Type for the underlying token cache."""
@@ -39,6 +40,7 @@ __all__ = [
     "PerUserCache",
     "LDAPCache",
     "NotebookTokenCache",
+    "S",
     "TokenCache",
     "UserLockManager",
 ]

@@ -18,10 +18,12 @@ from ..util import normalize_ip_address, normalize_scopes
 from .token import TokenType
 
 E = TypeVar("E", bound="BaseModel")
+"""Type of a history entry in a paginated list."""
 
 __all__ = [
     "AdminChange",
     "AdminHistoryEntry",
+    "E",
     "HistoryCursor",
     "PaginatedHistory",
     "TokenChange",
@@ -75,8 +77,6 @@ class AdminHistoryEntry(BaseModel):
     )
 
     class Config:
-        """Additional Pydantic configuration."""
-
         orm_mode = True
 
     _normalize_event_time = validator(
@@ -353,8 +353,6 @@ class TokenChangeHistoryEntry(BaseModel):
     )
 
     class Config:
-        """Additional Pydantic configuration."""
-
         json_encoders = {datetime: lambda v: int(v.timestamp())}
         orm_mode = True
 

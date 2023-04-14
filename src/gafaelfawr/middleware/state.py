@@ -11,8 +11,13 @@ from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 T = TypeVar("T", bound="BaseState")
+"""Type of data stored in the state cookie."""
 
-__all__ = ["BaseState", "StateMiddleware"]
+__all__ = [
+    "BaseState",
+    "StateMiddleware",
+    "T",
+]
 
 
 class BaseState(metaclass=ABCMeta):

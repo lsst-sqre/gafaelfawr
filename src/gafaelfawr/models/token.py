@@ -300,8 +300,6 @@ class TokenInfo(TokenBase):
     )
 
     class Config:
-        """Additional Pydantic configuration."""
-
         orm_mode = True
         json_encoders = {datetime: lambda v: int(v.timestamp())}
 
@@ -406,8 +404,6 @@ class TokenData(TokenBase, TokenUserInfo):
     token: Token = Field(..., title="Associated token")
 
     class Config:
-        """Additional Pydantic configuration."""
-
         json_encoders = {datetime: lambda v: int(v.timestamp())}
 
     @classmethod

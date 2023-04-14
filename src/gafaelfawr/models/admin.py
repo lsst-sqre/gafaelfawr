@@ -14,7 +14,5 @@ class Admin(BaseModel):
     """The username of the token administrator."""
 
     class Config:
-        """Additional Pydantic configuration."""
-
         orm_mode = True
         schema_extra = {"example": {"username": "adminuser"}}
