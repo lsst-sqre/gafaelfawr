@@ -117,7 +117,7 @@ class KubernetesIngressStorage:
 
         Returns
         -------
-        kubernetes_asyncio.client.V1Ingress or None
+        kubernetes_asyncio.client.models.V1Ingress or None
             The Kubernetes ingress object, or `None` if it doesn't exist.
         """
         try:
@@ -240,7 +240,7 @@ class KubernetesTokenStorage:
 
         Returns
         -------
-        kubernetes_asyncio.client.V1Secret or None
+        kubernetes_asyncio.client.models.V1Secret or None
             The Kubernetes secret, or `None` if that secret does not exist.
         """
         try:
