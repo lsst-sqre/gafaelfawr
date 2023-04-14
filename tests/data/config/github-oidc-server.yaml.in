@@ -3,6 +3,7 @@ sessionSecretFile: "{session_secret_file}"
 databaseUrl: "{database_url}"
 redisUrl: "redis://localhost:6379/0"
 bootstrapTokenFile: "{bootstrap_token_file}"
+slackWebhookFile: "{slack_webhook_file}"
 initialAdmins: ["admin"]
 proxies:
   - "10.0.0.0/8"

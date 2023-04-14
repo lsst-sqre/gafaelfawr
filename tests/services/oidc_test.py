@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import OIDCClient
 from gafaelfawr.exceptions import (
@@ -98,12 +100,15 @@ async def test_redeem_code(tmp_path: Path, factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_redeem_code_errors(tmp_path: Path, factory: Factory) -> None:
+async def test_redeem_code_errors(
+    tmp_path: Path, factory: Factory, mock_slack: MockSlackWebhook
+) -> None:
+    expires = int(timedelta(minutes=60).total_seconds())
     clients = [
         OIDCClient(client_id="client-1", client_secret="client-1-secret"),
         OIDCClient(client_id="client-2", client_secret="client-2-secret"),
     ]
-    await reconfigure(
+    config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
     )
     oidc_service = factory.create_oidc_service()
@@ -135,6 +140,64 @@ async def test_redeem_code_errors(tmp_path: Path, factory: Factory) -> None:
         await oidc_service.redeem_code(
             "client-2", "client-2-secret", "https://foo.example.com/", code
         )
+    with pytest.raises(InvalidGrantError):
+        wrong_secret = OIDCAuthorizationCode(key=code.key)
+        await oidc_service.redeem_code(
+            "client-2",
+            "client-2-secret",
+            "https://foo.example.com/",
+            wrong_secret,
+        )
+    assert mock_slack.messages == []
+
+    # Malformed data in Redis.
+    fernet = Fernet(config.session_secret.encode())
+    raw_data = fernet.encrypt(b"malformed json")
+    await factory.redis.set(f"oidc:{code.key}", raw_data, ex=expires)
+    with pytest.raises(InvalidGrantError):
+        await oidc_service.redeem_code(
+            "client-2", "client-2-secret", redirect_uri, code
+        )
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Cannot deserialize data"
+                            f" for key oidc:{code.key}"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nDeserializeError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Key*\noidc:{code.key}",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                },
+                {"type": "divider"},
+            ]
+        }
+    ]
+    messages = mock_slack.messages
+    assert "ValidationError" in messages[0]["blocks"][2]["text"]["text"]
 
 
 @pytest.mark.asyncio
