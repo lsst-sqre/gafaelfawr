@@ -389,10 +389,12 @@ class Factory:
         )
         authorization_store = OIDCAuthorizationStore(storage)
         token_service = self.create_token_service()
+        slack_client = self.create_slack_client()
         return OIDCService(
             config=self._context.config.oidc_server,
             authorization_store=authorization_store,
             token_service=token_service,
+            slack_client=slack_client,
             logger=self._logger,
         )
 
