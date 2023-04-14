@@ -24,6 +24,9 @@ __all__ = [
     "MINIMUM_LIFETIME",
     "NGINX_SNIPPET",
     "OIDC_AUTHORIZATION_LIFETIME",
+    "REDIS_BACKOFF_START",
+    "REDIS_BACKOFF_MAX",
+    "REDIS_RETRIES",
     "SCOPE_REGEX",
     "TOKEN_CACHE_SIZE",
     "UID_BOT_MIN",
@@ -34,6 +37,9 @@ __all__ = [
 
 ALGORITHM = "RS256"
 """JWT algorithm to use for all tokens."""
+
+CHANGE_HISTORY_RETENTION = timedelta(days=365)
+"""Retention of old token change history entries."""
 
 CONFIG_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 """Default configuration path."""
@@ -78,9 +84,6 @@ KUBERNETES_TOKEN_INTERVAL = 60 * 60
 LDAP_TIMEOUT = 5.0
 """Timeout (in seconds) for LDAP queries."""
 
-CHANGE_HISTORY_RETENTION = timedelta(days=365)
-"""Retention of old token change history entries."""
-
 MINIMUM_LIFETIME = timedelta(minutes=5)
 """Minimum expiration lifetime for a token."""
 
@@ -94,6 +97,19 @@ error_page 403 = @autherror;
 
 OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 """How long (in seconds) an authorization code is good for."""
+
+REDIS_BACKOFF_START = 0.2
+"""How long (in seconds) to initially wait after a Redis failure.
+
+Exponential backoff will be used for subsequent retries, up to
+`REDIS_BACKOFF_MAX` total delay.
+"""
+
+REDIS_BACKOFF_MAX = 1.0
+"""Maximum delay (in seconds) to wait after a Redis failure."""
+
+REDIS_RETRIES = 5
+"""How many times to try to connect to Redis before giving up."""
 
 # The following constants define per-process cache sizes.
 
