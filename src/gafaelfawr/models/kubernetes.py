@@ -41,6 +41,7 @@ __all__ = [
     "GafaelfawrIngressRule",
     "GafaelfawrIngressRuleHTTP",
     "GafaelfawrIngressScopesAll",
+    "GafaelfawrIngressScopesAnonymous",
     "GafaelfawrIngressScopesAny",
     "GafaelfawrIngressScopesBase",
     "GafaelfawrIngressSpec",

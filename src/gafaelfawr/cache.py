@@ -10,6 +10,8 @@ only intended for use via their service layer
 `~gafaelfawr.services.firestore.FirestoreService`).
 """
 
+from __future__ import annotations
+
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
@@ -27,7 +29,7 @@ from .models.token import Token, TokenData
 
 S = TypeVar("S")
 
-LRUTokenCache = LRUCache[tuple[str, ...], Token]
+_LRUTokenCache = LRUCache[tuple[str, ...], Token]
 """Type for the underlying token cache."""
 
 __all__ = [
@@ -315,7 +317,7 @@ class TokenCache(PerUserCache):
 
     def __init__(self) -> None:
         super().__init__()
-        self._cache: LRUTokenCache
+        self._cache: _LRUTokenCache
         self.initialize()
 
     def initialize(self) -> None:

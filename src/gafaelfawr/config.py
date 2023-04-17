@@ -40,6 +40,7 @@ __all__ = [
     "LDAPConfig",
     "LDAPSettings",
     "NotebookQuota",
+    "NotebookQuotaSettings",
     "OIDCConfig",
     "OIDCClient",
     "OIDCServerConfig",
@@ -47,6 +48,8 @@ __all__ = [
     "OIDCSettings",
     "Quota",
     "QuotaGrant",
+    "QuotaGrantSettings",
+    "QuotaSettings",
     "Settings",
 ]
 
