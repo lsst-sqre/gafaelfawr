@@ -227,7 +227,10 @@ class TokenBase(BaseModel):
     )
 
     scopes: list[str] = Field(
-        ..., title="Token scopes", example=["read:all", "user:token"]
+        ...,
+        title="Token scopes",
+        description="Scopes of the token",
+        example=["read:all", "user:token"],
     )
 
     created: datetime = Field(
