@@ -33,22 +33,40 @@ Python internal API
 .. automodapi:: gafaelfawr.middleware.state
 
 .. automodapi:: gafaelfawr.models.admin
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.models.auth
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.models.history
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.models.kubernetes
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.models.ldap
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.models.link
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.models.oidc
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.models.state
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.models.token
+   :include-all-objects:
+   :inherited-members:
 
 .. automodapi:: gafaelfawr.operator
 
