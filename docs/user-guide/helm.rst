@@ -211,28 +211,82 @@ There are some additional options under ``config.oidc`` that you may want to set
     The claim of the OpenID Connect ID token from which to take the username.
     The default is ``uid``.
 
-.. _ldap-groups:
+.. _ldap:
 
-LDAP groups
-===========
+LDAP
+====
 
-When using either CILogon or generic OpenID Connect as an authentication provider, you can choose to obtain group information from an LDAP server rather than an ``isMemberOf`` attribute inside the token.
+The preferred way for Gafaelfawr to get metadata about users (full name, email address, group membership, UID and GID, etc.) when using CILogon or OpenID Connect is from an LDAP server.
+If the GitHub authentication provider is used, this information instead comes from GitHub and LDAP is not supported.
 
-To do this, add the following configuration:
+If LDAP is enabled, group membership is always taken from LDAP (see :ref:`ldap-groups`) instead of the ID token from the upstream authentication provider.
+Other information about the user may also be retrieved from LDAP if configured (see :ref:`ldap-user`).
+
+LDAP authentication
+-------------------
+
+.. note::
+
+   This section describes how the Gafaelfawr service itself authenticates to the LDAP server.
+   Users are never authenticated using LDAP.
+   User authentication always uses OpenID Connect or GitHub.
+
+Gafaelfawr supports anonymous binds, simple binds (username and password), or Kerberos GSSAPI binds.
+
+To use anonymous binds (the default), just specify the URL of the LDAP server with no additional bind configuration.
 
 .. code-block:: yaml
 
    config:
      ldap:
        url: "ldaps://<ldap-server>"
+
+To use simple binds, also specify the DN of the user to bind as.
+If this is set, ``ldap-password`` must be set in the Gafaelfawr Vault secret to the password to use with the simple bind.
+
+.. code-block:: yaml
+
+   config:
+     ldap:
+       url: "ldaps://<ldap-server>"
+       userDn: "<bind-dn-of-user>"
+
+To use Kerberos GSSAPI binds, provide a ``krb5.conf`` file that contains the necessary information to connect to your Kerberos server.
+Normally at least ``default_realm`` should be set.
+Including a full copy of your standard ``/etc/krb5.conf`` file should work.
+If this is set, ``ldap-keytab`` must be set in the Gafaelfawr Vault secret to the contents of a Kerberos keytab file to use for authentication to the LDAP server.
+
+.. code-block:: yaml
+
+   config:
+     ldap:
+       url: "ldaps://<ldap-server>"
+       kerberosConfig: |
+         [libdefaults]
+           default_realm = EXAMPLE.ORG
+
+         [realms]
+           EXAMPLE.ORG = {
+             kdc = kerberos.example.org
+             kdc = kerberos-1.example.org
+             kdc = kerberos-2.example.org
+             default_domain = example.org
+           }
+
+.. _ldap-groups:
+
+LDAP groups
+-----------
+
+To obtain user group information from LDAP, add the following configuration:
+
+.. code-block:: yaml
+
+   config:
+     ldap:
        groupBaseDn: "<base-dn-for-search>"
 
 You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
-
-``config.ldap.userDn``
-    The DN of the user to bind as.
-    Gafaelfawr currently only supports simple binds.
-    If this is set, ``ldap-password`` must be set in the Gafaelfawr Vault secret to the password to use with the simple bind.
 
 ``config.ldap.groupObjectClass``
     The object class from which group information should be looked up.
@@ -254,7 +308,7 @@ The name of each group will be taken from the ``cn`` attribute and the GID will 
 .. _ldap-user:
 
 LDAP user information
-=====================
+---------------------
 
 By default, Gafaelfawr takes the user's name, email, and numeric UID from the upstream provider via the ``name``, ``mail``, and ``uidNumber`` claims in the ID token.
 If LDAP is used for group information, this data, plus the primary GID, can instead be obtained from LDAP.
