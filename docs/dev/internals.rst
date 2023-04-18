@@ -80,6 +80,9 @@ Python internal API
 .. automodapi:: gafaelfawr.operator
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.operator.ingress
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.operator.startup
    :include-all-objects:
 
