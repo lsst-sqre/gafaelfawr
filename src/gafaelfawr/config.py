@@ -132,6 +132,14 @@ class LDAPSettings(CamelCaseModel):
     user_dn: Optional[str] = None
     """Simple bind user DN for the LDAP server."""
 
+    use_kerberos: bool = False
+    """Whether to use Kerberos GSSAPI binds.
+
+    If both this and ``user_dn`` are set, simple binds take precedence. This
+    allows triggering all of the other Kerberos handling while still using
+    simple binds instead of GSSAPI binds, to make testing easier.
+    """
+
     password_file: Optional[Path] = None
     """File containing simple bind password for the LDAP server."""
 
@@ -560,6 +568,14 @@ class LDAPConfig:
     password: Optional[str]
     """Password for simple bind authentication to the LDAP server."""
 
+    use_kerberos: bool
+    """Whether to use Kerberos GSSAPI binds.
+
+    If both this and ``user_dn`` are set, simple binds take precedence. This
+    allows triggering all of the other Kerberos handling while still using
+    simple binds instead of GSSAPI binds, to make testing easier.
+    """
+
     group_base_dn: str
     """Base DN to use when executing LDAP search for group membership."""
 
@@ -892,6 +908,7 @@ class Config:
                 url=settings.ldap.url,
                 user_dn=settings.ldap.user_dn,
                 password=ldap_password,
+                use_kerberos=settings.ldap.use_kerberos,
                 group_base_dn=settings.ldap.group_base_dn,
                 group_object_class=settings.ldap.group_object_class,
                 group_member_attr=settings.ldap.group_member_attr,

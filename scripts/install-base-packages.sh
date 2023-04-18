@@ -26,11 +26,13 @@ apt-get update
 # Install security updates:
 apt-get -y upgrade
 
-# git is required by setuptools-scm.  libpq-dev is required by psycopg2.
-# libldap2-dev and libsasl2-dev are required by bonsai.
-apt-get -y install --no-install-recommends git libpq-dev libldap2-dev \
-        libldap-common libsasl2-modules \
-        libsasl2-dev
+# git is required by setuptools-scm. libpq-dev is required by psycopg2. The
+# other packages are required by bonsai for LDAP binds or to manage the
+# Kerberos ticket cache. (krb5-user is not strictly needed, but it's useful
+# for debugging.)
+apt-get -y install --no-install-recommends git krb5-user kstart         \
+        libldap2-dev libldap-common libsasl2-dev libsasl2-modules       \
+        libsasl2-modules-gssapi-mit libpq-dev
 
 # Delete cached files we don't need anymore:
 apt-get clean

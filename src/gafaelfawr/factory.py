@@ -124,6 +124,8 @@ class ProcessContext:
                     user=config.ldap.user_dn,
                     password=config.ldap.password,
                 )
+            elif config.ldap.use_kerberos:
+                client.set_credentials("GSSAPI")
             ldap_pool = AIOConnectionPool(client)
 
         return cls(

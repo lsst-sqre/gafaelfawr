@@ -29,10 +29,16 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     Only used if ForgeRock Identity Management support is enabled.
     See :ref:`forgerock` for more information.
 
+``ldap-keytab`` (optional)
+    The Kerberos keytab used for Kerberos GSSAPI binds to an LDAP server.
+    This should be the file contents of a keytab file encoded in base64 without line wrapping, using a command such as ``base64 -w 0 < keytab-file``.
+    Only used if LDAP lookups are enabled and a Kerberos configuration is provided.
+    See :ref:`ldap` for more information.
+
 ``ldap-password`` (optional)
-    The password used for simple binds to the LDAP server used as a source of data about users.
-    Only used if LDAP lookups are enabled.
-    See :ref:`ldap-groups` for more information.
+    The password used for simple binds to an LDAP server.
+    Only used if LDAP lookups are enabled and simple binds are configured.
+    See :ref:`ldap` for more information.
 
 ``oidc-client-secret`` (optional)
     The secret for an OpenID Connect authentication provider.
