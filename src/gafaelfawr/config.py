@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Optional, Self
 
 import yaml
-from pydantic import AnyHttpUrl, IPvAnyNetwork, validator
+from pydantic import AnyHttpUrl, IPvAnyNetwork, root_validator, validator
 from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
@@ -40,6 +40,7 @@ __all__ = [
     "LDAPConfig",
     "LDAPSettings",
     "NotebookQuota",
+    "NotebookQuotaSettings",
     "OIDCConfig",
     "OIDCClient",
     "OIDCServerConfig",
@@ -47,6 +48,8 @@ __all__ = [
     "OIDCSettings",
     "Quota",
     "QuotaGrant",
+    "QuotaGrantSettings",
+    "QuotaSettings",
     "Settings",
 ]
 
@@ -467,7 +470,7 @@ class Settings(CamelCaseModel):
             raise ValueError("initial_admins is empty")
         return v
 
-    _validate_provider = validator("oidc", always=True)(
+    _validate_provider = root_validator(allow_reuse=True)(
         validate_exactly_one_of("github", "oidc")
     )
 

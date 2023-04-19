@@ -19,7 +19,11 @@ from ..config import Config
 from ..factory import Factory, ProcessContext
 from ..models.state import State
 
-__all__ = ["RequestContext", "context_dependency"]
+__all__ = [
+    "ContextDependency",
+    "RequestContext",
+    "context_dependency",
+]
 
 
 @dataclass(slots=True)

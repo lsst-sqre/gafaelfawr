@@ -27,6 +27,7 @@ types-redis
 holdup
 
 # Documentation
+autodoc_pydantic
 documenteer[guide]>=0.7.0
 scriv[toml]
 sphinx-click

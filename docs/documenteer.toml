@@ -9,6 +9,7 @@ package = "gafaelfawr"
 extensions = [
     "sphinx_click",
     "sphinx_diagrams",
+    "sphinxcontrib.autodoc_pydantic",
     "sphinxcontrib.redoc",
 ]
 nitpicky = true
@@ -40,6 +41,8 @@ nitpick_ignore = [
     ["py:class", "pydantic.types.SecretStr"],
     ["py:class", "pydantic.utils.Representation"],
     ["py:class", "redis.asyncio.client.Redis"],
+    ["py:obj", "safir.pydantic.validate_exactly_one_of.<locals>.validator"],
+    ["py:class", "starlette.datastructures.URL"],
     ["py:class", "starlette.middleware.base.BaseHTTPMiddleware"],
     ["py:class", "starlette.requests.Request"],
     ["py:class", "starlette.responses.Response"],
@@ -55,6 +58,9 @@ nitpick_ignore = [
     # confuse themselves and there doesn't seem to be any way to fix this.
     ["py:class", "asyncio.locks.Lock"],
     ["py:class", "asyncio.queues.Queue"],
+    # Bug in autodoc_pydantic.
+    ["py:obj", "gafaelfawr.models.kubernetes.GafaelfawrIngressDelegate.all fields"],
+    ["py:obj", "gafaelfawr.config.Settings.all fields"],
     # TypeVar references that shouldn't be documented.
     ["py:class", "gafaelfawr.cache.S"],
     ["py:obj", "gafaelfawr.cache.S"],

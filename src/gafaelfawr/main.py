@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
+from safir.fastapi import ClientRequestError, client_request_error_handler
 from safir.logging import configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
@@ -20,11 +21,7 @@ from safir.slack.webhook import SlackRouteErrorHandler
 from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
-from .exceptions import (
-    NotConfiguredError,
-    PermissionDeniedError,
-    ValidationError,
-)
+from .exceptions import NotConfiguredError, PermissionDeniedError
 from .handlers import analyze, api, auth, index, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
@@ -140,6 +137,9 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         )
         logger.debug("Initialized Slack webhook")
 
+    # Handle exceptions descended from ClientRequestError.
+    app.exception_handler(ClientRequestError)(client_request_error_handler)
+
     @app.on_event("startup")
     async def startup_event() -> None:
         config = config_dependency.config()
@@ -172,14 +172,6 @@ def create_app(*, load_config: bool = True) -> FastAPI:
             content={
                 "detail": [{"msg": str(exc), "type": "permission_denied"}]
             },
-        )
-
-    @app.exception_handler(ValidationError)
-    async def validation_handler(
-        request: Request, exc: ValidationError
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=exc.status_code, content={"detail": [exc.to_dict()]}
         )
 
     return app

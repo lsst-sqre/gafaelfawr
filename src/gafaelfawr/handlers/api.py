@@ -139,7 +139,7 @@ async def delete_admin(
         )
     if not success:
         msg = "Specified user is not an administrator"
-        raise NotFoundError(msg, ErrorLocation.path, "username")
+        raise NotFoundError(msg, ErrorLocation.path, ["username"])
 
 
 @router.get(
@@ -560,7 +560,7 @@ async def get_token(
     if info:
         return info
     else:
-        raise NotFoundError("Token not found", ErrorLocation.path, "key")
+        raise NotFoundError("Token not found", ErrorLocation.path, ["key"])
 
 
 @router.delete(
@@ -595,7 +595,7 @@ async def delete_token(
             key, auth_data, username, ip_address=context.ip_address
         )
     if not success:
-        raise NotFoundError("Token not found", ErrorLocation.path, "key")
+        raise NotFoundError("Token not found", ErrorLocation.path, ["key"])
 
 
 @router.patch(
@@ -647,7 +647,7 @@ async def patch_token(
             **update,
         )
     if not info:
-        raise NotFoundError("Token not found", ErrorLocation.path, "key")
+        raise NotFoundError("Token not found", ErrorLocation.path, ["key"])
     return info
 
 
@@ -685,5 +685,5 @@ async def get_token_change_history(
             auth_data, username=username, key=key
         )
     if not results.entries:
-        raise NotFoundError("Token not found", ErrorLocation.path, "key")
+        raise NotFoundError("Token not found", ErrorLocation.path, ["key"])
     return [r.reduced_dict() for r in results.entries]
