@@ -6,6 +6,23 @@ Dependencies are updated to the latest available version during each release. Th
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.2.0'></a>
+## 9.2.0 (2023-04-19)
+
+### New features
+
+- Kerberos GSSAPI binds to authenticate to an LDAP server are now supported.
+- To align with other services, the Gafaelfawr log level should now be set with `config.logLevel` rather than `config.loglevel` (note the capital `L`). The old setting is temporarily supported for backward compatibility but will be removed in a later release.
+- Failures to deserialize or decrypt data stored in Redis are now reported to Slack if Slack alerting is enabled.
+- Redis connection errors are now retried up to five times with exponential backoff before aborting with an error (for a total delay of up to about three seconds). TCP keepalive is now set on the Redis connection.
+
+### Other changes
+
+- The Gafaelfawr change log is now maintained using [scriv](https://scriv.readthedocs.io/).
+- Gafaelfawr no longer adds timestamps to each of its log messages. This was a workaround for Argo CD not displaying log timestamps, which has now been fixed.
+- The documentation for running commands with `tox` has been updated for the new command-line syntax in tox v4. To run a local development server, use `tox run -e run`.
+- Model API documentation is now generated with `autodoc_pydantic` to include proper field documentation.
+
 ## 9.1.0 (2023-03-17)
 
 ### New features
