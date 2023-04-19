@@ -19,7 +19,7 @@ This is only considered a breaking change for versioning purposes if the Helm ch
 Development settings
 ====================
 
-The development server launched via ``tox -e run`` uses the configuration in ``examples/gafaelfawr-dev.yaml``.
+The development server launched via ``tox run -e run`` uses the configuration in ``examples/gafaelfawr-dev.yaml``.
 See :ref:`dev-server` for instructions on how to modify that file to get a fully working development environment.
 
 One environment variable may be of interest for running a development copy of Gafaelfawr:
@@ -29,7 +29,7 @@ One environment variable may be of interest for running a development copy of Ga
     Gafaelfawr will serve files under this path as static files under the ``/auth/tokens`` route.
     This should be the contents of the ``ui/public`` directory after running ``make ui``.
 
-    Normally this is handled by either the ``tox -e run`` command, the ``tox -e docker`` command, or the release Docker image.
+    Normally this is handled by either the ``tox run -e run`` command, the ``tox run -e py`` command, or the release Docker image.
 
 Pydantic and dataclasses
 ========================
