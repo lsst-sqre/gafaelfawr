@@ -10,7 +10,6 @@ from pydantic import ValidationError
 from safir.fastapi import ClientRequestError
 from safir.models import ErrorLocation
 from safir.slack.blockkit import SlackException, SlackWebException
-from safir.slack.webhook import SlackIgnoredException
 
 __all__ = [
     "DeserializeError",
@@ -152,11 +151,25 @@ class InvalidScopesError(InputValidationError):
         super().__init__(message, ErrorLocation.body, ["scopes"])
 
 
+class NotConfiguredError(InputValidationError):
+    """The requested operation was not configured."""
+
+    error = "not_supported"
+    status_code = status.HTTP_404_NOT_FOUND
+
+
 class NotFoundError(InputValidationError):
     """The named resource does not exist."""
 
     error = "not_found"
     status_code = status.HTTP_404_NOT_FOUND
+
+
+class PermissionDeniedError(InputValidationError):
+    """The user does not have permission to perform this operation."""
+
+    error = "permission_denied"
+    status_code = status.HTTP_403_FORBIDDEN
 
 
 class OAuthError(Exception):
@@ -342,14 +355,6 @@ class KubernetesObjectError(kopf.PermanentError):
     ) -> None:
         msg = f"{kind} {namespace}/{name} is malformed: {str(exc)}"
         super().__init__(msg)
-
-
-class NotConfiguredError(SlackIgnoredException):
-    """The requested operation was not configured."""
-
-
-class PermissionDeniedError(SlackIgnoredException, kopf.PermanentError):
-    """The user does not have permission to perform this operation."""
 
 
 class ProviderError(SlackException):

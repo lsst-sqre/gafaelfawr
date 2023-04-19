@@ -7,8 +7,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 import structlog
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
@@ -21,7 +20,6 @@ from safir.slack.webhook import SlackRouteErrorHandler
 from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
-from .exceptions import NotConfiguredError, PermissionDeniedError
 from .handlers import analyze, api, auth, index, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
@@ -153,25 +151,5 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         await http_client_dependency.aclose()
         await db_session_dependency.aclose()
         await context_dependency.aclose()
-
-    @app.exception_handler(NotConfiguredError)
-    async def not_configured_handler(
-        request: Request, exc: NotConfiguredError
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content={"detail": [{"type": "not_supported", "msg": str(exc)}]},
-        )
-
-    @app.exception_handler(PermissionDeniedError)
-    async def permission_handler(
-        request: Request, exc: PermissionDeniedError
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=status.HTTP_403_FORBIDDEN,
-            content={
-                "detail": [{"msg": str(exc), "type": "permission_denied"}]
-            },
-        )
 
     return app
