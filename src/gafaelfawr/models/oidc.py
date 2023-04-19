@@ -113,8 +113,6 @@ class OIDCAuthorization(BaseModel):
     )
 
     class Config:
-        """Additional Pydantic configuration."""
-
         json_encoders = {datetime: lambda v: int(v.timestamp())}
 
     _normalize_created_at = validator(

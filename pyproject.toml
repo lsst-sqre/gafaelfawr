@@ -97,6 +97,9 @@ add-ignore = [
     # Properties shouldn't be written in imperative mode. This will be fixed
     # post 6.1.1, see https://github.com/PyCQA/pydocstyle/pull/546
     "D401",
+    # Nested classes named Config are used by Pydantic for configuration, and
+    # don't have a meaningful docstring.
+    "D106",
 ]
 
 [tool.isort]

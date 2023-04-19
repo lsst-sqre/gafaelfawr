@@ -181,8 +181,6 @@ class GafaelfawrIngressScopesBase(CamelCaseModel, metaclass=ABCMeta):
         """Whether this ingress is anonymous."""
 
     class Config:
-        """Pydantic configuration."""
-
         extra = Extra.forbid
 
 
@@ -334,8 +332,6 @@ class GafaelfawrServicePortName(CamelCaseModel):
     """Port name."""
 
     class Config:
-        """Pydantic configuration."""
-
         extra = Extra.forbid
 
     def to_kubernetes(self) -> V1ServiceBackendPort:
@@ -350,8 +346,6 @@ class GafaelfawrServicePortNumber(CamelCaseModel):
     """Port number."""
 
     class Config:
-        """Pydantic configuration."""
-
         extra = Extra.forbid
 
     def to_kubernetes(self) -> V1ServiceBackendPort:

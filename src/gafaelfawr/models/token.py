@@ -227,7 +227,10 @@ class TokenBase(BaseModel):
     )
 
     scopes: list[str] = Field(
-        ..., title="Token scopes", example=["read:all", "user:token"]
+        ...,
+        title="Token scopes",
+        description="Scopes of the token",
+        example=["read:all", "user:token"],
     )
 
     created: datetime = Field(
@@ -300,8 +303,6 @@ class TokenInfo(TokenBase):
     )
 
     class Config:
-        """Additional Pydantic configuration."""
-
         orm_mode = True
         json_encoders = {datetime: lambda v: int(v.timestamp())}
 
@@ -406,8 +407,6 @@ class TokenData(TokenBase, TokenUserInfo):
     token: Token = Field(..., title="Associated token")
 
     class Config:
-        """Additional Pydantic configuration."""
-
         json_encoders = {datetime: lambda v: int(v.timestamp())}
 
     @classmethod

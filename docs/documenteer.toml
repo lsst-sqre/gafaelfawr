@@ -6,6 +6,11 @@ copyright = "2020-2022 Association of Universities for Research in Astronomy, In
 package = "gafaelfawr"
 
 [sphinx]
+disable_primary_sidebars = [
+    "**/index",
+    "changelog",
+    "dev/internals",
+]
 extensions = [
     "sphinx_click",
     "sphinx_diagrams",
@@ -30,17 +35,13 @@ nitpick_ignore = [
     ["py:exc", "fastapi.exceptions.RequestValidationError"],
     ["py:exc", "httpx.HTTPError"],
     ["py:obj", "fastapi.routing.APIRoute"],
-    ["py:class", "kubernetes_asyncio.client.V1Ingress"],
-    ["py:class", "kubernetes_asyncio.client.V1Secret"],
     ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
-    ["py:class", "pydantic.env_settings.BaseSettings"],
     ["py:class", "pydantic.error_wrappers.ValidationError"],
     ["py:class", "pydantic.main.BaseModel"],
     ["py:class", "pydantic.networks.AnyHttpUrl"],
     ["py:class", "pydantic.networks.IPvAnyNetwork"],
     ["py:class", "pydantic.types.SecretStr"],
     ["py:class", "pydantic.utils.Representation"],
-    ["py:class", "redis.asyncio.client.Redis"],
     ["py:obj", "safir.pydantic.validate_exactly_one_of.<locals>.validator"],
     ["py:class", "starlette.datastructures.URL"],
     ["py:class", "starlette.middleware.base.BaseHTTPMiddleware"],
@@ -53,23 +54,13 @@ nitpick_ignore = [
     ["py:class", "gafaelfawr.models.history.ConstrainedStrValue"],
     ["py:class", "gafaelfawr.models.token.ConstrainedIntValue"],
     ["py:class", "gafaelfawr.models.token.ConstrainedStrValue"],
-    # asyncio.Lock and asyncio.Queue are documented, and that's what all the
-    # code references, but the combination of Sphinx extensions we're using
-    # confuse themselves and there doesn't seem to be any way to fix this.
+    # asyncio.Lock is documented, and that's what all the code references, but
+    # the combination of Sphinx extensions we're using confuse themselves and
+    # there doesn't seem to be any way to fix this.
     ["py:class", "asyncio.locks.Lock"],
-    ["py:class", "asyncio.queues.Queue"],
     # Bug in autodoc_pydantic.
     ["py:obj", "gafaelfawr.models.kubernetes.GafaelfawrIngressDelegate.all fields"],
     ["py:obj", "gafaelfawr.config.Settings.all fields"],
-    # TypeVar references that shouldn't be documented.
-    ["py:class", "gafaelfawr.cache.S"],
-    ["py:obj", "gafaelfawr.cache.S"],
-    ["py:class", "gafaelfawr.middleware.state.T"],
-    ["py:obj", "gafaelfawr.middleware.state.T"],
-    ["py:class", "gafaelfawr.models.history.E"],
-    ["py:obj", "gafaelfawr.models.history.E"],
-    ["py:class", "gafaelfawr.storage.base.S"],
-    ["py:obj", "gafaelfawr.storage.base.S"],
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
