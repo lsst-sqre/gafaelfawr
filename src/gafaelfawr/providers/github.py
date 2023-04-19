@@ -11,7 +11,7 @@ from structlog.stdlib import BoundLogger
 
 from ..config import GitHubConfig
 from ..constants import USERNAME_REGEX
-from ..exceptions import GitHubError, PermissionDeniedError, ProviderWebError
+from ..exceptions import GitHubError, GitHubWebError, PermissionDeniedError
 from ..models.github import GitHubTeam, GitHubUserInfo
 from ..models.link import LinkData
 from ..models.state import State
@@ -113,14 +113,17 @@ class GitHubProvider(Provider):
         ------
         GitHubError
             Raised if GitHub responded with an error to a request.
+        GitHubWebError
+            Raised if an HTTP client error occurred trying to talk to GitHub.
         PermissionDeniedError
             Raised if the GitHub username is not a valid username for
             Gafaelfawr.
-        httpx.HTTPError
-            Raised if an HTTP client error occurred trying to talk to GitHub.
         """
-        github_token = await self._get_access_token(code, state)
-        user_info = await self._get_user_info(github_token)
+        try:
+            github_token = await self._get_access_token(code, state)
+            user_info = await self._get_user_info(github_token)
+        except HTTPError as e:
+            raise GitHubWebError.from_exception(e) from e
         self._logger.debug(
             "Got user information from GitHub",
             name=user_info.name,
@@ -264,20 +267,20 @@ class GitHubProvider(Provider):
         ------
         GitHubError
             Raised if the user's GitHub data is invalid.
-        ProviderWebError
+        GitHubWebError
             Raised if an error occurred trying to talk to GitHub.
         """
         self._logger.debug("Fetching user data from %s", self._USER_URL)
         username = None
+        r = await self._http_client.get(
+            self._USER_URL,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"token {token}",
+            },
+        )
+        r.raise_for_status()
         try:
-            r = await self._http_client.get(
-                self._USER_URL,
-                headers={
-                    "Accept": "application/vnd.github+json",
-                    "Authorization": f"token {token}",
-                },
-            )
-            r.raise_for_status()
             user_data = r.json()
             username = user_data["login"].lower()
             logger = self._logger.bind(user=username)
@@ -289,9 +292,9 @@ class GitHubProvider(Provider):
                 teams=await self._get_user_teams(token, username, logger),
             )
         except HTTPError as e:
-            raise ProviderWebError.from_exception(e, username) from e
-        except KeyError as e:
-            msg = f"GitHub user data is invalid: KeyError: {str(e)}"
+            raise GitHubWebError.from_exception(e, username) from e
+        except Exception as e:
+            msg = f"GitHub user data is invalid: {type(e).__name__}: {str(e)}"
             raise GitHubError(msg, username)
 
     async def _get_user_email(

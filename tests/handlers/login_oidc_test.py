@@ -311,7 +311,7 @@ async def test_callback_error(
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": "*Exception type*\nProviderWebError",
+                            "text": "*Exception type*\nOIDCWebError",
                             "verbatim": True,
                         },
                         {"type": "mrkdwn", "text": ANY, "verbatim": True},
@@ -467,7 +467,7 @@ async def test_connection_error(
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": "*Exception type*\nProviderWebError",
+                            "text": "*Exception type*\nOIDCWebError",
                             "verbatim": True,
                         },
                         {"type": "mrkdwn", "text": ANY, "verbatim": True},
@@ -542,7 +542,7 @@ async def test_verify_error(
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": "*Exception type*\nProviderWebError",
+                            "text": "*Exception type*\nOIDCWebError",
                             "verbatim": True,
                         },
                         {"type": "mrkdwn", "text": ANY, "verbatim": True},
