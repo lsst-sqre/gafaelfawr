@@ -7,11 +7,11 @@ from datetime import timedelta
 import pytest
 import structlog
 from safir.datetime import current_datetime
+from safir.redis import EncryptedPydanticRedisStorage
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token, TokenData, TokenType
-from gafaelfawr.storage.base import RedisStorage
 from gafaelfawr.storage.token import TokenRedisStore
 
 from ..support.tokens import create_session_token
@@ -100,7 +100,12 @@ async def test_expiration(config: Config, factory: Factory) -> None:
     lifetime = config.token_lifetime
     now = current_datetime()
     logger = structlog.get_logger("gafaelfawr")
-    storage = RedisStorage(TokenData, config.session_secret, factory.redis)
+    storage = EncryptedPydanticRedisStorage(
+        datatype=TokenData,
+        redis=factory.redis,
+        encryption_key=config.session_secret,
+        key_prefix="token:",
+    )
     token_store = TokenRedisStore(storage, logger)
     token_cache = factory.create_token_cache_service()
 

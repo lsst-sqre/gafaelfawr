@@ -98,8 +98,6 @@ Python internal API
 
 .. automodapi:: gafaelfawr.storage.admin
 
-.. automodapi:: gafaelfawr.storage.base
-
 .. automodapi:: gafaelfawr.storage.firestore
 
 .. automodapi:: gafaelfawr.storage.forgerock

@@ -6,12 +6,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 import jwt
+from safir.redis import DeserializeError
 from structlog.stdlib import BoundLogger
 
 from ..config import OIDCServerConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
-    DeserializeError,
     InvalidClientError,
     InvalidGrantError,
     InvalidTokenError,
@@ -223,7 +223,8 @@ class OIDCService:
         try:
             authorization = await self._authorization_store.get(code)
         except DeserializeError as e:
-            msg = f"Cannot get authorization for {code.key}: {str(e)}"
+            msg = f"Cannot get authorization for {code.key}"
+            self._logger.exception(msg)
             raise InvalidGrantError(msg) from e
         if not authorization:
             msg = f"Unknown authorization code {code.key}"

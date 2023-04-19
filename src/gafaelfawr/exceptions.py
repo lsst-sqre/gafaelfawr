@@ -12,7 +12,6 @@ from safir.models import ErrorLocation
 from safir.slack.blockkit import SlackException, SlackWebException
 
 __all__ = [
-    "DeserializeError",
     "DuplicateTokenNameError",
     "ExternalUserInfoError",
     "FetchKeysError",
@@ -278,15 +277,6 @@ class InsufficientScopeError(OAuthBearerError):
     error = "insufficient_scope"
     message = "Permission denied"
     status_code = status.HTTP_403_FORBIDDEN
-
-
-class DeserializeError(Exception):
-    """A stored object could not be decrypted or deserialized.
-
-    Used for data stored in the backing store, such as sessions or user
-    tokens.  Should normally be treated the same as a missing object, but
-    reported separately so that an error can be logged.
-    """
 
 
 class ExternalUserInfoError(SlackException):
