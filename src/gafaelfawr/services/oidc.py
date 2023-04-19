@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 import jwt
 from safir.redis import DeserializeError
+from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import OIDCServerConfig
@@ -47,6 +48,9 @@ class OIDCService:
         The underlying storage for OpenID Connect authorizations.
     token_service
         Token manipulation service.
+    slack_client
+        If provided, a Slack webhook client to use to report corruption of the
+        underlying Redis store.
     logger
         Logger for diagnostics.
 
@@ -71,11 +75,13 @@ class OIDCService:
         config: OIDCServerConfig,
         authorization_store: OIDCAuthorizationStore,
         token_service: TokenService,
+        slack_client: Optional[SlackWebhookClient] = None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._authorization_store = authorization_store
         self._token_service = token_service
+        self._slack = slack_client
         self._logger = logger
 
     async def delete_all_codes(self) -> None:
@@ -223,8 +229,10 @@ class OIDCService:
         try:
             authorization = await self._authorization_store.get(code)
         except DeserializeError as e:
-            msg = f"Cannot get authorization for {code.key}"
+            msg = f"Cannot get authorization for {code.key}: {str(e)}"
             self._logger.exception(msg)
+            if self._slack:
+                await self._slack.post_exception(e)
             raise InvalidGrantError(msg) from e
         if not authorization:
             msg = f"Unknown authorization code {code.key}"

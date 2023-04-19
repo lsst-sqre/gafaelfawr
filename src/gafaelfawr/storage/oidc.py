@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
+from safir.redis import EncryptedPydanticRedisStorage
 
 from ..constants import OIDC_AUTHORIZATION_LIFETIME
+from ..exceptions import InvalidGrantError
 from ..models.oidc import OIDCAuthorization, OIDCAuthorizationCode
 
 __all__ = ["OIDCAuthorizationStore"]
@@ -72,11 +73,13 @@ class OIDCAuthorizationStore:
         ------
         safir.redis.DeserializeError
             Raised if the authorization exists but cannot be deserialized.
+        InvalidGrantError
+            Raised if the provided secret didn't match the authorization code.
         """
         authorization = await self._storage.get(code.key)
         if not authorization:
             return None
         if authorization.code != code:
-            msg = "Secret does not match stored authorization"
-            raise DeserializeError(msg, f"oidc:{code.key}", msg)
+            msg = f"Invalid authorization code {code.key}"
+            raise InvalidGrantError(msg)
         return authorization

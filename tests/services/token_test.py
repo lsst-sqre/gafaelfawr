@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
 from safir.datetime import current_datetime
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
@@ -1205,7 +1207,9 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid(config: Config, factory: Factory) -> None:
+async def test_invalid(
+    config: Config, factory: Factory, mock_slack: MockSlackWebhook
+) -> None:
     token_service = factory.create_token_service()
     expires = int(timedelta(days=1).total_seconds())
 
@@ -1259,6 +1263,125 @@ async def test_invalid(config: Config, factory: Factory) -> None:
     await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
     new_data = await token_service.get_data(token)
     assert new_data == TokenData.parse_obj(json_data)
+
+    # Check error reporting.
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Cannot deserialize data"
+                            f" for key token:{token.key}"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nDeserializeError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Key*\ntoken:{token.key}",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Error*\n```\nInvalidToken:\n```",
+                        "verbatim": True,
+                    },
+                },
+                {"type": "divider"},
+            ]
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Cannot deserialize data"
+                            f" for key token:{token.key}"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nDeserializeError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Key*\ntoken:{token.key}",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                },
+                {"type": "divider"},
+            ]
+        },
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Cannot deserialize data"
+                            f" for key token:{token.key}"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nDeserializeError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Key*\ntoken:{token.key}",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
+    messages = mock_slack.messages
+    assert "ValidationError" in messages[1]["blocks"][2]["text"]["text"]
+    assert "ValidationError" in messages[2]["blocks"][2]["text"]["text"]
 
 
 @pytest.mark.asyncio

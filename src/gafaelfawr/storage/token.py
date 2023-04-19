@@ -7,6 +7,7 @@ from typing import Optional, cast
 
 from safir.database import datetime_to_db
 from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
+from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy import delete
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import async_scoped_session
@@ -419,6 +420,9 @@ class TokenRedisStore:
     ----------
     storage
         Underlying storage for token data.
+    slack_client
+        If provided, Slack webhook client to report deserialization errors of
+        Redis data.
     logger
         Logger for diagnostics.
     """
@@ -426,9 +430,11 @@ class TokenRedisStore:
     def __init__(
         self,
         storage: EncryptedPydanticRedisStorage[TokenData],
+        slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._storage = storage
+        self._slack = slack_client
         self._logger = logger
 
     async def delete(self, key: str) -> bool:
@@ -476,7 +482,7 @@ class TokenRedisStore:
 
         if data.token != token:
             error = f"Secret mismatch for {token.key}"
-            self._logger.error("Cannot retrieve token data", error=error)
+            self._logger.warning("Cannot retrieve token data", error=error)
             return None
 
         return data
@@ -503,6 +509,8 @@ class TokenRedisStore:
             data = await self._storage.get(key)
         except DeserializeError as e:
             self._logger.error("Cannot retrieve token", error=str(e))
+            if self._slack:
+                await self._slack.post_exception(e)
             return None
         return data
 

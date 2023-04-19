@@ -106,7 +106,8 @@ async def test_expiration(config: Config, factory: Factory) -> None:
         encryption_key=config.session_secret,
         key_prefix="token:",
     )
-    token_store = TokenRedisStore(storage, logger)
+    slack_client = factory.create_slack_client()
+    token_store = TokenRedisStore(storage, slack_client, logger)
     token_cache = factory.create_token_cache_service()
 
     # Store a token whose expiration is five seconds more than half the
