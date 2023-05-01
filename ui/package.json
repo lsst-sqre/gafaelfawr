@@ -17,7 +17,7 @@
     "lint:fix": "eslint *.js src --fix"
   },
   "dependencies": {
-    "date-fns": "^2.29.3",
+    "date-fns": "^2.30.0",
     "formik": "^2.2.9",
     "gatsby": "^5.9.0",
     "gatsby-plugin-use-query-params": "^1.0.1",
