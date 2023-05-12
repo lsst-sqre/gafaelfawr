@@ -10,7 +10,7 @@ GitHub
 If you will be using GitHub as the authentication provider, you will need to create a GitHub OAuth app for Gafaelfawr and obtain a client ID and secret.
 To get these values, go to :menuselection:`Settings --> Developer Settings` for either a GitHub user or an organization, go into :menuselection:`OAuth Apps`, and create a new application.
 The callback URL should be the ``/login`` route under the hostname you will use for your Gafaelfawr deployment.
-See `the GitHub documentation <https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app>`__ for more information.
+See `the GitHub documentation <https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app>`__ for more information.
 
 .. _cilogon-config:
 
