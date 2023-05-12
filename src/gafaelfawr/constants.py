@@ -108,7 +108,7 @@ Exponential backoff will be used for subsequent retries, up to
 REDIS_BACKOFF_MAX = 1.0
 """Maximum delay (in seconds) to wait after a Redis failure."""
 
-REDIS_RETRIES = 5
+REDIS_RETRIES = 10
 """How many times to try to connect to Redis before giving up."""
 
 # The following constants define per-process cache sizes.
