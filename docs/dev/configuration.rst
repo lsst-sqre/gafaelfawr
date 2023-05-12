@@ -10,7 +10,7 @@ Most configuration settings are provided via a YAML file that is constructed fro
 Secrets are referenced by paths in that YAML file and mounted as a secret volume in the Gafaelfawr pods.
 The Pydantic settings are then turned into frozen dataclasses internally, which are passed to Gafaelfawr components as configuration.
 
-.. _Pydantic: https://pydantic-docs.helpmanual.io/
+.. _Pydantic: https://docs.pydantic.dev/latest/
 
 The exact mechanisms for how the Helm chart communicates configuration settings to Gafaelfawr are an internal implementation detail and are intentionally not documented in the manual.
 Updates to Gafaelfawr move, rename, or restructure those configuration mechanisms without notice.
