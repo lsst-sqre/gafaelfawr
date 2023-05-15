@@ -193,7 +193,7 @@ class Factory:
 
     @classmethod
     async def create(
-        cls, config: Config, engine: AsyncEngine, check_db: bool = False
+        cls, config: Config, engine: AsyncEngine, *, check_db: bool = False
     ) -> Self:
         """Create a component factory outside of a request.
 
@@ -235,7 +235,7 @@ class Factory:
     @classmethod
     @asynccontextmanager
     async def standalone(
-        cls, config: Config, engine: AsyncEngine, check_db: bool = False
+        cls, config: Config, engine: AsyncEngine, *, check_db: bool = False
     ) -> AsyncIterator[Self]:
         """Async context manager for Gafaelfawr components.
 
@@ -268,7 +268,7 @@ class Factory:
                async with factory.session.begin():
                    alerts = await token_service.audit(fix=fix)
         """
-        factory = await cls.create(config, engine, check_db)
+        factory = await cls.create(config, engine, check_db=check_db)
         async with aclosing(factory):
             yield factory
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from safir.datetime import current_datetime
@@ -65,10 +64,10 @@ class AuthConfig:
 
 
 def auth_uri(
-    x_original_uri: Optional[str] = Header(
+    x_original_uri: (str | None) = Header(
         None, description="URL for which authorization is being checked"
     ),
-    x_original_url: Optional[str] = Header(
+    x_original_url: (str | None) = Header(
         None,
         description=(
             "URL for which authorization is being checked. `X-Original-URI`"
@@ -86,6 +85,7 @@ def auth_uri(
 
 
 def auth_config(
+    *,
     scope: list[str] = Query(
         ...,
         title="Required scopes",
@@ -116,13 +116,13 @@ def auth_config(
         description="Cannot be used with `delegate_to` or `delegate_scope`",
         example=True,
     ),
-    delegate_to: Optional[str] = Query(
+    delegate_to: (str | None) = Query(
         None,
         title="Service name",
         description="Create an internal token for the named service",
         example="some-service",
     ),
-    delegate_scope: Optional[str] = Query(
+    delegate_scope: (str | None) = Query(
         None,
         title="Scope of delegated token",
         description=(
@@ -132,7 +132,7 @@ def auth_config(
         ),
         example="read:all,write:all",
     ),
-    minimum_lifetime: Optional[int] = Query(
+    minimum_lifetime: (int | None) = Query(
         None,
         title="Required minimum lifetime",
         description=(
@@ -140,7 +140,7 @@ def auth_config(
             " notebook) would have a shorter lifetime, in seconds, than this"
             " parameter."
         ),
-        ge=MINIMUM_LIFETIME.total_seconds(),
+        ge=MINIMUM_LIFETIME.total_seconds(),  # noqa: B008
         example=86400,
     ),
     use_authorization: bool = Query(
@@ -176,7 +176,7 @@ def auth_config(
     )
 
     if delegate_scope:
-        delegate_scopes = set(s.strip() for s in delegate_scope.split(","))
+        delegate_scopes = {s.strip() for s in delegate_scope.split(",")}
     else:
         delegate_scopes = set()
     lifetime = None
@@ -295,9 +295,9 @@ async def get_auth(
 
     # Determine whether the request is authorized.
     if auth_config.satisfy == Satisfy.ANY:
-        authorized = any([s in token_data.scopes for s in auth_config.scopes])
+        authorized = any(s in token_data.scopes for s in auth_config.scopes)
     else:
-        authorized = all([s in token_data.scopes for s in auth_config.scopes])
+        authorized = all(s in token_data.scopes for s in auth_config.scopes)
 
     # If not authorized, log and raise the appropriate error.
     if not authorized:
@@ -344,7 +344,7 @@ async def get_anonymous(
     return {"status": "ok"}
 
 
-async def build_success_headers(
+async def build_success_headers(  # noqa: C901
     context: RequestContext, auth_config: AuthConfig, token_data: TokenData
 ) -> list[tuple[str, str]]:
     """Construct the headers for successful authorization.
@@ -387,7 +387,7 @@ async def build_success_headers(
             headers={"Cache-Control": "no-cache, no-store"},
             status_code=500,
             detail=[{"msg": msg, "type": "user_info_failed"}],
-        )
+        ) from e
 
     headers = [("X-Auth-Request-User", token_data.username)]
     if user_info.email:

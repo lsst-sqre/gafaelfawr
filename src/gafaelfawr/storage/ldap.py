@@ -116,8 +116,7 @@ class LDAPStorage:
                 if valid_group_regex.match(name):
                     groups.append(name)
                     break
-                else:
-                    logger.warning(f"LDAP group {name} invalid, ignoring")
+                logger.warning(f"LDAP group {name} invalid, ignoring")
 
         return groups
 
@@ -201,7 +200,7 @@ class LDAPStorage:
 
         return groups
 
-    async def get_data(self, username: str) -> LDAPUserData:
+    async def get_data(self, username: str) -> LDAPUserData:  # noqa: C901
         """Get the data for an LDAP user.
 
         Parameters
@@ -268,7 +267,7 @@ class LDAPStorage:
             return LDAPUserData(name=name, email=email, uid=uid, gid=gid)
         except Exception as e:
             msg = "LDAP user entry invalid"
-            logger.error(msg, error=str(e))
+            logger.exception(msg, error=str(e))
             raise LDAPError(msg, username) from e
 
     async def _query(
@@ -343,7 +342,7 @@ class LDAPStorage:
                         logger.debug("Reopening LDAP connection after timeout")
                         conn.close()
         except bonsai.LDAPError as e:
-            logger.error("Cannot query LDAP", error=str(e))
+            logger.exception("Cannot query LDAP", error=str(e))
             raise LDAPError("Error querying LDAP", username) from e
 
         # Failed due to timeout or closed connection twice.

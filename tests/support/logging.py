@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from _pytest.logging import LogCaptureFixture
+from safir.datetime import current_datetime
+
+__all__ = ["parse_log"]
 
 
 def parse_log(caplog: LogCaptureFixture) -> list[dict[str, Any]]:
@@ -26,7 +29,7 @@ def parse_log(caplog: LogCaptureFixture) -> list[dict[str, Any]]:
         List of parsed JSON dictionaries with the common log attributes
         removed (after validation).
     """
-    now = datetime.now(tz=timezone.utc)
+    now = current_datetime(microseconds=True)
     messages = []
 
     for log_tuple in caplog.record_tuples:
@@ -37,7 +40,7 @@ def parse_log(caplog: LogCaptureFixture) -> list[dict[str, Any]]:
         isotimestamp = message["timestamp"]
         assert isotimestamp.endswith("Z")
         timestamp = datetime.fromisoformat(isotimestamp[:-1])
-        timestamp = timestamp.replace(tzinfo=timezone.utc)
+        timestamp = timestamp.replace(tzinfo=UTC)
         assert now - timedelta(seconds=10) < timestamp < now
         del message["timestamp"]
 

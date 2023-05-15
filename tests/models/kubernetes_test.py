@@ -54,7 +54,6 @@ def test_scopes() -> None:
                 },
             }
         )
-        print(type(config.scopes))
 
     with pytest.raises(ValidationError):
         GafaelfawrIngressConfig.parse_obj(

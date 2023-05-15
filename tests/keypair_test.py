@@ -1,3 +1,5 @@
+"""Test RSA keypair handling."""
+
 from __future__ import annotations
 
 import pytest

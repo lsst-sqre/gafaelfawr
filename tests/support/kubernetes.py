@@ -151,7 +151,7 @@ async def assert_custom_resource_status_is(
     resource: dict[str, Any],
     status: KubernetesResourceStatus,
 ) -> None:
-    """Asserts that the status of a custom object matches.
+    """Assert that the status of a custom object matches.
 
     Parameters
     ----------
@@ -171,10 +171,7 @@ async def assert_custom_resource_status_is(
         _PLURALS[resource["kind"]],
         resource["metadata"]["name"],
     )
-    if status.reason == StatusReason.Failed:
-        status_value = "False"
-    else:
-        status_value = "True"
+    status_value = "False" if status.reason == StatusReason.Failed else "True"
     assert seen["status"] == {
         "create": {
             "lastTransitionTime": ANY,
@@ -199,7 +196,7 @@ async def assert_custom_resource_status_is(
 async def assert_resources_match(
     api_client: ApiClient, resources: list[dict[str, Any]]
 ) -> None:
-    """Asserts that output resources match the provided file match.
+    """Assert that output resources match the provided file match.
 
     Also verifies there are no output resources of the indicated type in the
     given namespace, except possibly for ones starting with ``default`` (to
@@ -226,7 +223,7 @@ async def assert_resources_match(
             net_api = NetworkingV1Api(api_client)
             seen = await net_api.read_namespaced_ingress(name, namespace)
         else:
-            assert False, f"Unknown object kind {kind}"
+            pytest.fail(f"Unknown object kind {kind}")
         assert api_client.sanitize_for_serialization(seen) == expected
         checked.add(name)
 
@@ -243,7 +240,7 @@ async def assert_resources_match(
             name = ingress.metadata.name
             assert name in checked, f"Unexpected ingress {name}"
     else:
-        assert False, f"Unknown object kind {kind}"
+        pytest.fail(f"Unknown object kind {kind}")
 
 
 async def install_crds(api_client: ApiClient) -> None:
@@ -286,7 +283,6 @@ def operator_running(module: str) -> Iterator[None]:
     ]
     with KopfRunner(kopf_command) as runner:
         yield
-    print(runner.stdout)
     assert runner.exit_code == 0
     assert runner.exception is None
 

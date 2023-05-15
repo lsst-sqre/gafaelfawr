@@ -157,9 +157,8 @@ class OIDCProvider(Provider):
                     msg = result["error"] + ": " + description
                 else:
                     msg = result["error"]
-                raise OIDCError(f"Error retrieving ID token: {msg}")
-            else:
-                raise OIDCWebError.from_exception(e) from e
+                raise OIDCError(f"Error retrieving ID token: {msg}") from None
+            raise OIDCWebError.from_exception(e) from e
         except Exception as e:
             msg = f"Response from {token_url} not valid JSON"
             raise OIDCError(msg) from e
@@ -177,7 +176,7 @@ class OIDCProvider(Provider):
         except MissingUsernameClaimError as e:
             raise OIDCNotEnrolledError(str(e)) from e
         except (jwt.InvalidTokenError, VerifyTokenError) as e:
-            msg = f"OpenID Connect token verification failed: {str(e)}"
+            msg = f"OpenID Connect token verification failed: {e!s}"
             raise OIDCError(msg) from e
 
     async def logout(self, session: State) -> None:
@@ -190,7 +189,6 @@ class OIDCProvider(Provider):
         session
             The session state, which contains the GitHub access token.
         """
-        pass
 
 
 class OIDCTokenVerifier:
@@ -214,7 +212,7 @@ class OIDCTokenVerifier:
         self._logger = logger
 
     async def verify_token(self, token: OIDCToken) -> OIDCVerifiedToken:
-        """Verifies the provided JWT from an OpenID Connect provider.
+        """Verify the provided JWT from an OpenID Connect provider.
 
         Parameters
         ----------
@@ -328,8 +326,7 @@ class OIDCTokenVerifier:
         # Convert and return the key.
         e = base64_to_number(key["e"])
         m = base64_to_number(key["n"])
-        public_key = self._build_public_key(e, m)
-        return public_key
+        return self._build_public_key(e, m)
 
     @staticmethod
     def _build_public_key(exponent: int, modulus: int) -> str:

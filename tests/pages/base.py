@@ -5,8 +5,16 @@ from __future__ import annotations
 from selenium.webdriver.remote.webelement import WebElement
 from seleniumwire import webdriver
 
+__all__ = [
+    "BaseElement",
+    "BaseModal",
+    "BasePage",
+]
+
 
 class BasePage:
+    """Wrapper around a web page for Selenium testing."""
+
     def __init__(self, root: webdriver.Chrome) -> None:
         self.root = root
 
@@ -22,6 +30,8 @@ class BasePage:
 
 
 class BaseElement:
+    """Wrapper around a page element for Selenium testing."""
+
     def __init__(self, root: WebElement) -> None:
         self.root = root
 
@@ -33,4 +43,4 @@ class BaseElement:
 
 
 class BaseModal(BaseElement):
-    pass
+    """Wrapper around a page modal dialogue for Selenium testing."""

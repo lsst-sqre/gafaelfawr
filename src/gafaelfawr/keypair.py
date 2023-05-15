@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Self
+from typing import Self
 
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
@@ -75,8 +75,8 @@ class RSAKeyPair:
         self, private_key: rsa.RSAPrivateKeyWithSerialization
     ) -> None:
         self.private_key = private_key
-        self._private_key_as_pem: Optional[bytes] = None
-        self._public_key_as_pem: Optional[bytes] = None
+        self._private_key_as_pem: bytes | None = None
+        self._public_key_as_pem: bytes | None = None
 
     def private_key_as_pem(self) -> bytes:
         """Return the serialized private key.
@@ -92,7 +92,7 @@ class RSAKeyPair:
             )
         return self._private_key_as_pem
 
-    def public_key_as_jwks(self, kid: Optional[str] = None) -> JWKS:
+    def public_key_as_jwks(self, kid: str | None = None) -> JWKS:
         """Return the public key in JWKS format.
 
         Parameters

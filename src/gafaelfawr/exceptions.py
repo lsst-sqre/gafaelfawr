@@ -345,7 +345,7 @@ class KubernetesObjectError(kopf.PermanentError):
         namespace: str,
         exc: ValidationError,
     ) -> None:
-        msg = f"{kind} {namespace}/{name} is malformed: {str(exc)}"
+        msg = f"{kind} {namespace}/{name} is malformed: {exc!s}"
         super().__init__(msg)
 
 

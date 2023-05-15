@@ -97,7 +97,6 @@ async def empty_database(
 
     Notes
     -----
-
     This always uses a configuration file configured for GitHub authentication
     for the database initialization and initial app configuration.  Use
     `tests.support.config.configure` after the test has started to change this

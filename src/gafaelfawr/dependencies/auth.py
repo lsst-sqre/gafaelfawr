@@ -1,6 +1,5 @@
 """Authentication dependencies for FastAPI."""
 
-from typing import Optional
 from urllib.parse import urlencode, urlparse
 
 from fastapi import Depends, Header, HTTPException, status
@@ -59,8 +58,9 @@ class Authenticate:
 
     def __init__(
         self,
+        *,
         require_session: bool = False,
-        require_scope: Optional[str] = None,
+        require_scope: str | None = None,
         redirect_if_unauthenticated: bool = False,
         allow_bootstrap_token: bool = False,
         auth_type: AuthType = AuthType.Bearer,
@@ -73,8 +73,8 @@ class Authenticate:
         self.auth_type = auth_type
         self.ajax_forbidden = ajax_forbidden
 
-    async def authenticate(
-        self, context: RequestContext, x_csrf_token: Optional[str] = None
+    async def authenticate(  # noqa: C901
+        self, context: RequestContext, x_csrf_token: str | None = None
     ) -> TokenData:
         """Authenticate the request.
 
@@ -114,7 +114,7 @@ class Authenticate:
                 if token_str:
                     token = Token.from_str(token_str)
             except (InvalidRequestError, InvalidTokenError) as e:
-                raise generate_challenge(context, self.auth_type, e)
+                raise generate_challenge(context, self.auth_type, e) from None
         if not token:
             raise self._redirect_or_error(context)
 
@@ -134,9 +134,8 @@ class Authenticate:
         if not data:
             if context.state.token:
                 raise self._redirect_or_error(context)
-            else:
-                exc = InvalidTokenError("Token is not valid")
-                raise generate_challenge(context, self.auth_type, exc)
+            exc = InvalidTokenError("Token is not valid")
+            raise generate_challenge(context, self.auth_type, exc)
 
         context.rebind_logger(
             token=token.key,
@@ -217,7 +216,7 @@ class AuthenticateWrite(Authenticate):
 
     async def __call__(
         self,
-        x_csrf_token: Optional[str] = Header(
+        x_csrf_token: (str | None) = Header(
             None,
             title="CSRF token",
             description=(
@@ -247,7 +246,7 @@ async def verified_oidc_token(
     except InvalidRequestError as e:
         raise generate_challenge(
             context, AuthType.Bearer, e, error_in_headers=False
-        )
+        ) from e
     if not encoded_token:
         raise generate_unauthorized_challenge(context, AuthType.Bearer)
     unverified_token = OIDCToken(encoded=encoded_token)
@@ -257,7 +256,7 @@ async def verified_oidc_token(
     except InvalidTokenError as e:
         raise generate_challenge(
             context, AuthType.Bearer, e, error_in_headers=False
-        )
+        ) from e
 
     # Add user information to the logger.
     context.rebind_logger(token=token.jti, user=token.claims["sub"])

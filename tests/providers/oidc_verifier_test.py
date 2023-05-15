@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urljoin
 
 import jwt
@@ -12,6 +12,7 @@ import pytest
 import respx
 from _pytest._code import ExceptionInfo
 from jwt.exceptions import InvalidIssuerError
+from safir.datetime import current_datetime
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.exceptions import (
@@ -31,7 +32,7 @@ from ..support.oidc import mock_oidc_provider_config
 
 
 def encode_token(
-    payload: dict[str, Any], keypair: RSAKeyPair, kid: Optional[str] = None
+    payload: dict[str, Any], keypair: RSAKeyPair, kid: str | None = None
 ) -> OIDCToken:
     """Encode a token payload into a token manually."""
     headers = {}
@@ -54,7 +55,7 @@ async def test_verify_token(
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
 
-    now = datetime.now(timezone.utc)
+    now = current_datetime()
     exp = now + timedelta(days=24)
     payload: dict[str, Any] = {
         "aud": config.oidc.audience,
@@ -92,7 +93,7 @@ async def test_verify_no_kids(
     verifier = factory.create_oidc_token_verifier()
     await mock_oidc_provider_config(respx_mock, "kid")
 
-    now = datetime.now(timezone.utc)
+    now = current_datetime()
     exp = now + timedelta(days=24)
     payload: dict[str, Any] = {
         "aud": config.oidc.audience,

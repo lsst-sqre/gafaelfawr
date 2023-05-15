@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import ParseResult, parse_qsl, urlencode
 
 from fastapi import (
@@ -23,14 +23,9 @@ from safir.slack.webhook import SlackRouteErrorHandler
 from ..dependencies.auth import AuthenticateRead, verified_oidc_token
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import parsed_redirect_uri
-from ..exceptions import (
-    InvalidRequestError,
-    OAuthError,
-    UnsupportedGrantTypeError,
-)
+from ..exceptions import InvalidRequestError, OAuthError
 from ..models.oidc import (
     JWKS,
-    OIDCAuthorizationCode,
     OIDCConfig,
     OIDCErrorReply,
     OIDCTokenReply,
@@ -74,19 +69,19 @@ authenticate = AuthenticateRead(
 async def get_login(
     client_id: str,
     parsed_redirect_uri: ParseResult = Depends(parsed_redirect_uri),
-    response_type: Optional[str] = Query(
+    response_type: (str | None) = Query(
         None,
         title="Requested response type",
         description="code is the only supported response type",
         example="code",
     ),
-    scope: Optional[str] = Query(
+    scope: (str | None) = Query(
         None,
         title="Requested token scope",
         description="openid is the only supported scope",
         example="openid",
     ),
-    state: Optional[str] = Query(
+    state: (str | None) = Query(
         None,
         title="Opaque state cookie",
         description=(
@@ -161,7 +156,7 @@ def build_return_url(redirect_uri: ParseResult, **params: str | None) -> str:
         The return URL to which the user should be redirected.
     """
     query = parse_qsl(redirect_uri.query) if redirect_uri.query else []
-    query.extend(((k, v) for (k, v) in params.items() if v is not None))
+    query.extend((k, v) for (k, v) in params.items() if v is not None)
     return_url = redirect_uri._replace(query=urlencode(query))
     return return_url.geturl()
 
@@ -178,29 +173,29 @@ def build_return_url(redirect_uri: ParseResult, **params: str | None) -> str:
 )
 async def post_token(
     response: Response,
-    grant_type: str = Form(
+    grant_type: (str | None) = Form(
         None,
         title="Request type",
         description="`authorization_code` is the only supported grant type",
         example="authorization_code",
     ),
-    client_id: str = Form(
+    client_id: (str | None) = Form(
         None,
         title="ID of client",
         example="oidc-client-name",
     ),
-    client_secret: str = Form(
+    client_secret: (str | None) = Form(
         None,
         title="Client secret",
         example="rYTfX6h9-ilGwADfgn7KRQ",
     ),
-    code: str = Form(
+    code: (str | None) = Form(
         None,
         title="Authorization code",
         description="The code returned from the /auth/openid/login endpoint",
         example="gc-W74I5HltJZRc0fOUAapgVQ.3T1xQQgeD063KgmNinw-tA",
     ),
-    redirect_uri: str = Form(
+    redirect_uri: (str | None) = Form(
         None,
         title="URL of client",
         description="Must match the redirect_uri in the client registration",
@@ -210,13 +205,12 @@ async def post_token(
 ) -> OIDCTokenReply | JSONResponse:
     oidc_service = context.factory.create_oidc_service()
     try:
-        if not grant_type or not client_id or not code or not redirect_uri:
-            raise InvalidRequestError("Invalid token request")
-        if grant_type != "authorization_code":
-            raise UnsupportedGrantTypeError(f"Invalid grant type {grant_type}")
-        authorization_code = OIDCAuthorizationCode.from_str(code)
         token = await oidc_service.redeem_code(
-            client_id, client_secret, redirect_uri, authorization_code
+            grant_type=grant_type,
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
+            code=code,
         )
     except OAuthError as e:
         context.logger.warning("%s", e.message, error=str(e))

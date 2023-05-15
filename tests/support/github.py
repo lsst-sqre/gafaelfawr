@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import json
 import uuid
-from typing import Optional
 from unittest.mock import ANY
 from urllib.parse import parse_qs
 
@@ -47,13 +46,14 @@ class MockGitHub:
         config: GitHubConfig,
         code: str,
         user_info: GitHubUserInfo,
+        *,
         paginate_teams: bool,
         expect_revoke: bool,
     ) -> None:
         self.respx_mock = respx_mock
         self.config = config
         self.code = code
-        self.token: Optional[str] = None
+        self.token: str | None = None
         self.user_info = user_info
         self.paginate_teams = paginate_teams
         self.expect_revoke = expect_revoke
@@ -180,8 +180,8 @@ async def mock_github(
         config.github,
         code,
         user_info,
-        paginate_teams,
-        expect_revoke,
+        paginate_teams=paginate_teams,
+        expect_revoke=expect_revoke,
     )
     token_url = GitHubProvider._TOKEN_URL
     respx_mock.post(token_url).mock(side_effect=mock.post_token)

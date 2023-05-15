@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from urllib.parse import parse_qs, urlparse
 
+import pytest
 from httpx import Response
 
 from gafaelfawr.config import Config
@@ -80,7 +81,7 @@ def parse_www_authenticate(header: str) -> AuthChallenge:
         elif attribute.group(1) == "scope":
             scope = attribute.group(2)
         else:
-            assert False, f"unexpected attribute {attribute.group(1)}"
+            pytest.fail(f"unexpected attribute {attribute.group(1)}")
     assert realm
 
     if error:

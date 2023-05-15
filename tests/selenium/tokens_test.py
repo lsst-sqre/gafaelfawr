@@ -25,7 +25,6 @@ async def test_create_token(
     tokens_page = TokensPage(driver)
     assert tokens_page.get_tokens(TokenType.user) == []
     session_tokens = tokens_page.get_tokens(TokenType.session)
-    print(tokens_page.page_source)
     assert len(session_tokens) == 2
     assert any(
         t for t in session_tokens if t.token == selenium_config.token.key
@@ -69,7 +68,6 @@ async def test_token_info(
     # Load the token page and go to the history for our session token.
     driver.get(urljoin(selenium_config.url, "/auth/tokens"))
     tokens_page = TokensPage(driver)
-    print(tokens_page.page_source)
     session_tokens = tokens_page.get_tokens(TokenType.session)
     session_token = next(
         t for t in session_tokens if t.token == selenium_config.token.key
@@ -86,7 +84,7 @@ async def test_token_info(
     assert len(history) == 3
     assert history[0].action == "create"
     assert history[0].token == internal_token.key
-    assert history[0].scopes == ""
+    assert not history[0].scopes
     assert history[1].action == "create"
     assert history[1].token == notebook_token.key
     assert history[1].scopes == ", ".join(scopes)
@@ -101,7 +99,6 @@ async def test_expired_token(
 ) -> None:
     driver.get(urljoin(selenium_config.url, "/auth/tokens"))
     tokens_page = TokensPage(driver)
-    print(tokens_page.page_source)
     session_tokens = tokens_page.get_tokens(TokenType.session)
 
     # Find the expired token, which is the one that doesn't match the one

@@ -4,6 +4,7 @@
 .. _Phalanx: https://phalanx.lsst.io/
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/
+.. _Ruff: https://beta.ruff.rs/docs/
 .. _Safir: https://safir.lsst.io/
 .. _scriv: https://scriv.readthedocs.io/
 .. _semver: https://semver.org/

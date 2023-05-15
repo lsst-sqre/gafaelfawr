@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Generic, Optional, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar
 from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
@@ -60,7 +60,7 @@ class AdminHistoryEntry(BaseModel):
         max_length=64,
     )
 
-    ip_address: Optional[str] = Field(
+    ip_address: str | None = Field(
         None,
         title="IP address",
         description=(
@@ -125,12 +125,12 @@ class HistoryCursor:
         try:
             time, id = cursor.split("_")
             return cls(
-                time=datetime.fromtimestamp(int(time), tz=timezone.utc),
+                time=datetime.fromtimestamp(int(time), tz=UTC),
                 id=int(id),
                 previous=previous,
             )
         except Exception as e:
-            raise InvalidCursorError(f"Invalid cursor: {str(e)}") from e
+            raise InvalidCursorError(f"Invalid cursor: {e!s}") from e
 
     @classmethod
     def invert(cls, cursor: HistoryCursor) -> Self:
@@ -154,7 +154,7 @@ class HistoryCursor:
         """Serialize to a string."""
         previous = "p" if self.previous else ""
         timestamp = str(int(self.time.timestamp()))
-        return f"{previous}{timestamp}_{str(self.id)}"
+        return f"{previous}{timestamp}_{self.id!s}"
 
 
 @dataclass
@@ -173,10 +173,10 @@ class PaginatedHistory(Generic[E]):
     count: int
     """Total available entries."""
 
-    next_cursor: Optional[HistoryCursor] = None
+    next_cursor: HistoryCursor | None = None
     """Cursor for the next batch of entries."""
 
-    prev_cursor: Optional[HistoryCursor] = None
+    prev_cursor: HistoryCursor | None = None
     """Cursor for the previous batch of entries."""
 
     def link_header(self, base_url: URL) -> str:
@@ -188,16 +188,16 @@ class PaginatedHistory(Generic[E]):
             The starting URL of the current group of entries.
         """
         first_url = base_url.remove_query_params("cursor")
-        header = f' <{str(first_url)}>; rel="first"'
+        header = f' <{first_url!s}>; rel="first"'
         params = parse_qs(first_url.query)
         if self.next_cursor:
             params["cursor"] = [str(self.next_cursor)]
             next_url = first_url.replace(query=urlencode(params, doseq=True))
-            header += f', <{str(next_url)}>; rel="next"'
+            header += f', <{next_url!s}>; rel="next"'
         if self.prev_cursor:
             params["cursor"] = [str(self.prev_cursor)]
             prev_url = first_url.replace(query=urlencode(params, doseq=True))
-            header += f', <{str(prev_url)}>; rel="prev"'
+            header += f', <{prev_url!s}>; rel="prev"'
         return header
 
 
@@ -247,7 +247,7 @@ class TokenChangeHistoryEntry(BaseModel):
         example="user",
     )
 
-    token_name: Optional[str] = Field(
+    token_name: str | None = Field(
         None,
         title="Name of the token",
         description=(
@@ -257,7 +257,7 @@ class TokenChangeHistoryEntry(BaseModel):
         example="a token",
     )
 
-    parent: Optional[str] = Field(
+    parent: str | None = Field(
         None,
         title="Key of parent token of this token",
         example="1NOV_8aPwhCWj6rM-p1XgQ",
@@ -267,14 +267,14 @@ class TokenChangeHistoryEntry(BaseModel):
         ..., title="Scopes of the token", example=["read:all"]
     )
 
-    service: Optional[str] = Field(
+    service: str | None = Field(
         None,
         title="Service to which the token was issued",
         description="Only set for tokens of type internal.",
         example="some-service",
     )
 
-    expires: Optional[datetime] = Field(
+    expires: datetime | None = Field(
         None,
         title="Expiration of the token",
         description=(
@@ -296,7 +296,7 @@ class TokenChangeHistoryEntry(BaseModel):
         ..., title="Type of change that was made", example="edit"
     )
 
-    old_token_name: Optional[str] = Field(
+    old_token_name: str | None = Field(
         None,
         title="Previous name of the token",
         description=(
@@ -306,7 +306,7 @@ class TokenChangeHistoryEntry(BaseModel):
         example="old name",
     )
 
-    old_scopes: Optional[list[str]] = Field(
+    old_scopes: list[str] | None = Field(
         None,
         title="Previous scopes of the token",
         description=(
@@ -316,7 +316,7 @@ class TokenChangeHistoryEntry(BaseModel):
         example=["read:some"],
     )
 
-    old_expires: Optional[datetime] = Field(
+    old_expires: datetime | None = Field(
         None,
         title="Previous expiration of the token",
         description=(
@@ -336,7 +336,7 @@ class TokenChangeHistoryEntry(BaseModel):
     #
     # We don't gain very much from the Pydantic validation since these entries
     # are created either in code or sourced from a trusted database.
-    ip_address: Optional[str] = Field(
+    ip_address: str | None = Field(
         None,
         title="IP address from which the change was made",
         description=(
@@ -367,10 +367,11 @@ class TokenChangeHistoryEntry(BaseModel):
     )(normalize_ip_address)
 
     def reduced_dict(self) -> dict[str, Any]:
-        """Custom ``dict`` method to suppress some fields.
+        """Convert to a dictionary while suppressing some fields.
 
-        Excludes the ``old_`` fields for changes other than edits, and when
-        the edit doesn't change those fields.
+        The same as the standard Pydantic ``dict`` method, but excludes the
+        ``old_`` fields for changes other than edits and when the edit doesn't
+        change those fields.
 
         Returns
         -------

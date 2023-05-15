@@ -12,6 +12,8 @@ from .base import BaseElement, BaseModal, BasePage
 
 
 class TokensPage(BasePage):
+    """Representation of the user's token page for Selenium testing."""
+
     def click_create_token(self) -> CreateTokenModal:
         button = self.find_element(By.ID, "qa-create-token")
         button.click()
@@ -34,6 +36,8 @@ class TokensPage(BasePage):
 
 
 class CreateTokenModal(BaseModal):
+    """Representation of the create token modal for Selenium testing."""
+
     @property
     def form(self) -> WebElement:
         return self.find_element(By.TAG_NAME, "form")
@@ -47,6 +51,8 @@ class CreateTokenModal(BaseModal):
 
 
 class NewTokenModal(BaseModal):
+    """Representation of the new token modal for Selenium testing."""
+
     @property
     def token(self) -> str:
         return self.find_element(By.ID, "qa-new-token").text
@@ -57,6 +63,8 @@ class NewTokenModal(BaseModal):
 
 
 class TokenRow(BaseElement):
+    """Representation of one token on the token page for Selenium testing."""
+
     @property
     def expires(self) -> str:
         return self.find_element(By.CLASS_NAME, "qa-expires").text
@@ -79,6 +87,8 @@ class TokenRow(BaseElement):
 
 
 class TokenDataPage(BasePage):
+    """Representation of the details page for a token for Selenium testing."""
+
     @property
     def expires(self) -> str:
         return self.find_element(By.CLASS_NAME, "qa-expires").text
@@ -107,6 +117,8 @@ class TokenDataPage(BasePage):
 
 
 class TokenChangeRow(BaseElement):
+    """Representation of token change history for Selenium testing."""
+
     @property
     def action(self) -> str:
         return self.find_element(By.CLASS_NAME, "qa-action").text

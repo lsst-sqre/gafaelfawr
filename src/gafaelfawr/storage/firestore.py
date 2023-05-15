@@ -84,7 +84,7 @@ class FirestoreStorage:
             logger=self._logger,
         )
 
-    async def get_uid(self, username: str, bot: bool = False) -> int:
+    async def get_uid(self, username: str, *, bot: bool = False) -> int:
         """Get the UID for a user.
 
         Retrieve the assigned UID for a user, or assign a new UID to that user

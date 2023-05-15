@@ -17,7 +17,7 @@ def test_authorization_lifetime() -> None:
         redirect_uri="https://example.com/",
         token=Token(),
     )
-    assert OIDC_AUTHORIZATION_LIFETIME >= authorization.lifetime
+    assert authorization.lifetime <= OIDC_AUTHORIZATION_LIFETIME
     assert OIDC_AUTHORIZATION_LIFETIME - 2 <= authorization.lifetime
 
     lifetime = timedelta(seconds=OIDC_AUTHORIZATION_LIFETIME)

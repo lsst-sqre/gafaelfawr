@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
@@ -25,7 +24,8 @@ async def simulate_github_login(
     client: AsyncClient,
     respx_mock: respx.Router,
     user_info: GitHubUserInfo,
-    headers: Optional[dict[str, str]] = None,
+    *,
+    headers: dict[str, str] | None = None,
     return_url: str = "https://example.com/",
     paginate_teams: bool = False,
     expect_revoke: bool = False,
@@ -164,7 +164,7 @@ async def test_login(
 
     # Examine the resulting cookie and ensure that it has the proper metadata
     # set.
-    cookie = next((c for c in r.cookies.jar if c.name == "gafaelfawr"))
+    cookie = next(c for c in r.cookies.jar if c.name == "gafaelfawr")
     assert cookie.secure
     assert cookie.discard
     assert cookie.has_nonstandard_attr("HttpOnly")

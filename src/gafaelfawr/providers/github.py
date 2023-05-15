@@ -294,8 +294,8 @@ class GitHubProvider(Provider):
         except HTTPError as e:
             raise GitHubWebError.from_exception(e, username) from e
         except Exception as e:
-            msg = f"GitHub user data is invalid: {type(e).__name__}: {str(e)}"
-            raise GitHubError(msg, username)
+            msg = f"GitHub user data is invalid: {type(e).__name__}: {e!s}"
+            raise GitHubError(msg, username) from e
 
     async def _get_user_email(
         self, token: str, username: str, logger: BoundLogger

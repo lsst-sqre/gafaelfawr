@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional, Self
+from datetime import datetime
+from typing import Any, Self
 
 from pydantic import BaseModel, Field, validator
 from safir.datetime import current_datetime
@@ -108,7 +108,7 @@ class OIDCAuthorization(BaseModel):
     )
 
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(tz=timezone.utc),
+        default_factory=current_datetime,
         title="When the authorization was created",
     )
 
@@ -155,7 +155,7 @@ class OIDCVerifiedToken(OIDCToken):
         ..., title="The claims contained in the token"
     )
 
-    jti: Optional[str] = Field(
+    jti: str | None = Field(
         None, title="The jti (JWT ID) claim from the token"
     )
 
@@ -265,7 +265,7 @@ class JWK(BaseModel):
         example="sig",
     )
 
-    kid: Optional[str] = Field(
+    kid: str | None = Field(
         None,
         title="Key ID",
         description=(

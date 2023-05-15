@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 from google.cloud import firestore
@@ -15,7 +15,7 @@ __all__ = ["MockFirestore", "patch_firestore"]
 class MockDocument:
     """Mock document contents."""
 
-    def __init__(self, data: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, data: dict[str, Any] | None = None) -> None:
         self._data = data
         self.exists = data is not None
 
@@ -29,7 +29,7 @@ class MockDocumentRef(Mock):
 
     def __init__(self) -> None:
         super().__init__(spec=firestore.AsyncDocumentReference)
-        self.document: Optional[dict[str, Any]] = None
+        self.document: dict[str, Any] | None = None
 
     async def get(self, *, transaction: MockTransaction) -> MockDocument:
         assert isinstance(transaction, MockTransaction)

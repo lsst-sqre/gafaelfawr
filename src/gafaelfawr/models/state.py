@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Optional, Self
+from typing import Self
 
 from cryptography.fernet import Fernet
 from fastapi import Request
@@ -26,24 +26,24 @@ __all__ = ["State"]
 class State(BaseState):
     """State information stored in a cookie."""
 
-    csrf: Optional[str] = None
+    csrf: str | None = None
     """CSRF token for form submissions."""
 
-    token: Optional[Token] = None
+    token: Token | None = None
     """Token if the user is authenticated."""
 
-    github: Optional[str] = None
+    github: str | None = None
     """GitHub OAuth token if user authenticated via GitHub."""
 
-    return_url: Optional[str] = None
+    return_url: str | None = None
     """Destination URL after completion of login."""
 
-    state: Optional[str] = None
+    state: str | None = None
     """State token for OAuth 2.0 and OpenID Connect logins."""
 
     @classmethod
     async def from_cookie(
-        cls, cookie: str, request: Optional[Request] = None
+        cls, cookie: str, request: Request | None = None
     ) -> Self:
         """Reconstruct state from an encrypted cookie.
 
@@ -75,7 +75,7 @@ class State(BaseState):
                 logger = await logger_dependency(request)
                 error = type(e).__name__
                 if str(e):
-                    error += f": {str(e)}"
+                    error += f": {e!s}"
                 logger.warning("Discarding invalid state cookie", error=error)
             return cls()
 

@@ -51,8 +51,8 @@ Pre-commit hooks
 The pre-commit hooks, which are automatically installed by running the :command:`make init` command on :ref:`set up <dev-environment>`, ensure that files are valid and properly formatted.
 Some pre-commit hooks automatically reformat code:
 
-``isort``
-    Automatically sorts imports in Python modules.
+``ruff``
+    Lint Python code and attempt to automatically fix some problems.
 
 ``black``
     Automatically formats Python code.
@@ -291,6 +291,10 @@ Code
 
 - Use :pep:`484` type annotations.
   The ``tox run -e typing`` test environment, which runs mypy_, ensures that the project's types are consistent.
+
+- Gafaelfawr uses the Ruff_ linter with most checks enabled.
+  Try to avoid ``noqa`` markers except for issues that need to be fixed in the future.
+  Tests that generate false positives should normally be disabled, but if the lint error can be avoided with minor rewriting that doesn't make the code harder to read, prefer the rewriting.
 
 - Write tests for Pytest_.
 

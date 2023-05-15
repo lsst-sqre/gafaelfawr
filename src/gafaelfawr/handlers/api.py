@@ -7,7 +7,7 @@ models.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import quote
 
 from fastapi import (
@@ -158,33 +158,33 @@ async def delete_admin(
 )
 async def get_admin_token_change_history(
     response: Response,
-    cursor: Optional[str] = Query(
+    cursor: (str | None) = Query(
         None,
         title="Cursor",
         description="Pagination cursor",
         example="1614985055_4234",
         regex=CURSOR_REGEX,
     ),
-    limit: Optional[int] = Query(
+    limit: (int | None) = Query(
         None,
         title="Row limit",
         description="Maximum number of entries to return",
         example=500,
         ge=1,
     ),
-    since: Optional[datetime] = Query(
+    since: (datetime | None) = Query(
         None,
         title="Not before",
         description="Only show entries at or after this time",
         example="2021-03-05T14:59:52Z",
     ),
-    until: Optional[datetime] = Query(
+    until: (datetime | None) = Query(
         None,
         title="Not after",
         description="Only show entries before or at this time",
         example="2021-03-05T14:59:52Z",
     ),
-    username: Optional[str] = Query(
+    username: (str | None) = Query(
         None,
         title="Username",
         description="Only show tokens for this user",
@@ -193,7 +193,7 @@ async def get_admin_token_change_history(
         max_length=64,
         regex=USERNAME_REGEX,
     ),
-    actor: Optional[str] = Query(
+    actor: (str | None) = Query(
         None,
         title="Actor",
         description="Only show actions performed by this user",
@@ -202,7 +202,7 @@ async def get_admin_token_change_history(
         max_length=64,
         regex=ACTOR_REGEX,
     ),
-    key: Optional[str] = Query(
+    key: (str | None) = Query(
         None,
         title="Token",
         description="Only show changes for this token",
@@ -210,13 +210,13 @@ async def get_admin_token_change_history(
         min_length=22,
         max_length=22,
     ),
-    token_type: Optional[TokenType] = Query(
+    token_type: (TokenType | None) = Query(
         None,
         title="Token type",
         description="Only show tokens of this type",
         example="user",
     ),
-    ip_address: Optional[str] = Query(
+    ip_address: (str | None) = Query(
         None,
         title="IP or CIDR",
         description="Only show changes from this IP or CIDR block",
@@ -362,7 +362,7 @@ async def get_user_info(
             headers={"Cache-Control": "no-cache, no-store"},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=[{"msg": msg, "type": "user_info_failed"}],
-        )
+        ) from e
 
 
 @router.get(
@@ -389,33 +389,33 @@ async def get_user_token_change_history(
         max_length=64,
         regex=USERNAME_REGEX,
     ),
-    cursor: Optional[str] = Query(
+    cursor: (str | None) = Query(
         None,
         title="Cursor",
         description="Pagination cursor",
         example="1614985055_4234",
         regex=CURSOR_REGEX,
     ),
-    limit: Optional[int] = Query(
+    limit: (int | None) = Query(
         None,
         title="Row limit",
         description="Maximum number of entries to return",
         example=500,
         ge=1,
     ),
-    since: Optional[datetime] = Query(
+    since: (datetime | None) = Query(
         None,
         title="Not before",
         description="Only show entries at or after this time",
         example="2021-03-05T14:59:52Z",
     ),
-    until: Optional[datetime] = Query(
+    until: (datetime | None) = Query(
         None,
         title="Not after",
         description="Only show entries before or at this time",
         example="2021-03-05T14:59:52Z",
     ),
-    key: Optional[str] = Query(
+    key: (str | None) = Query(
         None,
         title="Token",
         description="Only show changes for this token",
@@ -423,13 +423,13 @@ async def get_user_token_change_history(
         min_length=22,
         max_length=22,
     ),
-    token_type: Optional[TokenType] = Query(
+    token_type: (TokenType | None) = Query(
         None,
         title="Token type",
         description="Only show tokens of this type",
         example="user",
     ),
-    ip_address: Optional[str] = Query(
+    ip_address: (str | None) = Query(
         None,
         title="IP or CIDR",
         description="Only show changes from this IP or CIDR block",

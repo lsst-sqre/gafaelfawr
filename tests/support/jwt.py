@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import timedelta
+from typing import Any
 
 import jwt
+from safir.datetime import current_datetime
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.dependencies.config import config_dependency
@@ -19,7 +20,7 @@ __all__ = ["create_upstream_oidc_jwt"]
 def create_upstream_oidc_jwt(
     *,
     kid: str = "orig-kid",
-    groups: Optional[list[str]] = None,
+    groups: list[str] | None = None,
     **claims: Any,
 ) -> OIDCVerifiedToken:
     """Create a signed token using the OpenID Connect issuer.
@@ -44,7 +45,7 @@ def create_upstream_oidc_jwt(
     config = config_dependency.config()
     assert config.oidc
 
-    now = datetime.now(timezone.utc)
+    now = current_datetime()
     exp = now + timedelta(days=24)
     payload: dict[str, Any] = {
         "aud": config.oidc.audience,

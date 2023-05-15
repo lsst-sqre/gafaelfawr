@@ -5,7 +5,6 @@ from __future__ import annotations
 import ipaddress
 import re
 from datetime import datetime, timedelta
-from typing import Optional
 
 from safir.datetime import current_datetime, format_datetime_for_logging
 from structlog.stdlib import BoundLogger
@@ -80,7 +79,9 @@ class TokenService:
         self._token_change_store = token_change_store
         self._logger = logger
 
-    async def audit(self, fix: bool = False) -> list[str]:
+    async def audit(  # noqa: PLR0912,PLR0915,C901
+        self, *, fix: bool = False
+    ) -> list[str]:
         """Check Gafaelfawr data stores for consistency.
 
         If any errors are found and Slack is configured, report them to Slack
@@ -183,25 +184,13 @@ class TokenService:
                 )
             if db.parent and db.parent in db_tokens:
                 parent = db_tokens[db.parent]
-                expires = db.expires
-                if not expires and parent.expires:
+                exp = db.expires
+                if parent.expires and (not exp or exp > parent.expires):
                     self._logger.warning(
                         "Token expires after its parent",
                         token=key,
                         user=redis.username,
-                        expires=db.expires,
-                        parent_expires=parent.expires,
-                    )
-                    alerts.append(
-                        f"Token `{key}` for `{redis.username}` expires after"
-                        " its parent token"
-                    )
-                elif expires and parent.expires and expires > parent.expires:
-                    self._logger.warning(
-                        "Token expires after its parent",
-                        token=key,
-                        user=redis.username,
-                        expires=db.expires,
+                        expires=exp,
                         parent_expires=parent.expires,
                     )
                     alerts.append(
@@ -312,7 +301,7 @@ class TokenService:
         *,
         token_name: str,
         scopes: list[str],
-        expires: Optional[datetime] = None,
+        expires: datetime | None = None,
         ip_address: str,
     ) -> Token:
         """Add a new user token.
@@ -559,9 +548,7 @@ class TokenService:
         children.reverse()
         for child in children:
             await self._delete_one_token(child, auth_data, ip_address)
-        success = await self._delete_one_token(key, auth_data, ip_address)
-
-        return success
+        return await self._delete_one_token(key, auth_data, ip_address)
 
     async def expire_tokens(self) -> None:
         """Bookkeeping for expired tokens.
@@ -601,16 +588,16 @@ class TokenService:
         self,
         auth_data: TokenData,
         *,
-        cursor: Optional[str] = None,
-        limit: Optional[int] = None,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
-        username: Optional[str] = None,
-        actor: Optional[str] = None,
-        key: Optional[str] = None,
-        token: Optional[str] = None,
-        token_type: Optional[TokenType] = None,
-        ip_or_cidr: Optional[str] = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        username: str | None = None,
+        actor: str | None = None,
+        key: str | None = None,
+        token: str | None = None,
+        token_type: TokenType | None = None,
+        ip_or_cidr: str | None = None,
     ) -> PaginatedHistory[TokenChangeHistoryEntry]:
         """Retrieve the change history of a token.
 
@@ -695,7 +682,7 @@ class TokenService:
         scopes: list[str],
         *,
         ip_address: str,
-        minimum_lifetime: Optional[timedelta] = None,
+        minimum_lifetime: timedelta | None = None,
     ) -> Token:
         """Get or create a new internal token.
 
@@ -738,7 +725,7 @@ class TokenService:
         token_data: TokenData,
         ip_address: str,
         *,
-        minimum_lifetime: Optional[timedelta] = None,
+        minimum_lifetime: timedelta | None = None,
     ) -> Token:
         """Get or create a new notebook token.
 
@@ -802,7 +789,7 @@ class TokenService:
         return info
 
     async def get_token_info_unchecked(
-        self, key: str, username: Optional[str] = None
+        self, key: str, username: str | None = None
     ) -> TokenInfo | None:
         """Get information about a token without checking authorization.
 
@@ -854,7 +841,7 @@ class TokenService:
         )
 
     async def list_tokens(
-        self, auth_data: TokenData, username: Optional[str] = None
+        self, auth_data: TokenData, username: str | None = None
     ) -> list[TokenInfo]:
         """List tokens.
 
@@ -884,12 +871,12 @@ class TokenService:
         self,
         key: str,
         auth_data: TokenData,
-        username: Optional[str] = None,
+        username: str | None = None,
         *,
         ip_address: str,
-        token_name: Optional[str] = None,
-        scopes: Optional[list[str]] = None,
-        expires: Optional[datetime] = None,
+        token_name: str | None = None,
+        scopes: list[str] | None = None,
+        expires: datetime | None = None,
         no_expire: bool = False,
     ) -> TokenInfo | None:
         """Modify a token.
@@ -994,7 +981,8 @@ class TokenService:
 
         # Update subtokens if needed.
         if update_subtoken_expires and info:
-            assert expires
+            if not expires:
+                raise RuntimeError("expires not set updating subtoken expires")
             for child in await self._token_db_store.get_children(key):
                 await self._modify_expires(
                     child, auth_data, expires, ip_address
@@ -1070,7 +1058,7 @@ class TokenService:
         auth_data: TokenData,
         ip_address: str,
     ) -> bool:
-        """Helper function to delete a single token.
+        """Delete a single token.
 
         This does not do cascading delete and assumes authorization has
         already been checked.
@@ -1194,7 +1182,7 @@ class TokenService:
             else:
                 ipaddress.ip_address(ip_or_cidr)
         except ValueError as e:
-            raise InvalidIPAddressError(f"Invalid IP address: {str(e)}") from e
+            raise InvalidIPAddressError(f"Invalid IP address: {e!s}") from e
 
     def _validate_expires(self, expires: datetime | None) -> None:
         """Check that a provided token expiration is valid.
@@ -1225,7 +1213,7 @@ class TokenService:
     def _validate_scopes(
         self,
         scopes: list[str],
-        auth_data: Optional[TokenData] = None,
+        auth_data: TokenData | None = None,
     ) -> None:
         """Check that the requested scopes are valid.
 

@@ -96,7 +96,7 @@ def normalize_ip_address(
     """
     if v is None:
         return v
-    elif isinstance(v, (IPv4Address, IPv6Address)):
+    elif isinstance(v, IPv4Address | IPv6Address):
         return str(v)
     else:
         return v
@@ -122,7 +122,7 @@ def normalize_scopes(v: str | list[str] | None) -> list[str] | None:
     if v is None:
         return None
     elif isinstance(v, str):
-        return [] if v == "" else v.split(",")
+        return [] if not v else v.split(",")
     else:
         return v
 

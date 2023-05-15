@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from fastapi import HTTPException, status
 
@@ -125,7 +124,7 @@ def generate_challenge(
     context: RequestContext,
     auth_type: AuthType,
     exc: OAuthBearerError,
-    scopes: Optional[set[str]] = None,
+    scopes: set[str] | None = None,
     *,
     error_in_headers: bool = True,
 ) -> HTTPException:
@@ -190,7 +189,7 @@ def generate_challenge(
 def generate_unauthorized_challenge(
     context: RequestContext,
     auth_type: AuthType,
-    exc: Optional[InvalidTokenError] = None,
+    exc: InvalidTokenError | None = None,
     *,
     ajax_forbidden: bool = False,
 ) -> HTTPException:
@@ -330,7 +329,7 @@ def parse_authorization(context: RequestContext) -> str | None:
         basic_auth = base64.b64decode(auth_blob).decode()
         user, password = basic_auth.strip().split(":")
     except Exception as e:
-        msg = f"Invalid Basic auth string: {str(e)}"
+        msg = f"Invalid Basic auth string: {e!s}"
         raise InvalidRequestError(msg) from e
     if Token.is_token(user):
         context.rebind_logger(token_source="basic-username")

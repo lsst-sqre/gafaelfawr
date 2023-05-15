@@ -3,7 +3,6 @@
 import base64
 import os
 from enum import Enum
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse, Response
@@ -74,13 +73,13 @@ class LoginError(Enum):
     tags=["browser"],
 )
 async def get_login(
-    code: Optional[str] = Query(
+    code: (str | None) = Query(
         None,
         title="Provider code",
         description="Set by the authentication provider after authentication",
         example="V2hrNqgM_eiIjXvV41RlMw",
     ),
-    state: Optional[str] = Query(
+    state: (str | None) = Query(
         None,
         title="Authentication state",
         description=(
@@ -89,7 +88,7 @@ async def get_login(
         ),
         example="wkC2bAP5VFpDioKc3JfaDA",
     ),
-    return_url: Optional[str] = Depends(return_url_with_header),
+    return_url: str | None = Depends(return_url_with_header),
     context: RequestContext = Depends(context_dependency),
 ) -> Response:
     """Handle an initial login or the return from a login provider.
@@ -173,7 +172,7 @@ async def redirect_to_provider(
     return RedirectResponse(redirect_url)
 
 
-async def handle_provider_return(
+async def handle_provider_return(  # noqa: PLR0911,PLR0912,C901
     code: str, state: str | None, context: RequestContext
 ) -> Response:
     """Handle the return from an external authentication provider.
@@ -256,7 +255,7 @@ async def handle_provider_return(
     try:
         async with context.session.begin():
             if await admin_service.is_admin(user_info.username):
-                scopes = sorted(scopes + ["admin:token"])
+                scopes = sorted([*scopes, "admin:token"])
             token = await token_service.create_session_token(
                 user_info, scopes=scopes, ip_address=context.ip_address
             )
@@ -315,7 +314,7 @@ async def _error_system(
 
 
 def _error_user(
-    context: RequestContext, error: LoginError, details: Optional[str] = None
+    context: RequestContext, error: LoginError, details: str | None = None
 ) -> Response:
     """Generate an error page for a user login failure.
 

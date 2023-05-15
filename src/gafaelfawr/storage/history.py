@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from safir.database import datetime_from_db, datetime_to_db
 from sqlalchemy import and_, delete, func, or_
@@ -98,16 +97,16 @@ class TokenChangeHistoryStore:
     async def list(
         self,
         *,
-        cursor: Optional[HistoryCursor] = None,
-        limit: Optional[int] = None,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
-        username: Optional[str] = None,
-        actor: Optional[str] = None,
-        key: Optional[str] = None,
-        token: Optional[str] = None,
-        token_type: Optional[TokenType] = None,
-        ip_or_cidr: Optional[str] = None,
+        cursor: HistoryCursor | None = None,
+        limit: int | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        username: str | None = None,
+        actor: str | None = None,
+        key: str | None = None,
+        token: str | None = None,
+        token_type: TokenType | None = None,
+        ip_or_cidr: str | None = None,
     ) -> PaginatedHistory[TokenChangeHistoryEntry]:
         """Return all changes to a specific token.
 
@@ -180,19 +179,18 @@ class TokenChangeHistoryStore:
         )
         result = await self._session.scalars(stmt)
         entries = result.all()
-        history = PaginatedHistory[TokenChangeHistoryEntry](
+        return PaginatedHistory[TokenChangeHistoryEntry](
             entries=[TokenChangeHistoryEntry.from_orm(e) for e in entries],
             count=len(entries),
             prev_cursor=None,
             next_cursor=None,
         )
-        return history
 
     async def _paginated_query(
         self,
         stmt: Select,
-        cursor: Optional[HistoryCursor] = None,
-        limit: Optional[int] = None,
+        cursor: HistoryCursor | None = None,
+        limit: int | None = None,
     ) -> PaginatedHistory[TokenChangeHistoryEntry]:
         """Run a paginated query (one with a limit or a cursor)."""
         limited_stmt = stmt
@@ -284,14 +282,12 @@ class TokenChangeHistoryStore:
     def _build_next_cursor(entry: TokenChangeHistory) -> HistoryCursor:
         """Construct a next cursor for entries >= the given entry."""
         next_time = datetime_from_db(entry.event_time)
-        assert next_time
         return HistoryCursor(time=next_time, id=entry.id)
 
     @staticmethod
     def _build_prev_cursor(entry: TokenChangeHistory) -> HistoryCursor:
         """Construct a prev cursor for entries before the given entry."""
         prev_time = datetime_from_db(entry.event_time)
-        assert prev_time
         return HistoryCursor(time=prev_time, id=entry.id, previous=True)
 
     def _apply_ip_or_cidr_filter(

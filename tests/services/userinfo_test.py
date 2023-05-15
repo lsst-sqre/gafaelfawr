@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from safir.datetime import current_datetime
 
 from gafaelfawr.exceptions import (
     MissingUIDClaimError,
@@ -22,7 +23,7 @@ async def test_missing_token_data(tmp_path: Path, factory: Factory) -> None:
     config = await reconfigure(tmp_path, "oidc", factory)
     assert config.oidc
     user_info = factory.create_oidc_user_info_service()
-    now = datetime.now(timezone.utc)
+    now = current_datetime()
     exp = now + timedelta(days=24)
     token = OIDCVerifiedToken(
         encoded="some-encoded-token",

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from unittest.mock import ANY
 
 import pytest
@@ -56,7 +56,8 @@ async def test_session_token(config: Config, factory: Factory) -> None:
             user_info, scopes=["user:token"], ip_address="127.0.0.1"
         )
     data = await token_service.get_data(token)
-    assert data and data == TokenData(
+    assert data
+    assert data == TokenData(
         token=token,
         username="example",
         token_type=TokenType.session,
@@ -76,7 +77,8 @@ async def test_session_token(config: Config, factory: Factory) -> None:
 
     async with factory.session.begin():
         info = await token_service.get_token_info_unchecked(token.key)
-    assert info and info == TokenInfo(
+    assert info
+    assert info == TokenInfo(
         token=token.key,
         username=user_info.username,
         token_name=None,
@@ -115,9 +117,11 @@ async def test_session_token(config: Config, factory: Factory) -> None:
             ip_address="127.0.0.1",
         )
         data = await token_service.get_data(token)
-        assert data and data.scopes == ["exec:admin", "read:all"]
+        assert data
+        assert data.scopes == ["exec:admin", "read:all"]
         info = await token_service.get_token_info_unchecked(token.key)
-        assert info and info.scopes == ["exec:admin", "read:all"]
+        assert info
+        assert info.scopes == ["exec:admin", "read:all"]
 
 
 @pytest.mark.asyncio
@@ -149,7 +153,8 @@ async def test_user_token(factory: Factory) -> None:
         )
         assert await token_service.get_user_info(user_token) == user_info
         info = await token_service.get_token_info_unchecked(user_token.key)
-    assert info and info == TokenInfo(
+    assert info
+    assert info == TokenInfo(
         token=user_token.key,
         username=user_info.username,
         token_name="some-token",
@@ -216,7 +221,8 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         )
         assert await token_service.get_user_info(token) == user_info
         info = await token_service.get_token_info_unchecked(token.key)
-    assert info and info == TokenInfo(
+    assert info
+    assert info == TokenInfo(
         token=token.key,
         username=user_info.username,
         token_type=TokenType.notebook,
@@ -355,7 +361,8 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         )
         assert await token_service.get_user_info(internal_token) == user_info
         info = await token_service.get_token_info_unchecked(internal_token.key)
-    assert info and info == TokenInfo(
+    assert info
+    assert info == TokenInfo(
         token=internal_token.key,
         username=user_info.username,
         token_type=TokenType.internal,
@@ -494,7 +501,8 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         info = await token_service.get_token_info_unchecked(
             new_internal_token.key
         )
-    assert info and info.scopes == []
+    assert info
+    assert info.scopes == []
     expires = info.created + config.token_lifetime
     assert info.expires == expires
 
@@ -674,7 +682,8 @@ async def test_token_from_admin_request(factory: Factory) -> None:
             request, admin_data, ip_address="127.0.0.1"
         )
     user_data = await token_service.get_data(token)
-    assert user_data and user_data == TokenData(
+    assert user_data
+    assert user_data == TokenData(
         token=token, created=user_data.created, **request.dict()
     )
     assert_is_now(user_data.created)
@@ -713,7 +722,8 @@ async def test_token_from_admin_request(factory: Factory) -> None:
             request, admin_data, ip_address="127.0.0.1"
         )
     service_data = await token_service.get_data(token)
-    assert service_data and service_data == TokenData(
+    assert service_data
+    assert service_data == TokenData(
         token=token, created=service_data.created, **request.dict()
     )
     assert_is_now(service_data.created)
@@ -837,7 +847,8 @@ async def test_modify(factory: Factory) -> None:
             ip_address="192.168.0.4",
         )
         info = await token_service.get_token_info_unchecked(user_token.key)
-    assert info and info == TokenInfo(
+    assert info
+    assert info == TokenInfo(
         token=user_token.key,
         username="example",
         token_type=TokenType.user,
@@ -1457,7 +1468,7 @@ async def test_invalid_username(factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_expire_tokens(factory: Factory) -> None:
     """Test periodic cleanup of expired tokens."""
-    now = datetime.now(tz=timezone.utc)
+    now = current_datetime()
     session_token_data = TokenData(
         token=Token(),
         username="some-user",
@@ -1595,7 +1606,7 @@ async def test_expire_tokens(factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_truncate_history(factory: Factory) -> None:
     """Test periodic truncation of history."""
-    now = datetime.now(tz=timezone.utc)
+    now = current_datetime()
     token_service = factory.create_token_service()
     session_token_data = await create_session_token(
         factory, scopes=["admin:token"]
