@@ -140,11 +140,6 @@ class ProcessContext:
                 ),
                 REDIS_RETRIES,
             ),
-            retry_on_error=[
-                redis.exceptions.ConnectionError,
-                redis.exceptions.TimeoutError,
-            ],
-            socket_keepalive=True,
         )
 
         return cls(

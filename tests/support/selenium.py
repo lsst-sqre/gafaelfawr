@@ -166,6 +166,7 @@ async def run_app(
     uvicorn = spawn_uvicorn(
         working_directory=tmp_path,
         factory="tests.support.selenium:selenium_create_app",
+        timeout=10.0,
         env={
             "GAFAELFAWR_CONFIG_PATH": str(config_path),
             "GAFAELFAWR_TEST_TOKEN_PATH": str(token_path),
