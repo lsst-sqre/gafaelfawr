@@ -43,7 +43,7 @@ def _convert_exception(f: F) -> F:
         try:
             return await f(*args, **kwargs)
         except ApiException as e:
-            raise KubernetesError(f"Kubernetes API error: {str(e)}") from e
+            raise KubernetesError(f"Kubernetes API error: {e!s}") from e
 
     return cast(F, wrapper)
 
@@ -331,7 +331,7 @@ class KubernetesTokenStorage:
         implement the same logic, since Kopf doesn't support
         kubernetes_asyncio.
         """
-        secret = V1Secret(
+        return V1Secret(
             api_version="v1",
             kind="Secret",
             data={"token": b64encode(str(token).encode()).decode()},
@@ -353,4 +353,3 @@ class KubernetesTokenStorage:
             ),
             type="Opaque",
         )
-        return secret

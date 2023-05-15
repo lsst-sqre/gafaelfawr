@@ -17,7 +17,7 @@ from gafaelfawr.util import (
 
 
 def test_add_padding() -> None:
-    assert add_padding("") == ""
+    assert not add_padding("")
     assert add_padding("Zg") == "Zg=="
     assert add_padding("Zgo") == "Zgo="
     assert add_padding("Zm8K") == "Zm8K"
@@ -55,7 +55,7 @@ def test_normalize_timedelta() -> None:
     assert normalize_timedelta(None) is None
     assert normalize_timedelta(10) == timedelta(seconds=10)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid timedelta"):
         normalize_timedelta("not an int")  # type: ignore[arg-type]
 
 

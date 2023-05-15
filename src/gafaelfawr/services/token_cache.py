@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
 
 from safir.datetime import current_datetime, format_datetime_for_logging
 from structlog.stdlib import BoundLogger
@@ -95,7 +94,7 @@ class TokenCacheService:
         scopes: list[str],
         ip_address: str,
         *,
-        minimum_lifetime: Optional[timedelta] = None,
+        minimum_lifetime: timedelta | None = None,
     ) -> Token:
         """Retrieve or create an internal token.
 
@@ -146,7 +145,7 @@ class TokenCacheService:
         token_data: TokenData,
         ip_address: str,
         *,
-        minimum_lifetime: Optional[timedelta] = None,
+        minimum_lifetime: timedelta | None = None,
     ) -> Token:
         """Retrieve or create a notebook token.
 
@@ -191,7 +190,7 @@ class TokenCacheService:
         service: str,
         scopes: list[str],
         ip_address: str,
-        minimum_lifetime: Optional[timedelta] = None,
+        minimum_lifetime: timedelta | None = None,
     ) -> Token:
         """Retrieve or create a new internal token.
 
@@ -283,7 +282,7 @@ class TokenCacheService:
         self,
         token_data: TokenData,
         ip_address: str,
-        minimum_lifetime: Optional[timedelta] = None,
+        minimum_lifetime: timedelta | None = None,
     ) -> Token:
         """Retrieve or create a notebook token.
 
@@ -362,8 +361,8 @@ class TokenCacheService:
     async def _is_token_valid(
         self,
         token: Token | None,
-        minimum_lifetime: Optional[timedelta] = None,
-        scopes: Optional[list[str]] = None,
+        minimum_lifetime: timedelta | None = None,
+        scopes: list[str] | None = None,
     ) -> bool:
         """Check whether a token is valid.
 
@@ -409,7 +408,7 @@ class TokenCacheService:
     def _minimum_expiration(
         self,
         token_data: TokenData,
-        minimum_lifetime: Optional[timedelta] = None,
+        minimum_lifetime: timedelta | None = None,
     ) -> datetime:
         """Determine the minimum expiration for a child token.
 

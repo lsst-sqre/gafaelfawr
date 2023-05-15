@@ -104,11 +104,11 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     # Python API webapp.
     static_path = os.getenv(
         "GAFAELFAWR_UI_PATH",
-        Path(__file__).parent.parent.parent / "ui" / "public",
+        str(Path(__file__).parent.parent.parent / "ui" / "public"),
     )
     app.mount(
         "/auth/tokens",
-        StaticFiles(directory=str(static_path), html=True, check_dir=False),
+        StaticFiles(directory=static_path, html=True, check_dir=False),
     )
 
     # Load configuration if it is available to us and configure Uvicorn

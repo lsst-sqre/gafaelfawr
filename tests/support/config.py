@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from cryptography.fernet import Fernet
 from safir.logging import Profile, configure_logging
@@ -82,7 +81,7 @@ def build_config(
     tmp_path: Path,
     template: str,
     *,
-    oidc_clients: Optional[list[OIDCClient]] = None,
+    oidc_clients: list[OIDCClient] | None = None,
     **settings: str,
 ) -> Path:
     """Generate a test Gafaelfawr configuration file with secrets.
@@ -166,7 +165,7 @@ def configure(
     tmp_path: Path,
     template: str,
     *,
-    oidc_clients: Optional[list[OIDCClient]] = None,
+    oidc_clients: list[OIDCClient] | None = None,
     **settings: str,
 ) -> Config:
     """Change the test application configuration.
@@ -218,9 +217,9 @@ def configure(
 async def reconfigure(
     tmp_path: Path,
     template: str,
-    factory: Optional[Factory] = None,
+    factory: Factory | None = None,
     *,
-    oidc_clients: Optional[list[OIDCClient]] = None,
+    oidc_clients: list[OIDCClient] | None = None,
     **settings: str,
 ) -> Config:
     """Change the test application configuration.

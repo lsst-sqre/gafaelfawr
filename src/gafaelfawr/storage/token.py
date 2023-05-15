@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional, cast
+from datetime import datetime
+from typing import cast
 
 from safir.database import datetime_to_db
+from safir.datetime import current_datetime
 from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy import delete
@@ -44,9 +45,9 @@ class TokenDatabaseStore:
         self,
         data: TokenData,
         *,
-        token_name: Optional[str] = None,
-        service: Optional[str] = None,
-        parent: Optional[str] = None,
+        token_name: str | None = None,
+        service: str | None = None,
+        parent: str | None = None,
     ) -> None:
         """Store a new token.
 
@@ -109,7 +110,7 @@ class TokenDatabaseStore:
         list of TokenInfo
             The deleted tokens.
         """
-        now = datetime.utcnow()
+        now = datetime_to_db(current_datetime())
 
         # Start by finding all tokens that have expired and gather their
         # information, which in turn will be used to construct history entries
@@ -268,7 +269,7 @@ class TokenDatabaseStore:
         return await self._session.scalar(stmt)
 
     async def list_tokens(
-        self, *, username: Optional[str] = None
+        self, *, username: str | None = None
     ) -> list[TokenInfo]:
         """List tokens.
 
@@ -345,9 +346,9 @@ class TokenDatabaseStore:
         self,
         key: str,
         *,
-        token_name: Optional[str] = None,
-        scopes: Optional[list[str]] = None,
-        expires: Optional[datetime] = None,
+        token_name: str | None = None,
+        scopes: list[str] | None = None,
+        expires: datetime | None = None,
         no_expire: bool = False,
     ) -> TokenInfo | None:
         """Modify a token.
@@ -508,7 +509,7 @@ class TokenRedisStore:
         try:
             data = await self._storage.get(key)
         except DeserializeError as e:
-            self._logger.error("Cannot retrieve token", error=str(e))
+            self._logger.exception("Cannot retrieve token", error=str(e))
             if self._slack:
                 await self._slack.post_exception(e)
             return None
@@ -537,6 +538,6 @@ class TokenRedisStore:
         """
         lifetime = None
         if data.expires:
-            now = datetime.now(tz=timezone.utc)
+            now = current_datetime()
             lifetime = int((data.expires - now).total_seconds())
         await self._storage.store(data.token.key, data, lifetime)

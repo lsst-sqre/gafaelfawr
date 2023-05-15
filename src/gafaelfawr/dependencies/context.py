@@ -7,7 +7,7 @@ including from dependencies.
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import Depends, HTTPException, Request
 from safir.dependencies.db_session import db_session_dependency
@@ -56,12 +56,12 @@ class RequestContext:
 
     @property
     def state(self) -> State:
-        """Convenience property to access the cookie state."""
+        """User cookie state."""
         return self.request.state.cookie
 
     @state.setter
     def state(self, state: State) -> None:
-        """Convenience property to set the cookie state."""
+        """Set the cookie state."""
         self.request.state.cookie = state
 
     def rebind_logger(self, **values: Any) -> None:
@@ -86,8 +86,8 @@ class ContextDependency:
     """
 
     def __init__(self) -> None:
-        self._config: Optional[Config] = None
-        self._process_context: Optional[ProcessContext] = None
+        self._config: Config | None = None
+        self._process_context: ProcessContext | None = None
 
     async def __call__(
         self,
@@ -95,7 +95,7 @@ class ContextDependency:
         session: async_scoped_session = Depends(db_session_dependency),
         logger: BoundLogger = Depends(logger_dependency),
     ) -> RequestContext:
-        """Creates a per-request context and returns it."""
+        """Create a per-request context and return it."""
         if not self._config or not self._process_context:
             raise RuntimeError("ContextDependency not initialized")
         if request.client and request.client.host:

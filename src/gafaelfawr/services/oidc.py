@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 import jwt
+from safir.datetime import current_datetime
 from safir.redis import DeserializeError
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -15,8 +15,10 @@ from ..constants import ALGORITHM
 from ..exceptions import (
     InvalidClientError,
     InvalidGrantError,
+    InvalidRequestError,
     InvalidTokenError,
     UnauthorizedClientError,
+    UnsupportedGrantTypeError,
 )
 from ..models.oidc import (
     JWKS,
@@ -75,7 +77,7 @@ class OIDCService:
         config: OIDCServerConfig,
         authorization_store: OIDCAuthorizationStore,
         token_service: TokenService,
-        slack_client: Optional[SlackWebhookClient] = None,
+        slack_client: SlackWebhookClient | None = None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
@@ -167,7 +169,7 @@ class OIDCService:
         OIDCVerifiedToken
             The new token.
         """
-        now = datetime.now(timezone.utc)
+        now = current_datetime()
         expires = now + self._config.lifetime
         payload: dict[str, Any] = {
             "aud": self._config.audience,
@@ -192,20 +194,28 @@ class OIDCService:
 
     async def redeem_code(
         self,
-        client_id: str,
+        *,
+        grant_type: str | None,
+        client_id: str | None,
         client_secret: str | None,
-        redirect_uri: str,
-        code: OIDCAuthorizationCode,
+        redirect_uri: str | None,
+        code: str | None,
     ) -> OIDCVerifiedToken:
         """Redeem an authorization code.
 
+        None of the parameters may be `None` in practice, but `None` is
+        accepted and rejected wih an exception so that error handling can be
+        unified.
+
         Parameters
         ----------
+        grant_type
+            Type of token grant requested.
         client_id
-            The client ID of the OpenID Connect client.
+            Client ID of the OpenID Connect client.
         client_secret
-            The secret for that client.  A secret of `None` will never be
-            valid, but is accepted so that error handling can be unified.
+            Secret for that client.  A secret of `None` will never be valid,
+            but is accepted so that error handling can be unified.
         redirect_uri
             The return URI of the OpenID Connect client.
         code
@@ -219,34 +229,43 @@ class OIDCService:
         Raises
         ------
         InvalidClientError
-            If the client ID is not known or the client secret does not match
-            the client ID.
+            Raised if the client ID is not known or the client secret does not
+            match the client ID.
         InvalidGrantError
-            If the code is not valid, the client is not allowed to use it,
-            or the underlying authorization or session does not exist.
+            Raised if the code is not valid, the client is not allowed to use
+            it, or the underlying authorization or session does not exist.
+        InvalidRequestError
+            Raised if the token redemption request is syntactically invalid.
+        UnsupportedGrantTypeError
+            Raised if the requested grant type isn't supported.
         """
+        if not grant_type or not client_id or not code or not redirect_uri:
+            raise InvalidRequestError("Invalid token request")
+        if grant_type != "authorization_code":
+            raise UnsupportedGrantTypeError(f"Invalid grant type {grant_type}")
+        auth_code = OIDCAuthorizationCode.from_str(code)
         self._check_client_secret(client_id, client_secret)
         try:
-            authorization = await self._authorization_store.get(code)
+            authorization = await self._authorization_store.get(auth_code)
         except DeserializeError as e:
-            msg = f"Cannot get authorization for {code.key}: {str(e)}"
+            msg = f"Cannot get authorization for {auth_code.key}: {e!s}"
             self._logger.exception(msg)
             if self._slack:
                 await self._slack.post_exception(e)
             raise InvalidGrantError(msg) from e
         if not authorization:
-            msg = f"Unknown authorization code {code.key}"
+            msg = f"Unknown authorization code {auth_code.key}"
             raise InvalidGrantError(msg)
 
         if authorization.client_id != client_id:
             msg = (
-                f"Authorization client ID mismatch for {code.key}:"
+                f"Authorization client ID mismatch for {auth_code.key}:"
                 f" {authorization.client_id} != {client_id}"
             )
             raise InvalidGrantError(msg)
         if authorization.redirect_uri != redirect_uri:
             msg = (
-                f"Authorization redirect URI mismatch for {code.key}:"
+                f"Authorization redirect URI mismatch for {auth_code.key}:"
                 f" {authorization.redirect_uri} != {redirect_uri}"
             )
             raise InvalidGrantError(msg)
@@ -255,13 +274,13 @@ class OIDCService:
             authorization.token
         )
         if not user_info:
-            msg = f"Invalid underlying token for authorization {code.key}"
+            msg = f"Invalid underlying token for authorization {auth_code.key}"
             raise InvalidGrantError(msg)
-        token = self.issue_token(user_info, jti=code.key, scope="openid")
+        token = self.issue_token(user_info, jti=auth_code.key, scope="openid")
 
         # The code is valid and we're going to return success, so delete it
         # from Redis so that it cannot be reused.
-        await self._authorization_store.delete(code)
+        await self._authorization_store.delete(auth_code)
         return token
 
     def verify_token(self, token: OIDCToken) -> OIDCVerifiedToken:
@@ -296,7 +315,7 @@ class OIDCService:
         except jwt.InvalidTokenError as e:
             raise InvalidTokenError(str(e)) from e
         except KeyError as e:
-            raise InvalidTokenError(f"Missing claim {str(e)}") from e
+            raise InvalidTokenError(f"Missing claim {e!s}") from e
 
     def _check_client_secret(
         self, client_id: str, client_secret: str | None

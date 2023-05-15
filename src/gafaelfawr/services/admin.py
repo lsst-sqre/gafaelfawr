@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime, timezone
 
+from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import PermissionDeniedError
@@ -66,7 +66,7 @@ class AdminService:
             action=AdminChange.add,
             actor=actor,
             ip_address=ip_address,
-            event_time=datetime.now(timezone.utc),
+            event_time=current_datetime(),
         )
         await self._admin_store.add(admin)
         await self._admin_history_store.add(history_entry)
@@ -122,7 +122,7 @@ class AdminService:
             action=AdminChange.remove,
             actor=actor,
             ip_address=ip_address,
-            event_time=datetime.now(timezone.utc),
+            event_time=current_datetime(),
         )
         if await self.get_admins() == [admin]:
             raise PermissionDeniedError("Cannot delete the last admin")
@@ -137,11 +137,11 @@ class AdminService:
         return await self._admin_store.list()
 
     async def is_admin(self, username: str) -> bool:
-        """Returns whether the given user is a token administrator.
+        """Return whether the given user is a token administrator.
 
         Parameters
         ----------
         username
             Username to check.
         """
-        return any((username == a.username for a in await self.get_admins()))
+        return any(username == a.username for a in await self.get_admins())

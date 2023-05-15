@@ -65,6 +65,7 @@ async def assert_secret_token_matches_spec(
     name: str,
     namespace: str,
     spec: GafaelfawrServiceTokenSpec,
+    *,
     is_fresh: bool = True,
 ) -> None:
     token_service = factory.create_token_service()
@@ -91,6 +92,7 @@ async def assert_secrets_match(
     factory: Factory,
     api_client: ApiClient,
     tokens: list[dict[str, Any]],
+    *,
     is_fresh: bool = True,
 ) -> None:
     for token in tokens:

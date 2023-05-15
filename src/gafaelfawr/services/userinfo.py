@@ -76,7 +76,7 @@ class UserInfoService:
         self._firestore = firestore
         self._logger = logger
 
-    async def get_user_info_from_token(
+    async def get_user_info_from_token(  # noqa: PLR0912,C901
         self, token_data: TokenData
     ) -> TokenUserInfo:
         """Get the user information from a token.
@@ -151,7 +151,7 @@ class UserInfoService:
             # the groups array, since it may be cached in the LDAP cache
             # and modifying it would modify the cache.
             if self._config.ldap and self._config.ldap.add_user_group and uid:
-                groups = groups + [TokenGroup(name=username, id=uid)]
+                groups = [*groups, TokenGroup(name=username, id=uid)]
                 if not gid:
                     gid = uid
 
@@ -195,7 +195,7 @@ class UserInfoService:
         else:
             groups = []
 
-        scopes = set(["user:token"])
+        scopes = {"user:token"}
         found = False
         for group in groups:
             if group in self._config.group_mapping:
@@ -444,8 +444,8 @@ class OIDCUserInfoService(UserInfoService):
             e.user = username
             raise
         except TypeError as e:
-            msg = f"{claim} claim has invalid format: {str(e)}"
-            self._logger.error(
+            msg = f"{claim} claim has invalid format: {e!s}"
+            self._logger.exception(
                 "Unable to get groups from token",
                 error=msg,
                 claim=token.claims.get(claim, []),

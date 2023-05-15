@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Self
+from typing import Any, Self
 
 from pydantic import BaseModel, Field, validator
 from safir.datetime import current_datetime
@@ -148,7 +148,7 @@ class TokenGroup(BaseModel):
         regex=GROUPNAME_REGEX,
     )
 
-    id: Optional[int] = Field(
+    id: int | None = Field(
         None,
         title="Numeric GID of the group",
         example=123181,
@@ -187,7 +187,7 @@ class Quota(BaseModel):
         },
     )
 
-    notebook: Optional[NotebookQuota] = Field(
+    notebook: NotebookQuota | None = Field(
         None, title="Notebook Aspect quotas"
     )
 
@@ -240,7 +240,7 @@ class TokenBase(BaseModel):
         example=1614986130,
     )
 
-    expires: Optional[datetime] = Field(
+    expires: datetime | None = Field(
         None,
         title="Expiration time",
         description="Expiration timestamp of the token in seconds since epoch",
@@ -267,7 +267,7 @@ class TokenInfo(TokenBase):
         max_length=22,
     )
 
-    token_name: Optional[str] = Field(
+    token_name: str | None = Field(
         None,
         title="User-given name of the token",
         example="laptop token",
@@ -275,7 +275,7 @@ class TokenInfo(TokenBase):
         max_length=64,
     )
 
-    service: Optional[str] = Field(
+    service: str | None = Field(
         None,
         title="Service",
         description=(
@@ -287,14 +287,14 @@ class TokenInfo(TokenBase):
         max_length=64,
     )
 
-    last_used: Optional[datetime] = Field(
+    last_used: datetime | None = Field(
         None,
         title="Last used",
         description="When the token was last used in seconds since epoch",
         example=1614986130,
     )
 
-    parent: Optional[str] = Field(
+    parent: str | None = Field(
         None,
         title="Parent token",
         example="DGO1OnPohl0r3C7wqhzRgQ",
@@ -328,23 +328,23 @@ class TokenUserInfo(BaseModel):
         max_length=64,
     )
 
-    name: Optional[str] = Field(
+    name: str | None = Field(
         None,
         title="Preferred full name",
         example="Alice Example",
         min_length=1,
     )
 
-    email: Optional[str] = Field(
+    email: str | None = Field(
         None,
         title="Email address",
         example="alice@example.com",
         min_length=1,
     )
 
-    uid: Optional[int] = Field(None, title="UID number", example=4123, ge=1)
+    uid: int | None = Field(None, title="UID number", example=4123, ge=1)
 
-    gid: Optional[int] = Field(
+    gid: int | None = Field(
         None,
         title="Primary GID",
         description=(
@@ -355,13 +355,13 @@ class TokenUserInfo(BaseModel):
         ge=1,
     )
 
-    groups: Optional[list[TokenGroup]] = Field(
+    groups: list[TokenGroup] | None = Field(
         None,
         title="Groups",
         description="Groups of which the user is a member",
     )
 
-    quota: Optional[Quota] = Field(None, title="Quota")
+    quota: Quota | None = Field(None, title="Quota")
 
     def to_userinfo_dict(self) -> dict[str, Any]:
         """Convert to a dictionary for logging purposes.
@@ -426,7 +426,7 @@ class TokenData(TokenBase, TokenUserInfo):
             username="<bootstrap>",
             token_type=TokenType.service,
             scopes=["admin:token"],
-            created=datetime.now(tz=timezone.utc),
+            created=current_datetime(),
         )
 
     @classmethod
@@ -446,7 +446,7 @@ class TokenData(TokenBase, TokenUserInfo):
             username="<internal>",
             token_type=TokenType.service,
             scopes=["admin:token"],
-            created=datetime.now(tz=timezone.utc),
+            created=current_datetime(),
         )
 
 
@@ -490,7 +490,7 @@ class AdminTokenRequest(BaseModel):
         example="service",
     )
 
-    token_name: Optional[str] = Field(
+    token_name: str | None = Field(
         None,
         title="User-given name of the token",
         description="Only provide this field for a token type of `user`",
@@ -505,7 +505,7 @@ class AdminTokenRequest(BaseModel):
         example=["read:all"],
     )
 
-    expires: Optional[datetime] = Field(
+    expires: datetime | None = Field(
         None,
         title="Token expiration",
         description=(
@@ -515,7 +515,7 @@ class AdminTokenRequest(BaseModel):
         example=1616986130,
     )
 
-    name: Optional[str] = Field(
+    name: str | None = Field(
         None,
         title="Preferred full name",
         description=(
@@ -526,7 +526,7 @@ class AdminTokenRequest(BaseModel):
         min_length=1,
     )
 
-    email: Optional[str] = Field(
+    email: str | None = Field(
         None,
         title="Email address",
         description=(
@@ -537,7 +537,7 @@ class AdminTokenRequest(BaseModel):
         min_length=1,
     )
 
-    uid: Optional[int] = Field(
+    uid: int | None = Field(
         None,
         title="UID number",
         description=(
@@ -549,7 +549,7 @@ class AdminTokenRequest(BaseModel):
         ge=1,
     )
 
-    gid: Optional[int] = Field(
+    gid: int | None = Field(
         None,
         title="Primary GID",
         description=(
@@ -562,7 +562,7 @@ class AdminTokenRequest(BaseModel):
         ge=1,
     )
 
-    groups: Optional[list[TokenGroup]] = Field(
+    groups: list[TokenGroup] | None = Field(
         None,
         title="Groups",
         description=(
@@ -609,7 +609,7 @@ class UserTokenRequest(BaseModel):
         example=["read:all"],
     )
 
-    expires: Optional[datetime] = Field(
+    expires: datetime | None = Field(
         None,
         title="Expiration time",
         description="Expiration timestamp of the token in seconds since epoch",
@@ -624,7 +624,7 @@ class UserTokenModifyRequest(BaseModel):
     ``token_name`` field is optional on modify requests.
     """
 
-    token_name: Optional[str] = Field(
+    token_name: str | None = Field(
         None,
         title="User-given name of the token",
         example="laptop token",
@@ -632,11 +632,11 @@ class UserTokenModifyRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: Optional[list[str]] = Field(
+    scopes: list[str] | None = Field(
         None, title="Token scopes", example=["read:all"]
     )
 
-    expires: Optional[datetime] = Field(
+    expires: datetime | None = Field(
         None,
         title="Expiration time",
         description=(

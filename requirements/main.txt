@@ -113,7 +113,9 @@ anyio==3.6.2 \
 async-timeout==4.0.2 \
     --hash=sha256:2163e1640ddb52b7a8c80d0a67a08587e5d245cc9c553a74a847056bc2976b15 \
     --hash=sha256:8ca1e4fcf50d07413d66d1a5e416e42cfdf5851c981d679a09851a6853383b3c
-    # via aiohttp
+    # via
+    #   aiohttp
+    #   redis
 asyncpg==0.27.0 \
     --hash=sha256:16ba8ec2e85d586b4a12bcd03e8d29e3d99e832764d6a1d0b8c27dbbe4a2569d \
     --hash=sha256:18f77e8e71e826ba2d0c3ba6764930776719ae2b225ca07e014590545928b576 \

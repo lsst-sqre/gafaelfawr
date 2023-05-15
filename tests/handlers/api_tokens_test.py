@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import ANY
 
@@ -325,11 +325,11 @@ async def test_token_info(
         "created": ANY,
         "expires": ANY,
     }
-    now = datetime.now(tz=timezone.utc)
-    created = datetime.fromtimestamp(data["created"], tz=timezone.utc)
+    now = current_datetime()
+    created = datetime.fromtimestamp(data["created"], tz=UTC)
     assert now - timedelta(seconds=5) <= created <= now
     expires = created + config.token_lifetime
-    assert datetime.fromtimestamp(data["expires"], tz=timezone.utc) == expires
+    assert datetime.fromtimestamp(data["expires"], tz=UTC) == expires
 
     r = await client.get(
         "/auth/api/v1/user-info",
@@ -751,7 +751,7 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
     assert "expires" not in r.json()
 
     # Create a user token with an expiration and then adjust it to not expire.
-    now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+    now = current_datetime()
     expires = now + timedelta(days=2)
     r = await client.post(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -765,7 +765,8 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
     user_token = Token.from_str(r.json()["token"])
     token_service = factory.create_token_service()
     user_token_data = await token_service.get_data(user_token)
-    assert user_token_data and user_token_data.expires == expires
+    assert user_token_data
+    assert user_token_data.expires == expires
     token_url = r.headers["Location"]
 
     r = await client.get(token_url)
@@ -779,7 +780,8 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
 
     # Check that the expiration was also changed in Redis.
     user_token_data = await token_service.get_data(user_token)
-    assert user_token_data and user_token_data.expires is None
+    assert user_token_data
+    assert user_token_data.expires is None
 
 
 @pytest.mark.asyncio
@@ -952,7 +954,7 @@ async def test_create_admin(
     # Intentionally pass in a datetime with microseconds. They should be
     # stripped off so that the expiration is rounded to seconds, which we will
     # check when examining the log message.
-    now = datetime.now(tz=timezone.utc)
+    now = current_datetime(microseconds=True)
     expires = now + timedelta(days=2)
     caplog.clear()
     r = await client.post(
@@ -1009,7 +1011,7 @@ async def test_create_admin(
     clear_session_cookie(client)
     r = await client.get(
         "/auth/api/v1/token-info",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
     )
     assert r.status_code == 200
     assert r.json() == {
@@ -1022,7 +1024,7 @@ async def test_create_admin(
     }
     r = await client.get(
         "/auth/api/v1/user-info",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
     )
     assert r.status_code == 200
     assert r.json() == {
@@ -1038,31 +1040,31 @@ async def test_create_admin(
     caplog.clear()
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
         json={"username": "a-user", "token_type": "session"},
     )
     assert r.status_code == 422
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
         json={"username": "a-user", "token_type": "user"},
     )
     assert r.status_code == 422
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
         json={
             "username": "a-user",
             "token_type": "user",
             "token_name": "some token",
-            "expires": int(datetime.now(tz=timezone.utc).timestamp()),
+            "expires": int(current_datetime().timestamp()),
         },
     )
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "invalid_expires"
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
         json={
             "username": "a-user",
             "token_type": "user",
@@ -1076,7 +1078,7 @@ async def test_create_admin(
     # Create a new token for another user.
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
         json={
             "username": "a-user",
             "token_type": "user",
@@ -1114,7 +1116,7 @@ async def test_create_admin(
     # Check the API information about that token.
     r = await client.get(
         "/auth/api/v1/token-info",
-        headers={"Authorization": f"bearer {str(user_token)}"},
+        headers={"Authorization": f"bearer {user_token!s}"},
     )
     assert r.status_code == 200
     assert r.json() == {
@@ -1127,7 +1129,7 @@ async def test_create_admin(
     }
     r = await client.get(
         "/auth/api/v1/user-info",
-        headers={"Authorization": f"bearer {str(user_token)}"},
+        headers={"Authorization": f"bearer {user_token!s}"},
     )
     assert r.status_code == 200
     assert r.json() == {"username": "a-user"}
@@ -1135,7 +1137,7 @@ async def test_create_admin(
     # Check handling of duplicate token name errors.
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
         json={
             "username": "a-user",
             "token_type": "user",
@@ -1148,7 +1150,7 @@ async def test_create_admin(
     # Check handling of an invalid username.
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
         json={
             "username": "invalid(user)",
             "token_type": "user",
@@ -1160,7 +1162,7 @@ async def test_create_admin(
     # Check that the bootstrap token also works.
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {str(config.bootstrap_token)}"},
+        headers={"Authorization": f"bearer {config.bootstrap_token!s}"},
         json={"username": "bot-other-service", "token_type": "service"},
     )
     assert r.status_code == 201
@@ -1197,7 +1199,7 @@ async def test_create_admin_ldap(
     )
 
     # Create a new service token with no user metadata.
-    now = datetime.now(tz=timezone.utc)
+    now = current_datetime()
     expires = int((now + timedelta(days=2)).timestamp())
     r = await client.post(
         "/auth/api/v1/tokens",
@@ -1217,7 +1219,7 @@ async def test_create_admin_ldap(
     clear_session_cookie(client)
     r = await client.get(
         "/auth/api/v1/user-info",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
     )
     assert r.status_code == 200
     assert r.json() == {
@@ -1252,7 +1254,7 @@ async def test_create_admin_ldap(
     clear_session_cookie(client)
     r = await client.get(
         "/auth/api/v1/user-info",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
     )
     assert r.status_code == 200
     assert r.json() == {
@@ -1283,7 +1285,7 @@ async def test_create_admin_ldap(
     clear_session_cookie(client)
     r = await client.get(
         "/auth/api/v1/user-info",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
     )
     assert r.status_code == 200
     assert r.json() == {"username": "other-user", "groups": []}
@@ -1304,7 +1306,7 @@ async def test_create_admin_firestore(
     csrf = await set_session_cookie(client, token_data.token)
 
     # Create a new service token with no user metadata.
-    now = datetime.now(tz=timezone.utc)
+    now = current_datetime()
     expires = int((now + timedelta(days=2)).timestamp())
     r = await client.post(
         "/auth/api/v1/tokens",
@@ -1322,7 +1324,7 @@ async def test_create_admin_firestore(
     clear_session_cookie(client)
     r = await client.get(
         "/auth/api/v1/user-info",
-        headers={"Authorization": f"bearer {str(service_token)}"},
+        headers={"Authorization": f"bearer {service_token!s}"},
     )
     assert r.status_code == 200
     assert r.json() == {"username": "bot-user", "uid": UID_BOT_MIN}

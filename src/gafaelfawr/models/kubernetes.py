@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Literal, Optional, Self
+from typing import Any, Literal, Self
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -68,10 +68,10 @@ class KubernetesMetadata(CamelCaseModel):
     namespace: str
     """The namespace in which the object is located."""
 
-    annotations: Optional[dict[str, str]] = None
+    annotations: dict[str, str] | None = None
     """The annotations of the object."""
 
-    labels: Optional[dict[str, str]] = None
+    labels: dict[str, str] | None = None
     """The labels of the object."""
 
     uid: str
@@ -136,13 +136,13 @@ class GafaelfawrIngressDelegateNotebook(CamelCaseModel):
 class GafaelfawrIngressDelegate(CamelCaseModel):
     """Configuration for delegated tokens requested for a service."""
 
-    notebook: Optional[GafaelfawrIngressDelegateNotebook] = None
+    notebook: GafaelfawrIngressDelegateNotebook | None = None
     """Whether the delegated token requested is a notebook token."""
 
-    internal: Optional[GafaelfawrIngressDelegateInternal] = None
+    internal: GafaelfawrIngressDelegateInternal | None = None
     """Configuration for a delegated internal token."""
 
-    minimum_lifetime: Optional[timedelta] = None
+    minimum_lifetime: timedelta | None = None
     """The minimum lifetime of the delegated token."""
 
     use_authorization: bool = False
@@ -253,10 +253,10 @@ class GafaelfawrIngressConfig(CamelCaseModel):
     base_url: str
     """The base URL for Gafaelfawr URLs in Ingress annotations."""
 
-    auth_type: Optional[AuthType] = None
+    auth_type: AuthType | None = None
     """Auth type of challenge for 401 responses."""
 
-    delegate: Optional[GafaelfawrIngressDelegate] = None
+    delegate: GafaelfawrIngressDelegate | None = None
     """Details of the requested delegated token, if any."""
 
     login_redirect: bool = False
@@ -308,7 +308,7 @@ class GafaelfawrIngressMetadata(CamelCaseModel):
     annotations: dict[str, str] = Field(default_factory=dict)
     """Annotations to add to the ingress."""
 
-    labels: Optional[dict[str, str]] = None
+    labels: dict[str, str] | None = None
     """Labels to add to the ingress."""
 
 
@@ -450,7 +450,7 @@ class GafaelfawrIngressSpec(CamelCaseModel):
     rules: list[GafaelfawrIngressRule]
     """The ingress routing rules."""
 
-    tls: Optional[list[GafaelfawrIngressTLS]] = None
+    tls: list[GafaelfawrIngressTLS] | None = None
     """The TLS certificate rules."""
 
 

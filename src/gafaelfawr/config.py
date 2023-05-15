@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
 from pathlib import Path
-from typing import Any, Optional, Self
+from typing import Any, Self
 
 import yaml
 from pydantic import AnyHttpUrl, IPvAnyNetwork, root_validator, validator
@@ -88,7 +88,7 @@ class OIDCSettings(CamelCaseModel):
     token_url: AnyHttpUrl
     """URL at which to redeem the authentication code for a token."""
 
-    enrollment_url: Optional[AnyHttpUrl] = None
+    enrollment_url: AnyHttpUrl | None = None
     """URL to which the user should be redirected if not enrolled.
 
     If LDAP username lookup is configured (using ``ldap.username_base_dn``)
@@ -115,7 +115,7 @@ class OIDCSettings(CamelCaseModel):
     uid_claim: str = "uidNumber"
     """Name of claim to use as the UID."""
 
-    gid_claim: Optional[str] = None
+    gid_claim: str | None = None
     """Name of claim to use as the primary GID."""
 
     groups_claim: str = "isMemberOf"
@@ -132,7 +132,7 @@ class LDAPSettings(CamelCaseModel):
     supported.
     """
 
-    user_dn: Optional[str] = None
+    user_dn: str | None = None
     """Simple bind user DN for the LDAP server."""
 
     use_kerberos: bool = False
@@ -143,7 +143,7 @@ class LDAPSettings(CamelCaseModel):
     simple binds instead of GSSAPI binds, to make testing easier.
     """
 
-    password_file: Optional[Path] = None
+    password_file: Path | None = None
     """File containing simple bind password for the LDAP server."""
 
     group_base_dn: str
@@ -163,7 +163,7 @@ class LDAPSettings(CamelCaseModel):
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
-    user_base_dn: Optional[str] = None
+    user_base_dn: str | None = None
     """Base DN to use to search for user information.
 
     If set, the base DN used to search for the user record, from which other
@@ -179,7 +179,7 @@ class LDAPSettings(CamelCaseModel):
     is the LDAP convention for the attribute holding the username.
     """
 
-    name_attr: Optional[str] = "displayName"
+    name_attr: str | None = "displayName"
     """LDAP full name attribute.
 
     The attribute from which the user's full name will be taken, or `None` to
@@ -190,7 +190,7 @@ class LDAPSettings(CamelCaseModel):
     concepts anyway).
     """
 
-    email_attr: Optional[str] = "mail"
+    email_attr: str | None = "mail"
     """LDAP email attribute.
 
     The attribute from which the user's email address should be taken, or
@@ -198,7 +198,7 @@ class LDAPSettings(CamelCaseModel):
     ``mail``.
     """
 
-    uid_attr: Optional[str] = None
+    uid_attr: str | None = None
     """LDAP UID attribute.
 
     If set, the user's UID will be taken from this sttribute.  If UID lookups
@@ -207,7 +207,7 @@ class LDAPSettings(CamelCaseModel):
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
-    gid_attr: Optional[str] = None
+    gid_attr: str | None = None
     """LDAP GID attirbute.
 
     If set, the user's primary GID will be taken from this sttribute.  If GID
@@ -286,7 +286,7 @@ class QuotaGrantSettings(CamelCaseModel):
     api: dict[str, int] = {}
     """Mapping of service names to quota of requests per 15 minutes."""
 
-    notebook: Optional[NotebookQuotaSettings] = None
+    notebook: NotebookQuotaSettings | None = None
     """Quota settings for the Notebook Aspect."""
 
 
@@ -327,16 +327,16 @@ class Settings(CamelCaseModel):
     redis_url: str
     """URL for the Redis server that stores sessions."""
 
-    redis_password_file: Optional[Path] = None
+    redis_password_file: Path | None = None
     """File containing the password to use when connecting to Redis."""
 
     database_url: str
     """URL for the PostgreSQL database."""
 
-    database_password_file: Optional[Path] = None
+    database_password_file: Path | None = None
     """File containing the password for the PostgreSQL database."""
 
-    bootstrap_token_file: Optional[Path] = None
+    bootstrap_token_file: Path | None = None
     """File containing the bootstrap authentication token.
 
     This token can be used with specific routes in the admin API to change the
@@ -346,7 +346,7 @@ class Settings(CamelCaseModel):
     token_lifetime_minutes: int = 1380  # 23 hours
     """Number of minutes into the future that a token should expire."""
 
-    proxies: Optional[list[IPvAnyNetwork]]
+    proxies: list[IPvAnyNetwork] | None
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
     If this is set to a non-empty list, it will be used as the trusted list of
@@ -361,31 +361,31 @@ class Settings(CamelCaseModel):
     after_logout_url: AnyHttpUrl
     """Default URL to which to send the user after logging out."""
 
-    error_footer: Optional[str] = None
+    error_footer: str | None = None
     """HTML to add (inside ``<p>``) to login error pages."""
 
-    slack_webhook_file: Optional[Path] = None
+    slack_webhook_file: Path | None = None
     """File containing the Slack webhook to which to post alerts."""
 
-    github: Optional[GitHubSettings] = None
+    github: GitHubSettings | None = None
     """Settings for the GitHub authentication provider."""
 
-    oidc: Optional[OIDCSettings] = None
+    oidc: OIDCSettings | None = None
     """Settings for the OpenID Connect authentication provider."""
 
-    ldap: Optional[LDAPSettings] = None
+    ldap: LDAPSettings | None = None
     """Settings for the LDAP-based group lookups with OIDC provider."""
 
-    firestore: Optional[FirestoreSettings] = None
+    firestore: FirestoreSettings | None = None
     """Settings for Firestore-based UID/GID assignment."""
 
-    forgerock: Optional[ForgeRockSettings] = None
+    forgerock: ForgeRockSettings | None = None
     """Settings for ForgeRock Identity Management server."""
 
-    oidc_server: Optional[OIDCServerSettings] = None
+    oidc_server: OIDCServerSettings | None = None
     """Settings for the internal OpenID Connect server."""
 
-    quota: Optional[QuotaSettings] = None
+    quota: QuotaSettings | None = None
     """Quota for users."""
 
     initial_admins: list[str]
@@ -405,7 +405,7 @@ class Settings(CamelCaseModel):
 
     @validator("known_scopes")
     def _valid_known_scopes(cls, v: dict[str, str]) -> dict[str, str]:
-        for scope in v.keys():
+        for scope in v:
             if not re.match(SCOPE_REGEX, scope):
                 raise ValueError(f"invalid scope {scope}")
         for required in ("admin:token", "user:token"):
@@ -414,9 +414,7 @@ class Settings(CamelCaseModel):
         return v
 
     @validator("ldap", always=True)
-    def _valid_ldap_config(
-        cls, v: LDAPSettings | None, values: dict[str, object]
-    ) -> LDAPSettings | None:
+    def _valid_ldap_config(cls, v: LDAPSettings | None) -> LDAPSettings | None:
         """Ensure all fields are non-empty if url is non-empty."""
         if v and v.url and not v.group_base_dn:
             raise ValueError("not all required ldap fields are present")
@@ -428,7 +426,7 @@ class Settings(CamelCaseModel):
     def _convert_github_orgs(cls, v: dict[str, Any]) -> dict[str, list[str]]:
         """Convert GitHub org/team pairs to group names."""
         if not isinstance(v, dict):
-            raise ValueError("group_mapping must be a dictionary")
+            raise TypeError("group_mapping must be a dictionary")
 
         known_keys = {"organization", "team"}
         for scope, groups in v.items():
@@ -438,7 +436,7 @@ class Settings(CamelCaseModel):
                     new_groups.append(group)
                     continue
                 if not isinstance(group, dict):
-                    raise ValueError("group_mapping value not str or dict")
+                    raise TypeError("group_mapping value not str or dict")
                 if list(group.keys()) != ["github"]:
                     raise ValueError("group_mapping key is not github")
                 data = group["github"]
@@ -446,7 +444,7 @@ class Settings(CamelCaseModel):
                     missing = ", ".join(known_keys - set(data.keys()))
                     msg = f"group_mapping value missing key ({missing})"
                     raise ValueError(msg)
-                elif set(data.keys()) != known_keys:
+                if set(data.keys()) != known_keys:
                     unknown = ", ".join(set(data.keys()) - known_keys)
                     msg = f"group_mapping value has unknown key ({unknown})"
                     raise ValueError(msg)
@@ -516,7 +514,7 @@ class OIDCConfig:
     token_url: str
     """URL at which to redeem the authentication code for a token."""
 
-    enrollment_url: Optional[str]
+    enrollment_url: str | None
     """URL to which the user should be redirected if not enrolled.
 
     If LDAP username lookup is configured (using ``ldap.username_base_dn``)
@@ -543,7 +541,7 @@ class OIDCConfig:
     uid_claim: str
     """Token claim from which to take the UID."""
 
-    gid_claim: Optional[str]
+    gid_claim: str | None
     """Token claim from which to take the primary GID."""
 
     groups_claim: str
@@ -565,10 +563,10 @@ class LDAPConfig:
     supported.
     """
 
-    user_dn: Optional[str]
+    user_dn: str | None
     """User DN for simple bind authentication to the LDAP server."""
 
-    password: Optional[str]
+    password: str | None
     """Password for simple bind authentication to the LDAP server."""
 
     use_kerberos: bool
@@ -596,7 +594,7 @@ class LDAPConfig:
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
-    user_base_dn: Optional[str] = None
+    user_base_dn: str | None = None
     """Base DN to use to search for user information.
 
     If set, the base DN used to search for the user record, from which other
@@ -612,7 +610,7 @@ class LDAPConfig:
     is the LDAP convention for the attribute holding the username.
     """
 
-    name_attr: Optional[str] = "displayName"
+    name_attr: str | None = "displayName"
     """LDAP full name attribute.
 
     The attribute from which the user's full name will be taken, or `None` to
@@ -623,7 +621,7 @@ class LDAPConfig:
     concepts anyway).
     """
 
-    email_attr: Optional[str] = "mail"
+    email_attr: str | None = "mail"
     """LDAP email attribute.
 
     The attribute from which the user's email address should be taken, or
@@ -631,7 +629,7 @@ class LDAPConfig:
     ``mail``.
     """
 
-    uid_attr: Optional[str] = None
+    uid_attr: str | None = None
     """LDAP UID attribute.
 
     If set, the user's UID will be taken from this sttribute.  If UID lookups
@@ -640,7 +638,7 @@ class LDAPConfig:
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
-    gid_attr: Optional[str] = None
+    gid_attr: str | None = None
     """LDAP GID attirbute.
 
     If set, the user's primary GID will be taken from this sttribute.  If GID
@@ -738,7 +736,7 @@ class QuotaGrant:
     api: Mapping[str, int]
     """Mapping of service names to quota of requests per 15 minutes."""
 
-    notebook: Optional[NotebookQuota]
+    notebook: NotebookQuota | None
     """Quota settings for the Notebook Aspect."""
 
 
@@ -849,7 +847,7 @@ class Config:
     """Mapping of group names to the set of scopes that group grants."""
 
     @classmethod
-    def from_file(cls, path: Path) -> Self:
+    def from_file(cls, path: Path) -> Self:  # noqa: PLR0912,PLR0915,C901
         """Construct a Config object from a configuration file.
 
         Parameters
@@ -951,10 +949,8 @@ class Config:
             oidc_secrets_json = cls._load_secret(path).decode()
             oidc_secrets = json.loads(oidc_secrets_json)
             oidc_clients = tuple(
-                (
-                    OIDCClient(client_id=c["id"], client_secret=c["secret"])
-                    for c in oidc_secrets
-                )
+                OIDCClient(client_id=c["id"], client_secret=c["secret"])
+                for c in oidc_secrets
             )
             oidc_server_config = OIDCServerConfig(
                 issuer=settings.oidc_server.issuer,

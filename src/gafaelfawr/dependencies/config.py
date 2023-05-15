@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from ..config import Config
 from ..constants import CONFIG_PATH
@@ -26,7 +25,7 @@ class ConfigDependency:
     def __init__(self) -> None:
         config_path = os.getenv("GAFAELFAWR_CONFIG_PATH", CONFIG_PATH)
         self._config_path = Path(config_path)
-        self._config: Optional[Config] = None
+        self._config: Config | None = None
 
     async def __call__(self) -> Config:
         """Load the configuration if necessary and return it."""

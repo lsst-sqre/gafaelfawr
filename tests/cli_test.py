@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -39,7 +39,7 @@ from .support.config import configure
 
 
 async def _initialize_database(engine: AsyncEngine, config: Config) -> None:
-    """Helper function to initialize the database."""
+    """Initialize the database."""
     logger = structlog.get_logger("gafaelfawr")
     await initialize_database(engine, logger, schema=Base.metadata, reset=True)
 
@@ -147,7 +147,11 @@ def test_delete_all_data(
             oidc_service = factory.create_oidc_service()
             with pytest.raises(InvalidGrantError):
                 await oidc_service.redeem_code(
-                    "some-id", "some-secret", "https://example.com/", code
+                    grant_type="authorization_code",
+                    client_id="some-id",
+                    client_secret="some-secret",
+                    redirect_uri="https://example.com/",
+                    code=str(code),
                 )
 
     event_loop.run_until_complete(check_data())
@@ -220,7 +224,7 @@ def test_init(
 def test_maintenance(
     engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
 ) -> None:
-    now = datetime.now(tz=timezone.utc)
+    now = current_datetime()
     token_data = TokenData(
         token=Token(),
         username="some-user",
@@ -288,7 +292,7 @@ def test_openapi_schema(tmp_path: Path) -> None:
         main, ["openapi-schema", "--output", str(tmp_path / "openapi.json")]
     )
     assert result.exit_code == 0
-    assert result.output == ""
+    assert not result.output
     assert (tmp_path / "openapi.json").read_text() == schema
 
     result = runner.invoke(main, ["openapi-schema", "--add-back-link"])

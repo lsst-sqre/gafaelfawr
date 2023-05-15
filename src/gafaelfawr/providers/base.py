@@ -60,7 +60,7 @@ class Provider(metaclass=ABCMeta):
 
     @abstractmethod
     async def logout(self, session: State) -> None:
-        """Called during user logout.
+        """Log out user.
 
         The authentication provider may revoke the upstream authentication
         token or take other action during user logout.

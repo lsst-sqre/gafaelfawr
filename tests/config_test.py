@@ -15,7 +15,7 @@ from gafaelfawr.models.token import Token
 from .support.config import build_config, config_path
 
 
-def parse_config(path: Path, fix_token: bool = False) -> None:
+def parse_config(path: Path, *, fix_token: bool = False) -> None:
     """Parse the configuration file and see if any exceptions are thrown.
 
     Parameters

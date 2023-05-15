@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 import structlog
@@ -42,13 +41,12 @@ __all__ = [
 @click.version_option(message="%(version)s")
 def main() -> None:
     """Administrative command-line interface for gafaelfawr."""
-    pass
 
 
 @main.command()
 @click.argument("topic", default=None, required=False, nargs=1)
 @click.pass_context
-def help(ctx: click.Context, topic: Optional[str]) -> None:
+def help(ctx: click.Context, topic: str | None) -> None:
     """Show help for any command."""
     # The help command implementation is taken from
     # https://www.burgundywall.com/post/having-click-help-subcommand
@@ -58,7 +56,8 @@ def help(ctx: click.Context, topic: Optional[str]) -> None:
         else:
             raise click.UsageError(f"Unknown help topic {topic}", ctx)
     else:
-        assert ctx.parent
+        if not ctx.parent:
+            raise RuntimeError("help called without topic or parent")
         click.echo(ctx.parent.get_help())
 
 
@@ -74,7 +73,7 @@ def help(ctx: click.Context, topic: Optional[str]) -> None:
     help="Application configuration file.",
 )
 @run_with_asyncio
-async def audit(fix: bool, config_path: Optional[Path]) -> None:
+async def audit(*, fix: bool, config_path: Path | None) -> None:
     """Run a consistency check on Gafaelfawr's data stores.
 
     Any problems found will be reported to Slack.
@@ -114,7 +113,7 @@ async def audit(fix: bool, config_path: Optional[Path]) -> None:
     help="Application configuration file.",
 )
 @run_with_asyncio
-async def delete_all_data(config_path: Optional[Path]) -> None:
+async def delete_all_data(*, config_path: Path | None) -> None:
     """Delete all data from Redis and the database.
 
     Intended for destructive upgrades, such as when switching from one
@@ -153,19 +152,19 @@ async def delete_all_data(config_path: Optional[Path]) -> None:
 def generate_key() -> None:
     """Generate a new RSA key pair and print the private key."""
     keypair = RSAKeyPair.generate()
-    print(keypair.private_key_as_pem())
+    sys.stdout.write(keypair.private_key_as_pem().decode())
 
 
 @main.command()
 def generate_session_secret() -> None:
     """Generate a new Gafaelfawr session secret."""
-    print(Fernet.generate_key().decode())
+    sys.stdout.write(Fernet.generate_key().decode())
 
 
 @main.command()
 def generate_token() -> None:
     """Generate an encoded token (such as the bootstrap token)."""
-    print(str(Token()))
+    sys.stdout.write(str(Token()))
 
 
 @main.command()
@@ -177,7 +176,7 @@ def generate_token() -> None:
     help="Application configuration file.",
 )
 @run_with_asyncio
-async def init(config_path: Optional[Path]) -> None:
+async def init(*, config_path: Path | None) -> None:
     """Initialize the database storage."""
     if config_path:
         config_dependency.set_config_path(config_path)
@@ -210,7 +209,7 @@ async def init(config_path: Optional[Path]) -> None:
     help="Application configuration file.",
 )
 @run_with_asyncio
-async def maintenance(config_path: Optional[Path]) -> None:
+async def maintenance(*, config_path: Path | None) -> None:
     """Perform background maintenance."""
     if config_path:
         config_dependency.set_config_path(config_path)
@@ -244,7 +243,7 @@ async def maintenance(config_path: Optional[Path]) -> None:
     type=click.Path(path_type=Path),
     help="Output path (output to stdout if not given).",
 )
-def openapi_schema(add_back_link: bool, output: Optional[Path]) -> None:
+def openapi_schema(*, add_back_link: bool, output: Path | None) -> None:
     """Generate the OpenAPI schema."""
     app = create_app(load_config=False)
     description = app.description
@@ -268,7 +267,7 @@ def openapi_schema(add_back_link: bool, output: Optional[Path]) -> None:
 @click.option(
     "--port", default=8080, type=int, help="Port to run the application on."
 )
-def run(port: int) -> None:
+def run(*, port: int) -> None:
     """Run the application (for testing only)."""
     uvicorn.run(
         "gafaelfawr.main:create_app",

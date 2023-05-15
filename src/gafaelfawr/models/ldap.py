@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 __all__ = ["LDAPUserData"]
 
@@ -17,14 +16,14 @@ class LDAPUserData:
     based on configuration.
     """
 
-    name: Optional[str] = None
+    name: str | None = None
     """Preferred full name."""
 
-    email: Optional[str] = None
+    email: str | None = None
     """Preferred email address."""
 
-    uid: Optional[int] = None
+    uid: int | None = None
     """UID number."""
 
-    gid: Optional[int] = None
+    gid: int | None = None
     """Primary GID."""

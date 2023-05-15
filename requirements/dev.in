@@ -17,6 +17,7 @@ pytest-asyncio
 pytest-cov
 pytest-sugar
 respx
+ruff
 selenium-wire
 sqlalchemy[mypy]
 types-cachetools

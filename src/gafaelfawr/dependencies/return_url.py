@@ -8,7 +8,6 @@ several variations of a dependency to check this.
 
 from __future__ import annotations
 
-from typing import Optional
 from urllib.parse import ParseResult, urlparse
 
 from fastapi import Depends, Header, Query
@@ -65,14 +64,14 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
 
 
 async def return_url(
-    rd: Optional[str] = Query(
+    rd: (str | None) = Query(
         None,
         title="URL to return to",
         description="User is sent here after operation",
         example="https://example.com/",
     ),
     context: RequestContext = Depends(context_dependency),
-) -> Optional[str]:
+) -> str | None:
     """Validate a return URL in an ``rd`` parameter.
 
     Returns
@@ -93,7 +92,7 @@ async def return_url(
 
 
 async def return_url_with_header(
-    rd: Optional[str] = Query(
+    rd: (str | None) = Query(
         None,
         title="URL to return to",
         description=(
@@ -102,14 +101,14 @@ async def return_url_with_header(
         ),
         example="https://example.com/",
     ),
-    x_auth_request_redirect: Optional[str] = Header(
+    x_auth_request_redirect: (str | None) = Header(
         None,
         title="URL to return to",
         description="User is sent here after successful authentication",
         example="https://example.com/",
     ),
     context: RequestContext = Depends(context_dependency),
-) -> Optional[str]:
+) -> str | None:
     """Validate a return URL in an ``rd`` parameter or header.
 
     Same as `return_url` except also accepts a return URL in the

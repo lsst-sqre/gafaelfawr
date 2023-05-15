@@ -86,11 +86,13 @@ class KubernetesIngressService:
             old_ingress = await self._storage.get_ingress(name, namespace)
         except KubernetesError as e:
             msg = f"Cannot retrieve Ingress {namespace}/{name}"
-            self._logger.error(msg, error=str(e))
+            self._logger.exception(msg, error=str(e))
             raise
         return await self._update_ingress(old_ingress, new_ingress, parent)
 
-    def _build_annotations(self, ingress: GafaelfawrIngress) -> dict[str, str]:
+    def _build_annotations(  # noqa: C901
+        self, ingress: GafaelfawrIngress
+    ) -> dict[str, str]:
         """Build annotations for an ``Ingress``."""
         base_url = ingress.config.base_url.rstrip("/")
 
@@ -307,7 +309,7 @@ class KubernetesTokenService:
             secret = await self._storage.get_secret(service_token)
         except KubernetesError as e:
             msg = f"Cannot retrieve Secret {service_token.key}"
-            self._logger.error(msg, error=str(e))
+            self._logger.exception(msg, error=str(e))
             raise
         return await self._update_secret(service_token, secret)
 
@@ -383,7 +385,7 @@ class KubernetesTokenService:
                     await storage.update_secret_metadata(parent)
                 except KubernetesError as e:
                     msg = f"Updating Secret {parent.key} failed"
-                    self._logger.error(msg, error=str(e))
+                    self._logger.exception(msg, error=str(e))
             return None
 
         # Something is either different or invalid.  Replace the secret.
@@ -399,7 +401,7 @@ class KubernetesTokenService:
             InputValidationError,
         ) as e:
             msg = f"Updating Secret {parent.key} failed"
-            self._logger.error(msg, error=str(e))
+            self._logger.exception(msg, error=str(e))
             return KubernetesResourceStatus.failure(parent, str(e))
         else:
             if secret:

@@ -6,7 +6,7 @@ import json
 from collections.abc import Callable
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 import pytest
@@ -179,7 +179,7 @@ async def check_history_request(
     history: list[TokenChangeHistoryEntry],
     selector: Callable[[TokenChangeHistoryEntry], bool],
     *,
-    username: Optional[str] = None,
+    username: str | None = None,
 ) -> None:
     """Run a single request for token history and check the results."""
     encoded = urlencode(query)
@@ -202,7 +202,7 @@ async def check_pagination(
     client: AsyncClient,
     history: list[TokenChangeHistoryEntry],
     *,
-    username: Optional[str] = None,
+    username: str | None = None,
 ) -> None:
     """Check paginated return values.
 
