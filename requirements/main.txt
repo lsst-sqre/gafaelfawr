@@ -4,10 +4,6 @@
 #
 #    pip-compile --allow-unsafe --generate-hashes --output-file=requirements/main.txt --resolver=backtracking requirements/main.in
 #
-aiofiles==23.1.0 \
-    --hash=sha256:9312414ae06472eb6f1d163f555e466a23aed1c8f60c30cccf7121dba2e53eb2 \
-    --hash=sha256:edd247df9a19e0db16534d4baaf536d6609a43e1de5401d7a4c1c148753a1635
-    # via -r requirements/main.in
 aiohttp==3.8.4 \
     --hash=sha256:03543dcf98a6619254b409be2d22b51f21ec66272be4ebda7b04e6412e4b2e14 \
     --hash=sha256:03baa76b730e4e15a45f81dfe29a8d910314143414e528737f8589ec60cf7391 \
