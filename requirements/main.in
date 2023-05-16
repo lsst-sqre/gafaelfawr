@@ -6,7 +6,6 @@
 #     make update-deps
 
 # These dependencies are for fastapi including some optional features.
-aiofiles
 fastapi
 python-multipart
 starlette

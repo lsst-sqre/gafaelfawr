@@ -6,6 +6,18 @@ Dependencies are updated to the latest available version during each release. Th
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.2.1'></a>
+## 9.2.1 (2023-05-15)
+
+### Bug fixes
+
+- TCP keepalive for Redis connections apparently caused problems with holding connections open that the Redis server wanted to close. The TCP keepalive setting has been removed, which appears to increase the stability of the Redis connections.
+- Connections to Redis are now retried longer (about eight seconds instead of three seconds) in the hope of surviving a Redis restart without failures.
+
+### Other changes
+
+- Gafaelfawr now uses the [Ruff](https://beta.ruff.rs/docs/) linter instead of flake8, isort, and pydocstyle.
+
 <a id='changelog-9.2.0'></a>
 ## 9.2.0 (2023-04-19)
 
