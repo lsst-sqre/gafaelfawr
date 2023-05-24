@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from urllib.parse import urljoin
 
-import httpx
 import pytest
+from httpx import AsyncClient
 from seleniumwire import webdriver
 
 from gafaelfawr.constants import COOKIE_NAME
@@ -50,20 +50,21 @@ async def test_token_info(
     cookie = State(token=selenium_config.token).to_cookie()
 
     # Create a notebook token and an internal token.
-    r = httpx.get(
-        urljoin(selenium_config.url, "/auth"),
-        params={"scope": "exec:test", "notebook": "true"},
-        headers={"Cookie": f"{COOKIE_NAME}={cookie}"},
-    )
-    assert r.status_code == 200
-    notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
-    r = httpx.get(
-        urljoin(selenium_config.url, "/auth"),
-        params={"scope": "exec:test", "delegate_to": "service"},
-        headers={"Cookie": f"{COOKIE_NAME}={cookie}"},
-    )
-    assert r.status_code == 200
-    internal_token = Token.from_str(r.headers["X-Auth-Request-Token"])
+    async with AsyncClient() as client:
+        r = await client.get(
+            urljoin(selenium_config.url, "/auth"),
+            params={"scope": "exec:test", "notebook": "true"},
+            headers={"Cookie": f"{COOKIE_NAME}={cookie}"},
+        )
+        assert r.status_code == 200
+        notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
+        r = await client.get(
+            urljoin(selenium_config.url, "/auth"),
+            params={"scope": "exec:test", "delegate_to": "service"},
+            headers={"Cookie": f"{COOKIE_NAME}={cookie}"},
+        )
+        assert r.status_code == 200
+        internal_token = Token.from_str(r.headers["X-Auth-Request-Token"])
 
     # Load the token page and go to the history for our session token.
     driver.get(urljoin(selenium_config.url, "/auth/tokens"))
