@@ -30,9 +30,9 @@ repos:
     hooks:
       - id: eslint
         additional_dependencies:
-          - '@babel/eslint-parser@7.19.1'
+          - '@babel/eslint-parser@7.21.8'
           - '@babel/preset-react@7.18.6'
-          - eslint@8.40.0
+          - eslint@8.41.0
           - eslint-config-airbnb@19.0.4
           - eslint-config-prettier@8.8.0
           - eslint-config-wesbos@3.2.3
