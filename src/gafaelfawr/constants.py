@@ -26,6 +26,8 @@ __all__ = [
     "OIDC_AUTHORIZATION_LIFETIME",
     "REDIS_BACKOFF_START",
     "REDIS_BACKOFF_MAX",
+    "REDIS_POOL_SIZE",
+    "REDIS_POOL_TIMEOUT",
     "REDIS_RETRIES",
     "SCOPE_REGEX",
     "TOKEN_CACHE_SIZE",
@@ -110,6 +112,12 @@ REDIS_BACKOFF_MAX = 1.0
 
 REDIS_RETRIES = 10
 """How many times to try to connect to Redis before giving up."""
+
+REDIS_POOL_SIZE = 10
+"""Size of the Redis connection pool."""
+
+REDIS_POOL_TIMEOUT = 10
+"""How long to wait for a connection from the pool before giving up."""
 
 # The following constants define per-process cache sizes.
 

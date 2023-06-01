@@ -7,14 +7,14 @@ from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
 from typing import Self
 
-import redis
 import structlog
 from bonsai import LDAPClient
 from bonsai.asyncio import AIOConnectionPool
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
+from redis.asyncio import BlockingConnectionPool, Redis
+from redis.asyncio.retry import Retry
 from redis.backoff import ExponentialBackoff
-from redis.retry import Retry
 from safir.database import create_async_session
 from safir.dependencies.http_client import http_client_dependency
 from safir.redis import EncryptedPydanticRedisStorage
@@ -25,7 +25,13 @@ from structlog.stdlib import BoundLogger
 
 from .cache import IdCache, InternalTokenCache, LDAPCache, NotebookTokenCache
 from .config import Config
-from .constants import REDIS_BACKOFF_MAX, REDIS_BACKOFF_START, REDIS_RETRIES
+from .constants import (
+    REDIS_BACKOFF_MAX,
+    REDIS_BACKOFF_START,
+    REDIS_POOL_SIZE,
+    REDIS_POOL_TIMEOUT,
+    REDIS_RETRIES,
+)
 from .exceptions import NotConfiguredError
 from .models.ldap import LDAPUserData
 from .models.oidc import OIDCAuthorization
@@ -80,7 +86,7 @@ class ProcessContext:
     ldap_pool: AIOConnectionPool | None
     """Connection pool to talk to LDAP, if configured."""
 
-    redis: redis.asyncio.Redis
+    redis: Redis
     """Connection pool to use to talk to Redis."""
 
     uid_cache: IdCache
@@ -131,9 +137,13 @@ class ProcessContext:
                 client.set_credentials("GSSAPI")
             ldap_pool = AIOConnectionPool(client)
 
-        redis_client = redis.asyncio.from_url(
-            config.redis_url,
-            password=config.redis_password,
+        redis_client: Redis = Redis(
+            connection_pool=BlockingConnectionPool.from_url(
+                config.redis_url,
+                password=config.redis_password,
+                max_connections=REDIS_POOL_SIZE,
+                timeout=REDIS_POOL_TIMEOUT,
+            ),
             retry=Retry(
                 ExponentialBackoff(
                     base=REDIS_BACKOFF_START, cap=REDIS_BACKOFF_MAX
@@ -283,7 +293,7 @@ class Factory:
         self._logger = logger
 
     @property
-    def redis(self) -> redis.asyncio.Redis:
+    def redis(self) -> Redis:
         """Underlying Redis connection pool, mainly for tests."""
         return self._context.redis
 
