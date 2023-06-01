@@ -88,6 +88,10 @@ class LDAPStorage:
                 logger.warning(msg, error=str(e), ldap_result=result)
             if valid_group_regex.match(name):
                 groups.append(name)
+            elif name.startswith("CO:"):
+                # COmanage populates internal groups that start with CO:. We
+                # always ignore these, so they don't warrant a warning.
+                logger.debug(f"Ignoring COmanage group {name}")
             else:
                 logger.warning(f"LDAP group {name} invalid, ignoring")
 
