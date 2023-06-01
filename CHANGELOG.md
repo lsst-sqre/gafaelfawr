@@ -6,6 +6,18 @@ Dependencies are updated to the latest available version during each release. Th
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.2.2'></a>
+## 9.2.2 (2023-06-01)
+
+### Bug fixes
+
+- Limit the number of connections opened by the Redis connection pool, and wait for a connection to become available if all of them are in use.
+- Use the asyncio version of Redis request retrying instead of (in conflict with everything else Gafaelfawr does) the sync version.
+
+### Other changes
+
+- Suppress logged warnings about invalid groups if they match the pattern of COmanage internal groups (start with `CO:`).
+
 <a id='changelog-9.2.1'></a>
 ## 9.2.1 (2023-05-15)
 
