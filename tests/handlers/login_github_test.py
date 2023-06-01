@@ -11,6 +11,7 @@ from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, Response
 from safir.testing.slack import MockSlackWebhook
 
+from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
@@ -485,7 +486,10 @@ async def test_paginated_teams(
 
 @pytest.mark.asyncio
 async def test_no_valid_groups(
-    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
+    client: AsyncClient,
+    config: Config,
+    respx_mock: respx.Router,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -500,8 +504,10 @@ async def test_no_valid_groups(
     )
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, no-store"
+    assert r.headers["Content-Type"] == "text/html; charset=utf-8"
     assert "githubuser is not a member of any authorized groups" in r.text
-    assert "Some <strong>error instructions</strong> with HTML." in r.text
+    assert config.error_footer
+    assert config.error_footer in r.text
 
     # The user should not be logged in.
     r = await client.get("/auth", params={"scope": "user:token"})

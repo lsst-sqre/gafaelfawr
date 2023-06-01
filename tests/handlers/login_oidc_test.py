@@ -705,10 +705,11 @@ async def test_no_valid_groups(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, no-store"
+    assert r.headers["Content-Type"] == "text/html; charset=utf-8"
     username = token.claims[config.oidc.username_claim]
-    expected = f"{username} is not a member of any authorized groups"
-    assert expected in r.text
-    assert "Some <strong>error instructions</strong> with HTML." in r.text
+    assert f"{username} is not a member of any authorized groups" in r.text
+    assert config.error_footer
+    assert config.error_footer in r.text
 
     # The user should not be logged in.
     r = await client.get("/auth", params={"scope": "user:token"})
