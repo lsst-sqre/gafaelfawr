@@ -177,7 +177,7 @@ select = ["ALL"]
 target-version = "py311"
 
 [tool.ruff.per-file-ignores]
-"src/mobu/handlers/**" = [
+"src/gafaelfawr/handlers/**" = [
     "D103",    # FastAPI handlers should not have docstrings
 ]
 "tests/**" = [

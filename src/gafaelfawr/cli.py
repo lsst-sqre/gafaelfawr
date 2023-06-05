@@ -158,13 +158,13 @@ def generate_key() -> None:
 @main.command()
 def generate_session_secret() -> None:
     """Generate a new Gafaelfawr session secret."""
-    sys.stdout.write(Fernet.generate_key().decode())
+    sys.stdout.write(Fernet.generate_key().decode() + "\n")
 
 
 @main.command()
 def generate_token() -> None:
     """Generate an encoded token (such as the bootstrap token)."""
-    sys.stdout.write(str(Token()))
+    sys.stdout.write(str(Token()) + "\n")
 
 
 @main.command()
