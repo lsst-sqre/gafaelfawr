@@ -1,0 +1,39 @@
+name: Dependency Update
+
+"on":
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install neophile
+        run: pip install neophile
+
+      - name: Run neophile
+        run: neophile update --pr pre-commit
+        env:
+          NEOPHILE_COMMIT_EMAIL: "24442459+sqrbot@users.noreply.github.com"
+          NEOPHILE_GITHUB_APP_ID: ${{ secrets.NEOPHILE_APP_ID }}
+          NEOPHILE_GITHUB_PRIVATE_KEY: ${{ secrets.NEOPHILE_PRIVATE_KEY }}
+
+      - name: Report status
+        if: always()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          notify_when: "failure"
+          notification_title: "Periodic dependency update for {repo} failed"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}

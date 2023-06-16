@@ -121,6 +121,24 @@ jobs:
           tox-plugins: tox-docker
           cache-key-prefix: "test"
 
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install neophile
+        run: pip install neophile
+
+      - name: Run neophile
+        run: neophile check python
+
   docs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -159,6 +177,26 @@ jobs:
           github.event_name != 'merge_group'
           && (github.event_name != 'pull_request'
               || startsWith(github.head_ref, 'tickets/'))
+
+  linkcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Update package lists
+        run: sudo apt-get update
+
+      - name: Install extra packages
+        run: sudo apt install -y graphviz libpq-dev libldap2-dev libsasl2-dev
+
+      - name: Check links
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: "3.11"
+          tox-envs: "docs-linkcheck"
 
   build:
     runs-on: ubuntu-latest
