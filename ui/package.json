@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "date-fns": "^2.30.0",
-    "formik": "^2.4.0",
+    "formik": "^2.4.2",
     "gatsby": "^5.11.0",
     "gatsby-plugin-use-query-params": "^1.0.1",
     "prop-types": "^15.8.0",
