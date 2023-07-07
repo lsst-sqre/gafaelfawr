@@ -120,13 +120,12 @@ async def get_login(
     if error:
         e = InvalidRequestError(error)
         context.logger.warning("%s", e.message, error=str(e))
-        return_url = build_return_url(
+        return build_return_url(
             parsed_redirect_uri,
             state=state,
             error=e.error,
             error_description=str(e),
         )
-        return return_url
 
     # Get an authorization code and return it.
     code = await oidc_service.issue_code(

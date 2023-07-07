@@ -523,10 +523,7 @@ class TokenRedisStore:
         list of str
             The tokens found in Redis (by looking for valid keys).
         """
-        keys = []
-        async for key in self._storage.scan("*"):
-            keys.append(key)
-        return keys
+        return [k async for k in self._storage.scan("*")]
 
     async def store_data(self, data: TokenData) -> None:
         """Store the data for a token.

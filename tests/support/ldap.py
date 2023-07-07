@@ -76,7 +76,8 @@ class MockLDAP(Mock):
         entries = self._entries[base][key]
         results = []
         for entry in entries:
-            results.append({a: entry[a] for a in attrlist if a in entry})
+            attributes = {a: entry[a] for a in attrlist if a in entry}
+            results.append(attributes)
         return results
 
     @asynccontextmanager
