@@ -52,7 +52,7 @@ class GitHubProvider(Provider):
     _USER_URL = "https://api.github.com/user"
     """URL from which to request user metadata."""
 
-    _SCOPES = ["read:org", "read:user", "user:email"]
+    _SCOPES = ("read:org", "read:user", "user:email")
     """Access scopes to request from GitHub."""
 
     def __init__(

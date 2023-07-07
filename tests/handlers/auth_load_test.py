@@ -26,13 +26,8 @@ async def test_notebook(client: AsyncClient, factory: Factory) -> None:
     )
     await set_session_cookie(client, data.token)
 
-    request_awaits = []
-    for _ in range(100):
-        request_awaits.append(
-            client.get(
-                "/auth", params={"scope": "exec:test", "notebook": "true"}
-            )
-        )
+    params = {"scope": "exec:test", "notebook": "true"}
+    request_awaits = [client.get("/auth", params=params) for _ in range(100)]
     responses = await asyncio.gather(*request_awaits)
     assert responses[0].status_code == 200
     token = Token.from_str(responses[0].headers["X-Auth-Request-Token"])
@@ -48,18 +43,12 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
     )
     await set_session_cookie(client, data.token)
 
-    request_awaits = []
-    for _ in range(100):
-        request_awaits.append(
-            client.get(
-                "/auth",
-                params={
-                    "scope": "exec:test",
-                    "delegate_to": "a-service",
-                    "delegate_scope": "read:all",
-                },
-            )
-        )
+    params = {
+        "scope": "exec:test",
+        "delegate_to": "a-service",
+        "delegate_scope": "read:all",
+    }
+    request_awaits = [client.get("/auth", params=params) for _ in range(100)]
     responses = await asyncio.gather(*request_awaits)
     assert responses[0].status_code == 200
     token = Token.from_str(responses[0].headers["X-Auth-Request-Token"])
@@ -67,18 +56,12 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
         assert r.status_code == 200
         assert Token.from_str(r.headers["X-Auth-Request-Token"]) == token
 
-    request_awaits = []
-    for _ in range(100):
-        request_awaits.append(
-            client.get(
-                "/auth",
-                params={
-                    "scope": "exec:test",
-                    "delegate_to": "a-service",
-                    "delegate_scope": "exec:test",
-                },
-            )
-        )
+    params = {
+        "scope": "exec:test",
+        "delegate_to": "a-service",
+        "delegate_scope": "exec:test",
+    }
+    request_awaits = [client.get("/auth", params=params) for _ in range(100)]
     responses = await asyncio.gather(*request_awaits)
     assert responses[0].status_code == 200
     new_token = Token.from_str(responses[0].headers["X-Auth-Request-Token"])

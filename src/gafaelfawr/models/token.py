@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import Any, Self
+from typing import Any, ClassVar, Self
 
 from pydantic import BaseModel, Field, validator
 from safir.datetime import current_datetime
@@ -304,7 +305,9 @@ class TokenInfo(TokenBase):
 
     class Config:
         orm_mode = True
-        json_encoders = {datetime: lambda v: int(v.timestamp())}
+        json_encoders: ClassVar[dict[type, Callable]] = {
+            datetime: lambda v: int(v.timestamp())
+        }
 
     _normalize_created = validator(
         "created", "last_used", "expires", allow_reuse=True, pre=True
@@ -407,7 +410,9 @@ class TokenData(TokenBase, TokenUserInfo):
     token: Token = Field(..., title="Associated token")
 
     class Config:
-        json_encoders = {datetime: lambda v: int(v.timestamp())}
+        json_encoders: ClassVar[dict[type, Callable]] = {
+            datetime: lambda v: int(v.timestamp())
+        }
 
     @classmethod
     def bootstrap_token(cls) -> Self:

@@ -20,7 +20,13 @@ from pathlib import Path
 from typing import Any, Self
 
 import yaml
-from pydantic import AnyHttpUrl, IPvAnyNetwork, root_validator, validator
+from pydantic import (
+    AnyHttpUrl,
+    Field,
+    IPvAnyNetwork,
+    root_validator,
+    validator,
+)
 from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
@@ -76,8 +82,11 @@ class OIDCSettings(CamelCaseModel):
     login_url: AnyHttpUrl
     """URL to which to send the user to initiate authentication."""
 
-    login_params: dict[str, str] = {}
-    """Additional parameters to the login URL."""
+    login_params: dict[str, str] = Field(
+        {},
+        title="Additional login parameters",
+        description="Additional parameters to the login URL",
+    )
 
     redirect_url: AnyHttpUrl
     """Return URL to which the authentication provider should send the user.
@@ -96,12 +105,15 @@ class OIDCSettings(CamelCaseModel):
     URL so that they can register.
     """
 
-    scopes: list[str] = []
-    """Scopes to request from the authentication provider.
-
-    The ``openid`` scope will always be added and does not need to be
-    specified.
-    """
+    scopes: list[str] = Field(
+        [],
+        title="Scopes to request",
+        description=(
+            "Scopes to request from the authentication provider. The"
+            " `openid` scope will always be added and does not need to be"
+            " specified."
+        ),
+    )
 
     issuer: str
     """Expected issuer of the ID token."""
@@ -283,8 +295,13 @@ class QuotaGrantSettings(CamelCaseModel):
     overall quota configuration.
     """
 
-    api: dict[str, int] = {}
-    """Mapping of service names to quota of requests per 15 minutes."""
+    api: dict[str, int] = Field(
+        {},
+        title="Service quotas",
+        description=(
+            "Mapping of service names to quota of requests per 15 minutes"
+        ),
+    )
 
     notebook: NotebookQuotaSettings | None = None
     """Quota settings for the Notebook Aspect."""
@@ -296,8 +313,11 @@ class QuotaSettings(CamelCaseModel):
     default: QuotaGrantSettings
     """Default quotas for all users."""
 
-    groups: dict[str, QuotaGrantSettings] = {}
-    """Additional quota grants by group name."""
+    groups: dict[str, QuotaGrantSettings] = Field(
+        {},
+        title="Quota grants by group",
+        description="Additional quota grants by group name",
+    )
 
 
 class Settings(CamelCaseModel):
@@ -391,11 +411,19 @@ class Settings(CamelCaseModel):
     initial_admins: list[str]
     """Initial token administrators to configure when initializing database."""
 
-    known_scopes: dict[str, str] = {}
-    """Known scopes (the keys) and their descriptions (the values)."""
+    known_scopes: dict[str, str] = Field(
+        {},
+        title="Known scopes",
+        description=(
+            "Known scopes (the keys) and their descriptions (the values)"
+        ),
+    )
 
-    group_mapping: dict[str, list[str]] = {}
-    """Mappings of scopes to lists of groups that provide them."""
+    group_mapping: dict[str, list[str]] = Field(
+        {},
+        title="Scope to group mapping",
+        description="Mappings of scopes to lists of groups that provide them",
+    )
 
     @validator("initial_admins", each_item=True)
     def _validate_initial_admins(cls, v: str) -> str:

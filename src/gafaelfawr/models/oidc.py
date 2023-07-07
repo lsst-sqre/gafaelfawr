@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Self
+from typing import Any, ClassVar, Self
 
 from pydantic import BaseModel, Field, validator
 from safir.datetime import current_datetime
@@ -113,7 +114,9 @@ class OIDCAuthorization(BaseModel):
     )
 
     class Config:
-        json_encoders = {datetime: lambda v: int(v.timestamp())}
+        json_encoders: ClassVar[dict[type, Callable]] = {
+            datetime: lambda v: int(v.timestamp())
+        }
 
     _normalize_created_at = validator(
         "created_at", allow_reuse=True, pre=True

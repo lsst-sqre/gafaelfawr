@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Generic, Self, TypeVar
+from typing import Any, ClassVar, Generic, Self, TypeVar
 from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, validator
@@ -353,7 +354,9 @@ class TokenChangeHistoryEntry(BaseModel):
     )
 
     class Config:
-        json_encoders = {datetime: lambda v: int(v.timestamp())}
+        json_encoders: ClassVar[dict[type, Callable]] = {
+            datetime: lambda v: int(v.timestamp())
+        }
         orm_mode = True
 
     _normalize_scopes = validator(
