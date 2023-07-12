@@ -77,7 +77,7 @@ async def get_login(
         None,
         title="Provider code",
         description="Set by the authentication provider after authentication",
-        example="V2hrNqgM_eiIjXvV41RlMw",
+        examples=["V2hrNqgM_eiIjXvV41RlMw"],
     ),
     state: (str | None) = Query(
         None,
@@ -86,7 +86,7 @@ async def get_login(
             "Set by the authentication provider after authentication to"
             " protect against session fixation"
         ),
-        example="wkC2bAP5VFpDioKc3JfaDA",
+        examples=["wkC2bAP5VFpDioKc3JfaDA"],
     ),
     return_url: str | None = Depends(return_url_with_header),
     context: RequestContext = Depends(context_dependency),

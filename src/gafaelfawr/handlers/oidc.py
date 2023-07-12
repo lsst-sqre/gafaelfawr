@@ -73,13 +73,13 @@ async def get_login(
         None,
         title="Requested response type",
         description="code is the only supported response type",
-        example="code",
+        examples=["code"],
     ),
     scope: (str | None) = Query(
         None,
         title="Requested token scope",
         description="openid is the only supported scope",
-        example="openid",
+        examples=["openid"],
     ),
     state: (str | None) = Query(
         None,
@@ -90,7 +90,7 @@ async def get_login(
             " that it matches the code sent in the request by, for example"
             " comparing it to a code set in a cookie."
         ),
-        example="omeKJ7MNv_9dKSKnVNjxMQ",
+        examples=["omeKJ7MNv_9dKSKnVNjxMQ"],
     ),
     token_data: TokenData = Depends(authenticate),
     context: RequestContext = Depends(context_dependency),
@@ -176,29 +176,29 @@ async def post_token(
         None,
         title="Request type",
         description="`authorization_code` is the only supported grant type",
-        example="authorization_code",
+        examples=["authorization_code"],
     ),
     client_id: (str | None) = Form(
         None,
         title="ID of client",
-        example="oidc-client-name",
+        examples=["oidc-client-name"],
     ),
     client_secret: (str | None) = Form(
         None,
         title="Client secret",
-        example="rYTfX6h9-ilGwADfgn7KRQ",
+        examples=["rYTfX6h9-ilGwADfgn7KRQ"],
     ),
     code: (str | None) = Form(
         None,
         title="Authorization code",
         description="The code returned from the /auth/openid/login endpoint",
-        example="gc-W74I5HltJZRc0fOUAapgVQ.3T1xQQgeD063KgmNinw-tA",
+        examples=["gc-W74I5HltJZRc0fOUAapgVQ.3T1xQQgeD063KgmNinw-tA"],
     ),
     redirect_uri: (str | None) = Form(
         None,
         title="URL of client",
         description="Must match the redirect_uri in the client registration",
-        example="https://example.com/",
+        examples=["https://example.com/"],
     ),
     context: RequestContext = Depends(context_dependency),
 ) -> OIDCTokenReply | JSONResponse:

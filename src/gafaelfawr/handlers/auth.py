@@ -93,7 +93,7 @@ def auth_config(
             "If given more than once, meaning is determined by the `satisfy`"
             " parameter"
         ),
-        example="read:all",
+        examples=["read:all"],
     ),
     satisfy: Satisfy = Query(
         Satisfy.ALL,
@@ -102,25 +102,25 @@ def auth_config(
             "Set to `all` to require all listed scopes, set to `any` to"
             " require any of the listed scopes"
         ),
-        example="any",
+        examples=["any"],
     ),
     auth_type: AuthType = Query(
         AuthType.Bearer,
         title="Challenge type",
         description="Type of `WWW-Authenticate` challenge to return",
-        example="basic",
+        examples=["basic"],
     ),
     notebook: bool = Query(
         False,
         title="Request notebook token",
         description="Cannot be used with `delegate_to` or `delegate_scope`",
-        example=True,
+        examples=[True],
     ),
     delegate_to: (str | None) = Query(
         None,
         title="Service name",
         description="Create an internal token for the named service",
-        example="some-service",
+        examples=["some-service"],
     ),
     delegate_scope: (str | None) = Query(
         None,
@@ -130,7 +130,7 @@ def auth_config(
             " All listed scopes are implicitly added to the scope"
             " requirements for authorization."
         ),
-        example="read:all,write:all",
+        examples=["read:all,write:all"],
     ),
     minimum_lifetime: (int | None) = Query(
         None,
@@ -141,7 +141,7 @@ def auth_config(
             " parameter."
         ),
         ge=MINIMUM_LIFETIME.total_seconds(),  # noqa: B008
-        example=86400,
+        examples=[86400],
     ),
     use_authorization: bool = Query(
         False,
@@ -150,7 +150,7 @@ def auth_config(
             "If true, also replace the Authorization header with any"
             " delegated token, passed as a bearer token."
         ),
-        example=True,
+        examples=[True],
     ),
     auth_uri: str = Depends(auth_uri),
     context: RequestContext = Depends(context_dependency),
@@ -201,7 +201,7 @@ async def authenticate_with_type(
         AuthType.Bearer,
         title="Challenge type",
         description="Control the type of WWW-Authenticate challenge returned",
-        example="basic",
+        examples=["basic"],
     ),
     context: RequestContext = Depends(context_dependency),
 ) -> TokenData:
