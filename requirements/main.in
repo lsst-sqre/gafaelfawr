@@ -15,14 +15,14 @@ uvicorn[standard]
 asyncpg
 bonsai>=1.5.0
 cachetools
-click
+click!=8.1.4  # see https://github.com/pallets/click/issues/2558
 cryptography
 google-cloud-firestore
 httpx
 kopf
 kubernetes_asyncio
 jinja2
-pydantic
+pydantic<2
 PyJWT
 pyyaml
 redis>=4.2.0
