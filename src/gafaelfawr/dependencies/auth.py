@@ -223,7 +223,7 @@ class AuthenticateWrite(Authenticate):
                 "Only required when authenticating with a cookie, such as via"
                 " the JavaScript UI."
             ),
-            example="OmNdVTtKKuK_VuJsGFdrqg",
+            examples=["OmNdVTtKKuK_VuJsGFdrqg"],
         ),
         context: RequestContext = Depends(context_dependency),
     ) -> TokenData:

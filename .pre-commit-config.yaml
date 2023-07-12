@@ -15,7 +15,7 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
 
   - repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 23.7.0
     hooks:
       - id: black
 
@@ -23,7 +23,7 @@ repos:
     rev: 1.15.0
     hooks:
       - id: blacken-docs
-        additional_dependencies: [black==23.3.0]
+        additional_dependencies: [black==23.7.0]
         args: [-l, '79', -t, py311]
 
   - repo: https://github.com/pre-commit/mirrors-eslint
@@ -31,9 +31,9 @@ repos:
     hooks:
       - id: eslint
         additional_dependencies:
-          - '@babel/eslint-parser@7.21.8'
-          - '@babel/preset-react@7.18.6'
-          - eslint@8.41.0
+          - '@babel/eslint-parser@7.22.7'
+          - '@babel/preset-react@7.22.5'
+          - eslint@8.44.0
           - eslint-config-airbnb@19.0.4
           - eslint-config-prettier@8.8.0
           - eslint-config-wesbos@3.2.3

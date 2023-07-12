@@ -68,7 +68,7 @@ async def return_url(
         None,
         title="URL to return to",
         description="User is sent here after operation",
-        example="https://example.com/",
+        examples=["https://example.com/"],
     ),
     context: RequestContext = Depends(context_dependency),
 ) -> str | None:
@@ -99,13 +99,13 @@ async def return_url_with_header(
             "User is sent here after successful authentication. Overrides"
             " `X-Auth-Request-Redirect` if both are set."
         ),
-        example="https://example.com/",
+        examples=["https://example.com/"],
     ),
     x_auth_request_redirect: (str | None) = Header(
         None,
         title="URL to return to",
         description="User is sent here after successful authentication",
-        example="https://example.com/",
+        examples=["https://example.com/"],
     ),
     context: RequestContext = Depends(context_dependency),
 ) -> str | None:
@@ -137,7 +137,7 @@ async def parsed_redirect_uri(
         description=(
             "User is sent here after successful or failed authentication"
         ),
-        example="https://example.com/",
+        examples=["https://example.com/"],
     ),
     context: RequestContext = Depends(context_dependency),
 ) -> ParseResult:

@@ -124,7 +124,7 @@ async def post_analyze(
         ...,
         alias="token",
         title="Token to analyze",
-        example="gt-db59fbkT5LrGHvhLMglNWw.G3NEmhWZr8JwO8AQ8sIWpQ",
+        examples=["gt-db59fbkT5LrGHvhLMglNWw.G3NEmhWZr8JwO8AQ8sIWpQ"],
     ),
     context: RequestContext = Depends(context_dependency),
 ) -> dict[str, dict[str, Any]]:
