@@ -42,11 +42,20 @@ jobs:
       - name: Install extra packages
         run: sudo apt install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
+      - name: Run neophile
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: "3.11"
+          tox-envs: "neophile-update"
+          tox-posargs: "python"
+          cache-key-prefix: "neophile"
+
       - name: Run tox
         uses: lsst-sqre/run-tox@v1
         with:
           python-version: ${{ matrix.python }}
           tox-envs: "lint,typing,py,docs,docs-linkcheck"
+          use-cache: false
 
       - name: Report status
         if: always()
