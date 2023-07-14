@@ -25,8 +25,7 @@ jobs:
       # Use the oldest supported version of Python to update dependencies,
       # not the matrixed Python version, since this accurately reflects
       # how dependencies should later be updated.
-      - name: Run neophile
-        uses: lsst-sqre/run-neophile@v1
+      - uses: lsst-sqre/run-neophile@v1
         with:
           python-version: "3.11"
           mode: update
@@ -37,8 +36,7 @@ jobs:
       - name: Install extra packages
         run: sudo apt install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
-      - name: Run tox
-        uses: lsst-sqre/run-tox@v1
+      - uses: lsst-sqre/run-tox@v1
         with:
           python-version: ${{ matrix.python }}
           tox-envs: "lint,typing,py,docs,docs-linkcheck"
