@@ -30,16 +30,51 @@ jobs:
           python-version: "3.11"
           mode: update
 
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Read .nvmrc
+        id: node_version
+        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
+
+      # First try to restore the fully-installed node modules.  If that
+      # works (no changes to the JavaScript layer), skip npm i and
+      # restoring the cache of downloaded modules.  If that fails, restore
+      # the cache of the downloaded modules and then run npm
+      # clean-install.
+      - name: Cache installed Node modules
+        uses: actions/cache@v3
+        id: node-cache
+        with:
+          path: ./ui/node_modules
+          key: node-${{ steps.node_version.outputs.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
+
+      # --legacy-peer-deps is currently required because react-aria-modal
+      # hasn't been updated for the latest React.
+      - name: Install Node dependencies
+        run: npm ci --legacy-peer-deps
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        working-directory: ./ui
+
       - name: Update package lists
         run: sudo apt-get update
 
       - name: Install extra packages
         run: sudo apt install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
+      - name: Build the UI
+        run: npm run build
+        working-directory: ./ui
+
       - uses: lsst-sqre/run-tox@v1
         with:
           python-version: ${{ matrix.python }}
           tox-envs: "lint,typing,py,docs,docs-linkcheck"
+          tox-plugins: tox-docker
           use-cache: false
 
       - name: Report status
