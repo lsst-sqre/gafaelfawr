@@ -6,6 +6,18 @@ Dependencies are updated to the latest available version during each release. Th
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.3.0'></a>
+## 9.3.0 (2023-07-26)
+
+### New features
+
+- To configure Gafaelfawr to use the cluster-internal PostgreSQL service, use the Helm chart setting `config.internalDatabase` rather than setting an explicit URL. Setting `config.databaseUrl` to the internal PostgreSQL URL will still work for existing deployments, but using `config.internalDatabase` instead will be required in the future for correct secrets management.
+- Gafaelfawr can now listen on additional hostnames specified by setting `ingress.additionalHosts` in the Helm configuration. Only token authentication will be supported for ingresses using those hostnames; interactive browser authentication will not work.
+
+### Bug fixes
+
+- Restore the newline after the output from `gafaelfawr generate-session-secret` and `gafaelfawr generate-token`, accidentally dropped in 9.2.1.
+
 <a id='changelog-9.2.2'></a>
 ## 9.2.2 (2023-06-01)
 
