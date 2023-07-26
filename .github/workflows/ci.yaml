@@ -34,7 +34,7 @@ jobs:
 
       - name: Read .nvmrc
         id: node_version
-        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
+        run: echo NODE_VERSION="$(cat .nvmrc)" >> $GITHUB_OUTPUT
 
       # First try to restore the fully-installed node modules.  If that
       # works (no changes to the JavaScript layer), skip npm i and
