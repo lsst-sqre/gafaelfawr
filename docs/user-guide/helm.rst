@@ -28,6 +28,9 @@ For example, there should be one top-level ``config:`` key and all parameters th
 Basic settings
 ==============
 
+Database
+--------
+
 Set the URL to the PostgreSQL database that Gafaelfawr will use:
 
 .. code-block:: yaml
@@ -38,10 +41,25 @@ Set the URL to the PostgreSQL database that Gafaelfawr will use:
 Do not include the password in the URL; instead, put the password in the ``database-password`` key in the Vault secret.
 If you are using Cloud SQL with the Cloud SQL Auth Proxy (see :ref:`cloudsql`), use ``localhost`` for the hostname portion.
 
+Alternately, if Gafaelfawr should use the cluster-internal PostgreSQL service, omit the ``config.databaseUrl`` setting and instead add:
+
+.. code-block:: yaml
+
+   config:
+     internalDatabase: true
+
+This option is primarily for test and development deployments and is not recommended for production use.
+
+Error pages
+-----------
+
 To add additional information to the error page from a failed login, set ``config.errorFooter`` to a string.
 This string will be embedded verbatim, inside a ``<p>`` tag, in all login error messages.
 It may include HTML and will not be escaped.
 This is a suitable place to direct the user to support information or bug reporting instructions.
+
+Scaling
+-------
 
 Consider increasing the number of Gafaelfawr processes to run.
 This improves robustness and performance scaling.
@@ -50,6 +68,9 @@ Production deployments should use at least two replicas.
 .. code-block:: yaml
 
    replicaCount: 2
+
+Token lifetime
+--------------
 
 Change the token lifetime by setting ``config.tokenLifetimeMinutes``.
 The default is 1380 (23 hours).
@@ -60,6 +81,9 @@ The default is 1380 (23 hours).
      tokenLifetimeMinutes: 43200  # 30 days
 
 This setting will also affect the lifetime of tokens issued by the OpenID Connect server, if enabled.
+
+Administrators
+--------------
 
 Finally, you may want to define the initial set of administrators:
 
@@ -598,6 +622,28 @@ You will still need to set ``config.databaseUrl`` and the ``database-password`` 
 
 As mentioned in the Google documentation, the Cloud SQL Auth Proxy does not support IAM authentication to the database, only password authentication, and IAM authentication is not recommended for connection pools for long-lived processes.
 Gafaelfawr therefore doesn't support IAM authentication to the database.
+
+.. _helm-additional-hosts:
+
+Additional hosts
+================
+
+Currently, Gafaelfawr only supports full interactive authentication on a single fully-qualified domain name, which must also be the primary FQDN for that Rubin Science Platform deployment.
+However, it optionally can support token authentication on additional hostnames.
+
+To do this, add the following setting:
+
+.. code-block:: yaml
+
+   ingress:
+     additionalHosts:
+       - another-host.example.com
+
+Gafaelfawr will then take over the ``/auth`` route of all of those additional hosts.
+TLS configuration must be handled by some other ingress.
+The Gafaelfawr Kubernets ingress will not configure TLS for additional hosts even though Gafaelfawr requires TLS.
+
+Only token authentication will be supported for those hostnames, and therefore ingresses using those secondary hostnames should never set ``config.loginRedirect`` to true (see :ref:`login-redirect`).
 
 .. _helm-proxies:
 
