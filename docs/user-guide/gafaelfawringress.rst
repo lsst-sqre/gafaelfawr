@@ -73,6 +73,8 @@ Only the above structure is supported, but all standard ``pathType`` options are
 For the configuration options discussed in the rest of this page, only the relevant portion of the ``GafaelfawrIngress`` resource is shown.
 Add the example configuration to the above full resource to get a valid ``GafaelfawrIngress`` resource.
 
+.. _login-redirect:
+
 Redirecting users to log in
 ===========================
 
@@ -86,6 +88,9 @@ If you want unauthorized users to be redirected to the login page instead, use t
      loginRedirect: true
 
 This setting should be used for services that are accessed interactively from a web browser.
+
+Do not set this to true if the ingress uses one of the non-primary hostnames added via the Helm setting ``ingress.additionalHosts`` (see :ref:`helm-additional-hosts`).
+It will not work correctly.
 
 Changing the challenge type
 ===========================
