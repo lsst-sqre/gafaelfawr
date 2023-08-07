@@ -152,7 +152,7 @@ asyncpg==0.28.0 \
     --hash=sha256:f4f62f04cdf38441a70f279505ef3b4eadf64479b17e707c950515846a2df197 \
     --hash=sha256:fc9e9f9ff1aa0eddcc3247a180ac9e9b51a62311e988809ac6152e8fb8097756
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   safir
 attrs==23.1.0 \
     --hash=sha256:1f28b4522cdc2fb4256ac1a020c78acf9cba2c6b461ccd2c126f3aa8e8335d04 \
@@ -173,12 +173,12 @@ bonsai==1.5.1 \
     --hash=sha256:a2b0aaa51293167ab2d82acee904feeeb25f0668087c7101906169538dfaa494 \
     --hash=sha256:e599f5dc11e38a143edb451e28fdd448d18b5ecae4a74addf583d602a8f9057a \
     --hash=sha256:e960cadc3ef96622a7df8297948e9fd7284708805747f10f52ef11e52f06b63d
-    # via -r main.in
+    # via -r requirements/main.in
 cachetools==5.3.1 \
     --hash=sha256:95ef631eeaea14ba2e36f06437f36463aac3a096799e876ee55e5cdccb102590 \
     --hash=sha256:dce83f2d9b4e1f732a8cd44af8e8fab2dbe46201467fc98b3ef8f269092bf62b
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   google-auth
 certifi==2023.7.22 \
     --hash=sha256:539cc1d13202e33ca466e88b2807e29f4c13049d6d87031a3c110744495cb082 \
@@ -337,7 +337,7 @@ click==8.1.6 \
     --hash=sha256:48ee849951919527a045bfe3bf7baa8a959c423134e1a5b98c05c20ba75a1cbd \
     --hash=sha256:fa244bb30b3b5ee2cae3da8f55c9e5e0c0e86093306301fb418eb9dc40fbded5
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   kopf
     #   uvicorn
 cryptography==41.0.3 \
@@ -365,14 +365,14 @@ cryptography==41.0.3 \
     --hash=sha256:ce785cf81a7bdade534297ef9e490ddff800d956625020ab2ec2780a556c313e \
     --hash=sha256:d0d651aa754ef58d75cec6edfbd21259d93810b73f6ec246436a21b7841908de
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   pyjwt
     #   safir
-fastapi==0.100.0 \
-    --hash=sha256:271662daf986da8fa98dc2b7c7f61c4abdfdccfb4786d79ed8b2878f172c6d5f \
-    --hash=sha256:acb5f941ea8215663283c10018323ba7ea737c571b67fc7e88e9469c7eb1d12e
+fastapi==0.101.0 \
+    --hash=sha256:494eb3494d89e8079c20859d7ca695f66eaccc40f46fe8c75ab6186d15f05ffd \
+    --hash=sha256:ca2ae65fe42f6a34b5cf6c994337149154b1b400c39809d7b2dccdceb5ae77af
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   safir
 frozenlist==1.4.0 \
     --hash=sha256:007df07a6e3eb3e33e9a1fe6a9db7af152bbd8a185f9aaa6ece10a3529e3e1c6 \
@@ -462,10 +462,10 @@ google-cloud-core==2.3.3 \
 google-cloud-firestore==2.11.1 \
     --hash=sha256:7f7dfa86567c8d66c66c8dba8bc5ef85677c8532b4206055a339413f8071525d \
     --hash=sha256:833019175b6c82727da71e2db2fdea9bf203d0b8239c696492f7e2b24566bb3e
-    # via -r main.in
-googleapis-common-protos==1.59.1 \
-    --hash=sha256:0cbedb6fb68f1c07e18eb4c48256320777707e7d0c55063ae56c15db3224a61e \
-    --hash=sha256:b35d530fe825fb4227857bc47ad84c33c809ac96f312e13182bdeaa2abe1178a
+    # via -r requirements/main.in
+googleapis-common-protos==1.60.0 \
+    --hash=sha256:69f9bbcc6acde92cab2db95ce30a70bd2b81d20b12eff3f1aabaffcbe8a93918 \
+    --hash=sha256:e73ebb404098db405ba95d1e1ae0aa91c3e15a71da031a2eeb6b2e23e7bc3708
     # via
     #   google-api-core
     #   grpcio-status
@@ -635,7 +635,7 @@ httpx==0.24.1 \
     --hash=sha256:06781eb9ac53cde990577af654bd990a4949de37a28bdb4a230d434f3a30b9bd \
     --hash=sha256:5853a43053df830c20f8110c5e69fe44d035d850b2dfe795e196f00fdb774bdd
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   safir
 idna==3.4 \
     --hash=sha256:814f528e8dead7d329833b91c5faa87d60bf71824cd12a7530b5526063d02cb4 \
@@ -652,16 +652,16 @@ iso8601==2.0.0 \
 jinja2==3.1.2 \
     --hash=sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852 \
     --hash=sha256:6088930bfe239f0e6710546ab9c19c9ef35e29792895fed6e6e31a023a182a61
-    # via -r main.in
-kopf==1.36.1 \
-    --hash=sha256:1a9451fde1ddef97f863391154e6e26cb90a5419974868e2c86c15c734beea88 \
-    --hash=sha256:631dd26bb6823e7adc252414149ff936060c87837aa3174003a7e9145cedc7ea
-    # via -r main.in
+    # via -r requirements/main.in
+kopf==1.36.2 \
+    --hash=sha256:801e84671145fd19d2a2fcbc4a934ae8f6cd3bca966fc437099f815f7ab11e84 \
+    --hash=sha256:bb5e63f9e2092d22abe28c0b43ababe36d216d8efa3411a36ffb40223dd55a44
+    # via -r requirements/main.in
 kubernetes-asyncio==24.2.3 \
     --hash=sha256:01b0f22dbb9e83a333dc0d3c7b00bf76483cf18071a70dd022fdeaae04b81e93 \
     --hash=sha256:48f3bd583eeb16fbeb0767b0e190039013c1a4a7f4af5178ca3a6a904a7b6aba
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   safir
 markupsafe==2.1.3 \
     --hash=sha256:05fb21170423db021895e1ea1e1f3ab3adb85d1c2333cbc2310f2a26bc77272e \
@@ -869,14 +869,14 @@ pydantic==1.10.12 \
     --hash=sha256:ef6c96b2baa2100ec91a4b428f80d8f28a3c9e53568219b6c298c1125572ebc6 \
     --hash=sha256:fdbdd1d630195689f325c9ef1a12900524dceb503b00a987663ff4f58669b93d
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   fastapi
     #   safir
 pyjwt[crypto]==2.8.0 \
     --hash=sha256:57e28d156e3d5c10088e0c68abb90bfac3df82b40a71bd0daa20c65ccd5c23de \
     --hash=sha256:59127c392cc44c2da5bb3192169a91f429924e17aff6534d70fdc02ab3e04320
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   gidgethub
 python-dateutil==2.8.2 \
     --hash=sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86 \
@@ -893,7 +893,7 @@ python-json-logger==2.0.7 \
 python-multipart==0.0.6 \
     --hash=sha256:e9925a80bb668529f1b67c7fdb0a5dacdd7cbfc6fb0bff3ea443fe22bdd62132 \
     --hash=sha256:ee698bab5ef148b0a760751c261902cd096e57e10558e11aca17646b74ee1c18
-    # via -r main.in
+    # via -r requirements/main.in
 pyyaml==6.0.1 \
     --hash=sha256:062582fca9fabdd2c8b54a3ef1c978d786e0f6b3a1510e0ac93ef59e0ddae2bc \
     --hash=sha256:1635fd110e8d85d55237ab316b5b011de701ea0f29d07611174a1b42f1444741 \
@@ -936,14 +936,14 @@ pyyaml==6.0.1 \
     --hash=sha256:fd1592b3fdf65fff2ad0004b5e363300ef59ced41c2e6b3a99d4089fa8c5435d \
     --hash=sha256:fd66fc5d0da6d9815ba2cebeb4205f95818ff4b79c3ebe268e75d961704af52f
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   kopf
     #   kubernetes-asyncio
     #   uvicorn
 redis==4.6.0 \
     --hash=sha256:585dc516b9eb042a619ef0a39c3d7d55fe81bdb4df09a52c9cdde0d07bf1aa7d \
     --hash=sha256:e2b03db868160ee4591de3cb90d40ebb50a90dd302138775937f6a42b7ed183c
-    # via -r main.in
+    # via -r requirements/main.in
 requests==2.31.0 \
     --hash=sha256:58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f \
     --hash=sha256:942c5a758f98d790eaed1a29cb6eefc7ffb0d1cf7af05c3d2791656dbd6ad1e1
@@ -955,7 +955,7 @@ rsa==4.9 \
 safir[db,kubernetes]==4.3.1 \
     --hash=sha256:6d1fcb7aba10e02fd456076d29e38aaa8699574f52b0fc2f326a9ee3958b41ea \
     --hash=sha256:da473520785428ae3b9da80406403054d46c089a34d0beceeb88c4cb78925cd3
-    # via -r main.in
+    # via -r requirements/main.in
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
     --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
@@ -1013,20 +1013,20 @@ sqlalchemy[asyncio]==2.0.19 \
     --hash=sha256:f82c310ddf97b04e1392c33cf9a70909e0ae10a7e2ddc1d64495e3abdc5d19fb \
     --hash=sha256:fa51ce4aea583b0c6b426f4b0563d3535c1c75986c4373a0987d84d22376585b
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   safir
 starlette==0.27.0 \
     --hash=sha256:6a6b0d042acb8d469a01eba54e9cda6cbd24ac602c4cd016723117d6a7e73b75 \
     --hash=sha256:918416370e846586541235ccd38a474c08b80443ed31c578a418e2209b3eef91
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   fastapi
     #   safir
 structlog==23.1.0 \
     --hash=sha256:270d681dd7d163c11ba500bc914b2472d2b50a8ef00faa999ded5ff83a2f906b \
     --hash=sha256:79b9e68e48b54e373441e130fa447944e6f87a05b35de23138e475c05d0f7e0e
     # via
-    #   -r main.in
+    #   -r requirements/main.in
     #   safir
 typing-extensions==4.7.1 \
     --hash=sha256:440d5dd3af93b060174bf433bccd69b0babc3b15b1a8dca43789fd7f61514b36 \
@@ -1047,10 +1047,10 @@ urllib3==1.26.16 \
     #   google-auth
     #   kubernetes-asyncio
     #   requests
-uvicorn[standard]==0.23.1 \
-    --hash=sha256:1d55d46b83ee4ce82b4e82f621f2050adb3eb7b5481c13f9af1744951cae2f1f \
-    --hash=sha256:da9b0c8443b2d7ee9db00a345f1eee6db7317432c9d4400f5049cc8d358383be
-    # via -r main.in
+uvicorn[standard]==0.23.2 \
+    --hash=sha256:1f9be6558f01239d4fdf22ef8126c39cb1ad0addf76c40e760549d2c2f43ab53 \
+    --hash=sha256:4d3cc12d7727ba72b64d12d3cc7743124074c0a69f7b201512fc50c3e3f1569a
+    # via -r requirements/main.in
 uvloop==0.17.0 \
     --hash=sha256:0949caf774b9fcefc7c5756bacbbbd3fc4c05a6b7eebc7c7ad6f825b23998d6d \
     --hash=sha256:0ddf6baf9cf11a1a22c71487f39f15b2cf78eb5bde7e5b45fbb99e8a9d91b9e1 \
