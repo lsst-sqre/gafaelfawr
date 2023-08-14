@@ -169,8 +169,8 @@ class UserLockManager:
 
     async def __aexit__(
         self,
-        exc_type: type[Exception] | None,
-        exc: Exception | None,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
         tb: TracebackType | None,
     ) -> Literal[False]:
         self._user_lock.release()
