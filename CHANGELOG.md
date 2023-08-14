@@ -1,8 +1,13 @@
 # Change log
 
+All notable changes to Gafaelfawr will be documented in this file.
+
 Versioning follows [semver](https://semver.org/). Versioning assumes that Gafaelfawr is installed and configured via [Phalanx](https://phalanx.lsst.io/), so only changes to configuration exposed in the Helm values file are considered breaking changes. The internal configuration format may change in minor releases.
 
 Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
+
+This project uses [scriv](https://scriv.readthedocs.io/en/latest/) to maintain the change log.
+Changes for the upcoming release can be found in [changelog.d](https://github.com/lsst-sqre/gafaelfawr/tree/main/changelog.d/).
 
 <!-- scriv-insert-here -->
 
@@ -54,7 +59,7 @@ Dependencies are updated to the latest available version during each release. Th
 
 ### Other changes
 
-- The Gafaelfawr change log is now maintained using [scriv](https://scriv.readthedocs.io/).
+- The Gafaelfawr change log is now maintained using [scriv](https://scriv.readthedocs.io/en/latest/).
 - Gafaelfawr no longer adds timestamps to each of its log messages. This was a workaround for Argo CD not displaying log timestamps, which has now been fixed.
 - The documentation for running commands with `tox` has been updated for the new command-line syntax in tox v4. To run a local development server, use `tox run -e run`.
 - Model API documentation is now generated with `autodoc_pydantic` to include proper field documentation.
