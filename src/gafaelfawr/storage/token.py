@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import cast
 
 from safir.database import datetime_to_db
 from safir.datetime import current_datetime
 from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy import delete
-from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
@@ -99,7 +97,7 @@ class TokenDatabaseStore:
             Whether the token was found to be deleted.
         """
         stmt = delete(SQLToken).where(SQLToken.token == key)
-        result = cast(CursorResult, await self._session.execute(stmt))
+        result = await self._session.execute(stmt)
         return result.rowcount >= 1
 
     async def delete_expired(self) -> list[TokenInfo]:

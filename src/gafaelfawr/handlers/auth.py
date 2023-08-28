@@ -140,7 +140,7 @@ def auth_config(
             " notebook) would have a shorter lifetime, in seconds, than this"
             " parameter."
         ),
-        ge=MINIMUM_LIFETIME.total_seconds(),  # noqa: B008
+        ge=MINIMUM_LIFETIME.total_seconds(),
         examples=[86400],
     ),
     use_authorization: bool = Query(
