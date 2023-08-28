@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from sqlalchemy import delete
-from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.future import select
 
@@ -53,7 +50,7 @@ class AdminStore:
             otherwise.
         """
         stmt = delete(SQLAdmin).where(SQLAdmin.username == admin.username)
-        result = cast(CursorResult, await self._session.execute(stmt))
+        result = await self._session.execute(stmt)
         return result.rowcount > 0
 
     async def list(self) -> list[Admin]:
