@@ -409,7 +409,7 @@ async def test_invalidate_cache(
 
 
 @pytest.mark.asyncio
-async def test_duplicate_username(
+async def test_double_username(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
