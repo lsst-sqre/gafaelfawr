@@ -304,7 +304,7 @@ async def test_admin_change_history(
         client,
         {"key": token},
         history,
-        lambda e: e.token == token or e.parent == token,
+        lambda e: token in (e.token, e.parent),
     )
     await check_history_request(
         client,
@@ -317,8 +317,7 @@ async def test_admin_change_history(
         {"token_type": "internal", "key": token},
         history,
         lambda e: (
-            e.token_type == TokenType.internal
-            and (e.token == token or e.parent == token)
+            e.token_type == TokenType.internal and token in (e.token, e.parent)
         ),
     )
     await check_history_request(
@@ -398,7 +397,7 @@ async def test_user_change_history(
         client,
         {"key": token},
         history,
-        lambda e: e.token == token or e.parent == token,
+        lambda e: token in (e.token, e.parent),
         username="one",
     )
     await check_history_request(
@@ -413,8 +412,7 @@ async def test_user_change_history(
         {"token_type": "internal", "key": token},
         history,
         lambda e: (
-            e.token_type == TokenType.internal
-            and (e.token == token or e.parent == token)
+            e.token_type == TokenType.internal and token in (e.token, e.parent)
         ),
         username="one",
     )
