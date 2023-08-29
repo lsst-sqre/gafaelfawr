@@ -165,6 +165,8 @@ ignore = [
     "PLR2004", # too aggressive about magic values
     "S105",    # good idea but too many false positives on non-passwords
     "S106",    # good idea but too many false positives on non-passwords
+    "S603",     # not going to manually mark every subprocess call as reviewed
+    "S607",     # using PATH is not a security vulnerability
     "SIM102",  # sometimes the formatting of nested if statements is clearer
     "SIM117",  # sometimes nested with contexts are clearer
     "TCH001",  # we decided to not maintain separate TYPE_CHECKING blocks
@@ -185,6 +187,7 @@ target-version = "py311"
     "PLR0915", # tests are allowed to be long, sometimes that's convenient
     "PT012",   # way too aggressive about limiting pytest.raises blocks
     "S101",    # tests should use assert
+    "S106",    # tests are allowed to hard-code dummy passwords
     "SLF001",  # tests are allowed to access private members
 ]
 
