@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 import re
 from datetime import timedelta
@@ -13,6 +14,7 @@ from .constants import BOT_USERNAME_REGEX
 __all__ = [
     "add_padding",
     "base64_to_number",
+    "group_name_for_github_team",
     "is_bot_user",
     "normalize_ip_address",
     "normalize_scopes",
@@ -74,6 +76,36 @@ def is_bot_user(username: str) -> bool:
         Username to check.
     """
     return re.search(BOT_USERNAME_REGEX, username) is not None
+
+
+def group_name_for_github_team(organization: str, team: str) -> str:
+    """Convert a GitHub organization and team to a group name.
+
+    Paramters
+    ---------
+    organization
+        Name of organization.
+    team
+        Slug of the team.
+
+    Returns
+    -------
+    str
+        Group name suitable for use as a Gafaelfawr group.
+
+    Notes
+    -----
+    The default construction is the organization name (from the login field),
+    a dash, and the team slug.  If this is over 32 characters, it will be
+    truncated to 25 characters and the first six characters of a hash of the
+    full name will be appended for uniqueness.
+    """
+    group_name = f"{organization.lower()}-{team}"
+    if len(group_name) > 32:
+        name_hash = hashlib.sha256(group_name.encode()).digest()
+        suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
+        group_name = group_name[:25] + "-" + suffix
+    return group_name
 
 
 def normalize_ip_address(

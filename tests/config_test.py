@@ -82,3 +82,8 @@ def test_config_invalid_token(tmp_path: Path) -> None:
     )
     with pytest.raises(InvalidTokenError):
         Config.from_file(path)
+
+
+def test_config_bad_groups() -> None:
+    with pytest.raises(ValidationError):
+        parse_config(config_path("bad-groups.yaml"))

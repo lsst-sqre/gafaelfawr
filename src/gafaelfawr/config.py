@@ -17,11 +17,12 @@ from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import _BaseNetwork
 from pathlib import Path
-from typing import Any, Self
+from typing import Self
 
 import yaml
 from pydantic import (
     AnyHttpUrl,
+    BaseModel,
     Field,
     IPvAnyNetwork,
     root_validator,
@@ -32,8 +33,8 @@ from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .keypair import RSAKeyPair
-from .models.github import GitHubTeam
 from .models.token import Token
+from .util import group_name_for_github_team
 
 __all__ = [
     "Config",
@@ -42,6 +43,8 @@ __all__ = [
     "ForgeRockConfig",
     "ForgeRockSettings",
     "GitHubConfig",
+    "GitHubGroup",
+    "GitHubGroupTeam",
     "GitHubSettings",
     "LDAPConfig",
     "LDAPSettings",
@@ -320,6 +323,29 @@ class QuotaSettings(CamelCaseModel):
     )
 
 
+class GitHubGroupTeam(BaseModel):
+    """Specification for a GitHub team."""
+
+    organization: str
+    """Name of the organization."""
+
+    team: str
+    """Slug of the team within that organization."""
+
+    def __str__(self) -> str:
+        return group_name_for_github_team(self.organization, self.team)
+
+
+class GitHubGroup(BaseModel):
+    """An individual GitHub team."""
+
+    github: GitHubGroupTeam
+    """Details of the GitHub team."""
+
+    def __str__(self) -> str:
+        return str(self.github)
+
+
 class Settings(CamelCaseModel):
     """pydantic model of Gafaelfawr configuration file.
 
@@ -419,7 +445,7 @@ class Settings(CamelCaseModel):
         ),
     )
 
-    group_mapping: dict[str, list[str]] = Field(
+    group_mapping: dict[str, list[str | GitHubGroup]] = Field(
         {},
         title="Scope to group mapping",
         description="Mappings of scopes to lists of groups that provide them",
@@ -448,46 +474,6 @@ class Settings(CamelCaseModel):
             raise ValueError("not all required ldap fields are present")
         if v and v.user_dn and not v.password_file:
             raise ValueError("ldap.password_file required if ldap.user_dn set")
-        return v
-
-    @validator("group_mapping", pre=True)
-    def _convert_github_orgs(cls, v: dict[str, Any]) -> dict[str, list[str]]:
-        """Convert GitHub org/team pairs to group names."""
-        if not isinstance(v, dict):
-            raise TypeError("group_mapping must be a dictionary")
-
-        known_keys = {"organization", "team"}
-        for scope, groups in v.items():
-            new_groups = []
-            for group in groups:
-                if isinstance(group, str):
-                    new_groups.append(group)
-                    continue
-                if not isinstance(group, dict):
-                    raise TypeError("group_mapping value not str or dict")
-                if list(group.keys()) != ["github"]:
-                    raise ValueError("group_mapping key is not github")
-                data = group["github"]
-                if set(data.keys()) < known_keys:
-                    missing = ", ".join(known_keys - set(data.keys()))
-                    msg = f"group_mapping value missing key ({missing})"
-                    raise ValueError(msg)
-                if set(data.keys()) != known_keys:
-                    unknown = ", ".join(set(data.keys()) - known_keys)
-                    msg = f"group_mapping value has unknown key ({unknown})"
-                    raise ValueError(msg)
-                team = GitHubTeam(
-                    slug=data["team"],
-                    organization=data["organization"],
-                    gid=1000,
-                )
-                new_groups.append(team.group_name)
-
-            # Replacing the value for an existing key is safe while iterating
-            # over a Python dictionary even though adding or removing keys
-            # is not.
-            v[scope] = new_groups
-
         return v
 
     @validator("initial_admins", pre=True)
@@ -1009,16 +995,18 @@ class Config:
             quota = Quota(default=default, groups=group_quota)
 
         # The group mapping in the settings maps a scope to a list of groups
-        # that provide that scope.  This may be conceptually easier for the
+        # that provide that scope. This may be conceptually easier for the
         # person writing the configuration, but for our purposes we want a map
-        # from a group name to a set of scopes that group provides.
+        # from a group name to a set of scopes that group provides. Groups may
+        # also be GitHubTeamName objects instead of strings, and we need to
+        # convert them here.
         #
         # Reconstruct the group mapping in the form in which we want to use it
         # internally.
         group_mapping = defaultdict(set)
         for scope, groups in settings.group_mapping.items():
-            for group in groups:
-                group_mapping[group].add(scope)
+            for group_or_team in groups:
+                group_mapping[str(group_or_team)].add(scope)
         group_mapping_frozen = {
             k: frozenset(v) for k, v in group_mapping.items()
         }
