@@ -6,7 +6,7 @@
 .. _pytest: https://docs.pytest.org/en/latest/
 .. _Ruff: https://beta.ruff.rs/docs/
 .. _Safir: https://safir.lsst.io/
-.. _scriv: https://scriv.readthedocs.io/
+.. _scriv: https://scriv.readthedocs.io/en/latest/
 .. _semver: https://semver.org/
 .. _structlog: https://www.structlog.org/en/stable/
 .. _tox: https://tox.wiki/en/latest/
