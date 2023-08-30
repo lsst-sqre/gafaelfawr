@@ -14,15 +14,18 @@ from kubernetes_asyncio.client import (
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
+from ..config import Config
 from ..constants import NGINX_SNIPPET
 from ..exceptions import (
     InputValidationError,
+    InvalidScopesError,
     KubernetesError,
     PermissionDeniedError,
 )
 from ..models.auth import Satisfy
 from ..models.kubernetes import (
     GafaelfawrIngress,
+    GafaelfawrIngressScopesBase,
     GafaelfawrServiceToken,
     KubernetesResourceStatus,
 )
@@ -46,6 +49,8 @@ class KubernetesIngressService:
 
     Parameters
     ----------
+    config
+        Gafaelfawr configuration.
     storage
         Storage layer for the Kubernetes cluster.
     logger
@@ -53,8 +58,12 @@ class KubernetesIngressService:
     """
 
     def __init__(
-        self, storage: KubernetesIngressStorage, logger: BoundLogger
+        self,
+        config: Config,
+        storage: KubernetesIngressStorage,
+        logger: BoundLogger,
     ) -> None:
+        self._config = config
         self._storage = storage
         self._logger = logger
 
@@ -77,8 +86,14 @@ class KubernetesIngressService:
         Raises
         ------
         KubernetesError
-            Some error occurred while trying to write to Kubernetes.
+            Raised if some error occurred while trying to write to Kubernetes.
         """
+        try:
+            self._validate_scopes(parent.config.scopes)
+        except InputValidationError as e:
+            msg = f"Invalid GafaelfawrIngress {parent.key}"
+            self._logger.exception(msg, error=str(e))
+            return KubernetesResourceStatus.failure(parent, str(e))
         new_ingress = self._build_kubernetes_ingress(parent)
         name = new_ingress.metadata.name
         namespace = new_ingress.metadata.namespace
@@ -237,6 +252,23 @@ class KubernetesIngressService:
             msg = f"Created {key} ingress from {parent.key} GafaelfawrIngress"
         self._logger.info(msg)
         return status
+
+    def _validate_scopes(self, scopes: GafaelfawrIngressScopesBase) -> None:
+        """Check that the requested scopes are valid.
+
+        Arguments
+        ---------
+        scopes
+            Requested scopes.
+
+        Raises
+        ------
+        InvalidScopesError
+            Raised if any of the requested scopes are not valid scopes.
+        """
+        for scope in scopes.scopes:
+            if scope not in self._config.known_scopes:
+                raise InvalidScopesError(f"Unknown scope {scope}")
 
 
 class KubernetesTokenService:

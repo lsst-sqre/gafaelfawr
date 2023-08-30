@@ -7,8 +7,9 @@ from unittest.mock import ANY
 
 import pytest
 from kubernetes_asyncio import client
-from kubernetes_asyncio.client import ApiClient
+from kubernetes_asyncio.client import ApiClient, ApiException
 
+from gafaelfawr.config import Config
 from gafaelfawr.models.kubernetes import KubernetesResourceStatus, StatusReason
 
 from ..support.kubernetes import (
@@ -25,7 +26,9 @@ from ..support.kubernetes import (
 
 @requires_kubernetes
 @pytest.mark.asyncio
-async def test_create(api_client: ApiClient, namespace: str) -> None:
+async def test_create(
+    config: Config, api_client: ApiClient, namespace: str
+) -> None:
     ingresses = operator_test_input("ingresses", namespace)
     await create_custom_resources(api_client, ingresses)
 
@@ -45,7 +48,9 @@ async def test_create(api_client: ApiClient, namespace: str) -> None:
 
 @requires_kubernetes
 @pytest.mark.asyncio
-async def test_replace(api_client: ApiClient, namespace: str) -> None:
+async def test_replace(
+    config: Config, api_client: ApiClient, namespace: str
+) -> None:
     ingress = operator_test_input("ingresses", namespace)[0]
     expected = operator_test_output("ingresses", namespace)[0]
     custom_api = client.CustomObjectsApi(api_client)
@@ -111,7 +116,9 @@ async def test_replace(api_client: ApiClient, namespace: str) -> None:
 
 @requires_kubernetes
 @pytest.mark.asyncio
-async def test_resume(api_client: ApiClient, namespace: str) -> None:
+async def test_resume(
+    config: Config, api_client: ApiClient, namespace: str
+) -> None:
     """Test periodic rechecking of Ingress resources."""
     ingress = operator_test_input("ingresses", namespace)[0]
     expected = operator_test_output("ingresses", namespace)[0]
@@ -133,3 +140,28 @@ async def test_resume(api_client: ApiClient, namespace: str) -> None:
     # resume event handler.
     await run_operator_once("gafaelfawr.operator")
     await assert_resources_match(api_client, [expected])
+
+
+@requires_kubernetes
+@pytest.mark.asyncio
+async def test_errors_scope(
+    config: Config, api_client: ApiClient, namespace: str
+) -> None:
+    networking_api = client.NetworkingV1Api(api_client)
+    ingress = operator_test_input("ingress-error-scope", namespace)[0]
+    name = ingress["template"]["metadata"]["name"]
+    status = KubernetesResourceStatus(
+        message="Unknown scope invalid:scope",
+        generation=ANY,
+        reason=StatusReason.Failed,
+        timestamp=ANY,
+    )
+
+    with operator_running("gafaelfawr.operator"):
+        await create_custom_resources(api_client, [ingress])
+        await asyncio.sleep(1)
+
+    await assert_custom_resource_status_is(api_client, ingress, status)
+    with pytest.raises(ApiException) as excinfo:
+        await networking_api.read_namespaced_ingress(name, namespace)
+    assert excinfo.value.status == 404
