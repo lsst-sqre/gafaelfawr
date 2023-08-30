@@ -8,9 +8,9 @@ configuration parsing code.
 
 from __future__ import annotations
 
-import base64
-import hashlib
 from dataclasses import dataclass
+
+from ..util import group_name_for_github_team
 
 __all__ = [
     "GitHubTeam",
@@ -39,20 +39,8 @@ class GitHubTeam:
         -------
         str
             The name of the group.
-
-        Notes
-        -----
-        The default construction is the organization name (from the login
-        field), a dash, and the team slug.  If this is over 32 characters, it
-        will be truncated to 25 characters and the first six characters of a
-        hash of the full name will be appended for uniqueness.
         """
-        group_name = f"{self.organization.lower()}-{self.slug}"
-        if len(group_name) > 32:
-            name_hash = hashlib.sha256(group_name.encode()).digest()
-            suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
-            group_name = group_name[:25] + "-" + suffix
-        return group_name
+        return group_name_for_github_team(self.organization, self.slug)
 
 
 @dataclass(frozen=True)

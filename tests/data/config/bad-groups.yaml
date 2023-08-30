@@ -1,0 +1,16 @@
+realm: "example.com"
+sessionSecretFile: "{session_secret_file}"
+databaseUrl: "{database_url}"
+redisUrl: "redis://localhost:6379/0"
+bootstrapTokenFile: "{bootstrap_token_file}"
+initialAdmins: ["admin"]
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
+  "exec:admin": "admin"
+knownScopes:
+  "admin:token": "token administration"
+  "exec:admin": "admin description"
+  "user:token": "Can create and modify user tokens"
+github:
+  clientId: "some-github-client-id"
+  clientSecretFile: "{github_secret_file}"
