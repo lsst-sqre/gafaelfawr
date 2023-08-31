@@ -366,7 +366,9 @@ class Factory:
             Newly-created Kubernetes service.
         """
         storage = KubernetesIngressStorage(api_client, self._logger)
-        return KubernetesIngressService(storage, self._logger)
+        return KubernetesIngressService(
+            self._context.config, storage, self._logger
+        )
 
     def create_kubernetes_token_service(
         self, api_client: ApiClient
