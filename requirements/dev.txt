@@ -1360,9 +1360,9 @@ scriv[toml]==1.3.1 \
     --hash=sha256:4df597ee0a7b3dcc0d5315d7649df091efcb1b3ff08f0b51a698340727d17118 \
     --hash=sha256:9137e343f98dd65b8ba3dda286739cb21b0b04fa1fc4a25ef4a8342556686f6b
     # via -r requirements/dev.in
-selenium==4.11.2 \
-    --hash=sha256:98e72117b194b3fa9c69b48998f44bf7dd4152c7bd98544911a1753b9f03cc7d \
-    --hash=sha256:9f9a5ed586280a3594f7461eb1d9dab3eac9d91e28572f365e9b98d9d03e02b5
+selenium==4.12.0 \
+    --hash=sha256:95be6aa449a0ab4ac1198bb9de71bbe9170405e04b9752f4b450dc7292a21828 \
+    --hash=sha256:b2c48b1440db54a0653300d9955f5421390723d53b36ec835e18de8e13bbd401
     # via selenium-wire
 selenium-wire==5.1.0 \
     --hash=sha256:b1cd4eae44d9959381abe3bb186472520d063c658e279f98555def3d4e6dd29b \
