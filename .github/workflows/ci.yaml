@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Node
         uses: actions/setup-node@v3
@@ -92,7 +92,7 @@ jobs:
           - "3.11"
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Reuse the built UI from the ui job.
       - name: Restore UI artifact
@@ -124,7 +124,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: lsst-sqre/run-neophile@v1
         with:
@@ -137,7 +137,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
@@ -174,7 +174,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Update package lists
         run: sudo apt-get update
@@ -204,7 +204,7 @@ jobs:
           || startsWith(github.head_ref, 'tickets/'))
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
