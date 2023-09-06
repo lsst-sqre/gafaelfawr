@@ -99,10 +99,11 @@ aiosignal==1.3.1 \
     --hash=sha256:54cd96e15e1649b75d6c87526a6ff0b6c1b0dd3459f43d9ca11d48c339b68cfc \
     --hash=sha256:f8376fb07dd1e86a584e4fcdec80b36b7f81aac666ebc724e2c090300dd83b17
     # via aiohttp
-anyio==4.0.0 \
-    --hash=sha256:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f \
-    --hash=sha256:f7ed51751b2c2add651e5747c891b47e26d2a21be5d32d9311dfe9692f3e5d7a
+anyio==3.7.1 \
+    --hash=sha256:44a3c9aba0f5defa43261a8b3efb97891f2bd7d804e0e1f56419befa1adfc780 \
+    --hash=sha256:91dee416e570e92c64041bd18b900d1d6fa78dff7048769ce5ac5ddad004fbb5
     # via
+    #   fastapi
     #   httpcore
     #   starlette
     #   watchfiles
@@ -368,9 +369,9 @@ cryptography==41.0.3 \
     #   -r requirements/main.in
     #   pyjwt
     #   safir
-fastapi==0.103.0 \
-    --hash=sha256:4166732f5ddf61c33e9fa4664f73780872511e0598d4d5434b1816dc1e6d9421 \
-    --hash=sha256:61ab72c6c281205dd0cbaccf503e829a37e0be108d965ac223779a8479243665
+fastapi==0.103.1 \
+    --hash=sha256:345844e6a82062f06a096684196aaf96c1198b25c06b72c1311b882aa2d8a35d \
+    --hash=sha256:5e5f17e826dbd9e9b5a5145976c5cd90bcaa61f2bf9a69aca423f2bcebe44d83
     # via
     #   -r requirements/main.in
     #   safir
