@@ -1,7 +1,5 @@
 # Gafaelfawr
 
-[![Build](https://github.com/lsst-sqre/gafaelfawr/workflows/CI/badge.svg)](https://github.com/lsst-sqre/gafaelfawr/actions)
-
 Gafaelfawr is a [FastAPI](https://fastapi.tiangolo.com/) service for the authorization and management of tokens, including their issuance and revocation.
 It is deployed via [Phalanx](https://phalanx.lsst.io/).
 
