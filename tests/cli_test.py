@@ -71,7 +71,7 @@ def test_audit(
 
     event_loop.run_until_complete(setup())
     runner = CliRunner()
-    result = runner.invoke(main, ["audit"])
+    result = runner.invoke(main, ["audit"], catch_exceptions=False)
     assert result.exit_code == 0
 
     alerts = [
@@ -98,13 +98,13 @@ def test_audit(
 
     mock_slack.messages = []
     runner = CliRunner()
-    result = runner.invoke(main, ["audit", "--fix"])
+    result = runner.invoke(main, ["audit", "--fix"], catch_exceptions=False)
     assert result.exit_code == 0
     assert len(mock_slack.messages) == 1
 
     mock_slack.messages = []
     runner = CliRunner()
-    result = runner.invoke(main, ["audit"])
+    result = runner.invoke(main, ["audit"], catch_exceptions=False)
     assert result.exit_code == 0
     assert len(mock_slack.messages) == 0
 
@@ -133,7 +133,7 @@ def test_delete_all_data(
 
     code = event_loop.run_until_complete(setup())
     runner = CliRunner()
-    result = runner.invoke(main, ["delete-all-data"])
+    result = runner.invoke(main, ["delete-all-data"], catch_exceptions=False)
     assert result.exit_code == 0
 
     async def check_data() -> None:
@@ -159,7 +159,7 @@ def test_delete_all_data(
 
 def test_generate_key() -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["generate-key"])
+    result = runner.invoke(main, ["generate-key"], catch_exceptions=False)
 
     assert result.exit_code == 0
     assert "-----BEGIN PRIVATE KEY-----" in result.output
@@ -167,7 +167,9 @@ def test_generate_key() -> None:
 
 def test_generate_session_secret() -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["generate-session-secret"])
+    result = runner.invoke(
+        main, ["generate-session-secret"], catch_exceptions=False
+    )
 
     assert result.exit_code == 0
     assert Fernet(result.output.rstrip("\n").encode())
@@ -175,7 +177,7 @@ def test_generate_session_secret() -> None:
 
 def test_generate_token() -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["generate-token"])
+    result = runner.invoke(main, ["generate-token"], catch_exceptions=False)
 
     assert result.exit_code == 0
     assert Token.from_str(result.output.rstrip("\n"))
@@ -184,20 +186,22 @@ def test_generate_token() -> None:
 def test_help() -> None:
     runner = CliRunner()
 
-    result = runner.invoke(main, ["-h"])
+    result = runner.invoke(main, ["-h"], catch_exceptions=False)
     assert result.exit_code == 0
     assert "Commands:" in result.output
 
-    result = runner.invoke(main, ["help"])
+    result = runner.invoke(main, ["help"], catch_exceptions=False)
     assert result.exit_code == 0
     assert "Commands:" in result.output
 
-    result = runner.invoke(main, ["help", "run"])
+    result = runner.invoke(main, ["help", "run"], catch_exceptions=False)
     assert result.exit_code == 0
     assert "Options:" in result.output
     assert "Commands:" not in result.output
 
-    result = runner.invoke(main, ["help", "unknown-command"])
+    result = runner.invoke(
+        main, ["help", "unknown-command"], catch_exceptions=False
+    )
     assert result.exit_code != 0
     assert "Unknown help topic unknown-command" in result.output
 
@@ -206,7 +210,7 @@ def test_init(
     engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
 ) -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["init"])
+    result = runner.invoke(main, ["init"], catch_exceptions=False)
     assert result.exit_code == 0
 
     async def check_database() -> None:
@@ -264,7 +268,7 @@ def test_maintenance(
 
     event_loop.run_until_complete(initialize())
     runner = CliRunner()
-    result = runner.invoke(main, ["maintenance"])
+    result = runner.invoke(main, ["maintenance"], catch_exceptions=False)
     assert result.exit_code == 0
 
     async def check_database() -> None:
@@ -289,12 +293,16 @@ def test_openapi_schema(tmp_path: Path) -> None:
     schema = result.output
 
     result = runner.invoke(
-        main, ["openapi-schema", "--output", str(tmp_path / "openapi.json")]
+        main,
+        ["openapi-schema", "--output", str(tmp_path / "openapi.json")],
+        catch_exceptions=False,
     )
     assert result.exit_code == 0
     assert not result.output
     assert (tmp_path / "openapi.json").read_text() == schema
 
-    result = runner.invoke(main, ["openapi-schema", "--add-back-link"])
+    result = runner.invoke(
+        main, ["openapi-schema", "--add-back-link"], catch_exceptions=False
+    )
     assert result.exit_code == 0
     assert "Return to Gafaelfawr documentation" in result.output

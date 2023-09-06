@@ -10,7 +10,7 @@ keywords = [
 ]
 # https://pypi.org/classifiers/
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -156,22 +156,25 @@ ignore = [
     "D104",    # don't see the point of documenting every package
     "D105",    # our style doesn't require docstrings for magic methods
     "D106",    # Pydantic uses a nested Config class that doesn't warrant docs
+    "D205",    # our documentation style allows a folded first line
     "EM101",   # justification (duplicate string in traceback) is silly
     "EM102",   # justification (duplicate string in traceback) is silly
     "FBT003",  # positional booleans are normal for Pydantic field defaults
+    "FIX002",  # point of a TODO comment is that we're not ready to fix it
     "G004",    # forbidding logging f-strings is appealing, but not our style
     "RET505",  # disagree that omitting else always makes code more readable
     "PLR0913", # factory pattern uses constructors with many arguments
     "PLR2004", # too aggressive about magic values
     "S105",    # good idea but too many false positives on non-passwords
     "S106",    # good idea but too many false positives on non-passwords
-    "S603",     # not going to manually mark every subprocess call as reviewed
-    "S607",     # using PATH is not a security vulnerability
+    "S603",    # not going to manually mark every subprocess call as reviewed
+    "S607",    # using PATH is not a security vulnerability
     "SIM102",  # sometimes the formatting of nested if statements is clearer
     "SIM117",  # sometimes nested with contexts are clearer
     "TCH001",  # we decided to not maintain separate TYPE_CHECKING blocks
     "TCH002",  # we decided to not maintain separate TYPE_CHECKING blocks
     "TCH003",  # we decided to not maintain separate TYPE_CHECKING blocks
+    "TD003",   # we don't require issues be created for TODOs
     "TID252",  # if we're going to use relative imports, use them always
     "TRY003",  # good general advice but lint is way too aggressive
 ]
@@ -183,6 +186,8 @@ target-version = "py311"
     "D103",    # FastAPI handlers should not have docstrings
 ]
 "tests/**" = [
+    "C901",    # tests are allowed to be complex, sometimes that's convenient
+    "D101",    # tests don't need docstrings
     "D103",    # tests don't need docstrings
     "PLR0915", # tests are allowed to be long, sometimes that's convenient
     "PT012",   # way too aggressive about limiting pytest.raises blocks
@@ -210,9 +215,11 @@ extend-immutable-calls = [
 builtins-ignorelist = [
     "all",
     "any",
+    "dict",
     "help",
     "id",
     "list",
+    "open",
     "type",
 ]
 

@@ -119,19 +119,6 @@ jobs:
           tox-plugins: tox-docker
           cache-key-prefix: test
 
-  dependencies:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: lsst-sqre/run-neophile@v1
-        with:
-          python-version: "3.11"
-          mode: check
-          types: python
-
   docs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
