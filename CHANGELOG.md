@@ -11,6 +11,14 @@ Changes for the upcoming release can be found in [changelog.d](https://github.co
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.3.1'></a>
+## 9.3.1 (2023-09-07)
+
+### Bug fixes
+
+- Gafaelfawr previously accepted a `group_mapping` rule whose value was a string rather than a list of group names and interpreted it as a list of single-letter group names corresponding to the letters in the string. This configuration now produces a validation error during startup.
+- The Gafaelfawr Kubernetes operator now rejects `GafaelfawrIngress` resources with invalid scopes and sets an error status, rather than creating an `Ingress` resource that will always fail.
+
 <a id='changelog-9.3.0'></a>
 ## 9.3.0 (2023-07-26)
 
