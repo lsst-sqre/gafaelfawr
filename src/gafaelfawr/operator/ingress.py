@@ -53,7 +53,7 @@ async def create(
 
     # Parse the GafaelafwrServiceToken resource.
     try:
-        ingress = GafaelfawrIngress.parse_obj(body)
+        ingress = GafaelfawrIngress.model_validate(body)
     except ValidationError as e:
         raise KubernetesObjectError(
             "GafaelfawrIngress", name, namespace, e

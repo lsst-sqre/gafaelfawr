@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
-from ipaddress import _BaseNetwork
+from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
 from typing import Self
 
@@ -24,9 +24,8 @@ from pydantic import (
     AnyHttpUrl,
     BaseModel,
     Field,
-    IPvAnyNetwork,
-    root_validator,
-    validator,
+    field_validator,
+    model_validator,
 )
 from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
@@ -392,7 +391,7 @@ class Settings(CamelCaseModel):
     token_lifetime_minutes: int = 1380  # 23 hours
     """Number of minutes into the future that a token should expire."""
 
-    proxies: list[IPvAnyNetwork] | None
+    proxies: list[IPv4Network | IPv6Network] | None = None
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
     If this is set to a non-empty list, it will be used as the trusted list of
@@ -451,13 +450,18 @@ class Settings(CamelCaseModel):
         description="Mappings of scopes to lists of groups that provide them",
     )
 
-    @validator("initial_admins", each_item=True)
-    def _validate_initial_admins(cls, v: str) -> str:
-        if not re.match(USERNAME_REGEX, v):
-            raise ValueError("invalid username")
+    @field_validator("initial_admins")
+    @classmethod
+    def _validate_initial_admins(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("initial_admins is empty")
+        for admin in v:
+            if not re.match(USERNAME_REGEX, admin):
+                raise ValueError(f"invalid username {admin}")
         return v
 
-    @validator("known_scopes")
+    @field_validator("known_scopes")
+    @classmethod
     def _valid_known_scopes(cls, v: dict[str, str]) -> dict[str, str]:
         for scope in v:
             if not re.match(SCOPE_REGEX, scope):
@@ -467,7 +471,8 @@ class Settings(CamelCaseModel):
                 raise ValueError(f"required scope {required} missing")
         return v
 
-    @validator("ldap", always=True)
+    @field_validator("ldap")
+    @classmethod
     def _valid_ldap_config(cls, v: LDAPSettings | None) -> LDAPSettings | None:
         """Ensure all fields are non-empty if url is non-empty."""
         if v and v.url and not v.group_base_dn:
@@ -476,13 +481,7 @@ class Settings(CamelCaseModel):
             raise ValueError("ldap.password_file required if ldap.user_dn set")
         return v
 
-    @validator("initial_admins", pre=True)
-    def _nonempty_list(cls, v: list[str]) -> list[str]:
-        if not v:
-            raise ValueError("initial_admins is empty")
-        return v
-
-    _validate_provider = root_validator(allow_reuse=True)(
+    _validate_provider = model_validator(mode="after")(
         validate_exactly_one_of("github", "oidc")
     )
 
@@ -809,7 +808,7 @@ class Config:
     token_lifetime: timedelta
     """Maximum lifetime of session, notebook, and internal tokens."""
 
-    proxies: tuple[_BaseNetwork, ...]
+    proxies: tuple[IPv4Network | IPv6Network, ...]
     """Trusted proxy IP netblocks in front of Gafaelfawr.
 
     If this is set to a non-empty list, it will be used as the trusted list of
@@ -875,7 +874,7 @@ class Config:
             The corresponding `Config` object.
         """
         with path.open("r") as f:
-            settings = Settings.parse_obj(yaml.safe_load(f))
+            settings = Settings.model_validate(yaml.safe_load(f))
 
         # Build the GitHub configuration if needed.
         github_config = None
@@ -981,7 +980,7 @@ class Config:
             notebook = None
             if settings.quota.default.notebook:
                 notebook_default = settings.quota.default.notebook
-                notebook = NotebookQuota(**notebook_default.dict())
+                notebook = NotebookQuota(**notebook_default.model_dump())
             default = QuotaGrant(
                 api=settings.quota.default.api, notebook=notebook
             )
@@ -989,7 +988,7 @@ class Config:
             for group, grant in settings.quota.groups.items():
                 notebook = None
                 if grant.notebook:
-                    notebook = NotebookQuota(**grant.notebook.dict())
+                    notebook = NotebookQuota(**grant.notebook.model_dump())
                 frozen_grant = QuotaGrant(api=grant.api, notebook=notebook)
                 group_quota[group] = frozen_grant
             quota = Quota(default=default, groups=group_quota)

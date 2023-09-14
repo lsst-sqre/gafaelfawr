@@ -33,7 +33,7 @@ def parse_config(path: Path, *, fix_token: bool = False) -> None:
     if fix_token and "bootstrap_token" in settings:
         settings["bootstrap_token"] = str(Token())
 
-    Settings.parse_obj(settings)
+    Settings.model_validate(settings)
 
 
 def test_config_examples() -> None:

@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, ClassVar, Generic, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar
 from urllib.parse import parse_qs, urlencode
 
-from pydantic import BaseModel, Field, validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+)
 from safir.datetime import current_datetime
 from safir.pydantic import normalize_datetime
 from starlette.datastructures import URL
@@ -46,12 +51,12 @@ class AdminHistoryEntry(BaseModel):
         ...,
         title="Username",
         description="Username of the token administrator that was changed",
-        example="someadmin",
+        examples=["someadmin"],
         min_length=1,
         max_length=64,
     )
 
-    action: AdminChange = Field(..., title="Type of change", example="add")
+    action: AdminChange = Field(..., title="Type of change", examples=["add"])
 
     actor: str = Field(
         ...,
@@ -74,18 +79,13 @@ class AdminHistoryEntry(BaseModel):
         default_factory=current_datetime,
         title="Timestamp",
         description="When the change was made",
-        example=1614986130,
+        examples=[1614986130],
     )
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
-    _normalize_event_time = validator(
-        "event_time", allow_reuse=True, pre=True
-    )(normalize_datetime)
-    _normalize_ip_address = validator(
-        "ip_address", allow_reuse=True, pre=True
-    )(normalize_ip_address)
+    _normalize_event_time = field_validator("event_time")(normalize_datetime)
+    _normalize_ip_address = field_validator("ip_address")(normalize_ip_address)
 
 
 @dataclass
@@ -217,7 +217,7 @@ class TokenChangeHistoryEntry(BaseModel):
     token: str = Field(
         ...,
         title="Token key",
-        example="dDQg_NTNS51GxeEteqnkag",
+        examples=["dDQg_NTNS51GxeEteqnkag"],
         min_length=22,
         max_length=22,
     )
@@ -225,7 +225,7 @@ class TokenChangeHistoryEntry(BaseModel):
     username: str = Field(
         ...,
         title="Username of the token",
-        example="someuser",
+        examples=["someuser"],
         min_length=1,
         max_length=64,
     )
@@ -245,7 +245,7 @@ class TokenChangeHistoryEntry(BaseModel):
             "* `service`: A service-to-service token used for internal calls"
             " initiated by services, unrelated to a user request\n"
         ),
-        example="user",
+        examples=["user"],
     )
 
     token_name: str | None = Field(
@@ -255,24 +255,24 @@ class TokenChangeHistoryEntry(BaseModel):
             "Only set for tokens of type user. If the name was changed, this"
             " will be the new name of the token."
         ),
-        example="a token",
+        examples=["a token"],
     )
 
     parent: str | None = Field(
         None,
         title="Key of parent token of this token",
-        example="1NOV_8aPwhCWj6rM-p1XgQ",
+        examples=["1NOV_8aPwhCWj6rM-p1XgQ"],
     )
 
     scopes: list[str] = Field(
-        ..., title="Scopes of the token", example=["read:all"]
+        ..., title="Scopes of the token", examples=[["read:all"]]
     )
 
     service: str | None = Field(
         None,
         title="Service to which the token was issued",
         description="Only set for tokens of type internal.",
-        example="some-service",
+        examples=["some-service"],
     )
 
     expires: datetime | None = Field(
@@ -282,19 +282,19 @@ class TokenChangeHistoryEntry(BaseModel):
             "If the expiration was changed, this will be the new expiration of"
             " the token."
         ),
-        example=1615785631,
+        examples=[1615785631],
     )
 
     actor: str = Field(
         ...,
         title="Username of person making the change",
-        example="adminuser",
+        examples=["adminuser"],
         min_length=1,
         max_length=64,
     )
 
     action: TokenChange = Field(
-        ..., title="Type of change that was made", example="edit"
+        ..., title="Type of change that was made", examples=["edit"]
     )
 
     old_token_name: str | None = Field(
@@ -304,7 +304,7 @@ class TokenChangeHistoryEntry(BaseModel):
             "This field will only be present for edit changes to user tokens"
             " that changed the token name."
         ),
-        example="old name",
+        examples=["old name"],
     )
 
     old_scopes: list[str] | None = Field(
@@ -314,7 +314,7 @@ class TokenChangeHistoryEntry(BaseModel):
             "This field will only be present for edit changes that changed the"
             " token scopes."
         ),
-        example=["read:some"],
+        examples=[["read:some"]],
     )
 
     old_expires: datetime | None = Field(
@@ -324,7 +324,7 @@ class TokenChangeHistoryEntry(BaseModel):
             "This field will only be present for edit changes that changed the"
             " expiration of the token."
         ),
-        example=1614985631,
+        examples=[1614985631],
     )
 
     # The first implementation tried to use an IPvAnyAddress type here for the
@@ -344,37 +344,37 @@ class TokenChangeHistoryEntry(BaseModel):
             "May be null if the change was made internally, such as token"
             " deletion due to expiration."
         ),
-        example="198.51.100.50",
+        examples=["198.51.100.50"],
     )
 
     event_time: datetime = Field(
         default_factory=current_datetime,
         title="Whent he change was made",
-        example=1614985631,
+        examples=[1614985631],
     )
 
-    class Config:
-        json_encoders: ClassVar[dict[type, Callable]] = {
-            datetime: lambda v: int(v.timestamp())
-        }
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
-    _normalize_scopes = validator(
-        "scopes", "old_scopes", allow_reuse=True, pre=True
-    )(normalize_scopes)
-    _normalize_expires = validator(
-        "expires", "old_expires", "event_time", allow_reuse=True, pre=True
+    @field_serializer("expires", "old_expires", "event_time")
+    def _serialize_datetime(self, time: datetime | None) -> int | None:
+        return int(time.timestamp()) if time is not None else None
+
+    _normalize_scopes = field_validator("scopes", "old_scopes", mode="before")(
+        normalize_scopes
+    )
+    _normalize_expires = field_validator(
+        "expires", "old_expires", "event_time", mode="before"
     )(normalize_datetime)
-    _normalize_ip_address = validator(
-        "ip_address", allow_reuse=True, pre=True
-    )(normalize_ip_address)
+    _normalize_ip_address = field_validator("ip_address", mode="before")(
+        normalize_ip_address
+    )
 
-    def reduced_dict(self) -> dict[str, Any]:
+    def model_dump_reduced(self) -> dict[str, Any]:
         """Convert to a dictionary while suppressing some fields.
 
-        The same as the standard Pydantic ``dict`` method, but excludes the
-        ``old_`` fields for changes other than edits and when the edit doesn't
-        change those fields.
+        The same as the standard Pydantic ``model_dump`` method, but excludes
+        the ``old_`` fields for changes other than edits and when the edit
+        doesn't change those fields.
 
         Returns
         -------
@@ -388,7 +388,7 @@ class TokenChangeHistoryEntry(BaseModel):
         ``old_expires``) in ways that are too complex to do with the standard
         Pydantic filtering API, hence the hand-rolled method.
         """
-        v = self.dict()
+        v = self.model_dump()
 
         for field in ("token_name", "parent", "service"):
             if v[field] is None:

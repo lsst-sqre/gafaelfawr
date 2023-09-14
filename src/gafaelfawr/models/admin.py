@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = ["Admin"]
 
@@ -12,11 +10,11 @@ __all__ = ["Admin"]
 class Admin(BaseModel):
     """A token administrator."""
 
-    username: str
-    """The username of the token administrator."""
+    username: str = Field(
+        ...,
+        title="Admin username",
+        description="Username of the token administrator",
+        examples=["adminuser"],
+    )
 
-    class Config:
-        orm_mode = True
-        schema_extra: ClassVar[dict[str, dict[str, str]]] = {
-            "example": {"username": "adminuser"}
-        }
+    model_config = ConfigDict(from_attributes=True)

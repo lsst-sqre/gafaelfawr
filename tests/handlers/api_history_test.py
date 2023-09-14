@@ -169,8 +169,8 @@ async def build_history(
 
 def entry_to_dict(entry: TokenChangeHistoryEntry) -> dict[str, Any]:
     """Convert a history entry to the expected API output."""
-    reduced_entry = TokenChangeHistoryEntry(**entry.reduced_dict())
-    return json.loads(reduced_entry.json(exclude_unset=True))
+    reduced_entry = TokenChangeHistoryEntry(**entry.model_dump_reduced())
+    return json.loads(reduced_entry.model_dump_json(exclude_unset=True))
 
 
 async def check_history_request(

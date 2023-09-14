@@ -42,7 +42,7 @@ class AdminHistoryStore:
         entry
             The change to record.
         """
-        new = AdminHistory(**entry.dict())
+        new = AdminHistory(**entry.model_dump())
         new.event_time = datetime_to_db(entry.event_time)
         self._session.add(new)
 
@@ -67,7 +67,7 @@ class TokenChangeHistoryStore:
         entry
             New entry to add to the database.
         """
-        entry_dict = entry.dict()
+        entry_dict = entry.model_dump()
 
         # Convert the lists of scopes to the empty string for an empty list
         # and a comma-separated string otherwise.
@@ -180,7 +180,9 @@ class TokenChangeHistoryStore:
         result = await self._session.scalars(stmt)
         entries = result.all()
         return PaginatedHistory[TokenChangeHistoryEntry](
-            entries=[TokenChangeHistoryEntry.from_orm(e) for e in entries],
+            entries=[
+                TokenChangeHistoryEntry.model_validate(e) for e in entries
+            ],
             count=len(entries),
             prev_cursor=None,
             next_cursor=None,
@@ -247,7 +249,9 @@ class TokenChangeHistoryStore:
 
         # Return the results.
         return PaginatedHistory[TokenChangeHistoryEntry](
-            entries=[TokenChangeHistoryEntry.from_orm(e) for e in entries],
+            entries=[
+                TokenChangeHistoryEntry.model_validate(e) for e in entries
+            ],
             count=count,
             prev_cursor=prev_cursor,
             next_cursor=next_cursor,

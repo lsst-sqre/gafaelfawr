@@ -7,8 +7,12 @@ from importlib.metadata import version
 from pathlib import Path
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic_core import PydanticUndefinedType
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
 from safir.fastapi import ClientRequestError, client_request_error_handler
@@ -151,5 +155,27 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         await http_client_dependency.aclose()
         await db_session_dependency.aclose()
         await context_dependency.aclose()
+
+    # This is a temporary workaround for a bug in FastAPI handling Pydantic
+    # validation errors when a list query parameter is not specified. See
+    # https://github.com/tiangolo/fastapi/issues/9920
+    #
+    # This should be removed when that issue is fixed.
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        """Handle request validation errors."""
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={
+                "detail": jsonable_encoder(
+                    exc.errors(),
+                    custom_encoder={
+                        PydanticUndefinedType: lambda _: None,
+                    },
+                )
+            },
+        )
 
     return app

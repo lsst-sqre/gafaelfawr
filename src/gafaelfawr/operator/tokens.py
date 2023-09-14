@@ -35,7 +35,7 @@ async def _update_token(
 
     # Parse the GafaelafwrServiceToken resource.
     try:
-        service_token = GafaelfawrServiceToken.parse_obj(body)
+        service_token = GafaelfawrServiceToken.model_validate(body)
     except ValidationError as e:
         raise KubernetesObjectError(
             "GafaelfawrServiceToken", name, namespace, e

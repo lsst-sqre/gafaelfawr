@@ -22,11 +22,11 @@ httpx
 kopf
 kubernetes_asyncio
 jinja2
-pydantic<2
+pydantic>2
 PyJWT
 pyyaml
 redis>=4.2.0
-safir[db,kubernetes]>=4.4.0
+safir[db,kubernetes]>=5.0.0a1
 sqlalchemy
 structlog
 

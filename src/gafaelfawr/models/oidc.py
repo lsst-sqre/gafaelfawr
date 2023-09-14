@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime
-from typing import Any, ClassVar, Self
+from typing import Any, Self
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from safir.datetime import current_datetime
 from safir.pydantic import normalize_datetime
 
@@ -113,14 +112,13 @@ class OIDCAuthorization(BaseModel):
         title="When the authorization was created",
     )
 
-    class Config:
-        json_encoders: ClassVar[dict[type, Callable]] = {
-            datetime: lambda v: int(v.timestamp())
-        }
+    @field_serializer("created_at")
+    def _serialize_datetime(self, time: datetime | None) -> int | None:
+        return int(time.timestamp()) if time is not None else None
 
-    _normalize_created_at = validator(
-        "created_at", allow_reuse=True, pre=True
-    )(normalize_datetime)
+    _normalize_created_at = field_validator("created_at", mode="before")(
+        normalize_datetime
+    )
 
     @property
     def lifetime(self) -> int:
@@ -172,20 +170,23 @@ class OIDCTokenReply(BaseModel):
         description=(
             "access_token and id_token are the same in this implementation"
         ),
-        example=(
-            "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6InNvbWUta2lkIn0.eyJhd"
-            "WQiOiJodHRwczovL2V4YW1wbGUuY29tLyIsImlhdCI6MTYxNTIzMzc4NCwiaXNzIj"
-            "oiaHR0cHM6Ly90ZXN0LmV4YW1wbGUuY29tLyIsImV4cCI6MTYxNTMyMDE4NCwibmF"
-            "tZSI6IlNvbWUgVXNlciIsInByZWZlcnJlZF91c2VybmFtZSI6InNvbWUtdXNlciIs"
-            "InN1YiI6InNvbWUtdXNlciIsInVpZCI6InNvbWUtdXNlciIsInVpZE51bWJlciI6M"
-            "TAwMCwianRpIjoiN2lDdjZvcHI3Vkp4ZkVDR19yWjA5dyIsInNjb3BlIjoib3Blbm"
-            "lkIn0.vfR-J5SDWeydtd_HWBZ8o6RpLbOZcVXLvwfh_zpYAKRVN-nZ_H82hOsPjRK"
-            "D0ujAxaPQJv5kmIAIVYrfDIpQDUcP0IISsZ_IuEO-BuotCtZ-MPU-hKMlWGG-B3go"
-            "c3Ygu_HWlfO56GppTE7A9fksYVMcaSdi6zVvWZH-PmgZAlPZ4xs4NQ_pXdIUA5yc4"
-            "NhLAoQ5jBkPCTXsr4tqTBkPKKXxsNDLUFeS262o58kvOAgSCDLRuFXVVHEUIOw-kG"
-            "ko_UGmG3O5R3o-dC7f7K3OOUI_UulCldWu1ZgdckUfIS7fyMDmcZ4vNL8EALDEewv"
-            "mjwyO_OLqquNFnfMeJdKNPw"
-        ),
+        examples=[
+            (
+                "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6InNvbWUta2lkIn0.e"
+                "yJhdWQiOiJodHRwczovL2V4YW1wbGUuY29tLyIsImlhdCI6MTYxNTIzMzc4NC"
+                "wiaXNzIjoiaHR0cHM6Ly90ZXN0LmV4YW1wbGUuY29tLyIsImV4cCI6MTYxNTM"
+                "yMDE4NCwibmFtZSI6IlNvbWUgVXNlciIsInByZWZlcnJlZF91c2VybmFtZSI6"
+                "InNvbWUtdXNlciIsInN1YiI6InNvbWUtdXNlciIsInVpZCI6InNvbWUtdXNlc"
+                "iIsInVpZE51bWJlciI6MTAwMCwianRpIjoiN2lDdjZvcHI3Vkp4ZkVDR19yWj"
+                "A5dyIsInNjb3BlIjoib3BlbmlkIn0.vfR-J5SDWeydtd_HWBZ8o6RpLbOZcVX"
+                "Lvwfh_zpYAKRVN-nZ_H82hOsPjRKD0ujAxaPQJv5kmIAIVYrfDIpQDUcP0IIS"
+                "sZ_IuEO-BuotCtZ-MPU-hKMlWGG-B3goc3Ygu_HWlfO56GppTE7A9fksYVMca"
+                "Sdi6zVvWZH-PmgZAlPZ4xs4NQ_pXdIUA5yc4NhLAoQ5jBkPCTXsr4tqTBkPKK"
+                "XxsNDLUFeS262o58kvOAgSCDLRuFXVVHEUIOw-kGko_UGmG3O5R3o-dC7f7K3"
+                "OOUI_UulCldWu1ZgdckUfIS7fyMDmcZ4vNL8EALDEewvmjwyO_OLqquNFnfMe"
+                "JdKNPw"
+            )
+        ],
     )
 
     id_token: str = Field(
@@ -194,33 +195,36 @@ class OIDCTokenReply(BaseModel):
         description=(
             "access_token and id_token are the same in this implementation"
         ),
-        example=(
-            "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6InNvbWUta2lkIn0.eyJhd"
-            "WQiOiJodHRwczovL2V4YW1wbGUuY29tLyIsImlhdCI6MTYxNTIzMzc4NCwiaXNzIj"
-            "oiaHR0cHM6Ly90ZXN0LmV4YW1wbGUuY29tLyIsImV4cCI6MTYxNTMyMDE4NCwibmF"
-            "tZSI6IlNvbWUgVXNlciIsInByZWZlcnJlZF91c2VybmFtZSI6InNvbWUtdXNlciIs"
-            "InN1YiI6InNvbWUtdXNlciIsInVpZCI6InNvbWUtdXNlciIsInVpZE51bWJlciI6M"
-            "TAwMCwianRpIjoiN2lDdjZvcHI3Vkp4ZkVDR19yWjA5dyIsInNjb3BlIjoib3Blbm"
-            "lkIn0.vfR-J5SDWeydtd_HWBZ8o6RpLbOZcVXLvwfh_zpYAKRVN-nZ_H82hOsPjRK"
-            "D0ujAxaPQJv5kmIAIVYrfDIpQDUcP0IISsZ_IuEO-BuotCtZ-MPU-hKMlWGG-B3go"
-            "c3Ygu_HWlfO56GppTE7A9fksYVMcaSdi6zVvWZH-PmgZAlPZ4xs4NQ_pXdIUA5yc4"
-            "NhLAoQ5jBkPCTXsr4tqTBkPKKXxsNDLUFeS262o58kvOAgSCDLRuFXVVHEUIOw-kG"
-            "ko_UGmG3O5R3o-dC7f7K3OOUI_UulCldWu1ZgdckUfIS7fyMDmcZ4vNL8EALDEewv"
-            "mjwyO_OLqquNFnfMeJdKNPw"
-        ),
+        examples=[
+            (
+                "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6InNvbWUta2lkIn0.e"
+                "yJhdWQiOiJodHRwczovL2V4YW1wbGUuY29tLyIsImlhdCI6MTYxNTIzMzc4NC"
+                "wiaXNzIjoiaHR0cHM6Ly90ZXN0LmV4YW1wbGUuY29tLyIsImV4cCI6MTYxNTM"
+                "yMDE4NCwibmFtZSI6IlNvbWUgVXNlciIsInByZWZlcnJlZF91c2VybmFtZSI6"
+                "InNvbWUtdXNlciIsInN1YiI6InNvbWUtdXNlciIsInVpZCI6InNvbWUtdXNlc"
+                "iIsInVpZE51bWJlciI6MTAwMCwianRpIjoiN2lDdjZvcHI3Vkp4ZkVDR19yWj"
+                "A5dyIsInNjb3BlIjoib3BlbmlkIn0.vfR-J5SDWeydtd_HWBZ8o6RpLbOZcVX"
+                "Lvwfh_zpYAKRVN-nZ_H82hOsPjRKD0ujAxaPQJv5kmIAIVYrfDIpQDUcP0IIS"
+                "sZ_IuEO-BuotCtZ-MPU-hKMlWGG-B3goc3Ygu_HWlfO56GppTE7A9fksYVMca"
+                "Sdi6zVvWZH-PmgZAlPZ4xs4NQ_pXdIUA5yc4NhLAoQ5jBkPCTXsr4tqTBkPKK"
+                "XxsNDLUFeS262o58kvOAgSCDLRuFXVVHEUIOw-kGko_UGmG3O5R3o-dC7f7K3"
+                "OOUI_UulCldWu1ZgdckUfIS7fyMDmcZ4vNL8EALDEewvmjwyO_OLqquNFnfMe"
+                "JdKNPw"
+            )
+        ],
     )
 
     expires_in: int = Field(
         ...,
         title="Expiration in seconds",
-        example=86400,
+        examples=[86400],
     )
 
     token_type: str = Field(
         "Bearer",
         title="Type of token",
         description="Will always be `Bearer`",
-        example="Bearer",
+        examples=["Bearer"],
     )
 
 
@@ -234,13 +238,13 @@ class OIDCErrorReply(BaseModel):
             "See [RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)"
             " for possible codes"
         ),
-        example="some_code",
+        examples=["some_code"],
     )
 
     error_description: str = Field(
         ...,
         title="Error message",
-        example="Some error message",
+        examples=["Some error message"],
     )
 
 
@@ -251,21 +255,21 @@ class JWK(BaseModel):
         ...,
         title="Algorithm",
         description=f"Will always be `{ALGORITHM}`",
-        example=ALGORITHM,
+        examples=[ALGORITHM],
     )
 
     kty: str = Field(
         ...,
         title="Key type",
         description="Will always be `RSA`",
-        example="RSA",
+        examples=["RSA"],
     )
 
     use: str = Field(
         ...,
         title="Key usage",
         description="Will always be `sig` (signatures)",
-        example="sig",
+        examples=["sig"],
     )
 
     kid: str | None = Field(
@@ -276,7 +280,7 @@ class JWK(BaseModel):
             " that key. Allows the signer to have multiple valid keys at a"
             " time and thus support key rotation."
         ),
-        example="some-key-id",
+        examples=["some-key-id"],
     )
 
     n: str = Field(
@@ -286,14 +290,16 @@ class JWK(BaseModel):
             "Big-endian modulus component of the RSA public key encoded in"
             " URL-safe base64 without trailing padding"
         ),
-        example=(
-            "ANKiIsSRoHb4n9xumf17III4O74-eYEMIb6KgGZmC9g7besYXa8vFi-FyHGhI9hUk"
-            "aR0UeGLfsB18NWmdVmfGk1kiHOHVEXVjmr40FH8nGIU9Bh9bUwUlm18BEadHwoXCo"
-            "iHW6Tm6cFNX8ANmOO3px99mpL5hd3Z2HFeKC230vpQ7ufbLj_QMIpFw3h-UOcJ9Yr"
-            "o_GFQB7tObL34HyrnzR-pS9DaAzQ0oGUwBHx-9b5iw75A2VEOraDoKgBlTuZgQpfG"
-            "M8hJHJcEkg9htWceQfTCPAG7kP9p0K_bF3BM-8zXw53eE7g3Nd8Yz3875PrPIG7Je"
-            "KWz7mef8YNmv331fXc"
-        ),
+        examples=[
+            (
+                "ANKiIsSRoHb4n9xumf17III4O74-eYEMIb6KgGZmC9g7besYXa8vFi-FyHGhI"
+                "9hUkaR0UeGLfsB18NWmdVmfGk1kiHOHVEXVjmr40FH8nGIU9Bh9bUwUlm18BE"
+                "adHwoXCoiHW6Tm6cFNX8ANmOO3px99mpL5hd3Z2HFeKC230vpQ7ufbLj_QMIp"
+                "Fw3h-UOcJ9Yro_GFQB7tObL34HyrnzR-pS9DaAzQ0oGUwBHx-9b5iw75A2VEO"
+                "raDoKgBlTuZgQpfGM8hJHJcEkg9htWceQfTCPAG7kP9p0K_bF3BM-8zXw53eE"
+                "7g3Nd8Yz3875PrPIG7JeKWz7mef8YNmv331fXc"
+            )
+        ],
     )
 
     e: str = Field(
@@ -303,7 +309,7 @@ class JWK(BaseModel):
             "Big-endian exponent component of the RSA public key encoded in"
             " URL-safe base64 without trailing padding"
         ),
-        example="AQAB",
+        examples=["AQAB"],
     )
 
 
@@ -323,72 +329,72 @@ class OIDCConfig(BaseModel):
     issuer: str = Field(
         ...,
         title="iss value for JWTs",
-        example="https://example.com/",
+        examples=["https://example.com/"],
     )
 
     authorization_endpoint: str = Field(
         ...,
         title="URL to start login",
-        example="https://example.com/auth/openid/login",
+        examples=["https://example.com/auth/openid/login"],
     )
 
     token_endpoint: str = Field(
         ...,
         title="URL to get token",
-        example="https://example.com/auth/openid/token",
+        examples=["https://example.com/auth/openid/token"],
     )
 
     userinfo_endpoint: str = Field(
         ...,
         title="URL to get user metadata",
-        example="https://example.com/auth/openid/userinfo",
+        examples=["https://example.com/auth/openid/userinfo"],
     )
 
     jwks_uri: str = Field(
         ...,
         title="URL to get signing keys",
         description="Endpoint will return a JWKS",
-        example="https://example.com/.well-known/jwks.json",
+        examples=["https://example.com/.well-known/jwks.json"],
     )
 
     scopes_supported: list[str] = Field(
         ["openid"],
         title="Supported scopes",
         description="`openid` is the only supported scope",
-        example=["openid"],
+        examples=[["openid"]],
     )
 
     response_types_supported: list[str] = Field(
         ["code"],
         title="Supported response types",
         description="`code` is the only supported response type",
-        example=["code"],
+        examples=[["code"]],
     )
 
     grant_types_supported: list[str] = Field(
         ["authorization_code"],
         title="Supported grant types",
         description="`authorization_code` is the only supported grant type",
-        example=["authorization_code"],
+        examples=[["authorization_code"]],
     )
 
     subject_types_supported: list[str] = Field(
         ["public"],
         title="Supported subject types",
         description="`public` is the only supported subject type",
-        example=["public"],
+        examples=[["public"]],
     )
 
     id_token_signing_alg_values_supported: list[str] = Field(
         [ALGORITHM],
         title="Supported JWT signing algorithms",
         description=f"`{ALGORITHM}` is the only supported signing algorithm",
-        example=[ALGORITHM],
+        examples=[[ALGORITHM]],
     )
 
     token_endpoint_auth_methods_supported: list[str] = Field(
         ["client_secret_post"],
         title="Supported client auth methods",
         description="`client_secret_post` is the only supported auth method",
-        example=["client_secret_post"],
+        examples=[["client_secret_post"]],
     )

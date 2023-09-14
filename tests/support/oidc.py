@@ -45,7 +45,7 @@ class MockOIDCConfig:
 
     def get_jwks(self, request: Request) -> Response:
         jwks = TEST_KEYPAIR.public_key_as_jwks(self.kid)
-        return Response(200, json=jwks.dict())
+        return Response(200, json=jwks.model_dump())
 
 
 class MockOIDCToken:

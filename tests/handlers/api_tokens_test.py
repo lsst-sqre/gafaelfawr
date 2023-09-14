@@ -1374,7 +1374,7 @@ async def test_no_form_post(
         },
     )
     assert r.status_code == 422
-    assert r.json()["detail"][0]["type"] == "type_error.dict"
+    assert r.json()["detail"][0]["type"] == "model_attributes_type"
 
     # None of these errors should have resulted in Slack alerts.
     assert mock_slack.messages == []

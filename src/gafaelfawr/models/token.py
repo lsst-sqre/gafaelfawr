@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import Any, ClassVar, Self
+from typing import Any, Self
 
-from pydantic import BaseModel, Field, validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FieldValidationInfo,
+    field_serializer,
+    field_validator,
+)
 from safir.datetime import current_datetime
 from safir.pydantic import normalize_datetime
 
@@ -144,15 +150,15 @@ class TokenGroup(BaseModel):
     name: str = Field(
         ...,
         title="Name of the group",
-        example="g_special_users",
+        examples=["g_special_users"],
         min_length=1,
-        regex=GROUPNAME_REGEX,
+        pattern=GROUPNAME_REGEX,
     )
 
     id: int | None = Field(
         None,
         title="Numeric GID of the group",
-        example=123181,
+        examples=[123181],
         description=(
             "Numeric GID may be unset, in which case the group still"
             " contributes to determining scopes, but may be ignored by"
@@ -166,9 +172,11 @@ class TokenGroup(BaseModel):
 class NotebookQuota(BaseModel):
     """Notebook Aspect quota information for a user."""
 
-    cpu: float = Field(..., title="CPU equivalents", example=4.0)
+    cpu: float = Field(..., title="CPU equivalents", examples=[4.0])
 
-    memory: float = Field(..., title="Maximum memory use (GiB)", example=16.0)
+    memory: float = Field(
+        ..., title="Maximum memory use (GiB)", examples=[16.0]
+    )
 
 
 class Quota(BaseModel):
@@ -180,12 +188,14 @@ class Quota(BaseModel):
         description=(
             "Mapping of service names to allowed requests per 15 minutes."
         ),
-        example={
-            "datalinker": 500,
-            "hips": 2000,
-            "tap": 500,
-            "vo-cutouts": 100,
-        },
+        examples=[
+            {
+                "datalinker": 500,
+                "hips": 2000,
+                "tap": 500,
+                "vo-cutouts": 100,
+            }
+        ],
     )
 
     notebook: NotebookQuota | None = Field(
@@ -204,7 +214,7 @@ class TokenBase(BaseModel):
         ...,
         title="Username",
         description="User to whom the token was issued",
-        example="someuser",
+        examples=["someuser"],
         min_length=1,
         max_length=64,
     )
@@ -224,31 +234,31 @@ class TokenBase(BaseModel):
             " initiated by services, unrelated to a user request\n"
         ),
         title="Token type",
-        example="session",
+        examples=["session"],
     )
 
     scopes: list[str] = Field(
         ...,
         title="Token scopes",
         description="Scopes of the token",
-        example=["read:all", "user:token"],
+        examples=[["read:all", "user:token"]],
     )
 
     created: datetime = Field(
         default_factory=current_datetime,
         title="Creation time",
         description="Creation timestamp of the token in seconds since epoch",
-        example=1614986130,
+        examples=[1614986130],
     )
 
     expires: datetime | None = Field(
         None,
         title="Expiration time",
         description="Expiration timestamp of the token in seconds since epoch",
-        example=1616986130,
+        examples=[1616986130],
     )
 
-    _normalize_scopes = validator("scopes", allow_reuse=True, pre=True)(
+    _normalize_scopes = field_validator("scopes", mode="before")(
         normalize_scopes
     )
 
@@ -263,7 +273,7 @@ class TokenInfo(TokenBase):
     token: str = Field(
         ...,
         title="Token key",
-        example="5KVApqcVbSQWtO3VIRgOhQ",
+        examples=["5KVApqcVbSQWtO3VIRgOhQ"],
         min_length=22,
         max_length=22,
     )
@@ -271,7 +281,7 @@ class TokenInfo(TokenBase):
     token_name: str | None = Field(
         None,
         title="User-given name of the token",
-        example="laptop token",
+        examples=["laptop token"],
         min_length=1,
         max_length=64,
     )
@@ -283,7 +293,7 @@ class TokenInfo(TokenBase):
             "Service to which the token was delegated.  Only present for"
             " internal tokens"
         ),
-        example="some-service",
+        examples=["some-service"],
         min_length=1,
         max_length=64,
     )
@@ -292,25 +302,25 @@ class TokenInfo(TokenBase):
         None,
         title="Last used",
         description="When the token was last used in seconds since epoch",
-        example=1614986130,
+        examples=[1614986130],
     )
 
     parent: str | None = Field(
         None,
         title="Parent token",
-        example="DGO1OnPohl0r3C7wqhzRgQ",
+        examples=["DGO1OnPohl0r3C7wqhzRgQ"],
         min_length=22,
         max_length=22,
     )
 
-    class Config:
-        orm_mode = True
-        json_encoders: ClassVar[dict[type, Callable]] = {
-            datetime: lambda v: int(v.timestamp())
-        }
+    model_config = ConfigDict(from_attributes=True)
 
-    _normalize_created = validator(
-        "created", "last_used", "expires", allow_reuse=True, pre=True
+    @field_serializer("created", "expires", "last_used")
+    def _serialize_datetime(self, time: datetime | None) -> int | None:
+        return int(time.timestamp()) if time is not None else None
+
+    _normalize_created = field_validator(
+        "created", "last_used", "expires", mode="before"
     )(normalize_datetime)
 
 
@@ -326,7 +336,7 @@ class TokenUserInfo(BaseModel):
         ...,
         title="Username",
         description="User to whom the token was issued",
-        example="someuser",
+        examples=["someuser"],
         min_length=1,
         max_length=64,
     )
@@ -334,18 +344,18 @@ class TokenUserInfo(BaseModel):
     name: str | None = Field(
         None,
         title="Preferred full name",
-        example="Alice Example",
+        examples=["Alice Example"],
         min_length=1,
     )
 
     email: str | None = Field(
         None,
         title="Email address",
-        example="alice@example.com",
+        examples=["alice@example.com"],
         min_length=1,
     )
 
-    uid: int | None = Field(None, title="UID number", example=4123, ge=1)
+    uid: int | None = Field(None, title="UID number", examples=[4123], ge=1)
 
     gid: int | None = Field(
         None,
@@ -354,7 +364,7 @@ class TokenUserInfo(BaseModel):
             "GID of primary group. If set, this will also be the GID of one of"
             " the groups of which the user is a member."
         ),
-        example=4123,
+        examples=[4123],
         ge=1,
     )
 
@@ -394,7 +404,7 @@ class TokenUserInfo(BaseModel):
         if self.gid is not None:
             token_userinfo["gid"] = self.gid
         if self.groups is not None:
-            token_userinfo["groups"] = [g.dict() for g in self.groups]
+            token_userinfo["groups"] = [g.model_dump() for g in self.groups]
         return token_userinfo
 
 
@@ -409,10 +419,40 @@ class TokenData(TokenBase, TokenUserInfo):
 
     token: Token = Field(..., title="Associated token")
 
-    class Config:
-        json_encoders: ClassVar[dict[type, Callable]] = {
-            datetime: lambda v: int(v.timestamp())
-        }
+    # These fields should not have to be reiterated since they're inherited
+    # from TokenUserInfo, but the Pydantic mypy plugin has a bug that loses
+    # inherited | None type information. See:
+    #
+    # https://github.com/pydantic/pydantic/issues/7398
+    #
+    # These duplicate definitions should be removed when the Pydantic mypy
+    # plugin is fixed.
+    name: str | None = Field(
+        None,
+        title="Preferred full name",
+        examples=["Alice Example"],
+        min_length=1,
+    )
+    uid: int | None = Field(None, title="UID number", examples=[4123], ge=1)
+    gid: int | None = Field(
+        None,
+        title="Primary GID",
+        description=(
+            "GID of primary group. If set, this will also be the GID of one of"
+            " the groups of which the user is a member."
+        ),
+        examples=[4123],
+        ge=1,
+    )
+    groups: list[TokenGroup] | None = Field(
+        None,
+        title="Groups",
+        description="Groups of which the user is a member",
+    )
+
+    @field_serializer("created", "expires")
+    def _serialize_datetime(self, time: datetime | None) -> int | None:
+        return int(time.timestamp()) if time is not None else None
 
     @classmethod
     def bootstrap_token(cls) -> Self:
@@ -461,7 +501,7 @@ class NewToken(BaseModel):
     token: str = Field(
         ...,
         title="Newly-created token",
-        example="gt-2T1RHkIi4b14JzswnXfCsQ.8t5XdPSYTrteD0pDB15zqQ",
+        examples=["gt-2T1RHkIi4b14JzswnXfCsQ.8t5XdPSYTrteD0pDB15zqQ"],
     )
 
 
@@ -475,10 +515,10 @@ class AdminTokenRequest(BaseModel):
             "The username may only contain lowercase letters, digits,"
             " and dash (`-`), and may not start or end with a dash"
         ),
-        example="some-service",
+        examples=["some-service"],
         min_length=1,
         max_length=64,
-        regex=USERNAME_REGEX,
+        pattern=USERNAME_REGEX,
     )
 
     token_type: TokenType = Field(
@@ -492,22 +532,23 @@ class AdminTokenRequest(BaseModel):
             "* `user`: A user-generated token that may be used"
             " programmatically\n"
         ),
-        example="service",
+        examples=["service"],
     )
 
     token_name: str | None = Field(
         None,
         title="User-given name of the token",
         description="Only provide this field for a token type of `user`",
-        example="laptop token",
+        examples=["laptop token"],
         min_length=1,
         max_length=64,
+        validate_default=True,
     )
 
     scopes: list[str] = Field(
         default_factory=list,
         title="Token scopes",
-        example=["read:all"],
+        examples=[["read:all"]],
     )
 
     expires: datetime | None = Field(
@@ -517,7 +558,7 @@ class AdminTokenRequest(BaseModel):
             "Expiration timestamp of the token in seconds since epoch, or"
             " omitted to never expire"
         ),
-        example=1616986130,
+        examples=[1616986130],
     )
 
     name: str | None = Field(
@@ -527,7 +568,7 @@ class AdminTokenRequest(BaseModel):
             "If a value is not provided, and LDAP is configured, the full"
             " name from the LDAP entry for that username will be used"
         ),
-        example="Service User",
+        examples=["Service User"],
         min_length=1,
     )
 
@@ -538,7 +579,7 @@ class AdminTokenRequest(BaseModel):
             "If a value is not provided, and LDAP is configured, the email"
             " address from the LDAP entry for that username will be used"
         ),
-        example="service@example.com",
+        examples=["service@example.com"],
         min_length=1,
     )
 
@@ -550,7 +591,7 @@ class AdminTokenRequest(BaseModel):
             " configured, the UID from Firestore (preferred) or the LDAP"
             " entry for that username will be used"
         ),
-        example=4131,
+        examples=[4131],
         ge=1,
     )
 
@@ -563,7 +604,7 @@ class AdminTokenRequest(BaseModel):
             " and LDAP is configured to add user private groups, it will be"
             " set to the same value as the UID."
         ),
-        example=4123,
+        examples=[4123],
         ge=1,
     )
 
@@ -577,22 +618,24 @@ class AdminTokenRequest(BaseModel):
         ),
     )
 
-    @validator("token_type")
+    @field_validator("token_type")
+    @classmethod
     def _valid_token_type(cls, v: TokenType) -> TokenType:
         if v not in (TokenType.service, TokenType.user):
             raise ValueError("token_type must be service or user")
         return v
 
-    @validator("token_name", always=True)
+    @field_validator("token_name")
+    @classmethod
     def _valid_token_name(
-        cls, v: str | None, values: dict[str, Any]
+        cls, v: str | None, info: FieldValidationInfo
     ) -> str | None:
-        if "token_type" not in values:
+        if "token_type" not in info.data:
             # Validation already failed, so the return value doesn't matter.
             return None
-        if v and values["token_type"] == TokenType.service:
+        if v and info.data["token_type"] == TokenType.service:
             raise ValueError("Tokens of type service cannot have a name")
-        if not v and values["token_type"] == TokenType.user:
+        if not v and info.data["token_type"] == TokenType.user:
             raise ValueError("Tokens of type user must have a name")
         return v
 
@@ -603,7 +646,7 @@ class UserTokenRequest(BaseModel):
     token_name: str = Field(
         ...,
         title="User-given name of the token",
-        example="laptop token",
+        examples=["laptop token"],
         min_length=1,
         max_length=64,
     )
@@ -611,14 +654,14 @@ class UserTokenRequest(BaseModel):
     scopes: list[str] = Field(
         default_factory=list,
         title="Token scope",
-        example=["read:all"],
+        examples=[["read:all"]],
     )
 
     expires: datetime | None = Field(
         None,
         title="Expiration time",
         description="Expiration timestamp of the token in seconds since epoch",
-        example=1625986130,
+        examples=[1625986130],
     )
 
 
@@ -632,13 +675,13 @@ class UserTokenModifyRequest(BaseModel):
     token_name: str | None = Field(
         None,
         title="User-given name of the token",
-        example="laptop token",
+        examples=["laptop token"],
         min_length=1,
         max_length=64,
     )
 
     scopes: list[str] | None = Field(
-        None, title="Token scopes", example=["read:all"]
+        None, title="Token scopes", examples=[["read:all"]]
     )
 
     expires: datetime | None = Field(
@@ -648,5 +691,5 @@ class UserTokenModifyRequest(BaseModel):
             "Expiration timestamp of the token in seconds since epoch, or"
             " None to never expire."
         ),
-        example=1625986130,
+        examples=[1625986130],
     )

@@ -98,7 +98,7 @@ async def assert_secrets_match(
     for token in tokens:
         name = token["metadata"]["name"]
         namespace = token["metadata"]["namespace"]
-        spec = GafaelfawrServiceTokenSpec.parse_obj(token["spec"])
+        spec = GafaelfawrServiceTokenSpec.model_validate(token["spec"])
         await assert_secret_token_matches_spec(
             factory, api_client, name, namespace, spec
         )

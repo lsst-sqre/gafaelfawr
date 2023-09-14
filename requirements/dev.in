@@ -29,7 +29,7 @@ holdup
 
 # Documentation
 autodoc_pydantic
-documenteer[guide]>=0.7.0
+documenteer[guide]>=1.0.0a7
 scriv[toml]
 sphinx-click
 sphinx-diagrams
