@@ -53,7 +53,7 @@ Changes for the upcoming release can be found in [changelog.d](https://github.co
 
 ### Other changes
 
-- Gafaelfawr now uses the [Ruff](https://beta.ruff.rs/docs/) linter instead of flake8, isort, and pydocstyle.
+- Gafaelfawr now uses the [Ruff](https://docs.astral.sh/ruff/) linter instead of flake8, isort, and pydocstyle.
 
 <a id='changelog-9.2.0'></a>
 ## 9.2.0 (2023-04-19)

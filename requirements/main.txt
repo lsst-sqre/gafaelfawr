@@ -461,9 +461,9 @@ google-cloud-core==2.3.3 \
     --hash=sha256:37b80273c8d7eee1ae816b3a20ae43585ea50506cb0e60f3cf5be5f87f1373cb \
     --hash=sha256:fbd11cad3e98a7e5b0343dc07cb1039a5ffd7a5bb96e1f1e27cee4bda4a90863
     # via google-cloud-firestore
-google-cloud-firestore==2.11.1 \
-    --hash=sha256:7f7dfa86567c8d66c66c8dba8bc5ef85677c8532b4206055a339413f8071525d \
-    --hash=sha256:833019175b6c82727da71e2db2fdea9bf203d0b8239c696492f7e2b24566bb3e
+google-cloud-firestore==2.12.0 \
+    --hash=sha256:3eedc9b2238d8fdb6c2645da455de7ba8df0a9a1d253815932ac3a98c5eec9cd \
+    --hash=sha256:8dbdbe2fd96f2651076ec1a6eb9b68361ed7c560934a927f2ca55c8c5aadfb30
     # via -r requirements/main.in
 googleapis-common-protos==1.60.0 \
     --hash=sha256:69f9bbcc6acde92cab2db95ce30a70bd2b81d20b12eff3f1aabaffcbe8a93918 \
@@ -978,9 +978,9 @@ rsa==4.9 \
     --hash=sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7 \
     --hash=sha256:e38464a49c6c85d7f1351b0126661487a7e0a14a50f1675ec50eb34d4f20ef21
     # via google-auth
-safir[db,kubernetes]==4.4.0 \
-    --hash=sha256:0892aae4af08e2742cbf66d2e86d2eafa885ef4d0c657bb876cd3677e381f501 \
-    --hash=sha256:28187a10fdc9d66a89d89a57c02f87b15f76d92d218f18bc92ab5b64268e081e
+safir[db,kubernetes]==4.5.0 \
+    --hash=sha256:19268a22f9e530a98a780e416e4a8c79b40e275853fdae031d15f8f99fe7ebf4 \
+    --hash=sha256:36301d094f4da08f1f54a3c7379db6603fa04e383df27a84a54c8a0a7a6cdf6e
     # via -r requirements/main.in
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
@@ -1053,9 +1053,9 @@ structlog==23.1.0 \
     # via
     #   -r requirements/main.in
     #   safir
-typing-extensions==4.7.1 \
-    --hash=sha256:440d5dd3af93b060174bf433bccd69b0babc3b15b1a8dca43789fd7f61514b36 \
-    --hash=sha256:b75ddc264f0ba5615db7ba217daeb99701ad295353c45f9e95963337ceeeffb2
+typing-extensions==4.8.0 \
+    --hash=sha256:8f92fc8806f9a6b641eaa5318da32b44d401efaac0f6678c9bc448ba3605faa0 \
+    --hash=sha256:df8e4339e9cb77357558cbdbceca33c303714cf861d1eef15e1070055ae8b7ef
     # via
     #   fastapi
     #   kopf
@@ -1282,7 +1282,7 @@ yarl==1.9.2 \
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==68.2.1 \
-    --hash=sha256:56ee14884fd8d0cd015411f4a13f40b4356775a0aefd9ebc1d3bfb9a1acb32f1 \
-    --hash=sha256:eff96148eb336377ab11beee0c73ed84f1709a40c0b870298b0d058828761bae
+setuptools==68.2.2 \
+    --hash=sha256:4ac1475276d2f1c48684874089fefcd83bd7162ddaafb81fac866ba0db282a87 \
+    --hash=sha256:b454a35605876da60632df1a60f736524eb73cc47bbc9f3f1ef1b644de74fd2a
     # via kubernetes-asyncio
