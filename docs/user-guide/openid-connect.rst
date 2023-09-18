@@ -33,7 +33,7 @@ Examples
 Chronograf
 ----------
 
-Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com`` and Chronograf is at the URL ``/chronograf``, here are the environment variables required to configure `Chronograf <https://docs.influxdata.com/chronograf/v1.9/administration/managing-security/#configure-chronograf-to-use-any-oauth-20-provider>`__:
+Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com`` and Chronograf is at the URL ``/chronograf``, here are the environment variables required to configure `Chronograf <https://docs.influxdata.com/chronograf/v1/administration/managing-security/#configure-chronograf-to-use-any-oauth-20-provider>`__:
 
 * ``GENERIC_CLIENT_ID``: ``chronograf-client-id``
 * ``GENERIC_CLIENT_SECRET``: ``fb7518beb61d27aaf20675d62778dea9``

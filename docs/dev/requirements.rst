@@ -44,7 +44,7 @@ Making this work properly requires some additional NGINX configuration:
    This is required on GKE and may be required on other Kubernetes environments.
    Do this by adding ``spec.externalTrafficPolicy`` to ``Local`` in the ``Service`` resource definition for the NGINX ingress controller.
    This comes with some caveats and drawbacks.
-   See `this Medium post <https://medium.com/pablo-perez/k8s-externaltrafficpolicy-local-or-cluster-40b259a19404>`__ for more details.
+   See `the Kubernetes documentation <https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip>`__ for more details.
 
 If you are using the `ingress-nginx Helm chart <https://github.com/kubernetes/ingress-nginx/tree/main/charts/ingress-nginx>`__, you can make both of the required NGINX ingress changes with the following ``values.yaml`` file:
 
