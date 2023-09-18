@@ -63,4 +63,4 @@ class AdminStore:
         """
         stmt = select(SQLAdmin).order_by(SQLAdmin.username)
         result = await self._session.scalars(stmt)
-        return [Admin.from_orm(a) for a in result.all()]
+        return [Admin.model_validate(a) for a in result.all()]

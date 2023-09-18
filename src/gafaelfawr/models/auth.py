@@ -113,12 +113,12 @@ class Satisfy(Enum):
 class Scope(BaseModel):
     """A known token scope."""
 
-    name: str = Field(..., title="Scope name", example="user:token")
+    name: str = Field(..., title="Scope name", examples=["user:token"])
 
     description: str = Field(
         ...,
         title="Scope description",
-        example="Can create and modify user tokens",
+        examples=["Can create and modify user tokens"],
     )
 
 
@@ -155,21 +155,21 @@ class APILoginResponse(BaseModel):
             "This token must be included in any non-GET request using cookie"
             " authentication as the value of the `X-CSRF-Token` header"
         ),
-        example="OmNdVTtKKuK_VuJsGFdrqg",
+        examples=["OmNdVTtKKuK_VuJsGFdrqg"],
     )
 
     username: str = Field(
         ...,
         title="Username",
         description="Authenticated identity from the cookie",
-        example="someuser",
+        examples=["someuser"],
     )
 
     scopes: list[str] = Field(
         ...,
         title="Access scopes",
         description="Access scopes for this authenticated user",
-        example=["read:all", "user:token"],
+        examples=["read:all", "user:token"],
     )
 
     config: APIConfig = Field(

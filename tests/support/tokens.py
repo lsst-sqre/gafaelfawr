@@ -65,7 +65,7 @@ async def add_expired_session_token(
         scopes=scopes,
         created=created,
         expires=expires,
-        **user_info.dict(),
+        **user_info.model_dump(),
     )
     history_entry = TokenChangeHistoryEntry(
         token=token.key,

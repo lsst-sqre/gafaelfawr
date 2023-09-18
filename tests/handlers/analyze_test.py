@@ -50,7 +50,7 @@ async def test_analyze_session(client: AsyncClient, factory: Factory) -> None:
             "data": {
                 "exp": int(token_data.expires.timestamp()),
                 "iat": int(token_data.created.timestamp()),
-                "isMemberOf": [g.dict() for g in token_data.groups],
+                "isMemberOf": [g.model_dump() for g in token_data.groups],
                 "name": token_data.name,
                 "scope": "read:all",
                 "sub": token_data.username,
@@ -77,7 +77,7 @@ async def test_analyze_token(client: AsyncClient, factory: Factory) -> None:
     r = await client.post("/auth/analyze", data={"token": str(token)})
     assert r.status_code == 200
     assert r.json() == {
-        "handle": token.dict(),
+        "handle": token.model_dump(),
         "token": {"errors": ["Invalid token"], "valid": False},
     }
 
@@ -94,12 +94,12 @@ async def test_analyze_token(client: AsyncClient, factory: Factory) -> None:
     # the token information.
     assert r.status_code == 200
     assert r.json() == {
-        "handle": token.dict(),
+        "handle": token.model_dump(),
         "token": {
             "data": {
                 "exp": int(token_data.expires.timestamp()),
                 "iat": int(token_data.created.timestamp()),
-                "isMemberOf": [g.dict() for g in token_data.groups],
+                "isMemberOf": [g.model_dump() for g in token_data.groups],
                 "name": token_data.name,
                 "scope": "admin:token read:all",
                 "sub": token_data.username,
@@ -131,7 +131,7 @@ async def test_analyze_token(client: AsyncClient, factory: Factory) -> None:
     r = await client.post("/auth/analyze", data={"token": str(user_token)})
     assert r.status_code == 200
     assert r.json() == {
-        "handle": user_token.dict(),
+        "handle": user_token.model_dump(),
         "token": {
             "data": {
                 "iat": int(user_token_data.created.timestamp()),

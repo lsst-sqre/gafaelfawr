@@ -65,7 +65,7 @@ async def test_invalid(
         "/auth", headers={"Authorization": f"bearer {token.token}"}
     )
     assert r.status_code == 422
-    assert r.json()["detail"][0]["type"] == "type_error.list"
+    assert r.json()["detail"][0]["type"] == "list_type"
 
     r = await client.get(
         "/auth",
@@ -73,7 +73,7 @@ async def test_invalid(
         params={"scope": "exec:admin", "satisfy": "foo"},
     )
     assert r.status_code == 422
-    assert r.json()["detail"][0]["type"] == "type_error.enum"
+    assert r.json()["detail"][0]["type"] == "enum"
 
     r = await client.get(
         "/auth",
@@ -81,7 +81,7 @@ async def test_invalid(
         params={"scope": "exec:admin", "auth_type": "foo"},
     )
     assert r.status_code == 422
-    assert r.json()["detail"][0]["type"] == "type_error.enum"
+    assert r.json()["detail"][0]["type"] == "enum"
 
     # None of these errors should have resulted in Slack alerts.
     assert mock_slack.messages == []
@@ -248,6 +248,7 @@ async def test_notebook(client: AsyncClient, factory: Factory) -> None:
         factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
     )
     assert token_data.expires
+    assert token_data.groups
 
     r = await client.get(
         "/auth",
@@ -284,7 +285,7 @@ async def test_notebook(client: AsyncClient, factory: Factory) -> None:
         "email": token_data.email,
         "uid": token_data.uid,
         "gid": token_data.gid,
-        "groups": token_data.groups,
+        "groups": [g.model_dump() for g in token_data.groups],
     }
 
     # Requesting a token with the same parameters returns the same token.
@@ -305,6 +306,7 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
         scopes=["exec:admin", "read:all", "read:some"],
     )
     assert token_data.expires
+    assert token_data.groups
 
     r = await client.get(
         "/auth",
@@ -346,7 +348,7 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
         "email": token_data.email,
         "uid": token_data.uid,
         "gid": token_data.gid,
-        "groups": token_data.groups,
+        "groups": [g.model_dump() for g in token_data.groups],
     }
 
     # Requesting a token with the same parameters returns the same token.

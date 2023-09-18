@@ -242,7 +242,7 @@ async def get_admin_token_change_history(
     if limit:
         response.headers["Link"] = results.link_header(context.request.url)
         response.headers["X-Total-Count"] = str(results.count)
-    return [r.reduced_dict() for r in results.entries]
+    return [r.model_dump_reduced() for r in results.entries]
 
 
 @router.get(
@@ -454,7 +454,7 @@ async def get_user_token_change_history(
     if limit:
         response.headers["Link"] = results.link_header(context.request.url)
         response.headers["X-Total-Count"] = str(results.count)
-    return [r.reduced_dict() for r in results.entries]
+    return [r.model_dump_reduced() for r in results.entries]
 
 
 @router.get(
@@ -513,7 +513,7 @@ async def post_tokens(
     context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     token_service = context.factory.create_token_service()
-    token_params = token_request.dict()
+    token_params = token_request.model_dump()
     async with context.session.begin():
         token = await token_service.create_user_token(
             auth_data,
@@ -635,7 +635,7 @@ async def patch_token(
     context: RequestContext = Depends(context_dependency),
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
-    update = token_request.dict(exclude_unset=True)
+    update = token_request.model_dump(exclude_unset=True)
     if "expires" in update and update["expires"] is None:
         update["no_expire"] = True
     async with context.session.begin():
@@ -686,4 +686,4 @@ async def get_token_change_history(
         )
     if not results.entries:
         raise NotFoundError("Token not found", ErrorLocation.path, ["key"])
-    return [r.reduced_dict() for r in results.entries]
+    return [r.model_dump_reduced() for r in results.entries]

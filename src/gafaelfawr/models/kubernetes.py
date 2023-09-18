@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Literal, Self
+from typing import Literal, Self
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -17,7 +17,7 @@ from kubernetes_asyncio.client import (
     V1IngressTLS,
     V1ServiceBackendPort,
 )
-from pydantic import Extra, Field, root_validator, validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 from safir.datetime import current_datetime
 from safir.pydantic import (
     CamelCaseModel,
@@ -80,7 +80,8 @@ class KubernetesMetadata(CamelCaseModel):
     generation: int
     """The generation of the object."""
 
-    @validator("annotations")
+    @field_validator("annotations")
+    @classmethod
     def _filter_kopf_annotations(
         cls, v: dict[str, str] | None
     ) -> dict[str, str] | None:
@@ -148,11 +149,11 @@ class GafaelfawrIngressDelegate(CamelCaseModel):
     use_authorization: bool = False
     """Whether to put the delegated token in the ``Authorization`` header."""
 
-    _normalize_minimum_lifetime = validator(
-        "minimum_lifetime", allow_reuse=True, pre=True
+    _normalize_minimum_lifetime = field_validator(
+        "minimum_lifetime", mode="before"
     )(normalize_timedelta)
 
-    _validate_type = root_validator(allow_reuse=True)(
+    _validate_type = model_validator(mode="after")(
         validate_exactly_one_of("notebook", "internal")
     )
 
@@ -180,8 +181,7 @@ class GafaelfawrIngressScopesBase(CamelCaseModel, metaclass=ABCMeta):
     def is_anonymous(self) -> bool:
         """Whether this ingress is anonymous."""
 
-    class Config:
-        extra = Extra.forbid
+    model_config = ConfigDict(extra="forbid")
 
 
 class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
@@ -272,8 +272,8 @@ class GafaelfawrIngressConfig(CamelCaseModel):
     )
     """The scopes to require for access."""
 
-    @root_validator
-    def _validate_conflicts(cls, values: dict[str, Any]) -> dict[str, Any]:
+    @model_validator(mode="after")
+    def _validate_conflicts(self) -> Self:
         """Check for conflicts between settings.
 
         Notes
@@ -282,21 +282,19 @@ class GafaelfawrIngressConfig(CamelCaseModel):
         schema to make them much less likely, but my JSON schema validation
         skill is not up to the task.
         """
-        if values.get("auth_type") == AuthType.Basic:
-            if values.get("login_redirect"):
-                msg = "authType: basic has no effect when loginRedirect is set"
-                raise ValueError(msg)
+        if self.auth_type == AuthType.Basic and self.login_redirect:
+            msg = "authType: basic has no effect when loginRedirect is set"
+            raise ValueError(msg)
 
-        scopes = values.get("scopes")
-        if scopes and scopes.is_anonymous():
+        if self.scopes and self.scopes.is_anonymous():
             fields = ("auth_type", "delegate", "login_redirect", "replace_403")
             for snake_name in fields:
-                if values.get(snake_name):
+                if getattr(self, snake_name, None):
                     camel_name = to_camel_case(snake_name)
                     msg = f"{camel_name} has no effect for anonymous ingresses"
                     raise ValueError(msg)
 
-        return values
+        return self
 
 
 class GafaelfawrIngressMetadata(CamelCaseModel):
@@ -331,8 +329,7 @@ class GafaelfawrServicePortName(CamelCaseModel):
     name: str
     """Port name."""
 
-    class Config:
-        extra = Extra.forbid
+    model_config = ConfigDict(extra="forbid")
 
     def to_kubernetes(self) -> V1ServiceBackendPort:
         """Convert to the Kubernetes API object."""
@@ -345,8 +342,7 @@ class GafaelfawrServicePortNumber(CamelCaseModel):
     number: int
     """Port number."""
 
-    class Config:
-        extra = Extra.forbid
+    model_config = ConfigDict(extra="forbid")
 
     def to_kubernetes(self) -> V1ServiceBackendPort:
         """Convert to the Kubernetes API object."""

@@ -159,13 +159,17 @@ def normalize_scopes(v: str | list[str] | None) -> list[str] | None:
         return v
 
 
-def normalize_timedelta(v: int | None) -> timedelta | None:
+def normalize_timedelta(v: int | timedelta | None) -> timedelta | None:
     """Pydantic validator for timedelta fields.
+
+    The only reason to use this validator over Pydantic's built-in behavior is
+    to ensure that ISO time durations are rejected and only an integer number
+    of seconds is supported.
 
     Parameters
     ----------
     v
-        The field representing a duration, in seconds
+        The field representing a duration, in seconds.
 
     Returns
     -------
@@ -173,7 +177,7 @@ def normalize_timedelta(v: int | None) -> timedelta | None:
         The corresponding `datetime.timedelta` or `None` if the input was
         `None`.
     """
-    if v is None:
+    if v is None or isinstance(v, timedelta):
         return v
     elif isinstance(v, int):
         return timedelta(seconds=v)

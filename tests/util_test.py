@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from pydantic import BaseModel, field_validator
 
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.util import (
@@ -52,11 +53,17 @@ def test_is_bot_user() -> None:
 
 
 def test_normalize_timedelta() -> None:
-    assert normalize_timedelta(None) is None
-    assert normalize_timedelta(10) == timedelta(seconds=10)
+    class TestModel(BaseModel):
+        delta: timedelta | None
+
+        _val = field_validator("delta", mode="before")(normalize_timedelta)
+
+    assert TestModel(delta=None).delta is None
+    model = TestModel(delta=10)  # type: ignore[arg-type]
+    assert model.delta == timedelta(seconds=10)
 
     with pytest.raises(ValueError, match="invalid timedelta"):
-        normalize_timedelta("not an int")  # type: ignore[arg-type]
+        TestModel(delta="not an int")  # type: ignore[arg-type]
 
 
 def test_number_to_base64() -> None:

@@ -123,7 +123,7 @@ async def test_key_retrieval(
     # a connection refused from the OpenID Connect endpoint.
     jwks_url = urljoin(config.oidc.issuer, "/.well-known/jwks.json")
     oidc_url = urljoin(config.oidc.issuer, "/.well-known/openid-configuration")
-    respx_mock.get(jwks_url).respond(json=jwks.dict())
+    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
     respx_mock.get(oidc_url).respond(404)
 
     # Check token verification with this configuration.
@@ -132,7 +132,7 @@ async def test_key_retrieval(
 
     # Wrong algorithm for the key.
     jwks.keys[0].alg = "ES256"
-    respx_mock.get(jwks_url).respond(json=jwks.dict())
+    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
     with pytest.raises(UnknownAlgorithmError):
         await verifier.verify_token(token)
 
@@ -142,7 +142,7 @@ async def test_key_retrieval(
     jwks.keys[0].alg = ALGORITHM
     keypair = RSAKeyPair.generate()
     jwks.keys.insert(0, keypair.public_key_as_jwks("a-kid").keys[0])
-    respx_mock.get(jwks_url).respond(json=jwks.dict())
+    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
     assert await verifier.verify_token(token)
 
     # Try with a new key ID and return a malformed reponse.
@@ -159,7 +159,7 @@ async def test_key_retrieval(
     # Fix the JWKS handler but register a malformed URL as the OpenID Connect
     # configuration endpoint, which should be checked first.
     jwks.keys[1].kid = "another-kid"
-    respx_mock.get(jwks_url).respond(json=jwks.dict())
+    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
     respx_mock.get(oidc_url).respond(json=["foo"])
     token = create_upstream_oidc_jwt(kid="another-kid")
     with pytest.raises(FetchKeysError):
@@ -185,7 +185,7 @@ async def test_issuer_with_path(
     # a connection refused from the OpenID Connect endpoint.
     jwks_url = config.oidc.issuer + "/.well-known/jwks.json"
     oidc_url = config.oidc.issuer + "/.well-known/openid-configuration"
-    respx_mock.get(jwks_url).respond(json=jwks.dict())
+    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
     respx_mock.get(oidc_url).respond(json={"jwks_uri": jwks_url})
 
     # Check token verification with this configuration.

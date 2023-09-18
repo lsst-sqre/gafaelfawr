@@ -684,7 +684,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
     user_data = await token_service.get_data(token)
     assert user_data
     assert user_data == TokenData(
-        token=token, created=user_data.created, **request.dict()
+        token=token, created=user_data.created, **request.model_dump()
     )
     assert_is_now(user_data.created)
 
@@ -724,7 +724,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
     service_data = await token_service.get_data(token)
     assert service_data
     assert service_data == TokenData(
-        token=token, created=service_data.created, **request.dict()
+        token=token, created=service_data.created, **request.model_dump()
     )
     assert_is_now(service_data.created)
 
@@ -1248,7 +1248,7 @@ async def test_invalid(
         name="Some User",
         uid=12345,
     )
-    session = fernet.encrypt(data.json().encode())
+    session = fernet.encrypt(data.model_dump_json().encode())
     await factory.redis.set(f"token:{token.key}", session, ex=expires)
     assert await token_service.get_data(token) is None
 
@@ -1273,7 +1273,7 @@ async def test_invalid(
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
     await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
     new_data = await token_service.get_data(token)
-    assert new_data == TokenData.parse_obj(json_data)
+    assert new_data == TokenData.model_validate(json_data)
 
     # Check error reporting.
     assert mock_slack.messages == [

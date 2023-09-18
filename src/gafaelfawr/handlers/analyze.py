@@ -72,7 +72,7 @@ def token_data_to_analysis(token_data: TokenData) -> dict[str, dict[str, Any]]:
     if token_data.expires:
         data["exp"] = int(token_data.expires.timestamp())
     if token_data.groups:
-        data["isMemberOf"] = [g.dict() for g in token_data.groups]
+        data["isMemberOf"] = [g.model_dump() for g in token_data.groups]
     if token_data.name:
         data["name"] = token_data.name
     if token_data.uid:
@@ -142,9 +142,9 @@ async def post_analyze(
     token_data = await token_service.get_data(token)
     if not token_data:
         return {
-            "handle": token.dict(),
+            "handle": token.model_dump(),
             "token": {"errors": ["Invalid token"], "valid": False},
         }
     result = token_data_to_analysis(token_data)
-    result["handle"] = token.dict()
+    result["handle"] = token.model_dump()
     return result
