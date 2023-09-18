@@ -149,9 +149,9 @@ class GafaelfawrIngressDelegate(CamelCaseModel):
     use_authorization: bool = False
     """Whether to put the delegated token in the ``Authorization`` header."""
 
-    _normalize_minimum_lifetime = field_validator("minimum_lifetime")(
-        normalize_timedelta
-    )
+    _normalize_minimum_lifetime = field_validator(
+        "minimum_lifetime", mode="before"
+    )(normalize_timedelta)
 
     _validate_type = model_validator(mode="after")(
         validate_exactly_one_of("notebook", "internal")

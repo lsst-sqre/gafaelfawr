@@ -84,8 +84,12 @@ class AdminHistoryEntry(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    _normalize_event_time = field_validator("event_time")(normalize_datetime)
-    _normalize_ip_address = field_validator("ip_address")(normalize_ip_address)
+    _normalize_event_time = field_validator("event_time", mode="before")(
+        normalize_datetime
+    )
+    _normalize_ip_address = field_validator("ip_address", mode="before")(
+        normalize_ip_address
+    )
 
 
 @dataclass
