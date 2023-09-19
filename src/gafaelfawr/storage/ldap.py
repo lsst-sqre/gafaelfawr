@@ -49,8 +49,8 @@ class LDAPStorage:
         username
             Username of the user.
         primary_gid
-            Primary GID if set.  If not `None`, search for the group with this
-            GID and add it to the user's group memberships.  This handles LDAP
+            Primary GID if set. If not `None`, search for the group with this
+            GID and add it to the user's group memberships. This handles LDAP
             configurations where the user's primary group is represented only
             by their GID and not their group memberships.
 
@@ -64,9 +64,11 @@ class LDAPStorage:
         LDAPError
             Raised if some error occurred while doing the LDAP search.
         """
-        group_class = self._config.group_object_class
-        member_attr = self._config.group_member_attr
-        search = f"(&(objectClass={group_class})({member_attr}={username}))"
+        search = self._config.group_search_template.format(
+            group_object_class=self._config.group_object_class,
+            group_member_attr=self._config.group_member_attr,
+            username=username,
+        )
         logger = self._logger.bind(ldap_search=search, user=username)
         results = await self._query(
             self._config.group_base_dn,
@@ -97,6 +99,7 @@ class LDAPStorage:
 
         # Check that the primary group is included, and if not, try to add it.
         if primary_gid:
+            group_class = self._config.group_object_class
             search = f"(&(objectClass={group_class})(gidNumber={primary_gid}))"
             logger = self._logger.bind(ldap_search=search)
             results = await self._query(
@@ -150,9 +153,11 @@ class LDAPStorage:
         LDAPError
             Raised if some error occurred when searching LDAP.
         """
-        group_class = self._config.group_object_class
-        member_attr = self._config.group_member_attr
-        search = f"(&(objectClass={group_class})({member_attr}={username}))"
+        search = self._config.group_search_template.format(
+            group_object_class=self._config.group_object_class,
+            group_member_attr=self._config.group_member_attr,
+            username=username,
+        )
         logger = self._logger.bind(ldap_search=search, user=username)
         results = await self._query(
             self._config.group_base_dn,
@@ -177,6 +182,7 @@ class LDAPStorage:
 
         # Check that the primary group is included, and if not, try to add it.
         if primary_gid and not any(g.id == primary_gid for g in groups):
+            group_class = self._config.group_object_class
             search = f"(&(objectClass={group_class})(gidNumber={primary_gid}))"
             logger = self._logger.bind(ldap_search=search)
             results = await self._query(

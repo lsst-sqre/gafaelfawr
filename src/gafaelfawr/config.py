@@ -163,6 +163,23 @@ class LDAPSettings(CamelCaseModel):
     group_base_dn: str
     """Base DN to use when executing an LDAP search for user groups."""
 
+    group_search_template: str = (
+        "(&(objectClass={group_object_class})({group_member_attr}={username}))"
+    )
+    """Search template for locating a user's group membership.
+
+    The Python `format` template used to construct the LDAP search for the
+    user's group memberships. ``group_object_class`` and ``group_member_attr``
+    will be replaced with those settings, and ``username`` will be replaced
+    with the username of the authenticated user.
+
+    The default will work with LDAP servers that have an attribute containing
+    the simple usernames of the members in the group's LDAP entry. LDAP
+    servers that only contain DNs in the group LDAP entry may need to
+    customize this setting to search for the user's DN (constructed from their
+    username in the format string) instead of the simple username.
+    """
+
     group_object_class: str = "posixGroup"
     """LDAP group object class.
 
@@ -593,6 +610,21 @@ class LDAPConfig:
     group_base_dn: str
     """Base DN to use when executing LDAP search for group membership."""
 
+    group_search_template: str
+    """Search template for locating a user's group membership.
+
+    The Python `format` template used to construct the LDAP search for the
+    user's group memberships. ``group_object_class`` and ``group_member_attr``
+    will be replaced with those settings, and ``username`` will be replaced
+    with the username of the authenticated user.
+
+    The default will work with LDAP servers that have an attribute containing
+    the simple usernames of the members in the group's LDAP entry. LDAP
+    servers that only contain DNs in the group LDAP entry may need to
+    customize this setting to search for the user's DN (constructed from their
+    username in the format string) instead of the simple username.
+    """
+
     group_object_class: str = "posixGroup"
     """LDAP group object class.
 
@@ -924,6 +956,7 @@ class Config:
                 password=ldap_password,
                 use_kerberos=settings.ldap.use_kerberos,
                 group_base_dn=settings.ldap.group_base_dn,
+                group_search_template=settings.ldap.group_search_template,
                 group_object_class=settings.ldap.group_object_class,
                 group_member_attr=settings.ldap.group_member_attr,
                 user_base_dn=settings.ldap.user_base_dn,
