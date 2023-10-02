@@ -64,11 +64,7 @@ class LDAPStorage:
         LDAPError
             Raised if some error occurred while doing the LDAP search.
         """
-        search = self._config.group_search_template.format(
-            group_object_class=self._config.group_object_class,
-            group_member_attr=self._config.group_member_attr,
-            username=username,
-        )
+        search = self._build_group_member_search(username)
         logger = self._logger.bind(ldap_search=search, user=username)
         results = await self._query(
             self._config.group_base_dn,
@@ -153,11 +149,7 @@ class LDAPStorage:
         LDAPError
             Raised if some error occurred when searching LDAP.
         """
-        search = self._config.group_search_template.format(
-            group_object_class=self._config.group_object_class,
-            group_member_attr=self._config.group_member_attr,
-            username=username,
-        )
+        search = self._build_group_member_search(username)
         logger = self._logger.bind(ldap_search=search, user=username)
         results = await self._query(
             self._config.group_base_dn,
@@ -279,6 +271,32 @@ class LDAPStorage:
             msg = "LDAP user entry invalid"
             logger.exception(msg, error=str(e))
             raise LDAPError(msg, username) from e
+
+    def _build_group_member_search(self, username: str) -> str:
+        """Build the LDAP search to find group memberships for a user.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+
+        Returns
+        -------
+        str
+            LDAP search to find their group memberships.
+        """
+        group_class = self._config.group_object_class
+        member_attr = self._config.group_member_attr
+        if self._config.group_search_by_dn:
+            if not self._config.user_base_dn:
+                # Checked in Settings model so should be impossible.
+                raise ValueError("user_base_dn not set")
+            base_dn = self._config.user_base_dn
+            attr = self._config.user_search_attr
+            target = f"{attr}={username},{base_dn}"
+        else:
+            target = username
+        return f"(&(objectClass={group_class})({member_attr}={target}))"
 
     async def _query(
         self,

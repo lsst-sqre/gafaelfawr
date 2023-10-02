@@ -163,23 +163,6 @@ class LDAPSettings(CamelCaseModel):
     group_base_dn: str
     """Base DN to use when executing an LDAP search for user groups."""
 
-    group_search_template: str = (
-        "(&(objectClass={group_object_class})({group_member_attr}={username}))"
-    )
-    """Search template for locating a user's group membership.
-
-    The Python `format` template used to construct the LDAP search for the
-    user's group memberships. ``group_object_class`` and ``group_member_attr``
-    will be replaced with those settings, and ``username`` will be replaced
-    with the username of the authenticated user.
-
-    The default will work with LDAP servers that have an attribute containing
-    the simple usernames of the members in the group's LDAP entry. LDAP
-    servers that only contain DNs in the group LDAP entry may need to
-    customize this setting to search for the user's DN (constructed from their
-    username in the format string) instead of the simple username.
-    """
-
     group_object_class: str = "posixGroup"
     """LDAP group object class.
 
@@ -192,6 +175,24 @@ class LDAPSettings(CamelCaseModel):
 
     ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    """
+
+    group_search_by_dn: bool = False
+    """Whether to search for group membership by user DN.
+
+    By default, Gafaelfawr locates user group memberships by searching for an
+    attribute in the group tree containing the bare username. If this option
+    is set to `True`, the username is turned into a user DN using
+    ``user_base_dn`` and ``user_search_attr`` and group memberships are
+    instead retrieved by searching for ``group_member_attr`` attributes
+    containing that DN.
+
+    The default is `False` for backwards-compatibility reasons and because
+    setting the LDAP user attributes is optional, but most LDAP servers are
+    organized this way. The default may be changed to `True` in a future
+    release.
+
+    If set to `True`, ``user_base_dn`` must be set.
     """
 
     user_base_dn: str | None = None
@@ -207,7 +208,9 @@ class LDAPSettings(CamelCaseModel):
 
     This attribute must hold the username of the user that Gafaelfawr knows
     them by.  Used if ``user_base_dn`` is set.  The default is ``uid``, which
-    is the LDAP convention for the attribute holding the username.
+    is the LDAP convention for the attribute holding the username. This should
+    also be the attribute used to make up the DN of a user, since it is used
+    by ``group_search_by_dn``.
     """
 
     name_attr: str | None = "displayName"
@@ -256,6 +259,20 @@ class LDAPSettings(CamelCaseModel):
     matches the username and UID, adding it to the group list without
     requiring it to appear in LDAP.
     """
+
+    @model_validator(mode="after")
+    def _validate_group_search_by_dn(self) -> Self:
+        if self.group_search_by_dn and not self.user_base_dn:
+            msg = "user_base_dn must be set if group_search_by_dn is true"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _validate_password_file(self) -> Self:
+        """Ensure fields are non-empty if url is non-empty."""
+        if self.user_dn and not self.password_file:
+            raise ValueError("password_file required if user_dn set")
+        return self
 
 
 class ForgeRockSettings(CamelCaseModel):
@@ -488,16 +505,6 @@ class Settings(CamelCaseModel):
                 raise ValueError(f"required scope {required} missing")
         return v
 
-    @field_validator("ldap")
-    @classmethod
-    def _valid_ldap_config(cls, v: LDAPSettings | None) -> LDAPSettings | None:
-        """Ensure all fields are non-empty if url is non-empty."""
-        if v and v.url and not v.group_base_dn:
-            raise ValueError("not all required ldap fields are present")
-        if v and v.user_dn and not v.password_file:
-            raise ValueError("ldap.password_file required if ldap.user_dn set")
-        return v
-
     _validate_provider = model_validator(mode="after")(
         validate_exactly_one_of("github", "oidc")
     )
@@ -610,36 +617,24 @@ class LDAPConfig:
     group_base_dn: str
     """Base DN to use when executing LDAP search for group membership."""
 
-    group_search_template: str
-    """Search template for locating a user's group membership.
+    group_object_class: str
+    """LDAP group object class."""
 
-    The Python `format` template used to construct the LDAP search for the
-    user's group memberships. ``group_object_class`` and ``group_member_attr``
-    will be replaced with those settings, and ``username`` will be replaced
-    with the username of the authenticated user.
+    group_member_attr: str
+    """LDAP group member attribute."""
 
-    The default will work with LDAP servers that have an attribute containing
-    the simple usernames of the members in the group's LDAP entry. LDAP
-    servers that only contain DNs in the group LDAP entry may need to
-    customize this setting to search for the user's DN (constructed from their
-    username in the format string) instead of the simple username.
+    group_search_by_dn: bool
+    """Whether to search for group membership by user DN.
+
+    By default, Gafaelfawr locates user group memberships by searching for an
+    attribute in the group tree containing the bare username. If this option
+    is set to `True`, the username is turned into a user DN using
+    ``user_base_dn`` and ``user_search_attr`` and group memberships are
+    instead retrieved by searching for ``group_member_attr`` attributes
+    containing that DN.
     """
 
-    group_object_class: str = "posixGroup"
-    """LDAP group object class.
-
-    Usually ``posixGroup``, as specified in :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
-    """
-
-    group_member_attr: str = "member"
-    """LDAP group member attribute.
-
-    ``memberuid`` in :rfc:`2307` and ``member`` in `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
-    """
-
-    user_base_dn: str | None = None
+    user_base_dn: str | None
     """Base DN to use to search for user information.
 
     If set, the base DN used to search for the user record, from which other
@@ -647,7 +642,7 @@ class LDAPConfig:
     be retrieved.
     """
 
-    user_search_attr: str = "uid"
+    user_search_attr: str
     """Search attribute for finding the user record.
 
     This attribute must hold the username of the user that Gafaelfawr knows
@@ -655,7 +650,7 @@ class LDAPConfig:
     is the LDAP convention for the attribute holding the username.
     """
 
-    name_attr: str | None = "displayName"
+    name_attr: str | None
     """LDAP full name attribute.
 
     The attribute from which the user's full name will be taken, or `None` to
@@ -666,7 +661,7 @@ class LDAPConfig:
     concepts anyway).
     """
 
-    email_attr: str | None = "mail"
+    email_attr: str | None
     """LDAP email attribute.
 
     The attribute from which the user's email address should be taken, or
@@ -674,7 +669,7 @@ class LDAPConfig:
     ``mail``.
     """
 
-    uid_attr: str | None = None
+    uid_attr: str | None
     """LDAP UID attribute.
 
     If set, the user's UID will be taken from this sttribute.  If UID lookups
@@ -683,7 +678,7 @@ class LDAPConfig:
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
     """
 
-    gid_attr: str | None = None
+    gid_attr: str | None
     """LDAP GID attirbute.
 
     If set, the user's primary GID will be taken from this sttribute.  If GID
@@ -694,7 +689,7 @@ class LDAPConfig:
     and otherwise will not be set.
     """
 
-    add_user_group: bool = False
+    add_user_group: bool
     """Whether to synthesize a user private group with GID matching UID.
 
     If set to `True`, synthesize a group for the user whose name and GID
@@ -956,9 +951,9 @@ class Config:
                 password=ldap_password,
                 use_kerberos=settings.ldap.use_kerberos,
                 group_base_dn=settings.ldap.group_base_dn,
-                group_search_template=settings.ldap.group_search_template,
                 group_object_class=settings.ldap.group_object_class,
                 group_member_attr=settings.ldap.group_member_attr,
+                group_search_by_dn=settings.ldap.group_search_by_dn,
                 user_base_dn=settings.ldap.user_base_dn,
                 user_search_attr=settings.ldap.user_search_attr,
                 name_attr=settings.ldap.name_attr,
