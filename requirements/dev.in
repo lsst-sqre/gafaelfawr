@@ -22,7 +22,6 @@ selenium-wire
 sqlalchemy[mypy]
 types-cachetools
 types-PyYAML
-types-redis
 
 # Local test instance
 holdup
