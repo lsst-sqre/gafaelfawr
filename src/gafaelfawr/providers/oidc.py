@@ -137,7 +137,7 @@ class OIDCProvider(Provider):
             "code": code,
             "redirect_uri": self._config.redirect_url,
         }
-        self._logger.info("Retrieving ID token from %s", token_url)
+        self._logger.info("Retrieving ID token", token_url=token_url)
 
         # If the call failed, try to extract an error from the reply.  If that
         # fails, just raise an exception for the HTTP status.
@@ -246,15 +246,7 @@ class OIDCTokenVerifier:
             raise UnknownKeyIdError("No kid in token header")
         key_id = unverified_header["kid"]
 
-        if "jti" in unverified_token:
-            self._logger.debug(
-                "Verifying token %s from issuer %s",
-                unverified_token["jti"],
-                issuer_url,
-            )
-        else:
-            self._logger.debug("Verifying token from issuer %s", issuer_url)
-
+        self._logger.debug("Verifying OIDC token", token_data=unverified_token)
         if issuer_url != self._config.issuer:
             raise jwt.InvalidIssuerError(f"Unknown issuer: {issuer_url}")
 

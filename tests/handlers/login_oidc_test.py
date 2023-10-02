@@ -62,7 +62,7 @@ async def test_login(
             "severity": "info",
         },
         {
-            "event": f"Retrieving ID token from {config.oidc.token_url}",
+            "event": "Retrieving ID token",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
@@ -70,6 +70,7 @@ async def test_login(
             },
             "return_url": return_url,
             "severity": "info",
+            "token_url": config.oidc.token_url,
         },
         {
             "event": f"Successfully authenticated user {username}",
@@ -200,7 +201,7 @@ async def test_callback_error(
     assert "error_code: description" in r.text
     assert parse_log(caplog) == [
         {
-            "event": f"Retrieving ID token from {config.oidc.token_url}",
+            "event": "Retrieving ID token",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
@@ -208,6 +209,7 @@ async def test_callback_error(
             },
             "return_url": return_url,
             "severity": "info",
+            "token_url": config.oidc.token_url,
         },
         {
             "error": "Error retrieving ID token: error_code: description",

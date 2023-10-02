@@ -50,21 +50,15 @@ nitpick_ignore = [
     ["py:class", "starlette.routing.Route"],
     ["py:class", "starlette.routing.BaseRoute"],
     ["py:exc", "starlette.exceptions.HTTPException"],
-    # Special Pydantic magic that Sphinx doesn't understand.
-    ["py:class", "gafaelfawr.models.history.ConstrainedStrValue"],
-    ["py:class", "gafaelfawr.models.token.ConstrainedIntValue"],
-    ["py:class", "gafaelfawr.models.token.ConstrainedStrValue"],
     # asyncio.Lock is documented, and that's what all the code references, but
     # the combination of Sphinx extensions we're using confuse themselves and
     # there doesn't seem to be any way to fix this.
     ["py:class", "asyncio.locks.Lock"],
-    # Bug in autodoc_pydantic.
-    ["py:obj", "gafaelfawr.models.kubernetes.GafaelfawrIngressConfig.all fields"],
-    ["py:obj", "gafaelfawr.models.kubernetes.GafaelfawrIngressDelegate.all fields"],
-    ["py:obj", "gafaelfawr.config.Settings.all fields"],
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
+    # Bug in autodoc_pydantic.
+    ["py:obj", ".*\\.all fields"],
 ]
 python_api_dir = "dev/internals"
 rst_epilog_file = "_rst_epilog.rst"

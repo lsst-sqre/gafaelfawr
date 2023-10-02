@@ -204,7 +204,17 @@ The name of the claim can be overridden with ``config.oidc.groupsClaim`` as disc
 Optionally, the value of the claim can be a simple list of group names instead of a structure including the GIDs, but in this case Gafaelfawr will not have access to the GID information and will not be able to provide it to protected services.
 
 If group names in the token claim start with a slash, the name is canonicalized by removing the slash.
-This was required to support at least one Keycloak installation.
+Keycloak tends to mangle group names in this way.
+
+.. warning::
+
+   Prefer to use LDAP for user metadata and group information instead of using token attributes.
+   We have encountered numerous problems and severe limitations with obtaining user metadata from OpenID Connect tokens.
+
+   As one specific example, it does not appear to be possible to use OpenID Connect tokens issued by LDAP-backed Keycloak to provide group membership information with GIDs.
+   Keycloak does not appear to be capable of associating group names with GID information from the group tree of an LDAP server.
+   The best it can do is provide uncorrelated lists of group names and GIDs, which is not sufficient for Gafaelfawr's needs.
+   If you are using Keycloak plus LDAP, giving Gafaelfawr direct access to LDAP for user metadata and using Keycloak only for authentication is *strongly recommended*.
 
 There are some additional options under ``config.oidc`` that you may want to set:
 
@@ -231,6 +241,10 @@ There are some additional options under ``config.oidc`` that you may want to set
     Only used if :ref:`LDAP groups <ldap-groups>` are not configured.
     The default is ``isMemberOf``.
 
+    Be aware that although Gafaelfawr can parse a simple list of groups and will provide that information via its token information endpoints, this is not sufficient for the Notebook Aspect of the Science Platform.
+    The OpenID Connect provider must be capable of generating structured group information, including both the group name and the GID, in the format Gafaelfawr expects.
+    If this is not possible (and it usually is not), use LDAP instead.
+
 ``config.oidc.usernameClaim``
     The claim of the OpenID Connect ID token from which to take the username.
     The default is ``uid``.
@@ -245,6 +259,11 @@ If the GitHub authentication provider is used, this information instead comes fr
 
 If LDAP is enabled, group membership is always taken from LDAP (see :ref:`ldap-groups`) instead of the ID token from the upstream authentication provider.
 Other information about the user may also be retrieved from LDAP if configured (see :ref:`ldap-user`).
+
+.. warning::
+
+   If you are using CILogon or OpenID Connect as the authentication provider and have an LDAP server available, it is *strongly recommended* to use LDAP as the source of both user and group metadata rather than trying to use OpenID Connect token data.
+   Using CILogon or OpenID Connect only for authentication and retrieving all additional information from LDAP is the most heavily tested and lowest-friction Gafaelfawr configuration apart from the GitHub support.
 
 LDAP authentication
 -------------------
@@ -318,8 +337,15 @@ You may need to set the following additional options under ``config.ldap`` depen
 
 ``config.ldap.groupMemberAttr``
     The member attribute of that object class.
-    The values must match the username returned in the token from the OpenID Connect authentication server.
+    The values must match the username returned in the token from the OpenID Connect authentication server, or (if ``config.ldap.groupSearchByDn`` is set) the user DN formed from that username and the configuration options described in :ref:`ldap-user`.
     Default: ``member``.
+
+``config.ldap.groupSearchByDn``
+    If set to true, rather than expecting the membership attribute to contain bare usernames, expect it to contain full user DNs.
+    This is the configuration used by most LDAP servers.
+    Construct the user DN by combining the username with the values of ``config.ldap.userSearchAttr`` (as the attribute name for the first DN component containing the username) and ``config.ldap.userBaseDn`` (for the rest of the DN).
+    If this is set, ``config.ldap.userBaseDn`` must also be set.
+    Default: ``false``, mostly for backward compatibility reasons.
 
 ``config.ldap.addUserGroup``
     If set to ``true``, add an additional group to the user's group membership with a name equal to their username and a GID equal to their UID (provided they have a UID; if not, no group is added).
