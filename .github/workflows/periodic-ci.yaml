@@ -70,10 +70,15 @@ jobs:
         run: npm run build
         working-directory: ./ui
 
+      - name: Set up Minikube
+        uses: medyagh/setup-minikube@v0.0.14
+        with:
+          kubernetes-version: "v1.27.3"
+
       - uses: lsst-sqre/run-tox@v1
         with:
           python-version: ${{ matrix.python }}
-          tox-envs: "lint,typing,py,docs,docs-linkcheck"
+          tox-envs: "lint,typing,py-full,docs,docs-linkcheck"
           tox-plugins: tox-docker
           use-cache: false
 

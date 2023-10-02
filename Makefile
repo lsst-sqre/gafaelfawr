@@ -14,7 +14,7 @@ init:
 	pip install --editable .
 	pip install --upgrade -r requirements/main.txt -r requirements/dev.txt
 	rm -rf .tox
-	pip install --upgrade tox tox-docker
+	pip install --upgrade tox tox-docker docker
 	pre-commit install
 	cd ui && npm install --legacy-peer-deps
 

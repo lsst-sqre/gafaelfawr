@@ -172,7 +172,7 @@ class ProcessContext:
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
-        await self.redis.close()
+        await self.redis.aclose()
         await self.redis.connection_pool.disconnect()
         if self.ldap_pool:
             await self.ldap_pool.close()

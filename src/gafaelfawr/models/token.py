@@ -10,7 +10,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    FieldValidationInfo,
+    ValidationInfo,
     field_serializer,
     field_validator,
 )
@@ -628,7 +628,7 @@ class AdminTokenRequest(BaseModel):
     @field_validator("token_name")
     @classmethod
     def _valid_token_name(
-        cls, v: str | None, info: FieldValidationInfo
+        cls, v: str | None, info: ValidationInfo
     ) -> str | None:
         if "token_type" not in info.data:
             # Validation already failed, so the return value doesn't matter.
