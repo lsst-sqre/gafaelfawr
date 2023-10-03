@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import AsyncIterator
 
 import bonsai
 from bonsai import LDAPSearchScope
@@ -64,63 +65,13 @@ class LDAPStorage:
         LDAPError
             Raised if some error occurred while doing the LDAP search.
         """
-        search = self._build_group_member_search(username)
-        logger = self._logger.bind(ldap_search=search, user=username)
-        results = await self._query(
-            self._config.group_base_dn,
-            bonsai.LDAPSearchScope.SUB,
-            search,
-            ["cn"],
-            username,
-        )
-        logger.debug("LDAP groups found", ldap_results=results)
-
-        # Parse the results into the group list.
-        groups = []
-        valid_group_regex = re.compile(GROUPNAME_REGEX)
-        for result in results:
-            try:
-                name = result["cn"][0]
-            except Exception as e:
-                msg = "Invalid LDAP group result, ignoring"
-                logger.warning(msg, error=str(e), ldap_result=result)
-            if valid_group_regex.match(name):
-                groups.append(name)
-            elif name.startswith("CO:"):
-                # COmanage populates internal groups that start with CO:. We
-                # always ignore these, so they don't warrant a warning.
-                logger.debug(f"Ignoring COmanage group {name}")
-            else:
-                logger.warning(f"LDAP group {name} invalid, ignoring")
-
-        # Check that the primary group is included, and if not, try to add it.
+        groups = [
+            r["cn"][0] async for r in self._find_groups(username, ["cn"])
+        ]
         if primary_gid:
-            group_class = self._config.group_object_class
-            search = f"(&(objectClass={group_class})(gidNumber={primary_gid}))"
-            logger = self._logger.bind(ldap_search=search)
-            results = await self._query(
-                self._config.group_base_dn,
-                bonsai.LDAPSearchScope.SUB,
-                search,
-                ["cn"],
-                username,
-            )
-            logger.debug(
-                "Results for primary group",
-                gid=primary_gid,
-                ldap_results=results,
-            )
-            for result in results:
-                if "cn" not in result or not result["cn"]:
-                    continue
-                name = result["cn"][0]
-                if name in groups:
-                    break
-                if valid_group_regex.match(name):
-                    groups.append(name)
-                    break
-                logger.warning(f"LDAP group {name} invalid, ignoring")
-
+            group = await self._find_group_for_gid(primary_gid, username)
+            if group:
+                groups.append(group.name)
         return groups
 
     async def get_groups(
@@ -149,56 +100,24 @@ class LDAPStorage:
         LDAPError
             Raised if some error occurred when searching LDAP.
         """
-        search = self._build_group_member_search(username)
-        logger = self._logger.bind(ldap_search=search, user=username)
-        results = await self._query(
-            self._config.group_base_dn,
-            bonsai.LDAPSearchScope.SUB,
-            search,
-            ["cn", "gidNumber"],
-            username,
-        )
-        logger.debug("LDAP groups found", ldap_results=results)
-
-        # Parse the results into the group list.
         groups = []
-        for result in results:
+        async for result in self._find_groups(username, ["cn", "gidNumber"]):
             name = None
             try:
                 name = result["cn"][0]
                 gid = int(result["gidNumber"][0])
                 groups.append(TokenGroup(name=name, id=gid))
             except Exception as e:
-                msg = f"LDAP group {name} invalid, ignoring"
-                logger.warning(msg, error=str(e))
+                msg = f"LDAP group {name} has invalid gidNumber, ignoring"
+                self._logger.warning(
+                    msg, error=str(e), username=username, ldap_result=result
+                )
 
         # Check that the primary group is included, and if not, try to add it.
         if primary_gid and not any(g.id == primary_gid for g in groups):
-            group_class = self._config.group_object_class
-            search = f"(&(objectClass={group_class})(gidNumber={primary_gid}))"
-            logger = self._logger.bind(ldap_search=search)
-            results = await self._query(
-                self._config.group_base_dn,
-                bonsai.LDAPSearchScope.SUB,
-                search,
-                ["cn"],
-                username,
-            )
-            logger.debug(
-                "Results for primary group",
-                gid=primary_gid,
-                ldap_results=results,
-            )
-            for result in results:
-                if "cn" not in result or not result["cn"]:
-                    continue
-                name = result["cn"][0]
-                try:
-                    groups.append(TokenGroup(name=name, id=primary_gid))
-                    break
-                except Exception as e:
-                    msg = f"LDAP group {name} invalid, ignoring"
-                    logger.warning(msg, error=str(e))
+            group = await self._find_group_for_gid(primary_gid, username)
+            if group:
+                groups.append(group)
 
         return groups
 
@@ -297,6 +216,100 @@ class LDAPStorage:
         else:
             target = username
         return f"(&(objectClass={group_class})({member_attr}={target}))"
+
+    async def _find_group_for_gid(
+        self, gid: int, username: str
+    ) -> TokenGroup | None:
+        """Find the group for a GID.
+
+        Used to add the group corresponding to a person's primary GID, if it
+        was not already included in their group list.
+
+        Parameters
+        ----------
+        gid
+            GID to search for.
+        username
+            Username of user, for logging.
+
+        Returns
+        -------
+        TokenGroup or None
+            Group if found, or `None` if it was not.
+        """
+        group_class = self._config.group_object_class
+        search = f"(&(objectClass={group_class})(gidNumber={gid}))"
+        logger = self._logger.bind(ldap_search=search, user=username)
+        results = await self._query(
+            self._config.group_base_dn,
+            bonsai.LDAPSearchScope.SUB,
+            search,
+            ["cn"],
+            username,
+        )
+        logger.debug(
+            "Results for primary group", gid=gid, ldap_results=results
+        )
+        for result in results:
+            if "cn" not in result or not result["cn"]:
+                continue
+            name = result["cn"][0]
+            try:
+                # Rely on Pydantic to do the validation.
+                return TokenGroup(name=name, id=gid)
+            except Exception as e:
+                msg = f"LDAP group {name} invalid, ignoring"
+                logger.warning(msg, error=str(e), ldap_result=result)
+        return None
+
+    async def _find_groups(
+        self, username: str, attrs: list[str]
+    ) -> AsyncIterator[dict[str, list[str]]]:
+        """Search for group memberships.
+
+        Assumes that the group name is in ``cn`` and discards invalid group
+        names without yielding those results.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+        attrs
+            List of attributes to search for.
+
+        Yields
+        ------
+        dict of list
+            Each result, which will be a dictionary of attribute names to
+            lists of values for that attribute.
+        """
+        search = self._build_group_member_search(username)
+        logger = self._logger.bind(ldap_search=search, user=username)
+        results = await self._query(
+            self._config.group_base_dn,
+            bonsai.LDAPSearchScope.SUB,
+            search,
+            attrs,
+            username,
+        )
+        logger.debug("LDAP groups found", ldap_results=results)
+
+        # Parse the results into the group list.
+        valid_group_regex = re.compile(GROUPNAME_REGEX)
+        for result in results:
+            try:
+                name = result["cn"][0]
+            except Exception as e:
+                msg = "Invalid LDAP group result, ignoring"
+                logger.warning(msg, error=str(e), ldap_result=result)
+            if valid_group_regex.match(name):
+                yield result
+            elif name.startswith("CO:"):
+                # COmanage populates internal groups that start with CO:. We
+                # always ignore these, so they don't warrant a warning.
+                logger.debug(f"Ignoring COmanage group {name}")
+            else:
+                logger.warning(f"LDAP group {name} invalid, ignoring")
 
     async def _query(
         self,
