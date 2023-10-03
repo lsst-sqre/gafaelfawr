@@ -676,15 +676,16 @@ Only token authentication will be supported for those hostnames, and therefore i
 Logging and proxies
 ===================
 
-The default logging level of Gafaelfawr is ``INFO``, which will log a message for every action it takes.
+The default logging level of Gafaelfawr is ``info``, which will log a message for every action it takes.
 To change this, set ``config.logLevel``:
 
 .. code-block:: yaml
 
    config:
-     logLevel: "WARNING"
+     logLevel: "warning"
 
-Valid values are ``DEBUG`` (to increase the logging), ``INFO`` (the default), ``WARNING``, or ``ERROR``.
+Valid values are ``debug`` (to increase the logging), ``info`` (the default), ``warning``, or ``error``.
+These values can be specified in any case.
 
 Gafaelfawr is deployed behind a proxy server.
 In order to accurately log the IP address of the client, instead of the IP address of the proxy server, it must know what IP ranges correspond to possible proxy servers rather than clients.
