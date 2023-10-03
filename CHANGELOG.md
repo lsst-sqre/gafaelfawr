@@ -1,15 +1,23 @@
 # Change log
 
-All notable changes to Gafaelfawr will be documented in this file.
+Gafaelfawr is versioned with [semver](https://semver.org/). Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
 
-Versioning follows [semver](https://semver.org/). Versioning assumes that Gafaelfawr is installed and configured via [Phalanx](https://phalanx.lsst.io/), so only changes to configuration exposed in the Helm values file are considered breaking changes. The internal configuration format may change in minor releases.
-
-Dependencies are updated to the latest available version during each release. Those changes are not noted here explicitly.
-
-This project uses [scriv](https://scriv.readthedocs.io/en/latest/) to maintain the change log.
-Changes for the upcoming release can be found in [changelog.d](https://github.com/lsst-sqre/gafaelfawr/tree/main/changelog.d/).
+Find changes for the upcoming release in the project's [changelog.d directory](https://github.com/lsst-sqre/gafaelfawr/tree/main/changelog.d/).
 
 <!-- scriv-insert-here -->
+
+<a id='changelog-9.4.0'></a>
+## 9.4.0 (2023-10-03)
+
+### New features
+
+- Gafaelfawr now supports the common LDAP configuration of recording group membership by full user DN rather than only username. Set `group_search_by_dn` to search for the user by full DN in the group tree. This requires LDAP also be used for user metadata.
+- Allow the Gafaelfawr log level to be specified using any case (`info` as well as `INFO`, for example).
+
+### Other changes
+
+- Gafaelfawr now uses Pydantic v2. This should not result in any user-visible changes, but it is possible there will be some unexpected differences in data serialization or deserialization.
+- Log the full contents of the upstream OIDC token before token verification if debug logging is enabled.
 
 <a id='changelog-9.3.1'></a>
 ## 9.3.1 (2023-09-07)
