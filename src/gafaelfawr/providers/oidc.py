@@ -130,6 +130,7 @@ class OIDCProvider(Provider):
             provider.
         """
         token_url = self._config.token_url
+        logger = self._logger.bind(token_url=token_url)
         data = {
             "grant_type": "authorization_code",
             "client_id": self._config.client_id,
@@ -137,7 +138,7 @@ class OIDCProvider(Provider):
             "code": code,
             "redirect_uri": self._config.redirect_url,
         }
-        self._logger.info("Retrieving ID token", token_url=token_url)
+        logger.info("Retrieving ID token")
 
         # If the call failed, try to extract an error from the reply.  If that
         # fails, just raise an exception for the HTTP status.
@@ -161,6 +162,7 @@ class OIDCProvider(Provider):
             raise OIDCWebError.from_exception(e) from e
         except Exception as e:
             msg = f"Response from {token_url} not valid JSON"
+            logger.exception(msg, response=r.text)
             raise OIDCError(msg) from e
         if "id_token" not in result:
             msg = f"No id_token in token reply from {token_url}"
@@ -176,6 +178,7 @@ class OIDCProvider(Provider):
         except MissingUsernameClaimError as e:
             raise OIDCNotEnrolledError(str(e)) from e
         except (jwt.InvalidTokenError, VerifyTokenError) as e:
+            logger.exception("Error verifying ID token", msg=str(e))
             msg = f"OpenID Connect token verification failed: {e!s}"
             raise OIDCError(msg) from e
 
