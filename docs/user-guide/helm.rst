@@ -85,7 +85,7 @@ This setting will also affect the lifetime of tokens issued by the OpenID Connec
 Administrators
 --------------
 
-Finally, you may want to define the initial set of administrators:
+You may want to define the initial set of administrators:
 
 .. code-block:: yaml
 
@@ -97,6 +97,16 @@ Finally, you may want to define the initial set of administrators:
 This makes the users ``username`` and ``otheruser`` (as authenticated by the upstream authentication provider configured below) admins, meaning that they can create, delete, and modify any authentication tokens.
 This value is only used when initializing a new Gafaelfawr database that does not contain any admins.
 Setting this is optional; you can instead use the bootstrap token (see :ref:`bootstrapping`) to perform any administrative actions through the API.
+
+Resource requests and limits
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Every component of Gafaelfawr defines Kubernetes resource requests and limits.
+Look for the ``resources`` key at the top level of the chart and in the portions of the chart for the underlying Gafaelfawr components.
+
+The default limits and requests were set based on a fairly lightly loaded deployment that uses OpenID Connect as the authentication provider and LDAP for user metadata.
+For a heavily-loaded environment, you may need to increase the resource requests to reflect the expected resource consumption of your instance of Gafaelfawr and allow Kubernetes to do better scheduling.
+You will hopefully not need to increase the limits, which are generous.
 
 .. _providers:
 
@@ -715,8 +725,11 @@ To enable this, set ``config.slackAlerts``:
 
 You will also have to set the ``slack-webhook`` key in the Gafaelfawr secret to the URL of the incoming webhook to use to post these alerts.
 
-Maintenance timing
-==================
+Maintenance
+===========
+
+Timing
+^^^^^^
 
 Gafaelfawr uses two Kubernetes ``CronJob`` resources to perform periodic maintenance and consistency checks on its data stores.
 
@@ -730,6 +743,15 @@ By default, it runs once a day at 03:00 in the time zone of the Kubernetes clust
 Its schedule can be set with ``config.maintenance.auditSchedule`` (a `cron schedule expression`_).
 
 .. _cron schedule expression: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
+
+Time limits
+^^^^^^^^^^^
+
+By default, Gafaelfawr allows its maintenance and audit jobs five minutes to run, and cleans up any completed jobs older than one day.
+Kubernetes also deletes completed and failed jobs as necessary to maintain a cap on the number retained, which normally overrides the cleanup timing for the maintenance job that runs hourly.
+
+To change the time limit for maintenance jobs (if, for instance, you have a huge user database or your database is very slow), set ``config.maintenance.deadlineSeconds`` to the length of time jobs are allowed to run for.
+To change the retention time for completed jobs, set ``config.maintenance.cleanupSeconds`` to the maximum lifetime of a completed job.
 
 OpenID Connect server
 =====================
