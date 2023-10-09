@@ -18,7 +18,7 @@ Then, configure the client.
 The authorization endpoint is ``/auth/openid/login``.
 The token endpoint is ``/auth/openid/token``.
 The userinfo endpoint is ``/auth/openid/userinfo``.
-The JWKS endpoing is ``/.well-known/jwks.json``.
+The JWKS endpoint is ``/.well-known/jwks.json``.
 As with any other protected service, the client must run on the same URL host as Gafaelfawr, and these endpoints are all at that shared host (and should be specified using ``https``).
 
 The OpenID Connect client should be configured to request only the ``openid`` scope.
