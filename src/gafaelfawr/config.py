@@ -18,6 +18,7 @@ from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
 from typing import Self
+from uuid import UUID
 
 import yaml
 from pydantic import (
@@ -446,6 +447,9 @@ class Settings(CamelCaseModel):
     slack_webhook_file: Path | None = None
     """File containing the Slack webhook to which to post alerts."""
 
+    cadc_base_uuid: UUID | None = None
+    """Namespace UUID used to generate UUIDs for CADC-compatible auth."""
+
     github: GitHubSettings | None = None
     """Settings for the GitHub authentication provider."""
 
@@ -856,6 +860,9 @@ class Config:
     slack_webhook: str | None
     """Slack webhook to which to post alerts."""
 
+    cadc_base_uuid: UUID | None
+    """Namespace UUID used to generate UUIDs for CADC-compatible auth."""
+
     github: GitHubConfig | None
     """Configuration for GitHub authentication."""
 
@@ -1071,6 +1078,7 @@ class Config:
             after_logout_url=str(settings.after_logout_url),
             error_footer=settings.error_footer,
             slack_webhook=slack_webhook,
+            cadc_base_uuid=settings.cadc_base_uuid,
             github=github_config,
             oidc=oidc_config,
             ldap=ldap_config,

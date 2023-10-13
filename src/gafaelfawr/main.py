@@ -24,7 +24,7 @@ from safir.slack.webhook import SlackRouteErrorHandler
 from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
-from .handlers import analyze, api, auth, index, login, logout, oidc
+from .handlers import analyze, api, auth, cadc, index, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
 
@@ -95,6 +95,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         },
     )
     app.include_router(auth.router)
+    app.include_router(cadc.router)
     app.include_router(index.router)
     app.include_router(login.router)
     app.include_router(logout.router)

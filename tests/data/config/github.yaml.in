@@ -33,3 +33,4 @@ github:
   clientSecretFile: "{github_secret_file}"
 errorFooter: |
   Some <strong>error instructions</strong> with HTML.
+cadcBaseUuid: "750a0d94-e0eb-4b4e-a732-bcf87d7197fd"
