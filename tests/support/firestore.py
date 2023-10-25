@@ -62,8 +62,11 @@ class MockTransaction(MagicMock):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(spec=firestore.AsyncTransaction, **kwargs)
+
+        # Used internally by Firestore and thus must be set in the mock.
         self._id = None
         self._max_attempts = 1
+        self._read_only = False
 
     def create(self, ref: MockDocumentRef, data: dict[str, Any]) -> None:
         assert ref.document is None
