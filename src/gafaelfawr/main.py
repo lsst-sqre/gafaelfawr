@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator, Coroutine
+from contextlib import asynccontextmanager
 from importlib.metadata import version
 from pathlib import Path
 
@@ -31,7 +33,11 @@ from .models.state import State
 __all__ = ["create_app"]
 
 
-def create_app(*, load_config: bool = True) -> FastAPI:
+def create_app(
+    *,
+    load_config: bool = True,
+    extra_startup: Coroutine[None, None, None] | None = None,
+) -> FastAPI:
     """Create the FastAPI application.
 
     This is in a function rather than using a global variable (as is more
@@ -46,7 +52,27 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         set of proxy IP addresses.  This is used primarily for OpenAPI
         schema generation, where constructing the app is required but the
         configuration won't matter.
+    extra_startup
+        If provided, an additional coroutine to run as part of the startup
+        section of the lifespan context manager, used by the test suite.
     """
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        config = config_dependency.config()
+        await context_dependency.initialize(config)
+        await db_session_dependency.initialize(
+            config.database_url, config.database_password
+        )
+        if extra_startup:
+            await extra_startup
+
+        yield
+
+        await http_client_dependency.aclose()
+        await db_session_dependency.aclose()
+        await context_dependency.aclose()
+
     app = FastAPI(
         title="Gafaelfawr",
         description=(
@@ -83,6 +109,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         openapi_url="/auth/openapi.json",
         docs_url="/auth/docs",
         redoc_url="/auth/redoc",
+        lifespan=lifespan,
     )
 
     # Add all of the routes.
@@ -142,20 +169,6 @@ def create_app(*, load_config: bool = True) -> FastAPI:
 
     # Handle exceptions descended from ClientRequestError.
     app.exception_handler(ClientRequestError)(client_request_error_handler)
-
-    @app.on_event("startup")
-    async def startup_event() -> None:
-        config = config_dependency.config()
-        await context_dependency.initialize(config)
-        await db_session_dependency.initialize(
-            config.database_url, config.database_password
-        )
-
-    @app.on_event("shutdown")
-    async def shutdown_event() -> None:
-        await http_client_dependency.aclose()
-        await db_session_dependency.aclose()
-        await context_dependency.aclose()
 
     # This is a temporary workaround for a bug in FastAPI handling Pydantic
     # validation errors when a list query parameter is not specified. See

@@ -23,7 +23,7 @@ repos:
     rev: 1.16.0
     hooks:
       - id: blacken-docs
-        additional_dependencies: [black==23.9.1]
+        additional_dependencies: [black==23.10.0]
         args: [-l, '79', -t, py311]
 
   - repo: https://github.com/pre-commit/mirrors-eslint
@@ -33,7 +33,7 @@ repos:
         additional_dependencies:
           - '@babel/eslint-parser@7.22.15'
           - '@babel/preset-react@7.22.15'
-          - eslint@8.49.0
+          - eslint@8.52.0
           - eslint-config-airbnb@19.0.4
           - eslint-config-prettier@9.0.0
           - eslint-config-wesbos@3.2.3

@@ -128,14 +128,12 @@ def selenium_create_app() -> FastAPI:
     be called by uvicorn in the separate process spawned by run_app.  If it is
     run in the main pytest process, it will break other tests.
     """
-    app = create_app()
     token_path = Path(os.environ["GAFAELFAWR_TEST_TOKEN_PATH"])
 
-    @app.on_event("startup")
-    async def selenium_startup_event() -> None:
+    async def selenium_startup() -> None:
         await _selenium_startup(token_path)
 
-    return app
+    return create_app(extra_startup=selenium_startup())
 
 
 @asynccontextmanager
