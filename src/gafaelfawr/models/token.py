@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 from typing import Any, Self
+from uuid import UUID
 
 from pydantic import (
     BaseModel,
@@ -23,6 +24,7 @@ from ..util import normalize_scopes, random_128_bits
 
 __all__ = [
     "AdminTokenRequest",
+    "CADCUserInfo",
     "NewToken",
     "NotebookQuota",
     "Quota",
@@ -693,3 +695,45 @@ class UserTokenModifyRequest(BaseModel):
         ),
         examples=[1625986130],
     )
+
+
+class CADCUserInfo(BaseModel):
+    """User metadata required by the CADC authentication code.
+
+    This model is hopefully temporary and will be retired by merging the CADC
+    support with the OpenID Connect support.
+    """
+
+    exp: datetime | None = Field(
+        None,
+        title="Expiration time",
+        description=(
+            "Expiration timestamp of the token in seconds since epoch. If"
+            " not present, the token never expires."
+        ),
+        examples=[1625986130],
+    )
+
+    preferred_username: str = Field(
+        ...,
+        title="Username",
+        description="Username of user",
+        examples=["someuser"],
+    )
+
+    sub: UUID = Field(
+        ...,
+        title="Unique identifier",
+        description=(
+            "CADC code currently requires a UUID in this field. In practice,"
+            " this is generated as a version 5 UUID based on a configured"
+            " UUID namespace and the string representation of the user's"
+            " numeric UID (thus allowing username changes if the UID is"
+            " preserved."
+        ),
+        examples=["78410c93-841d-53b1-a353-6411524d149e"],
+    )
+
+    @field_serializer("exp")
+    def _serialize_datetime(self, time: datetime | None) -> int | None:
+        return int(time.timestamp()) if time is not None else None
