@@ -73,7 +73,7 @@ class Authenticate:
         self.auth_type = auth_type
         self.ajax_forbidden = ajax_forbidden
 
-    async def authenticate(  # noqa: C901
+    async def authenticate(
         self, context: RequestContext, x_csrf_token: str | None = None
     ) -> TokenData:
         """Authenticate the request.
@@ -104,19 +104,11 @@ class Authenticate:
         fastapi.HTTPException
             Raised if authentication is not provided or is not valid.
         """
-        token = context.state.token
-        if token:
-            context.rebind_logger(token_source="cookie")
+        token = self._find_token(context)
+
+        # Check CSRF if and only if the token was found in a cookie.
+        if context.state.token:
             self._verify_csrf(context, x_csrf_token)
-        elif not self.require_session:
-            try:
-                token_str = parse_authorization(context)
-                if token_str:
-                    token = Token.from_str(token_str)
-            except (InvalidRequestError, InvalidTokenError) as e:
-                raise generate_challenge(context, self.auth_type, e) from None
-        if not token:
-            raise self._redirect_or_error(context)
 
         if self.allow_bootstrap_token:
             if token == context.config.bootstrap_token:
@@ -149,6 +141,39 @@ class Authenticate:
             raise PermissionDeniedError(msg)
 
         return data
+
+    def _find_token(self, context: RequestContext) -> Token:
+        """Find the authentication tomen in the request.
+
+        Parameters
+        ----------
+        context
+            The request context.
+
+        Returns
+        -------
+        Token
+            Token found in the request.
+
+        Raises
+        ------
+        fastapi.HTTPException
+            Raised if authentication is not provided or is not valid.
+        """
+        token = context.state.token
+        if token:
+            context.rebind_logger(token_source="cookie")
+            return token
+        elif not self.require_session:
+            try:
+                token_str = parse_authorization(context)
+                if token_str:
+                    return Token.from_str(token_str)
+            except (InvalidRequestError, InvalidTokenError) as e:
+                raise generate_challenge(context, self.auth_type, e) from None
+
+        # Fall through when no token was found.
+        raise self._redirect_or_error(context)
 
     def _redirect_or_error(self, context: RequestContext) -> HTTPException:
         """Redirect to the ``/login`` route or return a 401 error.
