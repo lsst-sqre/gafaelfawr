@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..constants import NGINX_SNIPPET
+from ..constants import NGINX_RESPONSE_HEADERS, NGINX_SNIPPET
 from ..exceptions import (
     InputValidationError,
     InvalidScopesError,
@@ -105,9 +105,7 @@ class KubernetesIngressService:
             raise
         return await self._update_ingress(old_ingress, new_ingress, parent)
 
-    def _build_annotations(  # noqa: C901
-        self, ingress: GafaelfawrIngress
-    ) -> dict[str, str]:
+    def _build_annotations(self, ingress: GafaelfawrIngress) -> dict[str, str]:
         """Build annotations for an ``Ingress``."""
         base_url = ingress.config.base_url.rstrip("/")
 
@@ -137,11 +135,7 @@ class KubernetesIngressService:
         if snippet and not snippet.endswith("\n"):
             snippet += "\n"
         snippet += NGINX_SNIPPET
-        headers = (
-            "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
-        )
-        if ingress.config.delegate:
-            headers += ",X-Auth-Request-Token"
+        headers = ",".join(NGINX_RESPONSE_HEADERS)
         annotations = {
             **ingress.template.metadata.annotations,
             "nginx.ingress.kubernetes.io/auth-method": "GET",
@@ -161,7 +155,7 @@ class KubernetesIngressService:
         """Build annotations for an anonymous ``Ingress``."""
         base_url = ingress.config.base_url.rstrip("/")
         auth_url = f"{base_url}/auth/anonymous"
-        headers = "Authorization,Cookie"
+        headers = ",".join(NGINX_RESPONSE_HEADERS)
         return {
             **ingress.template.metadata.annotations,
             "nginx.ingress.kubernetes.io/auth-method": "GET",

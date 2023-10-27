@@ -90,6 +90,20 @@ LDAP_TIMEOUT = 5.0
 MINIMUM_LIFETIME = timedelta(minutes=5)
 """Minimum expiration lifetime for a token."""
 
+NGINX_RESPONSE_HEADERS = (
+    "Authorization",
+    "Cookie",
+    "X-Auth-Request-Email",
+    "X-Auth-Request-Token",
+    "X-Auth-Request-User",
+)
+"""Headers to lift from the Gafaelfawr response to the backend request.
+
+Any of these headers in the incoming request will be overwritten with the
+versions of these headers returned by the Gafaelfawr auth subrequest, or
+deleted entirely if the subrequest doesn't return one of these headers.
+"""
+
 NGINX_SNIPPET = """\
 auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
 auth_request_set $auth_status $upstream_http_x_error_status;
