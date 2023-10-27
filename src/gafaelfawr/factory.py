@@ -31,6 +31,7 @@ from .constants import (
     REDIS_POOL_SIZE,
     REDIS_POOL_TIMEOUT,
     REDIS_RETRIES,
+    REDIS_TIMEOUT,
 )
 from .exceptions import NotConfiguredError
 from .models.ldap import LDAPUserData
@@ -142,13 +143,15 @@ class ProcessContext:
                 config.redis_url,
                 password=config.redis_password,
                 max_connections=REDIS_POOL_SIZE,
-                timeout=REDIS_POOL_TIMEOUT,
-            ),
-            retry=Retry(
-                ExponentialBackoff(
-                    base=REDIS_BACKOFF_START, cap=REDIS_BACKOFF_MAX
+                retry=Retry(
+                    ExponentialBackoff(
+                        base=REDIS_BACKOFF_START, cap=REDIS_BACKOFF_MAX
+                    ),
+                    REDIS_RETRIES,
                 ),
-                REDIS_RETRIES,
+                socket_keepalive=True,
+                socket_timeout=REDIS_TIMEOUT,
+                timeout=REDIS_POOL_TIMEOUT,
             ),
         )
 

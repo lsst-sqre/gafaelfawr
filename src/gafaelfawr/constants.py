@@ -29,6 +29,7 @@ __all__ = [
     "REDIS_POOL_SIZE",
     "REDIS_POOL_TIMEOUT",
     "REDIS_RETRIES",
+    "REDIS_TIMEOUT",
     "SCOPE_REGEX",
     "TOKEN_CACHE_SIZE",
     "UID_BOT_MIN",
@@ -117,7 +118,10 @@ REDIS_POOL_SIZE = 10
 """Size of the Redis connection pool."""
 
 REDIS_POOL_TIMEOUT = 10
-"""How long to wait for a connection from the pool before giving up."""
+"""Seconds to wait for a connection from the pool before giving up."""
+
+REDIS_TIMEOUT = 5
+"""Timeout in seconds for a Redis network operation (including connecting)."""
 
 # The following constants define per-process cache sizes.
 
