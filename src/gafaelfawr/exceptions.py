@@ -44,6 +44,7 @@ __all__ = [
     "MissingUsernameClaimError",
     "NoAvailableGidError",
     "NoAvailableUidError",
+    "NoScopesError",
     "NotConfiguredError",
     "NotFoundError",
     "OAuthError",
@@ -150,6 +151,13 @@ class InvalidScopesError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.body, ["scopes"])
+
+
+class NoScopesError(InputValidationError):
+    """The user has no valid scopes and therefore cannot log in."""
+
+    error = "permission_denied"
+    status_code = status.HTTP_403_FORBIDDEN
 
 
 class NotConfiguredError(InputValidationError):
