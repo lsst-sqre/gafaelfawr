@@ -121,7 +121,7 @@ class LDAPStorage:
 
         return groups
 
-    async def get_data(self, username: str) -> LDAPUserData:  # noqa: C901
+    async def get_data(self, username: str) -> LDAPUserData:
         """Get the data for an LDAP user.
 
         Parameters
@@ -148,20 +148,11 @@ class LDAPStorage:
 
         search = f"({self._config.user_search_attr}={username})"
         logger = self._logger.bind(ldap_search=search, user=username)
-        attrs = []
-        if self._config.name_attr:
-            attrs.append(self._config.name_attr)
-        if self._config.email_attr:
-            attrs.append(self._config.email_attr)
-        if self._config.uid_attr:
-            attrs.append(self._config.uid_attr)
-        if self._config.gid_attr:
-            attrs.append(self._config.gid_attr)
         results = await self._query(
             self._config.user_base_dn,
             bonsai.LDAPSearchScope.ONE,
             search,
-            attrs,
+            self._build_user_search_attrs(),
             username,
         )
         logger.debug("LDAP entries for user data", ldap_results=results)
@@ -216,6 +207,19 @@ class LDAPStorage:
         else:
             target = username
         return f"(&(objectClass={group_class})({member_attr}={target}))"
+
+    def _build_user_search_attrs(self) -> list[str]:
+        """Construct the list of user attributes to search for."""
+        attrs = []
+        if self._config.name_attr:
+            attrs.append(self._config.name_attr)
+        if self._config.email_attr:
+            attrs.append(self._config.email_attr)
+        if self._config.uid_attr:
+            attrs.append(self._config.uid_attr)
+        if self._config.gid_attr:
+            attrs.append(self._config.gid_attr)
+        return attrs
 
     async def _find_group_for_gid(
         self, gid: int, username: str
