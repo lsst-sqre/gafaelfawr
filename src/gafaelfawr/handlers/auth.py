@@ -344,7 +344,7 @@ async def get_anonymous(
     return {"status": "ok"}
 
 
-async def build_success_headers(  # noqa: C901
+async def build_success_headers(
     context: RequestContext, auth_config: AuthConfig, token_data: TokenData
 ) -> list[tuple[str, str]]:
     """Construct the headers for successful authorization.
@@ -393,7 +393,54 @@ async def build_success_headers(  # noqa: C901
     if user_info.email:
         headers.append(("X-Auth-Request-Email", user_info.email))
 
-    delegated_token = None
+    # Add the delegated token, if there should be one.
+    delegated = await build_delegated_token(context, auth_config, token_data)
+    if delegated:
+        headers.append(("X-Auth-Request-Token", delegated))
+
+    # If told to put the delegated token in the Authorization header, do that.
+    # Otherwise, strip authentication tokens from the Authorization headers of
+    # the incoming request and reflect the remainder back in the response.
+    # Always do this with the Cookie header. ingress-nginx can then be
+    # configured to lift those headers up into the proxy request, preventing
+    # the user's cookie from being passed down to the protected application.
+    if auth_config.use_authorization:
+        if delegated:
+            headers.append(("Authorization", f"Bearer {delegated}"))
+    elif "Authorization" in context.request.headers:
+        raw_authorizations = context.request.headers.getlist("Authorization")
+        authorizations = clean_authorization(raw_authorizations)
+        if authorizations:
+            headers.extend(("Authorization", v) for v in authorizations)
+    if "Cookie" in context.request.headers:
+        raw_cookies = context.request.headers.getlist("Cookie")
+        cookies = clean_cookies(raw_cookies)
+        if cookies:
+            headers.extend(("Cookie", v) for v in cookies)
+
+    return headers
+
+
+async def build_delegated_token(
+    context: RequestContext, auth_config: AuthConfig, token_data: TokenData
+) -> str | None:
+    """Construct the delegated token for this request.
+
+    Parameters
+    ----------
+    context
+        Context of the incoming request.
+    auth_config
+        Configuration parameters for the authorization.
+    token_data
+        Data from the authentication token.
+
+    Returns
+    -------
+    str or None
+        Delegated token to include in the request, or `None` if none should be
+        included.
+    """
     if auth_config.notebook:
         token_service = context.factory.create_token_service()
         async with context.session.begin():
@@ -402,8 +449,7 @@ async def build_success_headers(  # noqa: C901
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )
-        delegated_token = str(token)
-        headers.append(("X-Auth-Request-Token", delegated_token))
+        return str(token)
     elif auth_config.delegate_to:
         # Delegated scopes are optional; if the authenticating token doesn't
         # have the scope, it's omitted from the delegated token.  (To make it
@@ -422,27 +468,6 @@ async def build_success_headers(  # noqa: C901
                 ip_address=context.ip_address,
                 minimum_lifetime=auth_config.minimum_lifetime,
             )
-        delegated_token = str(token)
-        headers.append(("X-Auth-Request-Token", delegated_token))
-
-    # If told to put the delegated token in the Authorization header, do that.
-    # Otherwise, strip authentication tokens from the Authorization headers of
-    # the incoming request and reflect the remainder back in the response.
-    # Always do this with the Cookie header.  ingress-nginx can then be
-    # configured to lift those headers up into the proxy request, preventing
-    # the user's cookie from being passed down to the protected application.
-    if auth_config.use_authorization:
-        if delegated_token:
-            headers.append(("Authorization", f"Bearer {delegated_token}"))
-    elif "Authorization" in context.request.headers:
-        raw_authorizations = context.request.headers.getlist("Authorization")
-        authorizations = clean_authorization(raw_authorizations)
-        if authorizations:
-            headers.extend(("Authorization", v) for v in authorizations)
-    if "Cookie" in context.request.headers:
-        raw_cookies = context.request.headers.getlist("Cookie")
-        cookies = clean_cookies(raw_cookies)
-        if cookies:
-            headers.extend(("Cookie", v) for v in cookies)
-
-    return headers
+        return str(token)
+    else:
+        return None
