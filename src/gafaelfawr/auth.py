@@ -277,9 +277,9 @@ def generate_unauthorized_challenge(
 
 
 def parse_authorization(context: RequestContext) -> str | None:
-    """Find a handle or token in the Authorization header.
+    """Find a token in the Authorization header.
 
-    Supports either ``Bearer`` or ``Basic`` authorization types.  Rebinds the
+    Supports either ``Bearer`` or ``Basic`` authorization types. Rebinds the
     logging context to include the source of the token, if one is found.
 
     Parameters
@@ -290,21 +290,18 @@ def parse_authorization(context: RequestContext) -> str | None:
     Returns
     -------
     str or None
-        The handle or token if one was found, otherwise `None`.
+        Token if one was found, otherwise `None`.
 
     Raises
     ------
     InvalidRequestError
-        If the Authorization header is malformed.
+        Raised if the Authorization header is malformed.
 
     Notes
     -----
     A Basic Auth authentication string is normally a username and a password
-    separated by colon and then base64-encoded.  Support a username of the
-    token (or session handle) and a password of ``x-oauth-basic``, or a
-    username of ``x-oauth-basic`` and a password of the token (or session
-    handle).  If neither is the case, assume the token or session handle is
-    the username.
+    separated by colon and then base64-encoded. This method accepts a token in
+    either the username or the password field.
     """
     header = context.request.headers.get("Authorization")
 
