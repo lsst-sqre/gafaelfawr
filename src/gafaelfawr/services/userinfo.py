@@ -76,7 +76,7 @@ class UserInfoService:
         self._firestore = firestore
         self._logger = logger
 
-    async def get_user_info_from_token(  # noqa: PLR0912,C901
+    async def get_user_info_from_token(
         self, token_data: TokenData
     ) -> TokenUserInfo:
         """Get the user information from a token.
@@ -98,8 +98,7 @@ class UserInfoService:
         Raises
         ------
         FirestoreError
-            UID/GID allocation using Firestore failed, probably because the UID
-            or GID space has been exhausted.
+            UID/GID allocation using Firestore failed.
         LDAPError
             Gafaelfawr was configured to get user groups, username, or numeric
             UID from LDAP, but the attempt failed due to some error.
@@ -134,18 +133,7 @@ class UserInfoService:
 
         groups = token_data.groups
         if groups is None:
-            if self._firestore:
-                group_names = await self._ldap.get_group_names(username, gid)
-                groups = []
-                for group_name in group_names:
-                    try:
-                        group_gid = await self._firestore.get_gid(group_name)
-                    except FirestoreError as e:
-                        e.user = username
-                        raise
-                    groups.append(TokenGroup(name=group_name, id=group_gid))
-            else:
-                groups = await self._ldap.get_groups(username, gid)
+            groups = await self._get_groups_from_ldap(username, gid)
 
             # When adding the user private group, be careful not to change
             # the groups array, since it may be cached in the LDAP cache
@@ -297,6 +285,52 @@ class UserInfoService:
                     else:
                         api[service] = extra.api[service]
         return Quota(api=api, notebook=notebook)
+
+    async def _get_groups_from_ldap(
+        self, username: str, primary_gid: int | None
+    ) -> list[TokenGroup]:
+        """Get user group information from LDAP.
+
+        Add GIDs from Firestore if configured to do so.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+        primary_gid
+            Primary GID if set. If not `None`, the user's groups will be
+            checked for this GID. If it's not found, search for the group with
+            this GID and add it to the user's group memberships. This handles
+            LDAP configurations where the user's primary group is represented
+            only by their GID and not their group memberships.
+
+        Returns
+        -------
+        list of TokenGroup
+            User's groups from LDAP.
+
+        Raises
+        ------
+        FirestoreError
+            GID allocation using Firestore failed.
+        LDAPError
+            Raised if some error occurred when searching LDAP.
+        """
+        if not self._ldap:
+            raise RuntimeError("LDAP not configured")
+        if self._firestore:
+            names = await self._ldap.get_group_names(username, primary_gid)
+            groups = []
+            for group_name in names:
+                try:
+                    group_gid = await self._firestore.get_gid(group_name)
+                except FirestoreError as e:
+                    e.user = username
+                    raise
+                groups.append(TokenGroup(name=group_name, id=group_gid))
+            return groups
+        else:
+            return await self._ldap.get_groups(username, primary_gid)
 
 
 class OIDCUserInfoService(UserInfoService):

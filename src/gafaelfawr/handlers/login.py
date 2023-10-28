@@ -15,11 +15,13 @@ from ..exceptions import (
     FirestoreError,
     InvalidReturnURLError,
     LDAPError,
+    NoScopesError,
     OIDCNotEnrolledError,
     PermissionDeniedError,
     ProviderError,
     ProviderWebError,
 )
+from ..models.token import Token, TokenUserInfo
 from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -102,6 +104,8 @@ async def get_login(
     updated with the ``/login`` route.
     """
     if code:
+        if not state:
+            return _error_user(context, LoginError.STATE_MISSING)
         return await handle_provider_return(code, state, context)
     else:
         return await redirect_to_provider(return_url, context)
@@ -172,8 +176,8 @@ async def redirect_to_provider(
     return RedirectResponse(redirect_url)
 
 
-async def handle_provider_return(  # noqa: PLR0911,PLR0912,C901
-    code: str, state: str | None, context: RequestContext
+async def handle_provider_return(
+    code: str, state: str, context: RequestContext
 ) -> Response:
     """Handle the return from an external authentication provider.
 
@@ -183,20 +187,19 @@ async def handle_provider_return(  # noqa: PLR0911,PLR0912,C901
     Parameters
     ----------
     code
-        The authentication code from the provider.
+        Authentication code from the provider.
     state
-        The opaque state used to verify that this user initiated the
-        authentication.  This can be `None`, but that will always be an
-        error.
+        Opaque state used to verify that this user initiated the
+        authentication.
     context
-        The context of the incoming request.
+        Context of the incoming request.
 
     Returns
     -------
     fastapi.Response
         Either a redirect to the resource the user was trying to reach before
-        authentication or an HTML page with an error message if the
-        authentication failed.
+        authentication, to the login URL, or an HTML page with an error
+        message if the authentication failed.
 
     Raises
     ------
@@ -204,10 +207,6 @@ async def handle_provider_return(  # noqa: PLR0911,PLR0912,C901
         The authentication request is invalid or retrieving authentication
         information from the provider failed.
     """
-    if not state:
-        return _error_user(context, LoginError.STATE_MISSING)
-
-    # Extract details from the reply, check state, and get the return URL.
     if state != context.state.state:
         return _error_user(context, LoginError.STATE_INVALID)
     return_url = context.state.return_url
@@ -216,10 +215,11 @@ async def handle_provider_return(  # noqa: PLR0911,PLR0912,C901
     context.rebind_logger(return_url=return_url)
 
     # Retrieve the user identity and authorization information based on the
-    # reply from the authentication provider.
+    # reply from the authentication provider, and construct a token.
     provider = context.factory.create_provider()
     try:
         user_info = await provider.create_user_info(code, state, context.state)
+        token = await _construct_token(context, user_info)
     except OIDCNotEnrolledError as e:
         if context.config.oidc and context.config.oidc.enrollment_url:
             url = context.config.oidc.enrollment_url
@@ -234,41 +234,66 @@ async def handle_provider_return(  # noqa: PLR0911,PLR0912,C901
         return await _error_system(context, LoginError.PROVIDER_NETWORK, e)
     except LDAPError as e:
         return await _error_system(context, LoginError.LDAP_FAILED, e)
+    except NoScopesError as e:
+        await provider.logout(context.state)
+        return _error_user(context, LoginError.GROUPS_MISSING, str(e))
     except ProviderError as e:
         return await _error_system(context, LoginError.PROVIDER_FAILED, e)
     except PermissionDeniedError as e:
         await provider.logout(context.state)
         return _error_user(context, LoginError.INVALID_USERNAME, str(e))
 
-    # Get the scopes for this user.
-    user_info_service = context.factory.create_user_info_service()
-    scopes = await user_info_service.get_scopes(user_info)
-    if scopes is None:
-        await provider.logout(context.state)
-        await user_info_service.invalidate_cache(user_info.username)
-        msg = f"{user_info.username} is not a member of any authorized groups"
-        return _error_user(context, LoginError.GROUPS_MISSING, msg)
-
-    # Construct a token.
-    admin_service = context.factory.create_admin_service()
-    token_service = context.factory.create_token_service()
-    try:
-        async with context.session.begin():
-            if await admin_service.is_admin(user_info.username):
-                scopes = sorted([*scopes, "admin:token"])
-            token = await token_service.create_session_token(
-                user_info, scopes=scopes, ip_address=context.ip_address
-            )
-    except PermissionDeniedError as e:
-        await provider.logout(context.state)
-        return _error_user(context, LoginError.INVALID_USERNAME, str(e))
+    # Successful login, so store the token, clear the login state, and send
+    # the user back to what they were doing.
     context.state.token = token
-
-    # Successful login, so clear the login state and send the user back to
-    # what they were doing.
     context.state.state = None
     context.state.return_url = None
     return RedirectResponse(return_url)
+
+
+async def _construct_token(
+    context: RequestContext, user_info: TokenUserInfo
+) -> Token:
+    """Construct a token for the authenticated user.
+
+    Parameters
+    ----------
+    context
+        Context of the incoming request.
+    user_info
+        User information for the user.
+
+    Returns
+    -------
+    Token
+        Newly-minted token for the user.
+
+    Raises
+    ------
+    NoScopesError
+        Raised if the user's group memberships do not entitle them to any
+        scopes, and therefore they cannot log in.
+    PermissionDeniedError
+        Raised if the user's username is invalid.
+    """
+    user_info_service = context.factory.create_user_info_service()
+    admin_service = context.factory.create_admin_service()
+    token_service = context.factory.create_token_service()
+
+    # Get the user's scopes.
+    scopes = await user_info_service.get_scopes(user_info)
+    if scopes is None:
+        await user_info_service.invalidate_cache(user_info.username)
+        msg = f"{user_info.username} is not a member of any authorized groups"
+        raise NoScopesError(msg)
+
+    # Construct a token.
+    async with context.session.begin():
+        if await admin_service.is_admin(user_info.username):
+            scopes = sorted([*scopes, "admin:token"])
+        return await token_service.create_session_token(
+            user_info, scopes=scopes, ip_address=context.ip_address
+        )
 
 
 async def _error_system(
@@ -284,16 +309,16 @@ async def _error_system(
     Parameters
     ----------
     context
-        The context of the incoming request.
+        Context of the incoming request.
     error
-        The type of error.
+        Type of error.
     exc
-        The exception representing the error.
+        Exception representing the error.
 
     Returns
     -------
     fastapi.Response
-        The response to send back to the user.
+        Response to send back to the user.
     """
     context.logger.error(error.value, error=str(exc))
     slack_client = context.factory.create_slack_client()
@@ -325,16 +350,16 @@ def _error_user(
     Parameters
     ----------
     context
-        The context of the incoming request.
+        Context of the incoming request.
     error
-        The type of error.
+        Type of error.
     details
         Additional error details, if provided.
 
     Returns
     -------
     fastapi.Response
-        The response to send back to the user.
+        Response to send back to the user.
     """
     if details:
         context.logger.warning(error.value, error=details)

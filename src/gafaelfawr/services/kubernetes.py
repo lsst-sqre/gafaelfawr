@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from base64 import b64decode
-from urllib.parse import urlencode
 
 from kubernetes_asyncio.client import (
     V1Ingress,
@@ -22,7 +21,6 @@ from ..exceptions import (
     KubernetesError,
     PermissionDeniedError,
 )
-from ..models.auth import Satisfy
 from ..models.kubernetes import (
     GafaelfawrIngress,
     GafaelfawrIngressScopesBase,
@@ -107,29 +105,7 @@ class KubernetesIngressService:
 
     def _build_annotations(self, ingress: GafaelfawrIngress) -> dict[str, str]:
         """Build annotations for an ``Ingress``."""
-        base_url = ingress.config.base_url.rstrip("/")
-
-        query = [("scope", s) for s in ingress.config.scopes.scopes]
-        if ingress.config.scopes.satisfy != Satisfy.ALL:
-            query.append(("satisfy", ingress.config.scopes.satisfy.value))
-        if ingress.config.delegate:
-            if ingress.config.delegate.notebook:
-                query.append(("notebook", "true"))
-            elif ingress.config.delegate.internal:
-                service = ingress.config.delegate.internal.service
-                query.append(("delegate_to", service))
-                scopes = ",".join(ingress.config.delegate.internal.scopes)
-                query.append(("delegate_scope", scopes))
-            if ingress.config.delegate.minimum_lifetime:
-                minimum_lifetime = ingress.config.delegate.minimum_lifetime
-                minimum_str = str(int(minimum_lifetime.total_seconds()))
-                query.append(("minimum_lifetime", minimum_str))
-            if ingress.config.delegate.use_authorization:
-                query.append(("use_authorization", "true"))
-        if ingress.config.auth_type:
-            query.append(("auth_type", ingress.config.auth_type.value))
-        auth_url = f"{base_url}/auth?" + urlencode(query)
-
+        auth_url = ingress.config.to_auth_url()
         snippet_key = "nginx.ingress.kubernetes.io/configuration-snippet"
         snippet = ingress.template.metadata.annotations.get(snippet_key, "")
         if snippet and not snippet.endswith("\n"):
@@ -144,7 +120,7 @@ class KubernetesIngressService:
             snippet_key: snippet,
         }
         if ingress.config.login_redirect:
-            url = f"{base_url}/login"
+            url = ingress.config.base_url.rstrip("/") + "/login"
             annotations["nginx.ingress.kubernetes.io/auth-signin"] = url
 
         return annotations

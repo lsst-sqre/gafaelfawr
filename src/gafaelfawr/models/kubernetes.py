@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Literal, Self
+from urllib.parse import urlencode
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -295,6 +296,37 @@ class GafaelfawrIngressConfig(CamelCaseModel):
                     raise ValueError(msg)
 
         return self
+
+    def to_auth_url(self) -> str:
+        """Generate the auth URL corresponding to this ingress configuration.
+
+        Returns
+        -------
+        str
+            Authentication request URL for the Gafaelfawr ``/auth`` route that
+            corresponds to this ingress configuration.
+        """
+        base_url = self.base_url.rstrip("/")
+        query = [("scope", s) for s in self.scopes.scopes]
+        if self.scopes.satisfy != Satisfy.ALL:
+            query.append(("satisfy", self.scopes.satisfy.value))
+        if self.delegate:
+            if self.delegate.notebook:
+                query.append(("notebook", "true"))
+            elif self.delegate.internal:
+                service = self.delegate.internal.service
+                query.append(("delegate_to", service))
+                scopes = ",".join(self.delegate.internal.scopes)
+                query.append(("delegate_scope", scopes))
+            if self.delegate.minimum_lifetime:
+                minimum_lifetime = self.delegate.minimum_lifetime
+                minimum_str = str(int(minimum_lifetime.total_seconds()))
+                query.append(("minimum_lifetime", minimum_str))
+            if self.delegate.use_authorization:
+                query.append(("use_authorization", "true"))
+        if self.auth_type:
+            query.append(("auth_type", self.auth_type.value))
+        return f"{base_url}/auth?" + urlencode(query)
 
 
 class GafaelfawrIngressMetadata(CamelCaseModel):
