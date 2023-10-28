@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 
 from safir.datetime import current_datetime, format_datetime_for_logging
@@ -79,9 +80,7 @@ class TokenService:
         self._token_change_store = token_change_store
         self._logger = logger
 
-    async def audit(  # noqa: PLR0912,PLR0915,C901
-        self, *, fix: bool = False
-    ) -> list[str]:
+    async def audit(self, *, fix: bool = False) -> list[str]:
         """Check Gafaelfawr data stores for consistency.
 
         If any errors are found and Slack is configured, report them to Slack
@@ -98,15 +97,15 @@ class TokenService:
         list of str
             A list of human-readable alert messages formatted in Markdown.
         """
+        alert: str | None
         alerts = []
         now = current_datetime()
         db_tokens = {
             t.token: t for t in await self._token_db_store.list_with_parents()
         }
         db_token_keys = set(db_tokens.keys())
-        redis_token_keys = set(await self._token_redis_store.list())
         redis_tokens = {}
-        for key in redis_token_keys:
+        for key in await self._token_redis_store.list():
             token_data = await self._token_redis_store.get_data_by_key(key)
             if token_data:
                 redis_tokens[key] = token_data
@@ -147,83 +146,22 @@ class TokenService:
                 alert += " (fixed)"
             alerts.append(alert)
 
-        # Check that the data matches between the database and Redis.  Older
+        # Check that the data matches between the database and Redis. Older
         # versions of Gafaelfawr didn't sort the scopes in Redis, so we have
         # to sort them here or we get false positives with old tokens.
         for key in db_token_keys & redis_token_keys:
             db = db_tokens[key]
             redis = redis_tokens[key]
-            mismatches = []
-            if db.username != redis.username:
-                mismatches.append("username")
-            if db.token_type != redis.token_type:
-                mismatches.append("type")
-            if db.scopes != sorted(redis.scopes):
-                # There was a bug where Redis wasn't updated when the scopes
-                # were changed but the database was.  Redis is canonical, so
-                # set the database scopes to match.
-                if fix:
-                    await self._token_db_store.modify(key, scopes=redis.scopes)
-                    mismatches.append("scopes [fixed]")
-                else:
-                    mismatches.append("scopes")
-            if db.created != redis.created:
-                mismatches.append("created")
-            if db.expires != redis.expires:
-                mismatches.append("expires")
-            if mismatches:
-                self._logger.warning(
-                    "Token does not match between database and Redis",
-                    token=key,
-                    user=redis.username,
-                    mismatches=mismatches,
-                )
-                alerts.append(
-                    f"Token `{key}` for `{redis.username}` does not match"
-                    f' between database and Redis ({", ".join(mismatches)})'
-                )
-            if db.parent and db.parent in db_tokens:
-                parent = db_tokens[db.parent]
-                exp = db.expires
-                if parent.expires and (not exp or exp > parent.expires):
-                    self._logger.warning(
-                        "Token expires after its parent",
-                        token=key,
-                        user=redis.username,
-                        expires=exp,
-                        parent_expires=parent.expires,
-                    )
-                    alerts.append(
-                        f"Token `{key}` for `{redis.username}` expires after"
-                        " its parent token"
-                    )
+            parent = db_tokens.get(db.parent) if db.parent else None
+            alerts.extend(
+                await self._audit_token(key, db, redis, parent, fix=fix)
+            )
 
         # Check for orphaned tokens.
-        for token in await self._token_db_store.list_orphaned():
-            self._logger.warning(
-                "Token has no parent", token=token.token, user=token.username
-            )
-            alerts.append(
-                f"Token `{token.token}` for `{token.username}` has no parent"
-                " token"
-            )
+        alerts.extend(await self._audit_orphaned())
 
         # Check for unknown scopes.
-        for token_data in redis_tokens.values():
-            known_scopes = set(self._config.known_scopes.keys())
-            for scope in token_data.scopes:
-                if scope not in known_scopes:
-                    self._logger.warning(
-                        "Token has unknown scope",
-                        token=token_data.token.key,
-                        user=token_data.username,
-                        scope=scope,
-                    )
-                    alerts.append(
-                        f"Token `{token_data.token.key}` for"
-                        f" `{token_data.username}` has unknown scope"
-                        f" (`{scope}`)"
-                    )
+        alerts.extend(self._audit_unknown_scopes(redis_tokens.values()))
 
         # Return any errors.
         return alerts
@@ -1051,6 +989,133 @@ class TokenService:
             msg = "Missing required user:token scope"
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
+
+    async def _audit_orphaned(self) -> list[str]:
+        """Audit for orphaned tokens.
+
+        Returns
+        -------
+        list of str
+            Alerts to report.
+        """
+        alerts = []
+        for token in await self._token_db_store.list_orphaned():
+            key = token.token
+            username = token.username
+            msg = "Token has no parent"
+            self._logger.warning(msg, token=key, user=username)
+            alert = f"Token `{key}` for `{username}` has no parent token"
+            alerts.append(alert)
+        return alerts
+
+    async def _audit_token(
+        self,
+        key: str,
+        db: TokenInfo,
+        redis: TokenData,
+        parent: TokenInfo | None,
+        *,
+        fix: bool = False,
+    ) -> list[str]:
+        """Audit a single token.
+
+        Compares the Redis data for a token against the database data for a
+        token and reports and optionally fixes any issues.
+
+        Parameters
+        ----------
+        key
+            Key of the token.
+        db
+            Database version of token.
+        parent
+            Database record of parent of token, if any.
+        redis
+            Redis version of token.
+        fix
+            Whether to fix any issues found.
+
+        Returns
+        -------
+        str or `None`
+            List of alerts to report.
+        """
+        alerts = []
+        mismatches = []
+        if db.username != redis.username:
+            mismatches.append("username")
+        if db.token_type != redis.token_type:
+            mismatches.append("type")
+        if db.scopes != sorted(redis.scopes):
+            # There was a bug where Redis wasn't updated when the scopes were
+            # changed but the database was. Redis is canonical, so set the
+            # database scopes to match.
+            if fix:
+                await self._token_db_store.modify(key, scopes=redis.scopes)
+                mismatches.append("scopes [fixed]")
+            else:
+                mismatches.append("scopes")
+        if db.created != redis.created:
+            mismatches.append("created")
+        if db.expires != redis.expires:
+            mismatches.append("expires")
+        if mismatches:
+            self._logger.warning(
+                "Token does not match between database and Redis",
+                token=key,
+                user=redis.username,
+                mismatches=mismatches,
+            )
+            alerts.append(
+                f"Token `{key}` for `{redis.username}` does not match"
+                f' between database and Redis ({", ".join(mismatches)})'
+            )
+        if parent:
+            exp = db.expires
+            if parent.expires and (not exp or exp > parent.expires):
+                self._logger.warning(
+                    "Token expires after its parent",
+                    token=key,
+                    user=redis.username,
+                    expires=exp,
+                    parent_expires=parent.expires,
+                )
+                alerts.append(
+                    f"Token `{key}` for `{redis.username}` expires after"
+                    " its parent token"
+                )
+        return alerts
+
+    def _audit_unknown_scopes(self, tokens: Iterable[TokenData]) -> list[str]:
+        """Audit Redis tokens for unknown scopes.
+
+        Parameters
+        ----------
+        tokens
+            List of all Redis tokens to audit.
+
+        Returns
+        -------
+        list of str
+            List of alerts to report.
+        """
+        alerts = []
+        for token_data in tokens:
+            known_scopes = set(self._config.known_scopes.keys())
+            for scope in token_data.scopes:
+                if scope not in known_scopes:
+                    self._logger.warning(
+                        "Token has unknown scope",
+                        token=token_data.token.key,
+                        user=token_data.username,
+                        scope=scope,
+                    )
+                    alerts.append(
+                        f"Token `{token_data.token.key}` for"
+                        f" `{token_data.username}` has unknown scope"
+                        f" (`{scope}`)"
+                    )
+        return alerts
 
     async def _delete_one_token(
         self,
