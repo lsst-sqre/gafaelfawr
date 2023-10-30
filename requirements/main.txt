@@ -377,9 +377,9 @@ cryptography==41.0.5 \
     #   -r requirements/main.in
     #   pyjwt
     #   safir
-fastapi==0.104.0 \
-    --hash=sha256:456482c1178fb7beb2814b88e1885bc49f9a81f079665016feffe3e1c6a7663e \
-    --hash=sha256:9c44de45693ae037b0c6914727a29c49a40668432b67c859a87851fc6a7b74c6
+fastapi==0.104.1 \
+    --hash=sha256:752dc31160cdbd0436bb93bad51560b57e525cbb1d4bbf6f4904ceee75548241 \
+    --hash=sha256:e5e4540a7c5e1dcfbbcf5b903c234feddcdcd881f191977a1c5dfd917487e7ae
     # via
     #   -r requirements/main.in
     #   safir
