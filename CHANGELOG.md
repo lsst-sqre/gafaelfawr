@@ -6,6 +6,15 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.5.1'></a>
+## 9.5.1 (2023-10-30)
+
+### Bug fixes
+
+- Add a socket timeout, enable keepalive, and fix the retry specification for the Redis connection pool to help Gafaelfawr recover from Redis outages.
+
+- Always mask all headers to which Gafaelfawr gives special meaning when passing requests to a service downstream of a `GafaelfawrIngress`, instead of only masking the ones Gafaelfawr might set in that configuration. This ensures that no service behind a `GafaelfawrIngress` sees, e.g., `X-Auth-Request-User` unless it truly is authenticated by Gafaelfawr.
+
 <a id='changelog-9.5.0'></a>
 ## 9.5.0 (2023-10-25)
 
