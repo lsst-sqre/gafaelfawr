@@ -273,6 +273,9 @@ class GafaelfawrIngressConfig(CamelCaseModel):
     )
     """The scopes to require for access."""
 
+    username: str | None = None
+    """Restrict access to the given user."""
+
     @model_validator(mode="after")
     def _validate_conflicts(self) -> Self:
         """Check for conflicts between settings.
@@ -288,7 +291,13 @@ class GafaelfawrIngressConfig(CamelCaseModel):
             raise ValueError(msg)
 
         if self.scopes and self.scopes.is_anonymous():
-            fields = ("auth_type", "delegate", "login_redirect", "replace_403")
+            fields = (
+                "auth_type",
+                "delegate",
+                "login_redirect",
+                "replace_403",
+                "username",
+            )
             for snake_name in fields:
                 if getattr(self, snake_name, None):
                     camel_name = to_camel_case(snake_name)
@@ -326,6 +335,8 @@ class GafaelfawrIngressConfig(CamelCaseModel):
                 query.append(("use_authorization", "true"))
         if self.auth_type:
             query.append(("auth_type", self.auth_type.value))
+        if self.username:
+            query.append(("username", self.username))
         return f"{base_url}/auth?" + urlencode(query)
 
 

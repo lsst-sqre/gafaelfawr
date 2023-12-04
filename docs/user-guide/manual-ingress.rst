@@ -203,4 +203,9 @@ Most but not all of these are discussed above.
     If set to a true value, replace the ``Authorization`` header with one containing the delegated token as a bearer token.
     This option only makes sense in combination with ``notebook`` or ``delegate_to``.
 
+``username`` (optional)
+    If set, access to this ingress is restricted to the specified user.
+    Any other user will receive a 403 error.
+    ``scope`` must still be set and its requirements are still enforced.
+
 These parameters must be URL-encoded as GET parameters to the ``/auth`` route.
