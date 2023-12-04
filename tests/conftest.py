@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from urllib.parse import urljoin
@@ -18,7 +17,6 @@ from safir.database import create_database_engine, initialize_database
 from safir.dependencies.db_session import db_session_dependency
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from seleniumwire import webdriver
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
@@ -87,9 +85,7 @@ def driver() -> Iterator[webdriver.Chrome]:
 
 
 @pytest_asyncio.fixture
-async def empty_database(
-    initialize_empty_database: None, engine: AsyncEngine, config: Config
-) -> None:
+async def empty_database(engine: AsyncEngine, config: Config) -> None:
     """Empty the database before a test.
 
     The tables are reset with ``TRUNCATE`` rather than dropping and recreating
@@ -104,25 +100,25 @@ async def empty_database(
     it if control over the configuration prior to database initialization is
     required.
     """
-    tables = (t.name for t in Base.metadata.sorted_tables)
+    logger = structlog.get_logger(__name__)
+    await initialize_database(engine, logger, schema=Base.metadata, reset=True)
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
-            stmt = text(f'TRUNCATE TABLE {", ".join(tables)}')
-            await factory.session.execute(stmt)
             await admin_service.add_initial_admins(config.initial_admins)
         await factory._context.redis.flushdb()
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture
 def engine() -> AsyncEngine:
     """Create a database engine for testing.
 
-    Rather than allowing the `~gafaelfawr.factory.Factory` to create
-    its own database engine, create a single engine at session scope.  This
-    allows all the tests to share a single connection pool and not constantly
-    open and close connections to the database, which in turn reduces the time
-    it takes to run tests.
+    Previously, this fixture was session-scoped so that all tests could share
+    a single connection pool and not constantly open and close connections to
+    the database, which made the test suite run faster. However, this approach
+    broke horribly with confusing asyncio and asyncpg errors when
+    pytest-asyncio was upgraded from 0.21.1 to 0.23.2 and the maintenance
+    burden doesn't seem worth it.
     """
     return create_database_engine(TEST_DATABASE_URL, None)
 
@@ -138,30 +134,6 @@ async def factory(
     """
     async with Factory.standalone(config, engine) as factory:
         yield factory
-
-
-@pytest.fixture(scope="session")
-def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
-    """Increase the scope of the event loop to the test session.
-
-    If this isn't done, an `~sqlalchemy.ext.asyncio.AsyncEngine` cannot be
-    used from more than one test because they run in different loops, which in
-    turn defeats connection pooling to speed up test execution.
-    """
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="session")
-async def initialize_empty_database(engine: AsyncEngine) -> None:
-    """Initialize the database for testing.
-
-    This sets up the database schema for the tests.  The database is then
-    reset between tests with the `empty_database` fixture.
-    """
-    logger = structlog.get_logger(__name__)
-    await initialize_database(engine, logger, schema=Base.metadata, reset=True)
 
 
 @pytest.fixture
