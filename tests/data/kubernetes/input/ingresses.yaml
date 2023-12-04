@@ -155,3 +155,29 @@ template:
                   name: something
                   port:
                     name: http
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: username-ingress
+  namespace: {namespace}
+config:
+  baseUrl: "https://foo.example.com"
+  scopes:
+    all: ["read:all"]
+  username: some-user
+template:
+  metadata:
+    name: username
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http

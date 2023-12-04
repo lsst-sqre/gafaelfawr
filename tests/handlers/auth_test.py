@@ -1037,3 +1037,29 @@ async def test_ldap_error(
     # We should not report any error message to Slack, however. If we did, we
     # would risk drowning the alert channel during an LDAP outage.
     assert mock_slack.messages == []
+
+
+@pytest.mark.asyncio
+async def test_user(client: AsyncClient, factory: Factory) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes=["read:all"]
+    )
+
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all", "username": token_data.username},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == token_data.username
+
+    r = await client.get(
+        "/auth",
+        params={"scope": "read:all", "username": "other-user"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 403
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.error == AuthError.insufficient_scope

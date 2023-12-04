@@ -196,6 +196,19 @@ The same token will also still be passed in the ``X-Auth-Request-Token`` header.
 
 If this configuration option is set, the incoming ``Authorization`` header will be entirely replaced by one containing only the delegated token, unlike Gafaelfawr's normal behavior of preserving any incoming ``Authorization`` header that doesn't include a Gafaelfawr token.
 
+Per-user ingresses
+==================
+
+Access to an ingress may be restricted to a specific user as follows:
+
+.. code-block:: yaml
+
+   config:
+     username: <username>
+
+Any user other than the one with the username ``<username>`` will then receive a 403 error.
+The scope requirements must still be met to allow access.
+
 .. _anonymous:
 
 Anonymous ingresses

@@ -62,6 +62,9 @@ class AuthConfig:
     use_authorization: bool
     """Whether to put any delegated token in the ``Authorization`` header."""
 
+    username: str | None
+    """Restrict access to the ingress to only this username."""
+
 
 def auth_uri(
     x_original_uri: (str | None) = Header(
@@ -152,6 +155,17 @@ def auth_config(
         ),
         examples=[True],
     ),
+    username: str | None = Query(
+        None,
+        title="Restrict to username",
+        description=(
+            "Only allow access to this ingress by the user with the given"
+            " username. All other users, regardless of scopes, will receive"
+            " 403 errors. The user must still meet the scope requirements"
+            " for the ingress."
+        ),
+        examples=["rra"],
+    ),
     auth_uri: str = Depends(auth_uri),
     context: RequestContext = Depends(context_dependency),
 ) -> AuthConfig:
@@ -174,6 +188,8 @@ def auth_config(
         required_scopes=sorted(scopes),
         satisfy=satisfy.name.lower(),
     )
+    if username:
+        context.rebind_logger(required_user=username)
 
     if delegate_scope:
         delegate_scopes = {s.strip() for s in delegate_scope.split(",")}
@@ -193,6 +209,7 @@ def auth_config(
         delegate_scopes=delegate_scopes,
         minimum_lifetime=lifetime,
         use_authorization=use_authorization,
+        username=username,
     )
 
 
@@ -305,6 +322,16 @@ async def get_auth(
             context,
             auth_config.auth_type,
             InsufficientScopeError("Token missing required scope"),
+            auth_config.scopes,
+        )
+
+    # Check a user constraint. InsufficientScopeError is not really correct,
+    # but none of the RFC 6750 error codes are correct and it's the closest.
+    if auth_config.username and token_data.username != auth_config.username:
+        raise generate_challenge(
+            context,
+            auth_config.auth_type,
+            InsufficientScopeError("Access not allowed for this user"),
             auth_config.scopes,
         )
 
