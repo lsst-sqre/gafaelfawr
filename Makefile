@@ -11,10 +11,11 @@ help:
 # npm dependencies have to be installed for pre-commit eslint to work.
 .PHONY: init
 init:
+	pip install --upgrade pip
+	pip install --upgrade pre-commit tox tox-docker docker
 	pip install --editable .
 	pip install --upgrade -r requirements/main.txt -r requirements/dev.txt
 	rm -rf .tox
-	pip install --upgrade tox tox-docker docker
 	pre-commit install
 	cd ui && npm install --legacy-peer-deps
 
