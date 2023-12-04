@@ -68,6 +68,14 @@
           ]
         }
       ],
+      "jsx-a11y/control-has-associated-label": [
+        2,
+        {
+          "ignoreElements": [
+            "td"
+          ]
+        }
+      ],
       "react/no-unstable-nested-components": [
         "error",
         {
