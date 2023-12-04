@@ -14,7 +14,12 @@ const DeleteTokenButton = function ({ token, onDeleteToken }) {
     onDeleteToken(token);
   };
   return (
-    <button type="button" className="qa-token-delete" onClick={onClick}>
+    <button
+      type="button"
+      className="qa-token-delete"
+      aria-label="Delete"
+      onClick={onClick}
+    >
       <FaTrash />
     </button>
   );
