@@ -2,7 +2,7 @@
   "name": "gafaelfawr",
   "private": true,
   "description": "The user-facing UI for Gafaelfawr",
-  "version": "9.5.1",
+  "version": "9.6.0",
   "license": "MIT",
   "scripts": {
     "build": "gatsby build --prefix-paths",

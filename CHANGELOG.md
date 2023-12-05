@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.6.0'></a>
+## 9.6.0 (2023-12-04)
+
+### New features
+
+- An ingress may now be restricted to a specific user by setting the `username` attribute in the `config` section of a `GafaelfawrIngress`, or the corresponding `username` query parameter to the `/auth` route. Any other user will receive a 403 error. The scope requiremments must also still be met.
+
+### Bug fixes
+
+- Add an ARIA label to the icon for deleting a token in the user interface for better accessibility.
+
 <a id='changelog-9.5.1'></a>
 ## 9.5.1 (2023-10-30)
 
