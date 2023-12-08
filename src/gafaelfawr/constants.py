@@ -128,10 +128,10 @@ REDIS_BACKOFF_MAX = 1.0
 REDIS_RETRIES = 10
 """How many times to try to connect to Redis before giving up."""
 
-REDIS_POOL_SIZE = 10
+REDIS_POOL_SIZE = 25
 """Size of the Redis connection pool."""
 
-REDIS_POOL_TIMEOUT = 10
+REDIS_POOL_TIMEOUT = 30
 """Seconds to wait for a connection from the pool before giving up."""
 
 REDIS_TIMEOUT = 5
