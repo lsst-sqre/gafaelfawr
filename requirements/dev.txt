@@ -395,9 +395,9 @@ diagrams==0.23.4 \
     --hash=sha256:1ba69d98fcf8d768dbddf07d2c77aba6cc95c2e6f90f37146c04c96bc6765450 \
     --hash=sha256:b7ada0b119b5189dd021b1dc1467fad3704737452bb18b1e06d05e4d1fa48ed7
     # via sphinx-diagrams
-documenteer[guide]==1.0.0a15 \
-    --hash=sha256:9590ba12c6aca7f76faef5605070059113b1d0a801875f42e69444848c3746ec \
-    --hash=sha256:caa258ec5f5f68dca976e56098fa0d8a15974566ecca1df6962419ea27063c27
+documenteer[guide]==1.0.0a16 \
+    --hash=sha256:188d3d48394f30e204526324cbd62d0fa930465f91d4519cca0e97aa57afe64c \
+    --hash=sha256:2c4a588a0647955e0c711c85b871bd4a279126940eb4d00a944c4a37deef57c9
     # via
     #   -r requirements/dev.in
     #   documenteer
@@ -959,9 +959,9 @@ pyyaml==6.0.1 \
     #   myst-parser
     #   pybtex
     #   sphinxcontrib-redoc
-referencing==0.31.1 \
-    --hash=sha256:81a1471c68c9d5e3831c30ad1dd9815c45b558e596653db751a2bfdd17b3b9ec \
-    --hash=sha256:c19c4d006f1757e3dd75c4f784d38f8698d87b649c54f9ace14e5e8c9667c01d
+referencing==0.32.0 \
+    --hash=sha256:689e64fe121843dcfd57b71933318ef1f91188ffb45367332700a86ac8fd6161 \
+    --hash=sha256:bdcd3efb936f82ff86f993093f6da7435c7de69a3b3a5a06678a6050184bee99
     # via
     #   jsonschema
     #   jsonschema-specifications
@@ -1084,9 +1084,9 @@ scriv[toml]==1.5.0 \
     --hash=sha256:2d28eb930dc16ad9499efa0e5f10ddfb98440ab553783426930ff98b0b391917 \
     --hash=sha256:f8e4d61439c7085d9bc5053c7fb0df50b606d5c03db4e642b0d44f74aa1b9ecf
     # via -r requirements/dev.in
-selenium==4.15.2 \
-    --hash=sha256:22eab5a1724c73d51b240a69ca702997b717eee4ba1f6065bf5d6b44dba01d48 \
-    --hash=sha256:9e82cd1ac647fb73cf0d4a6e280284102aaa3c9d94f0fa6e6cc4b5db6a30afbf
+selenium==4.16.0 \
+    --hash=sha256:aec71f4e6ed6cb3ec25c9c1b5ed56ae31b6da0a7f17474c7566d303f84e6219f \
+    --hash=sha256:b2e987a445306151f7be0e6dfe2aa72a479c2ac6a91b9d5ef2d6dd4e49ad0435
     # via selenium-wire
 selenium-wire==5.1.0 \
     --hash=sha256:b1cd4eae44d9959381abe3bb186472520d063c658e279f98555def3d4e6dd29b \

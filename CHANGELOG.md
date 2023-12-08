@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.6.1'></a>
+## 9.6.1 (2023-12-08)
+
+### Bug fixes
+
+- Adjust the Redis connection pool parameters to hopefully improve recovery after a Redis server restart.
+
 <a id='changelog-9.6.0'></a>
 ## 9.6.0 (2023-12-04)
 
