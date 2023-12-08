@@ -138,22 +138,22 @@ class ProcessContext:
                 client.set_credentials("GSSAPI")
             ldap_pool = AIOConnectionPool(client)
 
-        redis_client: Redis = Redis(
-            connection_pool=BlockingConnectionPool.from_url(
-                config.redis_url,
-                password=config.redis_password,
-                max_connections=REDIS_POOL_SIZE,
-                retry=Retry(
-                    ExponentialBackoff(
-                        base=REDIS_BACKOFF_START, cap=REDIS_BACKOFF_MAX
-                    ),
-                    REDIS_RETRIES,
+        redis_pool = BlockingConnectionPool.from_url(
+            config.redis_url,
+            password=config.redis_password,
+            max_connections=REDIS_POOL_SIZE,
+            retry=Retry(
+                ExponentialBackoff(
+                    base=REDIS_BACKOFF_START, cap=REDIS_BACKOFF_MAX
                 ),
-                socket_keepalive=True,
-                socket_timeout=REDIS_TIMEOUT,
-                timeout=REDIS_POOL_TIMEOUT,
+                REDIS_RETRIES,
             ),
+            retry_on_timeout=True,
+            socket_keepalive=True,
+            socket_timeout=REDIS_TIMEOUT,
+            timeout=REDIS_POOL_TIMEOUT,
         )
+        redis_client = Redis.from_pool(redis_pool)
 
         return cls(
             config=config,
@@ -176,7 +176,6 @@ class ProcessContext:
         a different configuration.
         """
         await self.redis.aclose()
-        await self.redis.connection_pool.disconnect()
         if self.ldap_pool:
             await self.ldap_pool.close()
         await self.uid_cache.clear()
