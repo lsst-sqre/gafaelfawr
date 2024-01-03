@@ -18,7 +18,7 @@ def test_authorization_lifetime() -> None:
         token=Token(),
     )
     assert authorization.lifetime <= OIDC_AUTHORIZATION_LIFETIME
-    assert OIDC_AUTHORIZATION_LIFETIME - 2 <= authorization.lifetime
+    assert authorization.lifetime >= OIDC_AUTHORIZATION_LIFETIME - 2
 
     lifetime = timedelta(seconds=OIDC_AUTHORIZATION_LIFETIME)
     authorization.created_at = current_datetime() - lifetime
