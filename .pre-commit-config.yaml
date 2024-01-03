@@ -23,18 +23,18 @@ repos:
         args: [-l, '79', -t, py311]
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.0.0-alpha.0
+    rev: v8.56.0
     hooks:
       - id: eslint
         additional_dependencies:
           - '@babel/eslint-parser@7.23.3'
-          - '@babel/preset-react@7.22.15'
-          - eslint@8.55.0
+          - '@babel/preset-react@7.23.3'
+          - eslint@8.56.0
           - eslint-config-airbnb@19.0.4
           - eslint-config-prettier@9.0.0
           - eslint-config-wesbos@3.2.3
           - eslint-plugin-html@7.1.0
-          - eslint-plugin-import@2.28.1
+          - eslint-plugin-import@2.29.1
           - eslint-plugin-jsx-a11y@6.8.0
           - eslint-plugin-prettier@4.2.1
           - eslint-plugin-react@7.33.2
