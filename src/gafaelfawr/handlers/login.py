@@ -325,9 +325,9 @@ async def _error_system(
     if slack_client:
         await slack_client.post_exception(exc)
     return templates.TemplateResponse(
+        context.request,
         "login-error.html",
         context={
-            "request": context.request,
             "error": error,
             "message": error.value,
             "details": str(exc),
@@ -366,9 +366,9 @@ def _error_user(
     else:
         context.logger.warning("Authentication failed", error=error.value)
     return templates.TemplateResponse(
+        context.request,
         "login-error.html",
         context={
-            "request": context.request,
             "error": error,
             "message": error.value,
             "details": details,
