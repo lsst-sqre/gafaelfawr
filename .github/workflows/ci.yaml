@@ -75,7 +75,7 @@ jobs:
       # artifact internally in this workflow, so only keep it for a day,
       # not the full 90 day default.
       - name: Cache UI artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ui
           path: ui/public
@@ -96,7 +96,7 @@ jobs:
 
       # Reuse the built UI from the ui job.
       - name: Restore UI artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ui
           path: ui/public
@@ -197,7 +197,7 @@ jobs:
 
       # Reuse the built UI from the ui job.
       - name: Restore UI artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ui
           path: ui/public
