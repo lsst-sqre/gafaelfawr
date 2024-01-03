@@ -58,7 +58,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       # This has to happen after installing Node modules because we run
       # eslint and it wants react to be already installed.  We therefore
@@ -89,7 +89,7 @@ jobs:
     strategy:
       matrix:
         python:
-          - "3.11"
+          - "3.12"
 
     steps:
       - uses: actions/checkout@v4
@@ -137,7 +137,7 @@ jobs:
 
       - uses: lsst-sqre/run-tox@v1
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           tox-envs: "docs"
           cache-key-prefix: "docs"
 
@@ -172,7 +172,7 @@ jobs:
       - name: Check links
         uses: lsst-sqre/run-tox@v1
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           tox-envs: "docs-linkcheck"
 
   build:

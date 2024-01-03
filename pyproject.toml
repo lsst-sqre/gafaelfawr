@@ -14,12 +14,12 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Typing :: Typed",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = []
 dynamic = ["version"]
 
@@ -114,6 +114,10 @@ filterwarnings = [
     # Google modules call a deprecated pkg_resources API.
     "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
     "ignore:.*pkg_resources\\.declare_namespace:DeprecationWarning",
+    # Google modules use PyType_Spec in a deprecated way.
+    "ignore:Type google\\..*metaclass.* custom tp_new:DeprecationWarning",
+    # dateutil uses a deprecated datetime function.
+    "ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning:dateutil.*",
     # Bug in kopf
     "ignore:.*require all values to be sortable:DeprecationWarning:kopf.*",
 ]

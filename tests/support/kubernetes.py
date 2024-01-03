@@ -184,11 +184,7 @@ async def assert_custom_resource_status_is(
     }
     transition_str = seen["status"]["create"]["lastTransitionTime"]
     assert transition_str.endswith("Z")
-
-    # Python 3.11 can parse the string as-is, but Python 3.10 and earlier
-    # doesn't like the Z.
-    transition = datetime.fromisoformat(transition_str.replace("Z", "+00:00"))
-
+    transition = datetime.fromisoformat(transition_str)
     now = current_datetime()
     assert now - timedelta(seconds=30) <= transition <= now
 
