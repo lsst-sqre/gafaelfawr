@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         python:
-          - "3.11"
+          - "3.12"
 
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
       # how dependencies should later be updated.
       - uses: lsst-sqre/run-neophile@v1
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           mode: update
 
       - name: Set up Node
