@@ -41,7 +41,7 @@ github:
 
 # Configuration for the Gafaelfawr OpenID Connect server.
 oidcServer:
-  issuer: "http://localhost:8080"
+  issuer: "https://localhost:8080"
   keyId: "localhost-key-id"
   audience: "http://localhost"
   keyFile: "examples/secrets/issuer-key"

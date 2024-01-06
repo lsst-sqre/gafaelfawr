@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
-from typing import Self
+from typing import Annotated, Self
 from uuid import UUID
 
 import yaml
@@ -25,9 +25,11 @@ from pydantic import (
     AnyHttpUrl,
     BaseModel,
     Field,
+    UrlConstraints,
     field_validator,
     model_validator,
 )
+from pydantic_core import Url
 from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
@@ -46,6 +48,7 @@ __all__ = [
     "GitHubGroup",
     "GitHubGroupTeam",
     "GitHubSettings",
+    "HttpsUrl",
     "LDAPConfig",
     "LDAPSettings",
     "NotebookQuota",
@@ -60,6 +63,13 @@ __all__ = [
     "QuotaGrantSettings",
     "QuotaSettings",
     "Settings",
+]
+
+HttpsUrl = Annotated[
+    Url,
+    UrlConstraints(
+        allowed_schemes=["https"], host_required=True, max_length=2083
+    ),
 ]
 
 
@@ -299,14 +309,11 @@ class FirestoreSettings(CamelCaseModel):
 class OIDCServerSettings(CamelCaseModel):
     """pydantic model of issuer configuration."""
 
-    issuer: str
+    issuer: HttpsUrl
     """iss (issuer) field in issued tokens."""
 
     key_id: str
     """kid (key ID) header field in issued tokens."""
-
-    audience: str
-    """aud (audience) field in issued tokens."""
 
     key_file: Path
     """File containing RSA private key for signing issued tokens."""
@@ -745,9 +752,6 @@ class OIDCServerConfig:
     key_id: str
     """kid (key ID) header field in issued tokens."""
 
-    audience: str
-    """aud (audience) field in issued tokens."""
-
     keypair: RSAKeyPair
     """RSA key pair for signing and verifying issued tokens."""
 
@@ -1001,9 +1005,8 @@ class Config:
                 for c in oidc_secrets
             )
             oidc_server_config = OIDCServerConfig(
-                issuer=settings.oidc_server.issuer,
+                issuer=str(settings.oidc_server.issuer),
                 key_id=settings.oidc_server.key_id,
-                audience=settings.oidc_server.audience,
                 keypair=oidc_keypair,
                 lifetime=timedelta(minutes=settings.token_lifetime_minutes),
                 clients=oidc_clients,

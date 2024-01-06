@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import ParseResult, parse_qsl, urlencode
 
 from fastapi import (
@@ -28,6 +28,7 @@ from ..models.oidc import (
     JWKS,
     OIDCConfig,
     OIDCErrorReply,
+    OIDCScope,
     OIDCTokenReply,
     OIDCVerifiedToken,
 )
@@ -67,33 +68,50 @@ authenticate = AuthenticateRead(
     tags=["oidc"],
 )
 async def get_login(
-    client_id: str,
-    parsed_redirect_uri: ParseResult = Depends(parsed_redirect_uri),
-    response_type: (str | None) = Query(
-        None,
-        title="Requested response type",
-        description="code is the only supported response type",
-        examples=["code"],
-    ),
-    scope: (str | None) = Query(
-        None,
-        title="Requested token scope",
-        description="openid is the only supported scope",
-        examples=["openid"],
-    ),
-    state: (str | None) = Query(
-        None,
-        title="Opaque state cookie",
-        description=(
-            "Set by the client to prevent session fixation attacks. Will be"
-            " returned verbatim in the response. The client should verify"
-            " that it matches the code sent in the request by, for example"
-            " comparing it to a code set in a cookie."
+    client_id: Annotated[
+        str,
+        Query(
+            title="Client ID",
+            description="Identifier of the registered OpenID Client",
+            examples=["https://example.org/chronograf"],
         ),
-        examples=["omeKJ7MNv_9dKSKnVNjxMQ"],
-    ),
-    token_data: TokenData = Depends(authenticate),
-    context: RequestContext = Depends(context_dependency),
+    ],
+    parsed_redirect_uri: Annotated[ParseResult, Depends(parsed_redirect_uri)],
+    token_data: Annotated[TokenData, Depends(authenticate)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    response_type: Annotated[
+        str | None,
+        Query(
+            title="Requested response type",
+            description="code is the only supported response type",
+            examples=["code"],
+        ),
+    ] = None,
+    scope: Annotated[
+        str | None,
+        Query(
+            title="Requested token scopes",
+            description=(
+                "Token scopes separated by spaces. The openid scope is"
+                " required, and profile and email scopes are supported. All"
+                " other scopes are ignored."
+            ),
+            examples=["openid", "openid profile email"],
+        ),
+    ] = None,
+    state: Annotated[
+        str | None,
+        Query(
+            title="Opaque state cookie",
+            description=(
+                "Set by the client to prevent session fixation attacks. Will"
+                " be returned verbatim in the response. The client should"
+                " verify that it matches the code sent in the request by, for"
+                " example comparing it to a code set in a cookie."
+            ),
+            examples=["omeKJ7MNv_9dKSKnVNjxMQ"],
+        ),
+    ] = None,
 ) -> str:
     oidc_service = context.factory.create_oidc_service()
 
@@ -115,8 +133,10 @@ async def get_login(
         error = "code is the only supported response_type"
     elif not scope:
         error = "Missing scope parameter"
-    elif scope != "openid":
-        error = "openid is the only supported scope"
+    else:
+        scopes = OIDCScope.parse_scopes(scope)
+        if OIDCScope.openid not in scopes:
+            error = "Only OpenID Connect supported (openid not in scope)"
     if error:
         e = InvalidRequestError(error)
         context.logger.warning("%s", e.message, error=str(e))
@@ -129,7 +149,10 @@ async def get_login(
 
     # Get an authorization code and return it.
     code = await oidc_service.issue_code(
-        client_id, parsed_redirect_uri.geturl(), token_data.token
+        client_id=client_id,
+        redirect_uri=parsed_redirect_uri.geturl(),
+        token=token_data.token,
+        scopes=scopes,
     )
     return_url = build_return_url(
         parsed_redirect_uri, state=state, code=str(code)
@@ -172,34 +195,46 @@ def build_return_url(redirect_uri: ParseResult, **params: str | None) -> str:
 )
 async def post_token(
     response: Response,
-    grant_type: (str | None) = Form(
-        None,
-        title="Request type",
-        description="`authorization_code` is the only supported grant type",
-        examples=["authorization_code"],
-    ),
-    client_id: (str | None) = Form(
-        None,
-        title="ID of client",
-        examples=["oidc-client-name"],
-    ),
-    client_secret: (str | None) = Form(
-        None,
-        title="Client secret",
-        examples=["rYTfX6h9-ilGwADfgn7KRQ"],
-    ),
-    code: (str | None) = Form(
-        None,
-        title="Authorization code",
-        description="The code returned from the /auth/openid/login endpoint",
-        examples=["gc-W74I5HltJZRc0fOUAapgVQ.3T1xQQgeD063KgmNinw-tA"],
-    ),
-    redirect_uri: (str | None) = Form(
-        None,
-        title="URL of client",
-        description="Must match the redirect_uri in the client registration",
-        examples=["https://example.com/"],
-    ),
+    grant_type: Annotated[
+        str | None,
+        Form(
+            title="Request type",
+            description=(
+                "`authorization_code` is the only supported grant type"
+            ),
+            examples=["authorization_code"],
+        ),
+    ] = None,
+    client_id: Annotated[
+        str | None,
+        Form(
+            title="ID of client",
+            examples=["https://data.lsst.cloud/oidc-client"],
+        ),
+    ] = None,
+    client_secret: Annotated[
+        str | None,
+        Form(
+            title="Client secret",
+            examples=["rYTfX6h9-ilGwADfgn7KRQ"],
+        ),
+    ] = None,
+    code: Annotated[
+        str | None,
+        Form(
+            title="Authorization code",
+            description="Code returned from the `/auth/openid/login` endpoint",
+            examples=["gc-W74I5HltJZRc0fOUAapgVQ.3T1xQQgeD063KgmNinw-tA"],
+        ),
+    ] = None,
+    redirect_uri: Annotated[
+        str | None,
+        Form(
+            title="URL of client",
+            description="Must match `redirect_uri` in the client registration",
+            examples=["https://example.com/"],
+        ),
+    ] = None,
     context: RequestContext = Depends(context_dependency),
 ) -> OIDCTokenReply | JSONResponse:
     oidc_service = context.factory.create_oidc_service()
@@ -236,6 +271,7 @@ async def post_token(
         access_token=token.encoded,
         id_token=token.encoded,
         expires_in=int(token.claims["exp"] - time.time()),
+        scope=token.claims["scope"],
     )
 
 

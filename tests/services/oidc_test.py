@@ -21,7 +21,11 @@ from gafaelfawr.exceptions import (
     UnsupportedGrantTypeError,
 )
 from gafaelfawr.factory import Factory
-from gafaelfawr.models.oidc import OIDCAuthorizationCode
+from gafaelfawr.models.oidc import (
+    OIDCAuthorization,
+    OIDCAuthorizationCode,
+    OIDCScope,
+)
 
 from ..support.config import reconfigure
 from ..support.tokens import create_session_token
@@ -42,9 +46,19 @@ async def test_issue_code(tmp_path: Path, factory: Factory) -> None:
     assert list(config.oidc_server.clients) == clients
 
     with pytest.raises(UnauthorizedClientError):
-        await oidc_service.issue_code("unknown-client", redirect_uri, token)
+        await oidc_service.issue_code(
+            client_id="unknown-client",
+            redirect_uri=redirect_uri,
+            token=token,
+            scopes=[OIDCScope.openid],
+        )
 
-    code = await oidc_service.issue_code("some-id", redirect_uri, token)
+    code = await oidc_service.issue_code(
+        client_id="some-id",
+        redirect_uri=redirect_uri,
+        token=token,
+        scopes=[OIDCScope.openid, OIDCScope.profile],
+    )
     encrypted_code = await factory.redis.get(f"oidc:{code.key}")
     assert encrypted_code
     fernet = Fernet(config.session_secret.encode())
@@ -61,6 +75,7 @@ async def test_issue_code(tmp_path: Path, factory: Factory) -> None:
             "secret": token.secret,
         },
         "created_at": ANY,
+        "scopes": ["openid", "profile"],
     }
     now = time.time()
     assert now - 2 < serialized_code["created_at"] < now
@@ -80,7 +95,12 @@ async def test_redeem_code(tmp_path: Path, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
     redirect_uri = "https://example.com/"
-    code = await oidc_service.issue_code("client-2", redirect_uri, token)
+    code = await oidc_service.issue_code(
+        client_id="client-2",
+        redirect_uri=redirect_uri,
+        token=token,
+        scopes=[OIDCScope.openid, OIDCScope.profile],
+    )
 
     oidc_token = await oidc_service.redeem_code(
         grant_type="authorization_code",
@@ -90,16 +110,15 @@ async def test_redeem_code(tmp_path: Path, factory: Factory) -> None:
         code=str(code),
     )
     assert oidc_token.claims == {
-        "aud": config.oidc_server.audience,
+        "aud": "client-2",
         "iat": ANY,
         "exp": ANY,
         "iss": config.oidc_server.issuer,
         "jti": code.key,
         "name": token_data.name,
         "preferred_username": token_data.username,
-        "scope": "openid",
+        "scope": "openid profile",
         "sub": token_data.username,
-        "uid_number": token_data.uid,
     }
 
     assert not await factory.redis.get(f"oidc:{code.key}")
@@ -121,7 +140,12 @@ async def test_redeem_code_errors(
     token_data = await create_session_token(factory)
     token = token_data.token
     redirect_uri = "https://example.com/"
-    code = await oidc_service.issue_code("client-2", redirect_uri, token)
+    code = await oidc_service.issue_code(
+        client_id="client-2",
+        redirect_uri=redirect_uri,
+        token=token,
+        scopes=[OIDCScope.openid],
+    )
 
     with pytest.raises(InvalidRequestError):
         await oidc_service.redeem_code(
@@ -245,7 +269,7 @@ async def test_redeem_code_errors(
 
 
 @pytest.mark.asyncio
-async def test_issue_token(tmp_path: Path, factory: Factory) -> None:
+async def test_issue_id_token(tmp_path: Path, factory: Factory) -> None:
     clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
@@ -254,24 +278,25 @@ async def test_issue_token(tmp_path: Path, factory: Factory) -> None:
     oidc_service = factory.create_oidc_service()
 
     token_data = await create_session_token(factory)
-    oidc_token = oidc_service.issue_token(
-        token_data, jti="new-jti", scope="openid"
+    authorization = OIDCAuthorization(
+        client_id="some-id",
+        redirect_uri="https://example.com/",
+        token=token_data.token,
+        scopes=[OIDCScope.openid, OIDCScope.profile],
     )
+    oidc_token = await oidc_service.issue_id_token(authorization)
 
     assert oidc_token.claims == {
-        "aud": config.oidc_server.audience,
-        "exp": ANY,
+        "aud": "some-id",
+        "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
         "iss": config.oidc_server.issuer,
-        "jti": "new-jti",
+        "jti": authorization.code.key,
         "name": token_data.name,
         "preferred_username": token_data.username,
-        "scope": "openid",
+        "scope": "openid profile",
         "sub": token_data.username,
-        "uid_number": token_data.uid,
     }
 
     now = time.time()
     assert now - 5 <= oidc_token.claims["iat"] <= now + 5
-    expected_exp = now + config.oidc_server.lifetime.total_seconds()
-    assert expected_exp - 5 <= oidc_token.claims["exp"] <= expected_exp + 5
