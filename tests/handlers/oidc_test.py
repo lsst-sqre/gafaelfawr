@@ -11,13 +11,19 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
+from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
-from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCToken
+from gafaelfawr.models.oidc import (
+    OIDCAuthorization,
+    OIDCAuthorizationCode,
+    OIDCScope,
+    OIDCToken,
+)
 from gafaelfawr.util import number_to_base64
 
 from ..support.config import reconfigure
@@ -54,7 +60,7 @@ async def test_login(
         "/auth/openid/login",
         params={
             "response_type": "code",
-            "scope": "openid",
+            "scope": " openid   unknown profile foo  ",
             "client_id": "some-id",
             "state": "random-state",
             "redirect_uri": return_url,
@@ -113,29 +119,27 @@ async def test_login(
         "token_type": "Bearer",
         "expires_in": ANY,
         "id_token": ANY,
+        "scope": "openid profile",
     }
     assert isinstance(data["expires_in"], int)
-    exp_seconds = config.oidc_server.lifetime.total_seconds()
-    assert exp_seconds - 5 <= data["expires_in"] <= exp_seconds
+    exp_seconds = (token_data.expires - current_datetime()).total_seconds()
+    assert exp_seconds - 1 <= data["expires_in"] <= exp_seconds + 5
 
     assert data["access_token"] == data["id_token"]
     oidc_service = factory.create_oidc_service()
     token = oidc_service.verify_token(OIDCToken(encoded=data["id_token"]))
     assert token.claims == {
-        "aud": config.oidc_server.audience,
-        "exp": ANY,
+        "aud": "some-id",
+        "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
         "iss": config.oidc_server.issuer,
         "jti": OIDCAuthorizationCode.from_str(code).key,
         "name": token_data.name,
         "preferred_username": token_data.username,
-        "scope": "openid",
+        "scope": "openid profile",
         "sub": token_data.username,
-        "uid_number": token_data.uid,
     }
     now = time.time()
-    expected_exp = now + config.oidc_server.lifetime.total_seconds()
-    assert expected_exp - 5 <= token.claims["exp"] <= expected_exp
     assert now - 5 <= token.claims["iat"] <= now
 
     username = token_data.username
@@ -322,7 +326,9 @@ async def test_login_errors(
     assert r.status_code == 307
     assert query_from_url(r.headers["Location"]) == {
         "error": ["invalid_request"],
-        "error_description": ["openid is the only supported scope"],
+        "error_description": [
+            "Only OpenID Connect supported (openid not in scope)"
+        ],
     }
 
     # None of these errors should have resulted in Slack alerts.
@@ -348,7 +354,12 @@ async def test_token_errors(
     token = token_data.token
     oidc_service = factory.create_oidc_service()
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
-    code = await oidc_service.issue_code("some-id", redirect_uri, token)
+    code = await oidc_service.issue_code(
+        client_id="some-id",
+        redirect_uri=redirect_uri,
+        token=token,
+        scopes=[OIDCScope.openid],
+    )
 
     # Missing parameters.
     request: dict[str, str] = {}
@@ -476,7 +487,12 @@ async def test_token_errors(
     }
 
     # Correct code, but invalid client_id for that code.
-    bogus_code = await oidc_service.issue_code("other-id", redirect_uri, token)
+    bogus_code = await oidc_service.issue_code(
+        client_id="other-id",
+        redirect_uri=redirect_uri,
+        token=token,
+        scopes=[OIDCScope.openid],
+    )
     request["code"] = str(bogus_code)
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
@@ -537,7 +553,13 @@ async def test_invalid(
     )
     token_data = await create_session_token(factory)
     oidc_service = factory.create_oidc_service()
-    oidc_token = oidc_service.issue_token(token_data, jti="some-jti")
+    authorization = OIDCAuthorization(
+        client_id="some-id",
+        redirect_uri="https://example.com/",
+        token=token_data.token,
+        scopes=[OIDCScope.openid],
+    )
+    oidc_token = await oidc_service.issue_id_token(authorization)
 
     caplog.clear()
     r = await client.get(
@@ -663,8 +685,9 @@ async def test_well_known_oidc(
         "token_endpoint": base_url + "/auth/openid/token",
         "userinfo_endpoint": base_url + "/auth/openid/userinfo",
         "jwks_uri": base_url + "/.well-known/jwks.json",
-        "scopes_supported": ["openid"],
+        "scopes_supported": [s.value for s in OIDCScope],
         "response_types_supported": ["code"],
+        "response_modes_supported": ["query"],
         "grant_types_supported": ["authorization_code"],
         "subject_types_supported": ["public"],
         "id_token_signing_alg_values_supported": [ALGORITHM],

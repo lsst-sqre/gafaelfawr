@@ -89,7 +89,6 @@ async def test_session_token(config: Config, factory: Factory) -> None:
         expires=data.expires,
         parent=None,
     )
-    assert await token_service.get_user_info(token) == user_info
 
     async with factory.session.begin():
         history = await token_service.get_change_history(
@@ -151,7 +150,6 @@ async def test_user_token(factory: Factory) -> None:
             expires=expires,
             ip_address="192.168.0.1",
         )
-        assert await token_service.get_user_info(user_token) == user_info
         info = await token_service.get_token_info_unchecked(user_token.key)
     assert info
     assert info == TokenInfo(
@@ -219,7 +217,6 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         token = await token_service.get_notebook_token(
             data, ip_address="1.0.0.1"
         )
-        assert await token_service.get_user_info(token) == user_info
         info = await token_service.get_token_info_unchecked(token.key)
     assert info
     assert info == TokenInfo(
@@ -359,7 +356,6 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
             scopes=["read:all"],
             ip_address="2001:db8::45",
         )
-        assert await token_service.get_user_info(internal_token) == user_info
         info = await token_service.get_token_info_unchecked(internal_token.key)
     assert info
     assert info == TokenInfo(
@@ -374,6 +370,17 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         parent=session_token.key,
     )
     assert_is_now(info.created)
+    assert await token_service.get_data(internal_token) == TokenData(
+        token=internal_token,
+        username=user_info.username,
+        token_type=TokenType.internal,
+        scopes=["read:all"],
+        created=info.created,
+        expires=data.expires,
+        name=user_info.name,
+        uid=user_info.uid,
+        groups=user_info.groups,
+    )
 
     # Cannot request a scope that the parent token doesn't have.
     with pytest.raises(InvalidScopesError):
@@ -949,7 +956,7 @@ async def test_delete(factory: Factory) -> None:
     assert await token_service.get_data(token) is None
     async with factory.session.begin():
         assert await token_service.get_token_info_unchecked(token.key) is None
-        assert await token_service.get_user_info(token) is None
+        assert await token_service.get_data(token) is None
 
     async with factory.session.begin():
         assert not await token_service.delete_token(

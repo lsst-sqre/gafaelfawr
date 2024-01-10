@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import datetime
+from enum import StrEnum
 from typing import Any, Self
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -20,9 +22,47 @@ __all__ = [
     "OIDCAuthorization",
     "OIDCAuthorizationCode",
     "OIDCConfig",
+    "OIDCScope",
     "OIDCToken",
     "OIDCVerifiedToken",
 ]
+
+
+class OIDCScope(StrEnum):
+    """A recognized OpenID Connect scope.
+
+    This should not be directly exposed in the model of any endpoint. Instead,
+    the `str` scope parameter should be parsed with the `parse_scopes` class
+    method to yield a list of `OIDCScope` objects.
+    """
+
+    openid = "openid"
+    profile = "profile"
+    email = "email"
+
+    @classmethod
+    def parse_scopes(cls, scopes: str) -> list[Self]:
+        """Parse a space-separated list of scopes.
+
+        Any unknown scopes are silently ignored, following the OpenID Connect
+        Core specification.
+
+        Parameters
+        ----------
+        scopes
+            Space-separated list of scopes.
+
+        Returns
+        -------
+        list of OIDCScope
+            Corresponding enums of recognized scopes.
+        """
+        result = []
+        for scope in scopes.split(None):
+            with suppress(KeyError):
+                result.append(cls[scope])
+        result.sort()
+        return result
 
 
 class OIDCAuthorizationCode(BaseModel):
@@ -110,6 +150,10 @@ class OIDCAuthorization(BaseModel):
     created_at: datetime = Field(
         default_factory=current_datetime,
         title="When the authorization was created",
+    )
+
+    scopes: list[OIDCScope] = Field(
+        [OIDCScope.openid], title="Requested scopes"
     )
 
     @field_serializer("created_at")
@@ -218,6 +262,16 @@ class OIDCTokenReply(BaseModel):
         ...,
         title="Expiration in seconds",
         examples=[86400],
+    )
+
+    scope: str = Field(
+        ...,
+        title="Scopes of token",
+        description=(
+            "Scopes of the issued token, with any unrecognized or unauthorized"
+            " scopes from the request filtered out"
+        ),
+        examples=["email openid profile"],
     )
 
     token_type: str = Field(
@@ -358,10 +412,10 @@ class OIDCConfig(BaseModel):
     )
 
     scopes_supported: list[str] = Field(
-        ["openid"],
+        [s.value for s in OIDCScope],
         title="Supported scopes",
-        description="`openid` is the only supported scope",
-        examples=[["openid"]],
+        description="List of supported scopes",
+        examples=[["openid", "profile", "email"]],
     )
 
     response_types_supported: list[str] = Field(
@@ -369,6 +423,13 @@ class OIDCConfig(BaseModel):
         title="Supported response types",
         description="`code` is the only supported response type",
         examples=[["code"]],
+    )
+
+    response_modes_supported: list[str] = Field(
+        ["query"],
+        title="Supported response modes",
+        description="`query` is the only supported response mode",
+        examples=[["query"]],
     )
 
     grant_types_supported: list[str] = Field(

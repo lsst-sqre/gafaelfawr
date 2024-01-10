@@ -29,7 +29,7 @@ from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
-from gafaelfawr.models.oidc import OIDCAuthorizationCode
+from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCScope
 from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
 from gafaelfawr.schema import Base
 from gafaelfawr.storage.history import TokenChangeHistoryStore
@@ -128,7 +128,10 @@ def test_delete_all_data(
             )
             oidc_service = factory.create_oidc_service()
             return await oidc_service.issue_code(
-                "some-id", "https://example.com/", token
+                client_id="some-id",
+                redirect_uri="https://example.com/",
+                token=token,
+                scopes=[OIDCScope.openid],
             )
 
     code = event_loop.run_until_complete(setup())

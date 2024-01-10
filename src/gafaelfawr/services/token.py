@@ -753,31 +753,6 @@ class TokenService:
             return None
         return info
 
-    async def get_user_info(self, token: Token) -> TokenUserInfo | None:
-        """Get user information associated with a token.
-
-        Parameters
-        ----------
-        token
-            Data from the authentication token.
-
-        Returns
-        -------
-        TokenUserInfo or None
-            User information for the holder of that token, or `None` if the
-            token is not valid.
-        """
-        data = await self.get_data(token)
-        if not data:
-            return None
-        return TokenUserInfo(
-            username=data.username,
-            name=data.name,
-            uid=data.uid,
-            email=data.email,
-            groups=data.groups,
-        )
-
     async def list_tokens(
         self, auth_data: TokenData, username: str | None = None
     ) -> list[TokenInfo]:

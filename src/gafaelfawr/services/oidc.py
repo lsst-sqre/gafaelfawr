@@ -25,14 +25,25 @@ from ..models.oidc import (
     OIDCAuthorization,
     OIDCAuthorizationCode,
     OIDCConfig,
+    OIDCScope,
     OIDCToken,
     OIDCVerifiedToken,
 )
-from ..models.token import Token, TokenUserInfo
+from ..models.token import Token
 from ..storage.oidc import OIDCAuthorizationStore
 from .token import TokenService
+from .userinfo import UserInfoService
 
 __all__ = ["OIDCService"]
+
+_SCOPE_CLAIMS = {
+    OIDCScope.openid: frozenset(
+        ["aud", "iat", "iss", "exp", "jti", "scope", "sub"]
+    ),
+    OIDCScope.profile: frozenset(["name", "preferred_username"]),
+    OIDCScope.email: frozenset(["email"]),
+}
+"""Mapping of scope values to the claims to expose for that scope."""
 
 
 class OIDCService:
@@ -50,6 +61,8 @@ class OIDCService:
         The underlying storage for OpenID Connect authorizations.
     token_service
         Token manipulation service.
+    user_info_service
+        User information service.
     slack_client
         If provided, a Slack webhook client to use to report corruption of the
         underlying Redis store.
@@ -77,12 +90,14 @@ class OIDCService:
         config: OIDCServerConfig,
         authorization_store: OIDCAuthorizationStore,
         token_service: TokenService,
+        user_info_service: UserInfoService,
         slack_client: SlackWebhookClient | None = None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._authorization_store = authorization_store
         self._token_service = token_service
+        self._user_info = user_info_service
         self._slack = slack_client
         self._logger = logger
 
@@ -117,18 +132,25 @@ class OIDCService:
         return any(c.client_id == client_id for c in self._config.clients)
 
     async def issue_code(
-        self, client_id: str, redirect_uri: str, token: Token
+        self,
+        *,
+        client_id: str,
+        redirect_uri: str,
+        token: Token,
+        scopes: list[OIDCScope],
     ) -> OIDCAuthorizationCode:
         """Issue a new authorization code.
 
         Parameters
         ----------
         client_id
-            The client ID with access to this authorization.
+            Client ID with access to this authorization.
         redirect_uri
-            The intended return URI for this authorization.
+            Intended return URI for this authorization.
         token
-            The underlying authentication token.
+            Underlying authentication token.
+        scopes
+            Requested scopes.
 
         Returns
         -------
@@ -144,13 +166,16 @@ class OIDCService:
         if not self.is_valid_client(client_id):
             raise UnauthorizedClientError(f"Unknown client ID {client_id}")
         authorization = OIDCAuthorization(
-            client_id=client_id, redirect_uri=redirect_uri, token=token
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            token=token,
+            scopes=scopes,
         )
         await self._authorization_store.create(authorization)
         return authorization.code
 
-    def issue_token(
-        self, user_info: TokenUserInfo, **claims: str
+    async def issue_id_token(
+        self, authorization: OIDCAuthorization
     ) -> OIDCVerifiedToken:
         """Issue an OpenID Connect token.
 
@@ -159,29 +184,47 @@ class OIDCService:
 
         Parameters
         ----------
-        user_info
-            The token data on which to base the token.
-        **claims
-            Additional claims to add to the token.
+        authorization
+            Authorization code used to request a token.
 
         Returns
         -------
         OIDCVerifiedToken
             The new token.
+
+        Raises
+        ------
+        InvalidGrantError
+            Raised if the underlying authorization or session does not exist.
         """
+        token_data = await self._token_service.get_data(authorization.token)
+        if not token_data:
+            code = authorization.code.key
+            msg = f"Invalid underlying token for authorization {code}"
+            raise InvalidGrantError(msg)
+        user_info = await self._user_info.get_user_info_from_token(token_data)
+
+        # Build a payload of every claim we support, and then filter it by the
+        # list of claims that were requested via either claims or scopes and
+        # by dropping any claims that were None.
         now = current_datetime()
-        expires = now + self._config.lifetime
         payload: dict[str, Any] = {
-            "aud": self._config.audience,
+            "aud": authorization.client_id,
+            "auth_time": int(token_data.created.timestamp()),
             "iat": int(now.timestamp()),
-            "iss": self._config.issuer,
-            "exp": int(expires.timestamp()),
+            "iss": str(self._config.issuer),
+            "email": user_info.email,
+            "exp": int(token_data.expires.timestamp()),
+            "jti": authorization.code.key,
             "name": user_info.name,
-            "preferred_username": user_info.username,
-            "sub": user_info.username,
+            "preferred_username": token_data.username,
+            "scope": " ".join(s.value for s in authorization.scopes),
+            "sub": token_data.username,
             "uid_number": user_info.uid,
-            **claims,
         }
+        payload = self._filter_claims(payload, authorization)
+
+        # Encode the token.
         encoded_token = jwt.encode(
             payload,
             self._config.keypair.private_key_as_pem().decode(),
@@ -244,7 +287,11 @@ class OIDCService:
         if grant_type != "authorization_code":
             raise UnsupportedGrantTypeError(f"Invalid grant type {grant_type}")
         auth_code = OIDCAuthorizationCode.from_str(code)
+
+        # Authorize the client.
         self._check_client_secret(client_id, client_secret)
+
+        # Retrieve the metadata associated with the authorization code.
         try:
             authorization = await self._authorization_store.get(auth_code)
         except DeserializeError as e:
@@ -257,6 +304,7 @@ class OIDCService:
             msg = f"Unknown authorization code {auth_code.key}"
             raise InvalidGrantError(msg)
 
+        # Authorize the request.
         if authorization.client_id != client_id:
             msg = (
                 f"Authorization client ID mismatch for {auth_code.key}:"
@@ -270,21 +318,17 @@ class OIDCService:
             )
             raise InvalidGrantError(msg)
 
-        user_info = await self._token_service.get_user_info(
-            authorization.token
-        )
-        if not user_info:
-            msg = f"Invalid underlying token for authorization {auth_code.key}"
-            raise InvalidGrantError(msg)
-        token = self.issue_token(user_info, jti=auth_code.key, scope="openid")
-
-        # The code is valid and we're going to return success, so delete it
-        # from Redis so that it cannot be reused.
+        # Construct and return the token. The authorization code has now been
+        # redeemed, so delete it so that it cannot be reused.
+        token = await self.issue_id_token(authorization)
         await self._authorization_store.delete(auth_code)
         return token
 
     def verify_token(self, token: OIDCToken) -> OIDCVerifiedToken:
         """Verify a token issued by the internal OpenID Connect server.
+
+        Any currently-registered client audience is accepted as a valid
+        audience.
 
         Parameters
         ----------
@@ -302,12 +346,13 @@ class OIDCService:
             The issuer of this token is unknown and therefore the token cannot
             be verified.
         """
+        audiences = (c.client_id for c in self._config.clients)
         try:
             payload = jwt.decode(
                 token.encoded,
                 self._config.keypair.public_key_as_pem().decode(),
                 algorithms=[ALGORITHM],
-                audience=self._config.audience,
+                audience=audiences,
             )
             return OIDCVerifiedToken(
                 encoded=token.encoded, claims=payload, jti=payload["jti"]
@@ -344,3 +389,31 @@ class OIDCService:
                     msg = f"Invalid secret for {client_id}"
                     raise InvalidClientError(msg)
         raise InvalidClientError(f"Unknown client ID {client_id}")
+
+    def _filter_claims(
+        self,
+        payload: dict[str, Any],
+        authorization: OIDCAuthorization,
+    ) -> dict[str, Any]:
+        """Filter claims according to the request.
+
+        Parameters
+        ----------
+        payload
+            Full set of claims based on the user's metadata and token.
+        authorization
+            OpenID Connect authorization, which contains the client-requested
+            scopes and claims. For now, only the ``id_token`` portion of the
+            claims request is honored.
+
+        Returns
+        -------
+        dict
+            Filtered claims based on the requested scopes and claims.
+        """
+        wanted: set[str] = set()
+        for scope in authorization.scopes:
+            wanted.update(_SCOPE_CLAIMS.get(scope, set()))
+        return {
+            k: v for k, v in payload.items() if v is not None and k in wanted
+        }
