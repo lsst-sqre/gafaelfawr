@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from datetime import timedelta
 from pathlib import Path
@@ -76,6 +77,7 @@ async def test_issue_code(tmp_path: Path, factory: Factory) -> None:
         },
         "created_at": ANY,
         "scopes": ["openid", "profile"],
+        "nonce": None,
     }
     now = time.time()
     assert now - 2 < serialized_code["created_at"] < now
@@ -283,6 +285,7 @@ async def test_issue_id_token(tmp_path: Path, factory: Factory) -> None:
         redirect_uri="https://example.com/",
         token=token_data.token,
         scopes=[OIDCScope.openid, OIDCScope.profile],
+        nonce=os.urandom(16).hex(),
     )
     oidc_token = await oidc_service.issue_id_token(authorization)
 
@@ -293,6 +296,7 @@ async def test_issue_id_token(tmp_path: Path, factory: Factory) -> None:
         "iss": config.oidc_server.issuer,
         "jti": authorization.code.key,
         "name": token_data.name,
+        "nonce": authorization.nonce,
         "preferred_username": token_data.username,
         "scope": "openid profile",
         "sub": token_data.username,

@@ -156,6 +156,15 @@ class OIDCAuthorization(BaseModel):
         [OIDCScope.openid], title="Requested scopes"
     )
 
+    nonce: str | None = Field(
+        None,
+        title="Client-provided nonce",
+        description=(
+            "Nonce to include in the issued ID token for either replay"
+            " protection or to bind the ID token to a client session"
+        ),
+    )
+
     @field_serializer("created_at")
     def _serialize_datetime(self, time: datetime | None) -> int | None:
         return int(time.timestamp()) if time is not None else None

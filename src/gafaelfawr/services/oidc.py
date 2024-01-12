@@ -38,7 +38,7 @@ __all__ = ["OIDCService"]
 
 _SCOPE_CLAIMS = {
     OIDCScope.openid: frozenset(
-        ["aud", "iat", "iss", "exp", "jti", "scope", "sub"]
+        ["aud", "iat", "iss", "exp", "jti", "nonce", "scope", "sub"]
     ),
     OIDCScope.profile: frozenset(["name", "preferred_username"]),
     OIDCScope.email: frozenset(["email"]),
@@ -138,6 +138,7 @@ class OIDCService:
         redirect_uri: str,
         token: Token,
         scopes: list[OIDCScope],
+        nonce: str | None = None,
     ) -> OIDCAuthorizationCode:
         """Issue a new authorization code.
 
@@ -151,6 +152,8 @@ class OIDCService:
             Underlying authentication token.
         scopes
             Requested scopes.
+        nonce
+            Client-provided nonce.
 
         Returns
         -------
@@ -170,6 +173,7 @@ class OIDCService:
             redirect_uri=redirect_uri,
             token=token,
             scopes=scopes,
+            nonce=nonce,
         )
         await self._authorization_store.create(authorization)
         return authorization.code
@@ -217,10 +221,10 @@ class OIDCService:
             "exp": int(token_data.expires.timestamp()),
             "jti": authorization.code.key,
             "name": user_info.name,
+            "nonce": authorization.nonce,
             "preferred_username": token_data.username,
             "scope": " ".join(s.value for s in authorization.scopes),
             "sub": token_data.username,
-            "uid_number": user_info.uid,
         }
         payload = self._filter_claims(payload, authorization)
 

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import time
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -23,6 +25,7 @@ from gafaelfawr.models.oidc import (
     OIDCAuthorizationCode,
     OIDCScope,
     OIDCToken,
+    OIDCVerifiedToken,
 )
 from gafaelfawr.util import number_to_base64
 
@@ -36,6 +39,90 @@ from ..support.headers import (
 )
 from ..support.logging import parse_log
 from ..support.tokens import create_session_token
+
+
+async def authenticate(
+    factory: Factory,
+    client: AsyncClient,
+    request: dict[str, str],
+    *,
+    client_secret: str,
+    expires: datetime,
+) -> OIDCVerifiedToken:
+    """Authenticate to Gafaelfawr with OpenID Connect.
+
+    Parameters
+    ----------
+    factory
+        Component factory.
+    client
+        HTTP client to use.
+    request
+        Parameters to pass to the authentication request endpoint.
+    client_secret
+        Secret used to authenticate to the token endpoint.
+    expires
+        Expected expiration of ID token.
+
+    Returns
+    -------
+    OIDCTokenReply
+        Reply from the token endpoint.
+    """
+    redirect_uri = urlparse(request["redirect_uri"])
+
+    # Log in
+    r = await client.get("/auth/openid/login", params=request)
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    assert url.scheme == redirect_uri.scheme
+    assert url.netloc == redirect_uri.netloc
+    assert url.path == redirect_uri.path
+    assert url.query
+    query = parse_qs(url.query)
+    assert query == {
+        **parse_qs(redirect_uri.query),
+        "code": [ANY],
+        "state": ["random-state"],
+    }
+    code = query["code"][0]
+
+    # Redeem the code for a token and check the result.
+    r = await client.post(
+        "/auth/openid/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": request["client_id"],
+            "client_secret": client_secret,
+            "code": code,
+            "redirect_uri": request["redirect_uri"],
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["Cache-Control"] == "no-store"
+    assert r.headers["Pragma"] == "no-cache"
+    data = r.json()
+    assert data == {
+        "access_token": ANY,
+        "token_type": "Bearer",
+        "expires_in": ANY,
+        "id_token": ANY,
+        "scope": " ".join(
+            s for s in request["scope"].split() if s in OIDCScope
+        ),
+    }
+    assert isinstance(data["expires_in"], int)
+    exp_seconds = (expires - current_datetime()).total_seconds()
+    assert exp_seconds - 1 <= data["expires_in"] <= exp_seconds + 5
+    assert data["access_token"] == data["id_token"]
+
+    # Verify and return the ID token.
+    oidc_service = factory.create_oidc_service()
+    token = oidc_service.verify_token(OIDCToken(encoded=data["id_token"]))
+    assert token.claims["jti"] == OIDCAuthorizationCode.from_str(code).key
+    now = time.time()
+    assert now - 5 <= token.claims["iat"] <= now
+    return token
 
 
 @pytest.mark.asyncio
@@ -52,35 +139,39 @@ async def test_login(
     assert config.oidc_server
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
-    return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
+    redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
 
-    # Log in
+    # Authenticate.
     caplog.clear()
-    r = await client.get(
-        "/auth/openid/login",
-        params={
+    token = await authenticate(
+        factory,
+        client,
+        {
             "response_type": "code",
             "scope": " openid   unknown profile foo  ",
             "client_id": "some-id",
             "state": "random-state",
-            "redirect_uri": return_url,
+            "redirect_uri": redirect_uri,
         },
+        client_secret="some-secret",
+        expires=token_data.expires,
     )
-    assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
-    assert url.scheme == "https"
-    assert url.netloc == f"{TEST_HOSTNAME}:4444"
-    assert url.path == "/foo"
-    assert url.query
-    query = parse_qs(url.query)
-    assert query == {
-        "a": ["bar"],
-        "b": ["baz"],
-        "code": [ANY],
-        "state": ["random-state"],
-    }
-    code = query["code"][0]
 
+    # Check the resulting claims.
+    assert token.claims == {
+        "aud": "some-id",
+        "exp": int(token_data.expires.timestamp()),
+        "iat": ANY,
+        "iss": config.oidc_server.issuer,
+        "jti": ANY,
+        "name": token_data.name,
+        "preferred_username": token_data.username,
+        "scope": "openid profile",
+        "sub": token_data.username,
+    }
+
+    # Check the logging.
+    username = token_data.username
     assert parse_log(caplog) == [
         {
             "event": "Returned OpenID Connect authorization code",
@@ -89,61 +180,13 @@ async def test_login(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
-            "return_url": return_url,
+            "return_url": redirect_uri,
             "scopes": ["user:token"],
             "severity": "info",
             "token": token_data.token.key,
             "token_source": "cookie",
-            "user": token_data.username,
-        }
-    ]
-
-    # Redeem the code for a token and check the result.
-    caplog.clear()
-    r = await client.post(
-        "/auth/openid/token",
-        data={
-            "grant_type": "authorization_code",
-            "client_id": "some-id",
-            "client_secret": "some-secret",
-            "code": code,
-            "redirect_uri": return_url,
+            "user": username,
         },
-    )
-    assert r.status_code == 200
-    assert r.headers["Cache-Control"] == "no-store"
-    assert r.headers["Pragma"] == "no-cache"
-    data = r.json()
-    assert data == {
-        "access_token": ANY,
-        "token_type": "Bearer",
-        "expires_in": ANY,
-        "id_token": ANY,
-        "scope": "openid profile",
-    }
-    assert isinstance(data["expires_in"], int)
-    exp_seconds = (token_data.expires - current_datetime()).total_seconds()
-    assert exp_seconds - 1 <= data["expires_in"] <= exp_seconds + 5
-
-    assert data["access_token"] == data["id_token"]
-    oidc_service = factory.create_oidc_service()
-    token = oidc_service.verify_token(OIDCToken(encoded=data["id_token"]))
-    assert token.claims == {
-        "aud": "some-id",
-        "exp": int(token_data.expires.timestamp()),
-        "iat": ANY,
-        "iss": config.oidc_server.issuer,
-        "jti": OIDCAuthorizationCode.from_str(code).key,
-        "name": token_data.name,
-        "preferred_username": token_data.username,
-        "scope": "openid profile",
-        "sub": token_data.username,
-    }
-    now = time.time()
-    assert now - 5 <= token.claims["iat"] <= now
-
-    username = token_data.username
-    assert parse_log(caplog) == [
         {
             "event": f"Retrieved token for user {username} via OpenID Connect",
             "httpRequest": {
@@ -152,16 +195,16 @@ async def test_login(
                 "remoteIp": "127.0.0.1",
             },
             "severity": "info",
-            "token": OIDCAuthorizationCode.from_str(code).key,
+            "token": ANY,
             "user": username,
-        }
+        },
     ]
 
+    # Test the userinfo endpoint.
     r = await client.get(
         "/auth/openid/userinfo",
         headers={"Authorization": f"Bearer {token.encoded}"},
     )
-
     assert r.status_code == 200
     assert r.json() == token.claims
 
@@ -692,4 +735,43 @@ async def test_well_known_oidc(
         "subject_types_supported": ["public"],
         "id_token_signing_alg_values_supported": [ALGORITHM],
         "token_endpoint_auth_methods_supported": ["client_secret_post"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_nonce(
+    tmp_path: Path, client: AsyncClient, factory: Factory
+) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    config = await reconfigure(
+        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+    )
+    assert config.oidc_server
+    token_data = await create_session_token(factory)
+    await set_session_cookie(client, token_data.token)
+    nonce = os.urandom(16).hex()
+
+    token = await authenticate(
+        factory,
+        client,
+        {
+            "response_type": "code",
+            "scope": "openid",
+            "client_id": "some-id",
+            "state": "random-state",
+            "redirect_uri": f"https://{TEST_HOSTNAME}/",
+            "nonce": nonce,
+        },
+        client_secret="some-secret",
+        expires=token_data.expires,
+    )
+    assert token.claims == {
+        "aud": "some-id",
+        "exp": int(token_data.expires.timestamp()),
+        "iat": ANY,
+        "iss": config.oidc_server.issuer,
+        "jti": ANY,
+        "nonce": nonce,
+        "scope": "openid",
+        "sub": token_data.username,
     }
