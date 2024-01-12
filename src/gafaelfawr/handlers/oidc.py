@@ -112,6 +112,17 @@ async def get_login(
             examples=["omeKJ7MNv_9dKSKnVNjxMQ"],
         ),
     ] = None,
+    nonce: Annotated[
+        str | None,
+        Query(
+            title="ID token nonce",
+            description=(
+                "Nonce to include in ID tokens to mitigate replay attacks or"
+                " associate an ID token with a client session"
+            ),
+            examples=["5Ndm2AFSZ6dN6Gt-Iu6lng"],
+        ),
+    ] = None,
 ) -> str:
     oidc_service = context.factory.create_oidc_service()
 
@@ -153,6 +164,7 @@ async def get_login(
         redirect_uri=parsed_redirect_uri.geturl(),
         token=token_data.token,
         scopes=scopes,
+        nonce=nonce,
     )
     return_url = build_return_url(
         parsed_redirect_uri, state=state, code=str(code)
