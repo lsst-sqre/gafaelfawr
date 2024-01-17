@@ -23,8 +23,10 @@ oidcServer:
   issuer: "https://test.example.com/"
   keyId: "some-kid"
   keyFile: "{issuer_key_file}"
-  audience: "https://example.com/"
   secretsFile: "{oidc_server_secrets_file}"
+  dataRightsMapping:
+    "admin": ["dp0.1"]
+    "foo": ["dp0.3", "dp0.2"]
 github:
   clientId: "some-github-client-id"
   clientSecretFile: "{github_secret_file}"

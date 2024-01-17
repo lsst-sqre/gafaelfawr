@@ -39,6 +39,7 @@ class OIDCScope(StrEnum):
     openid = "openid"
     profile = "profile"
     email = "email"
+    rubin = "rubin"
 
     @classmethod
     def parse_scopes(cls, scopes: str) -> list[Self]:
