@@ -753,6 +753,9 @@ class OIDCClient:
     client_secret: str
     """Secret used to authenticate this client."""
 
+    return_uri: str
+    """Acceptable return URL when authenticating users for this client."""
+
 
 @dataclass(frozen=True, slots=True)
 class OIDCServerConfig:
@@ -1021,7 +1024,11 @@ class Config:
             oidc_secrets_json = cls._load_secret(path).decode()
             oidc_secrets = json.loads(oidc_secrets_json)
             oidc_clients = tuple(
-                OIDCClient(client_id=c["id"], client_secret=c["secret"])
+                OIDCClient(
+                    client_id=c["id"],
+                    client_secret=c["secret"],
+                    return_uri=c["return_uri"],
+                )
                 for c in oidc_secrets
             )
             data_rights_mapping = {

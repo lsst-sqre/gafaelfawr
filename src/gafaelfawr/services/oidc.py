@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
 
 import jwt
 from safir.datetime import current_datetime
@@ -14,10 +15,11 @@ from ..config import OIDCServerConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
     InvalidClientError,
+    InvalidClientIdError,
     InvalidGrantError,
     InvalidRequestError,
     InvalidTokenError,
-    UnauthorizedClientError,
+    ReturnUriMismatchError,
     UnsupportedGrantTypeError,
 )
 from ..models.oidc import (
@@ -122,16 +124,6 @@ class OIDCService:
             jwks_uri=base_url + "/.well-known/jwks.json",
         )
 
-    def is_valid_client(self, client_id: str) -> bool:
-        """Whether a client_id is a valid registered client.
-
-        Parameters
-        ----------
-        client_id
-            ``client_id`` parameter from the client.
-        """
-        return any(c.client_id == client_id for c in self._config.clients)
-
     async def issue_code(
         self,
         *,
@@ -163,12 +155,14 @@ class OIDCService:
 
         Raises
         ------
-        UnauthorizedClientError
-            The provided client ID is not registered as an OpenID Connect
-            client.
+        InvalidClientIdError
+            Raised if the provided client ID is not registered as an OpenID
+            Connect client.
+        RedirectUriMismatchError
+            Raised if the provided redirect URI does not match the one
+            registered for this client.
         """
-        if not self.is_valid_client(client_id):
-            raise UnauthorizedClientError(f"Unknown client ID {client_id}")
+        self.validate_client(client_id, redirect_uri)
         authorization = OIDCAuthorization(
             client_id=client_id,
             redirect_uri=redirect_uri,
@@ -295,7 +289,7 @@ class OIDCService:
         auth_code = OIDCAuthorizationCode.from_str(code)
 
         # Authorize the client.
-        self._check_client_secret(client_id, client_secret)
+        self._check_client_secret(client_id, client_secret, redirect_uri)
 
         # Retrieve the metadata associated with the authorization code.
         try:
@@ -329,6 +323,44 @@ class OIDCService:
         token = await self.issue_id_token(authorization)
         await self._authorization_store.delete(auth_code)
         return token
+
+    def validate_client(self, client_id: str, redirect_uri: str) -> None:
+        """Check that the provided client and redirect URI are valid.
+
+        Raises exceptions on any errors.
+
+        Parameters
+        ----------
+        client_id
+            ID of client.
+        redirect_uri
+            URL to redirect to after authentication.
+
+        Raises
+        ------
+        InvalidClientIdError
+            Raised if the provided client ID is unknown.
+        ReturnUriMismatchError
+            Raised if the provided return URI doesn't match the one registered
+            with the client.
+        """
+        clients = [c for c in self._config.clients if c.client_id == client_id]
+        if not clients:
+            msg = f"Unknown client ID {client_id} in OpenID Connect request"
+            self._logger.warning("Invalid request", error=msg)
+            raise InvalidClientIdError(msg)
+        if len(clients) > 1:
+            msg = f"Duplicate client ID {client_id}"
+            self._logger.warning("Invalid request", error=msg)
+            raise InvalidClientIdError(f"Duplicate client ID {client_id}")
+        client = clients[0]
+        if not self._return_uri_matches(client.return_uri, redirect_uri):
+            msg = (
+                f"Invalid return URI for client {client_id} in OpenID Connect"
+                f" request: {redirect_uri}"
+            )
+            self._logger.warning("Invalid request", error=msg)
+            raise ReturnUriMismatchError(msg)
 
     def verify_token(self, token: OIDCToken) -> OIDCVerifiedToken:
         """Verify a token issued by the internal OpenID Connect server.
@@ -398,31 +430,40 @@ class OIDCService:
         return " ".join(sorted(releases))
 
     def _check_client_secret(
-        self, client_id: str, client_secret: str | None
+        self, client_id: str, client_secret: str | None, return_uri: str
     ) -> None:
-        """Check that the client ID and client secret match.
+        """Check the client authentication and return URI.
 
         Parameters
         ----------
         client_id
-            The OpenID Connect client ID.
+            OpenID Connect client ID.
         client_secret
-            The secret for that client ID.
+            Secret for that client ID.
+        return_uri
+            Return URI for this request.
 
         Raises
         ------
         InvalidClientError
-            If the client ID isn't known or the secret doesn't match.
+            Raised if the client ID isn't known or the secret doesn't match.
+        InvalidGrantError
+            Raised if the return URI doesn't match the one registered for this
+            client.
         """
         if not client_secret:
             raise InvalidClientError("No client_secret provided")
         for client in self._config.clients:
-            if client.client_id == client_id:
-                if client.client_secret == client_secret:
-                    return
-                else:
-                    msg = f"Invalid secret for {client_id}"
-                    raise InvalidClientError(msg)
+            if client.client_id != client_id:
+                continue
+            if client.client_secret == client_secret:
+                if not self._return_uri_matches(client.return_uri, return_uri):
+                    msg = f"Invalid return URI for {client_id}: {return_uri}"
+                    raise InvalidGrantError(msg)
+                return
+            else:
+                msg = f"Invalid secret for {client_id}"
+                raise InvalidClientError(msg)
         raise InvalidClientError(f"Unknown client ID {client_id}")
 
     def _filter_claims(
@@ -452,3 +493,31 @@ class OIDCService:
         return {
             k: v for k, v in payload.items() if v is not None and k in wanted
         }
+
+    def _return_uri_matches(self, allowed_str: str, given_str: str) -> bool:
+        """Check whether a return URI is allowed.
+
+        URIs are compared without query parameters. Path parameters are always
+        rejected regardless of the registered client, since they don't seem to
+        be widely used and seem very surprising.
+
+        Parameters
+        ----------
+        allowed_str
+            Expected return URI from the client registration.
+        given_str
+            Return URI provided in the request.
+
+        Returns
+        -------
+        bool
+            `True` if they match, `False` otherwise.
+        """
+        allowed = urlparse(allowed_str)
+        given = urlparse(given_str)
+        return (
+            given.scheme == "https"
+            and not given.params
+            and allowed.netloc == given.netloc
+            and allowed.path == given.path
+        )

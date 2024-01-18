@@ -16,9 +16,9 @@ from safir.testing.slack import MockSlackWebhook
 from gafaelfawr.config import OIDCClient
 from gafaelfawr.exceptions import (
     InvalidClientError,
+    InvalidClientIdError,
     InvalidGrantError,
     InvalidRequestError,
-    UnauthorizedClientError,
     UnsupportedGrantTypeError,
 )
 from gafaelfawr.factory import Factory
@@ -34,19 +34,25 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_issue_code(tmp_path: Path, factory: Factory) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    redirect_uri = "https://example.com/"
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=redirect_uri,
+        )
+    ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
     )
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
     token = token_data.token
-    redirect_uri = "https://example.com/"
 
     assert config.oidc_server
     assert list(config.oidc_server.clients) == clients
 
-    with pytest.raises(UnauthorizedClientError):
+    with pytest.raises(InvalidClientIdError):
         await oidc_service.issue_code(
             client_id="unknown-client",
             redirect_uri=redirect_uri,
@@ -85,9 +91,18 @@ async def test_issue_code(tmp_path: Path, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_redeem_code(tmp_path: Path, factory: Factory) -> None:
+    redirect_uri = "https://example.com/"
     clients = [
-        OIDCClient(client_id="client-1", client_secret="client-1-secret"),
-        OIDCClient(client_id="client-2", client_secret="client-2-secret"),
+        OIDCClient(
+            client_id="client-1",
+            client_secret="client-1-secret",
+            return_uri=redirect_uri,
+        ),
+        OIDCClient(
+            client_id="client-2",
+            client_secret="client-2-secret",
+            return_uri=redirect_uri,
+        ),
     ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
@@ -96,7 +111,6 @@ async def test_redeem_code(tmp_path: Path, factory: Factory) -> None:
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
     token = token_data.token
-    redirect_uri = "https://example.com/"
     code = await oidc_service.issue_code(
         client_id="client-2",
         redirect_uri=redirect_uri,
@@ -131,9 +145,18 @@ async def test_redeem_code_errors(
     tmp_path: Path, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     expires = int(timedelta(minutes=60).total_seconds())
+    redirect_uri = "https://example.com/"
     clients = [
-        OIDCClient(client_id="client-1", client_secret="client-1-secret"),
-        OIDCClient(client_id="client-2", client_secret="client-2-secret"),
+        OIDCClient(
+            client_id="client-1",
+            client_secret="client-1-secret",
+            return_uri=redirect_uri,
+        ),
+        OIDCClient(
+            client_id="client-2",
+            client_secret="client-2-secret",
+            return_uri=redirect_uri,
+        ),
     ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
@@ -141,7 +164,6 @@ async def test_redeem_code_errors(
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
     token = token_data.token
-    redirect_uri = "https://example.com/"
     code = await oidc_service.issue_code(
         client_id="client-2",
         redirect_uri=redirect_uri,
@@ -272,7 +294,14 @@ async def test_redeem_code_errors(
 
 @pytest.mark.asyncio
 async def test_issue_id_token(tmp_path: Path, factory: Factory) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    redirect_uri = "https://example.com/"
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=redirect_uri,
+        )
+    ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
     )
@@ -282,7 +311,7 @@ async def test_issue_id_token(tmp_path: Path, factory: Factory) -> None:
     token_data = await create_session_token(factory)
     authorization = OIDCAuthorization(
         client_id="some-id",
-        redirect_uri="https://example.com/",
+        redirect_uri=redirect_uri,
         token=token_data.token,
         scopes=[OIDCScope.openid, OIDCScope.profile],
         nonce=os.urandom(16).hex(),

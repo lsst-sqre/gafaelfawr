@@ -5,24 +5,15 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping
 from typing import Annotated, Any
-from urllib.parse import ParseResult, parse_qsl, urlencode
+from urllib.parse import parse_qsl, urlencode, urlparse
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    Form,
-    HTTPException,
-    Query,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, Form, Query, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.auth import AuthenticateRead, verified_oidc_token
 from ..dependencies.context import RequestContext, context_dependency
-from ..dependencies.return_url import parsed_redirect_uri
 from ..exceptions import InvalidRequestError, OAuthError
 from ..models.oidc import (
     JWKS,
@@ -76,7 +67,16 @@ async def get_login(
             examples=["https://example.org/chronograf"],
         ),
     ],
-    parsed_redirect_uri: Annotated[ParseResult, Depends(parsed_redirect_uri)],
+    redirect_uri: Annotated[
+        str,
+        Query(
+            title="URL to return to",
+            description=(
+                "User is sent here after successful or failed authentication"
+            ),
+            examples=["https://example.com/"],
+        ),
+    ],
     token_data: Annotated[TokenData, Depends(authenticate)],
     context: Annotated[RequestContext, Depends(context_dependency)],
     response_type: Annotated[
@@ -124,17 +124,13 @@ async def get_login(
         ),
     ] = None,
 ) -> str:
+    context.rebind_logger(return_uri=redirect_uri)
     oidc_service = context.factory.create_oidc_service()
 
-    # Check the client_id first, since if it's not valid, we cannot continue
-    # or send any errors back to the client via redirect.
-    if not oidc_service.is_valid_client(client_id):
-        msg = f"Unknown client_id {client_id} in OpenID Connect request"
-        context.logger.warning("Invalid request", error=msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=[{"type": "invalid_client", "msg": msg}],
-        )
+    # Check the client_id and redirect_uri first, since if either of them are
+    # not valid, we cannot continue or send any errors back to the client via
+    # redirect.
+    oidc_service.validate_client(client_id, redirect_uri)
 
     # Parse the authentication request.
     error = None
@@ -152,7 +148,7 @@ async def get_login(
         e = InvalidRequestError(error)
         context.logger.warning("%s", e.message, error=str(e))
         return build_return_url(
-            parsed_redirect_uri,
+            redirect_uri,
             state=state,
             error=e.error,
             error_description=str(e),
@@ -161,25 +157,23 @@ async def get_login(
     # Get an authorization code and return it.
     code = await oidc_service.issue_code(
         client_id=client_id,
-        redirect_uri=parsed_redirect_uri.geturl(),
+        redirect_uri=redirect_uri,
         token=token_data.token,
         scopes=scopes,
         nonce=nonce,
     )
-    return_url = build_return_url(
-        parsed_redirect_uri, state=state, code=str(code)
-    )
+    return_url = build_return_url(redirect_uri, state=state, code=str(code))
     context.logger.info("Returned OpenID Connect authorization code")
     return return_url
 
 
-def build_return_url(redirect_uri: ParseResult, **params: str | None) -> str:
+def build_return_url(redirect_uri: str, **params: str | None) -> str:
     """Construct a return URL for a redirect.
 
     Parameters
     ----------
     redirect_uri
-        The parsed return URI from the client.
+        Return URI from the client.
     **params
         Additional parameters to add to that URI to create the return URL.
         Any parameters set to `None` will be ignored.
@@ -189,9 +183,10 @@ def build_return_url(redirect_uri: ParseResult, **params: str | None) -> str:
     str
         The return URL to which the user should be redirected.
     """
-    query = parse_qsl(redirect_uri.query) if redirect_uri.query else []
+    parsed_uri = urlparse(redirect_uri)
+    query = parse_qsl(parsed_uri.query) if parsed_uri.query else []
     query.extend((k, v) for (k, v) in params.items() if v is not None)
-    return_url = redirect_uri._replace(query=urlencode(query))
+    return_url = parsed_uri._replace(query=urlencode(query))
     return return_url.geturl()
 
 

@@ -132,14 +132,20 @@ async def test_login(
     factory: Factory,
     caplog: LogCaptureFixture,
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=f"https://{TEST_HOSTNAME}:4444/foo",
+        )
+    ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
     )
     assert config.oidc_server
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
-    redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
 
     # Authenticate.
     caplog.clear()
@@ -180,7 +186,7 @@ async def test_login(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
-            "return_url": redirect_uri,
+            "return_uri": redirect_uri,
             "scopes": ["user:token"],
             "severity": "info",
             "token": token_data.token.key,
@@ -213,9 +219,15 @@ async def test_login(
 async def test_unauthenticated(
     tmp_path: Path, client: AsyncClient, caplog: LogCaptureFixture
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
-    await reconfigure(tmp_path, "github-oidc-server", oidc_clients=clients)
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=f"https://{TEST_HOSTNAME}:4444/foo",
+        )
+    ]
+    await reconfigure(tmp_path, "github-oidc-server", oidc_clients=clients)
     login_params = {
         "response_type": "code",
         "scope": "openid",
@@ -244,7 +256,6 @@ async def test_unauthenticated(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
-            "return_url": return_url,
             "severity": "info",
         }
     ]
@@ -258,7 +269,13 @@ async def test_login_errors(
     caplog: LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=f"https://{TEST_HOSTNAME}/app",
+        )
+    ]
     await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
     )
@@ -278,24 +295,24 @@ async def test_login_errors(
     caplog.clear()
     login_params = {
         "client_id": "bad-client",
-        "redirect_uri": f"https://{TEST_HOSTNAME}/",
+        "redirect_uri": f"https://{TEST_HOSTNAME}/app",
     }
     r = await client.get("/auth/openid/login", params=login_params)
-    assert r.status_code == 400
+    assert r.status_code == 403
     data = r.json()
     assert data["detail"][0]["type"] == "invalid_client"
-    assert "Unknown client_id bad-client" in data["detail"][0]["msg"]
+    assert "Unknown client ID bad-client" in data["detail"][0]["msg"]
 
     assert parse_log(caplog) == [
         {
-            "error": "Unknown client_id bad-client in OpenID Connect request",
+            "error": "Unknown client ID bad-client in OpenID Connect request",
             "event": "Invalid request",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
-            "return_url": f"https://{TEST_HOSTNAME}/",
+            "return_uri": f"https://{TEST_HOSTNAME}/app",
             "scopes": ["user:token"],
             "severity": "warning",
             "token": ANY,
@@ -306,10 +323,16 @@ async def test_login_errors(
 
     # Bad redirect_uri.
     login_params["client_id"] = "some-id"
-    login_params["redirect_uri"] = "https://foo.example.com/"
+    login_params["redirect_uri"] = f"https://{TEST_HOSTNAME}/"
     r = await client.get("/auth/openid/login", params=login_params)
-    assert r.status_code == 422
-    assert "URL is not at" in r.text
+    assert r.status_code == 403
+    data = r.json()
+    assert data["detail"][0]["type"] == "return_uri_mismatch"
+    wanted = (
+        "Invalid return URI for client some-id in OpenID Connect request:"
+        f" https://{TEST_HOSTNAME}/"
+    )
+    assert wanted == data["detail"][0]["msg"]
 
     # Valid redirect_uri but missing response_type.
     login_params["redirect_uri"] = f"https://{TEST_HOSTNAME}/app"
@@ -336,7 +359,7 @@ async def test_login_errors(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
-            "return_url": login_params["redirect_uri"],
+            "return_uri": login_params["redirect_uri"],
             "scopes": ["user:token"],
             "severity": "warning",
             "token": ANY,
@@ -386,9 +409,18 @@ async def test_token_errors(
     caplog: LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
+    redirect_uri = f"https://{TEST_HOSTNAME}/app"
     clients = [
-        OIDCClient(client_id="some-id", client_secret="some-secret"),
-        OIDCClient(client_id="other-id", client_secret="other-secret"),
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=redirect_uri,
+        ),
+        OIDCClient(
+            client_id="other-id",
+            client_secret="other-secret",
+            return_uri=redirect_uri,
+        ),
     ]
     await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
@@ -396,7 +428,6 @@ async def test_token_errors(
     token_data = await create_session_token(factory)
     token = token_data.token
     oidc_service = factory.create_oidc_service()
-    redirect_uri = f"https://{TEST_HOSTNAME}/app"
     code = await oidc_service.issue_code(
         client_id="some-id",
         redirect_uri=redirect_uri,
@@ -432,7 +463,7 @@ async def test_token_errors(
         "grant_type": "bogus",
         "client_id": "other-client",
         "code": "nonsense",
-        "redirect_uri": f"https://{TEST_HOSTNAME}/",
+        "redirect_uri": redirect_uri,
     }
     caplog.clear()
     r = await client.post("/auth/openid/token", data=request)
@@ -546,6 +577,7 @@ async def test_token_errors(
 
     # Correct code and client_id but invalid redirect_uri.
     request["code"] = str(code)
+    request["redirect_uri"] = "https://foo.example.net/"
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
     assert r.json() == {
@@ -590,7 +622,14 @@ async def test_invalid(
     caplog: LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    redirect_uri = "https://example.com/"
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=redirect_uri,
+        )
+    ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
     )
@@ -598,7 +637,7 @@ async def test_invalid(
     oidc_service = factory.create_oidc_service()
     authorization = OIDCAuthorization(
         client_id="some-id",
-        redirect_uri="https://example.com/",
+        redirect_uri=redirect_uri,
         token=token_data.token,
         scopes=[OIDCScope.openid],
     )
@@ -680,7 +719,13 @@ async def test_invalid(
 async def test_well_known_jwks(
     tmp_path: Path, client: AsyncClient, config: Config
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri="https://example.com/",
+        )
+    ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", oidc_clients=clients
     )
@@ -713,7 +758,13 @@ async def test_well_known_jwks(
 async def test_well_known_oidc(
     tmp_path: Path, client: AsyncClient, config: Config
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri="https://example.com/",
+        )
+    ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", oidc_clients=clients
     )
@@ -742,7 +793,14 @@ async def test_well_known_oidc(
 async def test_nonce(
     tmp_path: Path, client: AsyncClient, factory: Factory
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    redirect_uri = "https://example.org/"
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=redirect_uri,
+        )
+    ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
     )
@@ -759,7 +817,7 @@ async def test_nonce(
             "scope": "openid",
             "client_id": "some-id",
             "state": "random-state",
-            "redirect_uri": f"https://{TEST_HOSTNAME}/",
+            "redirect_uri": redirect_uri,
             "nonce": nonce,
         },
         client_secret="some-secret",
@@ -781,7 +839,14 @@ async def test_nonce(
 async def test_data_rights(
     tmp_path: Path, client: AsyncClient, factory: Factory
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    redirect_uri = "https://www.example.org/"
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=redirect_uri,
+        )
+    ]
     config = await reconfigure(
         tmp_path, "github-oidc-server", factory, oidc_clients=clients
     )
@@ -797,7 +862,7 @@ async def test_data_rights(
             "scope": "openid rubin",
             "client_id": "some-id",
             "state": "random-state",
-            "redirect_uri": f"https://{TEST_HOSTNAME}/",
+            "redirect_uri": redirect_uri,
         },
         client_secret="some-secret",
         expires=token_data.expires,
@@ -824,7 +889,7 @@ async def test_data_rights(
             "scope": "openid rubin",
             "client_id": "some-id",
             "state": "random-state",
-            "redirect_uri": f"https://{TEST_HOSTNAME}/",
+            "redirect_uri": redirect_uri,
         },
         client_secret="some-secret",
         expires=token_data.expires,

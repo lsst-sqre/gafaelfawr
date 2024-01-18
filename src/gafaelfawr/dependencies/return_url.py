@@ -8,6 +8,7 @@ several variations of a dependency to check this.
 
 from __future__ import annotations
 
+from typing import Annotated
 from urllib.parse import ParseResult, urlparse
 
 from fastapi import Depends, Header, Query
@@ -16,7 +17,6 @@ from ..exceptions import InvalidReturnURLError
 from .context import RequestContext, context_dependency
 
 __all__ = [
-    "parsed_redirect_uri",
     "return_url",
     "return_url_with_header",
 ]
@@ -64,13 +64,15 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
 
 
 async def return_url(
-    rd: (str | None) = Query(
-        None,
-        title="URL to return to",
-        description="User is sent here after operation",
-        examples=["https://example.com/"],
-    ),
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    rd: Annotated[
+        str | None,
+        Query(
+            title="URL to return to",
+            description="User is sent here after operation",
+            examples=["https://example.com/"],
+        ),
+    ] = None,
 ) -> str | None:
     """Validate a return URL in an ``rd`` parameter.
 
@@ -92,22 +94,26 @@ async def return_url(
 
 
 async def return_url_with_header(
-    rd: (str | None) = Query(
-        None,
-        title="URL to return to",
-        description=(
-            "User is sent here after successful authentication. Overrides"
-            " `X-Auth-Request-Redirect` if both are set."
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    rd: Annotated[
+        str | None,
+        Query(
+            title="URL to return to",
+            description=(
+                "User is sent here after successful authentication. Overrides"
+                " `X-Auth-Request-Redirect` if both are set."
+            ),
+            examples=["https://example.com/"],
         ),
-        examples=["https://example.com/"],
-    ),
-    x_auth_request_redirect: (str | None) = Header(
-        None,
-        title="URL to return to",
-        description="User is sent here after successful authentication",
-        examples=["https://example.com/"],
-    ),
-    context: RequestContext = Depends(context_dependency),
+    ] = None,
+    x_auth_request_redirect: Annotated[
+        str | None,
+        Header(
+            title="URL to return to",
+            description="User is sent here after successful authentication",
+            examples=["https://example.com/"],
+        ),
+    ] = None,
 ) -> str | None:
     """Validate a return URL in an ``rd`` parameter or header.
 
@@ -127,34 +133,4 @@ async def return_url_with_header(
     """
     if not rd and x_auth_request_redirect:
         rd = x_auth_request_redirect
-    return await return_url(rd, context)
-
-
-async def parsed_redirect_uri(
-    redirect_uri: str = Query(
-        ...,
-        title="URL to return to",
-        description=(
-            "User is sent here after successful or failed authentication"
-        ),
-        examples=["https://example.com/"],
-    ),
-    context: RequestContext = Depends(context_dependency),
-) -> ParseResult:
-    """Validate a return URL in a ``redirect_uri`` parameter.
-
-    Same as `return_url` except expects the URL in a ``return_uri`` parameter
-    instead of ``rd`` and returns a parsed URL instead of the `str` form.
-
-    Returns
-    -------
-    urllib.parse.ParseResult
-        The verified, parsed redirect URI.
-
-    Raises
-    ------
-    fastapi.HTTPException
-        An appropriate error if the return URL was invalid.
-    """
-    context.rebind_logger(return_url=redirect_uri)
-    return _check_url(redirect_uri, "redirect_uri", context)
+    return await return_url(context, rd)
