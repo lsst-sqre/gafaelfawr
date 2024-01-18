@@ -321,6 +321,18 @@ class OIDCServerSettings(CamelCaseModel):
     secrets_file: Path
     """Path to file containing OpenID Connect client secrets in JSON."""
 
+    data_rights_mapping: dict[str, list[str]] = Field(
+        {},
+        title="Group to data rights mapping",
+        description=(
+            "Mapping of group names to keywords for data releases, indicating"
+            " membership in that group grants access to that data release."
+            " Used to construct the `data_rights` claim, which can be"
+            " requested by asking for the `rubin` scope."
+        ),
+        examples=[{"g_users": ["dp0.1", "dp0.2", "dp0.3"]}],
+    )
+
 
 class NotebookQuotaSettings(CamelCaseModel):
     """Quota settings for the Notebook Aspect."""
@@ -761,6 +773,14 @@ class OIDCServerConfig:
     clients: tuple[OIDCClient, ...]
     """Supported OpenID Connect clients."""
 
+    data_rights_mapping: Mapping[str, frozenset[str]]
+    """Mapping of group names to keywords for data releases.
+
+    Indicates that membership in the given group grants access to that set of
+    data releases. Used to construct the ``data_rights`` claim, which can be
+    requested by asking for the ``rubin`` scope.
+    """
+
 
 @dataclass(frozen=True, slots=True)
 class NotebookQuota:
@@ -1004,12 +1024,17 @@ class Config:
                 OIDCClient(client_id=c["id"], client_secret=c["secret"])
                 for c in oidc_secrets
             )
+            data_rights_mapping = {
+                g: frozenset(r)
+                for g, r in settings.oidc_server.data_rights_mapping.items()
+            }
             oidc_server_config = OIDCServerConfig(
                 issuer=str(settings.oidc_server.issuer),
                 key_id=settings.oidc_server.key_id,
                 keypair=oidc_keypair,
                 lifetime=timedelta(minutes=settings.token_lifetime_minutes),
                 clients=oidc_clients,
+                data_rights_mapping=data_rights_mapping,
             )
 
         # Build the quota configuration if needed.

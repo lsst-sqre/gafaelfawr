@@ -753,10 +753,34 @@ Kubernetes also deletes completed and failed jobs as necessary to maintain a cap
 To change the time limit for maintenance jobs (if, for instance, you have a huge user database or your database is very slow), set ``config.maintenance.deadlineSeconds`` to the length of time jobs are allowed to run for.
 To change the retention time for completed jobs, set ``config.maintenance.cleanupSeconds`` to the maximum lifetime of a completed job.
 
+.. _helm-oidc-server:
+
 OpenID Connect server
 =====================
 
 Gafaelfawr can act as an OpenID Connect identity provider for relying parties inside the Kubernetes cluster.
 To enable this, set ``config.oidcServer.enabled`` to true.
 If this is set, ``oidc-server-secrets`` and ``signing-key`` must be set in the Gafaelfawr Vault secret.
+
+Gafaelfawr can provide an OpenID Connect ID token claim listing the data releases to which the user has access.
+To do so, it must be configured with a mapping of group names to data releases to which membership in that group grants access.
+This is done via the ``config.oidcServer.dataRightsMapping`` setting.
+For example:
+
+.. code-block:: yaml
+
+   config:
+     oidcServer:
+       dataRightsMapping:
+         g_users:
+           - dp0.1
+           - dp0.2
+           - dp0.3
+         g_preview:
+           - dp0.1
+
+This configuration indicates members of the ``g_preview`` group have access to the ``dp0.1`` release and members of the ``g_users`` group have access to all of ``dp0.1``, ``dp0.2``, and ``dp0.3``.
+Users have access to the union of data releases across all of their group memberships.
+
 See :ref:`openid-connect` for more information.
+See :dmtn:`253` for how this OpenID Connect support can be used by International Data Access Centers.

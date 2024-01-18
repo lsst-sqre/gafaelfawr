@@ -775,3 +775,67 @@ async def test_nonce(
         "scope": "openid",
         "sub": token_data.username,
     }
+
+
+@pytest.mark.asyncio
+async def test_data_rights(
+    tmp_path: Path, client: AsyncClient, factory: Factory
+) -> None:
+    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    config = await reconfigure(
+        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+    )
+    assert config.oidc_server
+    token_data = await create_session_token(factory, group_names=["foo"])
+    await set_session_cookie(client, token_data.token)
+
+    token = await authenticate(
+        factory,
+        client,
+        {
+            "response_type": "code",
+            "scope": "openid rubin",
+            "client_id": "some-id",
+            "state": "random-state",
+            "redirect_uri": f"https://{TEST_HOSTNAME}/",
+        },
+        client_secret="some-secret",
+        expires=token_data.expires,
+    )
+    assert token.claims == {
+        "aud": "some-id",
+        "data_rights": "dp0.2 dp0.3",
+        "exp": int(token_data.expires.timestamp()),
+        "iat": ANY,
+        "iss": config.oidc_server.issuer,
+        "jti": ANY,
+        "scope": "openid rubin",
+        "sub": token_data.username,
+    }
+
+    token_data = await create_session_token(factory, group_names=["admin"])
+    await set_session_cookie(client, token_data.token)
+
+    token = await authenticate(
+        factory,
+        client,
+        {
+            "response_type": "code",
+            "scope": "openid rubin",
+            "client_id": "some-id",
+            "state": "random-state",
+            "redirect_uri": f"https://{TEST_HOSTNAME}/",
+        },
+        client_secret="some-secret",
+        expires=token_data.expires,
+    )
+    assert token.claims == {
+        "aud": "some-id",
+        "data_rights": "dp0.1",
+        "exp": int(token_data.expires.timestamp()),
+        "iat": ANY,
+        "iss": config.oidc_server.issuer,
+        "jti": ANY,
+        "scope": "openid rubin",
+        "sub": token_data.username,
+    }

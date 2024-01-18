@@ -51,6 +51,11 @@ The following OpenID Connect scopes are supported and influence what claims are 
 ``email``
     Adds the ``email`` claim if the user's email address is known.
 
+``rubin``
+    Adds the ``data_rights`` claim with a space-separated list of data releases the user has access to, if there are any.
+    See :ref:`helm-oidc-server` for details on how to configure a mapping from group memberships to data releases.
+    For more information about how this scope is used, see :dmtn:`253`.
+
 Examples
 ========
 

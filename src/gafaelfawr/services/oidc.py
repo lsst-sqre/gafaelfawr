@@ -29,7 +29,7 @@ from ..models.oidc import (
     OIDCToken,
     OIDCVerifiedToken,
 )
-from ..models.token import Token
+from ..models.token import Token, TokenUserInfo
 from ..storage.oidc import OIDCAuthorizationStore
 from .token import TokenService
 from .userinfo import UserInfoService
@@ -42,6 +42,7 @@ _SCOPE_CLAIMS = {
     ),
     OIDCScope.profile: frozenset(["name", "preferred_username"]),
     OIDCScope.email: frozenset(["email"]),
+    OIDCScope.rubin: frozenset(["data_rights"]),
 }
 """Mapping of scope values to the claims to expose for that scope."""
 
@@ -215,6 +216,7 @@ class OIDCService:
         payload: dict[str, Any] = {
             "aud": authorization.client_id,
             "auth_time": int(token_data.created.timestamp()),
+            "data_rights": self._build_data_rights_for_user(user_info),
             "iat": int(now.timestamp()),
             "iss": str(self._config.issuer),
             "email": user_info.email,
@@ -365,6 +367,35 @@ class OIDCService:
             raise InvalidTokenError(str(e)) from e
         except KeyError as e:
             raise InvalidTokenError(f"Missing claim {e!s}") from e
+
+    def _build_data_rights_for_user(
+        self, user_info: TokenUserInfo
+    ) -> str | None:
+        """Construct the data rights string for the user.
+
+        This is a space-separated list of data releases to which the user has
+        access, based on the mapping rules from group names to data releases
+        in the Gafaelfawr configuration. This claim is very Rubin-specific.
+
+        Parameters
+        ----------
+        user_info
+            Metadata for the user.
+
+        Returns
+        -------
+        str or None
+            Space-separated list of data release keywords or `None` if the
+            user has no data rights.
+        """
+        if not user_info.groups:
+            return None
+        releases: set[str] = set()
+        for group in user_info.groups:
+            mapping = self._config.data_rights_mapping.get(group.name)
+            if mapping:
+                releases.update(mapping)
+        return " ".join(sorted(releases))
 
     def _check_client_secret(
         self, client_id: str, client_secret: str | None
