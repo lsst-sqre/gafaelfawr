@@ -47,7 +47,7 @@ jobs:
       # the cache of the downloaded modules and then run npm
       # clean-install.
       - name: Cache installed Node modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: node-cache
         with:
           path: ./ui/node_modules
