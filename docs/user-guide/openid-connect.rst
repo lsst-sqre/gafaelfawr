@@ -11,9 +11,18 @@ To protect a service that uses OpenID Connect, first set ``oidcServer.enabled`` 
 Then, create (or add to, if already existing) an ``oidc-server-secrets`` secret for the ``gafaelfawr`` Phalanx application.
 
 The value of the secret must be a JSON list, with each list member representing one OpenID Connect client.
-Each list member must be an object with two keys: ``id`` and ``secret``.
-``id`` is the unique OpenID Connect client ID that the client will present during authentication.
-``secret`` should be a randomly-generated secret that the client will use to authenticate.
+Each list member must be an object with the following keys:
+
+``id``
+    The unique OpenID Connect client ID (the ``client_id`` parameter in the OpenID Connect protocol) that the client will present during authentication.
+
+``secret``
+    A randomly-generated secret that the client will use to authenticate via the ``client_secret`` POST parameter.
+
+``return_uri``
+    The acceptable return URL for this client.
+    The actual return URL (the ``redirect_uri`` parameter) of any authentication must exactly match this return URL except for query parameters and fragments.
+    The path portion of this URL may not contain semicolons (``;``) to avoid potentially confusing parsing as either part of the path or as path parameters.
 
 Configure the OpenID client
 ===========================

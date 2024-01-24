@@ -24,6 +24,7 @@ __all__ = [
     "InputValidationError",
     "InsufficientScopeError",
     "InvalidClientError",
+    "InvalidClientIdError",
     "InvalidCSRFError",
     "InvalidCursorError",
     "InvalidDelegateToError",
@@ -55,7 +56,7 @@ __all__ = [
     "PermissionDeniedError",
     "ProviderError",
     "ProviderWebError",
-    "UnauthorizedClientError",
+    "ReturnUriMismatchError",
     "UnknownAlgorithmError",
     "UnknownKeyIdError",
     "UnsupportedGrantTypeError",
@@ -78,6 +79,16 @@ class DuplicateTokenNameError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.body, ["token_name"])
+
+
+class InvalidClientIdError(InputValidationError):
+    """Invalid client ID for OpenID Connect server."""
+
+    error = "invalid_client"
+    status_code = status.HTTP_403_FORBIDDEN
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, ["client_id"])
 
 
 class InvalidCSRFError(InputValidationError):
@@ -179,6 +190,16 @@ class PermissionDeniedError(InputValidationError):
 
     error = "permission_denied"
     status_code = status.HTTP_403_FORBIDDEN
+
+
+class ReturnUriMismatchError(InputValidationError):
+    """Specified return URI does not match return URI of registered client."""
+
+    error = "return_uri_mismatch"
+    status_code = status.HTTP_403_FORBIDDEN
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, ["return_uri"])
 
 
 class OAuthError(Exception):
@@ -388,13 +409,6 @@ class OIDCNotEnrolledError(OIDCError):
 
 class OIDCWebError(ProviderWebError):
     """A web request to the OpenID Connect provider failed."""
-
-
-class UnauthorizedClientError(Exception):
-    """The client is not authorized to request an authorization code.
-
-    This corresponds to the ``unauthorized_client`` error in RFC 6749.
-    """
 
 
 class VerifyTokenError(SlackException):

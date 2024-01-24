@@ -118,7 +118,11 @@ def build_config(
     oidc_path = tmp_path / "oidc.json"
     if oidc_clients:
         clients_data = [
-            {"id": c.client_id, "secret": c.client_secret}
+            {
+                "id": c.client_id,
+                "secret": c.client_secret,
+                "return_uri": c.return_uri,
+            }
             for c in oidc_clients
         ]
         oidc_path.write_text(json.dumps(clients_data))

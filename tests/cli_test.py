@@ -114,7 +114,14 @@ def test_delete_all_data(
     engine: AsyncEngine,
     event_loop: asyncio.AbstractEventLoop,
 ) -> None:
-    clients = [OIDCClient(client_id="some-id", client_secret="some-secret")]
+    redirect_uri = "https://example.com/"
+    clients = [
+        OIDCClient(
+            client_id="some-id",
+            client_secret="some-secret",
+            return_uri=redirect_uri,
+        )
+    ]
     config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
     logger = structlog.get_logger("gafaelfawr")
 
@@ -129,7 +136,7 @@ def test_delete_all_data(
             oidc_service = factory.create_oidc_service()
             return await oidc_service.issue_code(
                 client_id="some-id",
-                redirect_uri="https://example.com/",
+                redirect_uri=redirect_uri,
                 token=token,
                 scopes=[OIDCScope.openid],
             )
