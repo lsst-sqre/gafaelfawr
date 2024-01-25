@@ -42,6 +42,8 @@ update: update-deps init
 # allowed to appear in a hashed dependency file.
 .PHONY: update-deps
 update-deps:
+	pip install --upgrade pre-commit
+	pre-commit autoupdate
 	pip install --upgrade pip-tools pip setuptools
 	pip-compile --upgrade --resolver=backtracking --build-isolation	\
 	    --allow-unsafe --generate-hashes				\
