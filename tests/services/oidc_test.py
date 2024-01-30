@@ -309,6 +309,7 @@ async def test_issue_id_token(tmp_path: Path, factory: Factory) -> None:
     oidc_service = factory.create_oidc_service()
 
     token_data = await create_session_token(factory)
+    assert token_data.expires
     authorization = OIDCAuthorization(
         client_id="some-id",
         redirect_uri=redirect_uri,
