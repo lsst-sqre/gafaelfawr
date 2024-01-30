@@ -145,6 +145,7 @@ async def test_login(
     )
     assert config.oidc_server
     token_data = await create_session_token(factory)
+    assert token_data.expires
     await set_session_cookie(client, token_data.token)
 
     # Authenticate.
@@ -806,6 +807,7 @@ async def test_nonce(
     )
     assert config.oidc_server
     token_data = await create_session_token(factory)
+    assert token_data.expires
     await set_session_cookie(client, token_data.token)
     nonce = os.urandom(16).hex()
 
@@ -852,6 +854,7 @@ async def test_data_rights(
     )
     assert config.oidc_server
     token_data = await create_session_token(factory, group_names=["foo"])
+    assert token_data.expires
     await set_session_cookie(client, token_data.token)
 
     token = await authenticate(
@@ -879,6 +882,7 @@ async def test_data_rights(
     }
 
     token_data = await create_session_token(factory, group_names=["admin"])
+    assert token_data.expires
     await set_session_cookie(client, token_data.token)
 
     token = await authenticate(
