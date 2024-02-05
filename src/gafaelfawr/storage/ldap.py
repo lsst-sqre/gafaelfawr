@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import re
 from collections.abc import AsyncIterator
 
@@ -383,7 +382,7 @@ class LDAPStorage:
                             attrlist=attrlist,
                             timeout=LDAP_TIMEOUT,
                         )
-                    except (bonsai.ConnectionError, asyncio.TimeoutError):
+                    except (TimeoutError, bonsai.ConnectionError):
                         logger.debug("Reopening LDAP connection after timeout")
                         conn.close()
         except bonsai.LDAPError as e:
