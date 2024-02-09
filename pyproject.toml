@@ -209,11 +209,15 @@ ignore = [
 select = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/gafaelfawr/handlers/**" = [
-    "D103",    # FastAPI handlers should not have docstrings
+"alembic/**" = [
+    "INP001",  # Alembic files are magical
+    "D103",    # no docstrings for Alembic migrations
 ]
 "docs/**" = [
     "INP001",  # Python files are embedded diagrams
+]
+"src/gafaelfawr/handlers/**" = [
+    "D103",    # FastAPI handlers should not have docstrings
 ]
 "tests/**" = [
     "C901",    # tests are allowed to be complex, sometimes that's convenient

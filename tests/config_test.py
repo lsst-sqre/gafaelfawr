@@ -44,6 +44,12 @@ def test_config_examples() -> None:
             parse_config(path, fix_token=True)
 
 
+def test_config_alembic() -> None:
+    """Check the configuration used for Alembic operations."""
+    path = Path(__file__).parent.parent / "alembic" / "gafaelfawr.yaml"
+    parse_config(path)
+
+
 def test_config_no_provider() -> None:
     with pytest.raises(ValidationError):
         parse_config(config_path("no-provider.yaml"))

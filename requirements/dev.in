@@ -7,7 +7,7 @@
 
 -c main.txt
 
-# Testing
+# Testing and linting
 asgi-lifespan
 coverage[toml]
 mypy
@@ -16,6 +16,7 @@ pytest-asyncio
 pytest-cov
 pytest-sugar
 respx
+ruff
 selenium-wire
 sqlalchemy[mypy]
 types-cachetools
@@ -26,7 +27,7 @@ holdup
 
 # Documentation
 autodoc_pydantic
-documenteer[guide]>=1.0.0a7
+documenteer[guide]>=1.0.0
 scriv[toml]
 sphinx-click
 sphinx-diagrams

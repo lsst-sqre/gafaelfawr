@@ -854,17 +854,17 @@ pysocks==1.7.1 \
     # via
     #   selenium-wire
     #   urllib3
-pytest==7.4.4 \
-    --hash=sha256:2cf0005922c6ace4a3e2ec8b4080eb0d9753fdc93107415332f50ce9e7994280 \
-    --hash=sha256:b090cdf5ed60bf4c45261be03239c2c1c22df034fbffe691abe93cd80cea01d8
+pytest==8.0.0 \
+    --hash=sha256:249b1b0864530ba251b7438274c4d251c58d868edaaec8762893ad4a0d71c36c \
+    --hash=sha256:50fb9cbe836c3f20f0dfa99c565201fb75dc54c8d76373cd1bde06b06657bdb6
     # via
     #   -r requirements/dev.in
     #   pytest-asyncio
     #   pytest-cov
     #   pytest-sugar
-pytest-asyncio==0.23.4 \
-    --hash=sha256:2143d9d9375bf372a73260e4114541485e84fca350b0b6b92674ca56ff5f7ea2 \
-    --hash=sha256:b0079dfac14b60cd1ce4691fbfb1748fe939db7d0234b5aba97197d10fbe0fef
+pytest-asyncio==0.23.5 \
+    --hash=sha256:3a048872a9c4ba14c3e90cc1aa20cbc2def7d01c7c8db3777ec281ba9c057675 \
+    --hash=sha256:4e7093259ba018d58ede7d5315131d21923a60f8a6e9ee266ce1589685c89eac
     # via -r requirements/dev.in
 pytest-cov==4.1.0 \
     --hash=sha256:3904b13dfbfec47f003b8e77fd5b589cd11904a21ddf1ab38a64f204d6a10ef6 \
@@ -1059,6 +1059,25 @@ rpds-py==0.17.1 \
     # via
     #   jsonschema
     #   referencing
+ruff==0.2.1 \
+    --hash=sha256:0034d5b6323e6e8fe91b2a1e55b02d92d0b582d2953a2b37a67a2d7dedbb7acc \
+    --hash=sha256:00a818e2db63659570403e44383ab03c529c2b9678ba4ba6c105af7854008105 \
+    --hash=sha256:0a725823cb2a3f08ee743a534cb6935727d9e47409e4ad72c10a3faf042ad5ba \
+    --hash=sha256:13471684694d41ae0f1e8e3a7497e14cd57ccb7dd72ae08d56a159d6c9c3e30e \
+    --hash=sha256:3b42b5d8677cd0c72b99fcaf068ffc62abb5a19e71b4a3b9cfa50658a0af02f1 \
+    --hash=sha256:6b95ac9ce49b4fb390634d46d6ece32ace3acdd52814671ccaf20b7f60adb232 \
+    --hash=sha256:7022d66366d6fded4ba3889f73cd791c2d5621b2ccf34befc752cb0df70f5fad \
+    --hash=sha256:a11567e20ea39d1f51aebd778685582d4c56ccb082c1161ffc10f79bebe6df35 \
+    --hash=sha256:be60592f9d218b52f03384d1325efa9d3b41e4c4d55ea022cd548547cc42cd2b \
+    --hash=sha256:c92db7101ef5bfc18e96777ed7bc7c822d545fa5977e90a585accac43d22f18a \
+    --hash=sha256:dc586724a95b7d980aa17f671e173df00f0a2eef23f8babbeee663229a938fec \
+    --hash=sha256:dd81b911d28925e7e8b323e8d06951554655021df8dd4ac3045d7212ac4ba080 \
+    --hash=sha256:e3affdcbc2afb6f5bd0eb3130139ceedc5e3f28d206fe49f63073cb9e65988e0 \
+    --hash=sha256:e5cb5526d69bb9143c2e4d2a115d08ffca3d8e0fddc84925a7b54931c96f5c02 \
+    --hash=sha256:efababa8e12330aa94a53e90a81eb6e2d55f348bc2e71adbf17d9cad23c03ee6 \
+    --hash=sha256:f3ef052283da7dec1987bba8d8733051c2325654641dfe5877a4022108098683 \
+    --hash=sha256:fbd2288890b88e8aab4499e55148805b58ec711053588cc2f0196a44f6e3d855
+    # via -r requirements/dev.in
 scriv[toml]==1.5.1 \
     --hash=sha256:30ae9ff8d144f8e0cf394c4e1d379542f1b3823767642955b54ec40dc00b32b6 \
     --hash=sha256:a3adc657733b4124fcb54527a5f3daab0d3c300de82d0fd2b9b297b243151b78
@@ -1124,9 +1143,9 @@ sphinx==7.2.6 \
     #   sphinxcontrib-redoc
     #   sphinxext-opengraph
     #   sphinxext-rediraffe
-sphinx-autodoc-typehints==1.25.3 \
-    --hash=sha256:70db10b391acf4e772019765991d2de0ff30ec0899b9ba137706dc0b3c4835e0 \
-    --hash=sha256:d3da7fa9a9761eff6ff09f8b1956ae3090a2d4f4ad54aebcade8e458d6340835
+sphinx-autodoc-typehints==2.0.0 \
+    --hash=sha256:12c0e161f6fe191c2cdfd8fa3caea271f5387d9fbc67ebcd6f4f1f24ce880993 \
+    --hash=sha256:7f2cdac2e70fd9787926b6e9e541cd4ded1e838d2b46fda2a1bb0a75ec5b7f3a
     # via documenteer
 sphinx-automodapi==0.16.0 \
     --hash=sha256:68fc47064804604b90aa27c047016e86aaf970981d90a0082d5b5dd2e9d38afd \
@@ -1337,9 +1356,9 @@ typing-extensions==4.9.0 \
     #   pydantic-core
     #   selenium
     #   sqlalchemy
-uc-micro-py==1.0.2 \
-    --hash=sha256:30ae2ac9c49f39ac6dce743bd187fcd2b574b16ca095fa74cd9396795c954c54 \
-    --hash=sha256:8c9110c309db9d9e87302e2f4ad2c3152770930d88ab385cd544e7a7e75f3de0
+uc-micro-py==1.0.3 \
+    --hash=sha256:d321b92cff673ec58027c04015fcaa8bb1e005478643ff4a500882eaab88c48a \
+    --hash=sha256:db1dffff340817673d7b466ec86114a9dc0e9d4d9b5ba229d9d60e5c12600cd5
     # via linkify-it-py
 urllib3[socks]==2.2.0 \
     --hash=sha256:051d961ad0c62a94e50ecf1af379c3aba230c66c710493493560c0c223c49f20 \
