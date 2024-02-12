@@ -64,7 +64,7 @@ jobs:
       # eslint and it wants react to be already installed.  We therefore
       # do all the linting here instead of during the test job.
       - name: Run pre-commit
-        uses: pre-commit/action@v3.0.0
+        uses: pre-commit/action@v3.0.1
 
       - name: Build the UI
         run: npm run build
