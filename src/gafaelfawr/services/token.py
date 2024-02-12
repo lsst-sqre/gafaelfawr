@@ -232,6 +232,74 @@ class TokenService:
 
         return token
 
+    async def create_oidc_token(
+        self, auth_data: TokenData, *, ip_address: str
+    ) -> Token:
+        """Add a new OpenID Connect access token.
+
+        Parameters
+        ----------
+        auth_data
+            The token data for the parent token used for authentication.
+        ip_address
+            The IP address from which the request came.
+
+        Returns
+        -------
+        Token
+            A new child token of type ``oidc``.
+
+        Raises
+        ------
+        InvalidGrantError
+            Raised if the underlying authentication token has expired.
+        """
+        token = Token()
+        created = current_datetime()
+        if auth_data.expires:
+            expires = auth_data.expires
+        else:
+            expires = created + self._config.token_lifetime
+        data = TokenData(
+            token=token,
+            username=auth_data.username,
+            token_type=TokenType.oidc,
+            scopes=[],
+            created=created,
+            expires=expires,
+            name=auth_data.name,
+            email=auth_data.email,
+            uid=auth_data.uid,
+            gid=auth_data.gid,
+            groups=auth_data.groups,
+        )
+        history_entry = TokenChangeHistoryEntry(
+            token=token.key,
+            username=data.username,
+            token_type=TokenType.oidc,
+            scopes=data.scopes,
+            expires=data.expires,
+            actor=data.username,
+            action=TokenChange.create,
+            ip_address=ip_address,
+            event_time=data.created,
+        )
+
+        # Store the new token in Redis and the database.
+        await self._token_redis_store.store_data(data)
+        await self._token_db_store.add(data, parent=auth_data.token.key)
+        await self._token_change_store.add(history_entry)
+
+        # Log the token creation and return it.
+        self._logger.info(
+            "Created new OpenID Connect token",
+            token_key=token.key,
+            token_expires=format_datetime_for_logging(expires),
+            token_scopes=sorted(data.scopes),
+            token_userinfo=data.to_userinfo_dict(),
+        )
+        return token
+
     async def create_user_token(
         self,
         auth_data: TokenData,

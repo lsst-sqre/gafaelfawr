@@ -162,6 +162,7 @@ def test_delete_all_data(
                     client_secret="some-secret",
                     redirect_uri="https://example.com/",
                     code=str(code),
+                    ip_address="127.0.0.1",
                 )
 
     event_loop.run_until_complete(check_data())

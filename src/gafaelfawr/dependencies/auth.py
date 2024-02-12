@@ -41,6 +41,9 @@ class Authenticate:
     require_session
         Require that the credentials come from a cookie, not an
         ``Authorization`` header.
+    require_bearer_token
+        Require the credentials come from an ``Authorization`` header of type
+        ``bearer`` and not any other source.
     require_scope
         If set, access will be denied if the authentication token does not
         have this scope.
@@ -60,6 +63,7 @@ class Authenticate:
         self,
         *,
         require_session: bool = False,
+        require_bearer_token: bool = False,
         require_scope: str | None = None,
         redirect_if_unauthenticated: bool = False,
         allow_bootstrap_token: bool = False,
@@ -67,6 +71,7 @@ class Authenticate:
         ajax_forbidden: bool = False,
     ) -> None:
         self.require_session = require_session
+        self.require_bearer_token = require_bearer_token
         self.require_scope = require_scope
         self.redirect_if_unauthenticated = redirect_if_unauthenticated
         self.allow_bootstrap_token = allow_bootstrap_token
@@ -160,13 +165,16 @@ class Authenticate:
         fastapi.HTTPException
             Raised if authentication is not provided or is not valid.
         """
-        token = context.state.token
-        if token:
-            context.rebind_logger(token_source="cookie")
-            return token
-        elif not self.require_session:
+        if not self.require_bearer_token:
+            token = context.state.token
+            if token:
+                context.rebind_logger(token_source="cookie")
+                return token
+        if not self.require_session:
             try:
-                token_str = parse_authorization(context)
+                token_str = parse_authorization(
+                    context, only_bearer_token=self.require_bearer_token
+                )
                 if token_str:
                     return Token.from_str(token_str)
             except (InvalidRequestError, InvalidTokenError) as e:

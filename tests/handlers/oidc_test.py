@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import pytest
 from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
-from safir.datetime import current_datetime
+from safir.datetime import current_datetime, format_datetime_for_logging
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config, OIDCClient
@@ -25,8 +25,9 @@ from gafaelfawr.models.oidc import (
     OIDCAuthorizationCode,
     OIDCScope,
     OIDCToken,
-    OIDCVerifiedToken,
+    OIDCTokenReply,
 )
+from gafaelfawr.models.token import Token
 from gafaelfawr.util import number_to_base64
 
 from ..support.config import reconfigure
@@ -48,7 +49,7 @@ async def authenticate(
     *,
     client_secret: str,
     expires: datetime,
-) -> OIDCVerifiedToken:
+) -> OIDCTokenReply:
     """Authenticate to Gafaelfawr with OpenID Connect.
 
     Parameters
@@ -114,15 +115,17 @@ async def authenticate(
     assert isinstance(data["expires_in"], int)
     exp_seconds = (expires - current_datetime()).total_seconds()
     assert exp_seconds - 1 <= data["expires_in"] <= exp_seconds + 5
-    assert data["access_token"] == data["id_token"]
+    assert Token.is_token(data["access_token"])
 
-    # Verify and return the ID token.
+    # Verify the ID token.
     oidc_service = factory.create_oidc_service()
     token = oidc_service.verify_token(OIDCToken(encoded=data["id_token"]))
     assert token.claims["jti"] == OIDCAuthorizationCode.from_str(code).key
     now = time.time()
     assert now - 5 <= token.claims["iat"] <= now
-    return token
+
+    # Return the reply as an OIDCTokenReply.
+    return OIDCTokenReply.model_validate(data)
 
 
 @pytest.mark.asyncio
@@ -147,10 +150,11 @@ async def test_login(
     token_data = await create_session_token(factory)
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
+    oidc_service = factory.create_oidc_service()
 
     # Authenticate.
     caplog.clear()
-    token = await authenticate(
+    reply = await authenticate(
         factory,
         client,
         {
@@ -164,8 +168,9 @@ async def test_login(
         expires=token_data.expires,
     )
 
-    # Check the resulting claims.
-    assert token.claims == {
+    # Check the ID token claims.
+    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    assert id_token.claims == {
         "aud": "some-id",
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
@@ -195,6 +200,25 @@ async def test_login(
             "user": username,
         },
         {
+            "event": "Created new OpenID Connect token",
+            "httpRequest": {
+                "remoteIp": "127.0.0.1",
+                "requestMethod": "POST",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
+            },
+            "severity": "info",
+            "token_expires": format_datetime_for_logging(token_data.expires),
+            "token_key": Token.from_str(reply.access_token).key,
+            "token_scopes": [],
+            "token_userinfo": {
+                "email": token_data.email,
+                "gid": token_data.gid,
+                "groups": token_data.groups,
+                "name": token_data.name,
+                "uid": token_data.uid,
+            },
+        },
+        {
             "event": f"Retrieved token for user {username} via OpenID Connect",
             "httpRequest": {
                 "requestMethod": "POST",
@@ -210,10 +234,15 @@ async def test_login(
     # Test the userinfo endpoint.
     r = await client.get(
         "/auth/openid/userinfo",
-        headers={"Authorization": f"Bearer {token.encoded}"},
+        headers={"Authorization": f"Bearer {reply.access_token}"},
     )
     assert r.status_code == 200
-    assert r.json() == token.claims
+    assert r.json() == {
+        "email": token_data.email,
+        "name": token_data.name,
+        "preferred_username": token_data.username,
+        "sub": token_data.username,
+    }
 
 
 @pytest.mark.asyncio
@@ -650,7 +679,7 @@ async def test_invalid(
         headers={"Authorization": f"token {oidc_token.encoded}"},
     )
 
-    assert r.status_code == 400
+    assert r.status_code == 403
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -676,7 +705,7 @@ async def test_invalid(
         headers={"Authorization": f"bearer{oidc_token.encoded}"},
     )
 
-    assert r.status_code == 400
+    assert r.status_code == 403
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
@@ -710,6 +739,38 @@ async def test_invalid(
             "severity": "warning",
             "token_source": "bearer",
         }
+    ]
+
+    caplog.clear()
+    r = await client.get(
+        "/auth/openid/userinfo",
+        headers={"Authorization": f"bearer {token_data.token}"},
+    )
+
+    assert r.status_code == 401
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.realm == config.realm
+    assert authenticate.error == AuthError.invalid_token
+    msg = "Token of type session not allowed"
+    assert authenticate.error_description == msg
+
+    assert parse_log(caplog) == [
+        {
+            "error": msg,
+            "event": "Invalid token",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/userinfo",
+                "remoteIp": "127.0.0.1",
+            },
+            "scopes": ["user:token"],
+            "severity": "warning",
+            "token": token_data.token.key,
+            "token_source": "bearer",
+            "user": "some-user",
+        },
     ]
 
     # None of these errors should have resulted in Slack alerts.
@@ -810,8 +871,9 @@ async def test_nonce(
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
     nonce = os.urandom(16).hex()
+    oidc_service = factory.create_oidc_service()
 
-    token = await authenticate(
+    reply = await authenticate(
         factory,
         client,
         {
@@ -825,7 +887,8 @@ async def test_nonce(
         client_secret="some-secret",
         expires=token_data.expires,
     )
-    assert token.claims == {
+    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    assert id_token.claims == {
         "aud": "some-id",
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
@@ -856,8 +919,9 @@ async def test_data_rights(
     token_data = await create_session_token(factory, group_names=["foo"])
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
+    oidc_service = factory.create_oidc_service()
 
-    token = await authenticate(
+    reply = await authenticate(
         factory,
         client,
         {
@@ -870,7 +934,8 @@ async def test_data_rights(
         client_secret="some-secret",
         expires=token_data.expires,
     )
-    assert token.claims == {
+    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    assert id_token.claims == {
         "aud": "some-id",
         "data_rights": "dp0.2 dp0.3",
         "exp": int(token_data.expires.timestamp()),
@@ -881,11 +946,24 @@ async def test_data_rights(
         "sub": token_data.username,
     }
 
+    r = await client.get(
+        "/auth/openid/userinfo",
+        headers={"Authorization": f"Bearer {reply.access_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "data_rights": "dp0.2 dp0.3",
+        "email": token_data.email,
+        "name": token_data.name,
+        "preferred_username": token_data.username,
+        "sub": token_data.username,
+    }
+
     token_data = await create_session_token(factory, group_names=["admin"])
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
 
-    token = await authenticate(
+    reply = await authenticate(
         factory,
         client,
         {
@@ -898,7 +976,8 @@ async def test_data_rights(
         client_secret="some-secret",
         expires=token_data.expires,
     )
-    assert token.claims == {
+    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    assert id_token.claims == {
         "aud": "some-id",
         "data_rights": "dp0.1",
         "exp": int(token_data.expires.timestamp()),
@@ -906,5 +985,18 @@ async def test_data_rights(
         "iss": config.oidc_server.issuer,
         "jti": ANY,
         "scope": "openid rubin",
+        "sub": token_data.username,
+    }
+
+    r = await client.get(
+        "/auth/openid/userinfo",
+        headers={"Authorization": f"Bearer {reply.access_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "data_rights": "dp0.1",
+        "email": token_data.email,
+        "name": token_data.name,
+        "preferred_username": token_data.username,
         "sub": token_data.username,
     }
