@@ -23,7 +23,7 @@ Setting up a local development environment
 
 To develop Gafaelfawr, create a virtual environment with your method of choice (like virtualenvwrapper) and then clone or fork, and install:
 
-.. code-block:: sh
+.. prompt:: bash
 
    git clone https://github.com/lsst-sqre/gafaelfawr.git
    cd gafaelfawr
@@ -37,7 +37,7 @@ This init step does three things:
 
 On macOS hosts, you may also need to run the following in the terminal window where you run ``make init`` and where you intend to run ``tox`` commands:
 
-.. code-block:: sh
+.. prompt:: bash
 
    export LDFLAGS="-L/usr/local/opt/openssl/lib"
 
@@ -54,9 +54,6 @@ Some pre-commit hooks automatically reformat code:
 ``ruff``
     Lint Python code and attempt to automatically fix some problems.
 
-``black``
-    Automatically formats Python code.
-
 ``blacken-docs``
     Automatically formats Python code in reStructuredText documentation and docstrings.
 
@@ -70,7 +67,7 @@ Before running tests or starting a local development server, you must build the 
 The Gafaelfawr UI is written in JavaScript and contained in the ``ui`` subdirectory.
 To build it, run (from the top level):
 
-.. code-block:: sh
+.. prompt:: bash
 
    make ui
 
@@ -85,7 +82,7 @@ Running tests
 
 To test all components of Gafaelfawr other than the Kubernetes operator (see below), run tox_, which tests the library the same way that the CI workflow does:
 
-.. code-block:: sh
+.. prompt:: bash
 
    tox run
 
@@ -96,20 +93,20 @@ On Debian and Ubuntu systems, you can install this with ``apt install chromium-d
 
 To run the tests with coverage analysis and generate a report, run:
 
-.. code-block:: sh
+.. prompt:: bash
 
    tox run -e py-coverage,coverage-report
 
 To see a listing of test environments, run:
 
-.. code-block:: sh
+.. prompt:: bash
 
    tox list
 
 To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` or ``py-full`` tox environment.
 For example:
 
-.. code-block:: sh
+.. prompt:: bash
 
    tox run -e py -- tests/handlers/api_tokens_test.py
 
@@ -136,7 +133,7 @@ To set up Minikube:
 
 #. Start a cluster using the Docker driver with the minimum recommended resources:
 
-   .. code-block:: sh
+   .. prompt:: bash
 
       minikube start --driver=docker --cpus=4 --memory=8g --disk-size=100g  --kubernetes-version=1.21.5
 
@@ -144,23 +141,86 @@ To set up Minikube:
 
 #. Enable the NGINX Ingress Controller using the  `Minikube ingress addon <https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/>`__:
 
-   .. code-block:: sh
+   .. prompt:: bash
 
    minikube addons enable ingress
 
 To run all of the tests including Kubernetes tests, first check that your default Kubernetes environment is the one in which you want to run tests:
 
-.. code-block:: sh
+.. prompt:: bash
 
    kubectl config current-context
 
 Then, run:
 
-.. code-block:: sh
+.. prompt:: bash
 
    tox run -e py-full
 
 Add the ``coverage-report`` environment to also get a test coverage report.
+
+.. _db-migrations:
+
+Creating database migrations
+============================
+
+Gafaelfawr uses Alembic_ to manage and perform database migrations.
+Alembic is invoked automatically when the Gafaelfawr server is started.
+
+Whenever the database schema changes, you will need to create an Alembic migration.
+To do this, take the following steps.
+You must have Docker running locally on your system and have the :command:`docker-compose` command installed.
+
+#. Start a PostgreSQL server into which the current database schema can be created.
+
+   .. prompt:: bash
+
+      docker-compose up
+
+#. Install the *current* database schema into that PostgreSQL server.
+   This must be done with a Gafaelfawr working tree that does not contain any changes to the database schema.
+   If you have already made changes that would change the database schema, use :command:`git stash`, switch to another branch, or otherwise temporarily revert those changes before running this command.
+
+   .. prompt:: bash
+
+      tox run -e gafaelfawr -- init
+
+#. Apply the code changes that will change the database schema.
+
+#. Ask Alembic to autogenerate a database migration to the new schema.
+
+   .. prompt:: bash
+
+      tox run -e alembic -- revision --autogenerate -m "<message>"
+
+   Replace ``<message>`` with a short human-readable summary of the change, ending in a period.
+   This will create a new file in :file:`alembic/versions`.
+
+#. Edit the created file in :file:`alembic/versions` and adjust it as necessary.
+   See the `Alembic documentation <https://alembic.sqlalchemy.org/en/latest/autogenerate.html>`__ for details about what Alembic can and cannot autodetect.
+
+   One common change that Alembic cannot autodetect is changes to the valid values of enum types.
+   You will need to add Alembic code to the ``upgrade`` function of the migration such as:
+
+   .. code-block:: python
+
+      op.execute("ALTER TYPE tokentype ADD VALUE 'oidc' IF NOT EXISTS")
+
+   You may want to connect to the PostgreSQL database with the :command:`psql` command-line tool so that you can examine the schema to understand what the migration needs to do.
+   For example, you can see a description of a table with :samp:`\d {table}`, which will tell you the name of an enum type that you may need to modify.
+   To do this, run:
+
+   .. prompt:: bash
+
+      psql <uri>
+
+   where ``<uri>`` is the URI to the local PostgreSQL database, which you can find in the ``databaseUrl`` configuration parameter in :file:`alembic/gafaelfawr.yaml`.
+
+#. Stop the running PostgreSQL container.
+
+   .. prompt:: bash
+
+      docker-compose down
 
 .. _dev-server:
 
@@ -188,7 +248,7 @@ Outside Docker
 
 Run:
 
-.. code-block:: sh
+.. prompt:: bash
 
    tox run -e run
 
@@ -198,7 +258,7 @@ You can now go to ``http://localhost:8080/auth/tokens`` and will be redirected t
 To stop the running server, use Ctrl-C.
 You will then need to manually shut down the Redis and PostgreSQL containers, since tox doesn't support shutdown commands.
 
-.. code-block:: sh
+.. prompt:: bash
 
    docker-compose down
 
@@ -209,7 +269,7 @@ Inside Docker
 
 Build a Docker image and start the development instance of Gafaelfawr with:
 
-.. code-block:: sh
+.. prompt:: bash
 
    docker-compose -f examples/docker/docker-compose.yaml --project-directory . build
    docker-compose -f examples/docker/docker-compose.yaml --project-directory . up
@@ -219,7 +279,7 @@ You can then go to ``http://localhost:8080/auth/tokens`` and will be redirected 
 To stop the running server, use Ctrl -C.
 To fully clean up the services, then run:
 
-.. code-block:: sh
+.. prompt:: bash
 
    docker-compose -f examples/docker/docker-compose.yaml --project-directory . down
 
@@ -233,7 +293,7 @@ Documentation is built with Sphinx_:
 
 .. _Sphinx: https://www.sphinx-doc.org/en/master/
 
-.. code-block:: sh
+.. prompt:: bash
 
    tox run -e docs
 
@@ -241,7 +301,7 @@ The build documentation is located in the :file:`docs/_build/html` directory.
 
 To check the documentation for broken links, run:
 
-.. code-block:: sh
+.. prompt:: bash
 
    tox run -e docs-linkcheck
 

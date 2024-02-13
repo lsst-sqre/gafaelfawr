@@ -145,6 +145,9 @@ class TokenType(Enum):
     services, unrelated to a user request.
     """
 
+    oidc = "oidc"
+    """Access token for an OpenID Connect client."""
+
 
 class TokenGroup(BaseModel):
     """Information about a single group."""
@@ -234,6 +237,7 @@ class TokenBase(BaseModel):
             " sub-calls made as part of processing a user request\n"
             "* `service`: A service-to-service token used for internal calls"
             " initiated by services, unrelated to a user request\n"
+            "* `oidc`: Access token for an OpenID Connect client\n"
         ),
         title="Token type",
         examples=["session"],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -16,6 +17,10 @@ from safir.click import display_help
 from safir.database import create_database_engine, initialize_database
 from safir.slack.blockkit import SlackMessage
 from sqlalchemy import text
+from structlog.stdlib import BoundLogger
+
+import alembic
+from alembic.config import Config
 
 from .dependencies.config import config_dependency
 from .factory import Factory
@@ -158,22 +163,19 @@ def generate_token() -> None:
     sys.stdout.write(str(Token()) + "\n")
 
 
-@main.command()
-@click.option(
-    "--config-path",
-    envvar="GAFAELFAWR_CONFIG_PATH",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Application configuration file.",
-)
-@run_with_asyncio
-async def init(*, config_path: Path | None) -> None:
-    """Initialize the database storage."""
-    if config_path:
-        config_dependency.set_config_path(config_path)
+async def _init_database(logger: BoundLogger) -> None:
+    """Initialize the database.
+
+    This is the internal async implementation details of the ``init`` command,
+    except for the Alembic parts. Alembic has to run outside of a running
+    asyncio loop, hence this separation.
+
+    Parameters
+    ----------
+    logger
+        Logger to use for status reporting.
+    """
     config = await config_dependency()
-    logger = structlog.get_logger("gafaelfawr")
-    logger.debug("Initializing database")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
@@ -188,6 +190,31 @@ async def init(*, config_path: Path | None) -> None:
             logger.debug("Initializing Firestore")
             await firestore.initialize()
     await engine.dispose()
+
+
+@main.command()
+@click.option(
+    "--config-path",
+    envvar="GAFAELFAWR_CONFIG_PATH",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Application configuration file.",
+)
+@click.option(
+    "--alembic-config-path",
+    envvar="GAFAELFAWR_ALEMBIC_CONFIG_PATH",
+    type=click.Path(path_type=Path),
+    default=Path("/app/alembic.ini"),
+    help="Alembic configuration file.",
+)
+def init(*, config_path: Path | None, alembic_config_path: Path) -> None:
+    """Initialize the database storage."""
+    if config_path:
+        config_dependency.set_config_path(config_path)
+    logger = structlog.get_logger("gafaelfawr")
+    logger.debug("Initializing database")
+    asyncio.run(_init_database(logger))
+    alembic.command.stamp(Config(str(alembic_config_path)), "head")
     logger.debug("Finished initializing data stores")
 
 

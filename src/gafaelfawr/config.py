@@ -30,7 +30,7 @@ from pydantic import (
     model_validator,
 )
 from pydantic_core import Url
-from safir.logging import LogLevel, Profile, configure_logging
+from safir.logging import LogLevel, configure_logging
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
@@ -1128,16 +1128,12 @@ class Config:
 
     def configure_logging(self) -> None:
         """Configure logging based on the Gafaelfawr configuration."""
-        configure_logging(
-            profile=Profile.production,
-            log_level=self.log_level,
-            name="gafaelfawr",
-        )
+        configure_logging(name="gafaelfawr", log_level=self.log_level)
 
     @staticmethod
     def _load_secret(path: Path) -> bytes:
         """Load a secret from a file."""
-        secret = path.read_bytes()
+        secret = path.read_bytes().rstrip(b"\n")
         if len(secret) == 0:
             raise ValueError(f"Secret file {path} is empty")
         return secret
