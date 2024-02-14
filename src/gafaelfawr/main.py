@@ -15,6 +15,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic_core import PydanticUndefinedType
+from safir.database import create_database_engine
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
 from safir.fastapi import ClientRequestError, client_request_error_handler
@@ -22,10 +23,16 @@ from safir.logging import configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
+from sqlalchemy import Connection
+
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 
 from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
+from .exceptions import DatabaseSchemaError
 from .handlers import analyze, api, auth, cadc, index, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
@@ -33,10 +40,46 @@ from .models.state import State
 __all__ = ["create_app"]
 
 
+async def _validate_schema(url: str, password: str | None) -> None:
+    """Check that the database schema is up-to-date.
+
+    Assumes that there is an Alembic configuration in the current working
+    directory.
+
+    Parameters
+    ----------
+    url
+        Database connection URL, not including the password.
+    password
+        Database connection password.
+
+    Raises
+    ------
+    RuntimeError
+        Raised if the current schema is out of date.
+    """
+    alembic_config = Config("alembic.ini")
+    alembic_scripts = ScriptDirectory.from_config(alembic_config)
+    engine = create_database_engine(url, password)
+
+    def get_current_heads(connection: Connection) -> set[str]:
+        context = MigrationContext.configure(connection)
+        return set(context.get_current_heads())
+
+    async with engine.begin() as connection:
+        current = await connection.run_sync(get_current_heads)
+        expected = set(alembic_scripts.get_heads())
+        if current != expected:
+            msg = f"Schema mismatch: {current} != {expected}"
+            raise DatabaseSchemaError(msg)
+    await engine.dispose()
+
+
 def create_app(
     *,
     load_config: bool = True,
     extra_startup: Coroutine[None, None, None] | None = None,
+    validate_schema: bool = True,
 ) -> FastAPI:
     """Create the FastAPI application.
 
@@ -55,11 +98,24 @@ def create_app(
     extra_startup
         If provided, an additional coroutine to run as part of the startup
         section of the lifespan context manager, used by the test suite.
+    validate_schema
+        If set to `True`, verify, with Alembic, that the schema is up to date
+        and raise `~gafaelfawr.exceptions.DatabaseSchemaError` if it is not.
+
+    Raises
+    ------
+    RuntimeError
+        Raised if schema validation was requested and the current schema is
+        out of date.
     """
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         config = config_dependency.config()
+        if validate_schema:
+            await _validate_schema(
+                config.database_url, config.database_password
+            )
         await context_dependency.initialize(config)
         await db_session_dependency.initialize(
             config.database_url, config.database_password

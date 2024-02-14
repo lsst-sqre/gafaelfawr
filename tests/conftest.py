@@ -48,7 +48,7 @@ async def app(
     events are sent during test execution.
     """
     db_session_dependency.override_engine(engine)
-    app = create_app()
+    app = create_app(validate_schema=False)
     async with LifespanManager(app):
         yield app
 
@@ -87,9 +87,6 @@ def driver() -> Iterator[webdriver.Chrome]:
 @pytest_asyncio.fixture
 async def empty_database(engine: AsyncEngine, config: Config) -> None:
     """Empty the database before a test.
-
-    The tables are reset with ``TRUNCATE`` rather than dropping and recreating
-    them in the hope that this will make database initialization faster.
 
     Notes
     -----
@@ -158,10 +155,10 @@ def mock_slack(
     return mock_slack_webhook(config.slack_webhook, respx_mock)
 
 
-@pytest_asyncio.fixture
-async def selenium_config(
-    tmp_path: Path, driver: webdriver.Chrome, empty_database: None
-) -> AsyncIterator[SeleniumConfig]:
+@pytest.fixture
+def selenium_config(
+    tmp_path: Path, driver: webdriver.Chrome
+) -> Iterator[SeleniumConfig]:
     """Start a server for Selenium tests.
 
     The server will be automatically stopped at the end of the test.  The
@@ -175,7 +172,7 @@ async def selenium_config(
     """
     config_path = build_config(tmp_path, "selenium")
     config_dependency.set_config_path(config_path)
-    async with run_app(tmp_path, config_path) as config:
+    with run_app(tmp_path, config_path) as config:
         cookie = State(token=config.token).to_cookie()
         driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}
 
