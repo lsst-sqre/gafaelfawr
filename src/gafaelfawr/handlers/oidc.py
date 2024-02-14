@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from collections.abc import Mapping
 from typing import Annotated, Any
 from urllib.parse import parse_qsl, urlencode, urlparse
@@ -12,18 +11,19 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
-from ..dependencies.auth import AuthenticateRead, verified_oidc_token
+from ..auth import generate_challenge
+from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import InvalidRequestError, OAuthError
+from ..exceptions import InvalidRequestError, InvalidTokenError, OAuthError
+from ..models.auth import AuthType
 from ..models.oidc import (
     JWKS,
     OIDCConfig,
     OIDCErrorReply,
     OIDCScope,
     OIDCTokenReply,
-    OIDCVerifiedToken,
 )
-from ..models.token import TokenData
+from ..models.token import TokenData, TokenType
 
 __all__ = ["router"]
 
@@ -39,6 +39,7 @@ router = APIRouter(
 authenticate = AuthenticateRead(
     require_session=True, redirect_if_unauthenticated=True
 )
+authenticate_token = AuthenticateRead(require_bearer_token=True)
 
 
 @router.get(
@@ -246,12 +247,13 @@ async def post_token(
 ) -> OIDCTokenReply | JSONResponse:
     oidc_service = context.factory.create_oidc_service()
     try:
-        token = await oidc_service.redeem_code(
+        reply = await oidc_service.redeem_code(
             grant_type=grant_type,
             client_id=client_id,
             client_secret=client_secret,
             redirect_uri=redirect_uri,
             code=code,
+            ip_address=context.ip_address,
         )
     except OAuthError as e:
         context.logger.warning("%s", e.message, error=str(e))
@@ -263,23 +265,10 @@ async def post_token(
             status_code=status.HTTP_400_BAD_REQUEST, content=content
         )
 
-    # Log the token redemption.
-    username = token.claims["sub"]
-    context.logger.info(
-        f"Retrieved token for user {username} via OpenID Connect",
-        user=username,
-        token=token.jti,
-    )
-
     # Return the token to the caller.  The headers are mandated by RFC 6749.
     response.headers["Cache-Control"] = "no-store"
     response.headers["Pragma"] = "no-cache"
-    return OIDCTokenReply(
-        access_token=token.encoded,
-        id_token=token.encoded,
-        expires_in=int(token.claims["exp"] - time.time()),
-        scope=token.claims["scope"],
-    )
+    return reply
 
 
 @router.get(
@@ -290,16 +279,10 @@ async def post_token(
             "content": {
                 "application/json": {
                     "example": {
-                        "aud": "https://example.com/",
-                        "iss": "https://gafaelfawr.example.com/",
-                        "exp": 1616993932,
-                        "iat": 1614993932,
-                        "jti": "TqgAlCVtMYU6uPIA6Z1FyQ",
+                        "email": "someone@example.com",
                         "name": "Alice Example",
                         "preferred_username": "someuser",
-                        "scope": "openid",
                         "sub": "someuser",
-                        "uid_number": 4151,
                     }
                 }
             }
@@ -307,15 +290,19 @@ async def post_token(
         401: {"description": "Unauthenticated"},
         403: {"description": "Permission denied", "model": ErrorModel},
     },
-    summary="Get OIDC token metadata",
+    summary="Get user metadata from OIDC token",
     tags=["oidc"],
 )
 async def get_userinfo(
-    token: OIDCVerifiedToken = Depends(verified_oidc_token),
+    token_data: Annotated[TokenData, Depends(authenticate_token)],
     context: RequestContext = Depends(context_dependency),
 ) -> Mapping[str, Any]:
-    """Return information about the holder of a JWT."""
-    return token.claims
+    if token_data.token_type != TokenType.oidc:
+        msg = f"Token of type {token_data.token_type.value} not allowed"
+        exc = InvalidTokenError(msg)
+        raise generate_challenge(context, AuthType.Bearer, exc)
+    oidc_service = context.factory.create_oidc_service()
+    return await oidc_service.token_to_userinfo_claims(token_data)
 
 
 @router.get(

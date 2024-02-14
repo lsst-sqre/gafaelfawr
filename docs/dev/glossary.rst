@@ -45,10 +45,14 @@ protected service
     Gafaelfawr will run as an NGINX auth subrequest handler and return headers that NGINX will in turn pass to the protected service, which it can use for further authorization and identity decisions.
 
 scope
-    A permission that a user holding a token has in some system.
-    When requesting authentication from an OpenID Connect provider, the requested scopes control what information is returned about the user in the ID token.
+    The term "scope" is unfortunately overloaded.
+    It is used both for a set of permissions granted to a Gafaelfawr token and for a set of claims requested from an OpenID Connect server.
+
     For a token issued by Gafaelfawr, a scope represents a general class of permissions on systems protected by Gafaelfawr.
     Services can be protected by authorization rules that require specific scopes.
+
+    When requesting authentication from an OpenID Connect provider, including the Gafaelfawr OpenID Connect provider, the requested scopes control what information is returned about the user in the ID token.
+    These scopes are (partly) standardized by the OpenID Connect standard and are entirely unrelated to (and have a different naming convention than) Gafaelfawr scopes.
 
 session
     A stored authentication token for a user that expires after some set length of time.
@@ -64,8 +68,8 @@ subject
 
 token
     There are two types of authentication tokens used by Gafaelfawr.
-    When authenticating the user to an external OpenID Connect service, or when acting as an OpenID Connect service to a protected service, tokens are JWTs.
-    For all other operations, tokens are opaque strings starting with ``gt-``.
+    When authenticating the user to an external OpenID Connect service, or when acting as an OpenID Connect service to a protected service, the ID token is a JWT.
+    For all other operations, including the access token returned when acting as an OpenID Connect service, tokens are opaque strings starting with ``gt-``.
     These opaque tokens consist of two parts: a key and a secret.
     The key is the Redis key for the stored session.
     The secret proves that the client has the right to use that stored session.

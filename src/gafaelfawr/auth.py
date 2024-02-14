@@ -276,16 +276,21 @@ def generate_unauthorized_challenge(
     )
 
 
-def parse_authorization(context: RequestContext) -> str | None:
+def parse_authorization(
+    context: RequestContext, *, only_bearer_token: bool = False
+) -> str | None:
     """Find a token in the Authorization header.
 
-    Supports either ``Bearer`` or ``Basic`` authorization types. Rebinds the
-    logging context to include the source of the token, if one is found.
+    Supports either ``Bearer`` or ``Basic`` authorization types (unless
+    ``only_bearer_token`` is set). Rebinds the logging context to include the
+    source of the token, if one is found.
 
     Parameters
     ----------
     context
         The context of the incoming request.
+    only_bearer_token
+        If set to `True`, only accept bearer tokens.
 
     Returns
     -------
@@ -295,7 +300,9 @@ def parse_authorization(context: RequestContext) -> str | None:
     Raises
     ------
     InvalidRequestError
-        Raised if the Authorization header is malformed.
+        Raised if the ``Authorization`` header is malformed, if the type of
+        authentication is unknown, or if ``only_bearer_token`` is `True` and
+        the header used some other type of authentication.
 
     Notes
     -----
@@ -314,6 +321,8 @@ def parse_authorization(context: RequestContext) -> str | None:
     if auth_type.lower() == "bearer":
         context.rebind_logger(token_source="bearer")
         return auth_blob
+    elif only_bearer_token:
+        raise InvalidRequestError(f"Unknown Authorization type {auth_type}")
 
     # The only remaining permitted authentication type is (possibly) basic.
     if auth_type.lower() != "basic":

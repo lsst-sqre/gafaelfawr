@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -29,9 +30,10 @@ from ..models.oidc import (
     OIDCConfig,
     OIDCScope,
     OIDCToken,
+    OIDCTokenReply,
     OIDCVerifiedToken,
 )
-from ..models.token import Token, TokenUserInfo
+from ..models.token import Token, TokenData, TokenUserInfo
 from ..storage.oidc import OIDCAuthorizationStore
 from .token import TokenService
 from .userinfo import UserInfoService
@@ -201,7 +203,6 @@ class OIDCService:
             code = authorization.code.key
             msg = f"Invalid underlying token for authorization {code}"
             raise InvalidGrantError(msg)
-        user_info = await self._user_info.get_user_info_from_token(token_data)
 
         # Build a payload of every claim we support, and then filter it by the
         # list of claims that were requested via either claims or scopes and
@@ -214,18 +215,14 @@ class OIDCService:
         payload: dict[str, Any] = {
             "aud": authorization.client_id,
             "auth_time": int(token_data.created.timestamp()),
-            "data_rights": self._build_data_rights_for_user(user_info),
             "iat": int(now.timestamp()),
             "iss": str(self._config.issuer),
-            "email": user_info.email,
             "exp": expires,
             "jti": authorization.code.key,
-            "name": user_info.name,
             "nonce": authorization.nonce,
-            "preferred_username": token_data.username,
             "scope": " ".join(s.value for s in authorization.scopes),
-            "sub": token_data.username,
         }
+        payload.update(await self.token_to_userinfo_claims(token_data))
         payload = self._filter_claims(payload, authorization)
 
         # Encode the token.
@@ -247,7 +244,8 @@ class OIDCService:
         client_secret: str | None,
         redirect_uri: str | None,
         code: str | None,
-    ) -> OIDCVerifiedToken:
+        ip_address: str,
+    ) -> OIDCTokenReply:
         """Redeem an authorization code.
 
         None of the parameters may be `None` in practice, but `None` is
@@ -270,8 +268,8 @@ class OIDCService:
 
         Returns
         -------
-        OIDCVerifiedToken
-            A newly-issued JWT for this client.
+        OIDCTokenReply
+            The token reply to send to the user.
 
         Raises
         ------
@@ -307,6 +305,10 @@ class OIDCService:
         if not authorization:
             msg = f"Unknown authorization code {auth_code.key}"
             raise InvalidGrantError(msg)
+        auth_data = await self._token_service.get_data(authorization.token)
+        if not auth_data:
+            msg = "Underlying authentication token has expired"
+            raise InvalidGrantError(msg)
 
         # Authorize the request.
         if authorization.client_id != client_id:
@@ -322,11 +324,49 @@ class OIDCService:
             )
             raise InvalidGrantError(msg)
 
-        # Construct and return the token. The authorization code has now been
-        # redeemed, so delete it so that it cannot be reused.
-        token = await self.issue_id_token(authorization)
+        # Issue the tokens.
+        id_token = await self.issue_id_token(authorization)
+        access_token = await self._token_service.create_oidc_token(
+            auth_data, ip_address=ip_address
+        )
+
+        # Log the token redemption.
+        username = id_token.claims["sub"]
+        self._logger.info(
+            f"Retrieved token for user {username} via OpenID Connect",
+            user=username,
+            token=id_token.jti,
+        )
+
+        # The authorization code has now been redeemed, so delete it so that
+        # it cannot be reused. Return the reply.
         await self._authorization_store.delete(auth_code)
-        return token
+        return OIDCTokenReply(
+            access_token=str(access_token),
+            id_token=id_token.encoded,
+            expires_in=int(id_token.claims["exp"] - time.time()),
+            scope=id_token.claims["scope"],
+        )
+
+    async def token_to_userinfo_claims(
+        self, token_data: TokenData
+    ) -> dict[str, Any]:
+        """Generate OpenID Connect userinfo claims from a Gafaelfawr token.
+
+        Parameters
+        ----------
+        token_data
+            User and token metadata.
+        """
+        user_info = await self._user_info.get_user_info_from_token(token_data)
+        claims = {
+            "data_rights": self._build_data_rights_for_user(user_info),
+            "email": user_info.email,
+            "name": user_info.name,
+            "preferred_username": token_data.username,
+            "sub": token_data.username,
+        }
+        return {k: v for k, v in claims.items() if v is not None}
 
     def validate_client(self, client_id: str, redirect_uri: str) -> None:
         """Check that the provided client and redirect URI are valid.
