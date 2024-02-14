@@ -12,6 +12,7 @@ from safir.models import ErrorLocation
 from safir.slack.blockkit import SlackException, SlackWebException
 
 __all__ = [
+    "DatabaseSchemaError",
     "DuplicateTokenNameError",
     "ExternalUserInfoError",
     "FetchKeysError",
@@ -306,6 +307,14 @@ class InsufficientScopeError(OAuthBearerError):
     error = "insufficient_scope"
     message = "Permission denied"
     status_code = status.HTTP_403_FORBIDDEN
+
+
+class DatabaseSchemaError(SlackException):
+    """Gafaelfawr database schema is invalid.
+
+    Raised during startup if schema checking is requested and Alembic reports
+    that the database schema is not current.
+    """
 
 
 class ExternalUserInfoError(SlackException):

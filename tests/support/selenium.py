@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from click.testing import CliRunner
 from fastapi import FastAPI
 from safir.database import create_database_engine
 from safir.testing.uvicorn import spawn_uvicorn
 from seleniumwire import webdriver
 
+from gafaelfawr.cli import main
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
@@ -118,15 +121,7 @@ def selenium_create_app() -> FastAPI:
     """Create the FastAPI app that Selenium should run.
 
     This is the same as the main Gafaelfawr app but with an additional startup
-    handler that initializes some tokens in Redis.  This setup must be done
-    inside the spawned app in case the Redis in question is a memory-only mock
-    Redis.
-
-    Notes
-    -----
-    This function modifies the main Gafaelfawr app in place, so it must only
-    be called by uvicorn in the separate process spawned by run_app.  If it is
-    run in the main pytest process, it will break other tests.
+    handler that initializes some tokens in Redis.
     """
     token_path = Path(os.environ["GAFAELFAWR_TEST_TOKEN_PATH"])
 
@@ -136,10 +131,8 @@ def selenium_create_app() -> FastAPI:
     return create_app(extra_startup=selenium_startup())
 
 
-@asynccontextmanager
-async def run_app(
-    tmp_path: Path, config_path: Path
-) -> AsyncIterator[SeleniumConfig]:
+@contextmanager
+def run_app(tmp_path: Path, config_path: Path) -> Iterator[SeleniumConfig]:
     """Run the application as a separate process for Selenium access.
 
     Must be used as an async context manager.
@@ -157,10 +150,19 @@ async def run_app(
         The Selenium configuration.
     """
     config_dependency.set_config_path(config_path)
-    config = await config_dependency()
+    config = config_dependency.config()
     token_path = tmp_path / "token"
 
-    # Start the server.
+    # Use gafaelfawr init to set up the database, since this will stamp it
+    # with the correct Alembic head and we enable schema checking during
+    # startup.
+    runner = CliRunner()
+    result = runner.invoke(main, ["init"], catch_exceptions=False)
+    assert result.exit_code == 0
+
+    # Start the server with the necessary files to do Alembic validation.
+    shutil.copyfile("alembic.ini", tmp_path / "alembic.ini")
+    shutil.copytree("alembic", tmp_path / "alembic")
     uvicorn = spawn_uvicorn(
         working_directory=tmp_path,
         factory="tests.support.selenium:selenium_create_app",

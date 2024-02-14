@@ -263,7 +263,7 @@ async def maintenance(*, config_path: Path | None) -> None:
 )
 def openapi_schema(*, add_back_link: bool, output: Path | None) -> None:
     """Generate the OpenAPI schema."""
-    app = create_app(load_config=False)
+    app = create_app(load_config=False, validate_schema=False)
     description = app.description
     if add_back_link:
         description += "\n\n[Return to Gafaelfawr documentation](api.html)."
