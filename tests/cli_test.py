@@ -20,11 +20,13 @@ from cryptography.fernet import Fernet
 from safir.database import initialize_database
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config, OIDCClient
 from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
@@ -38,12 +40,6 @@ from gafaelfawr.storage.token import TokenDatabaseStore
 from .support.config import configure
 
 
-async def _initialize_database(engine: AsyncEngine, config: Config) -> None:
-    """Initialize the database."""
-    logger = structlog.get_logger("gafaelfawr")
-    await initialize_database(engine, logger, schema=Base.metadata, reset=True)
-
-
 def test_audit(
     tmp_path: Path,
     config: Config,
@@ -51,7 +47,6 @@ def test_audit(
     event_loop: asyncio.AbstractEventLoop,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    logger = structlog.get_logger("gafaelfawr")
     now = current_datetime()
     token_data = TokenData(
         token=Token(),
@@ -61,9 +56,11 @@ def test_audit(
         created=now,
         expires=now + timedelta(days=7),
     )
+    runner = CliRunner()
+    result = runner.invoke(main, ["init"], catch_exceptions=False)
+    assert result.exit_code == 0
 
     async def setup() -> None:
-        await initialize_database(engine, logger, schema=Base.metadata)
         async with Factory.standalone(config, engine) as factory:
             token_db_store = TokenDatabaseStore(factory.session)
             async with factory.session.begin():
@@ -297,7 +294,7 @@ def test_maintenance(
 
 def test_openapi_schema(tmp_path: Path) -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["openapi-schema"])
+    result = runner.invoke(main, ["openapi-schema"], catch_exceptions=False)
     assert result.exit_code == 0
     assert json.loads(result.output)
     assert "Return to Gafaelfawr documentation" not in result.output
@@ -317,3 +314,96 @@ def test_openapi_schema(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert "Return to Gafaelfawr documentation" in result.output
+
+
+def test_update_schema(
+    engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
+) -> None:
+    runner = CliRunner()
+
+    async def empty_database() -> None:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.execute(text("DROP TABLE alembic_version"))
+
+    # Start with an empty database. This should produce exactly the same
+    # results as gafaelfawr init.
+    event_loop.run_until_complete(empty_database())
+    result = runner.invoke(
+        main,
+        [
+            "update-schema",
+            "--config-path",
+            str(config_dependency._config_path),
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+
+    async def check_database() -> None:
+        async with Factory.standalone(config, engine) as factory:
+            admin_service = factory.create_admin_service()
+            expected = [Admin(username=u) for u in config.initial_admins]
+            assert await admin_service.get_admins() == expected
+            token_service = factory.create_token_service()
+            bootstrap = TokenData.bootstrap_token()
+            assert await token_service.list_tokens(bootstrap) == []
+
+    event_loop.run_until_complete(check_database())
+
+    # Updating via Alembic migrations is tested in test_validate_schema
+
+
+def test_validate_schema(
+    engine: AsyncEngine, event_loop: asyncio.AbstractEventLoop
+) -> None:
+    runner = CliRunner()
+
+    async def empty_database() -> None:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.execute(text("DROP TABLE alembic_version"))
+
+    # Start with an empty database.
+    event_loop.run_until_complete(empty_database())
+
+    # Validating should fail with an appropriate error message.
+    result = runner.invoke(main, ["validate-schema"], catch_exceptions=False)
+    assert result.exit_code == 1
+    assert "Database has not been initialized" in result.output
+
+    # Initialize the database from an old schema. This was the database schema
+    # before Alembic was introduced, so it should run all migrations.
+    async def create_old_database() -> None:
+        old_schema = Path(__file__).parent / "data" / "schemas" / "9.6.1"
+        async with engine.begin() as conn:
+            with old_schema.open() as f:
+                statement = ""
+                for line in f:
+                    if not line.startswith("--") and line.strip("\n"):
+                        statement += line.strip("\n")
+                    if statement.endswith(";"):
+                        await conn.execute(text(statement))
+                        statement = ""
+
+    event_loop.run_until_complete(create_old_database())
+
+    # Validating should fail with an appropriate error message.
+    result = runner.invoke(main, ["validate-schema"], catch_exceptions=False)
+    assert result.exit_code == 1
+    assert "Database schema is not current" in result.output
+
+    # Running gafaelawr update-schema should run the Alembic migrations and
+    # bring the database up to date.
+    result = runner.invoke(
+        main,
+        [
+            "update-schema",
+            "--config-path",
+            str(config_dependency._config_path),
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    result = runner.invoke(main, ["validate-schema"], catch_exceptions=False)
+    assert result.exit_code == 0

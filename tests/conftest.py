@@ -10,6 +10,9 @@ import pytest
 import pytest_asyncio
 import respx
 import structlog
+from alembic.config import Config as AlembicConfig
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
@@ -17,6 +20,7 @@ from safir.database import create_database_engine, initialize_database
 from safir.dependencies.db_session import db_session_dependency
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from seleniumwire import webdriver
+from sqlalchemy import Connection, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
@@ -102,8 +106,26 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
+            await factory.session.execute(text("DROP TABLE alembic_version"))
             await admin_service.add_initial_admins(config.initial_admins)
         await factory._context.redis.flushdb()
+
+    # Get Alembic configuration information.
+    alembic_config = AlembicConfig("alembic.ini")
+    alembic_scripts = ScriptDirectory.from_config(alembic_config)
+    current_head = alembic_scripts.get_current_head()
+    assert current_head
+
+    def set_version(connection: Connection) -> None:
+        context = MigrationContext.configure(connection)
+        context.stamp(alembic_scripts, current_head)
+
+    # Stamp the database with the current Alembic version. We have to do this
+    # somewhat elaborately because the alembic.command interface cannot be run
+    # inside an asyncio loop.
+    async with engine.begin() as connection:
+        await connection.run_sync(set_version)
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture

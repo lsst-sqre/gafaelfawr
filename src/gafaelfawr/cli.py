@@ -4,24 +4,29 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
+import alembic
 import click
 import structlog
 import uvicorn
+from alembic.config import Config
 from cryptography.fernet import Fernet
 from fastapi.openapi.utils import get_openapi
 from safir.asyncio import run_with_asyncio
 from safir.click import display_help
-from safir.database import create_database_engine, initialize_database
+from safir.database import create_database_engine
 from safir.slack.blockkit import SlackMessage
 from sqlalchemy import text
-from structlog.stdlib import BoundLogger
 
-import alembic
-from alembic.config import Config
-
+from .database import (
+    initialize_gafaelfawr_database,
+    is_database_current,
+    is_database_initialized,
+)
 from .dependencies.config import config_dependency
 from .factory import Factory
 from .keypair import RSAKeyPair
@@ -70,7 +75,7 @@ def help(ctx: click.Context, topic: str | None) -> None:
 )
 @run_with_asyncio
 async def audit(*, fix: bool, config_path: Path | None) -> None:
-    """Run a consistency check on Gafaelfawr's data stores.
+    """Check data stores for consistency.
 
     Any problems found will be reported to Slack.
     """
@@ -78,10 +83,12 @@ async def audit(*, fix: bool, config_path: Path | None) -> None:
         config_dependency.set_config_path(config_path)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
-    logger.debug("Starting audit")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
+    if not await is_database_current(config, logger, engine):
+        raise click.ClickException("Database schema is not current")
+    logger.debug("Starting audit")
     async with Factory.standalone(config, engine) as factory:
         slack = factory.create_slack_client()
         if not slack:
@@ -146,7 +153,11 @@ async def delete_all_data(*, config_path: Path | None) -> None:
 
 @main.command()
 def generate_key() -> None:
-    """Generate a new RSA key pair and print the private key."""
+    """Generate a new RSA key pair.
+
+    The output will be the private key of the newly-generated key pair, from
+    which the public key can be recovered.
+    """
     keypair = RSAKeyPair.generate()
     sys.stdout.write(keypair.private_key_as_pem().decode())
 
@@ -159,37 +170,12 @@ def generate_session_secret() -> None:
 
 @main.command()
 def generate_token() -> None:
-    """Generate an encoded token (such as the bootstrap token)."""
-    sys.stdout.write(str(Token()) + "\n")
+    """Generate an encoded token.
 
-
-async def _init_database(logger: BoundLogger) -> None:
-    """Initialize the database.
-
-    This is the internal async implementation details of the ``init`` command,
-    except for the Alembic parts. Alembic has to run outside of a running
-    asyncio loop, hence this separation.
-
-    Parameters
-    ----------
-    logger
-        Logger to use for status reporting.
+    The generated token will be syntactically valid, but will not be created
+    in the database. It is suitable for use as a Gafaelfawr bootstrap token.
     """
-    config = await config_dependency()
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    await initialize_database(engine, logger, schema=Base.metadata)
-    async with Factory.standalone(config, engine) as factory:
-        admin_service = factory.create_admin_service()
-        logger.debug("Adding initial administrators")
-        async with factory.session.begin():
-            await admin_service.add_initial_admins(config.initial_admins)
-        if config.firestore:
-            firestore = factory.create_firestore_storage()
-            logger.debug("Initializing Firestore")
-            await firestore.initialize()
-    await engine.dispose()
+    sys.stdout.write(str(Token()) + "\n")
 
 
 @main.command()
@@ -211,9 +197,10 @@ def init(*, config_path: Path | None, alembic_config_path: Path) -> None:
     """Initialize the database storage."""
     if config_path:
         config_dependency.set_config_path(config_path)
+    config = config_dependency.config()
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Initializing database")
-    asyncio.run(_init_database(logger))
+    asyncio.run(initialize_gafaelfawr_database(config, logger))
     alembic.command.stamp(Config(str(alembic_config_path)), "head")
     logger.debug("Finished initializing data stores")
 
@@ -233,10 +220,12 @@ async def maintenance(*, config_path: Path | None) -> None:
         config_dependency.set_config_path(config_path)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
-    logger.debug("Starting background maintenance")
     engine = create_database_engine(
         config.database_url, config.database_password
     )
+    if not await is_database_current(config, logger, engine):
+        raise click.ClickException("Database schema is not current")
+    logger.debug("Starting background maintenance")
     async with Factory.standalone(config, engine, check_db=True) as factory:
         token_service = factory.create_token_service()
         async with factory.session.begin():
@@ -253,7 +242,7 @@ async def maintenance(*, config_path: Path | None) -> None:
     "--add-back-link",
     default=False,
     is_flag=True,
-    help="Add back link (used when generating application documentation)",
+    help="Add back link (used when generating application documentation).",
 )
 @click.option(
     "--output",
@@ -294,3 +283,65 @@ def run(*, port: int) -> None:
         reload=True,
         reload_dirs=["src"],
     )
+
+
+@main.command()
+@click.option(
+    "--config-path",
+    envvar="GAFAELFAWR_CONFIG_PATH",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Application configuration file.",
+)
+@click.option(
+    "--alembic-config-path",
+    envvar="GAFAELFAWR_ALEMBIC_CONFIG_PATH",
+    type=click.Path(path_type=Path),
+    default=Path("/app/alembic.ini"),
+    help="Alembic configuration file.",
+)
+def update_schema(
+    *, config_path: Path | None, alembic_config_path: Path
+) -> None:
+    """Initialize the database or update the schema.
+
+    If the database schema has not yet been initialized, create it. Then, run
+    Alembic to perform any necessary migrations.
+    """
+    if config_path:
+        config_dependency.set_config_path(config_path)
+        env = {**os.environ, "GAFAELFAWR_CONFIG_PATH": str(config_path)}
+    else:
+        env = None
+    config = config_dependency.config()
+    logger = structlog.get_logger("gafaelfawr")
+    if not asyncio.run(is_database_initialized(config, logger)):
+        logger.debug("Initializing database")
+        asyncio.run(initialize_gafaelfawr_database(config, logger))
+        alembic.command.stamp(Config(str(alembic_config_path)), "head")
+        logger.debug("Finished initializing data stores")
+    subprocess.run(["alembic", "upgrade", "head"], check=True, env=env)
+
+
+@main.command()
+@click.option(
+    "--config-path",
+    envvar="GAFAELFAWR_CONFIG_PATH",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Application configuration file.",
+)
+@run_with_asyncio
+async def validate_schema(*, config_path: Path | None) -> None:
+    """Validate that the database schema is current."""
+    if config_path:
+        config_dependency.set_config_path(config_path)
+    config = config_dependency.config()
+    logger = structlog.get_logger("gafaelfawr")
+    engine = create_database_engine(
+        config.database_url, config.database_password
+    )
+    if not await is_database_initialized(config, logger, engine):
+        raise click.ClickException("Database has not been initialized")
+    if not await is_database_current(config, logger, engine):
+        raise click.ClickException("Database schema is not current")

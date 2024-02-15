@@ -232,6 +232,7 @@ select = ["ALL"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["gafaelfawr", "tests"]
+known-third-party = ["alembic"]
 split-on-trailing-comma = false
 
 [tool.ruff.lint.flake8-bugbear]

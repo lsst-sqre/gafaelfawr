@@ -15,7 +15,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic_core import PydanticUndefinedType
-from safir.database import create_database_engine
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
 from safir.fastapi import ClientRequestError, client_request_error_handler
@@ -23,13 +22,9 @@ from safir.logging import configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
-from sqlalchemy import Connection
-
-from alembic.config import Config
-from alembic.runtime.migration import MigrationContext
-from alembic.script import ScriptDirectory
 
 from .constants import COOKIE_NAME
+from .database import is_database_current
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
 from .exceptions import DatabaseSchemaError
@@ -38,41 +33,6 @@ from .middleware.state import StateMiddleware
 from .models.state import State
 
 __all__ = ["create_app"]
-
-
-async def _validate_schema(url: str, password: str | None) -> None:
-    """Check that the database schema is up-to-date.
-
-    Assumes that there is an Alembic configuration in the current working
-    directory.
-
-    Parameters
-    ----------
-    url
-        Database connection URL, not including the password.
-    password
-        Database connection password.
-
-    Raises
-    ------
-    RuntimeError
-        Raised if the current schema is out of date.
-    """
-    alembic_config = Config("alembic.ini")
-    alembic_scripts = ScriptDirectory.from_config(alembic_config)
-    engine = create_database_engine(url, password)
-
-    def get_current_heads(connection: Connection) -> set[str]:
-        context = MigrationContext.configure(connection)
-        return set(context.get_current_heads())
-
-    async with engine.begin() as connection:
-        current = await connection.run_sync(get_current_heads)
-        expected = set(alembic_scripts.get_heads())
-        if current != expected:
-            msg = f"Schema mismatch: {current} != {expected}"
-            raise DatabaseSchemaError(msg)
-    await engine.dispose()
 
 
 def create_app(
@@ -104,7 +64,7 @@ def create_app(
 
     Raises
     ------
-    RuntimeError
+    DatabaseSchemaError
         Raised if schema validation was requested and the current schema is
         out of date.
     """
@@ -113,9 +73,9 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         config = config_dependency.config()
         if validate_schema:
-            await _validate_schema(
-                config.database_url, config.database_password
-            )
+            logger = structlog.get_logger("gafaelfawr")
+            if not is_database_current(config, logger):
+                raise DatabaseSchemaError("Database schema out of date")
         await context_dependency.initialize(config)
         await db_session_dependency.initialize(
             config.database_url, config.database_password
