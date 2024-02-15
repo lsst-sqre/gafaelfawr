@@ -5,12 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 import kopf
+import structlog
 from kubernetes_asyncio.client import ApiClient
 from safir.database import create_database_engine
 from safir.kubernetes import initialize_kubernetes
 
 from ..constants import KUBERNETES_WATCH_TIMEOUT
+from ..database import is_database_current
 from ..dependencies.config import config_dependency
+from ..exceptions import DatabaseSchemaError
 from ..factory import Factory
 
 __all__ = ["startup", "shutdown"]
@@ -35,6 +38,11 @@ async def startup(
         cleanly during shutdown.
     settings
         Holds the Kopf settings.
+
+    Raises
+    ------
+    DatabaseSchemaError
+        Raised if the database schema is not current.
     """
     settings.watching.server_timeout = KUBERNETES_WATCH_TIMEOUT
     settings.watching.client_timeout = KUBERNETES_WATCH_TIMEOUT + 60
@@ -45,6 +53,9 @@ async def startup(
     engine = create_database_engine(
         config.database_url, config.database_password
     )
+    logger = structlog.get_logger("gafaelfawr")
+    if not await is_database_current(config, logger, engine):
+        raise DatabaseSchemaError("Database schema is not current")
     factory = await Factory.create(config, engine, check_db=True)
     api_client = ApiClient()
     ingress_service = factory.create_kubernetes_ingress_service(api_client)

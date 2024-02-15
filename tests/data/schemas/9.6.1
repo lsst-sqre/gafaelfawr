@@ -1,0 +1,410 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 13.1 (Debian 13.1-1.pgdg100+1)
+-- Dumped by pg_dump version 16.2 (Debian 16.2-1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: gafaelfawr
+--
+
+-- *not* creating schema, since initdb creates it
+
+
+ALTER SCHEMA public OWNER TO gafaelfawr;
+
+--
+-- Name: adminchange; Type: TYPE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TYPE public.adminchange AS ENUM (
+    'add',
+    'remove'
+);
+
+
+ALTER TYPE public.adminchange OWNER TO gafaelfawr;
+
+--
+-- Name: tokenchange; Type: TYPE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TYPE public.tokenchange AS ENUM (
+    'create',
+    'revoke',
+    'expire',
+    'edit'
+);
+
+
+ALTER TYPE public.tokenchange OWNER TO gafaelfawr;
+
+--
+-- Name: tokentype; Type: TYPE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TYPE public.tokentype AS ENUM (
+    'session',
+    'user',
+    'notebook',
+    'internal',
+    'service'
+);
+
+
+ALTER TYPE public.tokentype OWNER TO gafaelfawr;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: admin; Type: TABLE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TABLE public.admin (
+    username character varying(64) NOT NULL
+);
+
+
+ALTER TABLE public.admin OWNER TO gafaelfawr;
+
+--
+-- Name: admin_history; Type: TABLE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TABLE public.admin_history (
+    id integer NOT NULL,
+    username character varying(64) NOT NULL,
+    action public.adminchange NOT NULL,
+    actor character varying(64) NOT NULL,
+    ip_address inet NOT NULL,
+    event_time timestamp without time zone NOT NULL
+);
+
+
+ALTER TABLE public.admin_history OWNER TO gafaelfawr;
+
+--
+-- Name: admin_history_id_seq; Type: SEQUENCE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE SEQUENCE public.admin_history_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.admin_history_id_seq OWNER TO gafaelfawr;
+
+--
+-- Name: admin_history_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: gafaelfawr
+--
+
+ALTER SEQUENCE public.admin_history_id_seq OWNED BY public.admin_history.id;
+
+
+--
+-- Name: subtoken; Type: TABLE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TABLE public.subtoken (
+    child character varying(64) NOT NULL,
+    parent character varying(64)
+);
+
+
+ALTER TABLE public.subtoken OWNER TO gafaelfawr;
+
+--
+-- Name: token; Type: TABLE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TABLE public.token (
+    token character varying(64) NOT NULL COLLATE pg_catalog."C",
+    username character varying(64) NOT NULL,
+    token_type public.tokentype NOT NULL,
+    token_name character varying(64),
+    scopes character varying(512) NOT NULL,
+    service character varying(64),
+    created timestamp without time zone NOT NULL,
+    last_used timestamp without time zone,
+    expires timestamp without time zone
+);
+
+
+ALTER TABLE public.token OWNER TO gafaelfawr;
+
+--
+-- Name: token_auth_history; Type: TABLE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TABLE public.token_auth_history (
+    id integer NOT NULL,
+    token character varying(64) NOT NULL,
+    username character varying(64) NOT NULL,
+    token_type public.tokentype NOT NULL,
+    token_name character varying(64),
+    parent character varying(64),
+    scopes character varying(512),
+    service character varying(64),
+    ip_address inet,
+    event_time timestamp without time zone NOT NULL
+);
+
+
+ALTER TABLE public.token_auth_history OWNER TO gafaelfawr;
+
+--
+-- Name: token_auth_history_id_seq; Type: SEQUENCE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE SEQUENCE public.token_auth_history_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.token_auth_history_id_seq OWNER TO gafaelfawr;
+
+--
+-- Name: token_auth_history_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: gafaelfawr
+--
+
+ALTER SEQUENCE public.token_auth_history_id_seq OWNED BY public.token_auth_history.id;
+
+
+--
+-- Name: token_change_history; Type: TABLE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE TABLE public.token_change_history (
+    id integer NOT NULL,
+    token character varying(64) NOT NULL,
+    username character varying(64) NOT NULL,
+    token_type public.tokentype NOT NULL,
+    token_name character varying(64),
+    parent character varying(64),
+    scopes character varying(512) NOT NULL,
+    service character varying(64),
+    expires timestamp without time zone,
+    actor character varying(64),
+    action public.tokenchange NOT NULL,
+    old_token_name character varying(64),
+    old_scopes character varying(512),
+    old_expires timestamp without time zone,
+    ip_address inet,
+    event_time timestamp without time zone NOT NULL
+);
+
+
+ALTER TABLE public.token_change_history OWNER TO gafaelfawr;
+
+--
+-- Name: token_change_history_id_seq; Type: SEQUENCE; Schema: public; Owner: gafaelfawr
+--
+
+CREATE SEQUENCE public.token_change_history_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.token_change_history_id_seq OWNER TO gafaelfawr;
+
+--
+-- Name: token_change_history_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: gafaelfawr
+--
+
+ALTER SEQUENCE public.token_change_history_id_seq OWNED BY public.token_change_history.id;
+
+
+--
+-- Name: admin_history id; Type: DEFAULT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.admin_history ALTER COLUMN id SET DEFAULT nextval('public.admin_history_id_seq'::regclass);
+
+
+--
+-- Name: token_auth_history id; Type: DEFAULT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.token_auth_history ALTER COLUMN id SET DEFAULT nextval('public.token_auth_history_id_seq'::regclass);
+
+
+--
+-- Name: token_change_history id; Type: DEFAULT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.token_change_history ALTER COLUMN id SET DEFAULT nextval('public.token_change_history_id_seq'::regclass);
+
+
+--
+-- Name: admin_history admin_history_pkey; Type: CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.admin_history
+    ADD CONSTRAINT admin_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: admin admin_pkey; Type: CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.admin
+    ADD CONSTRAINT admin_pkey PRIMARY KEY (username);
+
+
+--
+-- Name: subtoken subtoken_pkey; Type: CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.subtoken
+    ADD CONSTRAINT subtoken_pkey PRIMARY KEY (child);
+
+
+--
+-- Name: token_auth_history token_auth_history_pkey; Type: CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.token_auth_history
+    ADD CONSTRAINT token_auth_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: token_change_history token_change_history_pkey; Type: CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.token_change_history
+    ADD CONSTRAINT token_change_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: token token_pkey; Type: CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.token
+    ADD CONSTRAINT token_pkey PRIMARY KEY (token);
+
+
+--
+-- Name: token token_username_token_name_key; Type: CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.token
+    ADD CONSTRAINT token_username_token_name_key UNIQUE (username, token_name);
+
+
+--
+-- Name: admin_history_by_time; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX admin_history_by_time ON public.admin_history USING btree (event_time, id);
+
+
+--
+-- Name: subtoken_by_parent; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX subtoken_by_parent ON public.subtoken USING btree (parent);
+
+
+--
+-- Name: token_auth_history_by_time; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX token_auth_history_by_time ON public.token_auth_history USING btree (event_time, id);
+
+
+--
+-- Name: token_auth_history_by_token; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX token_auth_history_by_token ON public.token_auth_history USING btree (token, event_time, id);
+
+
+--
+-- Name: token_auth_history_by_username; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX token_auth_history_by_username ON public.token_auth_history USING btree (username, event_time, id);
+
+
+--
+-- Name: token_by_username; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX token_by_username ON public.token USING btree (username, token_type);
+
+
+--
+-- Name: token_change_history_by_time; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX token_change_history_by_time ON public.token_change_history USING btree (event_time, id);
+
+
+--
+-- Name: token_change_history_by_token; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX token_change_history_by_token ON public.token_change_history USING btree (token, event_time, id);
+
+
+--
+-- Name: token_change_history_by_username; Type: INDEX; Schema: public; Owner: gafaelfawr
+--
+
+CREATE INDEX token_change_history_by_username ON public.token_change_history USING btree (username, event_time, id);
+
+
+--
+-- Name: subtoken subtoken_child_fkey; Type: FK CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.subtoken
+    ADD CONSTRAINT subtoken_child_fkey FOREIGN KEY (child) REFERENCES public.token(token) ON DELETE CASCADE;
+
+
+--
+-- Name: subtoken subtoken_parent_fkey; Type: FK CONSTRAINT; Schema: public; Owner: gafaelfawr
+--
+
+ALTER TABLE ONLY public.subtoken
+    ADD CONSTRAINT subtoken_parent_fkey FOREIGN KEY (parent) REFERENCES public.token(token) ON DELETE SET NULL;
+
+
+--
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: gafaelfawr
+--
+
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+
+
+--
+-- PostgreSQL database dump complete
+--
+

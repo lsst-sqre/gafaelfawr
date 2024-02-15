@@ -5,11 +5,11 @@ import logging
 from urllib.parse import quote, urlparse
 
 import structlog
+from alembic import context
 from safir.database import create_database_engine
 from safir.logging import LogLevel, add_log_severity
 from sqlalchemy.engine import Connection
 
-from alembic import context
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.schema import Base
 

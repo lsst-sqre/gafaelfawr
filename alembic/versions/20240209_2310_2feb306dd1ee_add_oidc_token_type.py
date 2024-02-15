@@ -17,7 +17,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TYPE tokentype ADD VALUE 'oidc' IF NOT EXISTS")
+    op.execute("ALTER TYPE tokentype ADD VALUE IF NOT EXISTS 'oidc'")
 
 
 def downgrade() -> None:
