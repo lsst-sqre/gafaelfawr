@@ -11,10 +11,10 @@ help:
 # npm dependencies have to be installed for pre-commit eslint to work.
 .PHONY: init
 init:
-	pip install --upgrade pip
-	pip install --upgrade pre-commit tox tox-docker docker
-	pip install --editable .
-	pip install --upgrade -r requirements/main.txt -r requirements/dev.txt
+	pip install --upgrade uv
+	uv pip install pre-commit tox tox-docker docker
+	uv pip install --editable .
+	uv pip install -r requirements/main.txt -r requirements/dev.txt
 	rm -rf .tox
 	pre-commit install
 	cd ui && npm install --legacy-peer-deps
@@ -42,23 +42,20 @@ update: update-deps init
 # allowed to appear in a hashed dependency file.
 .PHONY: update-deps
 update-deps:
-	pip install --upgrade pre-commit
+	pip install --upgrade uv
+	uv pip install pre-commit setuptools
 	pre-commit autoupdate
-	pip install --upgrade pip-tools pip setuptools
-	pip-compile --upgrade --resolver=backtracking --build-isolation	\
-	    --allow-unsafe --generate-hashes				\
+	uv pip compile --upgrade --generate-hashes			\
 	    --output-file requirements/main.txt requirements/main.in
-	pip-compile --upgrade --resolver=backtracking --build-isolation	\
-	    --allow-unsafe --generate-hashes				\
+	uv pip compile --upgrade --generate-hashes			\
 	    --output-file requirements/dev.txt requirements/dev.in
 
 # Useful for testing against a Git version of Safir.
 .PHONY: update-deps-no-hashes
 update-deps-no-hashes:
-	pip install --upgrade pip-tools pip setuptools
-	pip-compile --upgrade --resolver=backtracking --build-isolation	\
-	    --allow-unsafe						\
+	pip install --upgrade uv
+	uv pip install pre-commit setuptools
+	uv pip compile --upgrade					\
 	    --output-file requirements/main.txt requirements/main.in
-	pip-compile --upgrade --resolver=backtracking --build-isolation	\
-	    --allow-unsafe						\
+	uv pip compile --upgrade					\
 	    --output-file requirements/dev.txt requirements/dev.in
