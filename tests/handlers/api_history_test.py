@@ -14,7 +14,7 @@ from httpx import AsyncClient
 from safir.database import datetime_to_db
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
-from sqlalchemy.future import select
+from sqlalchemy import select
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.history import TokenChangeHistoryEntry

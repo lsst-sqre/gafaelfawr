@@ -19,8 +19,8 @@ from safir.database import create_async_session
 from safir.dependencies.http_client import http_client_dependency
 from safir.redis import EncryptedPydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
-from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
 from .cache import IdCache, InternalTokenCache, LDAPCache, NotebookTokenCache

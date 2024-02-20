@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_scoped_session
-from sqlalchemy.future import select
 
 from ..models.admin import Admin
 from ..schema import Admin as SQLAdmin
