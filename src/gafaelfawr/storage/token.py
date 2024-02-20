@@ -8,9 +8,8 @@ from safir.database import datetime_to_db
 from safir.datetime import current_datetime
 from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_scoped_session
-from sqlalchemy.future import select
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DuplicateTokenNameError

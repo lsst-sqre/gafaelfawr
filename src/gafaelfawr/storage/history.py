@@ -5,9 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 
 from safir.database import datetime_from_db, datetime_to_db
-from sqlalchemy import and_, delete, func, or_
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import async_scoped_session
-from sqlalchemy.future import select
 from sqlalchemy.sql import Select, text
 
 from ..models.history import (
