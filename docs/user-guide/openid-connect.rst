@@ -86,18 +86,7 @@ Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com``
 * ``TOKEN_SECRET``: ``pCY29u3qMTdWCNetOUD3OShsqwPm+pYKDNt6dqy01qw=``
 
 ``GENERIC_CLIENT_ID`` and ``GENERIC_CLIENT_SECRET`` should match a client ID and secret configured in the ``oidc-server-secrets`` Vault key.
+The ``return_uri`` value for this entry in the ``oidc-server-secrets`` Vault key should be set to the ``PUBLIC_URL`` value above with ``/oauth/OIDC?callback`` appended.
 
 Be aware that this uses the ``sub`` token claim, which corresponds to the user's username, for authentication, rather than the default of the user's email address.
 Gafaelfawr does not always have an email address for a user.
-
-Open Distro for Elasticsearch
------------------------------
-
-Assuming that Gafaelfawr and Open Distro for Elasticsearch are deployed on the host ``example.com``, here are the settings required to configure `Open Distro for Elasticsearch <https://opendistro.github.io/for-elasticsearch-docs/docs/security/configuration/openid-connect/>`__:
-
-* ``opendistro_security.auth.type``: ``openid``
-* ``opendistro_security.openid.connect_url``: ``https://example.com/.well-known/openid-configuration``
-* ``opendistro_security.openid.client_id``: ``kibana-client-id``
-* ``opendistro_security.openid.client_secret``: ``fb7518beb61d27aaf20675d62778dea9``
-* ``opendistro_security.openid.scope``: ``openid``
-* ``opendistro_security.openid.logout_url``: ``https://example.com/logout``
