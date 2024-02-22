@@ -15,7 +15,7 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from safir.database import create_database_engine, initialize_database
 from safir.dependencies.db_session import db_session_dependency
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
@@ -62,7 +62,8 @@ async def app(
 async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
     base_url = f"https://{TEST_HOSTNAME}"
-    async with AsyncClient(app=app, base_url=base_url) as client:
+    transport = ASGITransport(app=app)  # type: ignore[arg-type]
+    async with AsyncClient(transport=transport, base_url=base_url) as client:
         yield client
 
 
