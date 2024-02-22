@@ -21,6 +21,7 @@ from safir.dependencies.db_session import db_session_dependency
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from seleniumwire import webdriver
 from sqlalchemy import Connection, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
@@ -106,7 +107,14 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
-            await factory.session.execute(text("DROP TABLE alembic_version"))
+            try:
+                sql = "DROP TABLE alembic_version"
+                await factory.session.execute(text(sql))
+            except ProgrammingError:
+                # Ignore failures to drop the alembic_version table becuase it
+                # doesn't exist.
+                pass
+        async with factory.session.begin():
             await admin_service.add_initial_admins(config.initial_admins)
         await factory._context.redis.flushdb()
 
