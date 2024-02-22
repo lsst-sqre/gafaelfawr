@@ -27,7 +27,7 @@ from ..support.kubernetes import (
 @requires_kubernetes
 @pytest.mark.asyncio
 async def test_create(
-    config: Config, api_client: ApiClient, namespace: str
+    config: Config, empty_database: None, api_client: ApiClient, namespace: str
 ) -> None:
     ingresses = operator_test_input("ingresses", namespace)
     await create_custom_resources(api_client, ingresses)
@@ -49,7 +49,7 @@ async def test_create(
 @requires_kubernetes
 @pytest.mark.asyncio
 async def test_replace(
-    config: Config, api_client: ApiClient, namespace: str
+    config: Config, empty_database: None, api_client: ApiClient, namespace: str
 ) -> None:
     ingress = operator_test_input("ingresses", namespace)[0]
     expected = operator_test_output("ingresses", namespace)[0]
@@ -117,7 +117,7 @@ async def test_replace(
 @requires_kubernetes
 @pytest.mark.asyncio
 async def test_resume(
-    config: Config, api_client: ApiClient, namespace: str
+    config: Config, empty_database: None, api_client: ApiClient, namespace: str
 ) -> None:
     """Test periodic rechecking of Ingress resources."""
     ingress = operator_test_input("ingresses", namespace)[0]
@@ -145,7 +145,7 @@ async def test_resume(
 @requires_kubernetes
 @pytest.mark.asyncio
 async def test_errors_scope(
-    config: Config, api_client: ApiClient, namespace: str
+    config: Config, empty_database: None, api_client: ApiClient, namespace: str
 ) -> None:
     networking_api = client.NetworkingV1Api(api_client)
     ingress = operator_test_input("ingress-error-scope", namespace)[0]
