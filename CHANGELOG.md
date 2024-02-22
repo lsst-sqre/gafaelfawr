@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-10.0.1'></a>
+## 10.0.1 (2024-02-22)
+
+### Bug fixes
+
+- Fix check for current database schema when starting the web application.
+
 <a id='changelog-10.0.0'></a>
 ## 10.0.0 (2024-02-22)
 
