@@ -6,6 +6,38 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-10.0.0'></a>
+## 10.0.0 (2024-02-22)
+
+### Backwards-incompatible changes
+
+- Clients of the Gafaelfawr OpenID Connect server now must have registered return URIs as well as client IDs and secrets. Each element of the `oidc-server-secrets` secret must, in addition to the previous `id` and `secret` keys, contain a `return_uri` key that matches the return URL of authentications from that client. Those return URLs are now allowed to be at any (matching) domain and are not constrained to the same domain as Gafaelfawr.
+- When acting as an OpenID Connect server, Gafaelfawr no longer exposes all claims by default. Instead, it now honors the `scope` parameter in the request, which must include `openid` and may include `profile` and `email`.
+- In the reply to a successful OpenID Connect authentication, return a Gafaelfawr token of a new `oidc` type as the access token instead of a copy of the ID token. This `oidc` token will be marked as a child token of the underlying Gafaelfawr token used to authenticate the OpenID Connect login, which means it will automatically be revoked if the user logs out.
+- Only accept Gafaelfawr tokens of the `oidc` type for the OpenID Connect server userinfo endpoint.
+- Return only userinfo claims from the OpenID Connect server userinfo endpoint instead of the full set of claims that would go into an ID token. Currently, the userinfo claims are not filtered based on the requested scopes; all available userinfo claims are returned.
+- Set the `aud` claim in OpenID Connect ID tokens issued by Gafaelfawr to the client ID of the requesting client instead of a fixed audience used for all tokens.
+- OpenID Connect ID tokens issued by Gafaelfawr now inherit their expiration time from the underlying Gafaelfawr token used as the authentication basis for the ID token. Previously, OpenID Connect ID tokens would receive the full default lifetime even when issued on the basis of Gafaelfawr tokens that were about to expire.
+- Require the `oidcServer.issuer` configuration setting use the `https` scheme, since this is required by the OpenID Connect 1.0 specification.
+
+### New features
+
+- Add a new `rubin` scope for the OpenID Connect server that, if requested, provides a `data_rights` claim listing the data releases to which the user has rights. Add a new `config.oidcServer.dataRightsMapping` configuration option that is used to determine that list of data releases from a user's group memberships.
+- Add support for a client-supplied nonce in OpenID Connect authentication with Gafaelfawr as a server. The provided nonce is passed through to the ID token following the OpenID Connect specification.
+- Check the database schema at startup to ensure that it is current, and refuse to start if the schema is out of date.
+- Add new `gafaelfawr update-schema` command that creates the database if necessary and otherwise applies any needed Alembic migrations.
+- Add new `gafaelfawr validate-schema` command that exits non-zero if the database has not been initialized or if the schema is not up-to-date.
+
+### Bug fixes
+
+- Include the scope used to issue the ID token in the reply from the OpenID Connect server token endpoint.
+- In the response from `/.well-known/openid-configuration`, declare that the only supported response mode of the OpenID Connect server is `query`.
+
+### Other changes
+
+- Gafaelfawr now uses [Alembic](https://alembic.sqlalchemy.org/en/latest/index.html) to perform database migrations as needed.
+- Gafaelfawr now uses [uv](https://github.com/astral-sh/uv) to maintain frozen dependencies and set up a development environment.
+
 <a id='changelog-9.6.1'></a>
 ## 9.6.1 (2023-12-08)
 

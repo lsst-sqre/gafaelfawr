@@ -385,10 +385,8 @@ async def test_token_info(
 
     # Test getting a list of tokens for a user.
     state = State(token=session_token)
-    r = await client.get(
-        "/auth/api/v1/users/example/tokens",
-        cookies={COOKIE_NAME: state.to_cookie()},
-    )
+    client.cookies.set(COOKIE_NAME, state.to_cookie(), domain=TEST_HOSTNAME)
+    r = await client.get("/auth/api/v1/users/example/tokens")
 
 
 @pytest.mark.asyncio

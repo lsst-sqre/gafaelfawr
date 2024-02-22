@@ -70,9 +70,8 @@ async def test_login_no_auth(
 
     # A token with no underlying Redis representation is ignored.
     state = State(token=Token())
-    r = await client.get(
-        "/auth/api/v1/login", cookies={COOKIE_NAME: state.to_cookie()}
-    )
+    client.cookies.set(COOKIE_NAME, state.to_cookie(), domain=TEST_HOSTNAME)
+    r = await client.get("/auth/api/v1/login")
     assert_unauthorized_is_correct(r, config)
 
     # Likewise with a cookie containing a malformed token.  This requires a
@@ -81,18 +80,14 @@ async def test_login_no_auth(
     fernet = Fernet(key)
     data = {"token": "bad-token"}
     bad_cookie = fernet.encrypt(json.dumps(data).encode()).decode()
-    r = await client.get(
-        "/auth/api/v1/login",
-        cookies={COOKIE_NAME: bad_cookie},
-    )
+    client.cookies.set(COOKIE_NAME, bad_cookie, domain=TEST_HOSTNAME)
+    r = await client.get("/auth/api/v1/login")
     assert_unauthorized_is_correct(r, config)
 
     # And finally check with a mangled state that won't decrypt.
     bad_cookie = "XXX" + state.to_cookie()
-    r = await client.get(
-        "/auth/api/v1/login",
-        cookies={COOKIE_NAME: bad_cookie},
-    )
+    client.cookies.set(COOKIE_NAME, bad_cookie, domain=TEST_HOSTNAME)
+    r = await client.get("/auth/api/v1/login")
     assert_unauthorized_is_correct(r, config)
 
     # None of these errors should have resulted in Slack alerts.
