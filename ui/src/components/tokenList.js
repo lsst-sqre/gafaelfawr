@@ -26,6 +26,7 @@ const TokenList = function () {
         session: tokenList.filter((t) => t.token_type === 'session'),
         notebook: tokenList.filter((t) => t.token_type === 'notebook'),
         internal: tokenList.filter((t) => t.token_type === 'internal'),
+        oidc: tokenList.filter((t) => t.token_type === 'oidc'),
       }))
       .then(setData)
       .catch((e) => alert.show(e.message));
@@ -78,6 +79,16 @@ const TokenList = function () {
           <TokenTable
             id="tokens-internal"
             data={tokens.internal}
+            onDeleteToken={deleteToken}
+          />
+        </>
+      ) : null}
+      {tokens.oidc.length ? (
+        <>
+          <h2>OpenID Connect Tokens</h2>
+          <TokenTable
+            id="tokens-oidc"
+            data={tokens.oidc}
             onDeleteToken={deleteToken}
           />
         </>

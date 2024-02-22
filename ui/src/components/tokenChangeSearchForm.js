@@ -36,6 +36,7 @@ const TokenChangeSearchForm = function ({ initialValues, onSubmit }) {
             <option value="user">User tokens</option>
             <option value="notebook">Notebook tokens</option>
             <option value="internal">Internal tokens</option>
+            <option value="oidc">OpenID Connect tokens</option>
           </Field>
           <ErrorMessage name="tokenType" component="div" />
           <br />
