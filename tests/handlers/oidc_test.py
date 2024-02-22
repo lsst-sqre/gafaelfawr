@@ -32,7 +32,7 @@ from gafaelfawr.util import number_to_base64
 
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
-from ..support.cookies import set_session_cookie
+from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.headers import (
     assert_unauthorized_is_correct,
     parse_www_authenticate,
@@ -167,6 +167,7 @@ async def test_login(
         client_secret="some-secret",
         expires=token_data.expires,
     )
+    clear_session_cookie(client)
 
     # Check the ID token claims.
     id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
@@ -243,6 +244,44 @@ async def test_login(
         "preferred_username": token_data.username,
         "sub": token_data.username,
     }
+
+    # Verify that the token was correctly recorded in the database.
+    r = await client.get(
+        "/auth/api/v1/token-info",
+        headers={"Authorization": f"Bearer {reply.access_token}"},
+    )
+    assert r.status_code == 200
+    access_token = Token.from_str(reply.access_token)
+    assert r.json() == {
+        "token": access_token.key,
+        "username": token_data.username,
+        "token_type": "oidc",
+        "scopes": [],
+        "created": ANY,
+        "expires": int(token_data.expires.timestamp()),
+        "parent": token_data.token.key,
+    }
+
+    # Verify that the token has a history entry attached.
+    r = await client.get(
+        f"/auth/api/v1/users/{token_data.username}/token-change-history",
+        params={"username": token_data.username, "token_type": "oidc"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == [
+        {
+            "action": "create",
+            "actor": token_data.username,
+            "event_time": ANY,
+            "expires": int(token_data.expires.timestamp()),
+            "ip_address": "127.0.0.1",
+            "scopes": [],
+            "token": access_token.key,
+            "token_type": "oidc",
+            "username": token_data.username,
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -946,6 +985,7 @@ async def test_data_rights(
         "sub": token_data.username,
     }
 
+    clear_session_cookie(client)
     r = await client.get(
         "/auth/openid/userinfo",
         headers={"Authorization": f"Bearer {reply.access_token}"},
@@ -988,6 +1028,7 @@ async def test_data_rights(
         "sub": token_data.username,
     }
 
+    clear_session_cookie(client)
     r = await client.get(
         "/auth/openid/userinfo",
         headers={"Authorization": f"Bearer {reply.access_token}"},
