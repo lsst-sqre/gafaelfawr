@@ -74,7 +74,7 @@ def create_app(
         config = config_dependency.config()
         if validate_schema:
             logger = structlog.get_logger("gafaelfawr")
-            if not is_database_current(config, logger):
+            if not await is_database_current(config, logger):
                 raise DatabaseSchemaError("Database schema out of date")
         await context_dependency.initialize(config)
         await db_session_dependency.initialize(
