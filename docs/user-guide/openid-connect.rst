@@ -86,7 +86,7 @@ Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com``
 * ``TOKEN_SECRET``: ``pCY29u3qMTdWCNetOUD3OShsqwPm+pYKDNt6dqy01qw=``
 
 ``GENERIC_CLIENT_ID`` and ``GENERIC_CLIENT_SECRET`` should match a client ID and secret configured in the ``oidc-server-secrets`` Vault key.
-The ``return_uri`` value for this entry in the ``oidc-server-secrets`` Vault key should be set to the ``PUBLIC_URL`` value above with ``/oauth/OIDC?callback`` appended.
+The ``return_uri`` value for this entry in the ``oidc-server-secrets`` Vault key should be set to the ``PUBLIC_URL`` value above with ``/oauth/OIDC/callback`` appended.
 
 Be aware that this uses the ``sub`` token claim, which corresponds to the user's username, for authentication, rather than the default of the user's email address.
 Gafaelfawr does not always have an email address for a user.
