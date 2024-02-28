@@ -5,11 +5,8 @@ Helm configuration
 ##################
 
 Gafaelfawr is configured as a Phalanx_ application, using the Helm chart in `the Phalanx repository <https://github.com/lsst-sqre/phalanx/tree/main/applications/gafaelfawr/>`__.
-You will need to provide a ``values-<environment>.yaml`` file for your Phalanx environment.
-Below are the most-commonly-used settings.
-
-For a complete reference, see the `Gafaelfawr application documentation <https://phalanx.lsst.io/applications/gafaelfawr/index.html>`__.
-For examples, see the other ``values-<environment>.yaml`` files in that directory.
+You will need to provide a :file:`values-{environment}.yaml` file for your Phalanx environment.
+For examples, see the other :file:`values-{environment}.yaml` files in that directory.
 
 In the below examples, the full key hierarchy is shown for each setting.
 For example:
@@ -20,8 +17,11 @@ For example:
      cilogon:
        test: true
 
-When writing a ``values-<environment>.yaml`` chart, you should coalesce all settings so that each level of the hierarchy appears only once.
+When writing a :file:`values-{environment}.yaml` chart, you should coalesce all settings so that each level of the hierarchy appears only once.
 For example, there should be one top-level ``config:`` key and all parameters that start with ``config.`` should go under that key.
+
+You should also read the `Gafaelfawr application documentation <https://phalanx.lsst.io/applications/gafaelfawr/index.html>`__.
+In particular, when bootstrapping a new Phalanx environment, see the `Gafaelfawr bootstrapping instructions <https://phalanx.lsst.io/applications/gafaelfawr/bootstrap.html>`__.
 
 .. _basic-settings:
 
@@ -49,6 +49,18 @@ Alternately, if Gafaelfawr should use the cluster-internal PostgreSQL service, o
      internalDatabase: true
 
 This option is primarily for test and development deployments and is not recommended for production use.
+
+To enable database schema creation or upgrades, add:
+
+.. code-block:: yaml
+
+   config:
+     upgradeSchema: true
+
+This will enable a Helm pre-install and pre-upgrade hook that will initialize or update the database schema before the rest of Gafaelfawr is installed or updated.
+This setting should be left off by default and only enabled when you know you want to initialize the database from scratch or update the schema.
+When updating the schema of an existing installation, all Gafaelfawr components should be stopped before syncing Gafaelfawr.
+See `the Phalanx documentation <https://phalanx.lsst.io/applications/gafaelfawr/manage-schema.html>`__ for step-by-step instructions.
 
 Error pages
 -----------

@@ -16,6 +16,8 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 <a id='changelog-10.0.0'></a>
 ## 10.0.0 (2024-02-22)
 
+Upgrading to this version requires a [database schema migration](https://phalanx.lsst.io/applications/gafaelfawr/manage-schema.html).
+
 ### Backwards-incompatible changes
 
 - Clients of the Gafaelfawr OpenID Connect server now must have registered return URIs as well as client IDs and secrets. Each element of the `oidc-server-secrets` secret must, in addition to the previous `id` and `secret` keys, contain a `return_uri` key that matches the return URL of authentications from that client. Those return URLs are now allowed to be at any (matching) domain and are not constrained to the same domain as Gafaelfawr.
