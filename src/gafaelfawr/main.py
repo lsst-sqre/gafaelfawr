@@ -28,7 +28,7 @@ from .database import is_database_current
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
 from .exceptions import DatabaseSchemaError
-from .handlers import analyze, api, auth, cadc, index, login, logout, oidc
+from .handlers import analyze, api, auth, cadc, internal, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
 
@@ -139,7 +139,7 @@ def create_app(
     )
     app.include_router(auth.router)
     app.include_router(cadc.router)
-    app.include_router(index.router)
+    app.include_router(internal.router)
     app.include_router(login.router)
     app.include_router(logout.router)
     app.include_router(oidc.router)

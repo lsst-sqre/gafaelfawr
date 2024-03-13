@@ -266,7 +266,11 @@ class TokenDatabaseStore:
         return await self._session.scalar(stmt)
 
     async def list_tokens(
-        self, *, username: str | None = None
+        self,
+        *,
+        username: str | None = None,
+        token_type: TokenType | None = None,
+        limit: int | None = None,
     ) -> list[TokenInfo]:
         """List tokens.
 
@@ -274,6 +278,10 @@ class TokenDatabaseStore:
         ----------
         username
             Limit the returned tokens to ones for the given username.
+        token_type
+            Limit the returned tokens to ones of the given type.
+        limit
+            Limit the number of tokens returned to this count.
 
         Returns
         -------
@@ -283,11 +291,15 @@ class TokenDatabaseStore:
         stmt = select(SQLToken)
         if username:
             stmt = stmt.where(SQLToken.username == username)
+        if token_type:
+            stmt = stmt.where(SQLToken.token_type == token_type)
         stmt = stmt.order_by(
             SQLToken.last_used.desc(),
             SQLToken.created.desc(),
             SQLToken.token,
         )
+        if limit:
+            stmt = stmt.limit(limit)
         result = await self._session.scalars(stmt)
         return [TokenInfo.model_validate(t) for t in result.all()]
 
