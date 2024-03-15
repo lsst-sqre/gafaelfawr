@@ -6,6 +6,11 @@ from typing import Any
 
 import kopf
 
+from ..factory import Factory
+from ..models.health import HealthCheck, HealthStatus
+
+__all__ = ["get_health"]
+
 
 @kopf.on.probe(id="health")
 async def get_health(memo: kopf.Memo, **_: Any) -> dict[str, Any]:
@@ -19,5 +24,8 @@ async def get_health(memo: kopf.Memo, **_: Any) -> dict[str, Any]:
     memo
         Holds global state.
     """
-    health_check_service = memo.factory.create_health_check_service()
-    return await health_check_service.health().model_dump()
+    factory: Factory = memo.factory
+
+    health_check_service = factory.create_health_check_service()
+    await health_check_service.check()
+    return HealthCheck(status=HealthStatus.HEALTHY).model_dump()
