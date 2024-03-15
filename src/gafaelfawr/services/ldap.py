@@ -48,7 +48,7 @@ class LDAPService:
         self._logger = logger
 
     async def get_group_names(
-        self, username: str, gid: int | None
+        self, username: str, gid: int | None, *, uncached: bool = False
     ) -> list[str]:
         """Get the names of user groups from LDAP.
 
@@ -61,12 +61,16 @@ class LDAPService:
             GID and add it to the user's group memberships.  This handles LDAP
             configurations where the user's primary group is represented only
             by their GID and not their group memberships.
+        uncached
+            Bypass the cache, used for health checks.
 
         Returns
         -------
         list of str
             The names of the user's groups according to LDAP.
         """
+        if uncached:
+            return await self._ldap.get_group_names(username, gid)
         groups = self._group_name_cache.get(username)
         if groups is not None:
             return groups
@@ -79,7 +83,7 @@ class LDAPService:
             return groups
 
     async def get_groups(
-        self, username: str, gid: int | None
+        self, username: str, gid: int | None, *, uncached: bool = False
     ) -> list[TokenGroup]:
         """Get user group membership and GIDs from LDAP.
 
@@ -93,6 +97,8 @@ class LDAPService:
             with this GID and add it to the user's group memberships.  This
             handles LDAP configurations where the user's primary group is
             represented only by their GID and not their group memberships.
+        uncached
+            Bypass the cache, used for health checks.
 
         Returns
         -------
@@ -104,6 +110,8 @@ class LDAPService:
         LDAPError
             An error occurred when retrieving user information from LDAP.
         """
+        if uncached:
+            return await self._ldap.get_groups(username, gid)
         groups = self._group_cache.get(username)
         if groups is not None:
             return groups
@@ -115,7 +123,9 @@ class LDAPService:
             self._group_cache.store(username, groups)
             return groups
 
-    async def get_data(self, username: str) -> LDAPUserData:
+    async def get_data(
+        self, username: str, *, uncached: bool = False
+    ) -> LDAPUserData:
         """Get configured data from LDAP.
 
         Returns all data configured to be retrieved from LDAP.
@@ -124,12 +134,16 @@ class LDAPService:
         ----------
         username
             Username of the user.
+        uncached
+            Bypass the cache, used for health checks.
 
         Returns
         -------
         LDAPUserData
             The retrieved data.
         """
+        if uncached:
+            return await self._ldap.get_data(username)
         data = self._user_cache.get(username)
         if data:
             return data

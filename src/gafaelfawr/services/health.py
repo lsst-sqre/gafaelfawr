@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from ..models.token import TokenType
-from ..storage.ldap import LDAPStorage
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
+from .userinfo import UserInfoService
 
 __all__ = ["HealthCheckService"]
 
@@ -17,24 +17,24 @@ class HealthCheckService:
 
     Parameters
     ----------
-    ldap
-        LDAP store for user metadata, if LDAP was configured.
     token_db_store
         Database backing store for tokens.
     token_redis_store
         Redis backing store for tokens.
+    user_info_service
+        Service for retrieving user information from LDAP and Firestore.
     """
 
     def __init__(
         self,
         *,
-        ldap: LDAPStorage | None,
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
+        user_info_service: UserInfoService,
     ) -> None:
-        self._ldap = ldap
         self._db = token_db_store
         self._redis = token_redis_store
+        self._userinfo = user_info_service
 
     async def check(self) -> None:
         """Check the health of the underlying database and Redis.
@@ -54,7 +54,6 @@ class HealthCheckService:
         if not tokens:
             return
         token_info = tokens[0]
-        await self._redis.get_data_by_key(token_info.token)
-        if self._ldap:
-            user_info = await self._ldap.get_data(token_info.username)
-            await self._ldap.get_groups(token_info.username, user_info.gid)
+        data = await self._redis.get_data_by_key(token_info.token)
+        if data:
+            await self._userinfo.get_user_info_from_token(data, uncached=True)
