@@ -104,6 +104,9 @@ Python internal API
 .. automodapi:: gafaelfawr.services.firestore
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.services.health
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.services.kubernetes
    :include-all-objects:
 

@@ -43,6 +43,7 @@ from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Admin as SQLAdmin
 from .services.admin import AdminService
 from .services.firestore import FirestoreService
+from .services.health import HealthCheckService
 from .services.kubernetes import (
     KubernetesIngressService,
     KubernetesTokenService,
@@ -351,6 +352,38 @@ class Factory:
         if not self._context.config.firestore:
             raise NotConfiguredError("Firestore is not configured")
         return FirestoreStorage(self._context.config.firestore, self._logger)
+
+    def create_health_check_service(self) -> HealthCheckService:
+        """Create a service for performing health checks.
+
+        Returns
+        -------
+        HealthCheckService
+            Newly-created health check service.
+        """
+        ldap = None
+        if self._context.config.ldap and self._context.ldap_pool:
+            ldap = LDAPStorage(
+                self._context.config.ldap,
+                self._context.ldap_pool,
+                self._logger,
+            )
+        token_db_store = TokenDatabaseStore(self.session)
+        storage = EncryptedPydanticRedisStorage(
+            datatype=TokenData,
+            redis=self._context.redis,
+            encryption_key=self._context.config.session_secret,
+            key_prefix="token:",
+        )
+        slack_client = self.create_slack_client()
+        token_redis_store = TokenRedisStore(
+            storage, slack_client, self._logger
+        )
+        return HealthCheckService(
+            ldap=ldap,
+            token_db_store=token_db_store,
+            token_redis_store=token_redis_store,
+        )
 
     def create_kubernetes_ingress_service(
         self, api_client: ApiClient
