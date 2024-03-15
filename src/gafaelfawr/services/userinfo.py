@@ -77,7 +77,7 @@ class UserInfoService:
         self._logger = logger
 
     async def get_user_info_from_token(
-        self, token_data: TokenData
+        self, token_data: TokenData, *, uncached: bool = False
     ) -> TokenUserInfo:
         """Get the user information from a token.
 
@@ -89,6 +89,8 @@ class UserInfoService:
         ----------
         token_data
             Data from the authentication token.
+        uncached
+            Bypass the cache, used for health checks.
 
         Returns
         -------
@@ -106,7 +108,7 @@ class UserInfoService:
         username = token_data.username
         uid = token_data.uid
         if uid is None and self._firestore:
-            uid = await self._firestore.get_uid(username)
+            uid = await self._firestore.get_uid(username, uncached=uncached)
 
         # If LDAP is not in use, whatever is stored with the token is all the
         # data that we have.
@@ -125,7 +127,7 @@ class UserInfoService:
         # the data stored with the token.
         gid = token_data.gid
         if not token_data.name or not token_data.email or not uid or not gid:
-            ldap_data = await self._ldap.get_data(username)
+            ldap_data = await self._ldap.get_data(username, uncached=uncached)
             if not uid:
                 uid = ldap_data.uid
             if not gid:
@@ -133,7 +135,9 @@ class UserInfoService:
 
         groups = token_data.groups
         if groups is None:
-            groups = await self._get_groups_from_ldap(username, gid)
+            groups = await self._get_groups_from_ldap(
+                username, gid, uncached=uncached
+            )
 
             # When adding the user private group, be careful not to change
             # the groups array, since it may be cached in the LDAP cache
@@ -287,7 +291,7 @@ class UserInfoService:
         return Quota(api=api, notebook=notebook)
 
     async def _get_groups_from_ldap(
-        self, username: str, primary_gid: int | None
+        self, username: str, primary_gid: int | None, *, uncached: bool = False
     ) -> list[TokenGroup]:
         """Get user group information from LDAP.
 
@@ -303,6 +307,8 @@ class UserInfoService:
             this GID and add it to the user's group memberships. This handles
             LDAP configurations where the user's primary group is represented
             only by their GID and not their group memberships.
+        uncached
+            Bypass the cache, used for health checks.
 
         Returns
         -------
@@ -319,18 +325,24 @@ class UserInfoService:
         if not self._ldap:
             raise RuntimeError("LDAP not configured")
         if self._firestore:
-            names = await self._ldap.get_group_names(username, primary_gid)
+            names = await self._ldap.get_group_names(
+                username, primary_gid, uncached=uncached
+            )
             groups = []
             for group_name in names:
                 try:
-                    group_gid = await self._firestore.get_gid(group_name)
+                    group_gid = await self._firestore.get_gid(
+                        group_name, uncached=uncached
+                    )
                 except FirestoreError as e:
                     e.user = username
                     raise
                 groups.append(TokenGroup(name=group_name, id=group_gid))
             return groups
         else:
-            return await self._ldap.get_groups(username, primary_gid)
+            return await self._ldap.get_groups(
+                username, primary_gid, uncached=uncached
+            )
 
 
 class OIDCUserInfoService(UserInfoService):

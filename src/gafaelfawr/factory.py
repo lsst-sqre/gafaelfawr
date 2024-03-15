@@ -361,28 +361,10 @@ class Factory:
         HealthCheckService
             Newly-created health check service.
         """
-        ldap = None
-        if self._context.config.ldap and self._context.ldap_pool:
-            ldap = LDAPStorage(
-                self._context.config.ldap,
-                self._context.ldap_pool,
-                self._logger,
-            )
-        token_db_store = TokenDatabaseStore(self.session)
-        storage = EncryptedPydanticRedisStorage(
-            datatype=TokenData,
-            redis=self._context.redis,
-            encryption_key=self._context.config.session_secret,
-            key_prefix="token:",
-        )
-        slack_client = self.create_slack_client()
-        token_redis_store = TokenRedisStore(
-            storage, slack_client, self._logger
-        )
         return HealthCheckService(
-            ldap=ldap,
-            token_db_store=token_db_store,
-            token_redis_store=token_redis_store,
+            user_info_service=self.create_user_info_service(),
+            token_db_store=TokenDatabaseStore(self.session),
+            token_redis_store=self.create_token_redis_store(),
         )
 
     def create_kubernetes_ingress_service(
@@ -613,6 +595,23 @@ class Factory:
             logger=self._logger,
         )
 
+    def create_token_redis_store(self) -> TokenRedisStore:
+        """Create a token Redis store.
+
+        Returns
+        -------
+        TokenRedisStore
+            New token database store.
+        """
+        storage = EncryptedPydanticRedisStorage(
+            datatype=TokenData,
+            redis=self._context.redis,
+            encryption_key=self._context.config.session_secret,
+            key_prefix="token:",
+        )
+        slack_client = self.create_slack_client()
+        return TokenRedisStore(storage, slack_client, self._logger)
+
     def create_token_service(self) -> TokenService:
         """Create a TokenService.
 
@@ -622,17 +621,8 @@ class Factory:
             The new token manager.
         """
         token_db_store = TokenDatabaseStore(self.session)
-        storage = EncryptedPydanticRedisStorage(
-            datatype=TokenData,
-            redis=self._context.redis,
-            encryption_key=self._context.config.session_secret,
-            key_prefix="token:",
-        )
-        slack_client = self.create_slack_client()
-        token_redis_store = TokenRedisStore(
-            storage, slack_client, self._logger
-        )
         token_change_store = TokenChangeHistoryStore(self.session)
+        token_redis_store = self.create_token_redis_store()
         token_cache_service = TokenCacheService(
             config=self._context.config,
             internal_cache=self._context.internal_token_cache,

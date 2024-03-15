@@ -45,13 +45,15 @@ class FirestoreService:
         self._storage = storage
         self._logger = logger
 
-    async def get_gid(self, group: str) -> int:
+    async def get_gid(self, group: str, *, uncached: bool = False) -> int:
         """Get the GID for a given user from Firestore.
 
         Parameters
         ----------
         group
             Group of the user.
+        uncached
+            Bypass the cache, used for health checks.
 
         Returns
         -------
@@ -63,6 +65,8 @@ class FirestoreService:
         NoAvailableGidError
             No more GIDs are available in that range.
         """
+        if uncached:
+            return await self._storage.get_gid(group)
         gid = self._gid_cache.get(group)
         if gid:
             return gid
@@ -74,13 +78,15 @@ class FirestoreService:
             self._gid_cache.store(group, gid)
             return gid
 
-    async def get_uid(self, username: str) -> int:
+    async def get_uid(self, username: str, *, uncached: bool = False) -> int:
         """Get the UID for a given user.
 
         Parameters
         ----------
         username
             Username of the user.
+        uncached
+            Bypass the cache, used for health checks.
 
         Returns
         -------
@@ -92,6 +98,9 @@ class FirestoreService:
         NoAvailableUidError
             No more UIDs are available in that range.
         """
+        bot = is_bot_user(username)
+        if uncached:
+            return await self._storage.get_uid(username, bot=bot)
         uid = self._uid_cache.get(username)
         if uid:
             return uid
