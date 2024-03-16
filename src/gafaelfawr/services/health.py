@@ -36,11 +36,18 @@ class HealthCheckService:
         self._redis = token_redis_store
         self._userinfo = user_info_service
 
-    async def check(self) -> None:
+    async def check(self, *, check_user_info: bool = True) -> None:
         """Check the health of the underlying database and Redis.
 
         Raises an exception of some kind if one of the underlying services is
         unavailable.
+
+        Parameters
+        ----------
+        check_user_info
+            Whether to check the connections to the user metadata backends.
+            This is disabled for the Kubernetes operator, which doesn't need
+            access to those.
         """
         tokens = await self._db.list_tokens(
             token_type=TokenType.session, limit=1
@@ -55,5 +62,5 @@ class HealthCheckService:
             return
         token_info = tokens[0]
         data = await self._redis.get_data_by_key(token_info.token)
-        if data:
+        if data and check_user_info:
             await self._userinfo.get_user_info_from_token(data, uncached=True)

@@ -27,5 +27,5 @@ async def get_health(memo: kopf.Memo, **_: Any) -> dict[str, Any]:
     factory: Factory = memo.factory
 
     health_check_service = factory.create_health_check_service()
-    await health_check_service.check()
+    await health_check_service.check(check_user_info=False)
     return HealthCheck(status=HealthStatus.HEALTHY).model_dump()
