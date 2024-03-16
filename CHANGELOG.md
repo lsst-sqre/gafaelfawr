@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-10.1.0'></a>
+## 10.1.0 (2024-03-15)
+
+### New features
+
+- Add a health check internal route, `/health`, which is available only inside the Kubernetes cluster. Check that the database, Redis, and (if configured) LDAP and Firestore connections are all working. Use that as a liveness check so that Kubernetes will restart Gafaelfawr if any of those connection pools are no longer working.
+- Add a health check for the Kubernetes operator that tests the Kopf infrastructure as well as the database and Redis connections. Use that as a liveness check to restart the operator if the health check starts failing.
+
+### Bug fixes
+
+- Ensure that only one Gafaelfawr operator pod is running at a time.
+- Add Kubernetes resource requests and limits for the Cloud SQL Auth Proxy sidecar container.
+
 <a id='changelog-10.0.1'></a>
 ## 10.0.1 (2024-02-22)
 
