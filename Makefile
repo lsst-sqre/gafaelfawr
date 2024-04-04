@@ -12,9 +12,8 @@ help:
 .PHONY: init
 init:
 	pip install --upgrade uv
-	uv pip install pre-commit tox tox-docker docker
-	uv pip install --editable .
 	uv pip install -r requirements/main.txt -r requirements/dev.txt
+	uv pip install --editable .
 	rm -rf .tox
 	pre-commit install
 	cd ui && npm install --legacy-peer-deps
@@ -43,7 +42,7 @@ update: update-deps init
 .PHONY: update-deps
 update-deps:
 	pip install --upgrade uv
-	uv pip install pre-commit setuptools
+	uv pip install --upgrade pre-commit
 	pre-commit autoupdate
 	uv pip compile --upgrade --generate-hashes			\
 	    --output-file requirements/main.txt requirements/main.in
@@ -54,7 +53,6 @@ update-deps:
 .PHONY: update-deps-no-hashes
 update-deps-no-hashes:
 	pip install --upgrade uv
-	uv pip install pre-commit setuptools
 	uv pip compile --upgrade					\
 	    --output-file requirements/main.txt requirements/main.in
 	uv pip compile --upgrade					\
