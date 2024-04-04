@@ -11,6 +11,7 @@
 asgi-lifespan
 coverage[toml]
 mypy
+pre-commit
 pytest
 pytest-asyncio
 pytest-cov
@@ -19,6 +20,8 @@ respx
 ruff
 selenium-wire
 sqlalchemy[mypy]
+tox
+tox-docker
 types-cachetools
 types-PyYAML
 
@@ -27,7 +30,7 @@ holdup
 
 # Documentation
 autodoc_pydantic
-documenteer[guide]>=1.0.0
+documenteer[guide]>1
 scriv[toml]
 sphinx-click
 sphinx-diagrams
