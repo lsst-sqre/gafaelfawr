@@ -22,6 +22,7 @@ selenium-wire
 sqlalchemy[mypy]
 tox
 tox-docker
+tox-uv
 types-cachetools
 types-PyYAML
 

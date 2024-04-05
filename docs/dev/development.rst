@@ -143,7 +143,7 @@ To set up Minikube:
 
    .. prompt:: bash
 
-   minikube addons enable ingress
+      minikube addons enable ingress
 
 To run all of the tests including Kubernetes tests, first check that your default Kubernetes environment is the one in which you want to run tests:
 

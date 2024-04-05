@@ -741,7 +741,7 @@ Maintenance
 ===========
 
 Timing
-^^^^^^
+------
 
 Gafaelfawr uses two Kubernetes ``CronJob`` resources to perform periodic maintenance and consistency checks on its data stores.
 
@@ -757,7 +757,7 @@ Its schedule can be set with ``config.maintenance.auditSchedule`` (a `cron sched
 .. _cron schedule expression: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
 
 Time limits
-^^^^^^^^^^^
+-----------
 
 By default, Gafaelfawr allows its maintenance and audit jobs five minutes to run, and cleans up any completed jobs older than one day.
 Kubernetes also deletes completed and failed jobs as necessary to maintain a cap on the number retained, which normally overrides the cleanup timing for the maintenance job that runs hourly.
