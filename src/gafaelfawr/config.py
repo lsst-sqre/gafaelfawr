@@ -123,7 +123,7 @@ class OIDCSettings(CamelCaseModel):
         title="Scopes to request",
         description=(
             "Scopes to request from the authentication provider. The"
-            " `openid` scope will always be added and does not need to be"
+            " ``openid`` scope will always be added and does not need to be"
             " specified."
         ),
     )
@@ -327,8 +327,8 @@ class OIDCServerSettings(CamelCaseModel):
         description=(
             "Mapping of group names to keywords for data releases, indicating"
             " membership in that group grants access to that data release."
-            " Used to construct the `data_rights` claim, which can be"
-            " requested by asking for the `rubin` scope."
+            " Used to construct the ``data_rights`` claim, which can be"
+            " requested by asking for the ``rubin`` scope."
         ),
         examples=[{"g_users": ["dp0.1", "dp0.2", "dp0.3"]}],
     )

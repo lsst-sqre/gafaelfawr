@@ -226,19 +226,6 @@ class TokenBase(BaseModel):
 
     token_type: TokenType = Field(
         ...,
-        description=(
-            "Class of token, chosen from:\n\n"
-            "* `session`: An interactive user web session\n"
-            "* `user`: A user-generated token that may be used"
-            " programmatically\n"
-            "* `notebook`: The token delegated to a Jupyter notebook for"
-            " the user\n"
-            "* `internal`: A service-to-service token used for internal"
-            " sub-calls made as part of processing a user request\n"
-            "* `service`: A service-to-service token used for internal calls"
-            " initiated by services, unrelated to a user request\n"
-            "* `oidc`: Access token for an OpenID Connect client\n"
-        ),
         title="Token type",
         examples=["session"],
     )
@@ -519,7 +506,7 @@ class AdminTokenRequest(BaseModel):
         title="User for which to issue a token",
         description=(
             "The username may only contain lowercase letters, digits,"
-            " and dash (`-`), and may not start or end with a dash"
+            " and hyphen-minus, and may not start or end with a dash"
         ),
         examples=["some-service"],
         min_length=1,
@@ -530,21 +517,14 @@ class AdminTokenRequest(BaseModel):
     token_type: TokenType = Field(
         ...,
         title="Token type",
-        description=(
-            "Must be either `service` or `user`"
-            "\n\n"
-            "* `service`: A service-to-service token used for internal calls"
-            " initiated by services, unrelated to a user request\n"
-            "* `user`: A user-generated token that may be used"
-            " programmatically\n"
-        ),
+        description="Must be either ``service`` or ``user``",
         examples=["service"],
     )
 
     token_name: str | None = Field(
         None,
         title="User-given name of the token",
-        description="Only provide this field for a token type of `user`",
+        description="Only provide this field for a token type of ``user``",
         examples=["laptop token"],
         min_length=1,
         max_length=64,

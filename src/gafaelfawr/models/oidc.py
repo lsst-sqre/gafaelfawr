@@ -24,6 +24,7 @@ __all__ = [
     "OIDCConfig",
     "OIDCScope",
     "OIDCToken",
+    "OIDCTokenReply",
     "OIDCVerifiedToken",
 ]
 
@@ -32,7 +33,7 @@ class OIDCScope(StrEnum):
     """A recognized OpenID Connect scope.
 
     This should not be directly exposed in the model of any endpoint. Instead,
-    the `str` scope parameter should be parsed with the `parse_scopes` class
+    the `str` scope parameter should be parsed with the ``parse_scopes`` class
     method to yield a list of `OIDCScope` objects.
     """
 
@@ -287,7 +288,7 @@ class OIDCTokenReply(BaseModel):
     token_type: str = Field(
         "Bearer",
         title="Type of token",
-        description="Will always be `Bearer`",
+        description="Will always be ``Bearer``",
         examples=["Bearer"],
     )
 
@@ -318,21 +319,21 @@ class JWK(BaseModel):
     alg: str = Field(
         ...,
         title="Algorithm",
-        description=f"Will always be `{ALGORITHM}`",
+        description=f"Will always be ``{ALGORITHM}``",
         examples=[ALGORITHM],
     )
 
     kty: str = Field(
         ...,
         title="Key type",
-        description="Will always be `RSA`",
+        description="Will always be ``RSA``",
         examples=["RSA"],
     )
 
     use: str = Field(
         ...,
         title="Key usage",
-        description="Will always be `sig` (signatures)",
+        description="Will always be ``sig`` (signatures)",
         examples=["sig"],
     )
 
@@ -431,41 +432,41 @@ class OIDCConfig(BaseModel):
     response_types_supported: list[str] = Field(
         ["code"],
         title="Supported response types",
-        description="`code` is the only supported response type",
+        description="``code`` is the only supported response type",
         examples=[["code"]],
     )
 
     response_modes_supported: list[str] = Field(
         ["query"],
         title="Supported response modes",
-        description="`query` is the only supported response mode",
+        description="``query`` is the only supported response mode",
         examples=[["query"]],
     )
 
     grant_types_supported: list[str] = Field(
         ["authorization_code"],
         title="Supported grant types",
-        description="`authorization_code` is the only supported grant type",
+        description="``authorization_code`` is the only supported grant type",
         examples=[["authorization_code"]],
     )
 
     subject_types_supported: list[str] = Field(
         ["public"],
         title="Supported subject types",
-        description="`public` is the only supported subject type",
+        description="``public`` is the only supported subject type",
         examples=[["public"]],
     )
 
     id_token_signing_alg_values_supported: list[str] = Field(
         [ALGORITHM],
         title="Supported JWT signing algorithms",
-        description=f"`{ALGORITHM}` is the only supported signing algorithm",
+        description=f"``{ALGORITHM}`` is the only supported signing algorithm",
         examples=[[ALGORITHM]],
     )
 
     token_endpoint_auth_methods_supported: list[str] = Field(
         ["client_secret_post"],
         title="Supported client auth methods",
-        description="`client_secret_post` is the only supported auth method",
+        description="``client_secret_post`` is the only supported auth method",
         examples=[["client_secret_post"]],
     )

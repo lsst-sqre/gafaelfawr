@@ -160,7 +160,7 @@ class OIDCService:
         InvalidClientIdError
             Raised if the provided client ID is not registered as an OpenID
             Connect client.
-        RedirectUriMismatchError
+        ReturnUriMismatchError
             Raised if the provided redirect URI does not match the one
             registered for this client.
         """
