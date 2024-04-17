@@ -12,9 +12,11 @@ help:
 .PHONY: init
 init:
 	pip install --upgrade uv
-	uv pip install -r requirements/main.txt -r requirements/dev.txt
+	uv pip install -r requirements/main.txt -r requirements/dev.txt \
+	    -r requirements/tox.txt
 	uv pip install --editable .
 	rm -rf .tox
+	uv pip install --upgrade pre-commit
 	pre-commit install
 	cd ui && npm install --legacy-peer-deps
 
@@ -48,6 +50,8 @@ update-deps:
 	    --output-file requirements/main.txt requirements/main.in
 	uv pip compile --upgrade --generate-hashes			\
 	    --output-file requirements/dev.txt requirements/dev.in
+	uv pip compile --upgrade --generate-hashes			\
+	    --output-file requirements/tox.txt requirements/tox.in
 
 # Useful for testing against a Git version of Safir.
 .PHONY: update-deps-no-hashes
@@ -57,3 +61,5 @@ update-deps-no-hashes:
 	    --output-file requirements/main.txt requirements/main.in
 	uv pip compile --upgrade					\
 	    --output-file requirements/dev.txt requirements/dev.in
+	uv pip compile --upgrade					\
+	    --output-file requirements/tox.txt requirements/tox.in

@@ -116,7 +116,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           tox-envs: "typing,py-full,coverage-report"
-          tox-plugins: "tox-docker tox-uv"
+          tox-requirements: "requirements/tox.txt"
           cache-key-prefix: test
 
   docs:
@@ -139,7 +139,7 @@ jobs:
         with:
           python-version: "3.12"
           tox-envs: docs
-          tox-plugins: "tox-docker tox-uv"
+          tox-requirements: "requirements/tox.txt"
           cache-key-prefix: docs
 
       # Only attempt documentation uploads for long-lived branches, tagged
@@ -175,7 +175,7 @@ jobs:
         with:
           python-version: "3.12"
           tox-envs: docs-linkcheck
-          tox-plugins: tox-uv
+          tox-requirements: "requirements/tox.txt"
 
   build:
     runs-on: ubuntu-latest

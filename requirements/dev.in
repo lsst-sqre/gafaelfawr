@@ -1,6 +1,9 @@
-# Editable development dependencies
+# Editable development dependencies.  -*- conf -*-
+#
 # Add direct development, test, and documentation dependencies here, as well
-# as implicit dev dependencies with constrained versions.
+# as implicit dev dependencies with constrained versions. Do not add tox or
+# its plugins here; instead, put those in tox.in. Do not add pre-commit here;
+# it is handled by the top-level Makefile.
 #
 # After editing, update requirements/dev.txt by running:
 #     make update-deps
@@ -11,18 +14,13 @@
 asgi-lifespan
 coverage[toml]
 mypy
-pre-commit
 pytest
 pytest-asyncio
 pytest-cov
 pytest-sugar
 respx
-ruff
 selenium-wire
 sqlalchemy[mypy]
-tox
-tox-docker
-tox-uv
 types-cachetools
 types-PyYAML
 

@@ -905,7 +905,7 @@ async def test_delegate_authorization(
     )
     assert r.status_code == 200
     notebook_token = r.headers["X-Auth-Request-Token"]
-    assert notebook_token != token_data.token
+    assert notebook_token != str(token_data.token)
     assert r.headers["Authorization"] == f"Bearer {notebook_token}"
 
     r = await client.get(
@@ -923,7 +923,7 @@ async def test_delegate_authorization(
     )
     assert r.status_code == 200
     internal_token = r.headers["X-Auth-Request-Token"]
-    assert internal_token != token_data.token
+    assert internal_token != str(token_data.token)
     assert internal_token != notebook_token
     assert r.headers["Authorization"] == f"Bearer {internal_token}"
 
