@@ -79,7 +79,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           tox-envs: "lint,typing,py-full,docs,docs-linkcheck"
-          tox-plugins: "tox-docker tox-uv"
+          tox-requirements: "requirements/tox.txt"
           use-cache: false
 
       - name: Report status
