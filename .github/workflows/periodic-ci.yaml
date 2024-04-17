@@ -71,7 +71,7 @@ jobs:
         working-directory: ./ui
 
       - name: Set up Minikube
-        uses: medyagh/setup-minikube@v0.0.15
+        uses: medyagh/setup-minikube@v0.0.16
         with:
           kubernetes-version: "v1.27.3"
 
