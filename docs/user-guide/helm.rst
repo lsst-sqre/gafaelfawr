@@ -199,6 +199,9 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
 Generic OpenID Connect
 ----------------------
 
+Gafaelfawr should be able to support most OpenID Connect servers as sources of authentication.
+This support has primarily been tested with Keycloak_.
+
 .. code-block:: yaml
 
    config:

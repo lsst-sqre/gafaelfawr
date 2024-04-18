@@ -20,14 +20,14 @@ CILogon
 If you will use CILogon as the authentication provider, you will need to register with CILogon to get a client ID and secret.
 
 Normally, CILogon is used in conjunction with COmanage, and Gafaelfawr should be registered as a OIDC client in the settings of the corresponding COmanage instance.
-For details on how to do this, see SQR-055_.
-
-.. _SQR-055: https://sqr-055.lsst.io/
+For details on how to do this, see :sqr:`055`.
 
 Other OpenID Connect provider
 -----------------------------
 
 Gafaelfawr supports client authentication using an arbitrary OpenID Connect provider, as long as the provider supports a ``response_type`` of ``code``, a ``grant_type`` of ``authorization_code``, accepts a ``client_secret`` for authentication, and returns tokens that contain a username and numeric UID.
+This support is primarily tested with Keycloak_.
+
 You will need the following information from the OpenID Connect provider:
 
 - Client ID that Gafaelfawr will use to authenticate
