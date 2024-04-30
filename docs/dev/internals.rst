@@ -134,9 +134,6 @@ Python internal API
 .. automodapi:: gafaelfawr.storage.firestore
    :include-all-objects:
 
-.. automodapi:: gafaelfawr.storage.forgerock
-   :include-all-objects:
-
 .. automodapi:: gafaelfawr.storage.history
    :include-all-objects:
 

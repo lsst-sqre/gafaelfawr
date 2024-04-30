@@ -17,7 +17,6 @@ from gafaelfawr.factory import Factory
 
 from ..support.config import reconfigure
 from ..support.firestore import MockFirestore
-from ..support.forgerock import mock_forgerock
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.logging import parse_log
 from ..support.oidc import mock_oidc_provider_token, simulate_oidc_login
@@ -826,33 +825,6 @@ async def test_firestore(
             {"name": "foo", "id": GID_MIN + 1},
             {"name": "group-2", "id": GID_MIN + 3},
         ],
-    }
-
-
-@pytest.mark.asyncio
-async def test_forgerock(
-    tmp_path: Path,
-    factory: Factory,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-) -> None:
-    config = await reconfigure(tmp_path, "oidc-forgerock", factory)
-    assert config.oidc
-    token = create_upstream_oidc_jwt(groups=["admin", "foo"])
-    mock_forgerock(config, respx_mock, {"foo": 6768})
-
-    r = await simulate_oidc_login(client, respx_mock, token)
-    assert r.status_code == 307
-
-    # Check the resulting GIDs.
-    username = token.claims[config.oidc.username_claim]
-    r = await client.get("/auth/api/v1/user-info")
-    assert r.status_code == 200
-    assert r.json() == {
-        "username": username,
-        "email": token.claims["email"],
-        "uid": int(token.claims[config.oidc.uid_claim]),
-        "groups": [{"name": "admin"}, {"name": "foo", "id": 6768}],
     }
 
 

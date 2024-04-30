@@ -24,11 +24,6 @@ The Phalanx installer expects a Vault secret named ``gafaelfawr`` in the relevan
     The GitHub secret, obtained when creating the OAuth App as described above.
     This is only required if you're using GitHub for authentication.
 
-``forgerock-password`` (optional)
-    The password used for HTTP Basic authentication to a ForgeRock Identity Management server when resolving group names to GIDs.
-    Only used if ForgeRock Identity Management support is enabled.
-    See :ref:`forgerock` for more information.
-
 ``ldap-keytab`` (optional)
     The Kerberos keytab used for Kerberos GSSAPI binds to an LDAP server.
     This should be the file contents of a keytab file encoded in base64 without line wrapping, using a command such as ``base64 -w 0 < keytab-file``.

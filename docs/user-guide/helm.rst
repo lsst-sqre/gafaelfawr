@@ -447,36 +447,6 @@ To enable use of Firestore for UID/GID assignment, add the following configurati
 Set ``<google-project-id>`` to the name of the Google project for the Firestore data store.
 (Best practice is to make a dedicated project solely for Firestore, since there can only be one Firestore instance per Google project.)
 
-.. _forgerock:
-
-ForgeRock Identity Management GID queries
-=========================================
-
-Gafaelfawr can get the GID corresponding to a group from a ForgeRock Identity Management server.
-Only GIDs, not UIDs, can be looked up this way.
-When using this configuration, UIDs should be present in the OpenID Connect claim from the upstream authentication system.
-
-When this support is enabled, the GID for each group found in the token issued by the OpenID Connect provider during login will be looked up in a ForgeRock Identity Management server.
-Specifically, Gafaelfawr will query the ``groups`` collection of the ``freeipa`` component.
-The request will be authenticated with HTTP Basic authentication.
-
-To enable this support, add the following configuration:
-
-.. code-block:: yaml
-
-   config:
-     forgerock:
-       url: "<url-of-forgerock-server>"
-       username: "<username>"
-
-Set ``<url-of-forgerock-server>`` to the base URL of the ForgeRock Identity Management REST API.
-``/system/freeipa/groups`` will be added to find the ``groups`` collection.
-
-``<username>`` should be the username used for HTTP Basic authentication.
-The corresponding password must be set in the ``forgerock-password`` field of the Gafaelfawr Vault secret (see :ref:`vault-secrets`).
-
-GID lookups in ForgeRock Identity Management is only supported in conjunction with OpenID Connect authentication.
-
 .. _scopes:
 
 Scopes
