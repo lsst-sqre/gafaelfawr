@@ -26,7 +26,6 @@ from ..models.token import (
     TokenGroup,
     TokenUserInfo,
 )
-from ..storage.forgerock import ForgeRockStorage
 from .firestore import FirestoreService
 from .ldap import LDAPService
 
@@ -360,9 +359,6 @@ class OIDCUserInfoService(UserInfoService):
         LDAP service for user metadata, if LDAP was configured.
     firestore
         Service for Firestore UID/GID lookups, if Firestore was configured.
-    forgerock
-        Service for ForgeRock Identity Management service queries, if
-        ForgeRock was configured.
     logger
         Logger to use.
     """
@@ -373,7 +369,6 @@ class OIDCUserInfoService(UserInfoService):
         config: Config,
         ldap: LDAPService | None,
         firestore: FirestoreService | None,
-        forgerock: ForgeRockStorage | None,
         logger: BoundLogger,
     ) -> None:
         super().__init__(
@@ -382,7 +377,6 @@ class OIDCUserInfoService(UserInfoService):
             firestore=firestore,
             logger=logger,
         )
-        self._forgerock = forgerock
         if not config.oidc:
             raise NotConfiguredError("OpenID Connect not configured")
         self._oidc_config = config.oidc
@@ -545,14 +539,11 @@ class OIDCUserInfoService(UserInfoService):
                 return None
             name = group["name"].removeprefix("/")
 
-        # Now, try to resolve that group name to a GID. Prefer ForgeRock if
-        # configured, then try Firestore if configured, and if not try to
-        # extract the GID from the OpenID Connect claim. Failing all of those,
-        # create a group without a GID.
+        # Now, try to resolve that group name to a GID. Try Firestore if
+        # configured, and if not try to extract the GID from the OpenID
+        # Connect claim. Failing all of those, create a group without a GID.
         gid = None
-        if self._forgerock:
-            gid = await self._forgerock.get_gid(name)
-        elif self._firestore:
+        if self._firestore:
             gid = await self._firestore.get_gid(name)
         elif isinstance(group, dict) and "id" in group:
             gid = int(group["id"])

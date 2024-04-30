@@ -18,8 +18,6 @@ __all__ = [
     "FetchKeysError",
     "FirestoreError",
     "FirestoreNotInitializedError",
-    "ForgeRockError",
-    "ForgeRockWebError",
     "GitHubError",
     "GitHubWebError",
     "InputValidationError",
@@ -335,14 +333,6 @@ class FirestoreError(ExternalUserInfoError):
 
 class FirestoreNotInitializedError(FirestoreError):
     """Firestore has not been initialized."""
-
-
-class ForgeRockError(ExternalUserInfoError):
-    """An error occurred querying ForgeRock Identity Management."""
-
-
-class ForgeRockWebError(ForgeRockError, SlackWebException):
-    """An HTTP error occurred querying ForgeRock Identity Management."""
 
 
 class NoAvailableGidError(FirestoreError):

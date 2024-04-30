@@ -55,7 +55,6 @@ from .services.token_cache import TokenCacheService
 from .services.userinfo import OIDCUserInfoService, UserInfoService
 from .storage.admin import AdminStore
 from .storage.firestore import FirestoreStorage
-from .storage.forgerock import ForgeRockStorage
 from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
 from .storage.kubernetes import (
     KubernetesIngressStorage,
@@ -464,13 +463,6 @@ class Factory:
         firestore = None
         if self._context.config.firestore:
             firestore = self.create_firestore_service()
-        forgerock = None
-        if self._context.config.forgerock:
-            forgerock = ForgeRockStorage(
-                config=self._context.config.forgerock,
-                http_client=self._context.http_client,
-                logger=self._logger,
-            )
         ldap = None
         if self._context.config.ldap and self._context.ldap_pool:
             ldap_storage = LDAPStorage(
@@ -489,7 +481,6 @@ class Factory:
             config=self._context.config,
             ldap=ldap,
             firestore=firestore,
-            forgerock=forgerock,
             logger=self._logger,
         )
 

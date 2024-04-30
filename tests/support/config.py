@@ -113,7 +113,6 @@ def build_config(
     slack_webhook_file = store_secret(
         tmp_path, "slack-webhook", b"https://slack.example.com/webhook"
     )
-    forgerock_password_file = store_secret(tmp_path, "forgerock", b"password")
 
     oidc_path = tmp_path / "oidc.json"
     if oidc_clients:
@@ -138,7 +137,6 @@ def build_config(
         oidc_secret_file=oidc_secret_file,
         oidc_server_secrets_file=oidc_path if oidc_clients else "",
         slack_webhook_file=slack_webhook_file,
-        forgerock_password_file=forgerock_password_file,
     )
 
     if settings:
