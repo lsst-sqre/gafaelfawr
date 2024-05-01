@@ -9,13 +9,8 @@ from sqlalchemy.ext.asyncio import async_scoped_session
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
-from gafaelfawr.models.token import (
-    Token,
-    TokenData,
-    TokenGroup,
-    TokenType,
-    TokenUserInfo,
-)
+from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
+from gafaelfawr.models.userinfo import Group
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
@@ -117,7 +112,7 @@ async def create_session_token(
     if not username:
         username = "some-user"
     if group_names:
-        groups = [TokenGroup(name=g, id=1000) for g in group_names]
+        groups = [Group(name=g, id=1000) for g in group_names]
     else:
         groups = []
     if minimal:

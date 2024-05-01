@@ -14,6 +14,7 @@ The Gafaelfawr code structure follows the guidelines in :sqr:`072`.
    requirements
    configuration
    providers
+   userinfo
    scopes
    logging
 

@@ -20,7 +20,8 @@ from ..exceptions import (
     NotConfiguredError,
     PermissionDeniedError,
 )
-from ..models.token import CADCUserInfo, TokenData
+from ..models.token import TokenData
+from ..models.userinfo import CADCUserInfo
 
 __all__ = ["router"]
 

@@ -15,7 +15,8 @@ from ..exceptions import GitHubError, GitHubWebError, PermissionDeniedError
 from ..models.github import GitHubTeam, GitHubUserInfo
 from ..models.link import LinkData
 from ..models.state import State
-from ..models.token import TokenGroup, TokenUserInfo
+from ..models.token import TokenUserInfo
+from ..models.userinfo import Group
 from .base import Provider
 
 __all__ = ["GitHubProvider"]
@@ -142,7 +143,7 @@ class GitHubProvider(Provider):
         invalid_groups = {}
         for team in user_info.teams:
             try:
-                groups.append(TokenGroup(name=team.group_name, id=team.gid))
+                groups.append(Group(name=team.group_name, id=team.gid))
             except ValidationError as e:
                 invalid_groups[team.group_name] = str(e)
         if invalid_groups:
@@ -158,7 +159,7 @@ class GitHubProvider(Provider):
         # the space of both is large enough that we take the risk.
         if not re.match(USERNAME_REGEX, username):
             raise PermissionDeniedError(f"Invalid username: {username}")
-        groups.append(TokenGroup(name=username, id=user_info.uid))
+        groups.append(Group(name=username, id=user_info.uid))
 
         # Save the token in the session so that we can revoke it later.
         session.github = github_token

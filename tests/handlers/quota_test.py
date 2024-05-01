@@ -8,7 +8,8 @@ import pytest
 from httpx import AsyncClient
 
 from gafaelfawr.factory import Factory
-from gafaelfawr.models.token import TokenGroup, TokenUserInfo
+from gafaelfawr.models.token import TokenUserInfo
+from gafaelfawr.models.userinfo import Group
 
 from ..support.config import reconfigure
 
@@ -19,7 +20,7 @@ async def test_info(
 ) -> None:
     await reconfigure(tmp_path, "github-quota", factory)
     user_info = TokenUserInfo(
-        username="example", groups=[TokenGroup(name="bar", id=12312)]
+        username="example", groups=[Group(name="bar", id=12312)]
     )
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -40,7 +41,7 @@ async def test_info(
         },
     }
 
-    user_info.groups = [TokenGroup(name="foo", id=12313)]
+    user_info.groups = [Group(name="foo", id=12313)]
     async with factory.session.begin():
         token = await token_service.create_session_token(
             user_info, scopes=["user:token"], ip_address="127.0.0.1"

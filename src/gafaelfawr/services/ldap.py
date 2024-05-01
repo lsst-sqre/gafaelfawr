@@ -6,7 +6,7 @@ from structlog.stdlib import BoundLogger
 
 from ..cache import LDAPCache
 from ..models.ldap import LDAPUserData
-from ..models.token import TokenGroup
+from ..models.userinfo import Group
 from ..storage.ldap import LDAPStorage
 
 __all__ = ["LDAPService"]
@@ -36,7 +36,7 @@ class LDAPService:
         self,
         *,
         ldap: LDAPStorage,
-        group_cache: LDAPCache[list[TokenGroup]],
+        group_cache: LDAPCache[list[Group]],
         group_name_cache: LDAPCache[list[str]],
         user_cache: LDAPCache[LDAPUserData],
         logger: BoundLogger,
@@ -84,7 +84,7 @@ class LDAPService:
 
     async def get_groups(
         self, username: str, gid: int | None, *, uncached: bool = False
-    ) -> list[TokenGroup]:
+    ) -> list[Group]:
         """Get user group membership and GIDs from LDAP.
 
         Parameters
@@ -102,7 +102,7 @@ class LDAPService:
 
         Returns
         -------
-        list of TokenGroup
+        list of Group
             Groups of the user.
 
         Raises

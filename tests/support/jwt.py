@@ -18,10 +18,7 @@ __all__ = ["create_upstream_oidc_jwt"]
 
 
 def create_upstream_oidc_jwt(
-    *,
-    kid: str = "orig-kid",
-    groups: list[str] | None = None,
-    **claims: Any,
+    *, kid: str = "orig-kid", **claims: Any
 ) -> OIDCVerifiedToken:
     """Create a signed token using the OpenID Connect issuer.
 
@@ -32,8 +29,6 @@ def create_upstream_oidc_jwt(
     ----------
     kid
         Key ID for the token header.
-    groups
-        Group memberships the generated token should have.
     **claims
         Other claims to set or override in the token.
 
@@ -59,10 +54,6 @@ def create_upstream_oidc_jwt(
         "uid": "some-user",
         "uidNumber": "1000",
     }
-    if groups:
-        payload["isMemberOf"] = [
-            {"name": g, "id": 1000 + n} for n, g in enumerate(groups)
-        ]
     payload.update(claims)
     for claim, value in claims.items():
         if value is None:

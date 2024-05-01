@@ -111,7 +111,7 @@ This value is only used when initializing a new Gafaelfawr database that does no
 Setting this is optional; you can instead use the bootstrap token (see :ref:`bootstrapping`) to perform any administrative actions through the API.
 
 Resource requests and limits
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 Every component of Gafaelfawr defines Kubernetes resource requests and limits.
 Look for the ``resources`` key at the top level of the chart and in the portions of the chart for the underlying Gafaelfawr components.
@@ -152,18 +152,8 @@ CILogon
 
 using the CILogon client ID from :ref:`cilogon-config`.
 
-When CILogon is used as the provider, group membership should normally be obtained from LDAP (see :ref:`LDAP groups <ldap-groups>`).
-However, it optionally can be obtained from information embedded in the OpenID Connect ID token.
-To do the latter, CILogon (generally via COmanage) should be configured to add a token claim in the following format:
-
-.. code-block:: json
-
-   {"isMemberOf": [
-       {"name": "one-group", "id": 1344},
-       {"name": "other-group", "id": 3718},
-   ]}
-
-The name of the claim can be overridden with ``config.cilogon.groupsClaim`` as discussed below.
+CILogon support assumes that COmanage is being used as the identity management system.
+Additional information about the authenticated user will be obtained from LDAP (see :ref:`ldap`).
 
 CILogon has some additional options under ``config.cilogon`` that you may want to set:
 
@@ -176,21 +166,6 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
     If a username was not found for the CILogon unique identifier, redirect the user to this URL.
     This is intended for deployments using CILogon with COmanage for identity management.
     The enrollment URL will normally be the initial URL for a COmanage user-initiated enrollment flow.
-
-``config.cilogon.gidClaim``
-    The claim of the OpenID Connect ID token from which to take the primary GID.
-    Only used if :ref:`GID lookup in LDAP <ldap-user>` is not configured.
-    The default is to not obtain a primary GID from the token.
-
-``config.cilogon.uidClaim``
-    The claim of the OpenID Connect ID token from which to take the numeric UID.
-    Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
-    The default is ``uidNumber``.
-
-``config.cilogon.groupsClaim``
-    The claim of the OpenID Connect ID token from which to take the group membership information.
-    Only used if :ref:`LDAP groups <ldap-groups>` are not configured.
-    The default is ``isMemberOf``.
 
 ``config.cilogon.usernameClaim``
     The claim of the OpenID Connect ID token from which to take the username.
@@ -215,31 +190,7 @@ This support has primarily been tested with Keycloak_.
          - "<scope-to-request>"
          - "<scope-to-request>"
 
-Group information from the user can come from either LDAP (see :ref:`LDAP groups <ldap-groups>`) or from a claim in the OpenID Connect ID token.
-For the latter option, the claim should preferrably have the following format:
-
-.. code-block:: json
-
-   {"isMemberOf": [
-       {"name": "one-group", "id": 1344},
-       {"name": "other-group", "id": 3718},
-   ]}
-
-The name of the claim can be overridden with ``config.oidc.groupsClaim`` as discussed below.
-Optionally, the value of the claim can be a simple list of group names instead of a structure including the GIDs, but in this case Gafaelfawr will not have access to the GID information and will not be able to provide it to protected services.
-
-If group names in the token claim start with a slash, the name is canonicalized by removing the slash.
-Keycloak tends to mangle group names in this way.
-
-.. warning::
-
-   Prefer to use LDAP for user metadata and group information instead of using token attributes.
-   We have encountered numerous problems and severe limitations with obtaining user metadata from OpenID Connect tokens.
-
-   As one specific example, it does not appear to be possible to use OpenID Connect tokens issued by LDAP-backed Keycloak to provide group membership information with GIDs.
-   Keycloak does not appear to be capable of associating group names with GID information from the group tree of an LDAP server.
-   The best it can do is provide uncorrelated lists of group names and GIDs, which is not sufficient for Gafaelfawr's needs.
-   If you are using Keycloak plus LDAP, giving Gafaelfawr direct access to LDAP for user metadata and using Keycloak only for authentication is *strongly recommended*.
+Additional information for the user must come from LDAP (see :ref:`ldap`).
 
 There are some additional options under ``config.oidc`` that you may want to set:
 
@@ -251,25 +202,6 @@ There are some additional options under ``config.oidc`` that you may want to set
     If a username was not found for the unique identifier in the ``sub`` claim of the OpenID Connect ID token, redirect the user to this URL.
     This could, for example, be a form where the user can register for access to the deployment, or a page explaining how a user can get access.
 
-``config.oidc.gidClaim``
-    The claim of the OpenID Connect ID token from which to take the primary GID.
-    Only used if :ref:`GID lookup in LDAP <ldap-user>` is not configured.
-    The default is to not obtain a primary GID from the token.
-
-``config.oidc.uidClaim``
-    The claim of the OpenID Connect ID token from which to take the numeric UID.
-    Only used if :ref:`UID lookup in LDAP <ldap-user>` is not configured.
-    The default is ``uidNumber``.
-
-``config.cilogon.groupsClaim``
-    The claim of the OpenID Connect ID token from which to take the group membership information.
-    Only used if :ref:`LDAP groups <ldap-groups>` are not configured.
-    The default is ``isMemberOf``.
-
-    Be aware that although Gafaelfawr can parse a simple list of groups and will provide that information via its token information endpoints, this is not sufficient for the Notebook Aspect of the Science Platform.
-    The OpenID Connect provider must be capable of generating structured group information, including both the group name and the GID, in the format Gafaelfawr expects.
-    If this is not possible (and it usually is not), use LDAP instead.
-
 ``config.oidc.usernameClaim``
     The claim of the OpenID Connect ID token from which to take the username.
     The default is ``uid``.
@@ -279,16 +211,8 @@ There are some additional options under ``config.oidc`` that you may want to set
 LDAP
 ====
 
-The preferred way for Gafaelfawr to get metadata about users (full name, email address, group membership, UID and GID, etc.) when using CILogon or OpenID Connect is from an LDAP server.
+When using OpenID Connect (either CILogon or generic), metadata about users (full name, email address, group membership, UID and GID, etc.) must come from an LDAP server.
 If the GitHub authentication provider is used, this information instead comes from GitHub and LDAP is not supported.
-
-If LDAP is enabled, group membership is always taken from LDAP (see :ref:`ldap-groups`) instead of the ID token from the upstream authentication provider.
-Other information about the user may also be retrieved from LDAP if configured (see :ref:`ldap-user`).
-
-.. warning::
-
-   If you are using CILogon or OpenID Connect as the authentication provider and have an LDAP server available, it is *strongly recommended* to use LDAP as the source of both user and group metadata rather than trying to use OpenID Connect token data.
-   Using CILogon or OpenID Connect only for authentication and retrieving all additional information from LDAP is the most heavily tested and lowest-friction Gafaelfawr configuration apart from the GitHub support.
 
 LDAP authentication
 -------------------
@@ -346,7 +270,7 @@ If this is set, ``ldap-keytab`` must be set in the Gafaelfawr Vault secret to th
 LDAP groups
 -----------
 
-To obtain user group information from LDAP, add the following configuration:
+Gafaelfawr must be told what the base DN of the group tree in LDAP is so that it can find a user's group membership.
 
 .. code-block:: yaml
 
@@ -355,6 +279,9 @@ To obtain user group information from LDAP, add the following configuration:
        groupBaseDn: "<base-dn-for-search>"
 
 You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
+
+By default, the GID number of the group is taken from the ``gidNumber`` attribute of the group.
+If :ref:`Firestore support <firestore>` is enabled, the GIDs in LDAP are ignored and Gafaelfawr allocates GIDs from Firestore instead.
 
 ``config.ldap.groupObjectClass``
     The object class from which group information should be looked up.
@@ -385,9 +312,9 @@ The name of each group will be taken from the ``cn`` attribute and the GID will 
 LDAP user information
 ---------------------
 
-By default, Gafaelfawr takes the user's name, email, and numeric UID from the upstream provider via the ``name``, ``mail``, and ``uidNumber`` claims in the ID token.
-If LDAP is used for group information, this data, plus the primary GID, can instead be obtained from LDAP.
-To do this, add the following configuration:
+For any authentication mechanism other than GitHub, Gafaelfawr looks up the user's name, email, and, optionally, the numeric UID and GID in LDAP.
+Name and email are optional and allowed to be missing.
+To do this, Gafaelfawr must be told the base DN of the user tree in LDAP:
 
 .. code-block:: yaml
 
@@ -395,20 +322,18 @@ To do this, add the following configuration:
      ldap:
        userBaseDn: "<base-dn-for-search>"
 
-By default, this will get the name (from the ``displayName`` attribute) and the email (from the ``mail`` attribute) from LDAP instead of the ID token.
-If either have multiple values, the first one will be used.
+By default, this will get the name from the ``displayName`` attribute, the email (from the ``mail`` attribute, the UID from the ``uidNumber`` attribute, and the primary GID from the ``gidNumber`` attribute.
+These attribute names be overridden; see below.
+If any have multiple values, the first one will be used.
 
-To also obtain the numeric UID from LDAP, add ``uidAttr: "uidNumber"`` to the LDAP configuration.
-(Replace ``uidNumber`` with some other attribute if your LDAP directory stores the numeric UID elsewhere.)
-As with the other attributes, if this attribute has multiple values, the first one will be used.
-
-To obtain the primary GID from LDAP, add ``gidAttr: "gidNumber"`` to the LDAP configuration.
-(Replace ``gidNumber`` with some other attribute if your LDAP directory stores the primary GID elsewhere.)
-As with the other attributes, if this attribute has multiple values, the first one will be used.
 If this GID does not match the GID of any of the user's groups, the corresponding group will be looked up in LDAP by GID and added to the user's group list.
 This handles LDAP configurations where only supplemental group memberships are recorded in LDAP, and the primary group membership is recorded only via the user's GID.
-If this configuration is not given but user private groups is enabled with ``addUserGroup: true``, the primary GID will be set to the same as the UID (which is the GID of the synthetic user private group).
-Otherwise, the primary GID will be left unset.
+
+If ``config.ldap.gidAttr`` is set to null or the primary GID is missing from LDAP, but user private groups is enabled with ``addUserGroup: true``, the primary GID will be set to the same as the UID.
+This is the same as the GID of the synthetic user private group.
+Otherwise, the primary GID will be left unset, which may break applications that require a primary GID.
+
+If :ref:`Firestore support <firestore>` is enabled, the UID and GID in LDAP are ignored and Gafaelfawr allocates UIDs and GIDs from Firestore instead.
 
 You may need to set the following additional options under ``config.ldap`` depending on your LDAP schema:
 
@@ -416,23 +341,36 @@ You may need to set the following additional options under ``config.ldap`` depen
     The attribute from which to get the user's email address.
     Default: ``mail``.
 
+``config.ldap.gidAttr``
+    The attribute holding the user's primary GID number.
+    This can be set to null to tell Gafaelfawr to not attempt to get the GID number from LDAP.
+    This normally only makes sense if ``addUserGroup`` is also set to true.
+    Default: ``gidNumber``.
+
 ``config.ldap.nameAttr``
     The attribute from which to get the user's full name.
     This attribute should hold the whole name that should be used, not just a surname or family name (which are not universally valid concepts anyway).
     Default: ``displayName``.
 
+``config.ldap.uidAttr``
+    The attribute holding the user's UID number.
+    This can be set to null if UIDs should instead come from :ref:`Firestore <firestore>`.
+    Default: ``uidNumber``.
+
 ``config.ldap.userSearchAttr``
     The attribute holding the username, used to find the user's entry.
     Default: ``uid``.
+
+.. _firestore:
 
 Firestore UID/GID assignment
 ============================
 
 Gafaelfawr can manage UID and GID assignment internally, using `Google Firestore <https://cloud.google.com/firestore>`__ as the storage mechanism.
-This only works with Open ID Connect authentication, and :ref:`Cloud SQL <cloudsql>` must also be enabled.
+:ref:`Cloud SQL <cloudsql>` must also be enabled.
 The same service account used for Cloud SQL must have read/write permissions to Firestore.
 
-When this support is enabled, Gafaelfawr ignores any UID and GID information from the tokens issued by the upstream OpenID Connect provider and from LDAP, and instead assigns UIDs and GIDs to users and groups by name the first time that a given username or group name is seen.
+When this support is enabled, Gafaelfawr ignores any UID and GID information from GitHub or LDAP, and instead assigns UIDs and GIDs to users and groups by name the first time that a given username or group name is seen.
 UIDs and GIDs are never reused.
 They are assigned from the ranges documented in :dmtn:`225`.
 
@@ -523,10 +461,10 @@ A complete setting for GitHub might look something like this:
 Be aware that Gafaelfawr will convert these organization and team pairs to group names internally, and applications will see only the converted group names.
 See :ref:`github-groups` for more information.
 
-When CILogon or generic OpenID Connect are used as the providers, the group information may come from either LDAP or claims in the OpenID Connect ID token.
-Either way, that group membership will then be used to determine scopes via the ``groupMapping`` configuration.
+When CILogon or generic OpenID Connect are used as the providers, the group information comes from LDAP.
+That group membership will then be used to determine scopes via the ``groupMapping`` configuration.
 For those authentication providers, the group names are simple strings.
-For example, given a configuration like:
+For example, suppose the Gafaelfawr configuration reads:
 
 .. code-block:: yaml
 
@@ -534,13 +472,7 @@ For example, given a configuration like:
      groupMapping:
        "exec:admin": ["foo", "bar"]
 
-and a token claim of:
-
-.. code-block:: json
-
-   {"isMemberOf": [{"name": "other"}, {"name": "bar"}]}
-
-a ``scope`` claim of ``exec:admin`` will be added to the token.
+A user who is a member of the ``bar`` and ``other`` groups will have the ``exec:admin`` scope added to their token when it is issued.
 
 Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
 The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
@@ -573,7 +505,7 @@ Here is an example:
 API quotas are in requests per 15 minutes.
 Notebook quotas are in CPU equivalents and GiB of memory.
 
-Therefore, the above example sets an API quota for the ``datalinker`` service of 1000 requests per 15 minutes, and a default quota for user notebooks of 2.0 CPU equivalents and 4.0GiB of memory.
+The above example sets an API quota for the ``datalinker`` service of 1000 requests per 15 minutes, and a default quota for user notebooks of 2.0 CPU equivalents and 4.0GiB of memory.
 Users who are members of the ``g_developers`` group get an additional 4.0GiB of memory for their notebooks.
 
 The keys for API quotas are names of services.
@@ -626,7 +558,7 @@ If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL data
 
 First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
 You do not need to create the Kubernetes service account; two service accounts will be created by the Gafaelfawr Helm chart.
-The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-tokens``, both in Gafaelfawr's Kubernetes namespace (by default, ``gafaelfawr``).
+The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-operator``, both in Gafaelfawr's Kubernetes namespace (by default, ``gafaelfawr``).
 
 Then, once you have the name of the Google service account for the Cloud SQL Auth Proxy (created in the above instructions), enable the Cloud SQL Auth Proxy sidecar in the Gafaelfawr Helm chart.
 An example configuration:
@@ -658,7 +590,7 @@ To do this, add the following setting:
 
    ingress:
      additionalHosts:
-       - another-host.example.com
+       - "another-host.example.com"
 
 Gafaelfawr will then take over the ``/auth`` route of all of those additional hosts.
 TLS configuration must be handled by some other ingress.
@@ -758,11 +690,11 @@ For example:
      oidcServer:
        dataRightsMapping:
          g_users:
-           - dp0.1
-           - dp0.2
-           - dp0.3
+           - "dp0.1"
+           - "dp0.2"
+           - "dp0.3"
          g_preview:
-           - dp0.1
+           - "dp0.1"
 
 This configuration indicates members of the ``g_preview`` group have access to the ``dp0.1`` release and members of the ``g_users`` group have access to all of ``dp0.1``, ``dp0.2``, and ``dp0.3``.
 Users have access to the union of data releases across all of their group memberships.

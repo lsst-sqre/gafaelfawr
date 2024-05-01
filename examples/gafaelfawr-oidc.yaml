@@ -55,6 +55,16 @@ oidc:
   issuer: "https://cilogon.org"
   audience: "cilogon:/client_id/..."
 
+# LDAP must be configured if OpenID Connect is configured.  This example is
+# for the CILogon-managed COmanage.
+ldap:
+  url: "ldaps://ldap.cilogon.org"
+  groupBaseDn: "ou=groups,o=Example,o=CO,dc=example,dc=org"
+  groupObjectClass: "eduMember"
+  groupMemberAttr: "hasMember"
+  userBaseDn: "ou=people,o=Example,o=CO,dc=example,dc=org"
+  userSearchAttr: "voPersonApplicationUID"
+
 # Replace this with a list of users who should have admin rights when
 # bootstrapping a fresh database.
 initialAdmins:

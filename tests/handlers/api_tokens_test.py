@@ -17,7 +17,8 @@ from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
-from gafaelfawr.models.token import Token, TokenGroup, TokenUserInfo
+from gafaelfawr.models.token import Token, TokenUserInfo
+from gafaelfawr.models.userinfo import Group
 
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
@@ -37,7 +38,7 @@ async def test_create_delete_modify(
         name="Example Person",
         email="example@example.com",
         uid=45613,
-        groups=[TokenGroup(name="foo", id=12313)],
+        groups=[Group(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -301,7 +302,7 @@ async def test_token_info(
         email="example@example.com",
         uid=45613,
         gid=12345,
-        groups=[TokenGroup(name="foo", id=12313)],
+        groups=[Group(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -1130,7 +1131,7 @@ async def test_create_admin(
         headers={"Authorization": f"bearer {user_token!s}"},
     )
     assert r.status_code == 200
-    assert r.json() == {"username": "a-user"}
+    assert r.json() == {"username": "a-user", "groups": []}
 
     # Check handling of duplicate token name errors.
     r = await client.post(
@@ -1171,7 +1172,7 @@ async def test_create_admin_ldap(
     tmp_path: Path, client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
 ) -> None:
     """Create a token through the admin interface with LDAP user data."""
-    config = await reconfigure(tmp_path, "oidc-ldap", factory)
+    config = await reconfigure(tmp_path, "oidc", factory)
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
 
@@ -1295,6 +1296,7 @@ async def test_create_admin_firestore(
     client: AsyncClient,
     factory: Factory,
     mock_firestore: MockFirestore,
+    mock_ldap: MockLDAP,
 ) -> None:
     """Create a token through the admin interface with LDAP user data."""
     await reconfigure(tmp_path, "oidc-firestore", factory)
@@ -1325,7 +1327,12 @@ async def test_create_admin_firestore(
         headers={"Authorization": f"bearer {service_token!s}"},
     )
     assert r.status_code == 200
-    assert r.json() == {"username": "bot-user", "uid": UID_BOT_MIN}
+    assert r.json() == {
+        "username": "bot-user",
+        "uid": UID_BOT_MIN,
+        "gid": UID_BOT_MIN,
+        "groups": [{"name": "bot-user", "id": UID_BOT_MIN}],
+    }
 
 
 @pytest.mark.asyncio
@@ -1350,7 +1357,7 @@ async def test_no_form_post(
         name="Example Person",
         email="example@example.com",
         uid=45613,
-        groups=[TokenGroup(name="foo", id=12313)],
+        groups=[Group(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -1392,7 +1399,7 @@ async def test_scope_modify(
         name="Example Person",
         email="example@example.com",
         uid=45613,
-        groups=[TokenGroup(name="foo", id=12313)],
+        groups=[Group(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -1487,7 +1494,7 @@ async def test_ldap_error(
     mock_ldap: MockLDAP,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc-ldap-uid", factory)
+    config = await reconfigure(tmp_path, "oidc", factory)
     assert config.ldap
     assert config.ldap.user_base_dn
     mock_ldap.add_entries_for_test(

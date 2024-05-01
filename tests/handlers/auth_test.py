@@ -1010,7 +1010,7 @@ async def test_ldap_error(
     mock_ldap: MockLDAP,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc-ldap-uid", factory)
+    config = await reconfigure(tmp_path, "oidc", factory)
     assert config.ldap
     assert config.ldap.user_base_dn
     mock_ldap.add_entries_for_test(

@@ -161,7 +161,6 @@ async def test_redeem_code(tmp_path: Path, factory: Factory) -> None:
         "uid": token_data.uid,
         "gid": token_data.gid,
         "groups": token_data.groups,
-        "quota": None,
     }
     now = current_datetime()
     assert now - timedelta(seconds=2) <= access_data.created <= now

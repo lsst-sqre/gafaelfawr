@@ -22,3 +22,7 @@ oidc:
   tokenUrl: "https://upstream.example.com/some/path/token"
   issuer: "https://upstream.example.com/some/path"
   audience: "https://test.example.com/"
+ldap:
+  url: "ldaps://ldap.example.com/"
+  groupBaseDn: "dc=example,dc=com"
+  userBaseDn: "ou=people,dc=example,dc=com"

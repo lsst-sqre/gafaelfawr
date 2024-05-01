@@ -33,7 +33,8 @@ from ..models.oidc import (
     OIDCTokenReply,
     OIDCVerifiedToken,
 )
-from ..models.token import Token, TokenData, TokenUserInfo
+from ..models.token import Token, TokenData
+from ..models.userinfo import UserInfo
 from ..storage.oidc import OIDCAuthorizationStore
 from .token import TokenService
 from .userinfo import UserInfoService
@@ -444,9 +445,7 @@ class OIDCService:
         except KeyError as e:
             raise InvalidTokenError(f"Missing claim {e!s}") from e
 
-    def _build_data_rights_for_user(
-        self, user_info: TokenUserInfo
-    ) -> str | None:
+    def _build_data_rights_for_user(self, user_info: UserInfo) -> str | None:
         """Construct the data rights string for the user.
 
         This is a space-separated list of data releases to which the user has

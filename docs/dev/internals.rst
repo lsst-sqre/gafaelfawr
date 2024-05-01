@@ -77,6 +77,10 @@ Python internal API
    :include-all-objects:
    :inherited-members:
 
+.. automodapi:: gafaelfawr.models.userinfo
+   :include-all-objects:
+   :inherited-members:
+
 .. automodapi:: gafaelfawr.operator
    :include-all-objects:
 
