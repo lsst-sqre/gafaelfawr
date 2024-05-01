@@ -34,3 +34,7 @@ scriv[toml]
 sphinx-click
 sphinx-diagrams
 sphinxcontrib-redoc
+
+# selenium-wire is no longer maintained and is incompatible with blinker 1.8
+# due to use of internal modules in its vendored mitmproxy module.
+blinker<1.8
