@@ -3,12 +3,10 @@
 # base-image
 #   Updates the base Python image with security patches and common system
 #   packages. This image becomes the base of all other images.
-# dependencies-image
+# install-image
 #   Installs third-party dependencies (requirements/main.txt) into a virtual
 #   environment. This virtual environment is ideal for copying across build
 #   stages.
-# install-image
-#   Installs the app into the virtual environment.
 # runtime-image
 #   - Copies the virtual environment into place.
 #   - Runs as a non-root user.
@@ -18,10 +16,9 @@ FROM python:3.12.3-slim-bookworm as base-image
 
 # Update system packages
 COPY scripts/install-base-packages.sh .
-RUN ./install-base-packages.sh
-RUN rm ./install-base-packages.sh
+RUN ./install-base-packages.sh && rm ./install-base-packages.sh
 
-FROM base-image AS dependencies-image
+FROM base-image AS install-image
 
 # Determine the Node version that we want to install
 COPY .nvmrc /opt/.nvmrc
@@ -33,19 +30,16 @@ RUN ./install-dependency-packages.sh
 # Create a Python virtual environment
 ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
+
 # Make sure we use the virtualenv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 # Put the latest pip and setuptools in the virtualenv
 RUN pip install --upgrade --no-cache-dir pip setuptools wheel
 
 # Install the app's Python runtime dependencies
 COPY requirements/main.txt ./requirements.txt
 RUN pip install --quiet --no-cache-dir -r requirements.txt
-
-FROM dependencies-image AS install-image
-
-# Use the virtualenv
-ENV PATH="/opt/venv/bin:$PATH"
 
 # Install the Gafaelfawr Python application.
 COPY . /workdir
