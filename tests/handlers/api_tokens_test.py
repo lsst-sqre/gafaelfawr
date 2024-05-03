@@ -8,7 +8,6 @@ from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
-from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 from safir.datetime import current_datetime, format_datetime_for_logging
 from safir.testing.slack import MockSlackWebhook
@@ -31,7 +30,7 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_create_delete_modify(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     user_info = TokenUserInfo(
         username="example",
@@ -934,7 +933,7 @@ async def test_create_admin(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test creating a token through the admin interface."""
     token_data = await create_session_token(factory, scopes=["exec:admin"])
@@ -1339,7 +1338,7 @@ async def test_create_admin_firestore(
 async def test_no_form_post(
     client: AsyncClient,
     factory: Factory,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
     """Ensure that the token creation API does not support a form POST.
@@ -1387,7 +1386,7 @@ async def test_no_form_post(
 
 @pytest.mark.asyncio
 async def test_scope_modify(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Ensure modifying the scope updates Redis.
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 import respx
-from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 from safir.testing.slack import MockSlackWebhook
 
@@ -25,7 +24,7 @@ async def test_logout(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     token_data = await create_session_token(factory, scopes=["read:all"])
     await set_session_cookie(client, token_data.token)
@@ -80,7 +79,7 @@ async def test_logout_with_url(client: AsyncClient, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_logout_not_logged_in(
-    client: AsyncClient, config: Config, caplog: LogCaptureFixture
+    client: AsyncClient, config: Config, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.clear()
     r = await client.get("/logout")
@@ -125,7 +124,7 @@ async def test_logout_github(
     client: AsyncClient,
     config: Config,
     respx_mock: respx.Router,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
