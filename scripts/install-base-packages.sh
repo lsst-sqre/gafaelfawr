@@ -26,11 +26,10 @@ apt-get update
 # Install security updates:
 apt-get -y upgrade
 
-# git is required by setuptools-scm. libpq-dev is required by psycopg2. Most
-# of the other packages are required by bonsai for LDAP binds or to manage the
-# Kerberos ticket cache. curl and krb5-user are not strictly needed, but are
-# useful for debugging.
-apt-get -y install --no-install-recommends curl git krb5-user kstart    \
+# libpq-dev is required by psycopg2. Most of the other packages are required
+# by bonsai for LDAP binds or to manage the Kerberos ticket cache. curl and
+# krb5-user are not strictly needed, but are useful for debugging.
+apt-get -y install --no-install-recommends curl krb5-user kstart        \
         libldap2-dev libldap-common libsasl2-dev libsasl2-modules       \
         libsasl2-modules-gssapi-mit libpq-dev
 
