@@ -357,8 +357,8 @@ async def test_verify_error(
     mock_slack: MockSlackWebhook,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
-    token = create_upstream_oidc_jwt(groups=["admin"])
     assert config.oidc
+    token = create_upstream_oidc_jwt("some-user")
     issuer = config.oidc.issuer
     config_url = urljoin(issuer, "/.well-known/openid-configuration")
     jwks_url = urljoin(issuer, "/.well-known/jwks.json")
@@ -434,7 +434,7 @@ async def test_invalid_username(
     mock_slack: MockSlackWebhook,
 ) -> None:
     await reconfigure(tmp_path, "oidc")
-    token = create_upstream_oidc_jwt(sub="invalid@user", uid="invalid@user")
+    token = create_upstream_oidc_jwt("invalid@user")
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
@@ -454,8 +454,9 @@ async def test_double_username(
 ) -> None:
     """Test error handling of a multivalued ``uid`` attribute."""
     config = await reconfigure(tmp_path, "oidc")
-    token = create_upstream_oidc_jwt(uid=["one", "two"])
     assert config.ldap
+    assert config.oidc
+    token = create_upstream_oidc_jwt(["one", "two"])
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
@@ -515,15 +516,13 @@ async def test_no_valid_groups(
     mock_ldap: MockLDAP,
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
-    assert config.oidc
-    token = create_upstream_oidc_jwt()
+    token = create_upstream_oidc_jwt("some-user")
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, no-store"
     assert r.headers["Content-Type"] == "text/html; charset=utf-8"
-    username = token.claims[config.oidc.username_claim]
-    assert f"{username} is not a member of any authorized groups" in r.text
+    assert "some-user is not a member of any authorized groups" in r.text
     assert config.error_footer
     assert config.error_footer in r.text
 
@@ -542,7 +541,7 @@ async def test_enrollment_url(
     respx_mock: respx.Router,
 ) -> None:
     await reconfigure(tmp_path, "oidc-enrollment")
-    token = create_upstream_oidc_jwt(groups=["admin"])
+    token = create_upstream_oidc_jwt(None)
 
     r = await simulate_oidc_login(
         client, respx_mock, token, expect_enrollment=True
@@ -560,7 +559,7 @@ async def test_missing_username(
 ) -> None:
     """Test a missing username claim in the ID token but no enrollment URL."""
     await reconfigure(tmp_path, "oidc-claims")
-    token = create_upstream_oidc_jwt(groups=["admin"])
+    token = create_upstream_oidc_jwt(None)
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403

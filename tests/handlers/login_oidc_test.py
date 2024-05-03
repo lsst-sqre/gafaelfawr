@@ -31,7 +31,7 @@ async def test_login(
     config = await reconfigure(tmp_path, "oidc")
     assert config.ldap
     assert config.oidc
-    token = create_upstream_oidc_jwt(uid="ldap-user")
+    token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
@@ -153,17 +153,17 @@ async def test_login_redirect_header(
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     config = await reconfigure(tmp_path, "oidc")
     assert config.ldap
-    token = create_upstream_oidc_jwt()
+    token = create_upstream_oidc_jwt("some-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
-        token.claims["uid"],
+        "some-user",
         [{"uidNumber": ["2000"], "gidNumber": ["2001"]}],
     )
     mock_ldap.add_entries_for_test(
         config.ldap.group_base_dn,
         "member",
-        token.claims["uid"],
+        "some-user",
         [{"cn": ["foo"], "gidNumber": ["1222"]}],
     )
     return_url = "https://example.com/foo?a=bar&b=baz"
@@ -192,7 +192,7 @@ async def test_firestore(
     assert config.oidc
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
-    token = create_upstream_oidc_jwt(uid="ldap-user")
+    token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
@@ -258,8 +258,7 @@ async def test_firestore(
     assert r.json() == expected
 
     # Authenticate as a different user.
-    claims = {config.oidc.username_claim: "other-user"}
-    token = create_upstream_oidc_jwt(**claims)
+    token = create_upstream_oidc_jwt("other-user")
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307
     r = await client.get("/auth/api/v1/user-info")
@@ -286,7 +285,7 @@ async def test_no_name_email(
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     assert config.ldap
-    token = create_upstream_oidc_jwt(uid="ldap-user", groups=["admin"])
+    token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
@@ -327,7 +326,7 @@ async def test_gid(
 ) -> None:
     config = await reconfigure(tmp_path, "oidc-gid")
     assert config.ldap
-    token = create_upstream_oidc_jwt(uid="ldap-user", groups=["admin"])
+    token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
@@ -381,7 +380,7 @@ async def test_gid_group_lookup(
     """Test separate lookup of the primary group."""
     config = await reconfigure(tmp_path, "oidc-gid")
     assert config.ldap
-    token = create_upstream_oidc_jwt(uid="ldap-user", groups=["admin"])
+    token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
@@ -435,9 +434,7 @@ async def test_missing_attrs(
 ) -> None:
     config = await reconfigure(tmp_path, "oidc")
     assert config.ldap
-    token = create_upstream_oidc_jwt(
-        uid="ldap-user", email=None, groups=["admin"]
-    )
+    token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
@@ -484,7 +481,7 @@ async def test_invalidate_cache(
         "ldap-user",
         [{"uidNumber": ["2000"]}],
     )
-    token = create_upstream_oidc_jwt(uid="ldap-user")
+    token = create_upstream_oidc_jwt("ldap-user")
 
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
@@ -511,7 +508,7 @@ async def test_member_dn(
     """Test group membership attributes containing full user DNs."""
     config = await reconfigure(tmp_path, "oidc-memberdn")
     assert config.ldap
-    token = create_upstream_oidc_jwt(uid="ldap-user", groups=["admin"])
+    token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
@@ -621,11 +618,11 @@ async def test_unicode_name(
     config = await reconfigure(tmp_path, "oidc")
     assert config.ldap
     assert config.oidc
-    token = create_upstream_oidc_jwt()
+    token = create_upstream_oidc_jwt("some-user")
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
-        token.claims[config.oidc.username_claim],
+        "some-user",
         [
             {
                 "displayName": ["名字"],
@@ -637,7 +634,7 @@ async def test_unicode_name(
     mock_ldap.add_entries_for_test(
         config.ldap.group_base_dn,
         "member",
-        token.claims[config.oidc.username_claim],
+        "some-user",
         [{"cn": ["foo"], "gidNumber": ["1222"]}],
     )
 

@@ -127,7 +127,7 @@ async def test_key_retrieval(
     respx_mock.get(oidc_url).respond(404)
 
     # Check token verification with this configuration.
-    token = create_upstream_oidc_jwt(kid="some-kid")
+    token = create_upstream_oidc_jwt("some-user", kid="some-kid")
     assert await verifier.verify_token(token)
 
     # Wrong algorithm for the key.
@@ -147,7 +147,7 @@ async def test_key_retrieval(
 
     # Try with a new key ID and return a malformed reponse.
     respx_mock.get(jwks_url).respond(json=["foo"])
-    token = create_upstream_oidc_jwt(kid="malformed")
+    token = create_upstream_oidc_jwt("some-user", kid="malformed")
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
@@ -161,7 +161,7 @@ async def test_key_retrieval(
     jwks.keys[1].kid = "another-kid"
     respx_mock.get(jwks_url).respond(json=jwks.model_dump())
     respx_mock.get(oidc_url).respond(json=["foo"])
-    token = create_upstream_oidc_jwt(kid="another-kid")
+    token = create_upstream_oidc_jwt("some-user", kid="another-kid")
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
@@ -189,5 +189,5 @@ async def test_issuer_with_path(
     respx_mock.get(oidc_url).respond(json={"jwks_uri": jwks_url})
 
     # Check token verification with this configuration.
-    token = create_upstream_oidc_jwt(kid="some-kid")
+    token = create_upstream_oidc_jwt("some-user", kid="some-kid")
     assert await verifier.verify_token(token)
