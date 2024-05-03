@@ -1,5 +1,7 @@
 """Handlers for internal routes not exposed outside the cluster."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from safir.metadata import Metadata, get_metadata
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -38,7 +40,8 @@ async def get_index() -> Metadata:
     tags=["internal"],
 )
 async def get_health(
-    context: RequestContext = Depends(context_dependency),
+    *,
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> HealthCheck:
     health_check_service = context.factory.create_health_check_service()
     await health_check_service.check()

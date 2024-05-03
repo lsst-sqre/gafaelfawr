@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from safir.datetime import current_datetime
@@ -31,7 +32,7 @@ from ..models.token import TokenData
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 
-__all__ = ["get_auth"]
+__all__ = ["router"]
 
 
 @dataclass
@@ -67,16 +68,20 @@ class AuthConfig:
 
 
 def auth_uri(
-    x_original_uri: (str | None) = Header(
-        None, description="URL for which authorization is being checked"
-    ),
-    x_original_url: (str | None) = Header(
-        None,
-        description=(
-            "URL for which authorization is being checked. `X-Original-URI`"
-            " takes precedence if both are set."
+    *,
+    x_original_uri: Annotated[
+        str | None,
+        Header(description="URL for which authorization is being checked"),
+    ] = None,
+    x_original_url: Annotated[
+        str | None,
+        Header(
+            description=(
+                "URL for which authorization is being checked."
+                " `X-Original-URI` takes precedence if both are set."
+            ),
         ),
-    ),
+    ] = None,
 ) -> str:
     """Determine URL for which we're validating authentication.
 
@@ -89,85 +94,105 @@ def auth_uri(
 
 def auth_config(
     *,
-    scope: list[str] = Query(
-        ...,
-        title="Required scopes",
-        description=(
-            "If given more than once, meaning is determined by the `satisfy`"
-            " parameter"
+    scope: Annotated[
+        list[str],
+        Query(
+            title="Required scopes",
+            description=(
+                "If given more than once, meaning is determined by the"
+                " `satisfy` parameter"
+            ),
+            examples=["read:all"],
         ),
-        examples=["read:all"],
-    ),
-    satisfy: Satisfy = Query(
-        Satisfy.ALL,
-        title="Scope matching policy",
-        description=(
-            "Set to `all` to require all listed scopes, set to `any` to"
-            " require any of the listed scopes"
+    ],
+    satisfy: Annotated[
+        Satisfy,
+        Query(
+            title="Scope matching policy",
+            description=(
+                "Set to `all` to require all listed scopes, set to `any` to"
+                " require any of the listed scopes"
+            ),
+            examples=["any"],
         ),
-        examples=["any"],
-    ),
-    auth_type: AuthType = Query(
-        AuthType.Bearer,
-        title="Challenge type",
-        description="Type of `WWW-Authenticate` challenge to return",
-        examples=["basic"],
-    ),
-    notebook: bool = Query(
-        False,
-        title="Request notebook token",
-        description="Cannot be used with `delegate_to` or `delegate_scope`",
-        examples=[True],
-    ),
-    delegate_to: (str | None) = Query(
-        None,
-        title="Service name",
-        description="Create an internal token for the named service",
-        examples=["some-service"],
-    ),
-    delegate_scope: (str | None) = Query(
-        None,
-        title="Scope of delegated token",
-        description=(
-            "Comma-separated list of scopes to add to the delegated token."
-            " All listed scopes are implicitly added to the scope"
-            " requirements for authorization."
+    ] = Satisfy.ALL,
+    auth_type: Annotated[
+        AuthType,
+        Query(
+            title="Challenge type",
+            description="Type of `WWW-Authenticate` challenge to return",
+            examples=["basic"],
         ),
-        examples=["read:all,write:all"],
-    ),
-    minimum_lifetime: (int | None) = Query(
-        None,
-        title="Required minimum lifetime",
-        description=(
-            "Force reauthentication if the delegated token (internal or"
-            " notebook) would have a shorter lifetime, in seconds, than this"
-            " parameter."
+    ] = AuthType.Bearer,
+    notebook: Annotated[
+        bool,
+        Query(
+            title="Request notebook token",
+            description=(
+                "Cannot be used with `delegate_to` or `delegate_scope`"
+            ),
+            examples=[True],
         ),
-        ge=MINIMUM_LIFETIME.total_seconds(),
-        examples=[86400],
-    ),
-    use_authorization: bool = Query(
-        False,
-        title="Put delegated token in Authorization",
-        description=(
-            "If true, also replace the Authorization header with any"
-            " delegated token, passed as a bearer token."
+    ] = False,
+    delegate_to: Annotated[
+        str | None,
+        Query(
+            title="Service name",
+            description="Create an internal token for the named service",
+            examples=["some-service"],
         ),
-        examples=[True],
-    ),
-    username: str | None = Query(
-        None,
-        title="Restrict to username",
-        description=(
-            "Only allow access to this ingress by the user with the given"
-            " username. All other users, regardless of scopes, will receive"
-            " 403 errors. The user must still meet the scope requirements"
-            " for the ingress."
+    ] = None,
+    delegate_scope: Annotated[
+        str | None,
+        Query(
+            title="Scope of delegated token",
+            description=(
+                "Comma-separated list of scopes to add to the delegated token."
+                " All listed scopes are implicitly added to the scope"
+                " requirements for authorization."
+            ),
+            examples=["read:all,write:all"],
         ),
-        examples=["rra"],
-    ),
-    auth_uri: str = Depends(auth_uri),
-    context: RequestContext = Depends(context_dependency),
+    ] = None,
+    minimum_lifetime: Annotated[
+        int | None,
+        Query(
+            title="Required minimum lifetime",
+            description=(
+                "Force reauthentication if the delegated token (internal or"
+                " notebook) would have a shorter lifetime, in seconds, than"
+                " this parameter."
+            ),
+            ge=MINIMUM_LIFETIME.total_seconds(),
+            examples=[86400],
+        ),
+    ] = None,
+    use_authorization: Annotated[
+        bool,
+        Query(
+            title="Put delegated token in Authorization",
+            description=(
+                "If true, also replace the Authorization header with any"
+                " delegated token, passed as a bearer token."
+            ),
+            examples=[True],
+        ),
+    ] = False,
+    username: Annotated[
+        str | None,
+        Query(
+            title="Restrict to username",
+            description=(
+                "Only allow access to this ingress by the user with the given"
+                " username. All other users, regardless of scopes, will"
+                " receive 403 errors. The user must still meet the scope"
+                " requirements for the ingress."
+            ),
+            examples=["rra"],
+        ),
+    ] = None,
+    auth_uri: Annotated[str, Depends(auth_uri)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> AuthConfig:
     """Construct the configuration for an authorization request.
 
@@ -214,13 +239,18 @@ def auth_config(
 
 
 async def authenticate_with_type(
-    auth_type: AuthType = Query(
-        AuthType.Bearer,
-        title="Challenge type",
-        description="Control the type of WWW-Authenticate challenge returned",
-        examples=["basic"],
-    ),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    auth_type: Annotated[
+        AuthType,
+        Query(
+            title="Challenge type",
+            description=(
+                "Control the type of WWW-Authenticate challenge returned"
+            ),
+            examples=["basic"],
+        ),
+    ] = AuthType.Bearer,
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> TokenData:
     """Set authentication challenge based on auth_type parameter."""
     authenticate = AuthenticateRead(auth_type=auth_type, ajax_forbidden=True)
@@ -239,10 +269,11 @@ async def authenticate_with_type(
     tags=["internal"],
 )
 async def get_auth(
+    *,
+    auth_config: Annotated[AuthConfig, Depends(auth_config)],
+    token_data: Annotated[TokenData, Depends(authenticate_with_type)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
-    auth_config: AuthConfig = Depends(auth_config),
-    token_data: TokenData = Depends(authenticate_with_type),
-    context: RequestContext = Depends(context_dependency),
 ) -> dict[str, str]:
     """Authenticate and authorize a token.
 
@@ -355,8 +386,9 @@ async def get_auth(
     tags=["internal"],
 )
 async def get_anonymous(
+    *,
+    context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
-    context: RequestContext = Depends(context_dependency),
 ) -> dict[str, str]:
     if "Authorization" in context.request.headers:
         raw_authorizations = context.request.headers.getlist("Authorization")

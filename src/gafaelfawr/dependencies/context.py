@@ -7,7 +7,7 @@ including from dependencies.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
 from safir.dependencies.db_session import db_session_dependency
@@ -91,9 +91,12 @@ class ContextDependency:
 
     async def __call__(
         self,
+        *,
         request: Request,
-        session: async_scoped_session = Depends(db_session_dependency),
-        logger: BoundLogger = Depends(logger_dependency),
+        session: Annotated[
+            async_scoped_session, Depends(db_session_dependency)
+        ],
+        logger: Annotated[BoundLogger, Depends(logger_dependency)],
     ) -> RequestContext:
         """Create a per-request context and return it."""
         if not self._config or not self._process_context:

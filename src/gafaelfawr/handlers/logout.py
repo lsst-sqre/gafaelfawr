@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import RedirectResponse
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -24,8 +26,9 @@ __all__ = ["get_logout"]
     tags=["browser"],
 )
 async def get_logout(
-    return_url: str | None = Depends(return_url),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    return_url: Annotated[str | None, Depends(return_url)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> str:
     """Log out and redirect the user.
 

@@ -3,6 +3,7 @@
 import base64
 import os
 from enum import Enum
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse, Response
@@ -26,7 +27,7 @@ from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 
-__all__ = ["get_login"]
+__all__ = ["router"]
 
 
 class LoginError(Enum):
@@ -75,23 +76,30 @@ class LoginError(Enum):
     tags=["browser"],
 )
 async def get_login(
-    code: (str | None) = Query(
-        None,
-        title="Provider code",
-        description="Set by the authentication provider after authentication",
-        examples=["V2hrNqgM_eiIjXvV41RlMw"],
-    ),
-    state: (str | None) = Query(
-        None,
-        title="Authentication state",
-        description=(
-            "Set by the authentication provider after authentication to"
-            " protect against session fixation"
+    *,
+    code: Annotated[
+        str | None,
+        Query(
+            title="Provider code",
+            description=(
+                "Set by the authentication provider after authentication"
+            ),
+            examples=["V2hrNqgM_eiIjXvV41RlMw"],
         ),
-        examples=["wkC2bAP5VFpDioKc3JfaDA"],
-    ),
-    return_url: str | None = Depends(return_url_with_header),
-    context: RequestContext = Depends(context_dependency),
+    ] = None,
+    state: Annotated[
+        str | None,
+        Query(
+            title="Authentication state",
+            description=(
+                "Set by the authentication provider after authentication to"
+                " protect against session fixation"
+            ),
+            examples=["wkC2bAP5VFpDioKc3JfaDA"],
+        ),
+    ] = None,
+    return_url: Annotated[str | None, Depends(return_url_with_header)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> Response:
     """Handle an initial login or the return from a login provider.
 
