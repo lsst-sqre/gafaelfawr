@@ -1,5 +1,6 @@
 """Authentication dependencies for FastAPI."""
 
+from typing import Annotated
 from urllib.parse import urlencode, urlparse
 
 from fastapi import Depends, Header, HTTPException, status
@@ -236,7 +237,9 @@ class AuthenticateRead(Authenticate):
     """
 
     async def __call__(
-        self, context: RequestContext = Depends(context_dependency)
+        self,
+        *,
+        context: Annotated[RequestContext, Depends(context_dependency)],
     ) -> TokenData:
         return await self.authenticate(context)
 
@@ -249,22 +252,26 @@ class AuthenticateWrite(Authenticate):
 
     async def __call__(
         self,
-        x_csrf_token: (str | None) = Header(
-            None,
-            title="CSRF token",
-            description=(
-                "Only required when authenticating with a cookie, such as via"
-                " the JavaScript UI."
+        *,
+        x_csrf_token: Annotated[
+            str | None,
+            Header(
+                title="CSRF token",
+                description=(
+                    "Only required when authenticating with a cookie, such as"
+                    " via the JavaScript UI."
+                ),
+                examples=["OmNdVTtKKuK_VuJsGFdrqg"],
             ),
-            examples=["OmNdVTtKKuK_VuJsGFdrqg"],
-        ),
-        context: RequestContext = Depends(context_dependency),
+        ] = None,
+        context: Annotated[RequestContext, Depends(context_dependency)],
     ) -> TokenData:
         return await self.authenticate(context, x_csrf_token)
 
 
 async def verified_oidc_token(
-    context: RequestContext = Depends(context_dependency),
+    *,
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> OIDCVerifiedToken:
     """Require that a request be authenticated with an OpenID Connect token.
 

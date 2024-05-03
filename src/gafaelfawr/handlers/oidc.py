@@ -60,6 +60,7 @@ authenticate_token = AuthenticateRead(require_bearer_token=True)
     tags=["oidc"],
 )
 async def get_login(
+    *,
     client_id: Annotated[
         str,
         Query(
@@ -78,8 +79,6 @@ async def get_login(
             examples=["https://example.com/"],
         ),
     ],
-    token_data: Annotated[TokenData, Depends(authenticate)],
-    context: Annotated[RequestContext, Depends(context_dependency)],
     response_type: Annotated[
         str | None,
         Query(
@@ -124,6 +123,8 @@ async def get_login(
             examples=["5Ndm2AFSZ6dN6Gt-Iu6lng"],
         ),
     ] = None,
+    token_data: Annotated[TokenData, Depends(authenticate)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> str:
     context.rebind_logger(return_uri=redirect_uri)
     oidc_service = context.factory.create_oidc_service()
@@ -202,7 +203,7 @@ def build_return_url(redirect_uri: str, **params: str | None) -> str:
     tags=["oidc"],
 )
 async def post_token(
-    response: Response,
+    *,
     grant_type: Annotated[
         str | None,
         Form(
@@ -243,7 +244,8 @@ async def post_token(
             examples=["https://example.com/"],
         ),
     ] = None,
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    response: Response,
 ) -> OIDCTokenReply | JSONResponse:
     oidc_service = context.factory.create_oidc_service()
     async with context.session.begin():
@@ -295,8 +297,9 @@ async def post_token(
     tags=["oidc"],
 )
 async def get_userinfo(
+    *,
     token_data: Annotated[TokenData, Depends(authenticate_token)],
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> Mapping[str, Any]:
     if token_data.token_type != TokenType.oidc:
         msg = f"Token of type {token_data.token_type.value} not allowed"
@@ -320,7 +323,8 @@ async def get_userinfo(
     tags=["oidc"],
 )
 async def get_well_known_jwks(
-    context: RequestContext = Depends(context_dependency),
+    *,
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> JWKS:
     oidc_server = context.factory.create_oidc_service()
     return oidc_server.get_jwks()
@@ -340,7 +344,8 @@ async def get_well_known_jwks(
     tags=["oidc"],
 )
 async def get_well_known_openid(
-    context: RequestContext = Depends(context_dependency),
+    *,
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> OIDCConfig:
     oidc_server = context.factory.create_oidc_service()
     return oidc_server.get_openid_configuration()

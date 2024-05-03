@@ -64,7 +64,7 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
 
 
 async def return_url(
-    context: Annotated[RequestContext, Depends(context_dependency)],
+    *,
     rd: Annotated[
         str | None,
         Query(
@@ -73,6 +73,7 @@ async def return_url(
             examples=["https://example.com/"],
         ),
     ] = None,
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> str | None:
     """Validate a return URL in an ``rd`` parameter.
 
@@ -94,7 +95,7 @@ async def return_url(
 
 
 async def return_url_with_header(
-    context: Annotated[RequestContext, Depends(context_dependency)],
+    *,
     rd: Annotated[
         str | None,
         Query(
@@ -114,6 +115,7 @@ async def return_url_with_header(
             examples=["https://example.com/"],
         ),
     ] = None,
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> str | None:
     """Validate a return URL in an ``rd`` parameter or header.
 
@@ -133,4 +135,4 @@ async def return_url_with_header(
     """
     if not rd and x_auth_request_redirect:
         rd = x_auth_request_redirect
-    return await return_url(context, rd)
+    return await return_url(context=context, rd=rd)

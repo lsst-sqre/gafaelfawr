@@ -7,6 +7,7 @@ currently CADC code requires ``sub`` be a UUID and we have other integrations
 that use ``sub`` as a username.
 """
 
+from typing import Annotated
 from uuid import uuid5
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -56,8 +57,9 @@ authenticate_read = AuthenticateRead()
     tags=["oidc"],
 )
 async def get_userinfo(
-    auth_data: TokenData = Depends(authenticate_read),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> CADCUserInfo:
     config = context.config
     if not config.cadc_base_uuid:

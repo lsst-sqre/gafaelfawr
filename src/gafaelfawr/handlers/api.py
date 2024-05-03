@@ -7,7 +7,7 @@ models.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import quote
 
 from fastapi import (
@@ -82,7 +82,8 @@ _pagination_headers = {
     tags=["admin"],
 )
 async def get_admins(
-    context: RequestContext = Depends(context_dependency),
+    *,
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> list[Admin]:
     admin_service = context.factory.create_admin_service()
     async with context.session.begin():
@@ -96,9 +97,10 @@ async def get_admins(
     tags=["admin"],
 )
 async def add_admin(
+    *,
     admin: Admin,
-    auth_data: TokenData = Depends(authenticate_admin_write),
-    context: RequestContext = Depends(context_dependency),
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> None:
     admin_service = context.factory.create_admin_service()
     async with context.session.begin():
@@ -120,17 +122,20 @@ async def add_admin(
     tags=["admin"],
 )
 async def delete_admin(
-    username: str = Path(
-        ...,
-        title="Administrator",
-        description="Username of administrator to delete",
-        examples=["adminuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    auth_data: TokenData = Depends(authenticate_admin_write),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    username: Annotated[
+        str,
+        Path(
+            title="Administrator",
+            description="Username of administrator to delete",
+            examples=["adminuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> None:
     admin_service = context.factory.create_admin_service()
     async with context.session.begin():
@@ -157,73 +162,92 @@ async def delete_admin(
     tags=["admin"],
 )
 async def get_admin_token_change_history(
+    *,
+    cursor: Annotated[
+        str | None,
+        Query(
+            title="Cursor",
+            description="Pagination cursor",
+            examples=["1614985055_4234"],
+            pattern=CURSOR_REGEX,
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        Query(
+            title="Row limit",
+            description="Maximum number of entries to return",
+            examples=[500],
+            ge=1,
+        ),
+    ] = None,
+    since: Annotated[
+        datetime | None,
+        Query(
+            title="Not before",
+            description="Only show entries at or after this time",
+            examples=["2021-03-05T14:59:52Z"],
+        ),
+    ] = None,
+    until: Annotated[
+        datetime | None,
+        Query(
+            title="Not after",
+            description="Only show entries before or at this time",
+            examples=["2021-03-05T14:59:52Z"],
+        ),
+    ] = None,
+    username: Annotated[
+        str | None,
+        Query(
+            title="Username",
+            description="Only show tokens for this user",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ] = None,
+    actor: Annotated[
+        str | None,
+        Query(
+            title="Actor",
+            description="Only show actions performed by this user",
+            examples=["adminuser"],
+            min_length=1,
+            max_length=64,
+            pattern=ACTOR_REGEX,
+        ),
+    ] = None,
+    key: Annotated[
+        str | None,
+        Query(
+            title="Token",
+            description="Only show changes for this token",
+            examples=["dDQg_NTNS51GxeEteqnkag"],
+            min_length=22,
+            max_length=22,
+        ),
+    ] = None,
+    token_type: Annotated[
+        TokenType | None,
+        Query(
+            title="Token type",
+            description="Only show tokens of this type",
+            examples=["user"],
+        ),
+    ] = None,
+    ip_address: Annotated[
+        str | None,
+        Query(
+            title="IP or CIDR",
+            description="Only show changes from this IP or CIDR block",
+            examples=["198.51.100.0/24"],
+        ),
+    ] = None,
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
-    cursor: (str | None) = Query(
-        None,
-        title="Cursor",
-        description="Pagination cursor",
-        examples=["1614985055_4234"],
-        pattern=CURSOR_REGEX,
-    ),
-    limit: (int | None) = Query(
-        None,
-        title="Row limit",
-        description="Maximum number of entries to return",
-        examples=[500],
-        ge=1,
-    ),
-    since: (datetime | None) = Query(
-        None,
-        title="Not before",
-        description="Only show entries at or after this time",
-        examples=["2021-03-05T14:59:52Z"],
-    ),
-    until: (datetime | None) = Query(
-        None,
-        title="Not after",
-        description="Only show entries before or at this time",
-        examples=["2021-03-05T14:59:52Z"],
-    ),
-    username: (str | None) = Query(
-        None,
-        title="Username",
-        description="Only show tokens for this user",
-        examples=["someuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    actor: (str | None) = Query(
-        None,
-        title="Actor",
-        description="Only show actions performed by this user",
-        examples=["adminuser"],
-        min_length=1,
-        max_length=64,
-        pattern=ACTOR_REGEX,
-    ),
-    key: (str | None) = Query(
-        None,
-        title="Token",
-        description="Only show changes for this token",
-        examples=["dDQg_NTNS51GxeEteqnkag"],
-        min_length=22,
-        max_length=22,
-    ),
-    token_type: (TokenType | None) = Query(
-        None,
-        title="Token type",
-        description="Only show tokens of this type",
-        examples=["user"],
-    ),
-    ip_address: (str | None) = Query(
-        None,
-        title="IP or CIDR",
-        description="Only show changes from this IP or CIDR block",
-        examples=["198.51.100.0/24"],
-    ),
-    auth_data: TokenData = Depends(authenticate_admin_read),
-    context: RequestContext = Depends(context_dependency),
 ) -> list[dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
@@ -256,8 +280,9 @@ async def get_admin_token_change_history(
     tags=["browser"],
 )
 async def get_login(
-    auth_data: TokenData = Depends(authenticate_session_read),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_session_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> APILoginResponse:
     if not context.state.csrf:
         context.state.csrf = random_128_bits()
@@ -284,8 +309,9 @@ async def get_login(
     tags=["user"],
 )
 async def get_token_info(
-    auth_data: TokenData = Depends(authenticate_read),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
@@ -321,10 +347,11 @@ async def get_token_info(
     tags=["admin"],
 )
 async def post_admin_tokens(
+    *,
     token_request: AdminTokenRequest,
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
-    auth_data: TokenData = Depends(authenticate_admin_write),
-    context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
@@ -346,8 +373,9 @@ async def post_admin_tokens(
     tags=["user"],
 )
 async def get_user_info(
-    auth_data: TokenData = Depends(authenticate_read),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> UserInfo:
     user_info_service = context.factory.create_user_info_service()
     try:
@@ -380,63 +408,80 @@ async def get_user_info(
     tags=["user"],
 )
 async def get_user_token_change_history(
+    *,
+    username: Annotated[
+        str,
+        Path(
+            title="Username",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    cursor: Annotated[
+        str | None,
+        Query(
+            title="Cursor",
+            description="Pagination cursor",
+            examples=["1614985055_4234"],
+            pattern=CURSOR_REGEX,
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        Query(
+            title="Row limit",
+            description="Maximum number of entries to return",
+            examples=[500],
+            ge=1,
+        ),
+    ] = None,
+    since: Annotated[
+        datetime | None,
+        Query(
+            title="Not before",
+            description="Only show entries at or after this time",
+            examples=["2021-03-05T14:59:52Z"],
+        ),
+    ] = None,
+    until: Annotated[
+        datetime | None,
+        Query(
+            title="Not after",
+            description="Only show entries before or at this time",
+            examples=["2021-03-05T14:59:52Z"],
+        ),
+    ] = None,
+    key: Annotated[
+        str | None,
+        Query(
+            title="Token",
+            description="Only show changes for this token",
+            examples=["dDQg_NTNS51GxeEteqnkag"],
+            min_length=22,
+            max_length=22,
+        ),
+    ] = None,
+    token_type: Annotated[
+        TokenType | None,
+        Query(
+            title="Token type",
+            description="Only show tokens of this type",
+            examples=["user"],
+        ),
+    ] = None,
+    ip_address: Annotated[
+        str | None,
+        Query(
+            title="IP or CIDR",
+            description="Only show changes from this IP or CIDR block",
+            examples=["198.51.100.0/24"],
+        ),
+    ] = None,
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
-    username: str = Path(
-        ...,
-        title="Username",
-        examples=["someuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    cursor: (str | None) = Query(
-        None,
-        title="Cursor",
-        description="Pagination cursor",
-        examples=["1614985055_4234"],
-        pattern=CURSOR_REGEX,
-    ),
-    limit: (int | None) = Query(
-        None,
-        title="Row limit",
-        description="Maximum number of entries to return",
-        examples=[500],
-        ge=1,
-    ),
-    since: (datetime | None) = Query(
-        None,
-        title="Not before",
-        description="Only show entries at or after this time",
-        examples=["2021-03-05T14:59:52Z"],
-    ),
-    until: (datetime | None) = Query(
-        None,
-        title="Not after",
-        description="Only show entries before or at this time",
-        examples=["2021-03-05T14:59:52Z"],
-    ),
-    key: (str | None) = Query(
-        None,
-        title="Token",
-        description="Only show changes for this token",
-        examples=["dDQg_NTNS51GxeEteqnkag"],
-        min_length=22,
-        max_length=22,
-    ),
-    token_type: (TokenType | None) = Query(
-        None,
-        title="Token type",
-        description="Only show tokens of this type",
-        examples=["user"],
-    ),
-    ip_address: (str | None) = Query(
-        None,
-        title="IP or CIDR",
-        description="Only show changes from this IP or CIDR block",
-        examples=["198.51.100.0/24"],
-    ),
-    auth_data: TokenData = Depends(authenticate_read),
-    context: RequestContext = Depends(context_dependency),
 ) -> list[dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
@@ -465,16 +510,19 @@ async def get_user_token_change_history(
     tags=["user"],
 )
 async def get_tokens(
-    username: str = Path(
-        ...,
-        title="Username",
-        examples=["someuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    auth_data: TokenData = Depends(authenticate_read),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    username: Annotated[
+        str,
+        Path(
+            title="Username",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> list[TokenInfo]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
@@ -499,18 +547,21 @@ async def get_tokens(
     tags=["user"],
 )
 async def post_tokens(
+    *,
     token_request: UserTokenRequest,
+    username: Annotated[
+        str,
+        Path(
+            title="Username",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    auth_data: Annotated[TokenData, Depends(authenticate_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
-    username: str = Path(
-        ...,
-        title="Username",
-        examples=["someuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    auth_data: TokenData = Depends(authenticate_write),
-    context: RequestContext = Depends(context_dependency),
 ) -> NewToken:
     token_service = context.factory.create_token_service()
     token_params = token_request.model_dump()
@@ -536,23 +587,28 @@ async def post_tokens(
     tags=["user"],
 )
 async def get_token(
-    username: str = Path(
-        ...,
-        title="Username",
-        examples=["someuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    key: str = Path(
-        ...,
-        title="Token key",
-        examples=["GpbIL3_qhgZlpfGTFF"],
-        min_length=22,
-        max_length=22,
-    ),
-    auth_data: TokenData = Depends(authenticate_write),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    username: Annotated[
+        str,
+        Path(
+            title="Username",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    key: Annotated[
+        str,
+        Path(
+            title="Token key",
+            examples=["GpbIL3_qhgZlpfGTFF"],
+            min_length=22,
+            max_length=22,
+        ),
+    ],
+    auth_data: Annotated[TokenData, Depends(authenticate_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
@@ -571,23 +627,28 @@ async def get_token(
     tags=["user"],
 )
 async def delete_token(
-    username: str = Path(
-        ...,
-        title="Username",
-        examples=["someuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    key: str = Path(
-        ...,
-        title="Token key",
-        examples=["GpbIL3_qhgZlpfGTFF"],
-        min_length=22,
-        max_length=22,
-    ),
-    auth_data: TokenData = Depends(authenticate_write),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    username: Annotated[
+        str,
+        Path(
+            title="Username",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    key: Annotated[
+        str,
+        Path(
+            title="Token key",
+            examples=["GpbIL3_qhgZlpfGTFF"],
+            min_length=22,
+            max_length=22,
+        ),
+    ],
+    auth_data: Annotated[TokenData, Depends(authenticate_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> None:
     token_service = context.factory.create_token_service()
     async with context.session.begin():
@@ -615,24 +676,29 @@ async def delete_token(
     tags=["admin"],
 )
 async def patch_token(
+    *,
     token_request: UserTokenModifyRequest,
-    username: str = Path(
-        ...,
-        title="Username",
-        examples=["someuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    key: str = Path(
-        ...,
-        title="Token key",
-        examples=["GpbIL3_qhgZlpfGTFF"],
-        min_length=22,
-        max_length=22,
-    ),
-    auth_data: TokenData = Depends(authenticate_write),
-    context: RequestContext = Depends(context_dependency),
+    username: Annotated[
+        str,
+        Path(
+            title="Username",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    key: Annotated[
+        str,
+        Path(
+            title="Token key",
+            examples=["GpbIL3_qhgZlpfGTFF"],
+            min_length=22,
+            max_length=22,
+        ),
+    ],
+    auth_data: Annotated[TokenData, Depends(authenticate_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()
     update = token_request.model_dump(exclude_unset=True)
@@ -661,23 +727,28 @@ async def patch_token(
     tags=["user"],
 )
 async def get_token_change_history(
-    username: str = Path(
-        ...,
-        title="Username",
-        examples=["someuser"],
-        min_length=1,
-        max_length=64,
-        pattern=USERNAME_REGEX,
-    ),
-    key: str = Path(
-        ...,
-        title="Token key",
-        examples=["GpbIL3_qhgZlpfGTFF"],
-        min_length=22,
-        max_length=22,
-    ),
-    auth_data: TokenData = Depends(authenticate_read),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    username: Annotated[
+        str,
+        Path(
+            title="Username",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    key: Annotated[
+        str,
+        Path(
+            title="Token key",
+            examples=["GpbIL3_qhgZlpfGTFF"],
+            min_length=22,
+            max_length=22,
+        ),
+    ],
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> list[dict[str, Any]]:
     token_service = context.factory.create_token_service()
     async with context.session.begin():

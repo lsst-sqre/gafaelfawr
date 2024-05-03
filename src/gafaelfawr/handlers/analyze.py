@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
@@ -97,8 +97,9 @@ def token_data_to_analysis(token_data: TokenData) -> dict[str, dict[str, Any]]:
     tags=["user"],
 )
 async def get_analyze(
-    token_data: TokenData = Depends(authenticate),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    token_data: Annotated[TokenData, Depends(authenticate)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> dict[str, dict[str, Any]]:
     """Analyze a token from a web session."""
     return token_data_to_analysis(token_data)
@@ -120,13 +121,16 @@ async def get_analyze(
     tags=["user"],
 )
 async def post_analyze(
-    token_str: str = Form(
-        ...,
-        alias="token",
-        title="Token to analyze",
-        examples=["gt-db59fbkT5LrGHvhLMglNWw.G3NEmhWZr8JwO8AQ8sIWpQ"],
-    ),
-    context: RequestContext = Depends(context_dependency),
+    *,
+    token_str: Annotated[
+        str,
+        Form(
+            alias="token",
+            title="Token to analyze",
+            examples=["gt-db59fbkT5LrGHvhLMglNWw.G3NEmhWZr8JwO8AQ8sIWpQ"],
+        ),
+    ],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> dict[str, dict[str, Any]]:
     """Analyze a token.
 
