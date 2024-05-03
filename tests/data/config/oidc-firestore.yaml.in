@@ -16,18 +16,16 @@ knownScopes:
   "user:token": "Can create and modify user tokens"
 firestore:
   project: "some-google-project"
+ldap:
+  url: "ldaps://ldap.example.com/"
+  groupBaseDn: "dc=example,dc=com"
+  userBaseDn: "ou=people,dc=example,dc=com"
+  addUserGroup: true
 oidc:
   clientId: "some-oidc-client-id"
   clientSecretFile: "{oidc_secret_file}"
   loginUrl: "https://upstream.example.com/oidc/login"
-  loginParams:
-    skin: "test"
   redirectUrl: "https://upstream.example.com/login"
   tokenUrl: "https://upstream.example.com/token"
-  scopes:
-    - "email"
-    - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
-errorFooter: |
-  Some <strong>error instructions</strong> with HTML.

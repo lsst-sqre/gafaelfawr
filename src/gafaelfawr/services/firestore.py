@@ -46,7 +46,7 @@ class FirestoreService:
         self._logger = logger
 
     async def get_gid(self, group: str, *, uncached: bool = False) -> int:
-        """Get the GID for a given user from Firestore.
+        """Get the GID for a given group from Firestore.
 
         Parameters
         ----------

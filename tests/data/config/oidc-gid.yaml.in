@@ -1,8 +1,8 @@
 realm: "example.com"
+logLevel: "DEBUG"
 sessionSecretFile: "{session_secret_file}"
 databaseUrl: "{database_url}"
 redisUrl: "redis://localhost:6379/0"
-slackWebhookFile: "{slack_webhook_file}"
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
@@ -15,17 +15,15 @@ knownScopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
+ldap:
+  url: "ldaps://ldap.example.com/"
+  groupBaseDn: "dc=example,dc=com"
+  userBaseDn: "ou=people,dc=example,dc=com"
 oidc:
   clientId: "some-oidc-client-id"
   clientSecretFile: "{oidc_secret_file}"
   loginUrl: "https://upstream.example.com/oidc/login"
-  loginParams:
-    skin: "test"
   redirectUrl: "https://upstream.example.com/login"
   tokenUrl: "https://upstream.example.com/token"
-  scopes:
-    - "email"
-    - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
-  gidClaim: "gid_number"

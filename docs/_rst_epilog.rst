@@ -6,6 +6,7 @@
 .. _Phalanx: https://phalanx.lsst.io/
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/
+.. _RFC 2307bis: https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02
 .. _Ruff: https://beta.ruff.rs/docs/
 .. _Safir: https://safir.lsst.io/
 .. _scriv: https://scriv.readthedocs.io/en/latest/

@@ -31,7 +31,7 @@ from pydantic import (
 )
 from pydantic_core import Url
 from safir.logging import LogLevel, configure_logging
-from safir.pydantic import CamelCaseModel, validate_exactly_one_of
+from safir.pydantic import CamelCaseModel
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .keypair import RSAKeyPair
@@ -135,15 +135,6 @@ class OIDCSettings(CamelCaseModel):
     username_claim: str = "uid"
     """Name of claim to use as the username."""
 
-    uid_claim: str = "uidNumber"
-    """Name of claim to use as the UID."""
-
-    gid_claim: str | None = None
-    """Name of claim to use as the primary GID."""
-
-    groups_claim: str = "isMemberOf"
-    """Name of claim to use for the group membership."""
-
 
 class LDAPSettings(CamelCaseModel):
     """pydantic model of LDAP configuration."""
@@ -204,12 +195,12 @@ class LDAPSettings(CamelCaseModel):
     If set to `True`, ``user_base_dn`` must be set.
     """
 
-    user_base_dn: str | None = None
+    user_base_dn: str
     """Base DN to use to search for user information.
 
-    If set, the base DN used to search for the user record, from which other
-    information such as full name, email, and (if configured) numeric UID will
-    be retrieved.
+    The base DN used to search for the user record, from which other
+    information such as full name, email, numeric UID, and (if configured)
+    numeric GID will be retrieved.
     """
 
     user_search_attr: str = "uid"
@@ -226,8 +217,8 @@ class LDAPSettings(CamelCaseModel):
     """LDAP full name attribute.
 
     The attribute from which the user's full name will be taken, or `None` to
-    not look up full names.  This should normally be ``displayName``, but
-    sometimes it may be desirable to use a different name attribute.  This
+    not look up full names. This should normally be ``displayName``, but
+    sometimes it may be desirable to use a different name attribute. This
     should hold the whole name that should be used by the Science Platform,
     not just a surname or family name (which are not universally valid
     concepts anyway).
@@ -237,28 +228,24 @@ class LDAPSettings(CamelCaseModel):
     """LDAP email attribute.
 
     The attribute from which the user's email address should be taken, or
-    `None` to not look up email addresses.  This should normally be
-    ``mail``.
+    `None` to not look up email addresses. This should normally be ``mail``.
     """
 
-    uid_attr: str | None = None
+    uid_attr: str | None = "uidNumber"
     """LDAP UID attribute.
 
-    If set, the user's UID will be taken from this sttribute.  If UID lookups
-    are desired, this should usually be ``uidNumber``, as specified in
-    :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.
+    If set, the user's UID will be taken from this sttribute. This should
+    usually be ``uidNumber``, as specified in :rfc:`2307` and `RFC 2307bis`_.
+    If not set, Firestore must be configured.
     """
 
-    gid_attr: str | None = None
+    gid_attr: str | None = "gidNumber"
     """LDAP GID attirbute.
 
-    If set, the user's primary GID will be taken from this sttribute.  If GID
-    lookups are desired, this should usually be ``gidNumber``, as specified in
-    :rfc:`2307` and `RFC 2307bis
-    <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.  If
-    not set, the primary GID will match the UID if ``add_user_group`` is true,
-    and otherwise will not be set.
+    If set, the user's primary GID will be taken from this sttribute. This
+    should usually be ``gidNumber``, as specified in :rfc:`2307` and `RFC
+    2307bis`_. If not set, the primary GID will match the UID if
+    ``add_user_group`` is true, and otherwise will not be set.
     """
 
     add_user_group: bool = False
@@ -268,13 +255,6 @@ class LDAPSettings(CamelCaseModel):
     matches the username and UID, adding it to the group list without
     requiring it to appear in LDAP.
     """
-
-    @model_validator(mode="after")
-    def _validate_group_search_by_dn(self) -> Self:
-        if self.group_search_by_dn and not self.user_base_dn:
-            msg = "user_base_dn must be set if group_search_by_dn is true"
-            raise ValueError(msg)
-        return self
 
     @model_validator(mode="after")
     def _validate_password_file(self) -> Self:
@@ -510,9 +490,24 @@ class Settings(CamelCaseModel):
                 raise ValueError(f"required scope {required} missing")
         return v
 
-    _validate_provider = model_validator(mode="after")(
-        validate_exactly_one_of("github", "oidc")
-    )
+    @model_validator(mode="after")
+    def _validate_userinfo(self) -> Self:
+        """Ensure user information sources are configured properly."""
+        if not self.github and not self.oidc:
+            msg = "One of GitHub or OpenID Connect must be configured"
+            raise ValueError(msg)
+        if self.github and self.oidc:
+            raise ValueError("GitHub and OpenID Connect cannot both be used")
+        if self.github and self.ldap:
+            raise ValueError("LDAP cannot be used with GitHub authentication")
+        if self.oidc and not self.ldap:
+            msg = "LDAP must be configured if OpenID Connect is used"
+            raise ValueError(msg)
+        if self.ldap:
+            if not self.ldap.uid_attr and not self.firestore:
+                msg = "ldap.uidAttr must be set unless Firestore is used"
+                raise ValueError(msg)
+        return self
 
 
 @dataclass(frozen=True, slots=True)
@@ -580,15 +575,6 @@ class OIDCConfig:
     username_claim: str
     """Token claim from which to take the username."""
 
-    uid_claim: str
-    """Token claim from which to take the UID."""
-
-    gid_claim: str | None
-    """Token claim from which to take the primary GID."""
-
-    groups_claim: str
-    """Token claim from which to take the group membership."""
-
 
 @dataclass(frozen=True, slots=True)
 class LDAPConfig:
@@ -639,7 +625,7 @@ class LDAPConfig:
     containing that DN.
     """
 
-    user_base_dn: str | None
+    user_base_dn: str
     """Base DN to use to search for user information.
 
     If set, the base DN used to search for the user record, from which other
@@ -692,14 +678,6 @@ class LDAPConfig:
     <https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02>`__.  If
     not set, the primary GID will match the UID if ``add_user_group`` is true,
     and otherwise will not be set.
-    """
-
-    add_user_group: bool
-    """Whether to synthesize a user private group with GID matching UID.
-
-    If set to `True`, synthesize a group for the user whose name and GID
-    matches the username and UID, adding it to the group list without
-    requiring it to appear in LDAP.
     """
 
 
@@ -858,6 +836,14 @@ class Config:
     cadc_base_uuid: UUID | None
     """Namespace UUID used to generate UUIDs for CADC-compatible auth."""
 
+    add_user_group: bool
+    """Whether to synthesize a user private group with GID matching UID.
+
+    If set to `True`, synthesize a group for the user whose name and GID
+    matches the username and UID, adding it to the group list without
+    requiring it to appear in LDAP.
+    """
+
     github: GitHubConfig | None
     """Configuration for GitHub authentication."""
 
@@ -932,14 +918,12 @@ class Config:
                 issuer=settings.oidc.issuer,
                 audience=settings.oidc.audience,
                 username_claim=settings.oidc.username_claim,
-                uid_claim=settings.oidc.uid_claim,
-                gid_claim=settings.oidc.gid_claim,
-                groups_claim=settings.oidc.groups_claim,
             )
 
         # Build LDAP configuration if needed.
+        add_user_group = settings.github is not None
         ldap_config = None
-        if settings.ldap and settings.ldap.url:
+        if settings.ldap:
             ldap_password = None
             if settings.ldap.password_file:
                 path = settings.ldap.password_file
@@ -959,8 +943,8 @@ class Config:
                 email_attr=settings.ldap.email_attr,
                 uid_attr=settings.ldap.uid_attr,
                 gid_attr=settings.ldap.gid_attr,
-                add_user_group=settings.ldap.add_user_group,
             )
+            add_user_group = settings.ldap.add_user_group
 
         # Build Firestore configuration if needed.
         firestore_config = None
@@ -1068,6 +1052,7 @@ class Config:
             error_footer=settings.error_footer,
             slack_webhook=slack_webhook,
             cadc_base_uuid=settings.cadc_base_uuid,
+            add_user_group=add_user_group,
             github=github_config,
             oidc=oidc_config,
             ldap=ldap_config,

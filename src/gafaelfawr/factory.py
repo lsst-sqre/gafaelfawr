@@ -36,7 +36,8 @@ from .constants import (
 from .exceptions import NotConfiguredError
 from .models.ldap import LDAPUserData
 from .models.oidc import OIDCAuthorization
-from .models.token import TokenData, TokenGroup
+from .models.token import TokenData
+from .models.userinfo import Group
 from .providers.base import Provider
 from .providers.github import GitHubProvider
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
@@ -52,7 +53,7 @@ from .services.ldap import LDAPService
 from .services.oidc import OIDCService
 from .services.token import TokenService
 from .services.token_cache import TokenCacheService
-from .services.userinfo import OIDCUserInfoService, UserInfoService
+from .services.userinfo import UserInfoService
 from .storage.admin import AdminStore
 from .storage.firestore import FirestoreStorage
 from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
@@ -96,7 +97,7 @@ class ProcessContext:
     gid_cache: IdCache
     """Shared GID cache."""
 
-    ldap_group_cache: LDAPCache[list[TokenGroup]]
+    ldap_group_cache: LDAPCache[list[Group]]
     """Cache of LDAP group information."""
 
     ldap_group_name_cache: LDAPCache[list[str]]
@@ -162,7 +163,7 @@ class ProcessContext:
             redis=redis_client,
             uid_cache=IdCache(),
             gid_cache=IdCache(),
-            ldap_group_cache=LDAPCache(list[TokenGroup]),
+            ldap_group_cache=LDAPCache(list[Group]),
             ldap_group_name_cache=LDAPCache(list[str]),
             ldap_user_cache=LDAPCache(LDAPUserData),
             internal_token_cache=InternalTokenCache(),
@@ -440,50 +441,6 @@ class Factory:
             logger=self._logger,
         )
 
-    def create_oidc_user_info_service(self) -> OIDCUserInfoService:
-        """Create a user information service for OpenID Connect providers.
-
-        This is a user information service specialized for using an OpenID
-        Connect authentication provider.  It understands how to parse
-        information out of the token claims.
-
-        Returns
-        -------
-        OIDCUserInfoService
-            A new user information service.
-
-        Raises
-        ------
-        NotConfiguredError
-            Raised if the configured authentication provider is not OpenID
-            Connect.
-        """
-        if not self._context.config.oidc:
-            raise NotConfiguredError("OpenID Connect is not configured")
-        firestore = None
-        if self._context.config.firestore:
-            firestore = self.create_firestore_service()
-        ldap = None
-        if self._context.config.ldap and self._context.ldap_pool:
-            ldap_storage = LDAPStorage(
-                self._context.config.ldap,
-                self._context.ldap_pool,
-                self._logger,
-            )
-            ldap = LDAPService(
-                ldap=ldap_storage,
-                group_cache=self._context.ldap_group_cache,
-                group_name_cache=self._context.ldap_group_name_cache,
-                user_cache=self._context.ldap_user_cache,
-                logger=self._logger,
-            )
-        return OIDCUserInfoService(
-            config=self._context.config,
-            ldap=ldap,
-            firestore=firestore,
-            logger=self._logger,
-        )
-
     def create_oidc_token_verifier(self) -> OIDCTokenVerifier:
         """Create a JWT token verifier for OpenID Connect tokens.
 
@@ -529,11 +486,9 @@ class Factory:
             )
         elif self._context.config.oidc:
             verifier = self.create_oidc_token_verifier()
-            user_info_service = self.create_oidc_user_info_service()
             return OIDCProvider(
                 config=self._context.config.oidc,
                 verifier=verifier,
-                user_info_service=user_info_service,
                 http_client=self._context.http_client,
                 logger=self._logger,
             )

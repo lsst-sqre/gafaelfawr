@@ -51,7 +51,7 @@ async def test_health(
     # Configure LDAP so that we'll also do LDAP lookups. The test should still
     # pass because successful LDAP lookups are optional as long as the LDAP
     # server is responding.
-    config = await reconfigure(tmp_path, "oidc-ldap")
+    config = await reconfigure(tmp_path, "oidc")
     token_service = factory.create_token_service()
     async with factory.session.begin():
         await token_service.delete_token(

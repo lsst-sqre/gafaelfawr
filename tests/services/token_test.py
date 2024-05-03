@@ -25,11 +25,11 @@ from gafaelfawr.models.token import (
     AdminTokenRequest,
     Token,
     TokenData,
-    TokenGroup,
     TokenInfo,
     TokenType,
     TokenUserInfo,
 )
+from gafaelfawr.models.userinfo import Group
 from gafaelfawr.schema.subtoken import Subtoken
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
@@ -45,10 +45,7 @@ async def test_session_token(config: Config, factory: Factory) -> None:
         username="example",
         name="Example Person",
         uid=4137,
-        groups=[
-            TokenGroup(name="group", id=1000),
-            TokenGroup(name="another", id=3134),
-        ],
+        groups=[Group(name="group", id=1000), Group(name="another", id=3134)],
     )
 
     async with factory.session.begin():
@@ -66,10 +63,7 @@ async def test_session_token(config: Config, factory: Factory) -> None:
         expires=data.expires,
         name="Example Person",
         uid=4137,
-        groups=[
-            TokenGroup(name="group", id=1000),
-            TokenGroup(name="another", id=3134),
-        ],
+        groups=[Group(name="group", id=1000), Group(name="another", id=3134)],
     )
     assert_is_now(data.created)
     expires = data.created + config.token_lifetime
@@ -201,7 +195,7 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         username="example",
         name="Example Person",
         uid=4137,
-        groups=[TokenGroup(name="foo", id=1000)],
+        groups=[Group(name="foo", id=1000)],
     )
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -337,7 +331,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         username="example",
         name="Example Person",
         uid=4137,
-        groups=[TokenGroup(name="foo", id=1000)],
+        groups=[Group(name="foo", id=1000)],
     )
     token_service = factory.create_token_service()
     async with factory.session.begin():
@@ -651,7 +645,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
         expires=expires,
         name="Other User",
         uid=1345,
-        groups=[TokenGroup(name="some-group", id=4133)],
+        groups=[Group(name="some-group", id=4133)],
     )
 
     # Cannot create a token via admin request because the authentication
@@ -1408,7 +1402,7 @@ async def test_invalid_username(factory: Factory) -> None:
         username="ex-am-pl-e",
         name="Example Person",
         uid=4137,
-        groups=[TokenGroup(name="foo", id=1000)],
+        groups=[Group(name="foo", id=1000)],
     )
     token_service = factory.create_token_service()
     async with factory.session.begin():

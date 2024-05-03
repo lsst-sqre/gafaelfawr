@@ -35,10 +35,10 @@ from ..models.token import (
     TokenData,
     TokenInfo,
     TokenType,
-    TokenUserInfo,
     UserTokenModifyRequest,
     UserTokenRequest,
 )
+from ..models.userinfo import UserInfo
 from ..util import random_128_bits
 
 __all__ = ["router"]
@@ -340,7 +340,7 @@ async def post_admin_tokens(
 @router.get(
     "/auth/api/v1/user-info",
     description="Get metadata about the autheticated user",
-    response_model=TokenUserInfo,
+    response_model=UserInfo,
     response_model_exclude_none=True,
     summary="Get user metadata",
     tags=["user"],
@@ -348,7 +348,7 @@ async def post_admin_tokens(
 async def get_user_info(
     auth_data: TokenData = Depends(authenticate_read),
     context: RequestContext = Depends(context_dependency),
-) -> TokenUserInfo:
+) -> UserInfo:
     user_info_service = context.factory.create_user_info_service()
     try:
         return await user_info_service.get_user_info_from_token(auth_data)

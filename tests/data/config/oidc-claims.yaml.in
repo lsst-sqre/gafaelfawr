@@ -14,6 +14,10 @@ knownScopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
+ldap:
+  url: "ldaps://ldap.example.com/"
+  groupBaseDn: "dc=example,dc=com"
+  userBaseDn: "ou=people,dc=example,dc=com"
 oidc:
   clientId: "some-oidc-client-id"
   clientSecretFile: "{oidc_secret_file}"
@@ -28,7 +32,3 @@ oidc:
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
   usernameClaim: "username"
-  uidClaim: "numeric_uid"
-  groupsClaim: "group_membership"
-errorFooter: |
-  Some <strong>error instructions</strong> with HTML.

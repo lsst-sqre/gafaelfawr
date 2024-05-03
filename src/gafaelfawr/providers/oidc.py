@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from urllib.parse import urlencode
 
 import jwt
@@ -12,13 +13,15 @@ from httpx import AsyncClient, HTTPError, HTTPStatusError
 from structlog.stdlib import BoundLogger
 
 from ..config import OIDCConfig
-from ..constants import ALGORITHM
+from ..constants import ALGORITHM, USERNAME_REGEX
 from ..exceptions import (
     FetchKeysError,
+    InvalidTokenClaimsError,
     MissingUsernameClaimError,
     OIDCError,
     OIDCNotEnrolledError,
     OIDCWebError,
+    PermissionDeniedError,
     UnknownAlgorithmError,
     UnknownKeyIdError,
     VerifyTokenError,
@@ -26,7 +29,6 @@ from ..exceptions import (
 from ..models.oidc import OIDCToken, OIDCVerifiedToken
 from ..models.state import State
 from ..models.token import TokenUserInfo
-from ..services.userinfo import OIDCUserInfoService
 from ..util import base64_to_number
 from .base import Provider
 
@@ -42,8 +44,6 @@ class OIDCProvider(Provider):
         OpenID Connect authentication provider configuration.
     verifier
         JWT token verifier for OpenID Connect tokens.
-    user_info_service
-        Service for retrieving user metadata like UID.
     http_client
         Session to use to make HTTP requests.
     logger
@@ -55,13 +55,11 @@ class OIDCProvider(Provider):
         *,
         config: OIDCConfig,
         verifier: OIDCTokenVerifier,
-        user_info_service: OIDCUserInfoService,
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._verifier = verifier
-        self._user_info = user_info_service
         self._http_client = http_client
         self._logger = logger
 
@@ -123,11 +121,13 @@ class OIDCProvider(Provider):
             error.
         OIDCError
             Raised if the OpenID Connect provider responded with an error to a
-            request or the group membership in the resulting token was not
-            valid.
+            request, the token could not be validated, or the syntax of the
+            resulting token was not valid.
         OIDCWebError
             An HTTP client error occurred trying to talk to the authentication
             provider.
+        PermissionDeniedError
+            Raised if the username was invalid.
         """
         token_url = self._config.token_url
         logger = self._logger.bind(token_url=token_url)
@@ -174,12 +174,16 @@ class OIDCProvider(Provider):
         unverified_token = OIDCToken(encoded=result["id_token"])
         try:
             token = await self._verifier.verify_token(unverified_token)
-            return await self._user_info.get_user_info_from_oidc_token(token)
+            username = self._get_username_from_oidc_token(token)
+            return TokenUserInfo(username=username)
         except MissingUsernameClaimError as e:
             raise OIDCNotEnrolledError(str(e)) from e
         except (jwt.InvalidTokenError, VerifyTokenError) as e:
             logger.exception("Error verifying ID token", msg=str(e))
             msg = f"OpenID Connect token verification failed: {e!s}"
+            raise OIDCError(msg) from e
+        except InvalidTokenClaimsError as e:
+            msg = f"OpenID Connect token parsing failed: {e!s}"
             raise OIDCError(msg) from e
 
     async def logout(self, session: State) -> None:
@@ -192,6 +196,42 @@ class OIDCProvider(Provider):
         session
             The session state, which contains the GitHub access token.
         """
+
+    def _get_username_from_oidc_token(self, token: OIDCVerifiedToken) -> str:
+        """Verify and return the username from the token.
+
+        Parameters
+        ----------
+        token
+            The previously verified token.
+
+        Returns
+        -------
+        str
+            The username of the user as obtained from the token.
+
+        Raises
+        ------
+        InvalidTokenClaimsError
+            Raised if the username claim value is malformatted.
+        MissingUsernameClaimError
+            Raised if the token is missing the required username claim.
+        PermissionDeniedError
+            Raised if the username was invalid.
+        """
+        claim = self._config.username_claim
+        if claim not in token.claims:
+            msg = f"No {claim} claim in token"
+            self._logger.warning(msg, claims=token.claims)
+            raise MissingUsernameClaimError(msg)
+        username = token.claims[claim]
+        if not isinstance(username, str):
+            msg = f"Invalid {claim} claim in token: {username}"
+            raise InvalidTokenClaimsError(msg)
+        if not re.match(USERNAME_REGEX, username):
+            msg = f"Invalid username in {claim} claim in token: {username}"
+            raise PermissionDeniedError(msg)
+        return username
 
 
 class OIDCTokenVerifier:

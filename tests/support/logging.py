@@ -12,7 +12,9 @@ from safir.datetime import current_datetime
 __all__ = ["parse_log"]
 
 
-def parse_log(caplog: LogCaptureFixture) -> list[dict[str, Any]]:
+def parse_log(
+    caplog: LogCaptureFixture, *, ignore_debug: bool = False
+) -> list[dict[str, Any]]:
     """Parse the accumulated logs as JSON.
 
     Checks and strips off common log attributes and returns the rest as a list
@@ -22,6 +24,8 @@ def parse_log(caplog: LogCaptureFixture) -> list[dict[str, Any]]:
     ----------
     caplog
         The log capture fixture.
+    ignore_debug
+        If set to `True`, filter out all debug messages.
 
     Returns
     -------
@@ -49,6 +53,7 @@ def parse_log(caplog: LogCaptureFixture) -> list[dict[str, Any]]:
             assert "userAgent" in message["httpRequest"]
             del message["httpRequest"]["userAgent"]
 
-        messages.append(message)
+        if not ignore_debug or message["severity"] != "debug":
+            messages.append(message)
 
     return messages

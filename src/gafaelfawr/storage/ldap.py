@@ -14,7 +14,7 @@ from ..config import LDAPConfig
 from ..constants import GROUPNAME_REGEX, LDAP_TIMEOUT
 from ..exceptions import LDAPError
 from ..models.ldap import LDAPUserData
-from ..models.token import TokenGroup
+from ..models.userinfo import Group
 
 __all__ = ["LDAPStorage"]
 
@@ -75,7 +75,7 @@ class LDAPStorage:
 
     async def get_groups(
         self, username: str, primary_gid: int | None
-    ) -> list[TokenGroup]:
+    ) -> list[Group]:
         """Get groups for a user from LDAP.
 
         Parameters
@@ -83,15 +83,15 @@ class LDAPStorage:
         username
             Username of the user.
         primary_gid
-            Primary GID if set.  If not `None`, the user's groups will be
-            checked for this GID.  If it's not found, search for the group
-            with this GID and add it to the user's group memberships.  This
-            handles LDAP configurations where the user's primary group is
-            represented only by their GID and not their group memberships.
+            Primary GID if set. If not `None`, the user's groups will be
+            checked for this GID. If it's not found, search for the group with
+            this GID and add it to the user's group memberships.  This handles
+            LDAP configurations where the user's primary group is represented
+            only by their GID and not their group memberships.
 
         Returns
         -------
-        list of TokenGroup
+        list of Group
             User's groups from LDAP.
 
         Raises
@@ -105,7 +105,7 @@ class LDAPStorage:
             try:
                 name = result["cn"][0]
                 gid = int(result["gidNumber"][0])
-                groups.append(TokenGroup(name=name, id=gid))
+                groups.append(Group(name=name, id=gid))
             except Exception as e:
                 msg = f"LDAP group {name} has invalid gidNumber, ignoring"
                 self._logger.warning(
@@ -222,7 +222,7 @@ class LDAPStorage:
 
     async def _find_group_for_gid(
         self, gid: int, username: str
-    ) -> TokenGroup | None:
+    ) -> Group | None:
         """Find the group for a GID.
 
         Used to add the group corresponding to a person's primary GID, if it
@@ -237,7 +237,7 @@ class LDAPStorage:
 
         Returns
         -------
-        TokenGroup or None
+        Group or None
             Group if found, or `None` if it was not.
         """
         group_class = self._config.group_object_class
@@ -259,7 +259,7 @@ class LDAPStorage:
             name = result["cn"][0]
             try:
                 # Rely on Pydantic to do the validation.
-                return TokenGroup(name=name, id=gid)
+                return Group(name=name, id=gid)
             except Exception as e:
                 msg = f"LDAP group {name} invalid, ignoring"
                 logger.warning(msg, error=str(e), ldap_result=result)
