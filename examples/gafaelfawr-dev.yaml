@@ -43,7 +43,6 @@ github:
 oidcServer:
   issuer: "https://localhost:8080"
   keyId: "localhost-key-id"
-  audience: "http://localhost"
   keyFile: "examples/secrets/issuer-key"
   secretsFile: "examples/secrets/oidc-clients.json"
 
