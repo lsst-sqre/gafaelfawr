@@ -6,14 +6,14 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from _pytest.logging import LogCaptureFixture
+import pytest
 from safir.datetime import current_datetime
 
 __all__ = ["parse_log"]
 
 
 def parse_log(
-    caplog: LogCaptureFixture, *, ignore_debug: bool = False
+    caplog: pytest.LogCaptureFixture, *, ignore_debug: bool = False
 ) -> list[dict[str, Any]]:
     """Parse the accumulated logs as JSON.
 

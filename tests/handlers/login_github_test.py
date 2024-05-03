@@ -7,7 +7,6 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 import respx
-from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, Response
 from safir.testing.slack import MockSlackWebhook
 
@@ -99,7 +98,9 @@ async def simulate_github_login(
 
 @pytest.mark.asyncio
 async def test_login(
-    client: AsyncClient, respx_mock: respx.Router, caplog: LogCaptureFixture
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",

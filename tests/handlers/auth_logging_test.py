@@ -6,7 +6,6 @@ import base64
 from unittest.mock import ANY
 
 import pytest
-from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 from safir.datetime import format_datetime_for_logging
 
@@ -20,7 +19,7 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_success(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:admin"])
 
@@ -91,7 +90,7 @@ async def test_success(
 
 @pytest.mark.asyncio
 async def test_authorization_failed(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:admin"])
 
@@ -132,7 +131,7 @@ async def test_authorization_failed(
 
 @pytest.mark.asyncio
 async def test_original_url(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory)
 
@@ -184,7 +183,7 @@ async def test_original_url(
 
 @pytest.mark.asyncio
 async def test_chained_x_forwarded(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory)
 
@@ -226,7 +225,7 @@ async def test_chained_x_forwarded(
 
 @pytest.mark.asyncio
 async def test_invalid_token(
-    client: AsyncClient, caplog: LogCaptureFixture
+    client: AsyncClient, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.clear()
     r = await client.get(
@@ -258,7 +257,7 @@ async def test_invalid_token(
 
 @pytest.mark.asyncio
 async def test_notebook(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(
         factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
@@ -324,7 +323,7 @@ async def test_notebook(
 
 @pytest.mark.asyncio
 async def test_internal(
-    client: AsyncClient, factory: Factory, caplog: LogCaptureFixture
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(
         factory, group_names=["admin"], scopes=["exec:admin", "read:all"]

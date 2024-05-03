@@ -10,7 +10,6 @@ from urllib.parse import urljoin
 import jwt
 import pytest
 import respx
-from _pytest._code import ExceptionInfo
 from jwt.exceptions import InvalidIssuerError
 from safir.datetime import current_datetime
 
@@ -63,7 +62,7 @@ async def test_verify_token(
         "exp": int(exp.timestamp()),
     }
     token = encode_token(payload, TEST_KEYPAIR)
-    excinfo: ExceptionInfo[Exception]
+    excinfo: pytest.ExceptionInfo[Exception]
 
     # Missing iss.
     with pytest.raises(InvalidIssuerError) as excinfo:

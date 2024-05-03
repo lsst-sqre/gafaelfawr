@@ -8,7 +8,6 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 import pytest
 import respx
-from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient, ConnectError
 from safir.testing.slack import MockSlackWebhook
 
@@ -24,7 +23,7 @@ async def test_callback_error(
     tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
     """Test an error return from the OIDC token endpoint."""

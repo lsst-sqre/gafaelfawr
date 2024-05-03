@@ -11,7 +11,6 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import pytest
-from _pytest.logging import LogCaptureFixture
 from httpx import AsyncClient
 from safir.datetime import current_datetime, format_datetime_for_logging
 from safir.testing.slack import MockSlackWebhook
@@ -133,7 +132,7 @@ async def test_login(
     tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     clients = [
@@ -286,7 +285,7 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_unauthenticated(
-    tmp_path: Path, client: AsyncClient, caplog: LogCaptureFixture
+    tmp_path: Path, client: AsyncClient, caplog: pytest.LogCaptureFixture
 ) -> None:
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     clients = [
@@ -335,7 +334,7 @@ async def test_login_errors(
     tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
     clients = [
@@ -475,7 +474,7 @@ async def test_token_errors(
     tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
@@ -688,7 +687,7 @@ async def test_invalid(
     tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
     redirect_uri = "https://example.com/"
