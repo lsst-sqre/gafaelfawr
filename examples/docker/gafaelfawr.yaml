@@ -37,10 +37,9 @@ github:
   clientSecretFile: "/run/secrets/github-client-secret"
 
 # Configuration for the Gafaelfawr OpenID Connect server.
-oidc_server:
+oidcServer:
   issuer: "https://localhost:8080"
   keyId: "localhost-key-id"
-  audience: "http://localhost"
   keyFile: "/run/secrets/issuer-key"
   secretsFile: "/run/secrets/oidc-clients.json"
 
@@ -60,7 +59,7 @@ knownScopes:
 # of the GitHub organization and <team> with the name of the team in that
 # organization.  Members of that team will then get the scope listed on the
 # left.  Add as many entries as you'd like.
-group_mapping:
+groupMapping:
   "admin":
     - github:
         organization: "<org>"

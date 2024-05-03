@@ -24,14 +24,15 @@ import yaml
 from pydantic import (
     AnyHttpUrl,
     BaseModel,
+    ConfigDict,
     Field,
     UrlConstraints,
     field_validator,
     model_validator,
 )
+from pydantic.alias_generators import to_camel
 from pydantic_core import Url
 from safir.logging import LogLevel, configure_logging
-from safir.pydantic import CamelCaseModel
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .keypair import RSAKeyPair
@@ -71,7 +72,7 @@ HttpsUrl = Annotated[
 ]
 
 
-class GitHubSettings(CamelCaseModel):
+class GitHubSettings(BaseModel):
     """pydantic model of GitHub configuration."""
 
     client_id: str
@@ -80,8 +81,12 @@ class GitHubSettings(CamelCaseModel):
     client_secret_file: Path
     """File containing secret for the GitHub App."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class OIDCSettings(CamelCaseModel):
+
+class OIDCSettings(BaseModel):
     """pydantic model of OpenID Connect configuration."""
 
     client_id: str
@@ -135,8 +140,12 @@ class OIDCSettings(CamelCaseModel):
     username_claim: str = "uid"
     """Name of claim to use as the username."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class LDAPSettings(CamelCaseModel):
+
+class LDAPSettings(BaseModel):
     """pydantic model of LDAP configuration."""
 
     url: str
@@ -256,6 +265,10 @@ class LDAPSettings(CamelCaseModel):
     requiring it to appear in LDAP.
     """
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
     @model_validator(mode="after")
     def _validate_password_file(self) -> Self:
         """Ensure fields are non-empty if url is non-empty."""
@@ -264,14 +277,18 @@ class LDAPSettings(CamelCaseModel):
         return self
 
 
-class FirestoreSettings(CamelCaseModel):
+class FirestoreSettings(BaseModel):
     """pydantic model of Firestore configuration."""
 
     project: str
     """Project containing the Firestore collections."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class OIDCServerSettings(CamelCaseModel):
+
+class OIDCServerSettings(BaseModel):
     """pydantic model of issuer configuration."""
 
     issuer: HttpsUrl
@@ -298,8 +315,12 @@ class OIDCServerSettings(CamelCaseModel):
         examples=[{"g_users": ["dp0.1", "dp0.2", "dp0.3"]}],
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class NotebookQuotaSettings(CamelCaseModel):
+
+class NotebookQuotaSettings(BaseModel):
     """Quota settings for the Notebook Aspect."""
 
     cpu: float
@@ -308,8 +329,12 @@ class NotebookQuotaSettings(CamelCaseModel):
     memory: float
     """Maximum memory usage in GiB."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class QuotaGrantSettings(CamelCaseModel):
+
+class QuotaGrantSettings(BaseModel):
     """One grant of quotas.
 
     There may be one of these per group, as well as a default one, in the
@@ -327,8 +352,12 @@ class QuotaGrantSettings(CamelCaseModel):
     notebook: NotebookQuotaSettings | None = None
     """Quota settings for the Notebook Aspect."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class QuotaSettings(CamelCaseModel):
+
+class QuotaSettings(BaseModel):
     """Quota settings."""
 
     default: QuotaGrantSettings
@@ -338,6 +367,10 @@ class QuotaSettings(CamelCaseModel):
         {},
         title="Quota grants by group",
         description="Additional quota grants by group name",
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
 
@@ -350,6 +383,10 @@ class GitHubGroupTeam(BaseModel):
     team: str
     """Slug of the team within that organization."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
     def __str__(self) -> str:
         return group_name_for_github_team(self.organization, self.team)
 
@@ -360,11 +397,15 @@ class GitHubGroup(BaseModel):
     github: GitHubGroupTeam
     """Details of the GitHub team."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
     def __str__(self) -> str:
         return str(self.github)
 
 
-class Settings(CamelCaseModel):
+class Settings(BaseModel):
     """pydantic model of Gafaelfawr configuration file.
 
     This describes the configuration file as parsed from disk.  This model
@@ -467,6 +508,10 @@ class Settings(CamelCaseModel):
         {},
         title="Scope to group mapping",
         description="Mappings of scopes to lists of groups that provide them",
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
     @field_validator("initial_admins")
