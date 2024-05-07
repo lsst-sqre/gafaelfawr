@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.userinfo import Group, UserInfo
 
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
@@ -51,42 +52,23 @@ async def test_health(
     # Configure LDAP so that we'll also do LDAP lookups. The test should still
     # pass because successful LDAP lookups are optional as long as the LDAP
     # server is responding.
-    config = await reconfigure(tmp_path, "oidc")
+    await reconfigure(tmp_path, "oidc")
     token_service = factory.create_token_service()
     async with factory.session.begin():
         await token_service.delete_token(
             token.token.key, token, token.username, ip_address="127.0.0.1"
         )
     token = await create_session_token(factory)
-    assert config.ldap
-    assert config.ldap.user_base_dn
     r = await client.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "healthy"}
 
     # Add the entries for the test user and try again.
-    mock_ldap.add_entries_for_test(
-        config.ldap.user_base_dn,
-        config.ldap.user_search_attr,
-        token.username,
-        [
-            {
-                "displayName": ["LDAP User"],
-                "mail": ["ldap-user@example.com"],
-                "uidNumber": ["2000"],
-                "gidNumber": ["1222"],
-            }
-        ],
+    mock_ldap.add_test_user(
+        UserInfo(username=token.username, uid=2000, gid=1222)
     )
-    mock_ldap.add_entries_for_test(
-        config.ldap.group_base_dn,
-        "member",
-        token.username,
-        [
-            {"cn": ["foo"], "gidNumber": ["1222"]},
-            {"cn": ["group-1"], "gidNumber": ["123123"]},
-            {"cn": ["group-2"], "gidNumber": ["123442"]},
-        ],
+    mock_ldap.add_test_group_membership(
+        token.username, [Group(name="foo", id=1222)]
     )
     r = await client.get("/health")
     assert r.status_code == 200

@@ -17,7 +17,7 @@ from gafaelfawr.constants import COOKIE_NAME, UID_BOT_MIN
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenUserInfo
-from gafaelfawr.models.userinfo import Group
+from gafaelfawr.models.userinfo import Group, UserInfo
 
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
@@ -1171,29 +1171,19 @@ async def test_create_admin_ldap(
     tmp_path: Path, client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
 ) -> None:
     """Create a token through the admin interface with LDAP user data."""
-    config = await reconfigure(tmp_path, "oidc", factory)
+    await reconfigure(tmp_path, "oidc", factory)
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
-
-    assert config.ldap
-    assert config.ldap.user_base_dn
-    mock_ldap.add_entries_for_test(
-        config.ldap.user_base_dn,
-        config.ldap.user_search_attr,
-        "some-user",
-        [
-            {
-                "displayName": ["Some User"],
-                "mail": ["user@example.com"],
-                "uidNumber": ["1234"],
-            }
-        ],
+    mock_ldap.add_test_user(
+        UserInfo(
+            username="some-user",
+            name="Some User",
+            email="user@example.com",
+            uid=1234,
+        )
     )
-    mock_ldap.add_entries_for_test(
-        config.ldap.group_base_dn,
-        "member",
-        "some-user",
-        [{"cn": ["some-group"], "gidNumber": ["12381"]}],
+    mock_ldap.add_test_group_membership(
+        "some-user", [Group(name="some-group", id=12381)]
     )
 
     # Create a new service token with no user metadata.
@@ -1297,7 +1287,7 @@ async def test_create_admin_firestore(
     mock_firestore: MockFirestore,
     mock_ldap: MockLDAP,
 ) -> None:
-    """Create a token through the admin interface with LDAP user data."""
+    """Create a token through the admin interface with Firestore enabled."""
     await reconfigure(tmp_path, "oidc-firestore", factory)
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
@@ -1495,18 +1485,11 @@ async def test_ldap_error(
 ) -> None:
     config = await reconfigure(tmp_path, "oidc", factory)
     assert config.ldap
-    assert config.ldap.user_base_dn
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
         "ldap-user",
-        [
-            {
-                "displayName": ["LDAP User"],
-                "mail": ["ldap-user@example.com"],
-                "uidNumber": ["bogus"],
-            }
-        ],
+        [{"uidNumber": ["bogus"]}],
     )
     token_data = await create_session_token(
         factory, username="ldap-user", scopes=["read:all"], minimal=True
