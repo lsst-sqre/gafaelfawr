@@ -20,8 +20,7 @@ from safir.database import create_database_engine, initialize_database
 from safir.dependencies.db_session import db_session_dependency
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from seleniumwire import webdriver
-from sqlalchemy import Connection, text
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
@@ -36,6 +35,7 @@ from gafaelfawr.schema import Base
 from .pages.tokens import TokensPage
 from .support.config import build_config, configure
 from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
+from .support.database import clear_alembic_version
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
@@ -108,14 +108,6 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
-            try:
-                sql = "DROP TABLE alembic_version"
-                await factory.session.execute(text(sql))
-            except ProgrammingError:
-                # Ignore failures to drop the alembic_version table becuase it
-                # doesn't exist.
-                pass
-        async with factory.session.begin():
             await admin_service.add_initial_admins(config.initial_admins)
         await factory._context.redis.flushdb()
 
@@ -129,9 +121,14 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
         context = MigrationContext.configure(connection)
         context.stamp(alembic_scripts, current_head)
 
-    # Stamp the database with the current Alembic version. We have to do this
-    # somewhat elaborately because the alembic.command interface cannot be run
-    # inside an asyncio loop.
+    # Stamp the database with the current Alembic version. Initializing the
+    # database will not update the Aflembic version, so we have to do this
+    # explicitly to ensure that there isn't any out-of-date schema information
+    # left over from a previous test.
+    #
+    # We have to do this somewhat elaborately because the alembic.command
+    # interface cannot be run inside an asyncio loop.
+    await clear_alembic_version(engine)
     async with engine.begin() as connection:
         await connection.run_sync(set_version)
     await engine.dispose()

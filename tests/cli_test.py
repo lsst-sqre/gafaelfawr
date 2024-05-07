@@ -20,7 +20,6 @@ from cryptography.fernet import Fernet
 from safir.database import initialize_database
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
@@ -38,6 +37,7 @@ from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
 from .support.config import configure
+from .support.database import create_old_database, drop_database
 
 
 def test_audit(
@@ -321,14 +321,9 @@ def test_update_schema(
 ) -> None:
     runner = CliRunner()
 
-    async def empty_database() -> None:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.execute(text("DROP TABLE alembic_version"))
-
     # Start with an empty database. This should produce exactly the same
     # results as gafaelfawr init.
-    event_loop.run_until_complete(empty_database())
+    event_loop.run_until_complete(drop_database(engine))
     result = runner.invoke(
         main,
         [
@@ -355,17 +350,12 @@ def test_update_schema(
 
 
 def test_validate_schema(
-    engine: AsyncEngine, event_loop: asyncio.AbstractEventLoop
+    config: Config, engine: AsyncEngine, event_loop: asyncio.AbstractEventLoop
 ) -> None:
     runner = CliRunner()
 
-    async def empty_database() -> None:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.execute(text("DROP TABLE alembic_version"))
-
     # Start with an empty database.
-    event_loop.run_until_complete(empty_database())
+    event_loop.run_until_complete(drop_database(engine))
 
     # Validating should fail with an appropriate error message.
     result = runner.invoke(main, ["validate-schema"], catch_exceptions=False)
@@ -374,19 +364,7 @@ def test_validate_schema(
 
     # Initialize the database from an old schema. This was the database schema
     # before Alembic was introduced, so it should run all migrations.
-    async def create_old_database() -> None:
-        old_schema = Path(__file__).parent / "data" / "schemas" / "9.6.1"
-        async with engine.begin() as conn:
-            with old_schema.open() as f:
-                statement = ""
-                for line in f:
-                    if not line.startswith("--") and line.strip("\n"):
-                        statement += line.strip("\n")
-                    if statement.endswith(";"):
-                        await conn.execute(text(statement))
-                        statement = ""
-
-    event_loop.run_until_complete(create_old_database())
+    event_loop.run_until_complete(create_old_database(config, engine, "9.6.1"))
 
     # Validating should fail with an appropriate error message.
     result = runner.invoke(main, ["validate-schema"], catch_exceptions=False)
