@@ -20,9 +20,9 @@ def parse_config(path: Path, *, fix_token: bool = False) -> None:
 
     Parameters
     ----------
-    path : `pathlib.Path`
+    path
         The path to the configuration file to test.
-    fix_token : `bool`, optional
+    fix_token
         Whether to fix an invalid ``bootstrap_token`` before checking the
         configuration file.  Some examples have intentionally invalid tokens.
     """
