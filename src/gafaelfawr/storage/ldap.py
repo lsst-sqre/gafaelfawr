@@ -197,9 +197,6 @@ class LDAPStorage:
         group_class = self._config.group_object_class
         member_attr = self._config.group_member_attr
         if self._config.group_search_by_dn:
-            if not self._config.user_base_dn:
-                # Checked in Settings model so should be impossible.
-                raise ValueError("user_base_dn not set")
             base_dn = self._config.user_base_dn
             attr = self._config.user_search_attr
             target = f"{attr}={username},{base_dn}"

@@ -14,6 +14,8 @@ from bonsai.utils import escape_filter_exp
 
 from gafaelfawr import factory
 from gafaelfawr.constants import LDAP_TIMEOUT
+from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.models.userinfo import Group, UserInfo
 
 _SearchResults = list[dict[str, list[str]]]
 _MockData = dict[str, dict[tuple[str, str], _SearchResults]]
@@ -47,6 +49,63 @@ class MockLDAP(Mock):
         """
         key = (attr, escape_filter_exp(value))
         self._entries[base_dn][key] = entries
+
+    def add_test_group_membership(
+        self, username: str, groups: list[Group]
+    ) -> None:
+        """Add group membership entries for a test user.
+
+        Parameters
+        ----------
+        username
+            Username of user
+        groups
+            Group memberships to add.
+        """
+        config = config_dependency.config()
+        assert config.ldap
+        if config.ldap.group_search_by_dn:
+            base_dn = config.ldap.user_base_dn
+            attr = config.ldap.user_search_attr
+            search_value = f"{attr}={username},{base_dn}"
+        else:
+            search_value = username
+        entries = [{"cn": [g.name], "gidNumber": [str(g.id)]} for g in groups]
+        self.add_entries_for_test(
+            config.ldap.group_base_dn,
+            config.ldap.group_member_attr,
+            search_value,
+            entries,
+        )
+
+    def add_test_user(self, userinfo: UserInfo) -> None:
+        """Add a record for a test user.
+
+        This only handles the cases that match the user information model.
+        Malformed or weird entries must be added with `add_entries_for_test`.
+
+        Parameters
+        ----------
+        userinfo
+            Information for user whose entry should be added.
+        """
+        config = config_dependency.config()
+        assert config.ldap
+        entry = {}
+        if userinfo.name:
+            entry[config.ldap.name_attr or "displayName"] = [userinfo.name]
+        if userinfo.email:
+            entry[config.ldap.email_attr or "mail"] = [userinfo.email]
+        if userinfo.uid:
+            entry[config.ldap.uid_attr or "uidNumber"] = [str(userinfo.uid)]
+        if userinfo.gid:
+            entry[config.ldap.gid_attr or "gidNumber"] = [str(userinfo.gid)]
+        self.add_entries_for_test(
+            config.ldap.user_base_dn,
+            config.ldap.user_search_attr,
+            userinfo.username,
+            [entry],
+        )
 
     async def close(self) -> None:
         pass

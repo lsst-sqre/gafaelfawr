@@ -149,7 +149,7 @@ class MockGitHub:
         )
 
 
-async def mock_github(
+def mock_github(
     respx_mock: respx.Router,
     code: str,
     user_info: GitHubUserInfo,
@@ -173,7 +173,7 @@ async def mock_github(
         Whether to expect a revocation of the token after returning all user
         information.
     """
-    config = await config_dependency()
+    config = config_dependency.config()
     assert config.github
     mock = MockGitHub(
         respx_mock,

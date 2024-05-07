@@ -137,7 +137,7 @@ async def test_logout_github(
     )
 
     # Log in and log out.
-    await mock_github(respx_mock, "some-code", user_info, expect_revoke=True)
+    mock_github(respx_mock, "some-code", user_info, expect_revoke=True)
     r = await client.get("/login", params={"rd": "https://example.com"})
     assert r.status_code == 307
     query = query_from_url(r.headers["Location"])

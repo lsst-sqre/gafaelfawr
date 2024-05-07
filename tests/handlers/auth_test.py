@@ -1012,18 +1012,11 @@ async def test_ldap_error(
 ) -> None:
     config = await reconfigure(tmp_path, "oidc", factory)
     assert config.ldap
-    assert config.ldap.user_base_dn
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
         config.ldap.user_search_attr,
         "ldap-user",
-        [
-            {
-                "displayName": ["LDAP User"],
-                "mail": ["ldap-user@example.com"],
-                "uidNumber": ["bogus"],
-            }
-        ],
+        [{"uidNumber": ["bogus"]}],
     )
     token_data = await create_session_token(
         factory, username="ldap-user", scopes=["read:all"], minimal=True
