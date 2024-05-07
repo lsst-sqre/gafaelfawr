@@ -60,11 +60,11 @@ async def simulate_github_login(
     httpx.Response
         The response from the return to the ``/login`` handler.
     """
-    config = await config_dependency()
+    config = config_dependency.config()
     assert config.github
     if not headers:
         headers = {}
-    await mock_github(
+    mock_github(
         respx_mock,
         "some-code",
         user_info,
@@ -164,8 +164,7 @@ async def test_login(
         },
     ]
 
-    # Examine the resulting cookie and ensure that it has the proper metadata
-    # set.
+    # Ensure the resulting cookie has the proper metadata set.
     cookie = next(c for c in r.cookies.jar if c.name == "gafaelfawr")
     assert cookie.secure
     assert cookie.discard
@@ -210,7 +209,7 @@ async def test_redirect_header(
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
     return_url = "https://example.com/foo?a=bar&b=baz"
-    await mock_github(respx_mock, "some-code", user_info)
+    mock_github(respx_mock, "some-code", user_info)
 
     # Simulate the initial authentication request.
     r = await client.get(
