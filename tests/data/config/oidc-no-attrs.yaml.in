@@ -1,4 +1,5 @@
 realm: "example.com"
+logLevel: "DEBUG"
 sessionSecretFile: "{session_secret_file}"
 databaseUrl: "{database_url}"
 redisUrl: "redis://localhost:6379/0"
@@ -14,20 +15,22 @@ knownScopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
-firestore:
-  project: "some-google-project"
 ldap:
   url: "ldaps://ldap.example.com/"
   groupBaseDn: "dc=example,dc=com"
   userBaseDn: "ou=people,dc=example,dc=com"
-  uidAttr: null
+  nameAttr: null
+  emailAttr: null
   gidAttr: null
-  addUserGroup: true
 oidc:
   clientId: "some-oidc-client-id"
   clientSecretFile: "{oidc_secret_file}"
   loginUrl: "https://upstream.example.com/oidc/login"
   redirectUrl: "https://upstream.example.com/login"
   tokenUrl: "https://upstream.example.com/token"
+  enrollmentUrl: "https://upstream.example.com/enroll"
+  scopes:
+    - "email"
+    - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"

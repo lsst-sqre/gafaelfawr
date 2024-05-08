@@ -346,6 +346,48 @@ async def test_missing_attrs(
 
 
 @pytest.mark.asyncio
+async def test_no_attrs(
+    tmp_path: Path,
+    client: AsyncClient,
+    respx_mock: respx.Router,
+    mock_ldap: MockLDAP,
+) -> None:
+    """Test configuring LDAP to not request any optional attributes."""
+    await reconfigure(tmp_path, "oidc-no-attrs")
+    token = create_upstream_oidc_jwt("some-user")
+    mock_ldap.add_test_user(
+        UserInfo(
+            username="some-user",
+            name="Some User",
+            email="some-user@example.com",
+            uid=2000,
+            gid=2000,
+        )
+    )
+    mock_ldap.add_test_group_membership(
+        "some-user", [Group(name="foo", id=1222)]
+    )
+
+    r = await simulate_oidc_login(client, respx_mock, token)
+    assert r.status_code == 307
+
+    # Check that the data returned from the user-info API is correct.
+    r = await client.get("/auth/api/v1/user-info")
+    assert r.status_code == 200
+    assert r.json() == {
+        "username": "some-user",
+        "uid": 2000,
+        "groups": [{"name": "foo", "id": 1222}],
+    }
+
+    # Check that the headers returned by the auth endpoint are also correct.
+    r = await client.get("/auth", params={"scope": "read:all"})
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == "some-user"
+    assert "X-Auth-Request-Email" not in r.headers
+
+
+@pytest.mark.asyncio
 async def test_invalidate_cache(
     tmp_path: Path,
     client: AsyncClient,
