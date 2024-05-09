@@ -63,7 +63,7 @@ To proceed, stage the new modifications and proceed with your Git commit.
 Building the UI
 ===============
 
-Before running tests or starting a local development server, you must build the UI.
+Before running tests, you must build the UI.
 The Gafaelfawr UI is written in JavaScript and contained in the ``ui`` subdirectory.
 To build it, run (from the top level):
 
@@ -109,6 +109,8 @@ For example:
 .. prompt:: bash
 
    tox run -e py -- tests/handlers/api_tokens_test.py
+
+You can run a specific test function by appending two colons and the function name to the end of the file name.
 
 Testing the Kubernetes operator
 -------------------------------
@@ -158,6 +160,33 @@ Then, run:
    tox run -e py-full
 
 Add the ``coverage-report`` environment to also get a test coverage report.
+
+Running a development server
+============================
+
+Properly and fully testing Gafaelfawr requires deploying it in a Kubernetes cluster and testing its interactions with Kubernetes and the NGINX ingress.
+Gafaelfawr therefore doesn't support starting a local development server; that would only allow limited testing of the API and UI, and in practice we never used that ability when we supported it.
+
+Therefore, to run a development version of Gafaelfawr for more thorough manual testing, deploy it in a development Phalanx environment.
+See `the Phalanx documentation <https://phalanx.lsst.io/developers/deploy-from-a-branch.html>`__ for more details on how to do this.
+
+You will generally want to override the Gafaelfawr image and pull policy in your Phalanx development branch to point at the Docker image for your development version.
+Do this by adding the following to the appropriate :file:`values-{environment}.yaml` file:
+
+.. code-block:: yaml
+
+   image:
+     tag: tickets-DM-XXXXX
+     pullPolicy: Always
+
+Replace the tag with the name of your development branch.
+Slashes will be replaced with underscores.
+
+.. note::
+
+   Be sure you use a branch naming pattern that will cause the Gafaelfawr GitHub Actions configuration to build and upload a Docker image.
+   By default, this means the branch name must begin with ``tickets/``.
+   You can change this in :file:`.github/workflows/ci.yaml` under the ``build`` step.
 
 .. _db-migrations:
 
@@ -221,70 +250,6 @@ You must have Docker running locally on your system and have the :command:`docke
    .. prompt:: bash
 
       docker-compose down
-
-.. _dev-server:
-
-Starting a development server
-=============================
-
-There are two methods to run Gafaelfawr interactively on your local machine for development and testing the UI: outside Docker or inside Docker.
-In both cases, you will need Docker to be installed on your local machine.
-
-For either approach, you will first need to create a `GitHub OAuth app <https://github.com/settings/developers>`__ for Gafaelfawr to use.
-On GitHub, go to your personal settings page, select developer settings, and then select OAuth Apps.
-Create a new OAuth App with the following settings:
-
-* Homepage: ``http://localhost:8080/``
-* Authorization callback URL: ``http://localhost:8080/login``
-
-The rest can be set to whatever you want.
-Replace ``<github-client-id>`` in ``examples/docker/gafaelfawr.yaml`` and ``examples/gafaelfawr-dev.yaml`` with the resulting client ID.
-Put the resulting secret in ``examples/secrets/github-client-secret``.
-
-Now, use one of the two methods below for running Gafaelfawr.
-
-Outside Docker
---------------
-
-Run:
-
-.. prompt:: bash
-
-   tox run -e run
-
-This will use ``docker-compose`` to start Redis and PostgreSQL servers, and then will start Gafaelfawr in the foreground outside of Docker.
-You can now go to ``http://localhost:8080/auth/tokens`` and will be redirected to GitHub for authentication.
-
-To stop the running server, use Ctrl-C.
-You will then need to manually shut down the Redis and PostgreSQL containers, since tox doesn't support shutdown commands.
-
-.. prompt:: bash
-
-   docker-compose down
-
-The advantage of this method is that the running code and UI will be taken from your current working directory, so you can update it on the fly and immediately see the effects.
-
-Inside Docker
--------------
-
-Build a Docker image and start the development instance of Gafaelfawr with:
-
-.. prompt:: bash
-
-   docker-compose -f examples/docker/docker-compose.yaml --project-directory . build
-   docker-compose -f examples/docker/docker-compose.yaml --project-directory . up
-
-You can then go to ``http://localhost:8080/auth/tokens`` and will be redirected to GitHub for authentication.
-
-To stop the running server, use Ctrl -C.
-To fully clean up the services, then run:
-
-.. prompt:: bash
-
-   docker-compose -f examples/docker/docker-compose.yaml --project-directory . down
-
-This way of running Gafaelfawr doesn't require you to have its dependencies installed locally and more closely simulates a production deployment.
-However, you will need to stop Gafaelfawr, rebuild the Docker container, and then start it again after each change to see your changes reflected.
 
 Building documentation
 ======================
