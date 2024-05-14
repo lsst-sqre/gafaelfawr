@@ -1,9 +1,6 @@
+# Use OpenID Connect as the provider and change the username claim.
+
 realm: "example.com"
-logLevel: "DEBUG"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "{database_url}"
-redisUrl: "redis://localhost:6379/0"
-initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
@@ -18,21 +15,17 @@ knownScopes:
 ldap:
   url: "ldaps://ldap.example.com/"
   groupBaseDn: "dc=example,dc=com"
-  groupSearchByDn: true
   userBaseDn: "ou=people,dc=example,dc=com"
-  uidAttr: "uidNumber"
-  gidAttr: "gidNumber"
 oidc:
   clientId: "some-oidc-client-id"
-  clientSecretFile: "{oidc_secret_file}"
   loginUrl: "https://upstream.example.com/oidc/login"
   loginParams:
     skin: "test"
   redirectUrl: "https://upstream.example.com/login"
   tokenUrl: "https://upstream.example.com/token"
-  enrollmentUrl: "https://upstream.example.com/enroll"
   scopes:
     - "email"
     - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
+  usernameClaim: "username"

@@ -94,7 +94,7 @@ async def _selenium_startup(token_path: Path) -> None:
     scopes = list(config.known_scopes.keys())
 
     engine = create_database_engine(
-        config.database_url, config.database_password
+        config.database_url, config.database_password.get_secret_value()
     )
     async with Factory.standalone(config, engine) as factory:
         async with factory.session.begin():
@@ -163,6 +163,9 @@ def run_app(tmp_path: Path, config_path: Path) -> Iterator[SeleniumConfig]:
     # Start the server with the necessary files to do Alembic validation.
     shutil.copyfile("alembic.ini", tmp_path / "alembic.ini")
     shutil.copytree("alembic", tmp_path / "alembic")
+    copy_env = {
+        k: v for k, v in os.environ.items() if k.startswith("GAFAELFAWR_")
+    }
     uvicorn = spawn_uvicorn(
         working_directory=tmp_path,
         factory="tests.support.selenium:selenium_create_app",
@@ -170,6 +173,7 @@ def run_app(tmp_path: Path, config_path: Path) -> Iterator[SeleniumConfig]:
         env={
             "GAFAELFAWR_CONFIG_PATH": str(config_path),
             "GAFAELFAWR_TEST_TOKEN_PATH": str(token_path),
+            **copy_env,
         },
     )
 

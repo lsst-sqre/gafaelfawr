@@ -153,14 +153,11 @@ class UserInfoService:
         else:
             groups = []
 
-        scopes = {"user:token"}
-        found = False
+        scopes: set[str] = set()
         for group in groups:
-            if group in self._config.group_mapping:
-                found = True
-                scopes.update(self._config.group_mapping[group])
+            scopes.update(self._config.get_scopes_for_group(group))
 
-        return sorted(scopes) if found else None
+        return sorted(scopes | {"user:token"}) if scopes else None
 
     async def invalidate_cache(self, username: str) -> None:
         """Invalidate any cached data for a given user.

@@ -61,7 +61,8 @@ class MockGitHub:
     def delete_token(self, request: Request) -> Response:
         assert self.token, "Must obtain GitHub token first"
         assert request.headers["Accept"] == "application/vnd.github+json"
-        basic_auth_raw = f"{self.config.client_id}:{self.config.client_secret}"
+        client_secret = self.config.client_secret.get_secret_value()
+        basic_auth_raw = f"{self.config.client_id}:{client_secret}"
         basic_auth = base64.b64encode(basic_auth_raw.encode()).decode()
         assert request.headers["Authorization"] == f"Basic {basic_auth}"
         assert json.loads(request.read().decode()) == {
@@ -134,7 +135,7 @@ class MockGitHub:
         assert request.headers["Accept"] == "application/vnd.github+json"
         assert parse_qs(request.read().decode()) == {
             "client_id": [self.config.client_id],
-            "client_secret": [self.config.client_secret],
+            "client_secret": [self.config.client_secret.get_secret_value()],
             "code": [self.code],
             "state": [ANY],
         }

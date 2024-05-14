@@ -139,7 +139,7 @@ def run_migrations_offline() -> None:
     """
     url = build_database_url(
         gafaelfawr_config.database_url,
-        gafaelfawr_config.database_password,
+        gafaelfawr_config.database_password.get_secret_value(),
         is_async=False,
     )
     context.configure(
@@ -167,7 +167,8 @@ async def run_async_migrations() -> None:
     with the context.
     """
     engine = create_database_engine(
-        gafaelfawr_config.database_url, gafaelfawr_config.database_password
+        gafaelfawr_config.database_url,
+        gafaelfawr_config.database_password.get_secret_value(),
     )
 
     async with engine.connect() as connection:

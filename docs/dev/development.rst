@@ -204,7 +204,7 @@ You must have Docker running locally on your system and have the :command:`docke
 
    .. prompt:: bash
 
-      docker-compose up
+      docker-compose -f alembic/docker-compose.yaml up
 
 #. Install the *current* database schema into that PostgreSQL server.
    This must be done with a Gafaelfawr working tree that does not contain any changes to the database schema.
@@ -249,7 +249,7 @@ You must have Docker running locally on your system and have the :command:`docke
 
    .. prompt:: bash
 
-      docker-compose down
+      docker-compose -f alembic/docker-compose.yaml down
 
 Building documentation
 ======================

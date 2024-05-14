@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -33,11 +31,7 @@ async def test_get_index(client: AsyncClient, config: Config) -> None:
 
 @pytest.mark.asyncio
 async def test_health(
-    tmp_path: Path,
-    app: FastAPI,
-    client: AsyncClient,
-    factory: Factory,
-    mock_ldap: MockLDAP,
+    app: FastAPI, client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
 ) -> None:
     r = await client.get("/health")
     assert r.status_code == 200
@@ -52,7 +46,7 @@ async def test_health(
     # Configure LDAP so that we'll also do LDAP lookups. The test should still
     # pass because successful LDAP lookups are optional as long as the LDAP
     # server is responding.
-    await reconfigure(tmp_path, "oidc")
+    await reconfigure("oidc")
     token_service = factory.create_token_service()
     async with factory.session.begin():
         await token_service.delete_token(

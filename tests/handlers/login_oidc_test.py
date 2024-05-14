@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlparse
 
@@ -25,13 +24,12 @@ from ..support.oidc import mock_oidc_provider_token, simulate_oidc_login
 
 @pytest.mark.asyncio
 async def test_login(
-    tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
     caplog: pytest.LogCaptureFixture,
     mock_ldap: MockLDAP,
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc")
+    config = await reconfigure("oidc")
     assert config.ldap
     assert config.oidc
     token = create_upstream_oidc_jwt("ldap-user")
@@ -52,10 +50,12 @@ async def test_login(
             }
         ],
     )
+    base_dn = config.ldap.user_base_dn
+    member = f"{config.ldap.user_search_attr}=ldap-user,{base_dn}"
     mock_ldap.add_entries_for_test(
         config.ldap.group_base_dn,
         "member",
-        "ldap-user",
+        member,
         [
             {"cn": ["foo"], "gidNumber": ["1222"]},
             {"cn": ["group-1"], "gidNumber": ["123123"]},
@@ -72,8 +72,7 @@ async def test_login(
     assert r.status_code == 307
 
     # Verify the logging.
-    expected_scopes = set(config.group_mapping["foo"])
-    expected_scopes.add("user:token")
+    expected_scopes = config.get_scopes_for_group("foo") | {"user:token"}
     username = token.claims[config.oidc.username_claim]
     assert parse_log(caplog, ignore_debug=True) == [
         {
@@ -105,7 +104,7 @@ async def test_login(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
-            "ldap_search": "(&(objectClass=posixGroup)(member=ldap-user))",
+            "ldap_search": f"(&(objectClass=posixGroup)(member={member}))",
             "ldap_url": config.ldap.url,
             "return_url": return_url,
             "severity": "warning",
@@ -153,13 +152,10 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_login_redirect_header(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
-    await reconfigure(tmp_path, "oidc")
+    await reconfigure("oidc")
     token = create_upstream_oidc_jwt("some-user")
     return_url = "https://example.com/foo?a=bar&b=baz"
     mock_ldap.add_test_user(UserInfo(username="some-user"))
@@ -179,14 +175,13 @@ async def test_login_redirect_header(
 
 @pytest.mark.asyncio
 async def test_firestore(
-    tmp_path: Path,
     factory: Factory,
     client: AsyncClient,
     respx_mock: respx.Router,
     mock_ldap: MockLDAP,
     mock_firestore: MockFirestore,
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc-firestore", factory)
+    config = await reconfigure("oidc-firestore", factory)
     assert config.oidc
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
@@ -202,16 +197,19 @@ async def test_firestore(
 
     # Add group memberships without GIDs to test that we don't fail.
     assert config.ldap
+    base_dn = config.ldap.user_base_dn
+    search_value = f"{config.ldap.user_search_attr}=ldap-user,{base_dn}"
     mock_ldap.add_entries_for_test(
         config.ldap.group_base_dn,
         "member",
-        "ldap-user",
+        search_value,
         [{"cn": ["foo"]}, {"cn": ["group-1"]}, {"cn": ["group-2"]}],
     )
+    search_value = f"{config.ldap.user_search_attr}=other-user,{base_dn}"
     mock_ldap.add_entries_for_test(
         config.ldap.group_base_dn,
         "member",
-        "other-user",
+        search_value,
         [{"cn": ["foo"]}, {"cn": ["group-1"]}],
     )
 
@@ -276,13 +274,10 @@ async def test_firestore(
 
 @pytest.mark.asyncio
 async def test_gid_group_lookup(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
     """Test separate lookup of the primary group."""
-    config = await reconfigure(tmp_path, "oidc")
+    config = await reconfigure("oidc")
     assert config.ldap
     token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_test_user(UserInfo(username="ldap-user", uid=2000, gid=1045))
@@ -314,12 +309,9 @@ async def test_gid_group_lookup(
 
 @pytest.mark.asyncio
 async def test_missing_attrs(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
-    await reconfigure(tmp_path, "oidc")
+    await reconfigure("oidc")
     token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_test_user(UserInfo(username="ldap-user", uid=2000))
     mock_ldap.add_test_group_membership(
@@ -347,13 +339,10 @@ async def test_missing_attrs(
 
 @pytest.mark.asyncio
 async def test_no_attrs(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
     """Test configuring LDAP to not request any optional attributes."""
-    await reconfigure(tmp_path, "oidc-no-attrs")
+    await reconfigure("oidc-no-attrs")
     token = create_upstream_oidc_jwt("some-user")
     mock_ldap.add_test_user(
         UserInfo(
@@ -389,12 +378,9 @@ async def test_no_attrs(
 
 @pytest.mark.asyncio
 async def test_invalidate_cache(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
-    await reconfigure(tmp_path, "oidc")
+    await reconfigure("oidc")
     mock_ldap.add_test_user(UserInfo(username="ldap-user", uid=2000))
     token = create_upstream_oidc_jwt("ldap-user")
 
@@ -412,16 +398,15 @@ async def test_invalidate_cache(
 
 
 @pytest.mark.asyncio
-async def test_member_dn(
-    tmp_path: Path,
+async def test_no_member_dn(
     client: AsyncClient,
     respx_mock: respx.Router,
     mock_ldap: MockLDAP,
 ) -> None:
-    """Test group membership attributes containing full user DNs."""
-    config = await reconfigure(tmp_path, "oidc-memberdn")
+    """Test group membership attributes containing bare usernames."""
+    config = await reconfigure("oidc-no-memberdn")
     assert config.ldap
-    assert config.ldap.group_search_by_dn
+    assert not config.ldap.group_search_by_dn
     token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_test_user(UserInfo(username="ldap-user", uid=2000, gid=1222))
     mock_ldap.add_test_group_membership(
@@ -452,13 +437,10 @@ async def test_member_dn(
 
 @pytest.mark.asyncio
 async def test_username_claim(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
     """Uses an alternate configuration file with non-default claims."""
-    config = await reconfigure(tmp_path, "oidc-claims")
+    config = await reconfigure("oidc-claims")
     assert config.oidc
     assert config.oidc.username_claim != "uid"
     mock_ldap.add_test_user(
@@ -491,12 +473,9 @@ async def test_username_claim(
 
 @pytest.mark.asyncio
 async def test_unicode_name(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_ldap: MockLDAP,
+    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc")
+    config = await reconfigure("oidc")
     assert config.ldap
     assert config.oidc
     token = create_upstream_oidc_jwt("some-user")
@@ -520,14 +499,13 @@ async def test_unicode_name(
 
 @pytest.mark.asyncio
 async def test_callback_error(
-    tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
     caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
     """Test an error return from the OIDC token endpoint."""
-    config = await reconfigure(tmp_path, "oidc")
+    config = await reconfigure("oidc")
     assert config.oidc
     return_url = "https://example.com/foo"
 
@@ -783,12 +761,9 @@ async def test_callback_error(
 
 @pytest.mark.asyncio
 async def test_connection_error(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_slack: MockSlackWebhook,
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc")
+    config = await reconfigure("oidc")
     assert config.oidc
     return_url = "https://example.com/foo"
 
@@ -799,8 +774,7 @@ async def test_connection_error(
 
     # Register a connection error for the callback request to the OIDC
     # provider and check that an appropriate error is shown to the user.
-    token_url = config.oidc.token_url
-    respx_mock.post(token_url).mock(side_effect=ConnectError)
+    respx_mock.post(config.oidc.token_url).mock(side_effect=ConnectError)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
@@ -850,12 +824,9 @@ async def test_connection_error(
 
 @pytest.mark.asyncio
 async def test_verify_error(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_slack: MockSlackWebhook,
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc")
+    config = await reconfigure("oidc")
     assert config.oidc
     token = create_upstream_oidc_jwt("some-user")
     issuer = config.oidc.issuer
@@ -927,12 +898,9 @@ async def test_verify_error(
 
 @pytest.mark.asyncio
 async def test_invalid_username(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_slack: MockSlackWebhook,
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
 ) -> None:
-    await reconfigure(tmp_path, "oidc")
+    await reconfigure("oidc")
     token = create_upstream_oidc_jwt("invalid@user")
 
     r = await simulate_oidc_login(client, respx_mock, token)
@@ -945,14 +913,13 @@ async def test_invalid_username(
 
 @pytest.mark.asyncio
 async def test_double_username(
-    tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
     mock_ldap: MockLDAP,
     mock_slack: MockSlackWebhook,
 ) -> None:
     """Test error handling of a multivalued ``uid`` attribute."""
-    await reconfigure(tmp_path, "oidc")
+    await reconfigure("oidc")
     token = create_upstream_oidc_jwt(["one", "two"])
 
     r = await simulate_oidc_login(client, respx_mock, token)
@@ -994,13 +961,12 @@ async def test_double_username(
 
 @pytest.mark.asyncio
 async def test_no_valid_groups(
-    tmp_path: Path,
     client: AsyncClient,
     respx_mock: respx.Router,
     mock_slack: MockSlackWebhook,
     mock_ldap: MockLDAP,
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc")
+    config = await reconfigure("oidc")
     token = create_upstream_oidc_jwt("some-user")
 
     # Try authenticating with no LDAP entry and thus no valid groups.
@@ -1030,11 +996,9 @@ async def test_no_valid_groups(
 
 @pytest.mark.asyncio
 async def test_enrollment_url(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
+    client: AsyncClient, respx_mock: respx.Router
 ) -> None:
-    await reconfigure(tmp_path, "oidc-enrollment")
+    await reconfigure("oidc-enrollment")
     token = create_upstream_oidc_jwt(None)
 
     r = await simulate_oidc_login(
@@ -1046,13 +1010,10 @@ async def test_enrollment_url(
 
 @pytest.mark.asyncio
 async def test_missing_username(
-    tmp_path: Path,
-    client: AsyncClient,
-    respx_mock: respx.Router,
-    mock_slack: MockSlackWebhook,
+    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
 ) -> None:
     """Test a missing username claim in the ID token but no enrollment URL."""
-    await reconfigure(tmp_path, "oidc-claims")
+    await reconfigure("oidc-claims")
     token = create_upstream_oidc_jwt(None)
 
     r = await simulate_oidc_login(client, respx_mock, token)

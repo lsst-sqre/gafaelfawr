@@ -76,8 +76,7 @@ async def test_login_no_auth(
 
     # Likewise with a cookie containing a malformed token.  This requires a
     # bit more work to assemble.
-    key = config.session_secret.encode()
-    fernet = Fernet(key)
+    fernet = Fernet(config.session_secret.get_secret_value().encode())
     data = {"token": "bad-token"}
     bad_cookie = fernet.encrypt(json.dumps(data).encode()).decode()
     client.cookies.set(COOKIE_NAME, bad_cookie, domain=TEST_HOSTNAME)

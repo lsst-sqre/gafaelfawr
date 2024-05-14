@@ -41,12 +41,13 @@ def parse_log(
         assert message["logger"] == "gafaelfawr"
         del message["logger"]
 
-        isotimestamp = message["timestamp"]
-        assert isotimestamp.endswith("Z")
-        timestamp = datetime.fromisoformat(isotimestamp[:-1])
-        timestamp = timestamp.replace(tzinfo=UTC)
-        assert now - timedelta(seconds=10) < timestamp < now
-        del message["timestamp"]
+        if "timestamp" in message:
+            isotimestamp = message["timestamp"]
+            assert isotimestamp.endswith("Z")
+            timestamp = datetime.fromisoformat(isotimestamp[:-1])
+            timestamp = timestamp.replace(tzinfo=UTC)
+            assert now - timedelta(seconds=10) < timestamp < now
+            del message["timestamp"]
 
         if "request_id" in message:
             del message["request_id"]

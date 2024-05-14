@@ -76,7 +76,7 @@ class MockOIDCToken:
         assert parse_qs(request.read().decode()) == {
             "grant_type": ["authorization_code"],
             "client_id": [self.config.client_id],
-            "client_secret": [self.config.client_secret],
+            "client_secret": [self.config.client_secret.get_secret_value()],
             "code": [self.code],
             "redirect_uri": [self.config.redirect_url],
         }

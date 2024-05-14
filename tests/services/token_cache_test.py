@@ -103,7 +103,7 @@ async def test_expiration(config: Config, factory: Factory) -> None:
     storage = EncryptedPydanticRedisStorage(
         datatype=TokenData,
         redis=factory.redis,
-        encryption_key=config.session_secret,
+        encryption_key=config.session_secret.get_secret_value(),
         key_prefix="token:",
     )
     slack_client = factory.create_slack_client()

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
@@ -48,9 +47,9 @@ def encode_token(
 
 @pytest.mark.asyncio
 async def test_verify_token(
-    tmp_path: Path, respx_mock: respx.Router, factory: Factory
+    respx_mock: respx.Router, factory: Factory
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc", factory)
+    config = await reconfigure("oidc", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
 
@@ -84,10 +83,10 @@ async def test_verify_token(
 
 
 @pytest.mark.asyncio
-async def test_verify_no_kids(
-    tmp_path: Path, respx_mock: respx.Router, factory: Factory
+async def test_verify_missing_kid(
+    respx_mock: respx.Router, factory: Factory
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc-no-kids", factory)
+    config = await reconfigure("oidc", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
     await mock_oidc_provider_config(respx_mock, "kid")
@@ -109,9 +108,9 @@ async def test_verify_no_kids(
 
 @pytest.mark.asyncio
 async def test_key_retrieval(
-    tmp_path: Path, respx_mock: respx.Router, factory: Factory
+    respx_mock: respx.Router, factory: Factory
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc-no-kids", factory)
+    config = await reconfigure("oidc", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
 
@@ -171,9 +170,9 @@ async def test_key_retrieval(
 
 @pytest.mark.asyncio
 async def test_issuer_with_path(
-    tmp_path: Path, respx_mock: respx.Router, factory: Factory
+    respx_mock: respx.Router, factory: Factory
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc-subdomain", factory)
+    config = await reconfigure("oidc-subdomain", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
 

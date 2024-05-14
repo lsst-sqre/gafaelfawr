@@ -63,8 +63,7 @@ class State(BaseState):
             The state represented by the cookie.
         """
         config = await config_dependency()
-        key = config.session_secret.encode()
-        fernet = Fernet(key)
+        fernet = Fernet(config.session_secret.get_secret_value().encode())
         try:
             data = json.loads(fernet.decrypt(cookie.encode()).decode())
             token = None
@@ -108,6 +107,5 @@ class State(BaseState):
             data["state"] = self.state
 
         config = config_dependency.config()
-        key = config.session_secret.encode()
-        fernet = Fernet(key)
+        fernet = Fernet(config.session_secret.get_secret_value().encode())
         return fernet.encrypt(json.dumps(data).encode()).decode()

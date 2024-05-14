@@ -42,6 +42,7 @@ nitpick_ignore = [
     ["py:class", "pydantic.types.SecretStr"],
     ["py:class", "pydantic.utils.Representation"],
     ["py:class", "pydantic_core._pydantic_core.ValidationError"],
+    ["py:class", "pydantic_settings.main.BaseSettings"],
     ["py:obj", "safir.pydantic.validate_exactly_one_of.<locals>.validator"],
     ["py:class", "starlette.datastructures.URL"],
     ["py:class", "starlette.middleware.base.BaseHTTPMiddleware"],

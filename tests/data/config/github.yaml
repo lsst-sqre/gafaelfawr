@@ -1,9 +1,7 @@
+# Use GitHub as the authentication provider.
+
 realm: "example.com"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "{database_url}"
-redisUrl: "redis://localhost:6379/0"
-bootstrapTokenFile: "{bootstrap_token_file}"
-slackWebhookFile: "{slack_webhook_file}"
+slackAlerts: true
 initialAdmins: ["admin"]
 proxies:
   - "10.0.0.0/8"
@@ -30,7 +28,17 @@ knownScopes:
   "user:token": "Can create and modify user tokens"
 github:
   clientId: "some-github-client-id"
-  clientSecretFile: "{github_secret_file}"
 errorFooter: |
   Some <strong>error instructions</strong> with HTML.
 cadcBaseUuid: "750a0d94-e0eb-4b4e-a732-bcf87d7197fd"
+
+# Ensure that the configuration parser correctly discards empty or partial
+# configurations that should not be used.
+oidc:
+  scopes: ["openid"]
+cilogon: {}
+ldap:
+  groupSearchByDn: true
+firestore: {}
+oidcServer:
+  keyId: "gafaelfawr"

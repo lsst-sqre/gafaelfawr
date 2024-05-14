@@ -24,6 +24,7 @@ kopf
 kubernetes_asyncio
 jinja2
 pydantic>2
+pydantic-settings
 PyJWT
 pyyaml
 redis>=4.2.0
@@ -34,3 +35,8 @@ structlog
 # Uncomment this, change the branch, comment out safir above, and run make
 # update-deps-no-hashes to test against an unreleased version of Safir.
 # safir[db,kubernetes] @ git+https://github.com/lsst-sqre/safir@main
+
+# docker 6.1.3 doesn't work with requests 2.32.0. This only affects
+# tox-docker, but all of the dependency files have to be consistent and
+# there is a transitive dependency on requests.
+requests<2.32.0

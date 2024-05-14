@@ -199,7 +199,7 @@ class GitHubProvider(Provider):
             r = await self._http_client.request(
                 "DELETE",
                 grant_url,
-                auth=(client_id, client_secret),
+                auth=(client_id, client_secret.get_secret_value()),
                 headers={"Accept": "application/vnd.github+json"},
                 json=data,
             )
@@ -234,7 +234,7 @@ class GitHubProvider(Provider):
         """
         data = {
             "client_id": self._config.client_id,
-            "client_secret": self._config.client_secret,
+            "client_secret": self._config.client_secret.get_secret_value(),
             "code": code,
             "state": state,
         }

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 from datetime import timedelta
-from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
@@ -1004,13 +1003,12 @@ async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_ldap_error(
-    tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
     mock_ldap: MockLDAP,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc", factory)
+    config = await reconfigure("oidc", factory)
     assert config.ldap
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,

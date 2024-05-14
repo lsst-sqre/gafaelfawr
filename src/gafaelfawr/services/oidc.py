@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import timedelta
 from typing import Any
 from urllib.parse import urlparse
 
@@ -63,6 +64,9 @@ class OIDCService:
     ----------
     config
         OpenID Connect server configuration.
+    token_lifetime
+        Token lifetime for ID tokens if the underlying Gafaelfawr token does
+        not have an expiration.
     authorization_store
         The underlying storage for OpenID Connect authorizations.
     token_service
@@ -94,6 +98,7 @@ class OIDCService:
         self,
         *,
         config: OIDCServerConfig,
+        token_lifetime: timedelta,
         authorization_store: OIDCAuthorizationStore,
         token_service: TokenService,
         user_info_service: UserInfoService,
@@ -101,6 +106,7 @@ class OIDCService:
         logger: BoundLogger,
     ) -> None:
         self._config = config
+        self._token_lifetime = token_lifetime
         self._authorization_store = authorization_store
         self._token_service = token_service
         self._user_info = user_info_service
@@ -210,15 +216,15 @@ class OIDCService:
         # by dropping any claims that were None.
         now = current_datetime()
         if token_data.expires:
-            expires = token_data.expires.timestamp()
+            expires = token_data.expires
         else:
-            expires = (now + self._config.lifetime).timestamp()
+            expires = now + self._token_lifetime
         payload: dict[str, Any] = {
             "aud": authorization.client_id,
             "auth_time": int(token_data.created.timestamp()),
             "iat": int(now.timestamp()),
-            "iss": str(self._config.issuer),
-            "exp": expires,
+            "iss": self._config.issuer,
+            "exp": int(expires.timestamp()),
             "jti": authorization.code.key,
             "nonce": authorization.nonce,
             "scope": " ".join(s.value for s in authorization.scopes),
@@ -389,7 +395,7 @@ class OIDCService:
             Raised if the provided return URI doesn't match the one registered
             with the client.
         """
-        clients = [c for c in self._config.clients if c.client_id == client_id]
+        clients = [c for c in self._config.clients if c.id == client_id]
         if not clients:
             msg = f"Unknown client ID {client_id} in OpenID Connect request"
             self._logger.warning("Invalid request", error=msg)
@@ -429,7 +435,7 @@ class OIDCService:
             The issuer of this token is unknown and therefore the token cannot
             be verified.
         """
-        audiences = (c.client_id for c in self._config.clients)
+        audiences = (c.id for c in self._config.clients)
         try:
             payload = jwt.decode(
                 token.encoded,
@@ -497,9 +503,9 @@ class OIDCService:
         if not client_secret:
             raise InvalidClientError("No client_secret provided")
         for client in self._config.clients:
-            if client.client_id != client_id:
+            if client.id != client_id:
                 continue
-            if client.client_secret == client_secret:
+            if client.secret.get_secret_value() == client_secret:
                 if not self._return_uri_matches(client.return_uri, return_uri):
                     msg = f"Invalid return URI for {client_id}: {return_uri}"
                     raise InvalidGrantError(msg)

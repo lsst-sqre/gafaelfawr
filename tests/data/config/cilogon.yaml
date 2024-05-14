@@ -1,7 +1,6 @@
+# Use CILogon as the authentication provider.
+
 realm: "example.com"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "{database_url}"
-redisUrl: "redis://localhost:6379/0"
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
@@ -14,20 +13,16 @@ knownScopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
-firestore:
-  project: "some-google-project"
 ldap:
   url: "ldaps://ldap.example.com/"
   groupBaseDn: "dc=example,dc=com"
   userBaseDn: "ou=people,dc=example,dc=com"
-  uidAttr: null
-  gidAttr: null
-  addUserGroup: true
+cilogon:
+  clientId: "some-cilogon-client-id"
+
+# Ensure that the configuration parser correctly discards empty or partial
+# configurations that should not be used.
 oidc:
-  clientId: "some-oidc-client-id"
-  clientSecretFile: "{oidc_secret_file}"
-  loginUrl: "https://upstream.example.com/oidc/login"
-  redirectUrl: "https://upstream.example.com/login"
-  tokenUrl: "https://upstream.example.com/token"
-  issuer: "https://upstream.example.com/"
-  audience: "https://test.example.com/"
+  loginParams: {}
+  scopes: ["openid"]
+  usernameClaim: "uid"

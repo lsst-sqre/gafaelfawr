@@ -17,6 +17,7 @@ import pytest
 import structlog
 from click.testing import CliRunner
 from cryptography.fernet import Fernet
+from pydantic import SecretStr
 from safir.database import initialize_database
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
@@ -107,19 +108,22 @@ def test_audit(
 
 
 def test_delete_all_data(
-    tmp_path: Path,
     engine: AsyncEngine,
+    config: Config,
+    monkeypatch: pytest.MonkeyPatch,
     event_loop: asyncio.AbstractEventLoop,
 ) -> None:
     redirect_uri = "https://example.com/"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=redirect_uri,
         )
     ]
-    config = configure(tmp_path, "github-oidc-server", oidc_clients=clients)
+    config = configure(
+        "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
+    )
     logger = structlog.get_logger("gafaelfawr")
 
     async def setup() -> OIDCAuthorizationCode:

@@ -84,15 +84,17 @@ Production deployments should use at least two replicas.
 Token lifetime
 --------------
 
-Change the token lifetime by setting ``config.tokenLifetimeMinutes``.
-The default is 1380 (23 hours).
+Change the token lifetime by setting ``config.tokenLifetime``.
+The default is 30 days.
 
 .. code-block:: yaml
 
    config:
-     tokenLifetimeMinutes: 43200  # 30 days
+     tokenLifetime: 23h
 
-This setting will also affect the lifetime of tokens issued by the OpenID Connect server, if enabled.
+Supported interval suffixes are ``w`` (weeks), ``d`` (days), ``h`` (hours), ``m`` (minutes), and ``s`` (seconds).
+Several values can be specified together.
+For example, ``1d6h23m`` specifies a token lifetime of one day, six hours, and 23 minutes.
 
 Administrators
 --------------
@@ -119,6 +121,12 @@ Look for the ``resources`` key at the top level of the chart and in the portions
 The default limits and requests were set based on a fairly lightly loaded deployment that uses OpenID Connect as the authentication provider and LDAP for user metadata.
 For a heavily-loaded environment, you may need to increase the resource requests to reflect the expected resource consumption of your instance of Gafaelfawr and allow Kubernetes to do better scheduling.
 You will hopefully not need to increase the limits, which are generous.
+
+Authentication realm
+--------------------
+
+The default authentication realm for ``WWW-Authenticate`` headers, which is displayed as part of the HTTP Basic Authentication prompt in browsers, is the hostname of the Phalanx environment in which Gafaelfawr is installed.
+This default can be overridden by setting ``config.realm``.
 
 .. _providers:
 
@@ -169,7 +177,7 @@ CILogon has some additional options under ``config.cilogon`` that you may want t
 
 ``config.cilogon.usernameClaim``
     The claim of the OpenID Connect ID token from which to take the username.
-    The default is ``uid``.
+    The default is ``username``.
 
 Generic OpenID Connect
 ----------------------
@@ -293,17 +301,15 @@ If :ref:`Firestore support <firestore>` is enabled, the GIDs in LDAP are ignored
     Default: ``member``.
 
 ``config.ldap.groupSearchByDn``
-    If set to true, rather than expecting the membership attribute to contain bare usernames, expect it to contain full user DNs.
+    By default, Gafaelfawr searches the ``config.ldap.groupMemberAttr`` attribute for the user's DN (formed by combining the username with ``config.ldap.userSearchAttr`` (as the attribute name for the first DN component containing the username) and ``config.ldap.userBaseDn`` (for the rest of the DN).
     This is the configuration used by most LDAP servers.
-    Construct the user DN by combining the username with the values of ``config.ldap.userSearchAttr`` (as the attribute name for the first DN component containing the username) and ``config.ldap.userBaseDn`` (for the rest of the DN).
-    If this is set, ``config.ldap.userBaseDn`` must also be set.
-    Default: ``false``, mostly for backward compatibility reasons.
+    If this option is set to false, the group tree is searched for the bare username instead.
 
 ``config.ldap.addUserGroup``
-    If set to ``true``, add an additional group to the user's group membership with a name equal to their username and a GID equal to their UID (provided they have a UID; if not, no group is added).
+    If set to true, add an additional group to the user's group membership with a name equal to their username and a GID equal to their UID (provided they have a UID; if not, no group is added).
     Use this in environments with user private groups that do not appear in LDAP.
     In order to safely use this option, the GIDs of regular groups must be disjoint from user UIDs so that the user's UID can safely be used as the GID of this synthetic group.
-    Default: ``false``.
+    Default: false.
 
 The name of each group will be taken from the ``cn`` attribute and the GID will be taken from the ``gidNumber`` attribute.
 
@@ -339,17 +345,19 @@ You may need to set the following additional options under ``config.ldap`` depen
 
 ``config.ldap.emailAttr``
     The attribute from which to get the user's email address.
+    Set to null to not look up email addresses.
     Default: ``mail``.
 
 ``config.ldap.gidAttr``
     The attribute holding the user's primary GID number.
-    This can be set to null to tell Gafaelfawr to not attempt to get the GID number from LDAP.
-    This normally only makes sense if ``addUserGroup`` is also set to true.
+    Set to null to not look up primary GID numbers from LDAP, although be aware that some services may require a primary GID.
+    This attribute is only used if :ref:`Firestore <firestore>` is not used for UID and GID assignment and ``config.ldap.addUserGroup`` is not set.
     Default: ``gidNumber``.
 
 ``config.ldap.nameAttr``
     The attribute from which to get the user's full name.
     This attribute should hold the whole name that should be used, not just a surname or family name (which are not universally valid concepts anyway).
+    Set to null to not look up full names.
     Default: ``displayName``.
 
 ``config.ldap.uidAttr``
@@ -359,6 +367,7 @@ You may need to set the following additional options under ``config.ldap`` depen
 
 ``config.ldap.userSearchAttr``
     The attribute holding the username, used to find the user's entry.
+    If ``config.ldap.groupSearchByDn`` is true (the default), this should also be the attribute used to construct the user DN.
     Default: ``uid``.
 
 .. _firestore:
@@ -701,3 +710,13 @@ Users have access to the union of data releases across all of their group member
 
 See :ref:`openid-connect` for more information.
 See :dmtn:`253` for how this OpenID Connect support can be used by International Data Access Centers.
+
+The following additional options customize the behavior of the OpenID Connect server:
+
+``config.oidcServer.issuer``
+    The issuer identity (the ``iss`` claim in JWTs).
+    Default: The base URL of the Phalanx environment.
+
+``config.oidcServer.keyId``
+    The key ID of the signing key (the ``kid`` claim in JWTs).
+    Default: ``gafaelfawr``

@@ -1,22 +1,15 @@
-# Settings used for local database creation for Alembic migrations. These
-# settings do not need to contain enough settings for Gafaelfawr to actually
-# work.
+# Settings used for local database creation for Alembic migrations.
 #
-# WARNING: The session secret and PostgreSQL password included in this package
-# are published to the entire world and are therefore not secure in any way.
-# Use them ONLY for development on server limited to localhost. Anyone in the
-# world can decrypt and forge any identity information of any server that uses
-# these settings.
+# These settings do not need to contain enough settings for Gafaelfawr to
+# actually work. Do not use the secrets contained in this file for any other
+# purpose; they are completely insecure.
 
 realm: "localhost"
 logLevel: "DEBUG"
-sessionSecretFile: "examples/secrets/session-secret"
-databaseUrl: "postgresql://gafaelfawr:INSECURE@localhost/gafaelfawr"
 
-# This Redis will be started by the docker-compose.yaml file at the top
-# level of the repository.
-redisUrl: "redis://localhost:6379/0"
-redisPasswordFile: "examples/secrets/redis-password"
+# Dummy secrets so that Gafaelfawr will start.
+bootstrapToken: "gt-HJQLhg7DQT7lXDL3BDFjgw.kRGKrVPcQBsNHszvZN9Qjw"
+sessionSecret: "ESZpgUbI7UwmlZ8p04uzAkS7WW_Qy17Zq2Cxae0W02A="
 
 # Where to send the user after logging out.
 afterLogoutUrl: "http://localhost:8080"
@@ -25,7 +18,7 @@ afterLogoutUrl: "http://localhost:8080"
 # this configuration is intended only for database schema management.
 github:
   clientId: "<github-client-id>"
-  clientSecretFile: "examples/secrets/session-secret"
+  clientSecret: "<github-client-secret>"
 
 # Add a random administrator because the code doesn't like this to be empty.
 initialAdmins:
