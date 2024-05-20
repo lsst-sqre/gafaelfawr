@@ -14,6 +14,7 @@ from alembic.config import Config as AlembicConfig
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from asgi_lifespan import LifespanManager
+from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from safir.database import create_database_engine, initialize_database
@@ -25,20 +26,28 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
-from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
+from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.main import create_app
 from gafaelfawr.models.state import State
-from gafaelfawr.models.token import TokenType
+from gafaelfawr.models.token import Token, TokenType
 from gafaelfawr.schema import Base
 
 from .pages.tokens import TokensPage
-from .support.config import build_config, configure
+from .support.config import config_path, configure
 from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
 from .support.database import clear_alembic_version
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
+
+_ISSUER_KEY = RSAKeyPair.generate()
+"""RSA key pair for JWT issuance and verification.
+
+Generating this takes a surprisingly long time when summed across every test,
+so generate one statically at import time for each test run and use it for
+every configuration file.
+"""
 
 
 @pytest_asyncio.fixture
@@ -68,8 +77,12 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture
-def config(tmp_path: Path) -> Config:
+def config(monkeypatch: pytest.MonkeyPatch) -> Config:
     """Set up and return the default test configuration.
+
+    The fixture always configures Gafealfawr for GitHub authentication, but it
+    sets up the environment variables with secrets for other providers and
+    user information sources so that the test case can switch later.
 
     Notes
     -----
@@ -77,7 +90,17 @@ def config(tmp_path: Path) -> Config:
     which must not be async because the Click support starts its own asyncio
     loop.
     """
-    return configure(tmp_path, "github")
+    oidc_server_key = _ISSUER_KEY.private_key_as_pem().decode()
+    session_secret = Fernet.generate_key().decode()
+    slack_webhook = "https://slack.example.com/webhook"
+    monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", str(Token()))
+    monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "oidc-secret")
+    monkeypatch.setenv("GAFAELFAWR_GITHUB_CLIENT_SECRET", "github-secret")
+    monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
+    monkeypatch.setenv("GAFAELFAWR_OIDC_SERVER_KEY", oidc_server_key)
+    monkeypatch.setenv("GAFAELFAWR_SESSION_SECRET", session_secret)
+    monkeypatch.setenv("GAFAELFAWR_SLACK_WEBHOOK", slack_webhook)
+    return configure("github")
 
 
 @pytest.fixture(scope="session")
@@ -180,12 +203,13 @@ def mock_slack(
     """Mock a Slack webhook."""
     if not config.slack_webhook:
         return None
-    return mock_slack_webhook(config.slack_webhook, respx_mock)
+    webhook = config.slack_webhook.get_secret_value()
+    return mock_slack_webhook(webhook, respx_mock)
 
 
 @pytest.fixture
 def selenium_config(
-    tmp_path: Path, driver: webdriver.Chrome
+    tmp_path: Path, config: Config, driver: webdriver.Chrome
 ) -> Iterator[SeleniumConfig]:
     """Start a server for Selenium tests.
 
@@ -198,10 +222,8 @@ def selenium_config(
     SeleniumConfig
         Configuration information for the server.
     """
-    config_path = build_config(tmp_path, "selenium")
-    config_dependency.set_config_path(config_path)
-    with run_app(tmp_path, config_path) as config:
-        cookie = State(token=config.token).to_cookie()
+    with run_app(tmp_path, config_path("selenium")) as selenium_config:
+        cookie = State(token=selenium_config.token).to_cookie()
         driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}
 
         # The synthetic cookie doesn't have a CSRF token, so we want to
@@ -210,9 +232,9 @@ def selenium_config(
         # trigger fleshing out the state, and then dropping the header
         # override for subsequent calls so that the cookie set in the browser
         # will be used.
-        driver.get(urljoin(config.url, "/auth/tokens/"))
+        driver.get(urljoin(selenium_config.url, "/auth/tokens/"))
         tokens_page = TokensPage(driver)
         tokens_page.get_tokens(TokenType.session)
         del driver.header_overrides
 
-        yield config
+        yield selenium_config

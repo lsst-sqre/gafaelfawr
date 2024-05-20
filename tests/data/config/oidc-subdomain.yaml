@@ -1,5 +1,6 @@
-realm: "testing"
-initialAdmins: ["admin"]
+# Use OpenID Connect with an issuer that uses a subdomain and URL path.
+
+realm: "example.com"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
@@ -11,17 +12,14 @@ knownScopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
-github:
-  clientId: "some-github-client-id"
 oidc:
   clientId: "some-oidc-client-id"
-  loginUrl: "https://example.com/oidc/login"
-  loginParams:
-    skin: "test"
-  redirectUrl: "https://example.com/login"
-  tokenUrl: "https://example.com/token"
-  scopes:
-    - "email"
-    - "voPerson"
-  issuer: "https://upstream.example.com/"
+  loginUrl: "https://upstream.example.com/some/path/login"
+  redirectUrl: "https://test.example.com/login"
+  tokenUrl: "https://upstream.example.com/some/path/token"
+  issuer: "https://upstream.example.com/some/path"
   audience: "https://test.example.com/"
+ldap:
+  url: "ldaps://ldap.example.com/"
+  groupBaseDn: "dc=example,dc=com"
+  userBaseDn: "ou=people,dc=example,dc=com"

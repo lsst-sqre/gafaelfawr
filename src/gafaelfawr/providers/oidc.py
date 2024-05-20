@@ -134,7 +134,7 @@ class OIDCProvider(Provider):
         data = {
             "grant_type": "authorization_code",
             "client_id": self._config.client_id,
-            "client_secret": self._config.client_secret,
+            "client_secret": self._config.client_secret.get_secret_value(),
             "code": code,
             "redirect_uri": self._config.redirect_url,
         }
@@ -143,6 +143,7 @@ class OIDCProvider(Provider):
         # If the call failed, try to extract an error from the reply.  If that
         # fails, just raise an exception for the HTTP status.
         result = None
+        r = None
         try:
             r = await self._http_client.post(
                 token_url,
@@ -162,7 +163,7 @@ class OIDCProvider(Provider):
             raise OIDCWebError.from_exception(e) from e
         except Exception as e:
             msg = f"Response from {token_url} not valid JSON"
-            logger.exception(msg, response=r.text)
+            logger.exception(msg, response=r.text if r else None)
             raise OIDCError(msg) from e
         if "id_token" not in result:
             msg = f"No id_token in token reply from {token_url}"

@@ -133,15 +133,18 @@ class ProcessContext:
                 client.set_credentials(
                     "SIMPLE",
                     user=config.ldap.user_dn,
-                    password=config.ldap.password,
+                    password=config.ldap.password.get_secret_value(),
                 )
             elif config.ldap.use_kerberos:
                 client.set_credentials("GSSAPI")
             ldap_pool = AIOConnectionPool(client)
 
+        redis_password = None
+        if config.redis_password:
+            redis_password = config.redis_password.get_secret_value()
         redis_pool = BlockingConnectionPool.from_url(
             config.redis_url,
-            password=config.redis_password,
+            password=redis_password,
             max_connections=REDIS_POOL_SIZE,
             retry=Retry(
                 ExponentialBackoff(
@@ -422,10 +425,11 @@ class Factory:
         if not self._context.config.oidc_server:
             msg = "OpenID Connect server not configured"
             raise NotConfiguredError(msg)
+        session_secret = self._context.config.session_secret.get_secret_value()
         storage = EncryptedPydanticRedisStorage(
             datatype=OIDCAuthorization,
             redis=self._context.redis,
-            encryption_key=self._context.config.session_secret,
+            encryption_key=session_secret,
             key_prefix="oidc:",
         )
         authorization_store = OIDCAuthorizationStore(storage)
@@ -434,6 +438,7 @@ class Factory:
         slack_client = self.create_slack_client()
         return OIDCService(
             config=self._context.config.oidc_server,
+            token_lifetime=self._context.config.token_lifetime,
             authorization_store=authorization_store,
             token_service=token_service,
             user_info_service=user_info_service,
@@ -508,7 +513,9 @@ class Factory:
         if not self._context.config.slack_webhook:
             return None
         return SlackWebhookClient(
-            self._context.config.slack_webhook, "Gafaelfawr", self._logger
+            self._context.config.slack_webhook.get_secret_value(),
+            "Gafaelfawr",
+            self._logger,
         )
 
     def create_token_cache_service(self) -> TokenCacheService:
@@ -519,25 +526,13 @@ class Factory:
         TokenCacheService
             A new token cache.
         """
-        storage = EncryptedPydanticRedisStorage(
-            datatype=TokenData,
-            redis=self._context.redis,
-            encryption_key=self._context.config.session_secret,
-            key_prefix="token:",
-        )
-        slack_client = self.create_slack_client()
-        token_redis_store = TokenRedisStore(
-            storage, slack_client, self._logger
-        )
-        token_db_store = TokenDatabaseStore(self.session)
-        token_change_store = TokenChangeHistoryStore(self.session)
         return TokenCacheService(
             config=self._context.config,
             internal_cache=self._context.internal_token_cache,
             notebook_cache=self._context.notebook_token_cache,
-            token_db_store=token_db_store,
-            token_redis_store=token_redis_store,
-            token_change_store=token_change_store,
+            token_db_store=TokenDatabaseStore(self.session),
+            token_redis_store=self.create_token_redis_store(),
+            token_change_store=TokenChangeHistoryStore(self.session),
             logger=self._logger,
         )
 
@@ -549,10 +544,11 @@ class Factory:
         TokenRedisStore
             New token database store.
         """
+        session_secret = self._context.config.session_secret.get_secret_value()
         storage = EncryptedPydanticRedisStorage(
             datatype=TokenData,
             redis=self._context.redis,
-            encryption_key=self._context.config.session_secret,
+            encryption_key=session_secret,
             key_prefix="token:",
         )
         slack_client = self.create_slack_client()

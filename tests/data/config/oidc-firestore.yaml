@@ -1,8 +1,6 @@
+# Use OpenID Connect with Firestore for UID and GID assignment.
+
 realm: "example.com"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "{database_url}"
-redisUrl: "redis://localhost:6379/0"
-initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
@@ -14,15 +12,19 @@ knownScopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
-oidc:
-  clientId: "some-oidc-client-id"
-  clientSecretFile: "{oidc_secret_file}"
-  loginUrl: "https://upstream.example.com/some/path/login"
-  redirectUrl: "https://test.example.com/login"
-  tokenUrl: "https://upstream.example.com/some/path/token"
-  issuer: "https://upstream.example.com/some/path"
-  audience: "https://test.example.com/"
+firestore:
+  project: "some-google-project"
 ldap:
   url: "ldaps://ldap.example.com/"
   groupBaseDn: "dc=example,dc=com"
   userBaseDn: "ou=people,dc=example,dc=com"
+  uidAttr: null
+  gidAttr: null
+  addUserGroup: true
+oidc:
+  clientId: "some-oidc-client-id"
+  loginUrl: "https://upstream.example.com/oidc/login"
+  redirectUrl: "https://upstream.example.com/login"
+  tokenUrl: "https://upstream.example.com/token"
+  issuer: "https://upstream.example.com/"
+  audience: "https://test.example.com/"

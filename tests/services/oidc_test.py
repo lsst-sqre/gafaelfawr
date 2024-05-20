@@ -6,11 +6,11 @@ import json
 import os
 import time
 from datetime import timedelta
-from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
+from pydantic import SecretStr
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
 
@@ -36,17 +36,19 @@ from ..support.tokens import create_session_token
 
 
 @pytest.mark.asyncio
-async def test_issue_code(tmp_path: Path, factory: Factory) -> None:
+async def test_issue_code(
+    factory: Factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
     redirect_uri = "https://example.com/"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=redirect_uri,
         )
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
@@ -71,7 +73,7 @@ async def test_issue_code(tmp_path: Path, factory: Factory) -> None:
     )
     encrypted_code = await factory.redis.get(f"oidc:{code.key}")
     assert encrypted_code
-    fernet = Fernet(config.session_secret.encode())
+    fernet = Fernet(config.session_secret.get_secret_value().encode())
     serialized_code = json.loads(fernet.decrypt(encrypted_code))
     assert serialized_code == {
         "code": {
@@ -93,22 +95,24 @@ async def test_issue_code(tmp_path: Path, factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_redeem_code(tmp_path: Path, factory: Factory) -> None:
+async def test_redeem_code(
+    factory: Factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
     redirect_uri = "https://example.com/"
     clients = [
         OIDCClient(
-            client_id="client-1",
-            client_secret="client-1-secret",
+            id="client-1",
+            secret=SecretStr("client-1-secret"),
             return_uri=redirect_uri,
         ),
         OIDCClient(
-            client_id="client-2",
-            client_secret="client-2-secret",
+            id="client-2",
+            secret=SecretStr("client-2-secret"),
             return_uri=redirect_uri,
         ),
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     assert config.oidc_server
     oidc_service = factory.create_oidc_service()
@@ -178,24 +182,26 @@ async def test_redeem_code(tmp_path: Path, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_redeem_code_errors(
-    tmp_path: Path, factory: Factory, mock_slack: MockSlackWebhook
+    factory: Factory,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     expires = int(timedelta(minutes=60).total_seconds())
     redirect_uri = "https://example.com/"
     clients = [
         OIDCClient(
-            client_id="client-1",
-            client_secret="client-1-secret",
+            id="client-1",
+            secret=SecretStr("client-1-secret"),
             return_uri=redirect_uri,
         ),
         OIDCClient(
-            client_id="client-2",
-            client_secret="client-2-secret",
+            id="client-2",
+            secret=SecretStr("client-2-secret"),
             return_uri=redirect_uri,
         ),
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
@@ -284,7 +290,7 @@ async def test_redeem_code_errors(
     assert mock_slack.messages == []
 
     # Malformed data in Redis.
-    fernet = Fernet(config.session_secret.encode())
+    fernet = Fernet(config.session_secret.get_secret_value().encode())
     raw_data = fernet.encrypt(b"malformed json")
     await factory.redis.set(f"oidc:{code.key}", raw_data, ex=expires)
     async with factory.session.begin():
@@ -363,17 +369,19 @@ async def test_redeem_code_errors(
 
 
 @pytest.mark.asyncio
-async def test_issue_id_token(tmp_path: Path, factory: Factory) -> None:
+async def test_issue_id_token(
+    factory: Factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
     redirect_uri = "https://example.com/"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=redirect_uri,
         )
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     assert config.oidc_server
     oidc_service = factory.create_oidc_service()

@@ -1,8 +1,6 @@
+# Use OpenID Connect as the provider and configure an enrollment URL.
+
 realm: "example.com"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "{database_url}"
-redisUrl: "redis://localhost:6379/0"
-initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
@@ -20,7 +18,6 @@ ldap:
   userBaseDn: "ou=people,dc=example,dc=com"
 oidc:
   clientId: "some-oidc-client-id"
-  clientSecretFile: "{oidc_secret_file}"
   loginUrl: "https://upstream.example.com/oidc/login"
   loginParams:
     skin: "test"
@@ -32,4 +29,3 @@ oidc:
     - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
-  usernameClaim: "username"

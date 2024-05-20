@@ -6,12 +6,12 @@ import json
 import os
 import time
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import pytest
 from httpx import AsyncClient
+from pydantic import SecretStr
 from safir.datetime import current_datetime, format_datetime_for_logging
 from safir.testing.slack import MockSlackWebhook
 
@@ -129,21 +129,21 @@ async def authenticate(
 
 @pytest.mark.asyncio
 async def test_login(
-    tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
+    monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=f"https://{TEST_HOSTNAME}:4444/foo",
         )
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     assert config.oidc_server
     token_data = await create_session_token(factory)
@@ -285,17 +285,21 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_unauthenticated(
-    tmp_path: Path, client: AsyncClient, caplog: pytest.LogCaptureFixture
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=f"https://{TEST_HOSTNAME}:4444/foo",
         )
     ]
-    await reconfigure(tmp_path, "github-oidc-server", oidc_clients=clients)
+    await reconfigure(
+        "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
+    )
     login_params = {
         "response_type": "code",
         "scope": "openid",
@@ -331,21 +335,21 @@ async def test_unauthenticated(
 
 @pytest.mark.asyncio
 async def test_login_errors(
-    tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
-    caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=f"https://{TEST_HOSTNAME}/app",
         )
     ]
     await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
@@ -471,27 +475,27 @@ async def test_login_errors(
 
 @pytest.mark.asyncio
 async def test_token_errors(
-    tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
-    caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=redirect_uri,
         ),
         OIDCClient(
-            client_id="other-id",
-            client_secret="other-secret",
+            id="other-id",
+            secret=SecretStr("other-secret"),
             return_uri=redirect_uri,
         ),
     ]
     await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -684,22 +688,22 @@ async def test_no_auth(
 
 @pytest.mark.asyncio
 async def test_invalid(
-    tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
-    caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = "https://example.com/"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=redirect_uri,
         )
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     token_data = await create_session_token(factory)
     oidc_service = factory.create_oidc_service()
@@ -817,17 +821,19 @@ async def test_invalid(
 
 @pytest.mark.asyncio
 async def test_well_known_jwks(
-    tmp_path: Path, client: AsyncClient, config: Config
+    client: AsyncClient,
+    config: Config,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri="https://example.com/",
         )
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", oidc_clients=clients
+        "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
     )
     assert config.oidc_server
     r = await client.get("/.well-known/jwks.json")
@@ -856,17 +862,17 @@ async def test_well_known_jwks(
 
 @pytest.mark.asyncio
 async def test_well_known_oidc(
-    tmp_path: Path, client: AsyncClient, config: Config
+    client: AsyncClient, config: Config, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri="https://example.com/",
         )
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", oidc_clients=clients
+        "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
     )
     assert config.oidc_server
     r = await client.get("/.well-known/openid-configuration")
@@ -891,18 +897,18 @@ async def test_well_known_oidc(
 
 @pytest.mark.asyncio
 async def test_nonce(
-    tmp_path: Path, client: AsyncClient, factory: Factory
+    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     redirect_uri = "https://example.org/"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=redirect_uri,
         )
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     assert config.oidc_server
     token_data = await create_session_token(factory)
@@ -940,18 +946,18 @@ async def test_nonce(
 
 @pytest.mark.asyncio
 async def test_data_rights(
-    tmp_path: Path, client: AsyncClient, factory: Factory
+    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     redirect_uri = "https://www.example.org/"
     clients = [
         OIDCClient(
-            client_id="some-id",
-            client_secret="some-secret",
+            id="some-id",
+            secret=SecretStr("some-secret"),
             return_uri=redirect_uri,
         )
     ]
     config = await reconfigure(
-        tmp_path, "github-oidc-server", factory, oidc_clients=clients
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
     assert config.oidc_server
     token_data = await create_session_token(factory, group_names=["foo"])

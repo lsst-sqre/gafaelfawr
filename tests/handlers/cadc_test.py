@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from pathlib import Path
 from uuid import uuid5
 
 import pytest
@@ -53,7 +52,7 @@ async def test_userinfo(
 
 @pytest.mark.asyncio
 async def test_userinfo_errors(
-    config: Config, client: AsyncClient, factory: Factory, tmp_path: Path
+    config: Config, client: AsyncClient, factory: Factory
 ) -> None:
     assert config.cadc_base_uuid
 
@@ -84,7 +83,7 @@ async def test_userinfo_errors(
     assert r.status_code == 403
 
     # Switch to a configuration that doesn't have CADC auth configuration.
-    await reconfigure(tmp_path, "github-quota", factory)
+    await reconfigure("github-quota", factory)
     token_service = factory.create_token_service()
     async with factory.session.begin():
         token = await token_service.create_token_from_admin_request(

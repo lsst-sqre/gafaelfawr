@@ -1234,7 +1234,7 @@ async def test_invalid(
     assert await token_service.get_data(token) is None
 
     # Malformed session.
-    fernet = Fernet(config.session_secret.encode())
+    fernet = Fernet(config.session_secret.get_secret_value().encode())
     raw_data = fernet.encrypt(b"malformed json")
     await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
     assert await token_service.get_data(token) is None

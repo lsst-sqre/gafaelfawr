@@ -1,8 +1,6 @@
+# Use GitHub as the provider and configure quota limits.
+
 realm: "example.com"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "{database_url}"
-redisUrl: "redis://localhost:6379/0"
-initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
@@ -19,7 +17,6 @@ knownScopes:
   "user:token": "Can create and modify user tokens"
 github:
   clientId: "some-github-client-id"
-  clientSecretFile: "{github_secret_file}"
 quota:
   default:
     api:

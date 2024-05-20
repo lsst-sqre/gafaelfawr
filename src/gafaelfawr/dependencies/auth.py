@@ -117,7 +117,7 @@ class Authenticate:
             self._verify_csrf(context, x_csrf_token)
 
         if self.allow_bootstrap_token:
-            if token == context.config.bootstrap_token:
+            if str(token) == context.config.bootstrap_token.get_secret_value():
                 bootstrap_data = TokenData.bootstrap_token()
                 context.rebind_logger(
                     token="<bootstrap>",

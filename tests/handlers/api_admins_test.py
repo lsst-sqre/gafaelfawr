@@ -127,7 +127,7 @@ async def test_add_delete(client: AsyncClient, factory: Factory) -> None:
 
 @pytest.mark.asyncio
 async def test_bootstrap(client: AsyncClient, config: Config) -> None:
-    token = str(config.bootstrap_token)
+    token = config.bootstrap_token.get_secret_value()
 
     r = await client.post(
         "/auth/api/v1/admins",

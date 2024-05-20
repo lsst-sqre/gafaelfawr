@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
@@ -521,7 +520,7 @@ async def test_no_bootstrap(
 ) -> None:
     token_data = await create_session_token(factory)
     token = token_data.token
-    bootstrap_token = str(config.bootstrap_token)
+    bootstrap_token = config.bootstrap_token.get_secret_value()
 
     r = await client.get(
         "/auth/api/v1/users/example/tokens",
@@ -1158,9 +1157,10 @@ async def test_create_admin(
     assert r.status_code == 422
 
     # Check that the bootstrap token also works.
+    token = config.bootstrap_token.get_secret_value()
     r = await client.post(
         "/auth/api/v1/tokens",
-        headers={"Authorization": f"bearer {config.bootstrap_token!s}"},
+        headers={"Authorization": f"bearer {token}"},
         json={"username": "bot-other-service", "token_type": "service"},
     )
     assert r.status_code == 201
@@ -1168,10 +1168,10 @@ async def test_create_admin(
 
 @pytest.mark.asyncio
 async def test_create_admin_ldap(
-    tmp_path: Path, client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
+    client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
 ) -> None:
     """Create a token through the admin interface with LDAP user data."""
-    await reconfigure(tmp_path, "oidc", factory)
+    await reconfigure("oidc", factory)
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
     mock_ldap.add_test_user(
@@ -1281,14 +1281,13 @@ async def test_create_admin_ldap(
 
 @pytest.mark.asyncio
 async def test_create_admin_firestore(
-    tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
     mock_firestore: MockFirestore,
     mock_ldap: MockLDAP,
 ) -> None:
     """Create a token through the admin interface with Firestore enabled."""
-    await reconfigure(tmp_path, "oidc-firestore", factory)
+    await reconfigure("oidc-firestore", factory)
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
     token_data = await create_session_token(factory, scopes=["admin:token"])
@@ -1477,13 +1476,12 @@ async def test_scope_modify(
 
 @pytest.mark.asyncio
 async def test_ldap_error(
-    tmp_path: Path,
     client: AsyncClient,
     factory: Factory,
     mock_ldap: MockLDAP,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    config = await reconfigure(tmp_path, "oidc", factory)
+    config = await reconfigure("oidc", factory)
     assert config.ldap
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,

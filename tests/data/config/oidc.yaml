@@ -1,7 +1,8 @@
+# Use OpenID Connect as the authentication provider.
+
 realm: "example.com"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "{database_url}"
-redisUrl: "redis://localhost:6379/0"
+logLevel: "DEBUG"
+slackAlerts: true
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
@@ -20,15 +21,20 @@ ldap:
   userBaseDn: "ou=people,dc=example,dc=com"
 oidc:
   clientId: "some-oidc-client-id"
-  clientSecretFile: "{oidc_secret_file}"
   loginUrl: "https://upstream.example.com/oidc/login"
   loginParams:
     skin: "test"
   redirectUrl: "https://upstream.example.com/login"
   tokenUrl: "https://upstream.example.com/token"
+  enrollmentUrl: "https://upstream.example.com/enroll"
   scopes:
     - "email"
     - "voPerson"
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
-  usernameClaim: "username"
+errorFooter: |
+  Some <strong>error instructions</strong> with HTML.
+
+# Ensure that the configuration parser correctly discards empty or partial
+# configurations that should not be used.
+github: {}

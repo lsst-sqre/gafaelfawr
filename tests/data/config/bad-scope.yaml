@@ -1,10 +1,7 @@
 # Bad configuration file with invalid scope.
 
 realm: "testing"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
 initialAdmins: ["admin"]
-redisUrl: "redis://localhost:6379/0"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
@@ -16,4 +13,3 @@ knownScopes:
   "foo bar": "An invalid scope"
 github:
   clientId: "some-github-client-id"
-  clientSecretFile: "{github_secret_file}"

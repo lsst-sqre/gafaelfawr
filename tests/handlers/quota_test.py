@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from httpx import AsyncClient
 
@@ -15,10 +13,8 @@ from ..support.config import reconfigure
 
 
 @pytest.mark.asyncio
-async def test_info(
-    client: AsyncClient, factory: Factory, tmp_path: Path
-) -> None:
-    await reconfigure(tmp_path, "github-quota", factory)
+async def test_info(client: AsyncClient, factory: Factory) -> None:
+    await reconfigure("github-quota", factory)
     user_info = TokenUserInfo(
         username="example", groups=[Group(name="bar", id=12312)]
     )

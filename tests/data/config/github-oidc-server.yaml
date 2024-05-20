@@ -1,12 +1,7 @@
+# Use GitHub as the provider and configure an OpenID Connect server.
+
 realm: "example.com"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "{database_url}"
-redisUrl: "redis://localhost:6379/0"
-bootstrapTokenFile: "{bootstrap_token_file}"
-slackWebhookFile: "{slack_webhook_file}"
-initialAdmins: ["admin"]
-proxies:
-  - "10.0.0.0/8"
+slackAlerts: true
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
@@ -20,15 +15,11 @@ knownScopes:
   "read:some": "can read some things"
   "user:token": "Can create and modify user tokens"
 oidcServer:
+  enabled: true
   issuer: "https://test.example.com/"
   keyId: "some-kid"
-  keyFile: "{issuer_key_file}"
-  secretsFile: "{oidc_server_secrets_file}"
   dataRightsMapping:
     "admin": ["dp0.1"]
     "foo": ["dp0.3", "dp0.2"]
 github:
   clientId: "some-github-client-id"
-  clientSecretFile: "{github_secret_file}"
-errorFooter: |
-  Some <strong>error instructions</strong> with HTML.

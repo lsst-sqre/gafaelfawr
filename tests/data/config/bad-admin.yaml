@@ -1,10 +1,7 @@
 # Bad configuration file with invalid admin.
 
 realm: "testing"
-sessionSecretFile: "{session_secret_file}"
-databaseUrl: "postgresql://gafaelfawr:INSECURE-PASSWORD@localhost/gafaelfawr"
 initialAdmins: ["admin", "weird:admin"]
-redisUrl: "redis://localhost:6379/0"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
@@ -15,4 +12,3 @@ knownScopes:
   "user:token": "Can create and modify user tokens"
 github:
   clientId: "some-github-client-id"
-  clientSecretFile: "{github_secret_file}"
