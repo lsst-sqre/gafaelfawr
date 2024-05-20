@@ -6,6 +6,31 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-11.0.0'></a>
+## 11.0.0 (2024-05-20)
+
+### Backwards-incompatible changes
+
+- Drop support for getting user metadata from OpenID Connect token claims. LDAP, for both user metadata and group membership, is now required when using an OpenID Connect authentication, including CILogon.
+- Remove support for getting group GIDs from a ForgeRock Identity Management server. LDAP support should be used instead.
+- Drop support for LDAP groups without GIDs. Either Firestore GID assignment must be enabled or LDAP must contain a GID for each group. Groups without GIDs in LDAP will be ignored if Firestore is not enabled.
+- Retrieval of the UID and primary GID from LDAP is now enabled by default unless Firestore is enabled.
+- Replace `config.tokenLifetimeMinutes` with `config.tokenLifetime`, which accepts one or more time intervals with suffixes `w`, `d`, `h`, `m`, and `s` for weeks, days, hours, minutes, and seconds, respectively.
+- Change the default of `config.cilogon.usernameClaim` to `username`. This is what we use for all current CILogon integrations.
+- Change the default of `config.ldap.groupSearchByDn` to true. To preserve the previous behavior of searching by the bare username, this setting must be explicitly set to false.
+- Support for `config.loglevel` in Helm values has been dropped. Use `config.logLevel` instead (note the capital `L`).
+- Remove the `/auth/analyze` route. This was an old way for a user to see information about their token that has been deprecated for many releases. The output used the old JWT token claim format and was missing a great deal of useful information. `/auth/api/v1/user-info` and `/auth/api/v1/token-info` should be used instead.
+
+### New features
+
+- Support overriding the HTTP authentication realm for `WWW-Authenticate` challenges by setting `config.realm`.
+- Support overriding the OpenID Connect issuer (`iss` claim) and key ID (`kid` claim) for the internal OpenID Connect server by setting `config.oidcServer.issuer` and `config.oidcServer.kid`, respectively.
+
+### Other changes
+
+- Drop support for running a local development instance of Gafaelfawr. This support wasn't used during development and has some maintenance cost. Integration testing of development versions of Gafaelfawr should instead be done in a development Phalanx environment.
+- Move the `docker-compose.yaml` file, now used only for creating Alembic migrations, into the `alembic` subdirectory and update the documentation for creating new Alembic migraitons accordingly.
+
 <a id='changelog-10.1.0'></a>
 ## 10.1.0 (2024-03-15)
 
