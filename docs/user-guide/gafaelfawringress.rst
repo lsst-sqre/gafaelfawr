@@ -196,6 +196,26 @@ The same token will also still be passed in the ``X-Auth-Request-Token`` header.
 
 If this configuration option is set, the incoming ``Authorization`` header will be entirely replaced by one containing only the delegated token, unlike Gafaelfawr's normal behavior of preserving any incoming ``Authorization`` header that doesn't include a Gafaelfawr token.
 
+Caching
+=======
+
+By default, Gafaelfawr is consulted for every HTTP request handled by the NGINX ingress.
+
+For lower-volume API services, this is normally desirable, but for interactive web sites that may load large numbers of supporting resources or make a large number of small HTTP requests, this can cause unnecessary load on NGINX and Gafaelfawr.
+In those cases, you may wish to trade some security and predictability for performance by telling NGINX to cache the Gafaelfawr response for a short period of time.
+
+You can do this with the ``authCacheDuration`` setting:
+
+.. code-block:: yaml
+
+   config:
+     authCacheDuration: 5m
+
+The value must be an `NGINX time interval <https://nginx.org/en/docs/syntax.html>`__.
+``5m`` for five minutes represents a reasonable tradeoff between respecting token invalidation and reducing the NGINX and Gafaelfawr load.
+
+The cache is automatically invalidated if the ``Cookie`` or ``Authorization`` HTTP headers change.
+
 Per-user ingresses
 ==================
 

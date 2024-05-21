@@ -119,6 +119,13 @@ class KubernetesIngressService:
             "nginx.ingress.kubernetes.io/auth-url": auth_url,
             snippet_key: snippet,
         }
+        if ingress.config.auth_cache_duration:
+            annotations["nginx.ingress.kubernetes.io/auth-cache-key"] = (
+                "$http_cookie$http_authorization"
+            )
+            annotations["nginx.ingress.kubernetes.io/auth-cache-duration"] = (
+                f"200 202 401 {ingress.config.auth_cache_duration}"
+            )
         if ingress.config.login_redirect:
             url = ingress.config.base_url.rstrip("/") + "/login"
             annotations["nginx.ingress.kubernetes.io/auth-signin"] = url
