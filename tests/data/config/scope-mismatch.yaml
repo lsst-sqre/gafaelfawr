@@ -1,0 +1,15 @@
+# Bad configuration file with assigned scopes not in knownScopes.
+
+realm: "testing"
+initialAdmins: ["admin"]
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
+  "exec:admin": ["admin"]
+  "exec:test": ["test"]
+  "read:all": ["foo", "admin", "org-a-team"]
+knownScopes:
+  "admin:token": "Can create and modify tokens for any user"
+  "exec:admin": "Administrator"
+  "user:token": "Can create and modify user tokens"
+github:
+  clientId: "some-github-client-id"
