@@ -1022,6 +1022,15 @@ class Config(EnvFirstSettings):
         return data
 
     @model_validator(mode="after")
+    def _validate_scopes(self) -> Self:
+        """Ensure all assigned scopes are listed in ``known_scopes``."""
+        for scope in self.group_mapping:
+            if scope not in self.known_scopes:
+                msg = f"Scope {scope} assigned but not in knownScopes"
+                raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
     def _validate_userinfo(self) -> Self:
         """Ensure user information sources are configured properly."""
         # Convert CILogon configuration to OpenID Connect configuration.

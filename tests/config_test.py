@@ -46,44 +46,50 @@ def test_config_alembic(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_config_no_provider() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="No authentication provider"):
         parse_config(config_path("no-provider"))
 
 
-def test_config_both_providers() -> None:
-    with pytest.raises(ValidationError):
+def test_config_both_providers(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
+    with pytest.raises(ValidationError, match=r"Only one of .* may be used"):
         parse_config(config_path("both-providers"))
 
 
 def test_config_invalid_admin() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="invalid username"):
         parse_config(config_path("bad-admin"))
 
 
 def test_config_invalid_log_level() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="logLevel"):
         parse_config(config_path("bad-log-level"))
 
 
 def test_config_invalid_scope() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="invalid scope"):
         parse_config(config_path("bad-scope"))
 
 
 def test_config_missing_scope() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=r"required scope .* missing"):
         parse_config(config_path("missing-scope"))
 
 
 def test_config_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", "bad-token")
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="Token does not start with gt-"):
         parse_config(config_path("github"))
 
 
 def test_config_bad_groups() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="Input should be a valid list"):
         parse_config(config_path("bad-groups"))
+
+
+def test_config_scope_mismatch() -> None:
+    with pytest.raises(ValidationError, match=r"Scope .* assigned but not in"):
+        parse_config(config_path("scope-mismatch"))
 
 
 def test_config_cilogon(monkeypatch: pytest.MonkeyPatch) -> None:
