@@ -42,3 +42,4 @@ ldap:
 firestore: {}
 oidcServer:
   keyId: "gafaelfawr"
+quota: {}

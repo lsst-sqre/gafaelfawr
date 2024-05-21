@@ -1015,6 +1015,7 @@ class Config(EnvFirstSettings):
             ("ldap", "url"),
             ("firestore", "project"),
             ("oidcServer", "enabled"),
+            ("quota", "default"),
         ):
             if data.get(key) is not None and not data[key].get(needed):
                 del data[key]
