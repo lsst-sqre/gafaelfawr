@@ -43,7 +43,9 @@ metadata:
   namespace: {namespace}
   annotations:
     another.annotation.example.com: bar
-    nginx.ingress.kubernetes.io/auth-method: GET
+    nginx.ingress.kubernetes.io/auth-cache-key: "$http_cookie$http_authorization"
+    nginx.ingress.kubernetes.io/auth-cache-duration: "200 202 401 5m"
+    nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Token,X-Auth-Request-User"
     nginx.ingress.kubernetes.io/auth-signin: "https://foo.example.com/login"
     nginx.ingress.kubernetes.io/auth-url: "https://foo.example.com/auth?scope=read%3Aall&satisfy=any&notebook=true&minimum_lifetime=600"

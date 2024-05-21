@@ -32,6 +32,7 @@ config:
   baseUrl: "https://foo.example.com"
   scopes:
     any: ["read:all"]
+  authCacheDuration: 5m
   loginRedirect: true
   replace403: true
   delegate:

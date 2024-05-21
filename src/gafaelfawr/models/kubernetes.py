@@ -266,11 +266,14 @@ class GafaelfawrIngressScopesAnonymous(GafaelfawrIngressScopesBase):
 class GafaelfawrIngressConfig(BaseModel):
     """Configuration settings for an ingress using Gafaelfawr for auth."""
 
-    base_url: str
-    """The base URL for Gafaelfawr URLs in Ingress annotations."""
+    auth_cache_duration: str | None = None
+    """How long NGINX should cache the Gafaelfawr authorization response."""
 
     auth_type: AuthType | None = None
     """Auth type of challenge for 401 responses."""
+
+    base_url: str
+    """The base URL for Gafaelfawr URLs in Ingress annotations."""
 
     delegate: GafaelfawrIngressDelegate | None = None
     """Details of the requested delegated token, if any."""
@@ -309,6 +312,7 @@ class GafaelfawrIngressConfig(BaseModel):
 
         if self.scopes and self.scopes.is_anonymous():
             fields = (
+                "auth_cache_duration",
                 "auth_type",
                 "delegate",
                 "login_redirect",
