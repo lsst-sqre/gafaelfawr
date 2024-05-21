@@ -6,6 +6,14 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-11.0.1'></a>
+## 11.0.1 (2024-05-21)
+
+### Bug fixes
+
+- Correctly parse the configuration if `quota` is set to an empty object.
+- Reject configuration files that assign scopes in `groupMapping` but do not define those scopes in `knownScopes`.
+
 <a id='changelog-11.0.0'></a>
 ## 11.0.0 (2024-05-20)
 
