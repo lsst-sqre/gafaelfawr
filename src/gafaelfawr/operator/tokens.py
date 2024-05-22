@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from ..constants import KUBERNETES_TIMER_DELAY, KUBERNETES_TOKEN_INTERVAL
 from ..exceptions import KubernetesObjectError
+from ..factory import Factory
 from ..models.kubernetes import GafaelfawrServiceToken
 from ..services.kubernetes import KubernetesTokenService
 
@@ -26,6 +27,7 @@ async def _update_token(
     memo: kopf.Memo,
 ) -> dict[str, int | str] | None:
     """Do the work of updating the token, shared by `create` and `periodic`."""
+    factory: Factory = memo.factory
     token_service: KubernetesTokenService = memo.token_service
 
     # These cases are probably not possible given how the handlers are
@@ -43,6 +45,7 @@ async def _update_token(
 
     # Update the corresponding Secret and return the new status information.
     status = await token_service.update(name, namespace, service_token)
+    await factory.session.remove()
     return status.to_dict() if status else None
 
 
