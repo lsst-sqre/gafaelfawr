@@ -549,9 +549,9 @@ h2==4.1.0 \
     --hash=sha256:03a46bcf682256c95b5fd9e9a99c1323584c3eec6440d379b9903d709476bc6d \
     --hash=sha256:a83aca08fbe7aacb79fec788c9c0bac936343560ed9ec18b82a13a12c28d2abb
     # via selenium-wire
-holdup==5.1.0 \
-    --hash=sha256:299c507c1f2a98b496675b07341653c9648f7b375453b6e53c63631639022755 \
-    --hash=sha256:edf86ae41f78f26492d595d1c73553741d66c974c63c52a73c9e24a943f8e822
+holdup==5.1.1 \
+    --hash=sha256:244981e3546b4f9a1e04010eb73f52dbab0cc6dd2dcae0edbebcb71e2815b7eb \
+    --hash=sha256:3826fd9a9a88f311418c6f79cf12e69bc0f039706f4bde0fc9fd4b2dd8108b76
     # via -r requirements/dev.in
 hpack==4.0.0 \
     --hash=sha256:84a076fad3dc9a9f8063ccb8041ef100867b1878b25ef0ee63847a5d53818a6c \
@@ -637,9 +637,9 @@ jupyter-cache==1.0.0 \
     --hash=sha256:594b1c4e29b488b36547e12477645f489dbdc62cc939b2408df5679f79245078 \
     --hash=sha256:d0fa7d7533cd5798198d8889318269a8c1382ed3b22f622c09a9356521f48687
     # via myst-nb
-jupyter-client==8.6.1 \
-    --hash=sha256:3b7bd22f058434e3b9a7ea4b1500ed47de2713872288c0d511d19926f99b459f \
-    --hash=sha256:e842515e2bab8e19186d89fdfea7abd15e39dd581f94e399f00e2af5a1652d3f
+jupyter-client==8.6.2 \
+    --hash=sha256:2bda14d55ee5ba58552a8c53ae43d215ad9868853489213f37da060ced54d8df \
+    --hash=sha256:50cbc5c66fd1b8f65ecb66bc490ab73217993632809b6e505687de18e9dea39f
     # via
     #   ipykernel
     #   nbclient
@@ -1419,9 +1419,9 @@ sphinx-copybutton==0.5.2 \
     --hash=sha256:4cf17c82fb9646d1bc9ca92ac280813a3b605d8c421225fd9913154103ee1fbd \
     --hash=sha256:fb543fd386d917746c9a2c50360c7905b605726b9355cd26e9974857afeae06e
     # via documenteer
-sphinx-design==0.5.0 \
-    --hash=sha256:1af1267b4cea2eedd6724614f19dcc88fe2e15aff65d06b2f6252cee9c4f4c1e \
-    --hash=sha256:e8e513acea6f92d15c6de3b34e954458f245b8e761b45b63950f65373352ab00
+sphinx-design==0.6.0 \
+    --hash=sha256:e9bd07eecec82eb07ff72cb50fc3624e186b04f5661270bc7b62db86c7546e95 \
+    --hash=sha256:ec8e3c5c59fed4049b3a5a2e209360feab31829346b5f6a0c7c342b894082192
     # via documenteer
 sphinx-diagrams==0.4.0 \
     --hash=sha256:3cf2e0179bdd9ccdb28164fcfcae9b167999a1abe40e159e0c26a225490074d1 \
