@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-11.1.0'></a>
+## 11.1.0 (2024-05-23)
+
+### New features
+
+- Add new `authCacheDuration` setting to the `GafaelfawrIngress` Kubernetes resource, which tells Gafaelfawr to configure NGINX to cache a Gafaelfawr response for the specified length of time. The cache is invalidated if the `Cookie` or `Authorization` HTTP headers change.
+
+### Bug fixes
+
+- Close database sessions after each execution of a Kopf Kubernetes operator. Previous versions of Gafaelfawr leaked sessions until the Kubernetes operator restarted.
+
 <a id='changelog-11.0.1'></a>
 ## 11.0.1 (2024-05-21)
 
