@@ -217,8 +217,12 @@ class TokenService:
         )
 
         await self._token_redis_store.store_data(data)
-        await self._token_db_store.add(data)
-        await self._token_change_store.add(history_entry)
+        try:
+            await self._token_db_store.add(data)
+            await self._token_change_store.add(history_entry)
+        except Exception:
+            await self._token_redis_store.delete(data.token.key)
+            raise
 
         self._logger.info(
             "Successfully authenticated user %s",
@@ -287,8 +291,12 @@ class TokenService:
 
         # Store the new token in Redis and the database.
         await self._token_redis_store.store_data(data)
-        await self._token_db_store.add(data, parent=auth_data.token.key)
-        await self._token_change_store.add(history_entry)
+        try:
+            await self._token_db_store.add(data, parent=auth_data.token.key)
+            await self._token_change_store.add(history_entry)
+        except Exception:
+            await self._token_redis_store.delete(data.token.key)
+            raise
 
         # Log the token creation and return it.
         self._logger.info(
@@ -388,8 +396,12 @@ class TokenService:
         )
 
         await self._token_redis_store.store_data(data)
-        await self._token_db_store.add(data, token_name=token_name)
-        await self._token_change_store.add(history_entry)
+        try:
+            await self._token_db_store.add(data, token_name=token_name)
+            await self._token_change_store.add(history_entry)
+        except Exception:
+            await self._token_redis_store.delete(data.token.key)
+            raise
 
         self._logger.info(
             "Created new user token",
@@ -480,8 +492,12 @@ class TokenService:
         )
 
         await self._token_redis_store.store_data(data)
-        await self._token_db_store.add(data, token_name=request.token_name)
-        await self._token_change_store.add(history_entry)
+        try:
+            await self._token_db_store.add(data, token_name=request.token_name)
+            await self._token_change_store.add(history_entry)
+        except Exception:
+            await self._token_redis_store.delete(data.token.key)
+            raise
 
         if data.token_type == TokenType.user:
             self._logger.info(
