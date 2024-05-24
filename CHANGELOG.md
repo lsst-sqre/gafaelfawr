@@ -6,6 +6,16 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-11.1.1'></a>
+## 11.1.1 (2024-05-24)
+
+### Bug fixes
+
+- Respect the enrollmentUrl configuration setting when CILogon is the authentication provider, fixing a problem introduced in the 11.0.0 release.
+- Detect when someone attempts to mark as admin a username that is already an admin and return a 409 error instead of raising an uncaught exception.
+- Return a more-correct 409 HTTP error code, instead of 422, when a user attempts to use a duplicate token name.
+- When creating a new token, try to remove it from Redis if the SQL write fails. This will hopefully reduce the number of orphaned tokens created during SQL server or proxy restarts.
+
 <a id='changelog-11.1.0'></a>
 ## 11.1.0 (2024-05-23)
 

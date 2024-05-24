@@ -52,6 +52,7 @@ update-deps:
 	    --output-file requirements/dev.txt requirements/dev.in
 	uv pip compile --upgrade --generate-hashes			\
 	    --output-file requirements/tox.txt requirements/tox.in
+	cd ui && npm upgrade --legacy-peer-deps
 
 # Useful for testing against a Git version of Safir.
 .PHONY: update-deps-no-hashes
