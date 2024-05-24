@@ -262,10 +262,14 @@ class TokenCacheService:
         )
 
         await self._token_redis_store.store_data(data)
-        await self._token_db_store.add(
-            data, service=service, parent=token_data.token.key
-        )
-        await self._token_change_store.add(history_entry)
+        try:
+            await self._token_db_store.add(
+                data, service=service, parent=token_data.token.key
+            )
+            await self._token_change_store.add(history_entry)
+        except Exception:
+            await self._token_redis_store.delete(data.token.key)
+            raise
 
         self._logger.info(
             "Created new internal token",
@@ -346,8 +350,12 @@ class TokenCacheService:
         )
 
         await self._token_redis_store.store_data(data)
-        await self._token_db_store.add(data, parent=token_data.token.key)
-        await self._token_change_store.add(history_entry)
+        try:
+            await self._token_db_store.add(data, parent=token_data.token.key)
+            await self._token_change_store.add(history_entry)
+        except Exception:
+            await self._token_redis_store.delete(data.token.key)
+            raise
 
         # Cache the token and return it.
         self._logger.info(
