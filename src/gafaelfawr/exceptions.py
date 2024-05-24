@@ -13,6 +13,7 @@ from safir.slack.blockkit import SlackException, SlackWebException
 
 __all__ = [
     "DatabaseSchemaError",
+    "DuplicateAdminError",
     "DuplicateTokenNameError",
     "ExternalUserInfoError",
     "FetchKeysError",
@@ -69,6 +70,16 @@ class InputValidationError(ClientRequestError, kopf.PermanentError):
     This is a thin wrapper around `~safir.fastapi.ClientRequestError` to add
     inheritance from `kopf.PermanentError` for the Kubernetes operator.
     """
+
+
+class DuplicateAdminError(InputValidationError):
+    """The user attempted to add an admin who already existed."""
+
+    error = "duplicate_admin"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["username"])
 
 
 class DuplicateTokenNameError(InputValidationError):

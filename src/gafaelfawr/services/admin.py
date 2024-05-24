@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
-from ..exceptions import PermissionDeniedError
+from ..exceptions import DuplicateAdminError, PermissionDeniedError
 from ..models.admin import Admin
 from ..models.history import AdminChange, AdminHistoryEntry
 from ..storage.admin import AdminStore
@@ -55,11 +55,15 @@ class AdminService:
 
         Raises
         ------
+        DuplicateAdminError
+            Raised if the specified user is already an admin.
         PermissionDeniedError
-            If the actor is not an admin.
+            Raised if the actor is not an admin.
         """
         if not await self.is_admin(actor) and actor != "<bootstrap>":
             raise PermissionDeniedError(f"{actor} is not an admin")
+        if await self.is_admin(username):
+            raise DuplicateAdminError(f"{username} is already an admin")
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(
             username=username,
