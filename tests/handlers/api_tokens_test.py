@@ -802,7 +802,7 @@ async def test_duplicate_token_name(
         headers={"X-CSRF-Token": csrf},
         json={"token_name": "some token"},
     )
-    assert r.status_code == 422
+    assert r.status_code == 409
     assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
     # Create a token with a different name and then try to modify the name to
@@ -819,7 +819,7 @@ async def test_duplicate_token_name(
         headers={"X-CSRF-Token": csrf},
         json={"token_name": "some token"},
     )
-    assert r.status_code == 422
+    assert r.status_code == 409
     assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
     # None of these errors should have resulted in Slack alerts.
@@ -1141,7 +1141,7 @@ async def test_create_admin(
             "token_name": "some token",
         },
     )
-    assert r.status_code == 422
+    assert r.status_code == 409
     assert r.json()["detail"][0]["type"] == "duplicate_token_name"
 
     # Check handling of an invalid username.
