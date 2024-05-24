@@ -86,6 +86,7 @@ class DuplicateTokenNameError(InputValidationError):
     """The user tried to reuse the name of a token."""
 
     error = "duplicate_token_name"
+    status_code = status.HTTP_409_CONFLICT
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.body, ["token_name"])
