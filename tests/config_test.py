@@ -118,6 +118,7 @@ def test_config_cilogon_test(monkeypatch: pytest.MonkeyPatch) -> None:
         client_id="some-cilogon-client-id",
         client_secret=SecretStr("some-secret"),
         audience="some-cilogon-client-id",
+        enrollment_url="https://id.example.com/some-enrollment",
         login_url="https://test.cilogon.org/authorize",
         login_params={},
         token_url="https://test.cilogon.org/oauth2/token",

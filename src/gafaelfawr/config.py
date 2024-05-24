@@ -332,6 +332,7 @@ class CILogonConfig(EnvFirstSettings):
             audience=self.client_id,
             client_id=self.client_id,
             client_secret=self.client_secret,
+            enrollment_url=self.enrollment_url,
             login_url=f"{base_url}/authorize",
             login_params=self.login_params,
             token_url=f"{base_url}/oauth2/token",

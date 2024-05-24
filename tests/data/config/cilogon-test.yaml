@@ -19,6 +19,7 @@ ldap:
   userBaseDn: "ou=people,dc=example,dc=com"
 cilogon:
   clientId: "some-cilogon-client-id"
+  enrollmentUrl: "https://id.example.com/some-enrollment"
   test: true
 
 # Ensure that the configuration parser correctly discards empty or partial
