@@ -19,12 +19,14 @@ and cannot be set in the config.
 
 from __future__ import annotations
 
+import os
 import re
 from collections import defaultdict
 from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
 from typing import Any, Self
+from urllib.parse import urlparse, urlunparse
 from uuid import UUID
 
 import yaml
@@ -965,6 +967,38 @@ class Config(EnvFirstSettings):
         if not v.startswith(("postgresql:", "postgresql+asyncpg:")):
             msg = "Use asyncpg as the PostgreSQL library or leave unspecified"
             raise ValueError(msg)
+
+        # When run via tox and tox-docker, the PostgreSQL hostname and port
+        # will be randomly selected and exposed only in environment
+        # variables. We have to patch that into the database URL at runtime
+        # since tox doesn't have a way of substituting it into the environment
+        # (see https://github.com/tox-dev/tox-docker/issues/55).
+        if port := os.getenv("POSTGRES_5432_TCP_PORT"):
+            url = urlparse(v)
+            hostname = os.getenv("POSTGRES_HOST", url.hostname)
+            if url.password:
+                auth = f"{url.username}@{url.password}@"
+            elif url.username:
+                auth = f"{url.username}@"
+            else:
+                auth = ""
+            return urlunparse(url._replace(netloc=f"{auth}{hostname}:{port}"))
+
+        return v
+
+    @field_validator("redis_url")
+    @classmethod
+    def _validate_redis_url(cls, v: RedisDsnString) -> RedisDsnString:
+        # When run via tox and tox-docker, the Redis port will be randomly
+        # selected and exposed only in the REDIS_6379_TCP environment
+        # variable. We have to patch that into the Redis URL at runtime since
+        # tox doesn't have a way of substituting it into the environment (see
+        # https://github.com/tox-dev/tox-docker/issues/55).
+        if port := os.getenv("REDIS_6379_TCP_PORT"):
+            url = urlparse(v)
+            hostname = os.getenv("REDIS_HOST", url.hostname)
+            return urlunparse(url._replace(netloc=f"{hostname}:{port}"))
+
         return v
 
     @field_validator("initial_admins")

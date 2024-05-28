@@ -35,7 +35,7 @@ from gafaelfawr.schema import Base
 
 from .pages.tokens import TokensPage
 from .support.config import config_path, configure
-from .support.constants import TEST_DATABASE_URL, TEST_HOSTNAME
+from .support.constants import TEST_HOSTNAME
 from .support.database import clear_alembic_version
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
@@ -158,7 +158,7 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
 
 
 @pytest_asyncio.fixture
-def engine() -> AsyncEngine:
+def engine(config: Config) -> AsyncEngine:
     """Create a database engine for testing.
 
     Previously, this fixture was session-scoped so that all tests could share
@@ -168,7 +168,9 @@ def engine() -> AsyncEngine:
     pytest-asyncio was upgraded from 0.21.1 to 0.23.2 and the maintenance
     burden doesn't seem worth it.
     """
-    return create_database_engine(TEST_DATABASE_URL, None)
+    return create_database_engine(
+        config.database_url, config.database_password.get_secret_value()
+    )
 
 
 @pytest_asyncio.fixture
