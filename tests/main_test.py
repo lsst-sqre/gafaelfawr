@@ -11,13 +11,14 @@ from gafaelfawr.config import Config
 from gafaelfawr.exceptions import DatabaseSchemaError
 from gafaelfawr.main import create_app
 
-from .support.constants import TEST_DATABASE_URL
 from .support.database import create_old_database, drop_database
 
 
 @pytest.mark.asyncio
 async def test_out_of_date_schema(config: Config) -> None:
-    engine = create_database_engine(TEST_DATABASE_URL, None)
+    engine = create_database_engine(
+        config.database_url, config.database_password.get_secret_value()
+    )
     await drop_database(engine)
     await create_old_database(config, engine, "9.6.1")
 

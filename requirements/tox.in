@@ -12,6 +12,3 @@
 tox
 tox-docker
 tox-uv
-
-# docker 6.1.3 doesn't work with requests 2.31.0.
-requests<2.32.0
