@@ -21,8 +21,8 @@ See :ref:`backport-release` to patch an earlier major-minor version.
 
 Release tags are semantic version identifiers following the :pep:`440` specification.
 
-1. Change log and documentation
--------------------------------
+1. Change log and dependencies
+------------------------------
 
 Change log messages for each release are accumulated using scriv_ (see :ref:`dev-change-log`).
 When it comes time to make the release, there should be a collection of change log fragments in :file:`changelog.d`.
@@ -38,6 +38,8 @@ Gafaelfawr follows semver_, so follow its rules to pick the next version:
 Then, run ``scriv collect --version <version>`` specifying the version number you decided on.
 This will delete the fragment files and collect them into :file:`CHANGELOG.md` under an entry for the new release.
 Review that entry and edit it as needed (proofread, change the order to put more important things first, etc.).
+
+Update dependencies by running :command:`make update-deps`.
 
 Finally, create a PR from those changes and merge it before continuing with the release process.
 
