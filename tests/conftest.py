@@ -18,7 +18,6 @@ from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from safir.database import create_database_engine, initialize_database
-from safir.dependencies.db_session import db_session_dependency
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from seleniumwire import webdriver
 from sqlalchemy import Connection
@@ -52,7 +51,6 @@ every configuration file.
 
 @pytest_asyncio.fixture
 async def app(
-    engine: AsyncEngine,
     empty_database: None,
     mock_slack: MockSlackWebhook | None,
 ) -> AsyncIterator[FastAPI]:
@@ -61,7 +59,6 @@ async def app(
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    db_session_dependency.override_engine(engine)
     app = create_app(validate_schema=False)
     async with LifespanManager(app):
         yield app
@@ -154,7 +151,6 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     await clear_alembic_version(engine)
     async with engine.begin() as connection:
         await connection.run_sync(set_version)
-    await engine.dispose()
 
 
 @pytest_asyncio.fixture

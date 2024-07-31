@@ -343,9 +343,7 @@ class KubernetesTokenService:
             return False
         if token_data.username != parent.spec.service:
             return False
-        if sorted(token_data.scopes) != sorted(parent.spec.scopes):
-            return False
-        return True
+        return sorted(token_data.scopes) == sorted(parent.spec.scopes)
 
     async def _secret_needs_update(
         self, parent: GafaelfawrServiceToken, secret: V1Secret | None

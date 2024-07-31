@@ -151,6 +151,4 @@ class StateMiddleware(BaseHTTPMiddleware, Generic[T]):
             return True
         if request.url.scheme != "http":
             return True
-        if getattr(request.state, "forwarded_proto", None) == "https":
-            return True
-        return False
+        return getattr(request.state, "forwarded_proto", None) == "https"
