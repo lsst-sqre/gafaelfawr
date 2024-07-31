@@ -77,6 +77,6 @@ async def test_health(
         app=app,  # type: ignore[arg-type]
         raise_app_exceptions=False,
     )
-    async with AsyncClient(transport=transport, base_url=base_url) as client:
-        r = await client.get("/health")
+    async with AsyncClient(transport=transport, base_url=base_url) as c:
+        r = await c.get("/health")
     assert r.status_code == 500
