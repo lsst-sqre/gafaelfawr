@@ -636,6 +636,23 @@ Set this with ``config.proxies``:
 If not set, defaults to the `RFC 1918 private address spaces <https://datatracker.ietf.org/doc/html/rfc1918>`__.
 See :ref:`client-ips` for more details.
 
+.. _config-metrics:
+
+Metrics
+=======
+
+Gafaelfawr can export metrics to an OpenTelemetry_ collector.
+Currently, it only supports the insecure gRPC mechanism for sending metrics, and therefore should use a collector within the same Kubernetes cluster.
+
+To enable metrics collection and reporting, set the URL of the metrics collector:
+
+.. code-block:: yaml
+
+   config:
+     metricsUrl: "http://telegraf.telegraf:4317"
+
+For a list of all of the metrics Gafaelfawr exports, see :doc:`metrics`.
+
 .. _slack-alerts:
 
 Slack alerts

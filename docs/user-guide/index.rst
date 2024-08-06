@@ -30,3 +30,4 @@ Also see the `Phalanx Gafaelfawr application documentation <https://phalanx.lsst
 
    logging
    cli
+   metrics

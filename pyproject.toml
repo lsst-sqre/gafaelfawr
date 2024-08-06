@@ -263,9 +263,6 @@ builtins-ignorelist = [
 fixture-parentheses = false
 mark-parentheses = false
 
-[tool.ruff.lint.mccabe]
-max-complexity = 11
-
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 

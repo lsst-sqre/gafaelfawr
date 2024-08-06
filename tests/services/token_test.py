@@ -8,6 +8,7 @@ from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from pydantic import ValidationError
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
@@ -20,6 +21,7 @@ from gafaelfawr.exceptions import (
     PermissionDeniedError,
 )
 from gafaelfawr.factory import Factory
+from gafaelfawr.metrics import StateMetrics
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.token import (
     AdminTokenRequest,
@@ -1804,3 +1806,25 @@ async def test_audit(factory: Factory) -> None:
         " not match between database and Redis (created)"
     )
     assert sorted(alerts) == sorted(expected)
+
+
+@pytest.mark.asyncio
+async def test_state_metrics(
+    factory: Factory, metric_reader: InMemoryMetricReader
+) -> None:
+    token_service = factory.create_token_service()
+    await create_session_token(factory, username="someone")
+    await create_session_token(factory, username="someone")
+    token_data = await create_session_token(factory, username="other")
+    async with factory.session.begin():
+        await token_service.create_user_token(
+            token_data,
+            token_data.username,
+            token_name="something",
+            scopes=[],
+            ip_address="127.0.0.1",
+        )
+
+    metrics = StateMetrics("https://telegraf.example.com", metric_reader)
+    async with factory.session.begin():
+        await token_service.gather_state_metrics(metrics)

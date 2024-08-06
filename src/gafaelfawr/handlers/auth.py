@@ -371,6 +371,12 @@ async def get_auth(
     headers = await build_success_headers(context, auth_config, token_data)
     for key, value in headers:
         response.headers.append(key, value)
+    if context.metrics and auth_config.delegate_to:
+        attrs = {
+            "username": token_data.username,
+            "service": auth_config.delegate_to,
+        }
+        context.metrics.request_auth.add(1, attrs)
     return {"status": "ok"}
 
 

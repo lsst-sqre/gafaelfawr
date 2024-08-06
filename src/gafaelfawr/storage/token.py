@@ -8,7 +8,7 @@ from safir.database import datetime_to_db
 from safir.datetime import current_datetime
 from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, distinct, func, or_, select
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
@@ -81,6 +81,42 @@ class TokenDatabaseStore:
         if parent:
             subtoken = Subtoken(parent=parent, child=data.token.key)
             self._session.add(subtoken)
+
+    async def count_unique_sessions(self) -> int:
+        """Count the number of unique users with active session tokens.
+
+        Returns
+        -------
+        int
+            Count of users.
+        """
+        stmt = select(func.count(distinct(SQLToken.username))).where(
+            SQLToken.expires > datetime_to_db(current_datetime())
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one()
+
+    async def count_user_tokens(self) -> int:
+        """Count the number of unexpired user tokens.
+
+        Returns
+        -------
+        int
+            Count of user tokens.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(SQLToken)
+            .where(
+                SQLToken.token_type == TokenType.user,
+                or_(
+                    SQLToken.expires.is_(None),
+                    SQLToken.expires > datetime_to_db(current_datetime()),
+                ),
+            )
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one()
 
     async def delete(self, key: str) -> bool:
         """Delete a token.

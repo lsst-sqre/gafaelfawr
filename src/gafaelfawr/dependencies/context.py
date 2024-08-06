@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
+from opentelemetry.sdk.metrics.export import MetricReader
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.logger import logger_dependency
 from sqlalchemy.ext.asyncio import async_scoped_session
@@ -17,6 +18,7 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..factory import Factory, ProcessContext
+from ..metrics import FrontendMetrics
 from ..models.state import State
 
 __all__ = [
@@ -47,6 +49,9 @@ class RequestContext:
 
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
+
+    metrics: FrontendMetrics | None
+    """Frontend metrics, if metrics are enabled."""
 
     session: async_scoped_session
     """The database session."""
@@ -87,6 +92,8 @@ class ContextDependency:
 
     def __init__(self) -> None:
         self._config: Config | None = None
+        self._metric_reader: MetricReader | None = None
+        self._metrics: FrontendMetrics | None = None
         self._process_context: ProcessContext | None = None
 
     async def __call__(
@@ -116,6 +123,7 @@ class ContextDependency:
             ip_address=ip_address,
             config=self._config,
             logger=logger,
+            metrics=self._metrics,
             session=session,
             factory=Factory(self._process_context, session, logger),
         )
@@ -127,7 +135,16 @@ class ContextDependency:
             raise RuntimeError("ContextDependency not initialized")
         return self._process_context
 
-    async def initialize(self, config: Config) -> None:
+    async def aclose(self) -> None:
+        """Clean up the per-process configuration."""
+        if self._process_context:
+            await self._process_context.aclose()
+        self._config = None
+        self._process_context = None
+
+    async def initialize(
+        self, config: Config, metric_reader: MetricReader | None = None
+    ) -> None:
         """Initialize the process-wide shared context.
 
         Parameters
@@ -138,14 +155,11 @@ class ContextDependency:
         if self._process_context:
             await self._process_context.aclose()
         self._config = config
+        if config.metrics_url:
+            self._metrics = FrontendMetrics(
+                config.metrics_url, metric_reader=self._metric_reader
+            )
         self._process_context = await ProcessContext.from_config(config)
-
-    async def aclose(self) -> None:
-        """Clean up the per-process configuration."""
-        if self._process_context:
-            await self._process_context.aclose()
-        self._config = None
-        self._process_context = None
 
 
 context_dependency = ContextDependency()
