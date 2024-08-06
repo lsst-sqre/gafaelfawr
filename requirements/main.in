@@ -24,6 +24,7 @@ kopf
 kubernetes_asyncio
 jinja2
 opentelemetry-api
+opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-sdk
 pydantic>2
 pydantic-settings
