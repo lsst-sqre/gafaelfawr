@@ -22,6 +22,7 @@ from ..exceptions import (
     ProviderError,
     ProviderWebError,
 )
+from ..metrics import instruments
 from ..models.token import Token, TokenUserInfo
 from ..templates import templates
 
@@ -150,33 +151,37 @@ async def redirect_to_provider(
 
     # Reuse the existing state if one already exists in the session cookie.
     #
-    # This is subtle and requires some explanation.  Most modern webapps
-    # involve a lot of background JavaScript.  If the user has a tab open when
+    # This is subtle and requires some explanation. Most modern webapps
+    # involve a lot of background JavaScript. If the user has a tab open when
     # their session expires, those background JavaScript requests will start
-    # turning into redirects to Gafaelfawr and thus to this code.  Since there
+    # turning into redirects to Gafaelfawr and thus to this code. Since there
     # isn't a good way to see whether a request is a background JavaScript
     # request versus a browser loading a page, we will generate an
     # authentication redirect for each one.
     #
     # This means that if we generate new random state for each request, there
-    # is a race condition.  The user may go to a page with an expired session
-    # and get redirected to log in.  While they are logging in at the external
+    # is a race condition. The user may go to a page with an expired session
+    # and get redirected to log in. While they are logging in at the external
     # provider, another open tab may kick off one of these JavaScript
     # requests, which generates a new redirect and replaces the state stored
-    # in their session cookie.  Then, when they return from authentication,
-    # the state will have changed, and the authentication attempt will fail.
+    # in their session cookie. Then, when they return from authentication, the
+    # state will have changed, and the authentication attempt will fail.
     #
     # Work around this by reusing the same random state until the user
-    # completes an authentication.  This does not entirely close the window
-    # for the race condition because it's possible that two requests will both
-    # see sessions without state, both generate state, and then both set
-    # cookies, and only one of them will win.  However, that race condition
-    # window is much smaller and is unlikely to persist across authentication
-    # requests.
+    # completes an authentication. This does not entirely close the window for
+    # the race condition because it's possible that two requests will both see
+    # sessions without state, both generate state, and then both set cookies,
+    # and only one of them will win. However, that race condition window is
+    # much smaller and is unlikely to persist across authentication requests.
+    #
+    # For this same reason, only count a redirect where we have to create
+    # authentication state as an attempted login so that we don't count any
+    # subsequent redirects for other resources.
     state = context.state.state
     if not state:
         state = base64.urlsafe_b64encode(os.urandom(16)).decode()
         context.state.state = state
+        instruments.login_attempts.add(1)
 
     # Get the authentication provider URL send the user there.
     provider = context.factory.create_provider()
@@ -256,6 +261,7 @@ async def handle_provider_return(
     context.state.token = token
     context.state.state = None
     context.state.return_url = None
+    instruments.login_successes.add(1, {"username": user_info.username})
     return RedirectResponse(return_url)
 
 

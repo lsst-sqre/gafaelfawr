@@ -38,12 +38,9 @@ ui:
 .PHONY: update
 update: update-deps init
 
-# The dependencies need --allow-unsafe because kubernetes-asyncio and
-# (transitively) pre-commit depends on setuptools, which is normally not
-# allowed to appear in a hashed dependency file.
 .PHONY: update-deps
 update-deps:
-	pip install --upgrade uv
+	pip install --upgrade pip uv
 	uv pip install --upgrade pre-commit
 	pre-commit autoupdate
 	uv pip compile --upgrade --generate-hashes			\

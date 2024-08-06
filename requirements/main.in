@@ -23,6 +23,8 @@ httpx
 kopf
 kubernetes_asyncio
 jinja2
+opentelemetry-api
+opentelemetry-sdk
 pydantic>2
 pydantic-settings
 PyJWT
