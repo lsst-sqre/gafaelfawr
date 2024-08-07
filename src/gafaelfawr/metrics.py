@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import os
+
 from opentelemetry import metrics
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
     OTLPMetricExporter,
 )
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.export import (
+    ConsoleMetricExporter,
+    MetricExporter,
+    PeriodicExportingMetricReader,
+)
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
 __all__ = ["instruments"]
@@ -18,9 +24,13 @@ class Instruments:
 
     def __init__(self) -> None:
         resource = Resource(attributes={SERVICE_NAME: "gafaelfawr"})
-        reader = PeriodicExportingMetricReader(
-            OTLPMetricExporter("http://telegraf.telegraf:4317", insecure=True)
-        )
+        if os.getenv("GAFAELFAWR_TESTING"):
+            exporter: MetricExporter = ConsoleMetricExporter()
+        else:
+            exporter = OTLPMetricExporter(
+                "http://telegraf.telegraf:4317", insecure=True
+            )
+        reader = PeriodicExportingMetricReader(exporter)
         provider = MeterProvider(resource=resource, metric_readers=[reader])
         metrics.set_meter_provider(provider)
         meter = metrics.get_meter("gafaelfawr.frontend")
