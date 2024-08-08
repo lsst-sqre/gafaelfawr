@@ -31,6 +31,7 @@ from .dependencies.config import config_dependency
 from .factory import Factory
 from .keypair import RSAKeyPair
 from .main import create_app
+from .metrics import StateMetrics
 from .models.token import Token
 from .schema import Base
 
@@ -103,6 +104,9 @@ async def audit(*, fix: bool, config_path: Path | None) -> None:
                 + "\n• ".join(alerts)
             )
             await slack.post(SlackMessage(message=message))
+        if config.metrics_url:
+            metrics = StateMetrics(config.metrics_url)
+            await token_service.gather_state_metrics(metrics)
     await engine.dispose()
     logger.debug("Finished audit")
 

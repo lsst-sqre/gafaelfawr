@@ -38,6 +38,9 @@ Python internal API
 .. automodapi:: gafaelfawr.keypair
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.metrics
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.middleware.state
    :include-all-objects:
 
