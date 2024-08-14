@@ -8,19 +8,13 @@ that use ``sub`` as a username.
 """
 
 from typing import Annotated
-from uuid import uuid5
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import (
-    ExternalUserInfoError,
-    NotConfiguredError,
-    PermissionDeniedError,
-)
 from ..models.token import TokenData
 from ..models.userinfo import CADCUserInfo
 
@@ -61,30 +55,8 @@ async def get_userinfo(
     auth_data: Annotated[TokenData, Depends(authenticate_read)],
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> CADCUserInfo:
-    config = context.config
-    if not config.cadc_base_uuid:
-        msg = "CADC-compatible authentication not configured"
-        raise NotConfiguredError(msg)
-    user_info_service = context.factory.create_user_info_service()
-    try:
-        user_info = await user_info_service.get_user_info_from_token(auth_data)
-    except ExternalUserInfoError as e:
-        msg = "Unable to get user information"
-        context.logger.exception(msg, error=str(e))
-        slack_client = context.factory.create_slack_client()
-        if slack_client:
-            await slack_client.post_exception(e)
-        raise HTTPException(
-            headers={"Cache-Control": "no-cache, no-store"},
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=[{"msg": msg, "type": "user_info_failed"}],
-        ) from e
-    if not user_info.uid:
-        error = "User has no UID"
-        context.logger.warning("Cannot generate CADC auth data", error=error)
-        raise PermissionDeniedError(error)
     return CADCUserInfo(
         exp=auth_data.expires,
         preferred_username=auth_data.username,
-        sub=uuid5(config.cadc_base_uuid, str(user_info.uid)),
+        sub=auth_data.username,
     )

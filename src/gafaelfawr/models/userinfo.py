@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -42,17 +41,15 @@ class CADCUserInfo(BaseModel):
         examples=["someuser"],
     )
 
-    sub: UUID = Field(
+    sub: str = Field(
         ...,
         title="Unique identifier",
         description=(
-            "CADC code currently requires a UUID in this field. In practice,"
-            " this is generated as a version 5 UUID based on a configured"
-            " UUID namespace and the string representation of the user's"
-            " numeric UID (thus allowing username changes if the UID is"
-            " preserved."
+            "For now, Gafaelfawr uses the username for this field as well,"
+            " even though this is not entirely correct in the presence of"
+            " username changes."
         ),
-        examples=["78410c93-841d-53b1-a353-6411524d149e"],
+        examples=["someuser"],
     )
 
     @field_serializer("exp")
