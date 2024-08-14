@@ -29,6 +29,7 @@ from ..exceptions import (
 )
 from ..models.auth import AuthType, Satisfy
 from ..models.token import TokenData
+from ..util import is_mobu_bot_user
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 
@@ -372,11 +373,12 @@ async def get_auth(
     for key, value in headers:
         response.headers.append(key, value)
     if context.metrics and auth_config.delegate_to:
-        attrs = {
-            "username": token_data.username,
-            "service": auth_config.delegate_to,
-        }
-        context.metrics.request_auth.add(1, attrs)
+        if not is_mobu_bot_user(token_data.username):
+            attrs = {
+                "username": token_data.username,
+                "service": auth_config.delegate_to,
+            }
+            context.metrics.request_auth.add(1, attrs)
     return {"status": "ok"}
 
 
