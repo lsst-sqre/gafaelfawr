@@ -19,14 +19,12 @@ and cannot be set in the config.
 
 from __future__ import annotations
 
-import os
 import re
 from collections import defaultdict
 from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
-from typing import Any, Self
-from urllib.parse import urlparse, urlunparse
+from typing import Annotated, Any, Self
 from uuid import UUID
 
 import yaml
@@ -36,31 +34,41 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    HttpUrl,
     SecretStr,
+    UrlConstraints,
     ValidationInfo,
     field_validator,
     model_validator,
 )
 from pydantic.alias_generators import to_camel
+from pydantic_core import Url
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
 from safir.logging import LogLevel, configure_logging
+from safir.pydantic import EnvAsyncPostgresDsn, EnvRedisDsn
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .exceptions import InvalidTokenError
 from .keypair import RSAKeyPair
 from .models.token import Token
-from .pydantic import (
-    HttpsUrlString,
-    HttpUrlString,
-    LdapDsnString,
-    PostgresDsnString,
-    RedisDsnString,
-)
 from .util import group_name_for_github_team, parse_timedelta
+
+HttpsUrl = Annotated[
+    Url,
+    UrlConstraints(
+        allowed_schemes=["https"], host_required=True, max_length=2083
+    ),
+]
+"""URL type that accepts only ``https`` URLs."""
+
+LdapDsn = Annotated[
+    Url, UrlConstraints(allowed_schemes=["ldap", "ldaps"], host_required=True)
+]
+"""DSN for connecting to an LDAP server."""
 
 __all__ = [
     "CamelCaseSettings",
@@ -70,9 +78,8 @@ __all__ = [
     "GitHubConfig",
     "GitHubGroup",
     "GitHubGroupTeam",
-    "HttpsUrlString",
+    "HttpsUrl",
     "LDAPConfig",
-    "LdapDsnString",
     "NotebookQuota",
     "OIDCConfig",
     "OIDCClient",
@@ -173,7 +180,7 @@ class OIDCConfig(EnvFirstSettings):
         ),
     )
 
-    login_url: HttpUrlString = Field(
+    login_url: HttpUrl = Field(
         ...,
         title="User login URL",
         description="URL to which to send the user to initiate authentication",
@@ -185,7 +192,7 @@ class OIDCConfig(EnvFirstSettings):
         description="Additional parameters to the login URL",
     )
 
-    redirect_url: HttpUrlString = Field(
+    redirect_url: HttpUrl = Field(
         ...,
         title="Return URL after authentication",
         description=(
@@ -198,7 +205,7 @@ class OIDCConfig(EnvFirstSettings):
         ),
     )
 
-    token_url: HttpUrlString = Field(
+    token_url: HttpUrl = Field(
         ...,
         title="OpenID Connect token endpoint",
         description=(
@@ -206,7 +213,7 @@ class OIDCConfig(EnvFirstSettings):
         ),
     )
 
-    enrollment_url: HttpUrlString | None = Field(
+    enrollment_url: HttpUrl | None = Field(
         None,
         title="Enrollment URL",
         description=(
@@ -265,7 +272,7 @@ class CILogonConfig(EnvFirstSettings):
         ),
     )
 
-    enrollment_url: HttpUrlString | None = Field(
+    enrollment_url: HttpUrl | None = Field(
         None,
         title="Enrollment URL",
         description=(
@@ -291,7 +298,7 @@ class CILogonConfig(EnvFirstSettings):
         description="Additional parameters to the login URL",
     )
 
-    redirect_url: HttpUrlString = Field(
+    redirect_url: HttpUrl = Field(
         ...,
         title="Return URL after authentication",
         description=(
@@ -331,17 +338,19 @@ class CILogonConfig(EnvFirstSettings):
         # Do not include redirect_url here, since the OIDCConfig model will
         # pull it from the environment and complain about extra inputs if it's
         # also specified in the constructor.
-        return OIDCConfig(
-            audience=self.client_id,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            enrollment_url=self.enrollment_url,
-            login_url=f"{base_url}/authorize",
-            login_params=self.login_params,
-            token_url=f"{base_url}/oauth2/token",
-            issuer=base_url,
-            scopes=["email", "org.cilogon.userinfo"],
-            username_claim=self.username_claim,
+        return OIDCConfig.model_validate(
+            {
+                "audience": self.client_id,
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "enrollment_url": self.enrollment_url,
+                "login_url": f"{base_url}/authorize",
+                "login_params": self.login_params,
+                "token_url": f"{base_url}/oauth2/token",
+                "issuer": base_url,
+                "scopes": ["email", "org.cilogon.userinfo"],
+                "username_claim": self.username_claim,
+            }
         )
 
 
@@ -352,7 +361,7 @@ class LDAPConfig(EnvFirstSettings):
     group and ``cn`` holds its name, so these are not configurable.
     """
 
-    url: LdapDsnString = Field(
+    url: LdapDsn = Field(
         ...,
         title="LDAP server URL",
         description=(
@@ -569,7 +578,7 @@ class OIDCClient(BaseModel):
         description="Secret used to authenticate this client",
     )
 
-    return_uri: HttpUrlString = Field(
+    return_uri: HttpUrl = Field(
         ...,
         title="Return URL",
         description=(
@@ -589,7 +598,7 @@ class OIDCServerConfig(EnvFirstSettings):
         description="Whether to enable the internal OpenID Connect server",
     )
 
-    issuer: HttpsUrlString = Field(
+    issuer: HttpsUrl = Field(
         ...,
         title="Token issuer",
         description="Issuer (``iss``) claim in issued JWT tokens",
@@ -732,7 +741,7 @@ class GitHubGroup(BaseModel):
 class Config(EnvFirstSettings):
     """Configuration for Gafaelfawr."""
 
-    after_logout_url: HttpUrlString = Field(
+    after_logout_url: HttpUrl = Field(
         ...,
         title="Destination URL after logout",
         description="Default URL to which to send the user after logging out",
@@ -762,7 +771,7 @@ class Config(EnvFirstSettings):
         ),
     )
 
-    database_url: PostgresDsnString = Field(
+    database_url: EnvAsyncPostgresDsn = Field(
         ...,
         title="Database DSN",
         description="DSN for the PostgreSQL database",
@@ -833,7 +842,7 @@ class Config(EnvFirstSettings):
         validation_alias="GAFAELFAWR_REALM",
     )
 
-    redis_url: RedisDsnString = Field(
+    redis_url: EnvRedisDsn = Field(
         ...,
         title="Persistent Redis DSN",
         description="DSN for the Redis server that stores tokens",
@@ -970,46 +979,6 @@ class Config(EnvFirstSettings):
             Token.from_str(v.get_secret_value())
         except InvalidTokenError as e:
             raise ValueError(str(e)) from e
-        return v
-
-    @field_validator("database_url")
-    @classmethod
-    def _validate_database_url(cls, v: PostgresDsnString) -> PostgresDsnString:
-        if not v.startswith(("postgresql:", "postgresql+asyncpg:")):
-            msg = "Use asyncpg as the PostgreSQL library or leave unspecified"
-            raise ValueError(msg)
-
-        # When run via tox and tox-docker, the PostgreSQL hostname and port
-        # will be randomly selected and exposed only in environment
-        # variables. We have to patch that into the database URL at runtime
-        # since tox doesn't have a way of substituting it into the environment
-        # (see https://github.com/tox-dev/tox-docker/issues/55).
-        if port := os.getenv("POSTGRES_5432_TCP_PORT"):
-            url = urlparse(v)
-            hostname = os.getenv("POSTGRES_HOST", url.hostname)
-            if url.password:
-                auth = f"{url.username}@{url.password}@"
-            elif url.username:
-                auth = f"{url.username}@"
-            else:
-                auth = ""
-            return urlunparse(url._replace(netloc=f"{auth}{hostname}:{port}"))
-
-        return v
-
-    @field_validator("redis_url")
-    @classmethod
-    def _validate_redis_url(cls, v: RedisDsnString) -> RedisDsnString:
-        # When run via tox and tox-docker, the Redis port will be randomly
-        # selected and exposed only in the REDIS_6379_TCP environment
-        # variable. We have to patch that into the Redis URL at runtime since
-        # tox doesn't have a way of substituting it into the environment (see
-        # https://github.com/tox-dev/tox-docker/issues/55).
-        if port := os.getenv("REDIS_6379_TCP_PORT"):
-            url = urlparse(v)
-            hostname = os.getenv("REDIS_HOST", url.hostname)
-            return urlunparse(url._replace(netloc=f"{hostname}:{port}"))
-
         return v
 
     @field_validator("initial_admins")

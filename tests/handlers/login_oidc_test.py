@@ -82,7 +82,7 @@ async def test_login(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
-            "login_url": config.oidc.login_url,
+            "login_url": str(config.oidc.login_url),
             "return_url": return_url,
             "severity": "info",
         },
@@ -95,7 +95,7 @@ async def test_login(
             },
             "return_url": return_url,
             "severity": "info",
-            "token_url": config.oidc.token_url,
+            "token_url": str(config.oidc.token_url),
         },
         {
             "event": "LDAP group invalid!group invalid, ignoring",
@@ -105,7 +105,7 @@ async def test_login(
                 "remoteIp": "127.0.0.1",
             },
             "ldap_search": f"(&(objectClass=posixGroup)(member={member}))",
-            "ldap_url": config.ldap.url,
+            "ldap_url": str(config.ldap.url),
             "return_url": return_url,
             "severity": "warning",
             "user": "ldap-user",
@@ -520,7 +520,7 @@ async def test_callback_error(
         "error": "error_code",
         "error_description": "description",
     }
-    respx_mock.post(config.oidc.token_url).respond(400, json=response)
+    respx_mock.post(str(config.oidc.token_url)).respond(400, json=response)
 
     # Simulate the return from the OpenID Connect provider.
     caplog.clear()
@@ -539,7 +539,7 @@ async def test_callback_error(
             },
             "return_url": return_url,
             "severity": "info",
-            "token_url": config.oidc.token_url,
+            "token_url": str(config.oidc.token_url),
         },
         {
             "error": "Error retrieving ID token: error_code: description",
@@ -557,7 +557,9 @@ async def test_callback_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    respx_mock.post(config.oidc.token_url).respond(400, json={"foo": "bar"})
+    respx_mock.post(str(config.oidc.token_url)).respond(
+        400, json={"foo": "bar"}
+    )
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
@@ -567,7 +569,7 @@ async def test_callback_error(
     assert "Cannot contact authentication provider" in r.text
 
     # Now try a reply that returns 200 but doesn't have the field we need.
-    respx_mock.post(config.oidc.token_url).respond(json={"foo": "bar"})
+    respx_mock.post(str(config.oidc.token_url)).respond(json={"foo": "bar"})
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
@@ -577,7 +579,7 @@ async def test_callback_error(
     assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
-    respx_mock.post(config.oidc.token_url).respond(content=b"foo")
+    respx_mock.post(str(config.oidc.token_url)).respond(content=b"foo")
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
@@ -587,14 +589,14 @@ async def test_callback_error(
     assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
-    respx_mock.post(config.oidc.token_url).respond(400, content=b"foo")
+    respx_mock.post(str(config.oidc.token_url)).respond(400, content=b"foo")
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlparse(r.headers["Location"]).query)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
     assert r.status_code == 500
-    assert f"Response from {config.oidc.token_url} not valid JSON" in r.text
+    assert f"Response from {config.oidc.token_url!s} not valid JSON" in r.text
 
     # Most of these errors should be reported to Slack.
     assert mock_slack.messages == [
@@ -774,7 +776,7 @@ async def test_connection_error(
 
     # Register a connection error for the callback request to the OIDC
     # provider and check that an appropriate error is shown to the user.
-    respx_mock.post(config.oidc.token_url).mock(side_effect=ConnectError)
+    respx_mock.post(str(config.oidc.token_url)).mock(side_effect=ConnectError)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )

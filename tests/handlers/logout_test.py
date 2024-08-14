@@ -39,7 +39,7 @@ async def test_logout(
 
     # Check the redirect and logging.
     assert r.status_code == 307
-    assert r.headers["Location"] == config.after_logout_url
+    assert r.headers["Location"] == str(config.after_logout_url)
     assert parse_log(caplog) == [
         {
             "event": "Successful logout",
@@ -85,7 +85,7 @@ async def test_logout_not_logged_in(
     r = await client.get("/logout")
 
     assert r.status_code == 307
-    assert r.headers["Location"] == config.after_logout_url
+    assert r.headers["Location"] == str(config.after_logout_url)
     assert parse_log(caplog) == [
         {
             "event": "Logout of already-logged-out session",
@@ -150,7 +150,7 @@ async def test_logout_github(
 
     # Check the redirect and logging.
     assert r.status_code == 307
-    assert r.headers["Location"] == config.after_logout_url
+    assert r.headers["Location"] == str(config.after_logout_url)
     assert parse_log(caplog) == [
         {
             "event": "Revoked GitHub OAuth authorization",

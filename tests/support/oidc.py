@@ -78,7 +78,7 @@ class MockOIDCToken:
             "client_id": [self.config.client_id],
             "client_secret": [self.config.client_secret.get_secret_value()],
             "code": [self.code],
-            "redirect_uri": [self.config.redirect_url],
+            "redirect_uri": [str(self.config.redirect_url)],
         }
         return Response(
             200, json={"id_token": self.token.encoded, "token_type": "Bearer"}
@@ -124,7 +124,9 @@ async def mock_oidc_provider_token(
     config = await config_dependency()
     assert config.oidc
     mock = MockOIDCToken(config.oidc, code, token)
-    respx_mock.post(config.oidc.token_url).mock(side_effect=mock.post_token)
+    respx_mock.post(str(config.oidc.token_url)).mock(
+        side_effect=mock.post_token
+    )
 
 
 async def simulate_oidc_login(
@@ -179,7 +181,7 @@ async def simulate_oidc_login(
     else:
         r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
-    assert r.headers["Location"].startswith(config.oidc.login_url)
+    assert r.headers["Location"].startswith(str(config.oidc.login_url))
     url = urlparse(r.headers["Location"])
     assert url.query
     query = parse_qs(url.query)
@@ -189,7 +191,7 @@ async def simulate_oidc_login(
         scope += " " + " ".join(config.oidc.scopes)
     assert query == {
         "client_id": [config.oidc.client_id],
-        "redirect_uri": [config.oidc.redirect_url],
+        "redirect_uri": [str(config.oidc.redirect_url)],
         "response_type": ["code"],
         "scope": [scope],
         "state": [ANY],
@@ -204,7 +206,7 @@ async def simulate_oidc_login(
     if r.status_code == 307:
         if expect_enrollment:
             assert config.oidc.enrollment_url
-            assert r.headers["Location"] == config.oidc.enrollment_url
+            assert r.headers["Location"] == str(config.oidc.enrollment_url)
         else:
             assert r.headers["Location"] == return_url
 

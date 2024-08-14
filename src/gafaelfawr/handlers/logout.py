@@ -46,4 +46,4 @@ async def get_logout(
         context.logger.info("Logout of already-logged-out session")
     context.state = State()
 
-    return return_url if return_url else context.config.after_logout_url
+    return return_url if return_url else str(context.config.after_logout_url)

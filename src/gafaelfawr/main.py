@@ -80,7 +80,8 @@ def create_app(
                 raise DatabaseSchemaError("Database schema out of date")
         await context_dependency.initialize(config, metric_reader)
         await db_session_dependency.initialize(
-            config.database_url, config.database_password.get_secret_value()
+            str(config.database_url),
+            config.database_password.get_secret_value(),
         )
         if extra_startup:
             await extra_startup

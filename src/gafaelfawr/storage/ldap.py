@@ -37,7 +37,7 @@ class LDAPStorage:
     ) -> None:
         self._config = config
         self._pool = pool
-        self._logger = logger.bind(ldap_url=self._config.url)
+        self._logger = logger.bind(ldap_url=str(self._config.url))
 
     async def get_group_names(
         self, username: str, primary_gid: int | None

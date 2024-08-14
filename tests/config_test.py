@@ -96,34 +96,38 @@ def test_config_cilogon(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "some-secret")
     monkeypatch.setenv("GAFAELFAWR_REDIRECT_URL", "https://example.com/login")
     config = parse_config(config_path("cilogon"))
-    assert config.oidc == OIDCConfig(
-        client_id="some-cilogon-client-id",
-        client_secret=SecretStr("some-secret"),
-        audience="some-cilogon-client-id",
-        login_url="https://cilogon.org/authorize",
-        login_params={},
-        token_url="https://cilogon.org/oauth2/token",
-        issuer="https://cilogon.org",
-        scopes=["email", "org.cilogon.userinfo"],
-        username_claim="username",
+    assert config.oidc == OIDCConfig.model_validate(
+        {
+            "client_id": "some-cilogon-client-id",
+            "client_secret": SecretStr("some-secret"),
+            "audience": "some-cilogon-client-id",
+            "login_url": "https://cilogon.org/authorize",
+            "login_params": {},
+            "token_url": "https://cilogon.org/oauth2/token",
+            "issuer": "https://cilogon.org",
+            "scopes": ["email", "org.cilogon.userinfo"],
+            "username_claim": "username",
+        }
     )
-    assert config.oidc.redirect_url == "https://example.com/login"
+    assert str(config.oidc.redirect_url) == "https://example.com/login"
 
 
 def test_config_cilogon_test(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "some-secret")
     monkeypatch.setenv("GAFAELFAWR_REDIRECT_URL", "https://example.com/login")
     config = parse_config(config_path("cilogon-test"))
-    assert config.oidc == OIDCConfig(
-        client_id="some-cilogon-client-id",
-        client_secret=SecretStr("some-secret"),
-        audience="some-cilogon-client-id",
-        enrollment_url="https://id.example.com/some-enrollment",
-        login_url="https://test.cilogon.org/authorize",
-        login_params={},
-        token_url="https://test.cilogon.org/oauth2/token",
-        issuer="https://test.cilogon.org",
-        scopes=["email", "org.cilogon.userinfo"],
-        username_claim="username",
+    assert config.oidc == OIDCConfig.model_validate(
+        {
+            "client_id": "some-cilogon-client-id",
+            "client_secret": SecretStr("some-secret"),
+            "audience": "some-cilogon-client-id",
+            "enrollment_url": "https://id.example.com/some-enrollment",
+            "login_url": "https://test.cilogon.org/authorize",
+            "login_params": {},
+            "token_url": "https://test.cilogon.org/oauth2/token",
+            "issuer": "https://test.cilogon.org",
+            "scopes": ["email", "org.cilogon.userinfo"],
+            "username_claim": "username",
+        }
     )
-    assert config.oidc.redirect_url == "https://example.com/login"
+    assert str(config.oidc.redirect_url) == "https://example.com/login"

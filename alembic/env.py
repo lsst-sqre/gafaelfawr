@@ -138,7 +138,7 @@ def run_migrations_offline() -> None:
     output.
     """
     url = build_database_url(
-        gafaelfawr_config.database_url,
+        str(gafaelfawr_config.database_url),
         gafaelfawr_config.database_password.get_secret_value(),
         is_async=False,
     )

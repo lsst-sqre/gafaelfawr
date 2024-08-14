@@ -17,14 +17,13 @@ import pytest
 import structlog
 from click.testing import CliRunner
 from cryptography.fernet import Fernet
-from pydantic import SecretStr
 from safir.database import initialize_database
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.cli import main
-from gafaelfawr.config import Config, OIDCClient
+from gafaelfawr.config import Config
 from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.exceptions import InvalidGrantError
@@ -37,7 +36,7 @@ from gafaelfawr.schema import Base
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
-from .support.config import configure
+from .support.config import build_oidc_client, configure
 from .support.database import create_old_database, drop_database
 
 
@@ -114,13 +113,7 @@ def test_delete_all_data(
     event_loop: asyncio.AbstractEventLoop,
 ) -> None:
     redirect_uri = "https://example.com/"
-    clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri=redirect_uri,
-        )
-    ]
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
     config = configure(
         "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
     )
