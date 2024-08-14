@@ -49,13 +49,13 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 from safir.logging import LogLevel, configure_logging
-from safir.pydantic import EnvAsyncPostgresDsn, EnvRedisDsn
+from safir.pydantic import EnvAsyncPostgresDsn, EnvRedisDsn, HumanTimedelta
 
 from .constants import SCOPE_REGEX, USERNAME_REGEX
 from .exceptions import InvalidTokenError
 from .keypair import RSAKeyPair
 from .models.token import Token
-from .util import group_name_for_github_team, parse_timedelta
+from .util import group_name_for_github_team
 
 HttpsUrl = Annotated[
     Url,
@@ -885,7 +885,7 @@ class Config(EnvFirstSettings):
         ),
     )
 
-    token_lifetime: timedelta = Field(
+    token_lifetime: HumanTimedelta = Field(
         timedelta(days=30),
         title="Session token lifetime",
         description="Lifetime of newly-created session tokens",
@@ -1001,15 +1001,6 @@ class Config(EnvFirstSettings):
             if required not in v:
                 raise ValueError(f"required scope {required} missing")
         return v
-
-    @field_validator("token_lifetime", mode="before")
-    @classmethod
-    def _validate_token_lifetime(
-        cls, v: timedelta | float | str
-    ) -> float | timedelta:
-        if not isinstance(v, str):
-            return v
-        return parse_timedelta(v)
 
     @model_validator(mode="before")
     @classmethod

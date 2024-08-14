@@ -31,7 +31,7 @@ pydantic-settings
 PyJWT
 pyyaml
 redis>=4.2.0
-safir[db,kubernetes]>5
+safir[db,kubernetes]>=6.2.0
 sqlalchemy
 structlog
 
