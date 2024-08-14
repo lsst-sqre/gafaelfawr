@@ -4,6 +4,13 @@
 
 name: Periodic CI
 
+env:
+  # Current supported Python version. For applications, there is generally no
+  # reason to support multiple Python versions, so all actions are run with
+  # this version. Quote the version to avoid interpretation as a floating
+  # point number.
+  PYTHON_VERSION: "3.12"
+
 "on":
   schedule:
     - cron: "0 12 * * 1"
@@ -14,21 +21,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    strategy:
-      matrix:
-        python:
-          - "3.12"
-
     steps:
       - uses: actions/checkout@v4
 
-      # Use the oldest supported version of Python to update dependencies,
-      # not the matrixed Python version, since this accurately reflects
-      # how dependencies should later be updated.
-      - uses: lsst-sqre/run-neophile@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          mode: update
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Update dependencies
+        run: |
+          pip install --upgrade uv
+          uv venv
+          source .venv/bin/activate
+          make update-deps
+        shell: bash
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -41,11 +48,10 @@ jobs:
         id: node_version
         run: echo "NODE_VERSION=$(cat .nvmrc)" >> $GITHUB_OUTPUT
 
-      # First try to restore the fully-installed node modules.  If that
-      # works (no changes to the JavaScript layer), skip npm i and
-      # restoring the cache of downloaded modules.  If that fails, restore
-      # the cache of the downloaded modules and then run npm
-      # clean-install.
+      # First try to restore the fully-installed node modules. If that works
+      # (no changes to the JavaScript layer), skip npm i and restoring the
+      # cache of downloaded modules. If that fails, restore the cache of the
+      # downloaded modules and then run npm clean-install.
       - name: Cache installed Node modules
         uses: actions/cache@v4
         id: node-cache
@@ -77,13 +83,13 @@ jobs:
 
       - uses: lsst-sqre/run-tox@v1
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ env.PYTHON_VERSION }}
           tox-envs: "lint,typing,py-full,docs,docs-linkcheck"
           tox-requirements: "requirements/tox.txt"
           use-cache: false
 
       - name: Report status
-        if: always()
+        if: failure()
         uses: ravsamhq/notify-slack-action@v2
         with:
           status: ${{ job.status }}

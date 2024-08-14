@@ -1,5 +1,12 @@
 name: CI
 
+env:
+  # Current supported Python version. For applications, there is generally no
+  # reason to support multiple Python versions, so all actions are run with
+  # this version. Quote the version to avoid interpretation as a floating
+  # point number.
+  PYTHON_VERSION: "3.12"
+
 "on":
   merge_group: {}
   pull_request: {}
@@ -7,7 +14,7 @@ name: CI
     branches-ignore:
       # These should always correspond to pull requests, so ignore them for
       # the push trigger and let them be triggered by the pull_request
-      # trigger, avoiding running the workflow twice.  This is a minor
+      # trigger, avoiding running the workflow twice. This is a minor
       # optimization so there's no need to ensure this is comprehensive.
       - "dependabot/**"
       - "gh-readonly-queue/**"
@@ -20,7 +27,7 @@ name: CI
 jobs:
   ui:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
@@ -36,11 +43,10 @@ jobs:
         id: node_version
         run: echo NODE_VERSION="$(cat .nvmrc)" >> $GITHUB_OUTPUT
 
-      # First try to restore the fully-installed node modules.  If that
-      # works (no changes to the JavaScript layer), skip npm i and
-      # restoring the cache of downloaded modules.  If that fails, restore
-      # the cache of the downloaded modules and then run npm
-      # clean-install.
+      # First try to restore the fully-installed node modules. If that works
+      # (no changes to the JavaScript layer), skip npm i and restoring the
+      # cache of downloaded modules. If that fails, restore the cache of the
+      # downloaded modules and then run npm clean-install.
       - name: Cache installed Node modules
         uses: actions/cache@v4
         id: node-cache
@@ -58,11 +64,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      # This has to happen after installing Node modules because we run
-      # eslint and it wants react to be already installed.  We therefore
-      # do all the linting here instead of during the test job.
+      # This has to happen after installing Node modules because we run eslint
+      # and it wants react to be already installed. We therefore do all the
+      # linting here instead of during the test job.
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
@@ -70,10 +76,10 @@ jobs:
         run: npm run build
         working-directory: ./ui
 
-      # Cache the built web UI in a build artifact so that it can be used
-      # by both the test job and the docker job.  We only use this
-      # artifact internally in this workflow, so only keep it for a day,
-      # not the full 90 day default.
+      # Cache the built web UI in a build artifact so that it can be used by
+      # both the test job and the docker job. We only use this artifact
+      # internally in this workflow, so only keep it for a day, not the full
+      # 90 day default.
       - name: Cache UI artifact
         uses: actions/upload-artifact@v4
         with:
@@ -85,11 +91,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ui]
     timeout-minutes: 15
-
-    strategy:
-      matrix:
-        python:
-          - "3.12"
 
     steps:
       - uses: actions/checkout@v4
@@ -114,7 +115,7 @@ jobs:
 
       - uses: lsst-sqre/run-tox@v1
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ env.PYTHON_VERSION }}
           tox-envs: "typing,py-full,coverage-report"
           tox-requirements: "requirements/tox.txt"
           cache-key-prefix: test
@@ -137,13 +138,13 @@ jobs:
 
       - uses: lsst-sqre/run-tox@v1
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
           tox-envs: docs
           tox-requirements: "requirements/tox.txt"
           cache-key-prefix: docs
 
       # Only attempt documentation uploads for long-lived branches, tagged
-      # releases, and pull requests from ticket branches.  This avoids version
+      # releases, and pull requests from ticket branches. This avoids version
       # clutter in the docs and failures when a PR doesn't have access to
       # secrets.
       - uses: lsst-sqre/ltd-upload@v1
@@ -173,7 +174,7 @@ jobs:
       - name: Check links
         uses: lsst-sqre/run-tox@v1
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
           tox-envs: docs-linkcheck
           tox-requirements: "requirements/tox.txt"
 
@@ -183,7 +184,7 @@ jobs:
     timeout-minutes: 10
 
     # Only do Docker builds of tagged releases and pull requests from ticket
-    # branches.  This will still trigger on pull requests from untrusted
+    # branches. This will still trigger on pull requests from untrusted
     # repositories whose branch names match our tickets/* branch convention,
     # but in this case the build will fail with an error since the secret
     # won't be set.
