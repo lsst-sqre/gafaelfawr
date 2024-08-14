@@ -501,9 +501,9 @@ google-cloud-core==2.4.1 \
     --hash=sha256:9b7749272a812bde58fff28868d0c5e2f585b82f37e09a1f6ed2d4d10f134073 \
     --hash=sha256:a9e6a4422b9ac5c29f79a0ede9485473338e2ce78d91f2370c01e730eab22e61
     # via google-cloud-firestore
-google-cloud-firestore==2.17.1 \
-    --hash=sha256:8052504d6366b7eff1a96956790bf2c085fb2c3421cd0fb9d2dc35cb01efab93 \
-    --hash=sha256:e20469e752600e41300548e8f5a1690508c6d675e4d10a6ec0213d2fcaafc23e
+google-cloud-firestore==2.17.2 \
+    --hash=sha256:98ff885f67ca8d1f4589235a3322591a83b7890d97763ae7549c5c2bebc3b134 \
+    --hash=sha256:9ea3c78f8df87e92c0be7c3fe598ab687c3093429ff9d41dbb8c433835367c40
     # via -r requirements/main.in
 googleapis-common-protos==1.63.2 \
     --hash=sha256:27a2499c7e8aff199665b22741997e485eccc8645aa9176c7c988e6fae507945 \
@@ -1248,9 +1248,9 @@ urllib3==2.2.2 \
     # via
     #   kubernetes-asyncio
     #   requests
-uvicorn==0.30.5 \
-    --hash=sha256:ac6fdbd4425c5fd17a9fe39daf4d4d075da6fdc80f653e5894cdc2fd98752bee \
-    --hash=sha256:b2d86de274726e9878188fa07576c9ceeff90a839e2b6e25c917fe05f5a6c835
+uvicorn==0.30.6 \
+    --hash=sha256:4b15decdda1e72be08209e860a1e10e92439ad5b97cf44cc945fcbee66fc5788 \
+    --hash=sha256:65fd46fe3fda5bdc1b03b94eb634923ff18cd35b2f084813ea79d1f103f711b5
     # via -r requirements/main.in
 uvloop==0.19.0 \
     --hash=sha256:0246f4fd1bf2bf702e06b0d45ee91677ee5c31242f39aab4ea6fe0c51aedd0fd \
