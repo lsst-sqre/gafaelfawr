@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Self
 
 from cryptography.fernet import Fernet
@@ -41,6 +42,9 @@ class State(BaseState):
     state: str | None = None
     """State token for OAuth 2.0 and OpenID Connect logins."""
 
+    login_start: datetime | None = None
+    """Start time of login process if one is in progress."""
+
     @classmethod
     async def from_cookie(
         cls, cookie: str, request: Request | None = None
@@ -69,6 +73,10 @@ class State(BaseState):
             token = None
             if "token" in data:
                 token = Token.from_str(data["token"])
+            login_start = None
+            if "login_start" in data:
+                timestamp = data["login_start"]
+                login_start = datetime.fromtimestamp(timestamp, tz=UTC)
         except Exception as e:
             if request:
                 logger = await logger_dependency(request)
@@ -84,6 +92,7 @@ class State(BaseState):
             github=data.get("github"),
             return_url=data.get("return_url"),
             state=data.get("state"),
+            login_start=login_start,
         )
 
     def to_cookie(self) -> str:
@@ -94,7 +103,7 @@ class State(BaseState):
         str
             The encrypted cookie value.
         """
-        data = {}
+        data: dict[str, str | float] = {}
         if self.csrf:
             data["csrf"] = self.csrf
         if self.token:
@@ -105,6 +114,8 @@ class State(BaseState):
             data["return_url"] = self.return_url
         if self.state:
             data["state"] = self.state
+        if self.login_start:
+            data["login_start"] = self.login_start.timestamp()
 
         config = config_dependency.config()
         fernet = Fernet(config.session_secret.get_secret_value().encode())

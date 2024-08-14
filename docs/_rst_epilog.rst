@@ -3,6 +3,7 @@
 .. _Keycloak: https://www.keycloak.org/
 .. _Kopf: https://kopf.readthedocs.io/en/stable/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
+.. _OpenTelemetry: https://opentelemetry.io/
 .. _Phalanx: https://phalanx.lsst.io/
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/

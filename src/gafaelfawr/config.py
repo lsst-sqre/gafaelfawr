@@ -32,6 +32,7 @@ from uuid import UUID
 import yaml
 from pydantic import (
     AliasChoices,
+    AnyHttpUrl,
     BaseModel,
     ConfigDict,
     Field,
@@ -798,6 +799,16 @@ class Config(EnvFirstSettings):
         LogLevel.INFO,
         title="Logging level",
         description="Python logging level",
+    )
+
+    metrics_url: AnyHttpUrl | None = Field(
+        None,
+        title="Metrics collector URL",
+        description=(
+            "If set, report metrics using the OpenTelemetry protocol to this"
+            " URL. Normally this will be a cluster-internal URL of a telegraf"
+            " instance. The metrics will be sent using insecure gRPC."
+        ),
     )
 
     proxies: list[IPv4Network | IPv6Network] | None = Field(

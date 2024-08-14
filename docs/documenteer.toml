@@ -41,6 +41,7 @@ nitpick_ignore = [
     ["py:class", "pydantic.networks.IPvAnyNetwork"],
     ["py:class", "pydantic.types.SecretStr"],
     ["py:class", "pydantic.utils.Representation"],
+    ["py:class", "pydantic_core._pydantic_core.Url"],
     ["py:class", "pydantic_core._pydantic_core.ValidationError"],
     ["py:class", "pydantic_settings.main.BaseSettings"],
     ["py:class", "pydantic_settings.sources.CliSettingsSource"],
@@ -66,15 +67,16 @@ python_api_dir = "dev/internals"
 rst_epilog_file = "_rst_epilog.rst"
 
 [sphinx.intersphinx.projects]
-bonsai = "https://bonsai.readthedocs.io/en/latest/"
-cryptography = "https://cryptography.io/en/latest/"
-jwt = "https://pyjwt.readthedocs.io/en/latest/"
-kopf = "https://kopf.readthedocs.io/en/stable/"
-python = "https://docs.python.org/3/"
-redis = "https://redis-py.readthedocs.io/en/stable/"
-safir = "https://safir.lsst.io/"
-sqlalchemy = "https://docs.sqlalchemy.org/en/latest/"
-structlog = "https://www.structlog.org/en/stable/"
+bonsai = "https://bonsai.readthedocs.io/en/latest"
+cryptography = "https://cryptography.io/en/latest"
+jwt = "https://pyjwt.readthedocs.io/en/latest"
+kopf = "https://kopf.readthedocs.io/en/stable"
+opentelemetry = "https://opentelemetry-python.readthedocs.io/en/latest"
+python = "https://docs.python.org/3"
+redis = "https://redis-py.readthedocs.io/en/stable"
+safir = "https://safir.lsst.io"
+sqlalchemy = "https://docs.sqlalchemy.org/en/latest"
+structlog = "https://www.structlog.org/en/stable"
 
 [sphinx.linkcheck]
 ignore = [

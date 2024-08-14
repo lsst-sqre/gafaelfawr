@@ -2,6 +2,7 @@
 
 import base64
 import os
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Annotated
 
@@ -150,33 +151,39 @@ async def redirect_to_provider(
 
     # Reuse the existing state if one already exists in the session cookie.
     #
-    # This is subtle and requires some explanation.  Most modern webapps
-    # involve a lot of background JavaScript.  If the user has a tab open when
+    # This is subtle and requires some explanation. Most modern webapps
+    # involve a lot of background JavaScript. If the user has a tab open when
     # their session expires, those background JavaScript requests will start
-    # turning into redirects to Gafaelfawr and thus to this code.  Since there
+    # turning into redirects to Gafaelfawr and thus to this code. Since there
     # isn't a good way to see whether a request is a background JavaScript
     # request versus a browser loading a page, we will generate an
     # authentication redirect for each one.
     #
     # This means that if we generate new random state for each request, there
-    # is a race condition.  The user may go to a page with an expired session
-    # and get redirected to log in.  While they are logging in at the external
+    # is a race condition. The user may go to a page with an expired session
+    # and get redirected to log in. While they are logging in at the external
     # provider, another open tab may kick off one of these JavaScript
     # requests, which generates a new redirect and replaces the state stored
-    # in their session cookie.  Then, when they return from authentication,
-    # the state will have changed, and the authentication attempt will fail.
+    # in their session cookie. Then, when they return from authentication, the
+    # state will have changed, and the authentication attempt will fail.
     #
     # Work around this by reusing the same random state until the user
-    # completes an authentication.  This does not entirely close the window
-    # for the race condition because it's possible that two requests will both
-    # see sessions without state, both generate state, and then both set
-    # cookies, and only one of them will win.  However, that race condition
-    # window is much smaller and is unlikely to persist across authentication
-    # requests.
+    # completes an authentication. This does not entirely close the window for
+    # the race condition because it's possible that two requests will both see
+    # sessions without state, both generate state, and then both set cookies,
+    # and only one of them will win. However, that race condition window is
+    # much smaller and is unlikely to persist across authentication requests.
+    #
+    # For this same reason, only count a redirect where we have to create
+    # authentication state as an attempted login so that we don't count any
+    # subsequent redirects for other resources.
     state = context.state.state
     if not state:
         state = base64.urlsafe_b64encode(os.urandom(16)).decode()
         context.state.state = state
+        context.state.login_start = datetime.now(tz=UTC)
+        if context.metrics:
+            context.metrics.login_attempts.add(1)
 
     # Get the authentication provider URL send the user there.
     provider = context.factory.create_provider()
@@ -215,23 +222,14 @@ async def handle_provider_return(
         The authentication request is invalid or retrieving authentication
         information from the provider failed.
     """
-    if state != context.state.state:
-        return _error_user(context, LoginError.STATE_INVALID)
-    return_url = context.state.return_url
-    if not return_url:
-        return _error_user(context, LoginError.RETURN_URL_MISSING)
-    context.rebind_logger(return_url=return_url)
-
-    # Retrieve the user identity and authorization information based on the
-    # reply from the authentication provider, and construct a token.
-    provider = context.factory.create_provider()
     try:
-        user_info = await provider.create_user_info(code, state, context.state)
-        token = await _construct_token(context, user_info)
+        return await _construct_login_response(code, state, context)
     except OIDCNotEnrolledError as e:
         if context.config.oidc and context.config.oidc.enrollment_url:
             url = context.config.oidc.enrollment_url
             context.logger.info("Redirecting user to enrollment URL", url=url)
+            if context.metrics:
+                context.metrics.login_enrollment.add(1)
             headers = {"Cache-Control": "no-cache, no-store"}
             return RedirectResponse(url, headers=headers)
         else:
@@ -243,20 +241,15 @@ async def handle_provider_return(
     except LDAPError as e:
         return await _error_system(context, LoginError.LDAP_FAILED, e)
     except NoScopesError as e:
+        provider = context.factory.create_provider()
         await provider.logout(context.state)
         return _error_user(context, LoginError.GROUPS_MISSING, str(e))
     except ProviderError as e:
         return await _error_system(context, LoginError.PROVIDER_FAILED, e)
     except PermissionDeniedError as e:
+        provider = context.factory.create_provider()
         await provider.logout(context.state)
         return _error_user(context, LoginError.INVALID_USERNAME, str(e))
-
-    # Successful login, so store the token, clear the login state, and send
-    # the user back to what they were doing.
-    context.state.token = token
-    context.state.state = None
-    context.state.return_url = None
-    return RedirectResponse(return_url)
 
 
 async def _construct_token(
@@ -332,6 +325,11 @@ async def _error_system(
     slack_client = context.factory.create_slack_client()
     if slack_client:
         await slack_client.post_exception(exc)
+    context.state.state = None
+    context.state.return_url = None
+    context.state.login_start = None
+    if context.metrics:
+        context.metrics.login_failures.add(1)
     return templates.TemplateResponse(
         context.request,
         "login-error.html",
@@ -373,6 +371,11 @@ def _error_user(
         context.logger.warning(error.value, error=details)
     else:
         context.logger.warning("Authentication failed", error=error.value)
+    context.state.state = None
+    context.state.return_url = None
+    context.state.login_start = None
+    if context.metrics:
+        context.metrics.login_failures.add(1)
     return templates.TemplateResponse(
         context.request,
         "login-error.html",
@@ -385,3 +388,72 @@ def _error_user(
         headers={"Cache-Control": "no-cache, no-store"},
         status_code=status.HTTP_403_FORBIDDEN,
     )
+
+
+async def _construct_login_response(
+    code: str, state: str, context: RequestContext
+) -> Response:
+    """Handle the return from an external authentication provider.
+
+    Handles the target of the redirect back from an external authentication
+    provider with new authentication state information.
+
+    Parameters
+    ----------
+    code
+        Authentication code from the provider.
+    state
+        Opaque state used to verify that this user initiated the
+        authentication.
+    context
+        Context of the incoming request.
+
+    Returns
+    -------
+    fastapi.Response
+        Either a redirect to the resource the user was trying to reach before
+        authentication, to the login URL, or an HTML page with an error
+        message if the authentication failed.
+
+    Raises
+    ------
+    ExternalUserInfoError
+        Raised if an error is encountered retrieving user information from a
+        user information provider.
+    NoScopesError
+        Raised if the user has no valid scopes.
+    PermissionDeniedError
+        Raised if the username is invalid.
+    ProviderError
+        Raised if there is some problem retrieving information from the
+        authentication provider.
+    """
+    if state != context.state.state:
+        return _error_user(context, LoginError.STATE_INVALID)
+    return_url = context.state.return_url
+    if not return_url:
+        return _error_user(context, LoginError.RETURN_URL_MISSING)
+    context.rebind_logger(return_url=return_url)
+
+    # Retrieve the user identity and authorization information based on the
+    # reply from the authentication provider, and construct a token.
+    provider = context.factory.create_provider()
+    user_info = await provider.create_user_info(code, state, context.state)
+    token = await _construct_token(context, user_info)
+
+    # Record login metrics if configured.
+    if context.metrics:
+        attrs = {"username": user_info.username}
+        if context.state.login_start:
+            now = datetime.now(tz=UTC)
+            elapsed = (now - context.state.login_start).total_seconds()
+            context.metrics.login_success_time.set(elapsed, attrs)
+        context.metrics.login_successes.add(1, attrs)
+
+    # Store the token, record metrics, clear the login state, and send the
+    # user back to what they were doing.
+    context.state.token = token
+    context.state.state = None
+    context.state.return_url = None
+    context.state.login_start = None
+    return RedirectResponse(return_url)

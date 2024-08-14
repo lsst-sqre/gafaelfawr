@@ -11,6 +11,7 @@ from pathlib import Path
 import structlog
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from opentelemetry.sdk.metrics.export import MetricReader
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
 from safir.fastapi import ClientRequestError, client_request_error_handler
@@ -35,6 +36,7 @@ def create_app(
     *,
     load_config: bool = True,
     extra_startup: Coroutine[None, None, None] | None = None,
+    metric_reader: MetricReader | None = None,
     validate_schema: bool = True,
 ) -> FastAPI:
     """Create the FastAPI application.
@@ -46,14 +48,18 @@ def create_app(
     Parameters
     ----------
     load_config
-        If set to `False`, do not try to load the configuration.  Configure
+        If set to `False`, do not try to load the configuration. Configure
         `~safir.middleware.x_forwarded.XForwardedMiddleware` with the default
-        set of proxy IP addresses.  This is used primarily for OpenAPI
+        set of proxy IP addresses. This is used primarily for OpenAPI
         schema generation, where constructing the app is required but the
         configuration won't matter.
     extra_startup
         If provided, an additional coroutine to run as part of the startup
         section of the lifespan context manager, used by the test suite.
+    metric_reader
+        Override the metric reader with the provided object. This is used by
+        the test suite to store metrics in memory where they can be queried
+        and checked.
     validate_schema
         If set to `True`, verify, with Alembic, that the schema is up to date
         and raise `~gafaelfawr.exceptions.DatabaseSchemaError` if it is not.
@@ -72,7 +78,7 @@ def create_app(
             logger = structlog.get_logger("gafaelfawr")
             if not await is_database_current(config, logger):
                 raise DatabaseSchemaError("Database schema out of date")
-        await context_dependency.initialize(config)
+        await context_dependency.initialize(config, metric_reader)
         await db_session_dependency.initialize(
             config.database_url, config.database_password.get_secret_value()
         )
