@@ -25,7 +25,6 @@ from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
 from typing import Annotated, Any, Self
-from uuid import UUID
 
 import yaml
 from pydantic import (
@@ -760,14 +759,6 @@ class Config(EnvFirstSettings):
         ),
         validation_alias=AliasChoices(
             "GAFAELFAWR_BOOTSTRAP_TOKEN", "bootstrapToken"
-        ),
-    )
-
-    cadc_base_uuid: UUID | None = Field(
-        None,
-        title="Base UUID for CADC UUIDs",
-        description=(
-            "Namespace UUID used to generate UUIDs for CADC-compatible auth"
         ),
     )
 
