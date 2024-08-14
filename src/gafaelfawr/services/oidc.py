@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import jwt
+from pydantic_core import Url
 from safir.datetime import current_datetime
 from safir.redis import DeserializeError
 from safir.slack.webhook import SlackWebhookClient
@@ -124,7 +125,7 @@ class OIDCService:
 
     def get_openid_configuration(self) -> OIDCConfig:
         """Return the OpenID Connect configuration for the internal server."""
-        base_url = self._config.issuer
+        base_url = str(self._config.issuer)
         return OIDCConfig(
             issuer=base_url,
             authorization_endpoint=base_url + "/auth/openid/login",
@@ -223,7 +224,7 @@ class OIDCService:
             "aud": authorization.client_id,
             "auth_time": int(token_data.created.timestamp()),
             "iat": int(now.timestamp()),
-            "iss": self._config.issuer,
+            "iss": str(self._config.issuer),
             "exp": int(expires.timestamp()),
             "jti": authorization.code.key,
             "nonce": authorization.nonce,
@@ -543,7 +544,9 @@ class OIDCService:
             k: v for k, v in payload.items() if v is not None and k in wanted
         }
 
-    def _return_uri_matches(self, allowed_str: str, given_str: str) -> bool:
+    def _return_uri_matches(
+        self, allowed_str: Url | str, given_str: str
+    ) -> bool:
         """Check whether a return URI is allowed.
 
         URIs are compared without query parameters. Path parameters are always
@@ -562,7 +565,7 @@ class OIDCService:
         bool
             `True` if they match, `False` otherwise.
         """
-        allowed = urlparse(allowed_str)
+        allowed = urlparse(str(allowed_str))
         given = urlparse(given_str)
         return (
             given.scheme == "https"

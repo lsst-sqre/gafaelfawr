@@ -128,7 +128,7 @@ class ProcessContext:
         """
         ldap_pool = None
         if config.ldap:
-            client = LDAPClient(config.ldap.url)
+            client = LDAPClient(str(config.ldap.url))
             if config.ldap.user_dn and config.ldap.password:
                 client.set_credentials(
                     "SIMPLE",
@@ -143,7 +143,7 @@ class ProcessContext:
         if config.redis_password:
             redis_password = config.redis_password.get_secret_value()
         redis_pool = BlockingConnectionPool.from_url(
-            config.redis_url,
+            str(config.redis_url),
             password=redis_password,
             max_connections=REDIS_POOL_SIZE,
             retry=Retry(

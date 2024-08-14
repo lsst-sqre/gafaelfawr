@@ -226,7 +226,7 @@ async def handle_provider_return(
         return await _construct_login_response(code, state, context)
     except OIDCNotEnrolledError as e:
         if context.config.oidc and context.config.oidc.enrollment_url:
-            url = context.config.oidc.enrollment_url
+            url = str(context.config.oidc.enrollment_url)
             context.logger.info("Redirecting user to enrollment URL", url=url)
             if context.metrics:
                 context.metrics.login_enrollment.add(1)

@@ -81,16 +81,16 @@ class OIDCProvider(Provider):
         params = {
             "response_type": "code",
             "client_id": self._config.client_id,
-            "redirect_uri": self._config.redirect_url,
+            "redirect_uri": str(self._config.redirect_url),
             "scope": " ".join(scopes),
             "state": state,
         }
         params.update(self._config.login_params)
         self._logger.info(
             "Redirecting user for authentication",
-            login_url=self._config.login_url,
+            login_url=str(self._config.login_url),
         )
-        return f"{self._config.login_url}?{urlencode(params)}"
+        return f"{self._config.login_url!s}?{urlencode(params)}"
 
     async def create_user_info(
         self, code: str, state: str, session: State
@@ -129,14 +129,14 @@ class OIDCProvider(Provider):
         PermissionDeniedError
             Raised if the username was invalid.
         """
-        token_url = self._config.token_url
+        token_url = str(self._config.token_url)
         logger = self._logger.bind(token_url=token_url)
         data = {
             "grant_type": "authorization_code",
             "client_id": self._config.client_id,
             "client_secret": self._config.client_secret.get_secret_value(),
             "code": code,
-            "redirect_uri": self._config.redirect_url,
+            "redirect_uri": str(self._config.redirect_url),
         }
         logger.info("Retrieving ID token")
 

@@ -11,11 +11,10 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import pytest
 from httpx import AsyncClient
-from pydantic import SecretStr
 from safir.datetime import current_datetime, format_datetime_for_logging
 from safir.testing.slack import MockSlackWebhook
 
-from gafaelfawr.config import Config, OIDCClient
+from gafaelfawr.config import Config
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
@@ -29,7 +28,7 @@ from gafaelfawr.models.oidc import (
 from gafaelfawr.models.token import Token
 from gafaelfawr.util import number_to_base64
 
-from ..support.config import reconfigure
+from ..support.config import build_oidc_client, reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.headers import (
@@ -136,10 +135,8 @@ async def test_login(
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri=f"https://{TEST_HOSTNAME}:4444/foo",
+        build_oidc_client(
+            "some-id", "some-secret", f"https://{TEST_HOSTNAME}:4444/foo"
         )
     ]
     config = await reconfigure(
@@ -174,7 +171,7 @@ async def test_login(
         "aud": "some-id",
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
-        "iss": config.oidc_server.issuer,
+        "iss": str(config.oidc_server.issuer),
         "jti": ANY,
         "name": token_data.name,
         "preferred_username": token_data.username,
@@ -291,10 +288,8 @@ async def test_unauthenticated(
 ) -> None:
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri=f"https://{TEST_HOSTNAME}:4444/foo",
+        build_oidc_client(
+            "some-id", "some-secret", f"https://{TEST_HOSTNAME}:4444/foo"
         )
     ]
     await reconfigure(
@@ -342,10 +337,8 @@ async def test_login_errors(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri=f"https://{TEST_HOSTNAME}/app",
+        build_oidc_client(
+            "some-id", "some-secret", f"https://{TEST_HOSTNAME}/app"
         )
     ]
     await reconfigure(
@@ -483,16 +476,8 @@ async def test_token_errors(
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
     clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri=redirect_uri,
-        ),
-        OIDCClient(
-            id="other-id",
-            secret=SecretStr("other-secret"),
-            return_uri=redirect_uri,
-        ),
+        build_oidc_client("some-id", "some-secret", redirect_uri),
+        build_oidc_client("other-id", "other-secret", redirect_uri),
     ]
     await reconfigure(
         "github-oidc-server", factory, monkeypatch, oidc_clients=clients
@@ -695,13 +680,7 @@ async def test_invalid(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = "https://example.com/"
-    clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri=redirect_uri,
-        )
-    ]
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
     config = await reconfigure(
         "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
@@ -826,11 +805,7 @@ async def test_well_known_jwks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri="https://example.com/",
-        )
+        build_oidc_client("some-id", "some-secret", "https://example.com/")
     ]
     config = await reconfigure(
         "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
@@ -865,11 +840,7 @@ async def test_well_known_oidc(
     client: AsyncClient, config: Config, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri="https://example.com/",
-        )
+        build_oidc_client("some-id", "some-secret", "https://example.com/")
     ]
     config = await reconfigure(
         "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
@@ -878,7 +849,7 @@ async def test_well_known_oidc(
     r = await client.get("/.well-known/openid-configuration")
     assert r.status_code == 200
 
-    base_url = config.oidc_server.issuer
+    base_url = str(config.oidc_server.issuer)
     assert r.json() == {
         "issuer": base_url,
         "authorization_endpoint": base_url + "/auth/openid/login",
@@ -900,13 +871,7 @@ async def test_nonce(
     client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     redirect_uri = "https://example.org/"
-    clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri=redirect_uri,
-        )
-    ]
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
     config = await reconfigure(
         "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
@@ -936,7 +901,7 @@ async def test_nonce(
         "aud": "some-id",
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
-        "iss": config.oidc_server.issuer,
+        "iss": str(config.oidc_server.issuer),
         "jti": ANY,
         "nonce": nonce,
         "scope": "openid",
@@ -949,13 +914,7 @@ async def test_data_rights(
     client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     redirect_uri = "https://www.example.org/"
-    clients = [
-        OIDCClient(
-            id="some-id",
-            secret=SecretStr("some-secret"),
-            return_uri=redirect_uri,
-        )
-    ]
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
     config = await reconfigure(
         "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
@@ -984,7 +943,7 @@ async def test_data_rights(
         "data_rights": "dp0.2 dp0.3",
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
-        "iss": config.oidc_server.issuer,
+        "iss": str(config.oidc_server.issuer),
         "jti": ANY,
         "scope": "openid rubin",
         "sub": token_data.username,
@@ -1027,7 +986,7 @@ async def test_data_rights(
         "data_rights": "dp0.1",
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
-        "iss": config.oidc_server.issuer,
+        "iss": str(config.oidc_server.issuer),
         "jti": ANY,
         "scope": "openid rubin",
         "sub": token_data.username,
