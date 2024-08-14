@@ -25,6 +25,7 @@ __all__ = [
     "base64_to_number",
     "group_name_for_github_team",
     "is_bot_user",
+    "is_mobu_bot_user",
     "normalize_ip_address",
     "normalize_scopes",
     "normalize_timedelta",
@@ -85,6 +86,21 @@ def is_bot_user(username: str) -> bool:
         Username to check.
     """
     return re.search(BOT_USERNAME_REGEX, username) is not None
+
+
+def is_mobu_bot_user(username: str) -> bool:
+    """Return whether the given username is a mobu bot user.
+
+    mobu is the integration testing bot. Its actions should not be included in
+    usage metrics, since they could swamp the measurements for regular users
+    or distort the metrics.
+
+    Parameters
+    ----------
+    username
+        Username to check.
+    """
+    return is_bot_user(username) and username.startswith("bot-mobu")
 
 
 def group_name_for_github_team(organization: str, team: str) -> str:
