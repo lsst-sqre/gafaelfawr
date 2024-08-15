@@ -85,7 +85,7 @@ async def audit(*, fix: bool, config_path: Path | None) -> None:
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
     engine = create_database_engine(
-        config.database_url, config.database_password.get_secret_value()
+        config.database_url, config.database_password
     )
     if not await is_database_current(config, logger, engine):
         raise click.ClickException("Database schema is not current")
@@ -131,7 +131,7 @@ async def delete_all_data(*, config_path: Path | None) -> None:
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Starting to delete all data")
     engine = create_database_engine(
-        config.database_url, config.database_password.get_secret_value()
+        config.database_url, config.database_password
     )
     tables = (t.name for t in Base.metadata.sorted_tables)
     async with Factory.standalone(config, engine) as factory:
@@ -222,7 +222,7 @@ async def maintenance(*, config_path: Path | None) -> None:
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
     engine = create_database_engine(
-        config.database_url, config.database_password.get_secret_value()
+        config.database_url, config.database_password
     )
     if not await is_database_current(config, logger, engine):
         raise click.ClickException("Database schema is not current")
@@ -344,7 +344,7 @@ async def validate_schema(*, config_path: Path | None) -> None:
     config = config_dependency.config()
     logger = structlog.get_logger("gafaelfawr")
     engine = create_database_engine(
-        config.database_url, config.database_password.get_secret_value()
+        config.database_url, config.database_password
     )
     if not await is_database_initialized(config, logger, engine):
         raise click.ClickException("Database has not been initialized")

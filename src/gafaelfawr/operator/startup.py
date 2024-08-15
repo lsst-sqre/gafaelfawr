@@ -51,7 +51,7 @@ async def startup(
     await initialize_kubernetes()
 
     engine = create_database_engine(
-        config.database_url, config.database_password.get_secret_value()
+        config.database_url, config.database_password
     )
     logger = structlog.get_logger("gafaelfawr")
     if not await is_database_current(config, logger, engine):

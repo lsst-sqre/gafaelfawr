@@ -46,7 +46,7 @@ async def initialize_gafaelfawr_database(
     """
     if not engine:
         engine = create_database_engine(
-            config.database_url, config.database_password.get_secret_value()
+            config.database_url, config.database_password
         )
     await initialize_database(engine, logger, schema=Base.metadata)
     async with Factory.standalone(config, engine) as factory:
@@ -88,7 +88,7 @@ async def is_database_current(
     """
     if not engine:
         engine = create_database_engine(
-            config.database_url, config.database_password.get_secret_value()
+            config.database_url, config.database_password
         )
 
     def get_current_heads(connection: Connection) -> set[str]:
@@ -132,7 +132,7 @@ async def is_database_initialized(
     """
     if not engine:
         engine = create_database_engine(
-            config.database_url, config.database_password.get_secret_value()
+            config.database_url, config.database_password
         )
     statement = select(Token).limit(1)
     try:
