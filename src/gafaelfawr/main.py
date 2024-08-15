@@ -80,8 +80,7 @@ def create_app(
                 raise DatabaseSchemaError("Database schema out of date")
         await context_dependency.initialize(config, metric_reader)
         await db_session_dependency.initialize(
-            str(config.database_url),
-            config.database_password.get_secret_value(),
+            str(config.database_url), config.database_password
         )
         if extra_startup:
             await extra_startup
@@ -181,7 +180,7 @@ def create_app(
     if config and config.slack_alerts and config.slack_webhook:
         logger = structlog.get_logger("gafaelfawr")
         SlackRouteErrorHandler.initialize(
-            config.slack_webhook.get_secret_value(), "Gafaelfawr", logger
+            config.slack_webhook, "Gafaelfawr", logger
         )
         logger.debug("Initialized Slack webhook")
 

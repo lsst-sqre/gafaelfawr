@@ -94,7 +94,7 @@ async def _selenium_startup(token_path: Path) -> None:
     scopes = list(config.known_scopes.keys())
 
     engine = create_database_engine(
-        config.database_url, config.database_password.get_secret_value()
+        config.database_url, config.database_password
     )
     async with Factory.standalone(config, engine) as factory:
         async with factory.session.begin():

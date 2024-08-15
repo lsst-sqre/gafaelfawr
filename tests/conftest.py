@@ -167,7 +167,7 @@ def engine(config: Config) -> AsyncEngine:
     burden doesn't seem worth it.
     """
     return create_database_engine(
-        config.database_url, config.database_password.get_secret_value()
+        config.database_url, config.database_password
     )
 
 
