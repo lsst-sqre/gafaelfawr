@@ -276,79 +276,13 @@ async def get_auth(
     context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
 ) -> dict[str, str]:
-    """Authenticate and authorize a token.
-
-    Notes
-    -----
-    The following headers may be set in the response:
-
-    X-Auth-Request-Email
-        The email address of the authenticated user, if known.
-    X-Auth-Request-User
-        The username of the authenticated user.
-    X-Auth-Request-Token
-        If requested by ``notebook`` or ``delegate_to``, will be set to the
-        delegated token.
-    X-Error-Status
-        The real status of the error, since NGINX can only handle 401 and 403
-        replies from an ``auth_request`` subhandler.
-    X-Error-Body
-        The real body of the error, which NGINX otherwise discards.
-    WWW-Authenticate
-        If the request is unauthenticated, this header will be set.
-    """
-    # Check if the token lifetime is long enough.
-    #
-    # It's awkward to do this check here, since what we have access to is the
-    # lifetime of the user's authentication token, but what we need is the
-    # lifetime of any delegated internal or notebook token we will pass along.
-    # However, getting the latter is more expensive: we would have to do all
-    # the work of creating the token, then retrieve it from Redis, and then
-    # check its lifetime.
-    #
-    # Thankfully, we can know in advance whether the token we will create will
-    # have a long enough lifetime, since we can request tokens up to the
-    # lifetime of the parent token and therefore can check the required
-    # lifetime against the lifetime of the parent token as long as we require
-    # the child token have the required lifetime (which we do, in
-    # build_success_headers).
-    #
-    # The only special case we need to handle is where the required lifetime
-    # is too close to the maximum lifetime for new tokens, since the lifetime
-    # of delegated tokens will be capped at that.  In this case, we can never
-    # satisfy this request and need to raise a 422 error instead of a 401 or
-    # 403 error.  We don't allow required lifetimes within MINIMUM_LIFETIME of
-    # the maximum lifetime to avoid the risk of a slow infinite redirect loop
-    # when the login process takes a while.
-    if auth_config.minimum_lifetime:
-        max_lifetime = context.config.token_lifetime - MINIMUM_LIFETIME
-        if auth_config.minimum_lifetime > max_lifetime:
-            minimum_lifetime_seconds = int(
-                auth_config.minimum_lifetime.total_seconds()
-            )
-            max_lifetime_seconds = int(max_lifetime.total_seconds())
-            msg = (
-                f"Requested lifetime {minimum_lifetime_seconds}s longer"
-                f" than maximum lifetime {max_lifetime_seconds}s"
-            )
-            raise InvalidMinimumLifetimeError(msg)
-        if token_data.expires:
-            lifetime = token_data.expires - current_datetime()
-            if auth_config.minimum_lifetime > lifetime:
-                raise generate_unauthorized_challenge(
-                    context,
-                    auth_config.auth_type,
-                    InvalidTokenError("Remaining token lifetime too short"),
-                    ajax_forbidden=True,
-                )
+    check_lifetime(context, auth_config, token_data)
 
     # Determine whether the request is authorized.
     if auth_config.satisfy == Satisfy.ANY:
         authorized = any(s in token_data.scopes for s in auth_config.scopes)
     else:
         authorized = all(s in token_data.scopes for s in auth_config.scopes)
-
-    # If not authorized, log and raise the appropriate error.
     if not authorized:
         raise generate_challenge(
             context,
@@ -411,10 +345,93 @@ async def get_anonymous(
     return {"status": "ok"}
 
 
+def check_lifetime(
+    context: RequestContext, auth_config: AuthConfig, token_data: TokenData
+) -> None:
+    """Check if the token lifetime is long enough.
+
+    This check is done prior to getting the delegated token during the initial
+    authentication check. The timing of the check is a bit awkward, since the
+    semantic request is a minimum lifetime of any delegated internal or
+    notebook token we will pass along.  However, getting the latter is more
+    expensive: we would have to do all the work of creating the token, then
+    retrieve it from Redis, and then check its lifetime.
+
+    Thankfully, we can know in advance whether the token we will create will
+    have a long enough lifetime. We can request tokens up to the lifetime of
+    the parent token and therefore can check the required lifetime against the
+    lifetime of the parent token as long as we require the child token have
+    the required lifetime (which we do, in `build_success_headers`).
+
+    The only special case we need to handle is where the required lifetime is
+    too close to the maximum lifetime for new tokens, since the lifetime of
+    delegated tokens will be capped at that. In this case, we can never
+    satisfy this request and need to raise a 422 error instead of a 401 or 403
+    error. We don't allow required lifetimes within ``MINIMUM_LIFETIME`` of
+    the maximum lifetime to avoid the risk of a slow infinite redirect loop
+    when the login process takes a while.
+
+    Parameters
+    ----------
+    context
+        The context of the incoming request.
+    auth_config
+        Configuration parameters for the authorization.
+    token_data
+        The data from the authentication token.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        Raised if the minimum lifetime is not satisfied. This will be a 401 or
+        403 HTTP error as appropriate.
+    InvalidMinimumLifetime
+        Raised if the specified minimum lifetime is longer than the maximum
+        lifetime of a token minus the minimum remaining lifetime and therefore
+        cannot be satisfied.
+    """
+    if not auth_config.minimum_lifetime:
+        return
+    max_lifetime = context.config.token_lifetime - MINIMUM_LIFETIME
+    if auth_config.minimum_lifetime > max_lifetime:
+        min_seconds = int(auth_config.minimum_lifetime.total_seconds())
+        max_seconds = int(max_lifetime.total_seconds())
+        msg = (
+            f"Requested lifetime {min_seconds}s longer than maximum lifetime"
+            f" {max_seconds}s"
+        )
+        raise InvalidMinimumLifetimeError(msg)
+    if token_data.expires:
+        lifetime = token_data.expires - current_datetime()
+        if auth_config.minimum_lifetime > lifetime:
+            raise generate_unauthorized_challenge(
+                context,
+                auth_config.auth_type,
+                InvalidTokenError("Remaining token lifetime too short"),
+                ajax_forbidden=True,
+            )
+
+
 async def build_success_headers(
     context: RequestContext, auth_config: AuthConfig, token_data: TokenData
 ) -> list[tuple[str, str]]:
     """Construct the headers for successful authorization.
+
+    The following headers may be included:
+
+    X-Auth-Request-Email
+        The email address of the authenticated user, if known.
+    X-Auth-Request-User
+        The username of the authenticated user.
+    X-Auth-Request-Token
+        If requested by ``notebook`` or ``delegate_to``, will be set to the
+        delegated token.
+    Authorization
+        The input ``Authorization`` headers with any headers containing
+        Gafaelfawr tokens stripped.
+    Cookie
+        The input ``Cookie`` headers with any cookie values containing
+        Gafaelfawr tokens stripped.
 
     Parameters
     ----------
