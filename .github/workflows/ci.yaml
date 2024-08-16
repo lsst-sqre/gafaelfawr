@@ -130,6 +130,14 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
+      - name: Filter paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docs:
+              - "docs/**"
+
       - name: Update package lists
         run: sudo apt-get update
 
@@ -156,7 +164,8 @@ jobs:
         if: >
           github.event_name != 'merge_group'
           && (github.event_name != 'pull_request'
-              || startsWith(github.head_ref, 'tickets/'))
+              || (startsWith(github.head_ref, 'tickets/')
+                  && steps.filter.outputs.docs == 'true'))
 
   linkcheck:
     runs-on: ubuntu-latest
