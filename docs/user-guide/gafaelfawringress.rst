@@ -179,6 +179,8 @@ Presumably logging in again will create a token with sufficient remaining lifeti
 Obviously, do not request a minimum lifetime longer than the default token lifetime!
 See :ref:`basic-settings` for more details.
 
+.. _delegate-authorization:
+
 Delegate token in Authorization header
 --------------------------------------
 
@@ -262,6 +264,7 @@ The following headers will be added by Gafaelfawr to the incoming request before
     The username of the authenticated user.
 
 In addition, if a delegated token was requested, it will be sent in the ``X-Auth-Request-Token`` HTTP header as discussed in :ref:`delegated-tokens`.
+If token delegation via the ``Authorization`` header is requested (see :ref:`delegate-authorization`), the delegated token will also be sent in an ``Authorization`` header with type ``bearer``.
 
 HTTP headers starting with ``X-Auth-Request-*`` are reserved for Gafaelfawr.
 More headers may be added in the future.
