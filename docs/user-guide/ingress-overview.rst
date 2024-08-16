@@ -20,11 +20,14 @@ If the user's authentication is syntactically invalid, Gafaelfawr will still ret
 See :ref:`error-handling` for more details.
 
 If the user is authenticated and authorized, Gafaelfawr will return a 200 response with some additional headers containing information about the user and (optionally) a delegated token.
+See :ref:`auth-headers` for the complete list.
 NGINX will then send the user's HTTP request along to the protected service, including those headers in the request.
 
-Gafaelfawr-protected services cannot return a full 403 response to a client.
-If they return a 403 error, the client will receive a 403 error, but the body of the response will be lost, as will any ``WWW-Authenticate`` header.
-This is an unfortunate side effect of the limitations of the NGINX ``auth_request`` module.
+.. caution::
+
+   Gafaelfawr-protected services cannot return a full 403 response to a client.
+   If they return a 403 error, the client will receive a response with the 403 HTTP status, but the body of the response will be lost, as will any ``WWW-Authenticate`` header.
+   This is an unfortunate side effect of the limitations of the NGINX ``auth_request`` module.
 
 .. _header-filtering:
 
