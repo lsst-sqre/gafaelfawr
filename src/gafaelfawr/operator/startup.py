@@ -47,6 +47,10 @@ async def startup(
     settings.watching.server_timeout = KUBERNETES_WATCH_TIMEOUT
     settings.watching.client_timeout = KUBERNETES_WATCH_TIMEOUT + 60
 
+    # Only run at most five workers at a time. Nothing the Gafaelfawr operator
+    # does will be that urgent and we don't want to overwhelm the API server.
+    settings.batching.worker_limit = 5
+
     config = await config_dependency()
     await initialize_kubernetes()
 
