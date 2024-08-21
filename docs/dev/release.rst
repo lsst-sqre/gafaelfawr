@@ -6,7 +6,7 @@ This page gives an overview of how Gafaelfawr releases are made.
 This information is only useful for maintainers.
 
 Gafaelfawr's releases are largely automated through GitHub Actions (see the `ci.yaml`_ workflow file for details).
-When a semantic version tag is pushed to GitHub, Gafaelfawr Docker images are published on `GitHub <https://github.com/orgs/lsst-sqre/packages?repo_name=gafaelfawr>`__ and `Docker Hub <https://hub.docker.com/repository/docker/lsstsqre/gafaelfawr>`__ with that version.
+When a semantic version tag is pushed to GitHub, Gafaelfawr Docker images are published on `GitHub <https://github.com/orgs/lsst-sqre/packages?repo_name=gafaelfawr>`__ with that version.
 
 .. _`ci.yaml`: https://github.com/lsst-sqre/gafaelfawr/blob/main/.github/workflows/ci.yaml
 
