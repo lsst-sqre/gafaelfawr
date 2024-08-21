@@ -329,8 +329,23 @@ async def temporary_namespace(api_client: ApiClient) -> AsyncIterator[str]:
     yield namespace
 
     # Remove finalizers from all of our custom objects so that they can be
-    # deleted without Kopf running.  This only needs to be done for objects
-    # that have timers; create and modify hooks don't create finalizers.
+    # deleted without Kopf running.
+    ingresses = await custom_api.list_namespaced_custom_object(
+        "gafaelfawr.lsst.io",
+        "v1alpha1",
+        namespace,
+        "gafaelfawringresses",
+    )
+    for ingress in ingresses["items"]:
+        if "finalizers" in ingress["metadata"]:
+            await custom_api.patch_namespaced_custom_object(
+                "gafaelfawr.lsst.io",
+                "v1alpha1",
+                namespace,
+                "gafaelfawringresses",
+                ingress["metadata"]["name"],
+                [{"op": "remove", "path": "/metadata/finalizers"}],
+            )
     service_tokens = await custom_api.list_namespaced_custom_object(
         "gafaelfawr.lsst.io",
         "v1alpha1",
