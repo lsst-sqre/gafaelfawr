@@ -29,14 +29,14 @@ The required minimum annotations for a web service that returns 401 if the user 
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?service=<service>&scope=<scope>"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
       auth_request_set $auth_status $upstream_http_x_error_status;
       auth_request_set $auth_error_body $upstream_http_x_error_body;
       error_page 403 = @autherror;
 
-Replace ``<hostname>`` with the hostname of the ingress on which the Gafaelfawr routes are configured, and ``<scope>`` with the name of the scope that should be required in order to visit this site.
+Replace ``<hostname>`` with the hostname of the ingress on which the Gafaelfawr routes are configured, ``<service>`` with a name for the protected service, and ``<scope>`` with the name of the scope that should be required in order to visit this site.
 
 Multiple scopes may be requested by repeating the ``scope`` parameter.
 For example, to require both ``read:tap`` and ``read:image`` scopes, use:
@@ -47,7 +47,7 @@ For example, to require both ``read:tap`` and ``read:image`` scopes, use:
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=read:tap&scope=read:image"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?service=datalinker&scope=read:tap&scope=read:image"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
       auth_request_set $auth_status $upstream_http_x_error_status;
@@ -62,7 +62,7 @@ To allow any one of the listed scopes to grant access, instead of requiring the 
    annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=read:tap&scope=read:image&satisfy=any"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?service=siav2&scope=read:tap&scope=read:image&satisfy=any"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
       auth_request_set $auth_status $upstream_http_x_error_status;
@@ -81,7 +81,7 @@ To redirect the user to the login page instead of returning a 401 error if the u
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
-    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?service=<service>&scope=<scope>"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
       auth_request_set $auth_status $upstream_http_x_error_status;
@@ -100,7 +100,7 @@ To request a delegated internal token, use these annotations:
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
-    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>&delegate_to=<service>&delegate_scope=<delegate-scope>,<delegate-scope>"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?service=<service>&scope=<scope>&delegate_to=<service>&delegate_scope=<delegate-scope>,<delegate-scope>"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
       auth_request_set $auth_status $upstream_http_x_error_status;
@@ -108,6 +108,9 @@ To request a delegated internal token, use these annotations:
       error_page 403 = @autherror;
 
 ``<service>`` should be replaced with an internal identifier for the service.
+It must be set to the same thing for ``service`` and ``delegate_to``.
+(``delegate_to`` will eventually be phased out.)
+
 ``<delegate-scope>`` is a comma-separated list of scopes requested for the internal token.
 
 The token will be included in the request in an ``X-Auth-Request-Token`` header, and thus must be added to the ``auth-response-headers`` annotation.
@@ -121,7 +124,7 @@ For the special case of notebook tokens, instead use:
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-User,X-Auth-Request-Token"
     nginx.ingress.kubernetes.io/auth-signin: "https://<hostname>/login"
-    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?scope=<scope>&notebook=true"
+    nginx.ingress.kubernetes.io/auth-url: "https://<hostname>/auth?service=<service>&scope=<scope>&notebook=true"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
       auth_request_set $auth_status $upstream_http_x_error_status;
@@ -157,6 +160,11 @@ Configuring authentication
 The URL in the ``nginx.ingress.kubernetes.io/auth-url`` annotation accepts several parameters to customize the authentication request.
 Most but not all of these are discussed above.
 
+``service`` (required)
+    The name of the service underlying this ingress, used for metrics.
+    This is technically optional but will become required in the future.
+    If ``delegate_to`` is set, both ``service`` and ``delegate_to`` must have the same value.
+
 ``scope`` (required)
     The scope claim that the client JWT must have.
     May be given multiple times.
@@ -183,6 +191,7 @@ Most but not all of these are discussed above.
     The value of this parameter is an identifier for the service that will use this token to make additional requests on behalf of the user.
     That internal token will be generated if necessary and passed in the ``X-Auth-Request-Token`` header.
     This may not be set at the same time as ``notebook``.
+    If ``delegate_to`` is set, both ``service`` and ``delegate_to`` must have the same value.
 
 ``delegate_scope`` (optional)
     A comma-separated list of scopes that the internal token should have, if available from the authenticating token.

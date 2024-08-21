@@ -25,6 +25,7 @@ from ..exceptions import (
     InsufficientScopeError,
     InvalidDelegateToError,
     InvalidMinimumLifetimeError,
+    InvalidServiceError,
     InvalidTokenError,
 )
 from ..models.auth import AuthType, Satisfy
@@ -40,26 +41,29 @@ __all__ = ["router"]
 class AuthConfig:
     """Configuration for an authorization request."""
 
-    scopes: set[str]
-    """The scopes the authentication token must have."""
-
-    satisfy: Satisfy
-    """The authorization strategy if multiple scopes are required."""
-
     auth_type: AuthType
     """The authentication type to use in challenges."""
-
-    notebook: bool
-    """Whether to generate a notebook token."""
-
-    delegate_to: str | None
-    """Internal service for which to create an internal token."""
 
     delegate_scopes: set[str]
     """List of scopes the delegated token should have."""
 
+    delegate_to: str | None
+    """Internal service for which to create an internal token."""
+
     minimum_lifetime: timedelta | None
     """Required minimum lifetime of the token."""
+
+    notebook: bool
+    """Whether to generate a notebook token."""
+
+    satisfy: Satisfy
+    """The authorization strategy if multiple scopes are required."""
+
+    scopes: set[str]
+    """The scopes the authentication token must have."""
+
+    service: str | None
+    """Name of the service for which authorization is being checked."""
 
     use_authorization: bool
     """Whether to put any delegated token in the ``Authorization`` header."""
@@ -95,28 +99,6 @@ def auth_uri(
 
 def auth_config(
     *,
-    scope: Annotated[
-        list[str],
-        Query(
-            title="Required scopes",
-            description=(
-                "If given more than once, meaning is determined by the"
-                " `satisfy` parameter"
-            ),
-            examples=["read:all"],
-        ),
-    ],
-    satisfy: Annotated[
-        Satisfy,
-        Query(
-            title="Scope matching policy",
-            description=(
-                "Set to `all` to require all listed scopes, set to `any` to"
-                " require any of the listed scopes"
-            ),
-            examples=["any"],
-        ),
-    ] = Satisfy.ALL,
     auth_type: Annotated[
         AuthType,
         Query(
@@ -125,16 +107,6 @@ def auth_config(
             examples=["basic"],
         ),
     ] = AuthType.Bearer,
-    notebook: Annotated[
-        bool,
-        Query(
-            title="Request notebook token",
-            description=(
-                "Cannot be used with `delegate_to` or `delegate_scope`"
-            ),
-            examples=[True],
-        ),
-    ] = False,
     delegate_to: Annotated[
         str | None,
         Query(
@@ -166,6 +138,46 @@ def auth_config(
             ),
             ge=MINIMUM_LIFETIME.total_seconds(),
             examples=[86400],
+        ),
+    ] = None,
+    notebook: Annotated[
+        bool,
+        Query(
+            title="Request notebook token",
+            description=(
+                "Cannot be used with `delegate_to` or `delegate_scope`"
+            ),
+            examples=[True],
+        ),
+    ] = False,
+    satisfy: Annotated[
+        Satisfy,
+        Query(
+            title="Scope matching policy",
+            description=(
+                "Set to `all` to require all listed scopes, set to `any` to"
+                " require any of the listed scopes"
+            ),
+            examples=["any"],
+        ),
+    ] = Satisfy.ALL,
+    scope: Annotated[
+        list[str],
+        Query(
+            title="Required scopes",
+            description=(
+                "If given more than once, meaning is determined by the"
+                " `satisfy` parameter"
+            ),
+            examples=["read:all"],
+        ),
+    ],
+    service: Annotated[
+        str | None,
+        Query(
+            title="Service",
+            description="Name of the underlying service",
+            examples=["tap"],
         ),
     ] = None,
     use_authorization: Annotated[
@@ -202,12 +214,18 @@ def auth_config(
 
     Raises
     ------
-    fastapi.HTTPException
-        If ``notebook`` and ``delegate_to`` are both set.
+    InvalidDelegateToError
+        Raised if ``notebook`` and ``delegate_to`` are both set.
+    InvalidServiceError
+        Raised if ``service`` is set to something different than
+        ``delegate_to``.
     """
     if notebook and delegate_to:
         msg = "delegate_to cannot be set for notebook tokens"
         raise InvalidDelegateToError(msg)
+    if service and delegate_to and service != delegate_to:
+        msg = "service must be the same as delegate_to"
+        raise InvalidServiceError(msg)
     scopes = set(scope)
     context.rebind_logger(
         auth_uri=auth_uri,
@@ -227,13 +245,14 @@ def auth_config(
     elif not minimum_lifetime and (notebook or delegate_to):
         lifetime = MINIMUM_LIFETIME
     return AuthConfig(
-        scopes=scopes,
-        satisfy=satisfy,
         auth_type=auth_type,
-        notebook=notebook,
-        delegate_to=delegate_to,
         delegate_scopes=delegate_scopes,
+        delegate_to=delegate_to,
         minimum_lifetime=lifetime,
+        notebook=notebook,
+        satisfy=satisfy,
+        scopes=scopes,
+        service=service,
         use_authorization=use_authorization,
         username=username,
     )
@@ -306,13 +325,11 @@ async def get_auth(
     headers = await build_success_headers(context, auth_config, token_data)
     for key, value in headers:
         response.headers.append(key, value)
-    if context.metrics and auth_config.delegate_to:
-        if not is_mobu_bot_user(token_data.username):
-            attrs = {
-                "username": token_data.username,
-                "service": auth_config.delegate_to,
-            }
-            context.metrics.request_auth.add(1, attrs)
+    if context.metrics and not is_mobu_bot_user(token_data.username):
+        attrs = {"username": token_data.username}
+        if auth_config.service:
+            attrs["service"] = auth_config.service
+        context.metrics.request_auth.add(1, attrs)
     return {"status": "ok"}
 
 
