@@ -291,6 +291,9 @@ class GafaelfawrIngressConfig(BaseModel):
     )
     """The scopes to require for access."""
 
+    service: str | None = None
+    """Name of the service this ingress is for."""
+
     username: str | None = None
     """Restrict access to the given user."""
 
@@ -325,6 +328,11 @@ class GafaelfawrIngressConfig(BaseModel):
                     msg = f"{camel_name} has no effect for anonymous ingresses"
                     raise ValueError(msg)
 
+        if self.service and self.delegate and self.delegate.internal:
+            if self.service != self.delegate.internal.service:
+                msg = "service must match delegate.internal.service"
+                raise ValueError(msg)
+
         return self
 
     def to_auth_url(self) -> str:
@@ -338,6 +346,8 @@ class GafaelfawrIngressConfig(BaseModel):
         """
         base_url = self.base_url.rstrip("/")
         query = [("scope", s) for s in self.scopes.scopes]
+        if self.service:
+            query.append(("service", self.service))
         if self.scopes.satisfy != Satisfy.ALL:
             query.append(("satisfy", self.scopes.satisfy.value))
         if self.delegate:

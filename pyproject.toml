@@ -111,19 +111,17 @@ warn_untyped_fields = true
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 filterwarnings = [
-    # Google modules call a deprecated pkg_resources API.
-    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
-    "ignore:.*pkg_resources\\.declare_namespace:DeprecationWarning",
     # Google modules use PyType_Spec in a deprecated way.
     "ignore:Type google\\..*metaclass.* custom tp_new:DeprecationWarning",
-    # dateutil uses a deprecated datetime function.
-    "ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning:dateutil.*",
-    # Bug in kopf
-    "ignore:.*require all values to be sortable:DeprecationWarning:kopf.*",
+    # Bug in seleniumwire.
+    "ignore:.*X509Extension support in pyOpenSSL:DeprecationWarning",
+    # Some sphinxcontrib package and seleniumwire use pkg_resources.
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+    "ignore:.*pkg_resources\\.declare_namespace:DeprecationWarning",
 ]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
-# assert processing in any non-test supporting files under tests.  We
+# assert processing in any non-test supporting files under tests. We
 # conventionally put test support functions under tests.support and may
 # sometimes use assert in test fixtures in conftest.py, and pytest only
 # enables magical assert processing (showing a full diff on assert failures

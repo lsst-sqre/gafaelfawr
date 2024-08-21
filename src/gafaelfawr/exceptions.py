@@ -35,6 +35,7 @@ __all__ = [
     "InvalidRequestError",
     "InvalidReturnURLError",
     "InvalidScopesError",
+    "InvalidServiceError",
     "InvalidTokenClaimsError",
     "InvalidTokenError",
     "KubernetesError",
@@ -173,6 +174,15 @@ class InvalidScopesError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.body, ["scopes"])
+
+
+class InvalidServiceError(InputValidationError):
+    """The ``service`` parameter was set to an invalid value."""
+
+    error = "invalid_service"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, ["delegate_to"])
 
 
 class NoScopesError(InputValidationError):

@@ -214,7 +214,7 @@ async def test_success(client: AsyncClient, factory: Factory) -> None:
 
     r = await client.get(
         "/auth",
-        params={"scope": "exec:admin"},
+        params={"scope": "exec:admin", "service": "example"},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 200
@@ -311,6 +311,7 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
         "/auth",
         params={
             "scope": "exec:admin",
+            "service": "a-service",
             "delegate_to": "a-service",
             "delegate_scope": " read:some  ,read:all  ",
         },
@@ -441,6 +442,19 @@ async def test_internal_errors(
         params={
             "scope": "read:some",
             "notebook": "true",
+            "delegate_to": "a-service",
+            "delegate_scope": "read:some",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 422
+
+    # If set, service must match delegate_to.
+    r = await client.get(
+        "/auth",
+        params={
+            "scope": "read:some",
+            "service": "b-service",
             "delegate_to": "a-service",
             "delegate_scope": "read:some",
         },

@@ -8,7 +8,7 @@
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/
 .. _RFC 2307bis: https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02
-.. _Ruff: https://beta.ruff.rs/docs/
+.. _Ruff: https://docs.astral.sh/ruff/
 .. _Safir: https://safir.lsst.io/
 .. _scriv: https://scriv.readthedocs.io/en/latest/
 .. _semver: https://semver.org/

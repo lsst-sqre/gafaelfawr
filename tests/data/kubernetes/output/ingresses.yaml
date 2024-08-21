@@ -6,7 +6,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Token,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "https://foo.example.com/auth?scope=read%3Aall"
+    nginx.ingress.kubernetes.io/auth-url: "https://foo.example.com/auth?scope=read%3Aall&service=tap"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       {snippet}
   creationTimestamp: {any}

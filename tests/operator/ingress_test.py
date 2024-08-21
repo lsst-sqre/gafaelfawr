@@ -78,9 +78,13 @@ async def test_replace(
         )
         await asyncio.sleep(1)
 
+        expected_url = (
+            "https://foo.example.com/auth?scope=read%3Aall&service=tap"
+            "&auth_type=basic"
+        )
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-url"
-        ] = "https://foo.example.com/auth?scope=read%3Aall&auth_type=basic"
+        ] = expected_url
         await assert_resources_match(api_client, [expected])
         status.message = "Ingress was updated"
         status.reason = StatusReason.Updated
@@ -105,9 +109,13 @@ async def test_replace(
         )
         await asyncio.sleep(1)
 
+        expected_url = (
+            "https://foo.example.com/auth?scope=read%3Aall&service=tap"
+            "&auth_type=bearer"
+        )
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-url"
-        ] = "https://foo.example.com/auth?scope=read%3Aall&auth_type=bearer"
+        ] = expected_url
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-signin"
         ] = "https://foo.example.com/login"

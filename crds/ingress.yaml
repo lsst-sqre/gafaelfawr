@@ -179,6 +179,13 @@ spec:
                             - true
                       required:
                         - anonymous
+                service:
+                  type: string
+                  description: >-
+                    The name of the service corresponding to this ingress,
+                    used for metrics reporting. When delegating internal
+                    tokens, this must match config.delegate.internal.service.
+                    This attribute will be required in the future.
                 username:
                   type: string
                   description: >-
