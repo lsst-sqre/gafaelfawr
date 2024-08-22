@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from datetime import datetime
 from enum import StrEnum
 from typing import Any, Self
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, Field
 from safir.datetime import current_datetime
-from safir.pydantic import normalize_datetime
 
 from ..constants import ALGORITHM, OIDC_AUTHORIZATION_LIFETIME
 from ..exceptions import InvalidGrantError
+from ..pydantic import Timestamp
 from ..util import random_128_bits
 from .token import Token
 
@@ -149,7 +148,7 @@ class OIDCAuthorization(BaseModel):
         title="The underlying authentication token for the user",
     )
 
-    created_at: datetime = Field(
+    created_at: Timestamp = Field(
         default_factory=current_datetime,
         title="When the authorization was created",
     )
@@ -165,14 +164,6 @@ class OIDCAuthorization(BaseModel):
             "Nonce to include in the issued ID token for either replay"
             " protection or to bind the ID token to a client session"
         ),
-    )
-
-    @field_serializer("created_at")
-    def _serialize_datetime(self, time: datetime | None) -> int | None:
-        return int(time.timestamp()) if time is not None else None
-
-    _normalize_created_at = field_validator("created_at", mode="before")(
-        normalize_datetime
     )
 
     @property

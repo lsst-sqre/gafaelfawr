@@ -108,6 +108,9 @@ Python internal API
 .. automodapi:: gafaelfawr.providers.oidc
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.pydantic
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.services.admin
    :include-all-objects:
 

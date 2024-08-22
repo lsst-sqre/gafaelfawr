@@ -11,14 +11,13 @@ from pydantic import (
     ConfigDict,
     Field,
     ValidationInfo,
-    field_serializer,
     field_validator,
 )
 from safir.datetime import current_datetime
-from safir.pydantic import normalize_datetime
 
 from ..constants import USERNAME_REGEX
 from ..exceptions import InvalidTokenError
+from ..pydantic import Timestamp
 from ..util import normalize_scopes, random_128_bits
 from .userinfo import Group
 
@@ -174,23 +173,19 @@ class TokenBase(BaseModel):
         examples=[["read:all", "user:token"]],
     )
 
-    created: datetime = Field(
+    created: Timestamp = Field(
         default_factory=current_datetime,
         title="Creation time",
         description="Creation timestamp of the token in seconds since epoch",
         examples=[1614986130],
     )
 
-    expires: datetime | None = Field(
+    expires: Timestamp | None = Field(
         None,
         title="Expiration time",
         description="Expiration timestamp of the token in seconds since epoch",
         examples=[1616986130],
     )
-
-    @field_serializer("created", "expires")
-    def _serialize_datetime(self, time: datetime | None) -> int | None:
-        return int(time.timestamp()) if time is not None else None
 
     _normalize_scopes = field_validator("scopes", mode="before")(
         normalize_scopes
@@ -232,7 +227,7 @@ class TokenInfo(TokenBase):
         max_length=64,
     )
 
-    last_used: datetime | None = Field(
+    last_used: Timestamp | None = Field(
         None,
         title="Last used",
         description="When the token was last used in seconds since epoch",
@@ -248,14 +243,6 @@ class TokenInfo(TokenBase):
     )
 
     model_config = ConfigDict(from_attributes=True)
-
-    @field_serializer("created", "expires", "last_used")
-    def _serialize_datetime(self, time: datetime | None) -> int | None:
-        return int(time.timestamp()) if time is not None else None
-
-    _normalize_created = field_validator(
-        "created", "last_used", "expires", mode="before"
-    )(normalize_datetime)
 
 
 class TokenUserInfo(BaseModel):

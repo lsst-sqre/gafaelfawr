@@ -8,18 +8,12 @@ from enum import Enum
 from typing import Any, Generic, Self, TypeVar
 from urllib.parse import parse_qs, urlencode
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_serializer,
-    field_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from safir.datetime import current_datetime
-from safir.pydantic import normalize_datetime
 from starlette.datastructures import URL
 
 from ..exceptions import InvalidCursorError
+from ..pydantic import Timestamp
 from ..util import normalize_ip_address, normalize_scopes
 from .token import TokenType
 
@@ -75,7 +69,7 @@ class AdminHistoryEntry(BaseModel):
         ),
     )
 
-    event_time: datetime = Field(
+    event_time: Timestamp = Field(
         default_factory=current_datetime,
         title="Timestamp",
         description="When the change was made",
@@ -84,9 +78,6 @@ class AdminHistoryEntry(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    _normalize_event_time = field_validator("event_time", mode="before")(
-        normalize_datetime
-    )
     _normalize_ip_address = field_validator("ip_address", mode="before")(
         normalize_ip_address
     )
@@ -267,7 +258,7 @@ class TokenChangeHistoryEntry(BaseModel):
         examples=["some-service"],
     )
 
-    expires: datetime | None = Field(
+    expires: Timestamp | None = Field(
         None,
         title="Expiration of the token",
         description=(
@@ -309,7 +300,7 @@ class TokenChangeHistoryEntry(BaseModel):
         examples=[["read:some"]],
     )
 
-    old_expires: datetime | None = Field(
+    old_expires: Timestamp | None = Field(
         None,
         title="Previous expiration of the token",
         description=(
@@ -339,7 +330,7 @@ class TokenChangeHistoryEntry(BaseModel):
         examples=["198.51.100.50"],
     )
 
-    event_time: datetime = Field(
+    event_time: Timestamp = Field(
         default_factory=current_datetime,
         title="Whent he change was made",
         examples=[1614985631],
@@ -347,16 +338,9 @@ class TokenChangeHistoryEntry(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_serializer("expires", "old_expires", "event_time")
-    def _serialize_datetime(self, time: datetime | None) -> int | None:
-        return int(time.timestamp()) if time is not None else None
-
     _normalize_scopes = field_validator("scopes", "old_scopes", mode="before")(
         normalize_scopes
     )
-    _normalize_expires = field_validator(
-        "expires", "old_expires", "event_time", mode="before"
-    )(normalize_datetime)
     _normalize_ip_address = field_validator("ip_address", mode="before")(
         normalize_ip_address
     )
