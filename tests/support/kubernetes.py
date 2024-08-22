@@ -23,6 +23,7 @@ from kubernetes_asyncio.client import (
     V1Namespace,
     V1ObjectMeta,
 )
+from kubernetes_asyncio.watch import Watch
 from safir.datetime import current_datetime
 
 from gafaelfawr.constants import NGINX_SNIPPET
@@ -301,6 +302,48 @@ async def run_operator_once(module: str, *, delay: float = 1) -> None:
         await asyncio.sleep(delay)
 
 
+async def _remove_finalizers(
+    custom_api: CustomObjectsApi,
+    group: str,
+    version: str,
+    namespace: str,
+    plural: str,
+) -> None:
+    """Remove all Kubernetes finalizers from custom objects.
+
+    Kopf adds a finalier to every object it manages, which prevents their
+    deletion if it is not running and thus prevents cleaning up the temporary
+    namespace. This function deletes those finalizers so that the objects can
+    be deleted.
+
+    Parameters
+    ----------
+    custom_api
+        Client object for custom objects.
+    group
+        Custom object group.
+    version
+        Custom object version.
+    namespace
+        Namespace from which to delete objects.
+    plural
+        Custom object API plural.
+    """
+    objects = await custom_api.list_namespaced_custom_object(
+        group, version, namespace, plural
+    )
+    for obj in objects["items"]:
+        if "finalizers" in obj["metadata"]:
+            await custom_api.patch_namespaced_custom_object(
+                group,
+                version,
+                namespace,
+                plural,
+                obj["metadata"]["name"],
+                [{"op": "remove", "path": "/metadata/finalizers"}],
+            )
+
+
 @asynccontextmanager
 async def temporary_namespace(api_client: ApiClient) -> AsyncIterator[str]:
     """Create a temporary namespace for testing.
@@ -330,37 +373,17 @@ async def temporary_namespace(api_client: ApiClient) -> AsyncIterator[str]:
 
     # Remove finalizers from all of our custom objects so that they can be
     # deleted without Kopf running.
-    ingresses = await custom_api.list_namespaced_custom_object(
-        "gafaelfawr.lsst.io",
-        "v1alpha1",
-        namespace,
-        "gafaelfawringresses",
-    )
-    for ingress in ingresses["items"]:
-        if "finalizers" in ingress["metadata"]:
-            await custom_api.patch_namespaced_custom_object(
-                "gafaelfawr.lsst.io",
-                "v1alpha1",
-                namespace,
-                "gafaelfawringresses",
-                ingress["metadata"]["name"],
-                [{"op": "remove", "path": "/metadata/finalizers"}],
-            )
-    service_tokens = await custom_api.list_namespaced_custom_object(
-        "gafaelfawr.lsst.io",
-        "v1alpha1",
-        namespace,
-        "gafaelfawrservicetokens",
-    )
-    for service_token in service_tokens["items"]:
-        if "finalizers" in service_token["metadata"]:
-            await custom_api.patch_namespaced_custom_object(
-                "gafaelfawr.lsst.io",
-                "v1alpha1",
-                namespace,
-                "gafaelfawrservicetokens",
-                service_token["metadata"]["name"],
-                [{"op": "remove", "path": "/metadata/finalizers"}],
-            )
+    for plural in ("gafaelfawringresses", "gafaelfawrservicetokens"):
+        await _remove_finalizers(
+            custom_api, "gafaelfawr.lsst.io", "v1alpha1", namespace, plural
+        )
 
+    # Delete the namespace and then wait for the deletion to complete.
     await core_api.delete_namespace(namespace)
+    watch = Watch()
+    args = {"field_selector": f"metadata.name={namespace}"}
+    async with watch.stream(core_api.list_namespace, **args) as stream:
+        async for event in stream:
+            if event["type"] == "DELETED":
+                break
+    await watch.close()
