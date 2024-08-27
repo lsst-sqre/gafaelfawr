@@ -17,6 +17,7 @@ The Gafaelfawr code structure follows the guidelines in :sqr:`072`.
    userinfo
    scopes
    logging
+   kubernetes
 
 .. toctree::
    :caption: Guides
