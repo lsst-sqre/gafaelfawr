@@ -96,10 +96,10 @@ spec:
                         scopes:
                           type: array
                           description: >-
-                            Scopes to include in the delegated token if
-                            they are available. These scopes are not
-                            required to access the service; to make them
-                            required, include them in spec.scopes as well.
+                            Scopes to include in the delegated token if they
+                            are available. These scopes are not required to
+                            access the service; to make them required, include
+                            them in spec.scopes as well.
                           items:
                             type: string
                         service:
@@ -114,9 +114,9 @@ spec:
                     minimumLifetime:
                       type: integer
                       description: >-
-                        Minimum lifetime of delegated token in seconds. If
-                        the user's token has less than that time
-                        remaining, force them to reauthenticate.
+                        Minimum lifetime of delegated token in seconds. If the
+                        user's token has less than that time remaining, force
+                        them to reauthenticate.
                     useAuthorization:
                       type: boolean
                       description: >-
@@ -136,16 +136,12 @@ spec:
                 replace403:
                   type: boolean
                   description: >-
-                    Whether to replace 403 responses with a custom 403
-                    response from Gafaelfawr that disables caching and
-                    includes authorization-related errors in the
-                    `WWW-Authenticate` header.
+                    Obsolete setting. No longer has any effect.
                 scopes:
                   type: object
                   description: >-
-                    The token scope or scopes required to access this
-                    service.  May be omitted if the service allows
-                    anonymous access.
+                    The token scope or scopes required to access this service.
+                    May be omitted if the service allows anonymous access.
                   properties:
                     any:
                       type: array
