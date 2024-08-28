@@ -73,10 +73,7 @@ async def test_health(
     async with factory.session.begin():
         await factory.session.execute(text("DROP TABLE token CASCADE"))
     base_url = f"https://{TEST_HOSTNAME}"
-    transport = ASGITransport(
-        app=app,  # type: ignore[arg-type]
-        raise_app_exceptions=False,
-    )
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url=base_url) as c:
         r = await c.get("/health")
     assert r.status_code == 500
