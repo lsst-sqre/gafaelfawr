@@ -188,6 +188,38 @@ Slashes will be replaced with underscores.
    By default, this means the branch name must begin with ``tickets/``.
    You can change this in :file:`.github/workflows/ci.yaml` under the ``build`` step.
 
+Updating dependencies
+=====================
+
+Runtime Python dependencies for Gafaelfawr are recorded in :file:`pyproject.toml` like a regular Python package.
+Development dependencies are separately recorded in :file:`requirements/dev.in`.
+Dependencies needed to run :command:`tox` are recorded in :file:`requirements/tox.in`.
+
+After changing any of those files, run :command:`make update-deps` to rebuild the frozen dependency files in :file:`requirements/*.txt`.
+Those frozen dependency files are used to build the release Docker image, and are used as the dependencies in tox environments for testing, documentation builds, and other checks.
+
+:command:`make update-deps` should also be run as part of the release process to update frozen dependencies to their latest versions.
+
+Temporary Git dependencies
+--------------------------
+
+By default, :command:`make update-deps` records the hashes of all dependencies.
+It therefore cannot be used for Git dependencies, which are sometimes convenient during development.
+If you need to depend on, for example, a Git version of Safir, change the ``safir`` dependency in :file:`pyproject.toml` to something like:
+
+.. code-block:: toml
+
+   dependencies = [
+      # ...
+      "safir[db,kubernetes] @ git+https://github.com/lsst-sqre/safir@main#subdirectory=safir",
+      # ...
+   ]
+
+Then, run :command:`make update-deps-no-hashes` instead to generate frozen dependencies without the hashes.
+
+Do not release new non-alpha versions of Gafaelfawr with Git dependencies.
+The other package should be released first before a new version of Gafaelfawr is released.
+
 .. _db-migrations:
 
 Creating database migrations
