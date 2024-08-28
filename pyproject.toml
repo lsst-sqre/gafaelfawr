@@ -20,7 +20,36 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    # FastAPI including some optional features
+    "fastapi",
+    "python-multipart",
+    "starlette",
+    "uvicorn[standard]",
+    # Other dependencies
+    "alembic[tz]",
+    "asyncpg",
+    "bonsai>=1.5.0",
+    "cachetools",
+    "click>8.1.4",
+    "cryptography",
+    "google-cloud-firestore",
+    "httpx",
+    "kopf",
+    "kubernetes-asyncio",
+    "jinja2",
+    "opentelemetry-api",
+    "opentelemetry-exporter-otlp-proto-grpc",
+    "opentelemetry-sdk",
+    "pydantic>2",
+    "pydantic-settings",
+    "pyjwt",
+    "pyyaml",
+    "redis>=4.2.0",
+    "safir[db,kubernetes]>=6.2.0",
+    "sqlalchemy",
+    "structlog",
+]
 dynamic = ["version"]
 
 [[project.authors]]
@@ -36,15 +65,11 @@ Source = "https://github.com/lsst-sqre/gafaelfawr"
 [build-system]
 requires = [
     "setuptools>=61",
-    "wheel",
     "setuptools_scm[toml]>=6.2",
 ]
-build-backend = "setuptools.build_meta"
 
 [project.scripts]
 gafaelfawr = "gafaelfawr.cli:main"
-
-[tool.setuptools_scm]
 
 [tool.black]
 line-length = 79
@@ -165,3 +190,5 @@ format = "md"
 md_header_level = "2"
 new_fragment_template = "file:changelog.d/_template.md.jinja"
 skip_fragments = "_template.md.jinja"
+
+[tool.setuptools_scm]
