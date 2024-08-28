@@ -3,6 +3,9 @@
 ui/.cache/
 ui/node_modules/
 
+# VSCode
+.vscode/
+
 # Everything below this point is a copy of .gitignore.
 
 # Byte-compiled / optimized / DLL files
@@ -77,8 +80,8 @@ instance/
 
 # Sphinx documentation
 docs/_build/
-docs/api/
-docs/_static/*.png
+docs/_static/openapi.json
+docs/dev/internals/
 
 # PyBuilder
 target/
@@ -142,9 +145,5 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
-# Emacs temporary files
-.#*
-\#*#
-
-# Modified to set up the local development server.
-/examples/secrets/github-client-secret
+# macOS
+.DS_Store

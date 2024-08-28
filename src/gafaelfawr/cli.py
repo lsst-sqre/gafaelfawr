@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import subprocess
 import sys
@@ -15,7 +14,6 @@ import structlog
 import uvicorn
 from alembic.config import Config
 from cryptography.fernet import Fernet
-from fastapi.openapi.utils import get_openapi
 from safir.asyncio import run_with_asyncio
 from safir.click import display_help
 from safir.database import create_database_engine
@@ -30,7 +28,7 @@ from .database import (
 from .dependencies.config import config_dependency
 from .factory import Factory
 from .keypair import RSAKeyPair
-from .main import create_app
+from .main import create_openapi
 from .metrics import StateMetrics
 from .models.token import Token
 from .schema import Base
@@ -257,22 +255,12 @@ async def maintenance(*, config_path: Path | None) -> None:
 )
 def openapi_schema(*, add_back_link: bool, output: Path | None) -> None:
     """Generate the OpenAPI schema."""
-    app = create_app(load_config=False, validate_schema=False)
-    description = app.description
-    if add_back_link:
-        description += "\n\n[Return to Gafaelfawr documentation](api.html)."
-    schema = get_openapi(
-        title=app.title,
-        description=description,
-        version=app.version,
-        routes=app.routes,
-    )
+    schema = create_openapi(add_back_link=add_back_link)
     if output:
         output.parent.mkdir(exist_ok=True)
-        with output.open("w") as f:
-            json.dump(schema, f)
+        output.write_text(schema)
     else:
-        json.dump(schema, sys.stdout)
+        sys.stdout.write(schema)
 
 
 @main.command()

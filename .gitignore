@@ -69,10 +69,9 @@ instance/
 .scrapy
 
 # Sphinx documentation
-/docs/_build/
-/docs/_static/openapi.json
-/docs/_static/*.png
-/docs/dev/internals/
+docs/_build/
+docs/_static/openapi.json
+docs/dev/internals/
 
 # PyBuilder
 target/
@@ -136,9 +135,5 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
-# Emacs temporary files
-.#*
-\#*#
-
-# Modified to set up the local development server.
-/examples/secrets/github-client-secret
+# macOS
+.DS_Store

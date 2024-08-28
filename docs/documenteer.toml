@@ -2,6 +2,14 @@
 title = "Gafaelfawr"
 copyright = "2020-2022 Association of Universities for Research in Astronomy, Inc. (AURA)"
 
+[project.openapi]
+openapi_path = "_static/openapi.json"
+doc_path = "api"
+
+[project.openapi.generator]
+function = "gafaelfawr.main:create_openapi"
+keyword_args = {add_back_link = true}
+
 [project.python]
 package = "gafaelfawr"
 
