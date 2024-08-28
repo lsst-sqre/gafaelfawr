@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import AsyncIterator, Coroutine
 from contextlib import asynccontextmanager
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import structlog
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from opentelemetry.sdk.metrics.export import MetricReader
 from safir.dependencies.db_session import db_session_dependency
@@ -188,3 +190,31 @@ def create_app(
     app.exception_handler(ClientRequestError)(client_request_error_handler)
 
     return app
+
+
+def create_openapi(*, add_back_link: bool = False) -> str:
+    """Generate the OpenAPI schema.
+
+    Parameters
+    ----------
+    add_back_link
+        Whether to add a back link to the parent page to the description.
+        This is useful when the schema will be rendered as part of the
+        documentation.
+
+    Returns
+    -------
+    str
+        OpenAPI schema as serialized JSON.
+    """
+    app = create_app(load_config=False, validate_schema=False)
+    description = app.description
+    if add_back_link:
+        description += "\n\n[Return to Gafaelfawr documentation](.)."
+    schema = get_openapi(
+        title=app.title,
+        description=description,
+        version=app.version,
+        routes=app.routes,
+    )
+    return json.dumps(schema)
