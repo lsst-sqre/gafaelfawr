@@ -7,11 +7,10 @@ from typing import Any
 import kopf
 import structlog
 from kubernetes_asyncio.client import ApiClient
-from safir.database import create_database_engine
+from safir.database import create_database_engine, is_database_current
 from safir.kubernetes import initialize_kubernetes
 
 from ..constants import KUBERNETES_WATCH_TIMEOUT
-from ..database import is_database_current
 from ..dependencies.config import config_dependency
 from ..exceptions import DatabaseSchemaError
 from ..factory import Factory
@@ -58,7 +57,7 @@ async def startup(
         config.database_url, config.database_password
     )
     logger = structlog.get_logger("gafaelfawr")
-    if not await is_database_current(config, logger, engine):
+    if not await is_database_current(engine, logger):
         raise DatabaseSchemaError("Database schema is not current")
     factory = await Factory.create(config, engine, check_db=True)
     api_client = ApiClient()

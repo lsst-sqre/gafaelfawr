@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from opentelemetry.sdk.metrics.export import MetricReader
+from safir.database import create_database_engine, is_database_current
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
 from safir.fastapi import ClientRequestError, client_request_error_handler
@@ -23,7 +24,6 @@ from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from .constants import COOKIE_NAME
-from .database import is_database_current
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
 from .exceptions import DatabaseSchemaError
@@ -78,11 +78,15 @@ def create_app(
         config = config_dependency.config()
         if validate_schema:
             logger = structlog.get_logger("gafaelfawr")
-            if not await is_database_current(config, logger):
+            engine = create_database_engine(
+                config.database_url, config.database_password
+            )
+            if not await is_database_current(engine, logger):
                 raise DatabaseSchemaError("Database schema out of date")
+            await engine.dispose()
         await context_dependency.initialize(config, metric_reader)
         await db_session_dependency.initialize(
-            str(config.database_url), config.database_password
+            config.database_url, config.database_password
         )
         if extra_startup:
             await extra_startup

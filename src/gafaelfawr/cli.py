@@ -8,22 +8,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-import alembic
 import click
 import structlog
 import uvicorn
-from alembic.config import Config
 from cryptography.fernet import Fernet
 from safir.asyncio import run_with_asyncio
 from safir.click import display_help
-from safir.database import create_database_engine
+from safir.database import (
+    create_database_engine,
+    is_database_current,
+    stamp_database,
+)
 from safir.slack.blockkit import SlackMessage
 from sqlalchemy import text
 
 from .database import (
     generate_schema_sql,
     initialize_gafaelfawr_database,
-    is_database_current,
     is_database_initialized,
 )
 from .dependencies.config import config_dependency
@@ -87,7 +88,7 @@ async def audit(*, fix: bool, config_path: Path | None) -> None:
     engine = create_database_engine(
         config.database_url, config.database_password
     )
-    if not await is_database_current(config, logger, engine):
+    if not await is_database_current(engine, logger):
         raise click.ClickException("Database schema is not current")
     logger.debug("Starting audit")
     async with Factory.standalone(config, engine) as factory:
@@ -228,7 +229,7 @@ def init(*, config_path: Path | None, alembic_config_path: Path) -> None:
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Initializing database")
     asyncio.run(initialize_gafaelfawr_database(config, logger))
-    alembic.command.stamp(Config(str(alembic_config_path)), "head")
+    stamp_database(alembic_config_path)
     logger.debug("Finished initializing data stores")
 
 
@@ -250,7 +251,7 @@ async def maintenance(*, config_path: Path | None) -> None:
     engine = create_database_engine(
         config.database_url, config.database_password
     )
-    if not await is_database_current(config, logger, engine):
+    if not await is_database_current(engine, logger):
         raise click.ClickException("Database schema is not current")
     logger.debug("Starting background maintenance")
     async with Factory.standalone(config, engine, check_db=True) as factory:
@@ -339,8 +340,9 @@ def update_schema(
     if not asyncio.run(is_database_initialized(config, logger)):
         logger.debug("Initializing database")
         asyncio.run(initialize_gafaelfawr_database(config, logger))
-        alembic.command.stamp(Config(str(alembic_config_path)), "head")
+        stamp_database(alembic_config_path)
         logger.debug("Finished initializing data stores")
+        return
     subprocess.run(["alembic", "upgrade", "head"], check=True, env=env)
 
 
@@ -364,5 +366,5 @@ async def validate_schema(*, config_path: Path | None) -> None:
     )
     if not await is_database_initialized(config, logger, engine):
         raise click.ClickException("Database has not been initialized")
-    if not await is_database_current(config, logger, engine):
+    if not await is_database_current(engine, logger):
         raise click.ClickException("Database schema is not current")

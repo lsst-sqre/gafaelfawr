@@ -639,7 +639,7 @@ See :ref:`client-ips` for more details.
 .. _config-metrics:
 
 Metrics
-=======
+========
 
 Gafaelfawr can export metrics to an OpenTelemetry_ collector.
 Currently, it only supports the insecure gRPC mechanism for sending metrics, and therefore should use a collector within the same Kubernetes cluster.
