@@ -67,7 +67,7 @@ const CreateTokenButton = function ({ onCreate }) {
         .then((response) => setNewToken(response.token))
         .then(() => deactivateFormModal())
         .then(onCreate),
-    [csrf, onCreate, setNewToken, username]
+    [csrf, onCreate, setNewToken, username],
   );
 
   return (

@@ -100,7 +100,7 @@ TokenModal.propTypes = {
     PropTypes.shape({
       name: PropTypes.string,
       description: PropTypes.string,
-    })
+    }),
   ),
   onSubmit: PropTypes.func.isRequired,
   onExit: PropTypes.func.isRequired,

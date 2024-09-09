@@ -75,7 +75,7 @@ const TokenChangeTable = function ({ data }) {
         accessor: 'old_expires',
       },
     ],
-    []
+    [],
   );
 
   const table = useTable({ columns, data });

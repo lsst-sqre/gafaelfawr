@@ -38,7 +38,7 @@ const TokenList = function () {
         .then(loadTokenData)
         .catch((e) => alert.show(e.message));
     },
-    [alert, csrf, loadTokenData, username]
+    [alert, csrf, loadTokenData, username],
   );
 
   useEffect(loadTokenData, [loadTokenData, username]);
