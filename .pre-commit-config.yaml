@@ -9,7 +9,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.2
+    rev: v0.6.4
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -23,7 +23,7 @@ repos:
         args: [-l, '79', -t, py312]
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.9.1
+    rev: v9.10.0
     hooks:
       - id: eslint
         additional_dependencies:
@@ -32,11 +32,11 @@ repos:
           - eslint@8.57.0
           - eslint-config-airbnb@19.0.4
           - eslint-config-prettier@9.0.0
-          - eslint-config-wesbos@3.2.3
+          - eslint-config-wesbos@4.3.1
           - eslint-plugin-html@8.1.1
-          - eslint-plugin-import@2.29.1
-          - eslint-plugin-jsx-a11y@6.8.0
+          - eslint-plugin-import@2.30.0
+          - eslint-plugin-jsx-a11y@6.10.0
           - eslint-plugin-prettier@4.2.1
-          - eslint-plugin-react@7.34.0
+          - eslint-plugin-react@7.35.2
           - eslint-plugin-react-hooks@4.6.0
           - prettier@2.8.8
