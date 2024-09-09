@@ -16,7 +16,7 @@ const Application = function ({ children }) {
       userScopes,
       config,
     }),
-    [csrf, username, userScopes, config]
+    [csrf, username, userScopes, config],
   );
 
   return (

@@ -170,7 +170,7 @@ TokenForm.propTypes = {
     PropTypes.shape({
       name: PropTypes.string,
       description: PropTypes.string,
-    })
+    }),
   ),
   onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,

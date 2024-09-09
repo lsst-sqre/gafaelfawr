@@ -103,7 +103,7 @@ const TokenChangeSearch = function ({ query, setQuery }) {
         .then(() => setQuery(valuesToQuery(values)))
         .catch((e) => setErrors(exceptionToErrors(e, alert)));
     },
-    [alert, setQuery, username]
+    [alert, setQuery, username],
   );
 
   return (

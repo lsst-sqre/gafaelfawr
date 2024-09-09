@@ -35,7 +35,7 @@ function buildUrl(route, params) {
   if (!params) return apiUrl(route);
   const url = new URL(apiUrl(route));
   Object.entries(params).forEach(([key, value]) =>
-    url.searchParams.set(key, value)
+    url.searchParams.set(key, value),
   );
   return url.href;
 }
