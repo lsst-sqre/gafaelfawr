@@ -64,7 +64,7 @@ async def test_invalid(
         "/auth", headers={"Authorization": f"bearer {token.token}"}
     )
     assert r.status_code == 422
-    assert r.json()["detail"][0]["type"] == "list_type"
+    assert r.json()["detail"][0]["type"] == "missing"
 
     r = await client.get(
         "/auth",

@@ -22,16 +22,16 @@ __all__ = [
 ]
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(loop_scope="session", scope="session", autouse=True)
 async def kubernetes_setup() -> None:
     """Initialize the Kubernetes client and install the testing CRDs.
 
     Notes
     -----
     This needs to be done as a session fixture, since deleting CRDs between
-    tests doesn't really work.  Even if one waits for the CRD to be deleted,
+    tests doesn't really work. Even if one waits for the CRD to be deleted,
     Kubernetes still won't allow it to be reinstalled, failing with a 409
-    Conflict error.  Presumably it lives on for longer than we want to wait.
+    Conflict error. Presumably it lives on for longer than we want to wait.
     """
     await initialize_kubernetes()
     async with ApiClient() as api_client:
@@ -39,7 +39,7 @@ async def kubernetes_setup() -> None:
 
 
 @pytest_asyncio.fixture
-async def api_client(kubernetes_setup: None) -> AsyncIterator[ApiClient]:
+async def api_client() -> AsyncIterator[ApiClient]:
     """Set up a Kubernetes environment and clean up after a test."""
     async with ApiClient() as client:
         yield client
