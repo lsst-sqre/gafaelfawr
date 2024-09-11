@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, Index, String, UniqueConstraint
+from sqlalchemy import Index, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.token import TokenType
 from .base import Base
@@ -17,15 +18,17 @@ class Token(Base):
 
     __tablename__ = "token"
 
-    token: str = Column(String(64, collation="C"), primary_key=True)
-    username: str = Column(String(64), nullable=False)
-    token_type: TokenType = Column(Enum(TokenType), nullable=False)
-    token_name: str | None = Column(String(64))
-    scopes: str = Column(String(512), nullable=False)
-    service: str | None = Column(String(64))
-    created: datetime = Column(DateTime, nullable=False)
-    last_used: datetime | None = Column(DateTime)
-    expires: datetime | None = Column(DateTime)
+    token: Mapped[str] = mapped_column(
+        String(64, collation="C"), primary_key=True
+    )
+    username: Mapped[str] = mapped_column(String(64))
+    token_type: Mapped[TokenType]
+    token_name: Mapped[str | None] = mapped_column(String(64))
+    scopes: Mapped[str] = mapped_column(String(512))
+    service: Mapped[str | None] = mapped_column(String(64))
+    created: Mapped[datetime]
+    last_used: Mapped[datetime | None]
+    expires: Mapped[datetime | None]
 
     __table_args__ = (
         UniqueConstraint("username", "token_name"),

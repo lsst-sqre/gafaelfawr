@@ -6,7 +6,8 @@ group-based authorization system up and running.
 
 from __future__ import annotations
 
-from sqlalchemy import Column, String
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
 
@@ -18,4 +19,4 @@ class Admin(Base):
 
     __tablename__ = "admin"
 
-    username = Column(String(64), primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), primary_key=True)
