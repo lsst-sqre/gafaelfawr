@@ -283,6 +283,16 @@ You must have Docker running locally on your system and have the :command:`docke
 
       docker-compose -f alembic/docker-compose.yaml down
 
+#. Generate and save the new schema:
+
+   .. prompt:: bash
+
+      tox run -e gafaelfawr -- generate-schema -o tests/data/schemas/<version>
+
+   Replace ``<version>`` with the version of the Gafaelfawr release that will contain this schema version.
+   Then update the version in :file:`tests/support/constants.py` to match that new schema version.
+   This will update the test that ensures that there are no changes to the Gafaelfawr schema definition that would affect the SQL schema.
+
 Building documentation
 ======================
 

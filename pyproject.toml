@@ -170,8 +170,11 @@ extend = "ruff-shared.toml"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "alembic/**" = [
-    "INP001",  # Alembic files are magical
-    "D103",    # no docstrings for Alembic migrations
+    "INP001",   # Alembic files are magical
+    "D103",     # no docstrings for Alembic migrations
+]
+"tests/**" = [
+    "ASYNC221", # useful to run subprocess in async tests for Alembic
 ]
 
 [tool.ruff.lint.isort]
