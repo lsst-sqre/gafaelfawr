@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 
 __all__ = ["Base"]
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """Declarative base for the Gafaelfawr database schema."""

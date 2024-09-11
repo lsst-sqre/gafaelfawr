@@ -47,7 +47,7 @@ dependencies = [
     "pyyaml",
     "redis>=4.2.0",
     "safir[db,kubernetes]>=6.2.0",
-    "sqlalchemy",
+    "sqlalchemy>=2.0.0",
     "structlog",
 ]
 dynamic = ["version"]

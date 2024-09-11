@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, Index, Integer, String
+from sqlalchemy import Index, String
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.history import AdminChange
 from .base import Base
@@ -22,13 +23,13 @@ class AdminHistory(Base):
 
     __tablename__ = "admin_history"
 
-    id: int = Column(Integer, primary_key=True)
-    username: str = Column(String(64), nullable=False)
-    action: AdminChange = Column(Enum(AdminChange), nullable=False)
-    actor: str = Column(String(64), nullable=False)
-    ip_address: str = Column(
-        String(64).with_variant(postgresql.INET, "postgresql"), nullable=False
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(64))
+    action: Mapped[AdminChange]
+    actor: Mapped[str] = mapped_column(String(64))
+    ip_address: Mapped[str] = mapped_column(
+        String(64).with_variant(postgresql.INET, "postgresql")
     )
-    event_time: datetime = Column(DateTime, nullable=False)
+    event_time: Mapped[datetime]
 
     __table_args__ = (Index("admin_history_by_time", "event_time", "id"),)
