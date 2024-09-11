@@ -2,6 +2,15 @@
 
 from gafaelfawr.keypair import RSAKeyPair
 
+__all__ = [
+    "CURRENT_SCHEMA",
+    "TEST_KEYPAIR",
+    "TEST_HOSTNAME",
+]
+
+CURRENT_SCHEMA = "10.0.0"
+"""Most recent saved schema version for schema compatibility tests."""
+
 TEST_HOSTNAME = "example.com"
 """The hostname used in ASGI requests to the application."""
 

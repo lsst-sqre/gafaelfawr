@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from alembic.config import Config as AlembicConfig
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from safir.database import create_database_engine, initialize_database
-from sqlalchemy import Connection, select
+from sqlalchemy import Connection, create_mock_engine, select
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncEngine
 from structlog.stdlib import BoundLogger
@@ -22,6 +23,25 @@ __all__ = [
     "is_database_current",
     "is_database_initialized",
 ]
+
+
+def generate_schema_sql(config: Config) -> str:
+    """Generate SQL for the Gafaelfawr databsae schema.
+
+    Parameters
+    ----------
+    config
+        Gafaelfawr configuration.
+    """
+    result = ""
+
+    def dump(sql: Any, *args: Any, **kwargs: Any) -> None:
+        nonlocal result
+        result += str(sql.compile(dialect=engine.dialect)) + ";\n"
+
+    engine = create_mock_engine(str(config.database_url), dump)
+    Base.metadata.create_all(engine, checkfirst=False)
+    return result
 
 
 async def initialize_gafaelfawr_database(

@@ -21,6 +21,7 @@ from safir.slack.blockkit import SlackMessage
 from sqlalchemy import text
 
 from .database import (
+    generate_schema_sql,
     initialize_gafaelfawr_database,
     is_database_current,
     is_database_initialized,
@@ -37,6 +38,7 @@ __all__ = [
     "audit",
     "delete_all_data",
     "generate_key",
+    "generate_schema",
     "generate_token",
     "help",
     "init",
@@ -159,6 +161,32 @@ def generate_key() -> None:
     """
     keypair = RSAKeyPair.generate()
     sys.stdout.write(keypair.private_key_as_pem().decode())
+
+
+@main.command()
+@click.option(
+    "--config-path",
+    envvar="GAFAELFAWR_CONFIG_PATH",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Application configuration file.",
+)
+@click.option(
+    "--output",
+    default=None,
+    type=click.Path(path_type=Path),
+    help="Output path (output to stdout if not given).",
+)
+def generate_schema(*, config_path: Path | None, output: Path | None) -> None:
+    """Generate SQL to create the Gafaelfawr database schema."""
+    if config_path:
+        config_dependency.set_config_path(config_path)
+    config = config_dependency.config()
+    schema = generate_schema_sql(config)
+    if output:
+        output.write_text(schema)
+    else:
+        sys.stdout.write(schema)
 
 
 @main.command()

@@ -31,6 +31,11 @@ class ConfigDependency:
         """Load the configuration if necessary and return it."""
         return self.config()
 
+    @property
+    def config_path(self) -> Path:
+        """Path to the configuration file."""
+        return self._config_path
+
     def config(self) -> Config:
         """Load the configuration if necessary and return it.
 

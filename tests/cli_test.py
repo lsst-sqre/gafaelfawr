@@ -170,6 +170,14 @@ def test_generate_key() -> None:
     assert "-----BEGIN PRIVATE KEY-----" in result.output
 
 
+def test_generate_schema() -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["generate-schema"], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    assert "CREATE TABLE" in result.output
+
+
 def test_generate_session_secret() -> None:
     runner = CliRunner()
     result = runner.invoke(
