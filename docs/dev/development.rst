@@ -215,7 +215,7 @@ If you need to depend on, for example, a Git version of Safir, change the ``safi
       # ...
    ]
 
-Then, run :command:`make update-deps-no-hashes` instead to generate frozen dependencies without the hashes.
+Then, run :command:`make update-deps` to regenerate frozen dependencies.
 
 Do not release new non-alpha versions of Gafaelfawr with Git dependencies.
 The other package should be released first before a new version of Gafaelfawr is released.

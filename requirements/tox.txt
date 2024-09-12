@@ -205,9 +205,9 @@ tox-uv==1.11.3 \
     --hash=sha256:316f559ae5525edec12791d9e1f393e405ded5b7e7d50fbaee4726676951f49a \
     --hash=sha256:d434787406ff2854600c1ceaa555519080026208cf7f65bb5d4b2d7c9c4776de
     # via -r requirements/tox.in
-urllib3==2.2.2 \
-    --hash=sha256:a448b2f64d686155468037e1ace9f2d2199776e17f0a46610480d311f73e3472 \
-    --hash=sha256:dd505485549a7a552833da5e6063639d0d177c04f23bc3864e41e5dc5f612168
+urllib3==2.2.3 \
+    --hash=sha256:ca899ca043dcb1bafa3e262d73aa25c465bfb49e0bd9dd5d59f1d0acba2f8fac \
+    --hash=sha256:e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9
     # via
     #   -c requirements/dev.txt
     #   -c requirements/main.txt

@@ -1,4 +1,4 @@
-# This Dockerfile has four stages:
+# This Dockerfile has three stages:
 #
 # base-image
 #   Updates the base Python image with security patches and common system
@@ -12,13 +12,16 @@
 #   - Runs as a non-root user.
 #   - Sets up the entrypoint and port.
 
-FROM python:3.12.5-slim-bookworm as base-image
+FROM python:3.12.5-slim-bookworm AS base-image
 
 # Update system packages
 COPY scripts/install-base-packages.sh .
 RUN ./install-base-packages.sh && rm ./install-base-packages.sh
 
 FROM base-image AS install-image
+
+# Install uv.
+COPY --from=ghcr.io/astral-sh/uv:0.4.9 /uv /bin/uv
 
 # Determine the Node version that we want to install
 COPY .nvmrc /opt/.nvmrc
@@ -29,22 +32,20 @@ RUN ./install-dependency-packages.sh
 
 # Create a Python virtual environment
 ENV VIRTUAL_ENV=/opt/venv
-RUN python -m venv $VIRTUAL_ENV
+RUN uv venv /opt/venv
 
 # Make sure we use the virtualenv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Put the latest pip and setuptools in the virtualenv
-RUN pip install --upgrade --no-cache-dir pip setuptools wheel
-
 # Install the app's Python runtime dependencies
 COPY requirements/main.txt ./requirements.txt
-RUN pip install --quiet --no-cache-dir -r requirements.txt
+RUN uv pip install --compile-bytecode --verify-hashes --no-cache \
+    -r requirements.txt
 
 # Install the Gafaelfawr Python application.
 COPY . /workdir
 WORKDIR /workdir
-RUN pip install --no-cache-dir .
+RUN uv pip install --compile-bytecode --no-cache .
 
 FROM base-image AS runtime-image
 

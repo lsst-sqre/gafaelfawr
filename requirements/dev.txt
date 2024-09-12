@@ -1455,7 +1455,9 @@ selenium-wire==5.1.0 \
 setuptools==74.1.2 \
     --hash=sha256:5f4c08aa4d3ebcb57a50c33b1b07e94315d7fc7230f7115e47fc99776c8ce308 \
     --hash=sha256:95b40ed940a1c67eb70fc099094bd6e99c6ee7c23aa2306f4d2697ba7916f9c6
-    # via documenteer
+    # via
+    #   documenteer
+    #   sphinxcontrib-bibtex
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
     --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
@@ -1512,9 +1514,9 @@ sphinx==8.0.2 \
     #   sphinxcontrib-youtube
     #   sphinxext-opengraph
     #   sphinxext-rediraffe
-sphinx-autodoc-typehints==2.4.0 \
-    --hash=sha256:8f8281654ddf5709875429b7120d367f4edee39a131e13d5806e4f779a81bf0f \
-    --hash=sha256:c9774d47e7d304cf975e073df49ebf19763dca94ac0295e7013b522b26cb18de
+sphinx-autodoc-typehints==2.4.1 \
+    --hash=sha256:af37abb816ebd2cf56c7a8174fd2f34d0f2f84fbf58265f89429ae107212fe6f \
+    --hash=sha256:cfe410920cecf08ade046bb387b0007edb83e992de59686c62d194c762f1e45c
     # via documenteer
 sphinx-automodapi==0.17.0 \
     --hash=sha256:4d029cb79eef29413e94ab01bb0177ebd2d5ba86e9789b73575afe9c06ae1501 \
@@ -1548,9 +1550,9 @@ sphinxcontrib-applehelp==2.0.0 \
     --hash=sha256:2f29ef331735ce958efa4734873f084941970894c6090408b079c61b2e1c06d1 \
     --hash=sha256:4cd3f0ec4ac5dd9c17ec65e9ab272c9b867ea77425228e68ecf08d6b28ddbdb5
     # via sphinx
-sphinxcontrib-bibtex==2.6.2 \
-    --hash=sha256:10d45ebbb19207c5665396c9446f8012a79b8a538cb729f895b5910ab2d0b2da \
-    --hash=sha256:f487af694336f28bfb7d6a17070953a7d264bec43000a2379724274f5f8d70ae
+sphinxcontrib-bibtex==2.6.3 \
+    --hash=sha256:7c790347ef1cb0edf30de55fc324d9782d085e89c52c2b8faafa082e08e23946 \
+    --hash=sha256:ff016b738fcc867df0f75c29e139b3b2158d26a2c802db27963cb128be3b75fb
     # via documenteer
 sphinxcontrib-devhelp==2.0.0 \
     --hash=sha256:411f5d96d445d1d73bb5d52133377b4248ec79db5c793ce7dbe59e074b4dd1ad \
@@ -1770,9 +1772,9 @@ uc-micro-py==1.0.3 \
     --hash=sha256:d321b92cff673ec58027c04015fcaa8bb1e005478643ff4a500882eaab88c48a \
     --hash=sha256:db1dffff340817673d7b466ec86114a9dc0e9d4d9b5ba229d9d60e5c12600cd5
     # via linkify-it-py
-urllib3==2.2.2 \
-    --hash=sha256:a448b2f64d686155468037e1ace9f2d2199776e17f0a46610480d311f73e3472 \
-    --hash=sha256:dd505485549a7a552833da5e6063639d0d177c04f23bc3864e41e5dc5f612168
+urllib3==2.2.3 \
+    --hash=sha256:ca899ca043dcb1bafa3e262d73aa25c465bfb49e0bd9dd5d59f1d0acba2f8fac \
+    --hash=sha256:e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9
     # via
     #   -c requirements/main.txt
     #   documenteer
