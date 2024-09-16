@@ -56,7 +56,7 @@ At the HEAD of the ``main`` branch, create and push a tag with the semantic vers
 The tag **must** follow the :pep:`440` specification since Gafaelfawr uses setuptools_scm_ to set version metadata based on Git tags.
 In particular, **don't** prefix the tag with ``v``.
 
-.. _setuptools_scm: https://github.com/pypa/setuptools_scm
+.. _setuptools_scm: https://github.com/pypa/setuptools-scm
 
 The `ci.yaml`_ GitHub Actions workflow uploads the new release to Docker Hub.
 

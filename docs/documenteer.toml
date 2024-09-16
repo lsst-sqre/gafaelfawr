@@ -44,9 +44,10 @@ nitpick_ignore = [
     ["py:exc", "httpx.HTTPError"],
     ["py:obj", "fastapi.routing.APIRoute"],
     ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
+    ["py:class", "pydantic.functional_serializers.PlainSerializer"],
+    ["py:class", "pydantic.functional_validators.BeforeValidator"],
     ["py:class", "pydantic.main.BaseModel"],
-    ["py:class", "pydantic.networks.AnyHttpUrl"],
-    ["py:class", "pydantic.networks.IPvAnyNetwork"],
+    ["py:class", "pydantic.networks.UrlConstraints"],
     ["py:class", "pydantic.types.SecretStr"],
     ["py:class", "pydantic.utils.Representation"],
     ["py:class", "pydantic_core._pydantic_core.Url"],
@@ -60,6 +61,9 @@ nitpick_ignore = [
     ["py:class", "starlette.routing.Route"],
     ["py:class", "starlette.routing.BaseRoute"],
     ["py:exc", "starlette.exceptions.HTTPException"],
+    # Broken links created by autodoc_pydantic.
+    ["py:class", "lambda"],
+    ["py:class", "safir.pydantic._validators.normalize_datetime"],
     # asyncio.Lock is documented, and that's what all the code references, but
     # the combination of Sphinx extensions we're using confuse themselves and
     # there doesn't seem to be any way to fix this.
@@ -89,8 +93,6 @@ structlog = "https://www.structlog.org/en/stable"
 
 [sphinx.linkcheck]
 ignore = [
-    # Created during build by sphinxcontrib-redoc
-    '^rest\.html$',
     # Generate redirects for authentication
     '^https://github\.com/settings/developers$',
     '^https://github\.com/.*/issues/new$',

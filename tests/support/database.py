@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import contextlib
 from pathlib import Path
 
+from safir.database import unstamp_database
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
@@ -14,26 +13,9 @@ from gafaelfawr.factory import Factory
 from gafaelfawr.schema import Base
 
 __all__ = [
-    "clear_alembic_version",
     "create_old_database",
     "drop_database",
 ]
-
-
-async def clear_alembic_version(engine: AsyncEngine) -> None:
-    """Clear the Alembic version from the database.
-
-    This is done when clearing the whole database or before stamping the
-    database to ensure that the database is in the expected state.
-
-    Parameters
-    ----------
-    engine
-        Engine to use for SQL calls.
-    """
-    async with engine.begin() as conn:
-        with contextlib.suppress(ProgrammingError):
-            await conn.execute(text("DROP TABLE alembic_version"))
 
 
 async def create_old_database(
@@ -77,4 +59,4 @@ async def drop_database(engine: AsyncEngine) -> None:
     """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    await clear_alembic_version(engine)
+    await unstamp_database(engine)

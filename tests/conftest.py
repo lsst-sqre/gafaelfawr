@@ -10,18 +10,18 @@ import pytest
 import pytest_asyncio
 import respx
 import structlog
-from alembic.config import Config as AlembicConfig
-from alembic.runtime.migration import MigrationContext
-from alembic.script import ScriptDirectory
 from asgi_lifespan import LifespanManager
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricReader
-from safir.database import create_database_engine, initialize_database
+from safir.database import (
+    create_database_engine,
+    initialize_database,
+    stamp_database_async,
+)
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from seleniumwire import webdriver
-from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
@@ -36,7 +36,6 @@ from gafaelfawr.schema import Base
 from .pages.tokens import TokensPage
 from .support.config import config_path, configure
 from .support.constants import TEST_HOSTNAME
-from .support.database import clear_alembic_version
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
 from .support.selenium import SeleniumConfig, run_app, selenium_driver
@@ -132,27 +131,7 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
         async with factory.session.begin():
             await admin_service.add_initial_admins(config.initial_admins)
         await factory._context.redis.flushdb()
-
-    # Get Alembic configuration information.
-    alembic_config = AlembicConfig("alembic.ini")
-    alembic_scripts = ScriptDirectory.from_config(alembic_config)
-    current_head = alembic_scripts.get_current_head()
-    assert current_head
-
-    def set_version(connection: Connection) -> None:
-        context = MigrationContext.configure(connection)
-        context.stamp(alembic_scripts, current_head)
-
-    # Stamp the database with the current Alembic version. Initializing the
-    # database will not update the Aflembic version, so we have to do this
-    # explicitly to ensure that there isn't any out-of-date schema information
-    # left over from a previous test.
-    #
-    # We have to do this somewhat elaborately because the alembic.command
-    # interface cannot be run inside an asyncio loop.
-    await clear_alembic_version(engine)
-    async with engine.begin() as connection:
-        await connection.run_sync(set_version)
+    await stamp_database_async(engine)
 
 
 @pytest_asyncio.fixture

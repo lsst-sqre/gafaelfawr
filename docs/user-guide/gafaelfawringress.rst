@@ -199,7 +199,7 @@ The same token will also still be passed in the ``X-Auth-Request-Token`` header.
 If this configuration option is set, the incoming ``Authorization`` header will be entirely replaced by one containing only the delegated token, unlike Gafaelfawr's normal behavior of preserving any incoming ``Authorization`` header that doesn't include a Gafaelfawr token.
 
 Caching
-=======
+========
 
 By default, Gafaelfawr is consulted for every HTTP request handled by the NGINX ingress.
 
