@@ -4,7 +4,7 @@
 Configuring ingress with GafaelfawrIngress
 ##########################################
 
-The recommended way to configure ``Ingress`` resources for protected services is by using the ``GafaelafwrIngress`` custom resource.
+The recommended way to configure ``Ingress`` resources for protected services is by using the ``GafaelfawrIngress`` custom resource.
 
 Gafaelfawr only supports HTTP ingresses and only supports a limited subset of the full syntax for the ``rules`` and ``tls`` keys for the ``GafaelfawrIngress`` resource.
 If you need other ``Ingress`` functionality, or if you need to add Gafaelfawr support to an ingress created outside of your control (such as by a third-party Helm chart), see :ref:`manual-ingress`.
