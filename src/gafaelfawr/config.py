@@ -50,7 +50,7 @@ from pydantic_settings import (
 from safir.logging import LogLevel, configure_logging
 from safir.pydantic import EnvAsyncPostgresDsn, EnvRedisDsn, HumanTimedelta
 
-from .constants import SCOPE_REGEX, USERNAME_REGEX
+from .constants import MINIMUM_LIFETIME, SCOPE_REGEX, USERNAME_REGEX
 from .exceptions import InvalidTokenError
 from .keypair import RSAKeyPair
 from .models.token import Token
@@ -991,6 +991,15 @@ class Config(EnvFirstSettings):
         for required in ("admin:token", "user:token"):
             if required not in v:
                 raise ValueError(f"required scope {required} missing")
+        return v
+
+    @field_validator("token_lifetime")
+    @classmethod
+    def _validate_token_lifetime(cls, v: timedelta) -> timedelta:
+        """Ensure the token lifetime is longer than minimal lifetime."""
+        limit = MINIMUM_LIFETIME + MINIMUM_LIFETIME
+        if v < limit:
+            raise ValueError(f"must be longer than {limit.total_seconds}s")
         return v
 
     @model_validator(mode="before")

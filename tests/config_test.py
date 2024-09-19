@@ -82,6 +82,11 @@ def test_config_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
         parse_config(config_path("github"))
 
 
+def test_config_invalid_lifetime() -> None:
+    with pytest.raises(ValidationError, match=r"must be longer than"):
+        parse_config(config_path("bad-lifetime"))
+
+
 def test_config_bad_groups() -> None:
     with pytest.raises(ValidationError, match="Input should be a valid list"):
         parse_config(config_path("bad-groups"))

@@ -1,0 +1,15 @@
+# Test too short of a token lifetime.
+
+realm: "example.com"
+slackAlerts: true
+initialAdmins: ["admin"]
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
+  "exec:admin": ["admin"]
+knownScopes:
+  "admin:token": "token administration"
+  "exec:admin": "admin description"
+  "user:token": "Can create and modify user tokens"
+github:
+  clientId: "some-github-client-id"
+tokenLifetime: "8m"
