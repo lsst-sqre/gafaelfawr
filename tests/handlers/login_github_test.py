@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import os
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
@@ -11,11 +13,14 @@ from httpx import AsyncClient, Response
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
+from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
+from gafaelfawr.models.state import State
 from gafaelfawr.providers.github import GitHubProvider
 
+from ..support.constants import TEST_HOSTNAME
 from ..support.github import mock_github
 from ..support.logging import parse_log
 
@@ -546,3 +551,48 @@ async def test_unicode_name(
             {"name": "org-a-team", "id": 1000},
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_invalid_state(
+    client: AsyncClient, config: Config, respx_mock: respx.Router
+) -> None:
+    user_info = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[],
+    )
+    return_url = "https://example.com/foo"
+
+    mock_github(respx_mock, "some-code", user_info)
+    r = await client.get("/login", params={"rd": return_url})
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+
+    # Change the state to something that won't match.
+    state = await State.from_cookie(r.cookies[COOKIE_NAME])
+    state.state = base64.urlsafe_b64encode(os.urandom(16)).decode()
+    client.cookies.set(COOKIE_NAME, state.to_cookie(), domain=TEST_HOSTNAME)
+
+    # We should now get an error from the login endpoint.
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 403
+    assert "Authentication state mismatch" in r.text
+
+    # Change the state to None.
+    state.state = None
+    client.cookies.set(COOKIE_NAME, state.to_cookie(), domain=TEST_HOSTNAME)
+
+    # Now we should get a simple redirect to the return URL even though the
+    # authentication isn't complete, since the code should assume, given the
+    # empty state, that the user may have logged in via another window.
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == return_url
