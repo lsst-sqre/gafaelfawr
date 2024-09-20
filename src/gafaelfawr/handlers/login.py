@@ -42,8 +42,8 @@ class LoginError(Enum):
     PROVIDER_FAILED = "Authentication provider failed"
     PROVIDER_NETWORK = "Cannot contact authentication provider"
     RETURN_URL_MISSING = "Invalid state: return_url not present in cookie"
-    STATE_INVALID = "Authentication state mismatch"
-    STATE_MISSING = "No authentication state"
+    STATE_INVALID = "Authentication state mismatch, please start over"
+    STATE_MISSING = "No authentication state, please start over"
 
 
 @router.get(
@@ -398,6 +398,11 @@ async def _construct_login_response(
     Handles the target of the redirect back from an external authentication
     provider with new authentication state information.
 
+    If there is no authentication state in the user's cookie, it is likely
+    that the user was attempting logins in multiple tabs and already logged in
+    via some other tab. Redirect the user to their destination, which in the
+    worst case will just restart the authentication with proper state.
+
     Parameters
     ----------
     code
@@ -428,12 +433,16 @@ async def _construct_login_response(
         Raised if there is some problem retrieving information from the
         authentication provider.
     """
-    if state != context.state.state:
-        return _error_user(context, LoginError.STATE_INVALID)
     return_url = context.state.return_url
     if not return_url:
         return _error_user(context, LoginError.RETURN_URL_MISSING)
     context.rebind_logger(return_url=return_url)
+    if not context.state.state:
+        msg = "Login state missing, redirecting without authentication"
+        context.logger.info(msg)
+        return RedirectResponse(return_url)
+    if state != context.state.state:
+        return _error_user(context, LoginError.STATE_INVALID)
 
     # Retrieve the user identity and authorization information based on the
     # reply from the authentication provider, and construct a token.
