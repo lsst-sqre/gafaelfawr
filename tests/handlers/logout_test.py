@@ -1,4 +1,4 @@
-"""Tests for the /logout route."""
+"""Tests for the ``/logout`` route."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ async def test_logout(
     await set_session_cookie(client, token_data.token)
 
     # Confirm that we're logged in.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
 
     # Go to /logout without specifying a redirect URL.
@@ -53,7 +53,7 @@ async def test_logout(
     ]
 
     # Confirm that we're no longer logged in.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 401
 
 
@@ -63,7 +63,7 @@ async def test_logout_with_url(client: AsyncClient, factory: Factory) -> None:
     await set_session_cookie(client, token_data.token)
 
     # Confirm that we're logged in.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
 
     # Go to /logout with a redirect URL and check the redirect.
@@ -73,7 +73,7 @@ async def test_logout_with_url(client: AsyncClient, factory: Factory) -> None:
     assert r.headers["Location"] == redirect_url
 
     # Confirm that we're no longer logged in.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 401
 
 

@@ -261,8 +261,8 @@ def generate_unauthorized_challenge(
     }
 
     # If the request was sent via AJAX and ajax_forbidden was set (which will
-    # be true for /auth but not for the Gafaelfawr API), return 403 instead of
-    # 401 to avoid lots of NGINX ingress redirects.
+    # be true for /ingress/auth but not for the Gafaelfawr API), return 403
+    # instead of 401 to avoid lots of NGINX ingress redirects.
     status_code = status.HTTP_401_UNAUTHORIZED
     if ajax_forbidden:
         requested_with = context.request.headers.get("X-Requested-With")

@@ -1,4 +1,4 @@
-"""Tests for logging in the /auth route."""
+"""Tests for logging in the ``/ingress/auth`` route."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ async def test_success(
     # Successful request with X-Forwarded-For and a bearer token.
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={
             "Authorization": f"Bearer {token_data.token}",
@@ -40,7 +40,9 @@ async def test_success(
         "event": "Token authorized",
         "httpRequest": {
             "requestMethod": "GET",
-            "requestUrl": f"https://{TEST_HOSTNAME}/auth?scope=exec%3Aadmin",
+            "requestUrl": (
+                f"https://{TEST_HOSTNAME}/ingress/auth?scope=exec%3Aadmin"
+            ),
             "remoteIp": "192.0.2.1",
         },
         "required_scopes": ["exec:admin"],
@@ -58,7 +60,7 @@ async def test_success(
     basic_b64 = base64.b64encode(basic).decode()
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={
             "Authorization": f"Basic {basic_b64}",
@@ -75,7 +77,7 @@ async def test_success(
     basic_b64 = base64.b64encode(basic).decode()
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={
             "Authorization": f"Basic {basic_b64}",
@@ -89,14 +91,14 @@ async def test_success(
 
 
 @pytest.mark.asyncio
-async def test_authorization_failed(
+async def test_authz_failed(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory, scopes=["exec:admin"])
 
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:test", "satisfy": "any"},
         headers={
             "Authorization": f"Bearer {token_data.token}",
@@ -113,7 +115,7 @@ async def test_authorization_failed(
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": (
-                    f"https://{TEST_HOSTNAME}/auth"
+                    f"https://{TEST_HOSTNAME}/ingress/auth"
                     "?scope=exec%3Atest&satisfy=any"
                 ),
                 "remoteIp": "127.0.0.1",
@@ -137,7 +139,7 @@ async def test_original_url(
 
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={
             "Authorization": f"bearer {token_data.token}",
@@ -151,7 +153,9 @@ async def test_original_url(
         "event": "Permission denied",
         "httpRequest": {
             "requestMethod": "GET",
-            "requestUrl": f"https://{TEST_HOSTNAME}/auth?scope=exec%3Aadmin",
+            "requestUrl": (
+                f"https://{TEST_HOSTNAME}/ingress/auth?scope=exec%3Aadmin"
+            ),
             "remoteIp": "127.0.0.1",
         },
         "required_scopes": ["exec:admin"],
@@ -168,7 +172,7 @@ async def test_original_url(
     # override the latter.
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={
             "Authorization": f"bearer {token_data.token}",
@@ -182,14 +186,14 @@ async def test_original_url(
 
 
 @pytest.mark.asyncio
-async def test_chained_x_forwarded(
+async def test_x_forwarded(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(factory)
 
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={
             "Authorization": f"bearer {token_data.token}",
@@ -208,7 +212,7 @@ async def test_chained_x_forwarded(
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": (
-                    f"https://{TEST_HOSTNAME}/auth?scope=exec%3Aadmin"
+                    f"https://{TEST_HOSTNAME}/ingress/auth?scope=exec%3Aadmin"
                 ),
                 "remoteIp": "2001:db8:85a3:8d3:1319:8a2e:370:734",
             },
@@ -229,21 +233,21 @@ async def test_invalid_token(
 ) -> None:
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
-        headers={"Authorization": "Bearer blah"},
+        headers={"Authorization": "Bearer blah", "X-Original-Uri": "/foo"},
     )
 
     assert r.status_code == 401
     assert parse_log(caplog) == [
         {
-            "auth_uri": "NONE",
+            "auth_uri": "/foo",
             "error": "Token does not start with gt-",
             "event": "Invalid token",
             "httpRequest": {
                 "requestMethod": "GET",
                 "requestUrl": (
-                    f"https://{TEST_HOSTNAME}/auth?scope=exec%3Aadmin"
+                    f"https://{TEST_HOSTNAME}/ingress/auth?scope=exec%3Aadmin"
                 ),
                 "remoteIp": "127.0.0.1",
             },
@@ -266,7 +270,7 @@ async def test_notebook(
 
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin", "notebook": "true"},
         headers={
             "Authorization": f"Bearer {token_data.token}",
@@ -332,7 +336,7 @@ async def test_internal(
 
     caplog.clear()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "exec:admin",
             "delegate_to": "a-service",

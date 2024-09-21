@@ -1,4 +1,10 @@
-"""Handler for authentication and authorization checking (``/auth``)."""
+"""Handlers for routes intended for use only by the ingress.
+
+These routes implement the NGINX ``auth_request`` API and should only be
+accessed by the NGINX ingress. They should not be expoed to users via a
+Kubernetes ``Ingress`` and instead should be accessed using cluster-internal
+URLs.
+"""
 
 from __future__ import annotations
 
@@ -79,22 +85,22 @@ def auth_uri(
         Header(description="URL for which authorization is being checked"),
     ] = None,
     x_original_url: Annotated[
-        str | None,
+        str,
         Header(
             description=(
                 "URL for which authorization is being checked."
                 " `X-Original-URI` takes precedence if both are set."
             ),
         ),
-    ] = None,
+    ],
 ) -> str:
     """Determine URL for which we're validating authentication.
 
     ``X-Original-URI`` will only be set if the auth-method annotation is set.
-    That is recommended, but allow for the case where it isn't set and fall
-    back on ``X-Original-URL``, which is set unconditionally.
+    That should always be the case, but allow for it to be unset and fall back
+    on ``X-Original-URL``, which is set unconditionally.
     """
-    return x_original_uri or x_original_url or "NONE"
+    return x_original_uri or x_original_url
 
 
 def auth_config(
@@ -278,7 +284,7 @@ async def authenticate_with_type(
 
 
 @router.get(
-    "/auth",
+    "/ingress/auth",
     description="Meant to be used as an NGINX auth_request handler",
     responses={
         400: {"description": "Bad request", "model": ErrorModel},
@@ -334,7 +340,7 @@ async def get_auth(
 
 
 @router.get(
-    "/auth/anonymous",
+    "/ingress/anonymous",
     description=(
         "Intended for use as an auth-url handler for anonymous routes. No"
         " authentication is done and no authorization checks are performed,"

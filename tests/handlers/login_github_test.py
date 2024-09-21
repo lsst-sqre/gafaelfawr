@@ -178,7 +178,7 @@ async def test_login(
 
     # Check that the /auth route works and finds our token, and that the user
     # information is correct.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "githubuser"
     assert r.headers["X-Auth-Request-Email"] == "githubuser@example.com"
@@ -273,7 +273,7 @@ async def test_cookie_and_token(
 
     # Now make a request to the /auth endpoint with a bogus token.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={"Authorization": "token some-jupyterhub-token"},
     )
@@ -342,7 +342,7 @@ async def test_github_uppercase(
     assert r.status_code == 307
 
     # The user returned by the /auth route should be forced to lowercase.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "someuser"
 
@@ -383,7 +383,7 @@ async def test_github_admin(
     assert r.status_code == 307
 
     # The user should have admin:token scope.
-    r = await client.get("/auth", params={"scope": "admin:token"})
+    r = await client.get("/ingress/auth", params={"scope": "admin:token"})
     assert r.status_code == 200
 
 
@@ -515,7 +515,7 @@ async def test_no_valid_groups(
     assert config.error_footer in r.text
 
     # The user should not be logged in.
-    r = await client.get("/auth", params={"scope": "user:token"})
+    r = await client.get("/ingress/auth", params={"scope": "user:token"})
     assert r.status_code == 401
 
     # None of these errors should have resulted in Slack alerts.

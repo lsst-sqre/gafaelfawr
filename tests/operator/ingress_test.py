@@ -79,8 +79,8 @@ async def test_replace(
         await asyncio.sleep(1)
 
         expected_url = (
-            "https://foo.example.com/auth?scope=read%3Aall&service=tap"
-            "&auth_type=basic"
+            "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth"
+            "?scope=read%3Aall&service=tap&auth_type=basic"
         )
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-url"
@@ -110,8 +110,8 @@ async def test_replace(
         await asyncio.sleep(1)
 
         expected_url = (
-            "https://foo.example.com/auth?scope=read%3Aall&service=tap"
-            "&auth_type=bearer"
+            "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth"
+            "?scope=read%3Aall&service=tap&auth_type=bearer"
         )
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-url"

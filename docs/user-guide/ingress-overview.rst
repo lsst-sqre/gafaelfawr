@@ -7,7 +7,7 @@ How Gafaelfawr-protected ingresses work
 Gafaelfawr is introduced into the HTTP request path for your services as an NGINX ``auth_request`` subhandler.
 This is done via annotations added to the Kubernetes ``Ingress`` resource that are interpreted by ingress-nginx_.
 
-For each HTTP request to a protected service, NGINX will send a request to the Gafaelfawr ``/auth`` route with the headers of the incoming request (including, for example, any cookies or ``Authorization`` header).
+For each HTTP request to a protected service, NGINX will send a request to the Gafaelfawr internal ``/ingress/auth`` route with the headers of the incoming request (including, for example, any cookies or ``Authorization`` header).
 Gafaelfawr, when receiving that request, will find the user's authentication token, check that it is valid, and check that the user has the required scope.
 
 The user may authenticate with a cookie (set by Gafaelfawr by the ``/login`` route), with a bearer token in the ``Authorization`` header, or with a token in either the username or password field of an HTTP Basic Auth ``Authorization`` header.
@@ -59,6 +59,4 @@ That NGINX module only supports two error status codes: 401 and 403.
 Gafaelfawr therefore has to go to some special lengths to be able to return other error codes (such as 400) to the client.
 
 This is done via the combination of special response headers, a custom location block added to each NGINX server via Phalanx configuration, and custom NGINX configuration added to each ``Ingress`` for a Gafaelfawr-protected service.
-That configuration is added automatically for ``Ingress`` resources generated from a ``GafaelfawrIngress``.
-If ingresses are :ref:`configured manually <manual-ingress>`, the corresponding NGINX configuration must also be added, or the client will receive 403 error codes instead of the expected error.
-That configuration is described in :ref:`manual-basic`.
+That configuration is added automatically when the ``Ingress`` resource is generated from a ``GafaelfawrIngress``.

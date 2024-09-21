@@ -49,6 +49,16 @@ every configuration file.
 """
 
 
+@pytest.fixture(autouse=True)
+def environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set default values of environment variables for testing."""
+    monkeypatch.setenv("GAFAELFAWR_BASE_URL", "https://foo.example.com")
+    monkeypatch.setenv(
+        "GAFAELFAWR_BASE_INTERNAL_URL",
+        "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080",
+    )
+
+
 @pytest_asyncio.fixture
 async def app(
     empty_database: None,
@@ -68,9 +78,11 @@ async def app(
 @pytest_asyncio.fixture
 async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
-    base_url = f"https://{TEST_HOSTNAME}"
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url=base_url) as client:
+    async with AsyncClient(
+        base_url=f"https://{TEST_HOSTNAME}",
+        headers={"X-Original-URL": "https://foo.example.com/bar"},
+        transport=ASGITransport(app=app),
+    ) as client:
         yield client
 
 

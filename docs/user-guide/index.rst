@@ -21,7 +21,6 @@ Also see the `Phalanx Gafaelfawr application documentation <https://phalanx.lsst
 
    ingress-overview
    gafaelfawringress
-   manual-ingress
    service-tokens
    openid-connect
 
