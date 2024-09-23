@@ -30,12 +30,11 @@ All authenticated routes add the following attributes once the user's token has 
 ``user``
     The username of the token.
 
-The ``/auth`` route adds the following attributes:
+The ``/ingress/auth`` route adds the following attributes:
 
 ``auth_uri``
     The URL being authenticated.
     This is the URL (withough the scheme and host) of the original request that Gafaelfawr is being asked to authenticate via a subrequest.
-    This will be ``NONE`` if the request was made directly to the ``/auth`` endpoint (which should not happen in normal usage, but may happen during testing).
 
 ``required_scope``
     The list of scopes required, taken from the ``scope`` query parameter

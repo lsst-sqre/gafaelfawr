@@ -749,6 +749,24 @@ class Config(EnvFirstSettings):
         ),
     )
 
+    base_url: HttpUrl = Field(
+        ...,
+        title="Base URL",
+        description="Base URL for user-facing routes such as ``/login``",
+        validation_alias=AliasChoices("GAFAELFAWR_BASE_URL", "baseUrl"),
+    )
+
+    base_internal_url: HttpUrl = Field(
+        ...,
+        title="Internal base URL",
+        description=(
+            "Base URL for internal-only routes such as ``/ingress/auth``"
+        ),
+        validation_alias=AliasChoices(
+            "GAFAELFAWR_BASE_INTERNAL_URL", "baseInternalUrl"
+        ),
+    )
+
     bootstrap_token: SecretStr = Field(
         ...,
         title="Bootstrap token",

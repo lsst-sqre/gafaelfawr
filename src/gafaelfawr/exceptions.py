@@ -345,7 +345,7 @@ class ExternalUserInfoError(SlackException):
     an external outage, and we don't want to report uncaught exceptions for
     every attempt to query them (possibly multiple times per second), so this
     exception base class is used to catch those errors in the high-traffic
-    ``/auth`` route and only log them.
+    ``/ingress/auth`` route and only log them.
     """
 
 

@@ -144,7 +144,7 @@ async def test_login(
     }
 
     # Check that the headers returned by the auth endpoint are also correct.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
     assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
@@ -236,7 +236,7 @@ async def test_firestore(
     assert r.json() == expected
 
     # Check that the headers returned by the auth endpoint are also correct.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
     assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
@@ -331,7 +331,7 @@ async def test_missing_attrs(
     }
 
     # Check that the headers returned by the auth endpoint are also correct.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "ldap-user"
     assert "X-Auth-Request-Email" not in r.headers
@@ -370,7 +370,7 @@ async def test_no_attrs(
     }
 
     # Check that the headers returned by the auth endpoint are also correct.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "some-user"
     assert "X-Auth-Request-Email" not in r.headers
@@ -457,7 +457,7 @@ async def test_username_claim(
 
     # Check that the /auth/api/v1/user-info and /auth routes works and return
     # the correct information.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == "alt-username"
 
@@ -981,7 +981,7 @@ async def test_no_valid_groups(
     assert config.error_footer in r.text
 
     # The user should not be logged in.
-    r = await client.get("/auth", params={"scope": "user:token"})
+    r = await client.get("/ingress/auth", params={"scope": "user:token"})
     assert r.status_code == 401
 
     # Do the same with a valid LDAP entry but no groups.
@@ -989,7 +989,7 @@ async def test_no_valid_groups(
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 403
     assert "some-user is not a member of any authorized groups" in r.text
-    r = await client.get("/auth", params={"scope": "user:token"})
+    r = await client.get("/ingress/auth", params={"scope": "user:token"})
     assert r.status_code == 401
 
     # None of these errors should have resulted in Slack alerts.

@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Literal, Self
-from urllib.parse import urlencode
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -273,7 +272,7 @@ class GafaelfawrIngressConfig(BaseModel):
     """Auth type of challenge for 401 responses."""
 
     base_url: str
-    """The base URL for Gafaelfawr URLs in Ingress annotations."""
+    """The base URL for user-facing Gafaelfawr URLs in Ingress annotations."""
 
     delegate: GafaelfawrIngressDelegate | None = None
     """Details of the requested delegated token, if any."""
@@ -335,16 +334,20 @@ class GafaelfawrIngressConfig(BaseModel):
 
         return self
 
-    def to_auth_url(self) -> str:
-        """Generate the auth URL corresponding to this ingress configuration.
+    def to_auth_query(self) -> list[tuple[str, str]]:
+        """Generate the query corresponding to this ingress configuration.
+
+        Parameters
+        ----------
+        base_url
+            Base URL for the internal Gafaelfawr service.
 
         Returns
         -------
-        str
-            Authentication request URL for the Gafaelfawr ``/auth`` route that
-            corresponds to this ingress configuration.
+        list of tuple
+            List of query parameters corresponding to this ingress
+            configuration to pass to the Gafaelfawr ``/ingress/auth`` route.
         """
-        base_url = self.base_url.rstrip("/")
         query = [("scope", s) for s in self.scopes.scopes]
         if self.service:
             query.append(("service", self.service))
@@ -368,7 +371,7 @@ class GafaelfawrIngressConfig(BaseModel):
             query.append(("auth_type", self.auth_type.value))
         if self.username:
             query.append(("username", self.username))
-        return f"{base_url}/auth?" + urlencode(query)
+        return query
 
 
 class GafaelfawrIngressMetadata(BaseModel):

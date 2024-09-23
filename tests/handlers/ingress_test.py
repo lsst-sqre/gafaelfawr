@@ -1,4 +1,4 @@
-"""Tests for the /auth route."""
+"""Tests for the /ingress routes."""
 
 from __future__ import annotations
 
@@ -32,21 +32,21 @@ from ..support.tokens import create_session_token
 async def test_no_auth(
     client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
-    r = await client.get("/auth", params={"scope": "exec:admin"})
+    r = await client.get("/ingress/auth", params={"scope": "exec:admin"})
     assert_unauthorized_is_correct(r, config)
 
     r = await client.get(
-        "/auth", params={"scope": "exec:admin", "auth_type": "bearer"}
+        "/ingress/auth", params={"scope": "exec:admin", "auth_type": "bearer"}
     )
     assert_unauthorized_is_correct(r, config)
 
     r = await client.get(
-        "/auth", params={"scope": "exec:admin", "auth_type": "bogus"}
+        "/ingress/auth", params={"scope": "exec:admin", "auth_type": "bogus"}
     )
     assert r.status_code == 422
 
     r = await client.get(
-        "/auth", params={"scope": "exec:admin", "auth_type": "basic"}
+        "/ingress/auth", params={"scope": "exec:admin", "auth_type": "basic"}
     )
     assert_unauthorized_is_correct(r, config, AuthType.Basic)
 
@@ -61,13 +61,13 @@ async def test_invalid(
     token = await create_session_token(factory)
 
     r = await client.get(
-        "/auth", headers={"Authorization": f"bearer {token.token}"}
+        "/ingress/auth", headers={"Authorization": f"bearer {token.token}"}
     )
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "missing"
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         headers={"Authorization": f"bearer {token.token}"},
         params={"scope": "exec:admin", "satisfy": "foo"},
     )
@@ -75,7 +75,7 @@ async def test_invalid(
     assert r.json()["detail"][0]["type"] == "enum"
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         headers={"Authorization": f"bearer {token.token}"},
         params={"scope": "exec:admin", "auth_type": "foo"},
     )
@@ -91,7 +91,7 @@ async def test_invalid_auth(
     client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer"},
     )
@@ -105,7 +105,7 @@ async def test_invalid_auth(
     assert authenticate.error == AuthError.invalid_request
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "token foo"},
     )
@@ -119,7 +119,7 @@ async def test_invalid_auth(
     assert authenticate.error == AuthError.invalid_request
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": "Bearer token"},
     )
@@ -134,7 +134,7 @@ async def test_invalid_auth(
     # Create a nonexistent token.
     token = Token()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -160,7 +160,7 @@ async def test_access_denied(
     token_data = await create_session_token(factory)
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
@@ -188,7 +188,7 @@ async def test_satisfy_all(
     token_data = await create_session_token(factory, scopes=["exec:test"])
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params=[("scope", "exec:test"), ("scope", "exec:admin")],
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
@@ -213,7 +213,7 @@ async def test_success(client: AsyncClient, factory: Factory) -> None:
     )
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin", "service": "example"},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
@@ -232,7 +232,7 @@ async def test_success_minimal(client: AsyncClient, factory: Factory) -> None:
         )
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"Bearer   {token}"},
     )
@@ -250,7 +250,7 @@ async def test_notebook(client: AsyncClient, factory: Factory) -> None:
     assert token_data.groups
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin", "notebook": "true"},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
@@ -289,7 +289,7 @@ async def test_notebook(client: AsyncClient, factory: Factory) -> None:
 
     # Requesting a token with the same parameters returns the same token.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin", "notebook": "true"},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
@@ -308,7 +308,7 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
     assert token_data.groups
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "exec:admin",
             "service": "a-service",
@@ -353,7 +353,7 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
 
     # Requesting a token with the same parameters returns the same token.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "exec:admin",
             "delegate_to": "a-service",
@@ -372,7 +372,7 @@ async def test_internal_scopes(client: AsyncClient, factory: Factory) -> None:
     assert token_data.expires
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:some",
             "delegate_to": "a-service",
@@ -402,7 +402,7 @@ async def test_internal_scopes(client: AsyncClient, factory: Factory) -> None:
     # If the intersection of desired and available scopes is empty, we still
     # get a token with no scopes.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:some",
             "delegate_to": "a-service",
@@ -438,7 +438,7 @@ async def test_internal_errors(
 
     # Cannot request a notebook token and an internal token at the same time.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:some",
             "notebook": "true",
@@ -451,7 +451,7 @@ async def test_internal_errors(
 
     # If set, service must match delegate_to.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:some",
             "service": "b-service",
@@ -478,7 +478,7 @@ async def test_success_any(client: AsyncClient, factory: Factory) -> None:
     )
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params=[
             ("scope", "exec:admin"),
             ("scope", "exec:test"),
@@ -501,7 +501,7 @@ async def test_basic(
     basic = f"{token_data.token}:blahblahblah".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
@@ -511,7 +511,7 @@ async def test_basic(
     basic = f"{token_data.token}:".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
@@ -521,7 +521,7 @@ async def test_basic(
     basic = f"blahblahblah:{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic  {basic_b64}"},
     )
@@ -531,7 +531,7 @@ async def test_basic(
     basic = f":{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic  {basic_b64}"},
     )
@@ -542,7 +542,7 @@ async def test_basic(
     basic = f"{token_data.token}:{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic  {basic_b64}"},
     )
@@ -553,7 +553,7 @@ async def test_basic(
     basic = f"{token_data.token}:{Token()}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic  {basic_b64}"},
     )
@@ -573,7 +573,7 @@ async def test_basic_failure(
 ) -> None:
     basic_b64 = base64.b64encode(b"bogus-string").decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
@@ -589,7 +589,7 @@ async def test_basic_failure(
     for basic in (b"foo:foo", b"x-oauth-basic:foo", b"foo:x-oauth-basic"):
         basic_b64 = base64.b64encode(basic).decode()
         r = await client.get(
-            "/auth",
+            "/ingress/auth",
             params={"scope": "exec:admin", "auth_type": "basic"},
             headers={"Authorization": f"Basic {basic_b64}"},
         )
@@ -603,7 +603,7 @@ async def test_basic_failure(
 async def test_ajax_unauthorized(client: AsyncClient, config: Config) -> None:
     """Test that AJAX requests without auth get 403, not 401."""
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "exec:admin"},
         headers={"X-Requested-With": "XMLHttpRequest"},
     )
@@ -626,7 +626,7 @@ async def test_success_unicode_name(
         )
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -652,7 +652,7 @@ async def test_minimum_lifetime(
     # Required lifetime is within MINIMUM_LIFETIME of maximum token lifetime.
     minimum_lifetime = MINIMUM_LIFETIME - timedelta(seconds=1)
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:all",
             "notebook": "true",
@@ -679,7 +679,7 @@ async def test_minimum_lifetime(
 
     # Try to authenticate with a longer requested lifetime.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:all",
             "notebook": "true",
@@ -695,7 +695,7 @@ async def test_minimum_lifetime(
 
     # Required lifetime is shorter than token lifetime.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:all",
             "notebook": "true",
@@ -709,7 +709,7 @@ async def test_minimum_lifetime(
     # required lifetime isn't long enough, to avoid the redirect spam from
     # failing AJAX requests.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:all",
             "notebook": "true",
@@ -748,7 +748,7 @@ async def test_default_minimum_lifetime(
 
     # Check that one can authenticate with this token.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "user:token"},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -758,7 +758,7 @@ async def test_default_minimum_lifetime(
     # lifetime.  Both should fail because the created tokens would not have a
     # long enough lifetime.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "user:token", "notebook": "true"},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -768,7 +768,7 @@ async def test_default_minimum_lifetime(
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.error == AuthError.invalid_token
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "user:token", "delegate_to": "some-service"},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -786,7 +786,7 @@ async def test_authorization_filtering(
     token_data = await create_session_token(factory, scopes=["read:all"])
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
@@ -794,7 +794,7 @@ async def test_authorization_filtering(
     assert "Authorization" not in r.headers
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"bearer {token_data.token}"},
     )
@@ -804,7 +804,7 @@ async def test_authorization_filtering(
     basic = f"{token_data.token}:x-oauth-basic".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers=[
             ("Authorization", f"Basic {basic_b64}"),
@@ -817,7 +817,7 @@ async def test_authorization_filtering(
     basic = f"x-oauth-basic:{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers=[
             ("Authorization", f"BASIC {basic_b64}"),
@@ -830,7 +830,7 @@ async def test_authorization_filtering(
     basic = f"{token_data.token}:something-else".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"Basic {basic_b64}"},
     )
@@ -838,7 +838,7 @@ async def test_authorization_filtering(
     assert "Authorization" not in r.headers
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers=[
             ("Authorization", f"Basic  {basic_b64}"),
@@ -861,19 +861,19 @@ async def test_cookie_filtering(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory, scopes=["read:all"])
     await set_session_cookie(client, token_data.token)
 
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert "Cookie" not in r.headers
 
     client.cookies.set("_other", "somevalue", domain=TEST_HOSTNAME)
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
     assert r.headers["Cookie"] == "_other=somevalue"
 
     clear_session_cookie(client)
     del client.cookies["_other"]
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={
             "Authorization": f"bearer {token_data.token}",
@@ -884,7 +884,7 @@ async def test_cookie_filtering(client: AsyncClient, factory: Factory) -> None:
     assert r.headers["Cookie"] == f"foo=bar; {COOKIE_NAME}blah=blah"
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers=[
             ("Authorization", f"bearer {token_data.token}"),
@@ -908,7 +908,7 @@ async def test_delegate_authorization(
     token_data = await create_session_token(factory, scopes=["read:all"])
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:all",
             "notebook": "true",
@@ -922,7 +922,7 @@ async def test_delegate_authorization(
     assert r.headers["Authorization"] == f"Bearer {notebook_token}"
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={
             "scope": "read:all",
             "delegate_to": "service",
@@ -943,7 +943,7 @@ async def test_delegate_authorization(
     # If there's no delegation but use_authorization is true, don't pass along
     # any Authorization headers.
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all", "use_authorization": "true"},
         headers=[
             ("Authorization", f"Bearer {token_data.token}"),
@@ -959,14 +959,14 @@ async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(factory, scopes=["read:all"])
     await set_session_cookie(client, token_data.token)
 
-    r = await client.get("/auth/anonymous")
+    r = await client.get("/ingress/anonymous")
     assert r.status_code == 200
     assert "Authorization" not in r.headers
     assert "Cookie" not in r.headers
 
     client.cookies.set("_other", "somevalue", domain=TEST_HOSTNAME)
     r = await client.get(
-        "/auth/anonymous", headers={"Authorization": f"Bearer {Token()}"}
+        "/ingress/anonymous", headers={"Authorization": f"Bearer {Token()}"}
     )
     assert r.status_code == 200
     assert "Authorization" not in r.headers
@@ -975,7 +975,7 @@ async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
     clear_session_cookie(client)
     del client.cookies["_other"]
     r = await client.get(
-        "/auth/anonymous",
+        "/ingress/anonymous",
         params={"scope": "read:all"},
         headers={
             "Authorization": "token some-other-token",
@@ -989,7 +989,7 @@ async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
     basic = f"{Token()}:something-else".encode()
     basic_b64 = base64.b64encode(basic).decode()
     r = await client.get(
-        "/auth/anonymous",
+        "/ingress/anonymous",
         params={"scope": "read:all"},
         headers=[
             ("Authorization", f"Basic  {basic_b64}"),
@@ -1036,7 +1036,7 @@ async def test_ldap_error(
     await set_session_cookie(client, token_data.token)
 
     # The request should fail with a 500 error since the LDAP data is invalid.
-    r = await client.get("/auth", params={"scope": "read:all"})
+    r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 500
 
     # We should not report any error message to Slack, however. If we did, we
@@ -1051,7 +1051,7 @@ async def test_user(client: AsyncClient, factory: Factory) -> None:
     )
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all", "username": token_data.username},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
@@ -1059,7 +1059,7 @@ async def test_user(client: AsyncClient, factory: Factory) -> None:
     assert r.headers["X-Auth-Request-User"] == token_data.username
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all", "username": "other-user"},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )

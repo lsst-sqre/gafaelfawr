@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from base64 import b64decode
+from urllib.parse import urlencode
 
 from kubernetes_asyncio.client import (
     V1Ingress,
@@ -105,7 +106,12 @@ class KubernetesIngressService:
 
     def _build_annotations(self, ingress: GafaelfawrIngress) -> dict[str, str]:
         """Build annotations for an ``Ingress``."""
-        auth_url = ingress.config.to_auth_url()
+        auth_url = (
+            str(self._config.base_internal_url).rstrip("/")
+            + "/ingress/auth?"
+            + urlencode(ingress.config.to_auth_query())
+        )
+        base_url = ingress.config.base_url or str(self._config.base_url)
         snippet_key = "nginx.ingress.kubernetes.io/configuration-snippet"
         snippet = ingress.template.metadata.annotations.get(snippet_key, "")
         if snippet and not snippet.endswith("\n"):
@@ -127,7 +133,7 @@ class KubernetesIngressService:
                 f"200 202 401 {ingress.config.auth_cache_duration}"
             )
         if ingress.config.login_redirect:
-            url = ingress.config.base_url.rstrip("/") + "/login"
+            url = base_url.rstrip("/") + "/login"
             annotations["nginx.ingress.kubernetes.io/auth-signin"] = url
 
         return annotations
@@ -136,8 +142,8 @@ class KubernetesIngressService:
         self, ingress: GafaelfawrIngress
     ) -> dict[str, str]:
         """Build annotations for an anonymous ``Ingress``."""
-        base_url = ingress.config.base_url.rstrip("/")
-        auth_url = f"{base_url}/auth/anonymous"
+        base_url = str(self._config.base_internal_url).rstrip("/")
+        auth_url = f"{base_url}/ingress/anonymous"
         headers = ",".join(NGINX_RESPONSE_HEADERS)
         return {
             **ingress.template.metadata.annotations,

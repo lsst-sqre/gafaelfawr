@@ -52,16 +52,22 @@ async def test_token_info(
     # Create a notebook token and an internal token.
     async with AsyncClient() as client:
         r = await client.get(
-            urljoin(selenium_config.url, "/auth"),
+            urljoin(selenium_config.url, "/ingress/auth"),
             params={"scope": "exec:test", "notebook": "true"},
-            headers={"Cookie": f"{COOKIE_NAME}={cookie}"},
+            headers={
+                "Cookie": f"{COOKIE_NAME}={cookie}",
+                "X-Original-URL": "https://foo.example.com/bar",
+            },
         )
         assert r.status_code == 200
         notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
         r = await client.get(
-            urljoin(selenium_config.url, "/auth"),
+            urljoin(selenium_config.url, "/ingress/auth"),
             params={"scope": "exec:test", "delegate_to": "service"},
-            headers={"Cookie": f"{COOKIE_NAME}={cookie}"},
+            headers={
+                "Cookie": f"{COOKIE_NAME}={cookie}",
+                "X-Original-URL": "https://foo.example.com/bar",
+            },
         )
         assert r.status_code == 200
         internal_token = Token.from_str(r.headers["X-Auth-Request-Token"])

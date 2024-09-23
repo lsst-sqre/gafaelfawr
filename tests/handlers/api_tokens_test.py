@@ -1380,7 +1380,8 @@ async def test_scope_modify(
     """Ensure modifying the scope updates Redis.
 
     In Gafaelfawr 5.0.2 and earlier, modifying only the token scope didn't
-    change Redis and therefore wasn't reflected in the ``/auth`` route.
+    change Redis and therefore wasn't reflected in the ``/ingress/auth``
+    route.
     """
     user_info = TokenUserInfo(
         username="example",
@@ -1426,11 +1427,11 @@ async def test_scope_modify(
         "expires": int(expires.timestamp()),
     }
 
-    # This token should get access denied when hitting the /auth route with a
-    # required read:all scope.
+    # This token should get access denied when hitting the /ingress/auth route
+    # with a required read:all scope.
     cookie = client.cookies.pop(COOKIE_NAME)
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"bearer {user_token}"},
     )
@@ -1467,7 +1468,7 @@ async def test_scope_modify(
     assert r.json() == info
 
     r = await client.get(
-        "/auth",
+        "/ingress/auth",
         params={"scope": "read:all"},
         headers={"Authorization": f"bearer {user_token}"},
     )

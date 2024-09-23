@@ -4,11 +4,9 @@
 Configuring ingress with GafaelfawrIngress
 ##########################################
 
-The recommended way to configure ``Ingress`` resources for protected services is by using the ``GafaelfawrIngress`` custom resource.
+To create an ``Ingress`` for protected services, use the ``GafaelfawrIngress`` custom resource.
 
 Gafaelfawr only supports HTTP ingresses and only supports a limited subset of the full syntax for the ``rules`` and ``tls`` keys for the ``GafaelfawrIngress`` resource.
-If you need other ``Ingress`` functionality, or if you need to add Gafaelfawr support to an ingress created outside of your control (such as by a third-party Helm chart), see :ref:`manual-ingress`.
-
 See :ref:`ingress-overview` for an overview of how Gafaelfawr protects services.
 
 Basic configuration
@@ -26,7 +24,6 @@ Here is a simple example, which requires ``read:all`` scope to access a service,
      name: service-ingress
      namespace: service
    config:
-     baseUrl: "https://cluster.example.com/"
      scopes:
        all:
          - "read:all"
@@ -54,8 +51,6 @@ You can add labels and annotations here if you wish, but they will have no effec
 The ``config`` section configures Gafaelfawr.
 Here, only the two mandatory parameters are shown.
 
-``config.baseUrl`` should be the base URL under which Gafaelfawr is installed.
-In particular, appending ``/auth`` and ``/login`` should produce the URLs for those Gafaelfawr routes.
 ``config.scopes`` specifies the scopes required to access this service.
 The scopes can be listed under either ``all``, meaning that all of those scopes are required, or ``any``, meaning that any one of those scopes is required.
 Only one of ``all`` or ``any`` may be given.
@@ -89,7 +84,7 @@ If you want unauthorized users to be redirected to the login page instead, use t
 
 This setting should be used for services that are accessed interactively from a web browser.
 
-Do not set this to true if the ingress uses one of the non-primary hostnames added via the Helm setting ``ingress.additionalHosts`` (see :ref:`helm-additional-hosts`).
+Do not set this to true if the ingress is not running under the same host and port as the Gafaelfawr base URL for the environment.
 It will not work correctly.
 
 Changing the challenge type

@@ -518,7 +518,7 @@ The above example sets an API quota for the ``datalinker`` service of 1000 reque
 Users who are members of the ``g_developers`` group get an additional 4.0GiB of memory for their notebooks.
 
 The keys for API quotas are names of services.
-This is the same name the service should use in the ``config.delegate.internal.service`` key of a ``GafaelfawrIngress`` resource (see :ref:`ingress`) or the ``delegate_to`` argument to the ``/auth`` route in a manually-configured ingress (see :ref:`manual-ingress`).
+This is the same name the service should use in the ``config.service`` key of a ``GafaelfawrIngress`` resource (see :ref:`ingress`).
 If a service name has no corresponding quota setting, access to that service will be unrestricted.
 
 All group stanzas matching the group membership of a user are added to the ``default`` quota, and the results are reported as the quota for that user by the user information API.
@@ -584,28 +584,6 @@ You will still need to set ``config.databaseUrl`` and the ``database-password`` 
 
 As mentioned in the Google documentation, the Cloud SQL Auth Proxy does not support IAM authentication to the database, only password authentication, and IAM authentication is not recommended for connection pools for long-lived processes.
 Gafaelfawr therefore doesn't support IAM authentication to the database.
-
-.. _helm-additional-hosts:
-
-Additional hosts
-================
-
-Currently, Gafaelfawr only supports full interactive authentication on a single fully-qualified domain name, which must also be the primary FQDN for that Rubin Science Platform deployment.
-However, it optionally can support token authentication on additional hostnames.
-
-To do this, add the following setting:
-
-.. code-block:: yaml
-
-   ingress:
-     additionalHosts:
-       - "another-host.example.com"
-
-Gafaelfawr will then take over the ``/auth`` route of all of those additional hosts.
-TLS configuration must be handled by some other ingress.
-The Gafaelfawr Kubernets ingress will not configure TLS for additional hosts even though Gafaelfawr requires TLS.
-
-Only token authentication will be supported for those hostnames, and therefore ingresses using those secondary hostnames should never set ``config.loginRedirect`` to true (see :ref:`login-redirect`).
 
 .. _helm-proxies:
 
