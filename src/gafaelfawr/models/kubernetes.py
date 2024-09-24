@@ -271,7 +271,7 @@ class GafaelfawrIngressConfig(BaseModel):
     auth_type: AuthType | None = None
     """Auth type of challenge for 401 responses."""
 
-    base_url: str
+    base_url: str | None = None
     """The base URL for user-facing Gafaelfawr URLs in Ingress annotations."""
 
     delegate: GafaelfawrIngressDelegate | None = None

@@ -56,8 +56,6 @@ spec:
             config:
               type: object
               description: "Configuration for the ingress to create."
-              required:
-                - baseUrl
               properties:
                 authCacheDuration:
                   type: string
