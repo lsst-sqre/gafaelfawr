@@ -43,7 +43,6 @@ class TokenDatabaseStore:
         data: TokenData,
         *,
         token_name: str | None = None,
-        service: str | None = None,
         parent: str | None = None,
     ) -> None:
         """Store a new token.
@@ -72,7 +71,7 @@ class TokenDatabaseStore:
             token_type=data.token_type,
             token_name=token_name,
             scopes=",".join(sorted(data.scopes)),
-            service=service,
+            service=data.service,
             created=datetime_to_db(data.created),
             expires=datetime_to_db(data.expires),
         )

@@ -166,6 +166,18 @@ class TokenBase(BaseModel):
         examples=["session"],
     )
 
+    service: str | None = Field(
+        None,
+        title="Service",
+        description=(
+            "Service to which the token was delegated. Only present for"
+            " internal tokens."
+        ),
+        examples=["some-service"],
+        min_length=1,
+        max_length=64,
+    )
+
     scopes: list[str] = Field(
         ...,
         title="Token scopes",
@@ -211,18 +223,6 @@ class TokenInfo(TokenBase):
         None,
         title="User-given name of the token",
         examples=["laptop token"],
-        min_length=1,
-        max_length=64,
-    )
-
-    service: str | None = Field(
-        None,
-        title="Service",
-        description=(
-            "Service to which the token was delegated.  Only present for"
-            " internal tokens"
-        ),
-        examples=["some-service"],
         min_length=1,
         max_length=64,
     )

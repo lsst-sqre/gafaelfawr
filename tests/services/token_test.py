@@ -370,6 +370,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         token=internal_token,
         username=user_info.username,
         token_type=TokenType.internal,
+        service="some-service",
         scopes=["read:all"],
         created=info.created,
         expires=data.expires,
@@ -441,6 +442,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         token=second_internal_token,
         username=data.username,
         token_type=TokenType.internal,
+        service="some-service",
         scopes=["read:all"],
         created=created,
         expires=expires,
@@ -452,7 +454,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     await token_service._token_redis_store.store_data(internal_token_data)
     async with factory.session.begin():
         await token_service._token_db_store.add(
-            internal_token_data, service="some-service", parent=data.token.key
+            internal_token_data, parent=data.token.key
         )
     await token_service._token_cache.clear()
     async with factory.session.begin():
@@ -1508,6 +1510,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         token=Token(),
         username=session_token_data.username,
         token_type=TokenType.internal,
+        service="tap",
         scopes=[],
         created=now - timedelta(minutes=58),
         expires=now - timedelta(minutes=30),
@@ -1516,6 +1519,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         token=Token(),
         username=session_token_data.username,
         token_type=TokenType.internal,
+        service="tap",
         scopes=["read:all"],
         created=now - timedelta(minutes=58),
         expires=now - timedelta(minutes=30),
@@ -1543,14 +1547,10 @@ async def test_expire_tokens(factory: Factory) -> None:
             notebook_token_data, parent=session_token_data.token.key
         )
         await token_store.add(
-            internal_token_data,
-            service="tap",
-            parent=session_token_data.token.key,
+            internal_token_data, parent=session_token_data.token.key
         )
         await token_store.add(
-            notebook_internal_token_data,
-            service="tap",
-            parent=notebook_token_data.token.key,
+            notebook_internal_token_data, parent=notebook_token_data.token.key
         )
         await token_store.add(service_token_data)
 
@@ -1708,6 +1708,7 @@ async def test_audit(factory: Factory) -> None:
         token=Token(),
         username="some-user",
         token_type=TokenType.internal,
+        service="some-service",
         scopes=[],
         created=now,
         expires=now + timedelta(days=14),
@@ -1716,7 +1717,6 @@ async def test_audit(factory: Factory) -> None:
     async with factory.session.begin():
         await token_db_store.add(
             internal_token_data,
-            service="some-service",
             parent=db_user_token_data.token.key,
         )
 
@@ -1725,13 +1725,14 @@ async def test_audit(factory: Factory) -> None:
         token=Token(),
         username="some-user",
         token_type=TokenType.internal,
+        service="some-service",
         scopes=[],
         created=now,
         expires=now + timedelta(days=7),
     )
     await token_redis_store.store_data(orphaned_token_data)
     async with factory.session.begin():
-        await token_db_store.add(orphaned_token_data, service="some-service")
+        await token_db_store.add(orphaned_token_data)
         subtoken = Subtoken(parent=None, child=orphaned_token_data.token.key)
         factory.session.add(subtoken)
 
