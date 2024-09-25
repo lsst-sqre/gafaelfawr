@@ -141,6 +141,7 @@ async def test_redeem_code(
         "token": access_token.model_dump(),
         "username": token_data.username,
         "token_type": TokenType.oidc,
+        "service": None,
         "scopes": [],
         "created": ANY,
         "expires": int(token_data.expires.timestamp()),

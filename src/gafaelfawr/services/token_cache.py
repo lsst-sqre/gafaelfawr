@@ -238,6 +238,7 @@ class TokenCacheService:
             token=token,
             username=token_data.username,
             token_type=TokenType.internal,
+            service=service,
             scopes=scopes,
             created=created,
             expires=expires,
@@ -263,9 +264,7 @@ class TokenCacheService:
 
         await self._token_redis_store.store_data(data)
         try:
-            await self._token_db_store.add(
-                data, service=service, parent=token_data.token.key
-            )
+            await self._token_db_store.add(data, parent=token_data.token.key)
             await self._token_change_store.add(history_entry)
         except Exception:
             await self._token_redis_store.delete(data.token.key)
