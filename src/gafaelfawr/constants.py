@@ -94,6 +94,7 @@ NGINX_RESPONSE_HEADERS = (
     "Authorization",
     "Cookie",
     "X-Auth-Request-Email",
+    "X-Auth-Request-Service",
     "X-Auth-Request-Token",
     "X-Auth-Request-User",
 )

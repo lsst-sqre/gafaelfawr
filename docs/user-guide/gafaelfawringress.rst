@@ -255,6 +255,9 @@ The following headers will be added by Gafaelfawr to the incoming request before
 ``X-Auth-Request-Email``
     The email address of the authenticated user, if available.
 
+``X-Auth-Request-Service``
+    If the authenticating token is an internal token issued to a service, the name of the service authenticating on behalf of the user.
+
 ``X-Auth-Request-User``
     The username of the authenticated user.
 

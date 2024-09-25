@@ -220,6 +220,7 @@ async def test_success(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 200
     assert r.headers["X-Auth-Request-User"] == token_data.username
     assert r.headers["X-Auth-Request-Email"] == token_data.email
+    assert "X-Auth-Request-Service" not in r.headers
 
 
 @pytest.mark.asyncio
@@ -350,6 +351,15 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
         "gid": token_data.gid,
         "groups": [g.model_dump() for g in token_data.groups],
     }
+
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all"},
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-Service"] == "a-service"
+    assert r.headers["X-Auth-Request-User"] == token_data.username
 
     # Requesting a token with the same parameters returns the same token.
     r = await client.get(

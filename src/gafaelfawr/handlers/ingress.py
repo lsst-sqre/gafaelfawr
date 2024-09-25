@@ -442,19 +442,21 @@ async def build_success_headers(
 
     The following headers may be included:
 
-    X-Auth-Request-Email
-        The email address of the authenticated user, if known.
-    X-Auth-Request-User
-        The username of the authenticated user.
-    X-Auth-Request-Token
-        If requested by ``notebook`` or ``delegate_to``, will be set to the
-        delegated token.
     Authorization
         The input ``Authorization`` headers with any headers containing
         Gafaelfawr tokens stripped.
     Cookie
         The input ``Cookie`` headers with any cookie values containing
         Gafaelfawr tokens stripped.
+    X-Auth-Request-Email
+        The email address of the authenticated user, if known.
+    X-Auth-Request-Service
+        The service associated with the token if one was present.
+    X-Auth-Request-User
+        The username of the authenticated user.
+    X-Auth-Request-Token
+        If requested by ``notebook`` or ``delegate_to``, will be set to the
+        delegated token.
 
     Parameters
     ----------
@@ -500,6 +502,10 @@ async def build_success_headers(
     if user_info.email:
         headers.append(("X-Auth-Request-Email", user_info.email))
 
+    # Add the service of the token if the token is associated with a service.
+    if token_data.service:
+        headers.append(("X-Auth-Request-Service", token_data.service))
+
     # Add the delegated token, if there should be one.
     delegated = await build_delegated_token(context, auth_config, token_data)
     if delegated:
@@ -517,13 +523,11 @@ async def build_success_headers(
     elif "Authorization" in context.request.headers:
         raw_authorizations = context.request.headers.getlist("Authorization")
         authorizations = clean_authorization(raw_authorizations)
-        if authorizations:
-            headers.extend(("Authorization", v) for v in authorizations)
+        headers.extend(("Authorization", v) for v in authorizations)
     if "Cookie" in context.request.headers:
         raw_cookies = context.request.headers.getlist("Cookie")
         cookies = clean_cookies(raw_cookies)
-        if cookies:
-            headers.extend(("Cookie", v) for v in cookies)
+        headers.extend(("Cookie", v) for v in cookies)
 
     return headers
 
