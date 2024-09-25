@@ -280,6 +280,9 @@ class GafaelfawrIngressConfig(BaseModel):
     login_redirect: bool = False
     """Whether to redirect unauthenticated users to the login flow."""
 
+    only_services: list[str] | None = None
+    """If non-empty, restrict to tokens issued by one of the services."""
+
     replace_403: bool = False
     """Whether to generate a custom error response for 403 errors."""
 
@@ -318,6 +321,7 @@ class GafaelfawrIngressConfig(BaseModel):
                 "auth_type",
                 "delegate",
                 "login_redirect",
+                "only_services",
                 "replace_403",
                 "username",
             )
@@ -349,6 +353,7 @@ class GafaelfawrIngressConfig(BaseModel):
             configuration to pass to the Gafaelfawr ``/ingress/auth`` route.
         """
         query = [("scope", s) for s in self.scopes.scopes]
+        query.extend(("only_service", s) for s in self.only_services or [])
         if self.service:
             query.append(("service", self.service))
         if self.scopes.satisfy != Satisfy.ALL:

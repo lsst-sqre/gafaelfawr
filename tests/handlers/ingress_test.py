@@ -1078,3 +1078,65 @@ async def test_user(client: AsyncClient, factory: Factory) -> None:
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.error == AuthError.insufficient_scope
+
+
+@pytest.mark.asyncio
+async def test_only_service(client: AsyncClient, factory: Factory) -> None:
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes=["read:all"]
+    )
+
+    # Directly authenticating to an ingress restricted to specific services
+    # will not work.
+    r = await client.get(
+        "/ingress/auth",
+        params=(
+            ("scope", "read:all"),
+            ("only_service", "tap"),
+            ("only_service", "vo-cutouts"),
+        ),
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 403
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.error == AuthError.insufficient_scope
+
+    # Getting an internal token and then using that will work.
+    r = await client.get(
+        "/ingress/auth",
+        params={
+            "scope": "read:all",
+            "delegate_to": "tap",
+            "delegate_scope": "read:all",
+        },
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    internal_token = r.headers["X-Auth-Request-Token"]
+    r = await client.get(
+        "/ingress/auth",
+        params=(
+            ("scope", "read:all"),
+            ("only_service", "tap"),
+            ("only_service", "vo-cutouts"),
+        ),
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == token_data.username
+    assert r.headers["X-Auth-Request-Service"] == "tap"
+
+    # But an internal token delegated to a service that isn't one of the valid
+    # ones will not work.
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "only_service": "vo-cutouts"},
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 403
+    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+    assert isinstance(authenticate, AuthErrorChallenge)
+    assert authenticate.auth_type == AuthType.Bearer
+    assert authenticate.error == AuthError.insufficient_scope

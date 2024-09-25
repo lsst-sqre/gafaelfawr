@@ -62,6 +62,9 @@ class AuthConfig:
     notebook: bool
     """Whether to generate a notebook token."""
 
+    only_services: set[str] | None
+    """Restrict access to tokens issued to one of the listed services."""
+
     satisfy: Satisfy
     """The authorization strategy if multiple scopes are required."""
 
@@ -156,6 +159,20 @@ def auth_config(
             examples=[True],
         ),
     ] = False,
+    only_service: Annotated[
+        list[str] | None,
+        Query(
+            title="Restrict to service",
+            description=(
+                "Restrict access to only tokens issued to the named service,"
+                " in addition to any other constraints. This will prevent"
+                " users from accessing the service directly, but allow the"
+                " named service to access it on their behalf. May be given"
+                " multiple times to allow multiple services."
+            ),
+            examples=["portal", "vo-cutouts"],
+        ),
+    ] = None,
     satisfy: Annotated[
         Satisfy,
         Query(
@@ -238,6 +255,8 @@ def auth_config(
         required_scopes=sorted(scopes),
         satisfy=satisfy.name.lower(),
     )
+    if only_service:
+        context.rebind_logger(only_services=only_service)
     if username:
         context.rebind_logger(required_user=username)
 
@@ -255,6 +274,7 @@ def auth_config(
         delegate_scopes=delegate_scopes,
         delegate_to=delegate_to,
         minimum_lifetime=lifetime,
+        only_services=set(only_service) if only_service else None,
         notebook=notebook,
         satisfy=satisfy,
         scopes=scopes,
@@ -316,14 +336,21 @@ async def get_auth(
             auth_config.scopes,
         )
 
-    # Check a user constraint. InsufficientScopeError is not really correct,
-    # but none of the RFC 6750 error codes are correct and it's the closest.
+    # Check a user or service constraint. InsufficientScopeError is not really
+    # correct, but none of the RFC 6750 error codes are correct and it's the
+    # closest.
+    if auth_config.only_services:
+        if token_data.service not in auth_config.only_services:
+            raise generate_challenge(
+                context,
+                auth_config.auth_type,
+                InsufficientScopeError("Access not allowed for this user"),
+            )
     if auth_config.username and token_data.username != auth_config.username:
         raise generate_challenge(
             context,
             auth_config.auth_type,
             InsufficientScopeError("Access not allowed for this user"),
-            auth_config.scopes,
         )
 
     # Log and return the results.
