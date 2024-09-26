@@ -131,6 +131,15 @@ spec:
                   description: >-
                     Whether to redirect to the login flow if the user is
                     not currently authenticated.
+                onlyServices:
+                  type: array
+                  description: >-
+                    If set, access is restricted to tokens issued to one of
+                    the listed services, in addition to any other access
+                    constraints. Users will not be able to access the ingress
+                    directly with their own tokens.
+                  items:
+                    type: string
                 replace403:
                   type: boolean
                   description: >-

@@ -27,6 +27,7 @@ Here is a simple example, which requires ``read:all`` scope to access a service,
      scopes:
        all:
          - "read:all"
+     service: service
    template:
      metadata:
        name: service-ingress
@@ -48,12 +49,24 @@ The ``apiVersion`` and ``kind`` keys must always have those values.
 The ``metadata`` section is standard Kubernetes resource metadata.
 You can add labels and annotations here if you wish, but they will have no effect on the generated ``Ingress`` resource.
 
+``config`` section
+------------------
+
 The ``config`` section configures Gafaelfawr.
 Here, only the two mandatory parameters are shown.
+Many other settings are possible and are discussed below.
 
-``config.scopes`` specifies the scopes required to access this service.
+``config.scopes`` specifies the scopes required to access this service and is required.
 The scopes can be listed under either ``all``, meaning that all of those scopes are required, or ``any``, meaning that any one of those scopes is required.
 Only one of ``all`` or ``any`` may be given.
+Alternately, the ingress can be anonymous; see :ref:`anonymous` for details on that.
+
+``config.service`` names the service underlying this ingress.
+This is used for logging, metrics, and token delegation (see :ref:`delegated-tokens`).
+This setting is not technically required currently, but will become mandatory in the future and should always be provided.
+
+``template`` section
+--------------------
 
 The ``template`` section is a template for the ``Ingress`` resource.
 It uses a subset of the ``Ingress`` schema.
@@ -119,19 +132,21 @@ Services may request an internal token from Gafaelfawr using the ``config.delega
    config:
      delegate:
        internal:
-         service: "service-name"
          scopes:
            - "read:image"
            - "read:tap"
 
-``config.delegate.internal.service`` should be an identifier for the service (generally the service name).
-It will be added to the metadata of the generated internal token and, from there, to log messages, so that it's possible to track which service is using a delegated token.
+The resulting token will be marked as delegated to the service of the ingress as configured in ``config.service``.
+This information will be used in logging and metrics, and can be used to restrict access to only specific services (see :ref:`ingress-service-only`).
 
 ``config.delegate.internal.scopes`` is a list of scopes requested for the internal token.
 The delegated token will have these scopes if the token used by the user to authenticate to the service had these scopes.
 
 The scopes listed here are not mandatory; if the user's authentication token didn't have them, the Gafaelfawr authorization check will still succeed, the internal delegated token will be provided, but it will not have the missing scopes.
 If the scopes must always be present, also list them in ``config.scopes.all`` as required to access this service.
+
+``config.delegate.internal.service`` overrides ``config.service`` when determining the service associated with the delegated token, and is mandatory if ``config.service`` isn't set.
+This setting is deprecated; set ``config.service`` instead.
 
 The delegated token will be included in the request to the protected service in the ``X-Auth-Request-Token`` HTTP header.
 This token may be used in an ``Authorization`` header with type ``bearer`` to make requests to other protected services.
@@ -212,6 +227,41 @@ The value must be an `NGINX time interval <https://nginx.org/en/docs/syntax.html
 ``5m`` for five minutes represents a reasonable tradeoff between respecting token invalidation and reducing the NGINX and Gafaelfawr load.
 
 The cache is automatically invalidated if the ``Cookie`` or ``Authorization`` HTTP headers change.
+
+.. _ingress-service-only:
+
+Service-only ingresses
+======================
+
+Sometimes it is useful to restrict an ingress to only allow access from other services acting on behalf of users.
+For example, in a microservice architecture, a user-facing service may call out to other internal services to perform part of its work, but users should not be able to access the internal services directly.
+
+Gafaelfawr supports this use case with ingresses that can only be accessed by tokens issued to other services.
+Normally this is an internal token delegated to a service via its ingress.
+
+To restrict an ingress to only access by a list of other services, use the ``onlyServices`` setting:
+
+.. code-block:: yaml
+
+   config:
+     onlyServices:
+       - portal
+       - vo-cutouts
+
+The value is a list of service names that should be allowed access.
+All other services, and all direct access by users, will be denied.
+
+The names of the services listed here must match the service name in issued tokens that should be permitted access.
+This is configured in ``config.service`` in the ingress for the calling service.
+
+For example, suppose there are two services, user-service and backend-service.
+The user will make direct requests to user-service.
+backend-service wants to only allow requests from user-service, but not directly from users.
+In this case, the ingress for user-service should set ``config.service`` to ``user-service`` and request delegated internal tokens.
+The ingress for backend-service should then set ``config.onlyServices`` to ``["user-service"]``.
+
+All other access restrictions are still applied in addition to the service restrictions.
+So, for example, if the internal token from a listed service doesn't have a required scope, Gafaelfawr will still reject the request.
 
 Per-user ingresses
 ==================

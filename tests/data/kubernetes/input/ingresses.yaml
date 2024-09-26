@@ -183,3 +183,31 @@ template:
                   name: something
                   port:
                     name: http
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: service-ingress
+  namespace: {namespace}
+config:
+  scopes:
+    all: ["read:all"]
+  onlyServices:
+    - portal
+    - vo-cutouts
+  service: uws
+template:
+  metadata:
+    name: service
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http
