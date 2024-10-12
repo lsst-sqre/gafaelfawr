@@ -38,3 +38,7 @@ errorFooter: |
 # Ensure that the configuration parser correctly discards empty or partial
 # configurations that should not be used.
 github: {}
+
+metrics:
+  enabled: false
+  application: "gafaelfawr"

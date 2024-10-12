@@ -29,7 +29,6 @@ from typing import Annotated, Any, Self
 import yaml
 from pydantic import (
     AliasChoices,
-    AnyHttpUrl,
     BaseModel,
     ConfigDict,
     Field,
@@ -48,6 +47,7 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 from safir.logging import LogLevel, configure_logging
+from safir.metrics import MetricsConfiguration
 from safir.pydantic import EnvAsyncPostgresDsn, EnvRedisDsn, HumanTimedelta
 
 from .constants import MINIMUM_LIFETIME, SCOPE_REGEX, USERNAME_REGEX
@@ -819,14 +819,9 @@ class Config(EnvFirstSettings):
         description="Python logging level",
     )
 
-    metrics_url: AnyHttpUrl | None = Field(
-        None,
-        title="Metrics collector URL",
-        description=(
-            "If set, report metrics using the OpenTelemetry protocol to this"
-            " URL. Normally this will be a cluster-internal URL of a telegraf"
-            " instance. The metrics will be sent using insecure gRPC."
-        ),
+    metrics: MetricsConfiguration = Field(
+        title="Metrics configuration",
+        description="Configuration for reporting metrics to Kafka",
     )
 
     proxies: list[IPv4Network | IPv6Network] | None = Field(

@@ -10,15 +10,15 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
-from opentelemetry.sdk.metrics.export import MetricReader
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.logger import logger_dependency
+from safir.metrics import EventManager
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
+from ..events import FrontendEvents
 from ..factory import Factory, ProcessContext
-from ..metrics import FrontendMetrics
 from ..models.state import State
 
 __all__ = [
@@ -50,8 +50,8 @@ class RequestContext:
     logger: BoundLogger
     """The request logger, rebound with discovered context."""
 
-    metrics: FrontendMetrics | None
-    """Frontend metrics, if metrics are enabled."""
+    events: FrontendEvents
+    """Frontend events publishers."""
 
     session: async_scoped_session
     """The database session."""
@@ -92,8 +92,7 @@ class ContextDependency:
 
     def __init__(self) -> None:
         self._config: Config | None = None
-        self._metric_reader: MetricReader | None = None
-        self._metrics: FrontendMetrics | None = None
+        self._events: FrontendEvents | None = None
         self._process_context: ProcessContext | None = None
 
     async def __call__(
@@ -106,7 +105,7 @@ class ContextDependency:
         logger: Annotated[BoundLogger, Depends(logger_dependency)],
     ) -> RequestContext:
         """Create a per-request context and return it."""
-        if not self._config or not self._process_context:
+        if not self._config or not self._process_context or not self._events:
             raise RuntimeError("ContextDependency not initialized")
         if request.client and request.client.host:
             ip_address = request.client.host
@@ -123,7 +122,7 @@ class ContextDependency:
             ip_address=ip_address,
             config=self._config,
             logger=logger,
-            metrics=self._metrics,
+            events=self._events,
             session=session,
             factory=Factory(self._process_context, session, logger),
         )
@@ -136,14 +135,18 @@ class ContextDependency:
         return self._process_context
 
     async def aclose(self) -> None:
-        """Clean up the per-process configuration."""
+        """Clean up the per-process configuration.
+
+        This also invalidates the events publishers until `initialize` is
+        called again.
+        """
         if self._process_context:
             await self._process_context.aclose()
         self._config = None
         self._process_context = None
 
     async def initialize(
-        self, config: Config, metric_reader: MetricReader | None = None
+        self, config: Config, event_manager: EventManager
     ) -> None:
         """Initialize the process-wide shared context.
 
@@ -151,14 +154,14 @@ class ContextDependency:
         ----------
         config
             Gafaelfawr configuration.
+        event_manager
+            Global event manager.
         """
         if self._process_context:
             await self._process_context.aclose()
         self._config = config
-        if config.metrics_url:
-            self._metrics = FrontendMetrics(
-                config.metrics_url, metric_reader=self._metric_reader
-            )
+        self._events = FrontendEvents()
+        await self._events.initialize(event_manager)
         self._process_context = await ProcessContext.from_config(config)
 
 

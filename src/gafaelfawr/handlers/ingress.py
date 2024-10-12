@@ -26,6 +26,7 @@ from ..auth import (
 from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
+from ..events import AuthEvent
 from ..exceptions import (
     ExternalUserInfoError,
     InsufficientScopeError,
@@ -358,11 +359,11 @@ async def get_auth(
     headers = await build_success_headers(context, auth_config, token_data)
     for key, value in headers:
         response.headers.append(key, value)
-    if context.metrics and not is_mobu_bot_user(token_data.username):
-        attrs = {"username": token_data.username}
-        if auth_config.service:
-            attrs["service"] = auth_config.service
-        context.metrics.request_auth.add(1, attrs)
+    if not is_mobu_bot_user(token_data.username):
+        event = AuthEvent(
+            username=token_data.username, service=auth_config.service
+        )
+        await context.events.auth.publish(event)
     return {"status": "ok"}
 
 

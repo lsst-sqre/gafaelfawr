@@ -28,3 +28,7 @@ oidc:
   loginParams: {}
   scopes: ["openid"]
   usernameClaim: "uid"
+
+metrics:
+  enabled: false
+  application: "gafaelfawr"

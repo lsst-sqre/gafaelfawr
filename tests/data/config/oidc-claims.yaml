@@ -29,3 +29,6 @@ oidc:
   issuer: "https://upstream.example.com/"
   audience: "https://test.example.com/"
   usernameClaim: "username"
+metrics:
+  enabled: false
+  application: "gafaelfawr"

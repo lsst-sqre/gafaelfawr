@@ -29,3 +29,6 @@ quota:
       notebook:
         cpu: 0.0
         memory: 4.0
+metrics:
+  enabled: false
+  application: "gafaelfawr"

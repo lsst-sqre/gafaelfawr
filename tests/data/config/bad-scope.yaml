@@ -13,3 +13,6 @@ knownScopes:
   "foo bar": "An invalid scope"
 github:
   clientId: "some-github-client-id"
+metrics:
+  enabled: false
+  application: "gafaelfawr"

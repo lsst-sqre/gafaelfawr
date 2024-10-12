@@ -23,3 +23,6 @@ oidcServer:
     "foo": ["dp0.3", "dp0.2"]
 github:
   clientId: "some-github-client-id"
+metrics:
+  enabled: false
+  application: "gafaelfawr"

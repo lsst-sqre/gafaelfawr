@@ -8,20 +8,19 @@ from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from pydantic import ValidationError
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
+from gafaelfawr.events import StateEvents
 from gafaelfawr.exceptions import (
     InvalidExpiresError,
     InvalidScopesError,
     PermissionDeniedError,
 )
 from gafaelfawr.factory import Factory
-from gafaelfawr.metrics import StateMetrics
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.token import (
     AdminTokenRequest,
@@ -1810,9 +1809,7 @@ async def test_audit(factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_state_metrics(
-    factory: Factory, metric_reader: InMemoryMetricReader
-) -> None:
+async def test_state_metrics(config: Config, factory: Factory) -> None:
     token_service = factory.create_token_service()
     await create_session_token(factory, username="someone")
     await create_session_token(factory, username="someone")
@@ -1826,6 +1823,10 @@ async def test_state_metrics(
             ip_address="127.0.0.1",
         )
 
-    metrics = StateMetrics("https://telegraf.example.com", metric_reader)
+    event_manager = config.metrics.make_manager()
+    await event_manager.initialize()
+    events = StateEvents()
+    await events.initialize(event_manager)
     async with factory.session.begin():
-        await token_service.gather_state_metrics(metrics)
+        await token_service.gather_state_metrics(events)
+    await event_manager.aclose()

@@ -619,17 +619,38 @@ See :ref:`client-ips` for more details.
 Metrics
 ========
 
-Gafaelfawr can export metrics to an OpenTelemetry_ collector.
-Currently, it only supports the insecure gRPC mechanism for sending metrics, and therefore should use a collector within the same Kubernetes cluster.
-
-To enable metrics collection and reporting, set the URL of the metrics collector:
+Gafaelfawr can export events and metrics to Sasquatch_, the metrics system for Rubin Observatory.
+Metrics reporting is disabled by default.
+To enable it, set ``config.metrics.enabled`` to true:
 
 .. code-block:: yaml
 
    config:
-     metricsUrl: "http://telegraf.telegraf:4317"
+     metrics:
+       enabled: true
 
-For a list of all of the metrics Gafaelfawr exports, see :doc:`metrics`.
+Gafaelfawr will then use the Kafka user ``gafaelfawr`` to authenticate to Kafka and push various events.
+For a list of all of the events Gafaelfawr exports, see :doc:`metrics`.
+
+There are some additional configuration settings, which normally will not need to be changed:
+
+``config.metrics.application``
+    Name of the application under which to log metrics.
+    Default: ``gafaelfawr``
+
+``config.metrics.events.topicPrefix``
+    The prefix for events topics.
+    Generally the only reason to change this is if you're experimenting with new events in a development environment.
+    Default: ``lsst.square.metrics.events``
+
+``config.metrics.schemaManager.registryUrl``
+    URL to the Confluent-compatible Kafka schema registry, used to register the schemas for events during startup.
+    Default: Use the Sasquatch schema registry in the local cluster.
+
+``config.metrics.schemaManager.suffix``
+    Suffix to add to all registered subjects.
+    This avoids conflicts with existing registered schemas and may be useful when experimenting with possible event schema changes that are not backwards-compatible.
+    Default: no suffix
 
 .. _slack-alerts:
 
