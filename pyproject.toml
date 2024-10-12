@@ -38,17 +38,16 @@ dependencies = [
     "kopf",
     "kubernetes-asyncio",
     "jinja2",
-    "opentelemetry-api",
-    "opentelemetry-exporter-otlp-proto-grpc",
-    "opentelemetry-sdk",
     "pydantic>2",
-    "pydantic-settings",
+    "pydantic-settings!=2.6.0",
     "pyjwt",
     "pyyaml",
     "redis>=4.2.0",
-    "safir[db,kubernetes]>=6.4.0",
+    "safir[db,kubernetes] @ git+https://github.com/lsst-sqre/safir@tickets/DM-46821#subdirectory=safir",
     "sqlalchemy>=2.0.0",
     "structlog",
+    # Temporary constraint to avoid faststream bug.
+    "anyio!=4.6.2.post1",
 ]
 dynamic = ["version"]
 

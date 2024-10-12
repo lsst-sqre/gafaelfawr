@@ -1,6 +1,6 @@
 [project]
 title = "Gafaelfawr"
-copyright = "2020-2022 Association of Universities for Research in Astronomy, Inc. (AURA)"
+copyright = "2020-2024 Association of Universities for Research in Astronomy, Inc. (AURA)"
 
 [project.openapi]
 openapi_path = "_static/openapi.json"
@@ -33,6 +33,8 @@ nitpick_ignore = [
     # are generated from the type signatures and can't be avoided. These are
     # intentionally listed specifically because I've caught documentation bugs
     # by having Sphinx complain about a new symbol.
+    ["py:class", "dataclasses_avroschema.pydantic.main.AvroBaseModel"],
+    ["py:class", "dataclasses_avroschema.main.AvroModel"],
     ["py:class", "fastapi.applications.FastAPI"],
     ["py:class", "fastapi.datastructures.DefaultPlaceholder"],
     ["py:class", "fastapi.exceptions.HTTPException"],
@@ -84,7 +86,6 @@ bonsai = "https://bonsai.readthedocs.io/en/latest"
 cryptography = "https://cryptography.io/en/latest"
 jwt = "https://pyjwt.readthedocs.io/en/latest"
 kopf = "https://kopf.readthedocs.io/en/stable"
-opentelemetry = "https://opentelemetry-python.readthedocs.io/en/latest"
 python = "https://docs.python.org/3"
 redis = "https://redis-py.readthedocs.io/en/stable"
 safir = "https://safir.lsst.io"
