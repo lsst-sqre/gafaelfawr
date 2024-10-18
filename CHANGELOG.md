@@ -6,6 +6,38 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.0.0'></a>
+## 12.0.0 (2024-10-18)
+
+### Backwards-incompatible changes
+
+- The `/auth` and `/auth/anonymous` routes have moved to `/ingress/auth` and `/ingress/anonymous` and are no longer accessible outside of the cluster. These routes may only be accessed by the ingress controller via cluster-internal URLs. This prevents users from creating arbitrary internal tokens for themselves.
+- Drop support and remove documentation for configuring an `Ingress` to use Gafaelfawr rather than using the `GafaelfawrIngress` custom resource.
+- The `/ingress/auth` route now requires `X-Original-URL` to be set.
+- Since the CADC authentication code no longer requires the `sub` claim be a UUID, set `sub` to the username in the response from `/auth/cadc/userinfo`. This allows the CADC TAP server to store the username in the UWS jobs table.
+
+### New features
+
+- Add support for exporting metrics to Kafka using the new event metrics support in [Safir](https://safir.lsst.io/). The initial set of events is limited to login metrics, authentications to services, and counts of active sessions and user tokens.
+- `GafaelfawrIngress` now accepts a `service` parameter at the top level of the configuration and uses that to tag authentication metrics by service. This corresponds to the `service` query parameter to the `/auth` route. If `delegate_to` is also set (`config.delegate.internal.service` in `GafaelfawrIngress`), it must match the value of `service`. This parameter is currently optional but will eventually become mandatory.
+- Add `config.onlyServices` to `GafaelfawrIngress`, which restricts the ingress to tokens issued to one of the listed services in addition to the other constraints.
+- If a request is authenticated with an internal token, include the service associated with that token in an `X-Auth-Request-Service` header passed to the protected service.
+- Setting `config.baseUrl` in a `GafaelfawrIngress` resource is no longer required. That value will be used if present, but only for constructing the login URL, not the `/ingress/auth` URL. Instead, a global default is set by the Helm chart. The `config.baseUrl` setting will be removed entirely in a future release.
+- Add new command `gafaelfawr generate-schema`, which generates the SQL required to create the Gafaelfawr database schema.
+
+### Bug fixes
+
+- If the user returns from authentication and no longer has login state in their cookie, redirect them to the destination URL without further processing instead of returning an authentication state mismatch error. The most likely cause of this state is that the user authenticated from another browser tab while this authentication is pending, so Gafaelfawr should use their existing token or restart the authentication process.
+- Reset login state after an error so that any subsequent authentication attempt will generate a new, random state parameter.
+- Stop including the required scopes in 403 errors when the request was rejected by a username restriction rather than a scope restriction, since the client cannot fix this problem by obtaining different scopes.
+- Fix an error in configuration validation, introduced in 11.0.0, that caused validation rules to not be applied to any URL or DSN in the Gafaelfawr configuration.
+- Cap the Kubernetes operator worker limit at 5 to avoid overwhelming the API server.
+- Check that `tokenLifetime` is at least as long as twice the minimum token lifetime.
+
+### Other changes
+
+- Honor the `POSTGRES_5432_TCP_PORT`, `POSTGRES_HOST`, `REDIS_6379_TCP_PORT`, and `REDIS_HOST` environment variables if they are set and override the configured database URL and Redis URL with them. This is required to work with the latest version of tox-docker for testing and development. These environment variables are not used inside a Phalanx deployment.
+
 <a id='changelog-11.1.1'></a>
 ## 11.1.1 (2024-05-24)
 
