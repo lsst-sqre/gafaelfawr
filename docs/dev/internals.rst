@@ -29,6 +29,9 @@ Python internal API
 .. automodapi:: gafaelfawr.dependencies.return_url
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.events
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.exceptions
    :include-all-objects:
 
@@ -36,9 +39,6 @@ Python internal API
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.keypair
-   :include-all-objects:
-
-.. automodapi:: gafaelfawr.metrics
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.middleware.state

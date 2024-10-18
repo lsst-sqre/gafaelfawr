@@ -28,10 +28,10 @@ from .database import (
     is_database_initialized,
 )
 from .dependencies.config import config_dependency
+from .events import StateEvents
 from .factory import Factory
 from .keypair import RSAKeyPair
 from .main import create_openapi
-from .metrics import StateMetrics
 from .models.token import Token
 from .schema import Base
 
@@ -261,10 +261,12 @@ async def maintenance(*, config_path: Path | None) -> None:
             await token_service.expire_tokens()
             logger.info("Truncating token history")
             await token_service.truncate_history()
-        if config.metrics_url:
-            metrics = StateMetrics(config.metrics_url)
-            async with factory.session.begin():
-                await token_service.gather_state_metrics(metrics)
+        event_manager = config.metrics.make_manager()
+        await event_manager.initialize()
+        events = StateEvents()
+        await events.initialize(event_manager)
+        async with factory.session.begin():
+            await token_service.gather_state_metrics(events)
     await engine.dispose()
     logger.debug("Finished background maintenance")
 

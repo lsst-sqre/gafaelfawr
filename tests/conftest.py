@@ -14,7 +14,6 @@ from asgi_lifespan import LifespanManager
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricReader
 from safir.database import (
     create_database_engine,
     initialize_database,
@@ -61,16 +60,14 @@ def environment(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest_asyncio.fixture
 async def app(
-    empty_database: None,
-    metric_reader: MetricReader,
-    mock_slack: MockSlackWebhook | None,
+    empty_database: None, mock_slack: MockSlackWebhook | None
 ) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    app = create_app(metric_reader=metric_reader, validate_schema=False)
+    app = create_app(validate_schema=False)
     async with LifespanManager(app):
         yield app
 
@@ -92,7 +89,8 @@ def config(monkeypatch: pytest.MonkeyPatch) -> Config:
 
     The fixture always configures Gafealfawr for GitHub authentication, but it
     sets up the environment variables with secrets for other providers and
-    user information sources so that the test case can switch later.
+    user information sources so that the test case can switch later. Metrics
+    are always disabled.
 
     Notes
     -----
@@ -173,17 +171,6 @@ async def factory(
     """
     async with Factory.standalone(config, engine) as factory:
         yield factory
-
-
-@pytest.fixture
-def metric_reader() -> InMemoryMetricReader:
-    """Return an internal metric reader used by tests.
-
-    This is passed to the application and other relevant places that create
-    metrics so that the metrics will be stored in memory, can be checked by
-    the test suite, and don't attempt to send metrics to a remote service.
-    """
-    return InMemoryMetricReader()
 
 
 @pytest.fixture

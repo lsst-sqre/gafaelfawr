@@ -124,8 +124,8 @@ async def reconfigure(
 ) -> Config:
     """Change the test application configuration.
 
-    This cannot be used to change the database URL because sessions will not
-    be recreated or the database reinitialized.
+    This cannot be used to change the database URL because the database will
+    not be reinitialized.
 
     Parameters
     ----------
@@ -144,8 +144,11 @@ async def reconfigure(
     Config
         The new configuration.
     """
+    await context_dependency.aclose()
     config = configure(filename, monkeypatch, oidc_clients=oidc_clients)
-    await context_dependency.initialize(config)
+    event_manager = config.metrics.make_manager()
+    await event_manager.initialize()
+    await context_dependency.initialize(config, event_manager)
     if factory:
         factory.set_context(context_dependency.process_context)
     return config
