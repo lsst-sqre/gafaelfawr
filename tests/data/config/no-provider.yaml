@@ -12,3 +12,6 @@ knownScopes:
   "exec:test": "test description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"
+metrics:
+  enabled: false
+  application: "gafaelfawr"

@@ -160,6 +160,7 @@ packaging==24.1 \
     --hash=sha256:5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124
     # via
     #   -c requirements/dev.txt
+    #   -c requirements/main.txt
     #   pyproject-api
     #   tox
     #   tox-uv
@@ -209,9 +210,9 @@ requests==2.32.3 \
     #   -c requirements/dev.txt
     #   -c requirements/main.txt
     #   docker
-tox==4.22.0 \
-    --hash=sha256:03734d9a9ac138cd1a898a372fb1b8079e2728618ae06dc37cbf3686cfb56eea \
-    --hash=sha256:acc6c627cb3316585238d55d2b633e132fea1bdb01b9d93b56bce7caea6ae73d
+tox==4.23.0 \
+    --hash=sha256:46da40afb660e46238c251280eb910bdaf00b390c7557c8e4bb611f422e9db12 \
+    --hash=sha256:a6bd7d54231d755348d3c3a7b450b5bf6563833716d1299a1619587a1b77a3bf
     # via
     #   -r requirements/tox.in
     #   tox-docker
@@ -232,27 +233,27 @@ urllib3==2.2.3 \
     #   -c requirements/main.txt
     #   docker
     #   requests
-uv==0.4.22 \
-    --hash=sha256:062a57ac3aab9a7d41e1b6a66948d563bf47478c719894661ea2c5ed6485a146 \
-    --hash=sha256:0904c141f9fd7088d7837fb7ac5e43191236ed9cf8edf824ed838bdc77da7406 \
-    --hash=sha256:0ff4ff91a25ed633f4d2556777e1b317262c01f71e8f72dfbc540e97e7eb5392 \
-    --hash=sha256:455538b910db65f20a70cf806c5e65cc1d80ea7f40a116ba1c3d4bd1dab933d9 \
-    --hash=sha256:48232daa35ebd3e963eea236cf33915a8b0c8a3673d5da35d764f8b1fec0b1b2 \
-    --hash=sha256:52605e291f7ab1daca682b7a92b926c2f70e1fc86caaa37cbd56b64587730ea2 \
-    --hash=sha256:527d785dafa5bf8fa4aba42188787a4b25c11d005a5f4bd8afda6e8c2c231e1b \
-    --hash=sha256:63156e306f860d9fa2bb1d7c9af30053b88276004b2790cd9bbf20cc83ce988b \
-    --hash=sha256:7041bf9d2d5d391cebca7778207eb88a96537ff2e93df2ff9f41d6c4057252c3 \
-    --hash=sha256:71f3faaa94f60d362a6984fdf7675d6d2d244139de91a7d46e2367caf950951e \
-    --hash=sha256:765dac79e5c8e2924efbd4663d4e03f5d7689f1baa98223b298fe4292610a25a \
-    --hash=sha256:7be7adf47158c456031b2b78742a432260b5c22e9a86784fa57e7a208b0c3206 \
-    --hash=sha256:956c4f0a9eddb8e18003bc39d114c78f6d6b4ba2683a262af043770abee44f2e \
-    --hash=sha256:9cf96ddcb6ea2743e4c44fa22b08a4f2fd09cc9c5e228e8ab04b0cd08371c868 \
-    --hash=sha256:af70ea49389397d0f6ff43827f73e0e71db0fc45cdf50c7dcff8318d726c8224 \
-    --hash=sha256:c96eb12d1bdb1a826cba3c38273604629ac51e723d705aed17ae282650d030f0 \
-    --hash=sha256:d9a242b3360c3a62e248053b3a6f618dc59cb5c56f4e30748433a19a002e4bf5 \
-    --hash=sha256:e18c42cc99bc2a3f91d43aeb2df61a6d259114fca50dd3818879e9ee12064f7f
+uv==0.4.24 \
+    --hash=sha256:29c514752873c1be259afd82b975e528ec6783564a306fd24deee0cccb2dc566 \
+    --hash=sha256:2a3ea6780e3451c81ce1635656abcd8a47e43f1b0f02542c433b4b6dd459df8e \
+    --hash=sha256:4d8e5f66a8756d4908121cb59189e6f9992fdbd0f9c26a5a30a069b94f8acab3 \
+    --hash=sha256:5e3ce0350e74b3dba6854789dd253faeab2fdf8e84f2671b68573070bb40ff17 \
+    --hash=sha256:70a76cb5b8a459d6f6931becf2b5689599382c2512341d566ce335b8304c44e8 \
+    --hash=sha256:7d076875e9fa4d8cda44d3e51c9b47efc578db830535c62f25884772bfa265bc \
+    --hash=sha256:7ef6914a7294ac7df5bd15b21652cbe61d1c12a0f29a94d178dce6192f858092 \
+    --hash=sha256:a03bc4b2ca2236eece97fffb8b5605b7a2248cd8a4b9a9c67955ad08756a1ceb \
+    --hash=sha256:a97c347af12deb687c09fed82dc829efd6e5fbc4d76a38e98b2eaa2b065e4cfe \
+    --hash=sha256:b459913d8ba6edba2c4b299e87fccfbd7fca4b2e2abe5fd4fa0da56147e19fc8 \
+    --hash=sha256:b8d467d4c4746127b2121d6f67686957a2b5431935d26767aa02fa4516694293 \
+    --hash=sha256:bbc24b232c5e874741d863c5bec2257533db86f91381f1a101872028a0502ec9 \
+    --hash=sha256:beaff8fdaad3bcd781a8d28b60843b8d1cd2a04229847dc314c1bb7e0bb39ca2 \
+    --hash=sha256:c03a411f1b86ce7de25d6271d90358ba2d33e87b4922dc5378c4c07674909363 \
+    --hash=sha256:c40f75df1f2c45a7f67fcc69d80231760f6a017b7c8e889a16e21348651a34d7 \
+    --hash=sha256:d274f7ddc013697fb52962632bc7e77889a6ec87d2cd12316d218686cfece3d4 \
+    --hash=sha256:ec0570f5e2e4dbfd83a89e9a55d5f033050d749f684bd0e7d4c327fd49f89b12 \
+    --hash=sha256:f71a00f10cfa15b4f4f0184a67da19f35c48683bba9bb49cebe9c206f1b2bc1f
     # via tox-uv
-virtualenv==20.26.6 \
-    --hash=sha256:280aede09a2a5c317e409a00102e7077c6432c5a38f0ef938e643805a7ad2c48 \
-    --hash=sha256:7345cc5b25405607a624d8418154577459c3e0277f5466dd79c49d5e492995f2
+virtualenv==20.27.0 \
+    --hash=sha256:2ca56a68ed615b8fe4326d11a0dca5dfbe8fd68510fb6c6349163bed3c15f2b2 \
+    --hash=sha256:44a72c29cceb0ee08f300b314848c86e57bf8d1f13107a5e671fb9274138d655
     # via tox

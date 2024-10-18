@@ -23,3 +23,6 @@ ldap:
   url: "ldaps://ldap.example.com/"
   groupBaseDn: "dc=example,dc=com"
   userBaseDn: "ou=people,dc=example,dc=com"
+metrics:
+  enabled: false
+  application: "gafaelfawr"

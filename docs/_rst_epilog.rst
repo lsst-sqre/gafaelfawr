@@ -3,13 +3,13 @@
 .. _Keycloak: https://www.keycloak.org/
 .. _Kopf: https://kopf.readthedocs.io/en/stable/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
-.. _OpenTelemetry: https://opentelemetry.io/
 .. _Phalanx: https://phalanx.lsst.io/
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/
 .. _RFC 2307bis: https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02
 .. _Ruff: https://docs.astral.sh/ruff/
 .. _Safir: https://safir.lsst.io/
+.. _Sasquatch: https://sasquatch.lsst.io/
 .. _scriv: https://scriv.readthedocs.io/en/latest/
 .. _semver: https://semver.org/
 .. _structlog: https://www.structlog.org/en/stable/

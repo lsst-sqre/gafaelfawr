@@ -13,3 +13,6 @@ knownScopes:
 github:
   clientId: "some-github-client-id"
 tokenLifetime: "8m"
+metrics:
+  enabled: false
+  application: "gafaelfawr"

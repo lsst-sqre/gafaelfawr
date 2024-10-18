@@ -42,3 +42,7 @@ firestore: {}
 oidcServer:
   keyId: "gafaelfawr"
 quota: {}
+
+metrics:
+  enabled: false
+  application: "gafaelfawr"

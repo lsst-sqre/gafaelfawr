@@ -13,7 +13,6 @@ import structlog
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
-from opentelemetry.sdk.metrics.export import MetricReader
 from safir.database import create_database_engine, is_database_current
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
@@ -38,7 +37,6 @@ def create_app(
     *,
     load_config: bool = True,
     extra_startup: Coroutine[None, None, None] | None = None,
-    metric_reader: MetricReader | None = None,
     validate_schema: bool = True,
 ) -> FastAPI:
     """Create the FastAPI application.
@@ -58,10 +56,6 @@ def create_app(
     extra_startup
         If provided, an additional coroutine to run as part of the startup
         section of the lifespan context manager, used by the test suite.
-    metric_reader
-        Override the metric reader with the provided object. This is used by
-        the test suite to store metrics in memory where they can be queried
-        and checked.
     validate_schema
         If set to `True`, verify, with Alembic, that the schema is up to date
         and raise `~gafaelfawr.exceptions.DatabaseSchemaError` if it is not.
@@ -84,7 +78,9 @@ def create_app(
             if not await is_database_current(engine, logger):
                 raise DatabaseSchemaError("Database schema out of date")
             await engine.dispose()
-        await context_dependency.initialize(config, metric_reader)
+        event_manager = config.metrics.make_manager()
+        await event_manager.initialize()
+        await context_dependency.initialize(config, event_manager)
         await db_session_dependency.initialize(
             config.database_url, config.database_password
         )
@@ -96,6 +92,7 @@ def create_app(
         await http_client_dependency.aclose()
         await db_session_dependency.aclose()
         await context_dependency.aclose()
+        await event_manager.aclose()
 
     app = FastAPI(
         title="Gafaelfawr",

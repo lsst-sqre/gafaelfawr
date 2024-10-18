@@ -13,6 +13,12 @@ from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.return_url import return_url_with_header
+from ..events import (
+    LoginAttemptEvent,
+    LoginEnrollmentEvent,
+    LoginFailureEvent,
+    LoginSuccessEvent,
+)
 from ..exceptions import (
     FirestoreError,
     InvalidReturnURLError,
@@ -114,7 +120,7 @@ async def get_login(
     """
     if code:
         if not state:
-            return _error_user(context, LoginError.STATE_MISSING)
+            return await _error_user(context, LoginError.STATE_MISSING)
         return await handle_provider_return(code, state, context)
     else:
         return await redirect_to_provider(return_url, context)
@@ -182,8 +188,7 @@ async def redirect_to_provider(
         state = base64.urlsafe_b64encode(os.urandom(16)).decode()
         context.state.state = state
         context.state.login_start = datetime.now(tz=UTC)
-        if context.metrics:
-            context.metrics.login_attempts.add(1)
+        await context.events.login_attempt.publish(LoginAttemptEvent())
 
     # Get the authentication provider URL send the user there.
     provider = context.factory.create_provider()
@@ -228,12 +233,13 @@ async def handle_provider_return(
         if context.config.oidc and context.config.oidc.enrollment_url:
             url = str(context.config.oidc.enrollment_url)
             context.logger.info("Redirecting user to enrollment URL", url=url)
-            if context.metrics:
-                context.metrics.login_enrollment.add(1)
+            await context.events.login_enrollment.publish(
+                LoginEnrollmentEvent()
+            )
             headers = {"Cache-Control": "no-cache, no-store"}
             return RedirectResponse(url, headers=headers)
         else:
-            return _error_user(context, LoginError.NOT_ENROLLED, str(e))
+            return await _error_user(context, LoginError.NOT_ENROLLED, str(e))
     except FirestoreError as e:
         return await _error_system(context, LoginError.FIRESTORE_FAILED, e)
     except ProviderWebError as e:
@@ -243,13 +249,13 @@ async def handle_provider_return(
     except NoScopesError as e:
         provider = context.factory.create_provider()
         await provider.logout(context.state)
-        return _error_user(context, LoginError.GROUPS_MISSING, str(e))
+        return await _error_user(context, LoginError.GROUPS_MISSING, str(e))
     except ProviderError as e:
         return await _error_system(context, LoginError.PROVIDER_FAILED, e)
     except PermissionDeniedError as e:
         provider = context.factory.create_provider()
         await provider.logout(context.state)
-        return _error_user(context, LoginError.INVALID_USERNAME, str(e))
+        return await _error_user(context, LoginError.INVALID_USERNAME, str(e))
 
 
 async def _construct_token(
@@ -328,8 +334,7 @@ async def _error_system(
     context.state.state = None
     context.state.return_url = None
     context.state.login_start = None
-    if context.metrics:
-        context.metrics.login_failures.add(1)
+    await context.events.login_failure.publish(LoginFailureEvent())
     return templates.TemplateResponse(
         context.request,
         "login-error.html",
@@ -344,7 +349,7 @@ async def _error_system(
     )
 
 
-def _error_user(
+async def _error_user(
     context: RequestContext, error: LoginError, details: str | None = None
 ) -> Response:
     """Generate an error page for a user login failure.
@@ -374,8 +379,7 @@ def _error_user(
     context.state.state = None
     context.state.return_url = None
     context.state.login_start = None
-    if context.metrics:
-        context.metrics.login_failures.add(1)
+    await context.events.login_failure.publish(LoginFailureEvent())
     return templates.TemplateResponse(
         context.request,
         "login-error.html",
@@ -435,14 +439,14 @@ async def _construct_login_response(
     """
     return_url = context.state.return_url
     if not return_url:
-        return _error_user(context, LoginError.RETURN_URL_MISSING)
+        return await _error_user(context, LoginError.RETURN_URL_MISSING)
     context.rebind_logger(return_url=return_url)
     if not context.state.state:
         msg = "Login state missing, redirecting without authentication"
         context.logger.info(msg)
         return RedirectResponse(return_url)
     if state != context.state.state:
-        return _error_user(context, LoginError.STATE_INVALID)
+        return await _error_user(context, LoginError.STATE_INVALID)
 
     # Retrieve the user identity and authorization information based on the
     # reply from the authentication provider, and construct a token.
@@ -450,14 +454,12 @@ async def _construct_login_response(
     user_info = await provider.create_user_info(code, state, context.state)
     token = await _construct_token(context, user_info)
 
-    # Record login metrics if configured.
-    if context.metrics:
-        attrs = {"username": user_info.username}
-        if context.state.login_start:
-            now = datetime.now(tz=UTC)
-            elapsed = (now - context.state.login_start).total_seconds()
-            context.metrics.login_success_time.set(elapsed, attrs)
-        context.metrics.login_successes.add(1, attrs)
+    # Record login event.
+    event = LoginSuccessEvent(username=user_info.username)
+    if context.state.login_start:
+        elapsed = datetime.now(tz=UTC) - context.state.login_start
+        event.elapsed = elapsed.total_seconds()
+    await context.events.login_success.publish(event)
 
     # Store the token, record metrics, clear the login state, and send the
     # user back to what they were doing.

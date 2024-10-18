@@ -31,3 +31,8 @@ knownScopes:
 
 # A minimal mapping sufficient for Gafaelfawr to start.
 groupMapping: {}
+
+# A minimal metrics configuration so that Gafaelfawr will start.
+metrics:
+  enabled: false
+  application: "gafaelfawr"

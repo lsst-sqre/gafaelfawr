@@ -10,3 +10,6 @@ knownScopes:
   "admin:token": "Can create and modify tokens for any user"
 github:
   clientId: "some-github-client-id"
+metrics:
+  enabled: false
+  application: "gafaelfawr"

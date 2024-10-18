@@ -16,13 +16,17 @@ from ..constants import (
     MINIMUM_LIFETIME,
     USERNAME_REGEX,
 )
+from ..events import (
+    ActiveUserSessionsEvent,
+    ActiveUserTokensEvent,
+    StateEvents,
+)
 from ..exceptions import (
     InvalidExpiresError,
     InvalidIPAddressError,
     InvalidScopesError,
     PermissionDeniedError,
 )
-from ..metrics import StateMetrics
 from ..models.history import (
     HistoryCursor,
     PaginatedHistory,
@@ -607,18 +611,22 @@ class TokenService:
             )
             await self._token_change_store.add(history_entry)
 
-    async def gather_state_metrics(self, metrics: StateMetrics) -> None:
+    async def gather_state_metrics(self, events: StateEvents) -> None:
         """Gather metrics from the stored state and record them.
 
         Parameters
         ----------
-        metrics
-            Collection of metric instruments.
+        events
+            Publishers for state events.
         """
         session_count = await self._token_db_store.count_unique_sessions()
-        metrics.sessions_active_users.set(session_count)
+        await events.active_user_sessions.publish(
+            ActiveUserSessionsEvent(count=session_count)
+        )
         token_count = await self._token_db_store.count_user_tokens()
-        metrics.user_tokens_active.set(token_count)
+        await events.active_user_tokens.publish(
+            ActiveUserTokensEvent(count=token_count)
+        )
 
     async def get_change_history(
         self,

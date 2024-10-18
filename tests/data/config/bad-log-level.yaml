@@ -16,3 +16,6 @@ knownScopes:
   "user:token": "Can create and modify user tokens"
 github:
   clientId: "some-github-client-id"
+metrics:
+  enabled: false
+  application: "gafaelfawr"
