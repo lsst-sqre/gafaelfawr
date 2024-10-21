@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.0.1'></a>
+## 12.0.1 (2024-10-21)
+
+### Bug fixes
+
+- Fix startup error when metrics reporting is disabled.
+
 <a id='changelog-12.0.0'></a>
 ## 12.0.0 (2024-10-18)
 
