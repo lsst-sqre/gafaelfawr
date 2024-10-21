@@ -43,7 +43,7 @@ dependencies = [
     "pyjwt",
     "pyyaml",
     "redis>=4.2.0",
-    "safir[db,kubernetes]>=6.5.0",
+    "safir[db,kubernetes]>=6.5.1",
     "sqlalchemy>=2.0.0",
     "structlog",
 ]
