@@ -128,6 +128,21 @@ Authentication realm
 The default authentication realm for ``WWW-Authenticate`` headers, which is displayed as part of the HTTP Basic Authentication prompt in browsers, is the hostname of the Phalanx environment in which Gafaelfawr is installed.
 This default can be overridden by setting ``config.realm``.
 
+Base internal URL
+-----------------
+
+Gafaelfawr needs to know the internal cluster DNS domain when creating ``Ingress`` resources from ``GafaelfawrIngress`` resources.
+By default, Gafaelfawr assumes that the cluster DNS domain is ``svc.cluster.local`` and the address to Gafaelfawr can be constructed by adding the name of the service and the name of the Gafaelfawr deployment namespace to the front of that domain.
+If your cluster sets it to something else (by using the ``--cluster-domain`` flag, for example), or if you are running Gafaelfawr in a vCluster but running the ingress outside of that vCluster, you will need to override the internal URL to Gafaelfawr by setting ``config.baseInternalUrl``.
+
+.. code-block:: yaml
+
+   config:
+     baseInternalUrl: "http://gafaelfawr.gafaelfawr.svc.example.com:8080"
+
+The first component of the host name is the name of the ``Service`` resource and therefore must be ``gafaelfawr``.
+Always use a port of 8080.
+
 .. _providers:
 
 Authentication provider
