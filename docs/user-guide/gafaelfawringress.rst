@@ -72,7 +72,9 @@ The ``template`` section is a template for the ``Ingress`` resource.
 It uses a subset of the ``Ingress`` schema.
 
 ``template.metadata.name`` specifies the name of the ``Ingress`` resource to create and must be present.
+
 ``template.metadata.labels`` and ``template.metadata.annotations`` may be set to add labels and annotations to the created ``Ingress``, in addition to the annotations that will be added by Gafaelfawr.
+Gafaelfawr will always add the ``app.kubernetes.io/managed-by`` label with the value ``Gafaelfawr``, overriding any label by that name specified here.
 
 ``template.spec.rules`` are the normal ``Ingress`` routing rules.
 Only the above structure is supported, but all standard ``pathType`` options are supported, as is using either ``name`` or ``number`` for the port.
@@ -294,6 +296,12 @@ None of the other configuration options are supported in this mode.
 The reason to use this configuration over simply writing an ``Ingress`` resource directly is that Gafaelfawr will still be invoked to strip Gafaelfawr tokens and secrets from the request before it is passed to the underlying service.
 This prevents credential leakage to anonymous services.
 See :ref:`header-filtering` for more details.
+
+Locating Gafaelfawr-managed ingresses
+=====================================
+
+Gafaelfawr adds the label ``app.kubernetes.io/managed-by`` with the value ``Gafaelfawr`` to all of the ingresses that it generates from ``GafaelfawrIngress`` resources.
+This label can be used to locate all Gafaelfawr-managed ``Ingress`` resources, or all ``Ingress`` resources not managed by Gafaelfawr.
 
 .. _auth-headers:
 

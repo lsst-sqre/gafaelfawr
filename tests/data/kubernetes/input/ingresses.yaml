@@ -44,6 +44,7 @@ template:
     name: notebook
     labels:
       some-label: foo
+      app.kubernetes.io/managed-by: blah
     annotations:
       another.annotation.example.com: bar
   spec:
