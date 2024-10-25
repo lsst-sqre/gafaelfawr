@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import override
 from urllib.parse import urlencode
 
 import jwt
@@ -63,6 +64,7 @@ class OIDCProvider(Provider):
         self._http_client = http_client
         self._logger = logger
 
+    @override
     def get_redirect_url(self, state: str) -> str:
         """Get the login URL to which to redirect the user.
 
@@ -92,6 +94,7 @@ class OIDCProvider(Provider):
         )
         return f"{self._config.login_url!s}?{urlencode(params)}"
 
+    @override
     async def create_user_info(
         self, code: str, state: str, session: State
     ) -> TokenUserInfo:
@@ -187,6 +190,7 @@ class OIDCProvider(Provider):
             msg = f"OpenID Connect token parsing failed: {e!s}"
             raise OIDCError(msg) from e
 
+    @override
     async def logout(self, session: State) -> None:
         """User logout callback.
 

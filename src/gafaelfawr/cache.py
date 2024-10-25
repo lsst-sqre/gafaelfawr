@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeVar, override
 
 from cachetools import LRUCache, TTLCache
 
@@ -83,6 +83,7 @@ class IdCache(BaseCache):
         self._cache: LRUCache[str, int] = LRUCache(ID_CACHE_SIZE)
         self._lock = asyncio.Lock()
 
+    @override
     async def clear(self) -> None:
         """Invalidate the cache.
 
@@ -212,6 +213,7 @@ class PerUserCache(BaseCache):
         self._lock = asyncio.Lock()
         self._user_locks: dict[str, asyncio.Lock] = {}
 
+    @override
     async def clear(self) -> None:
         """Invalidate the cache.
 
@@ -285,6 +287,7 @@ class LDAPCache(PerUserCache, Generic[S]):
         """
         return self._cache.get(username)
 
+    @override
     def initialize(self) -> None:
         """Initialize the cache."""
         self._cache = TTLCache(LDAP_CACHE_SIZE, LDAP_CACHE_LIFETIME)
@@ -322,6 +325,7 @@ class TokenCache(PerUserCache):
         self._cache: _LRUTokenCache
         self.initialize()
 
+    @override
     def initialize(self) -> None:
         """Initialize the cache."""
         self._cache = LRUCache(TOKEN_CACHE_SIZE)
