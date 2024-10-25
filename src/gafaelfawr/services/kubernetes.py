@@ -160,6 +160,11 @@ class KubernetesIngressService:
             annotations = self._build_anonymous_annotations(ingress)
         else:
             annotations = self._build_annotations(ingress)
+        if ingress.template.metadata.labels:
+            labels = dict(ingress.template.metadata.labels)
+        else:
+            labels = {}
+        labels["app.kubernetes.io/managed-by"] = "Gafaelfawr"
 
         tls = None
         if ingress.template.spec.tls:
@@ -169,7 +174,7 @@ class KubernetesIngressService:
                 name=ingress.template.metadata.name,
                 namespace=ingress.metadata.namespace,
                 annotations=annotations,
-                labels=ingress.template.metadata.labels,
+                labels=labels,
             ),
             spec=V1IngressSpec(
                 ingress_class_name="nginx",
