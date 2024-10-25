@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Self
+from typing import Self, override
 
 from cryptography.fernet import Fernet
 from fastapi import Request
@@ -45,6 +45,7 @@ class State(BaseState):
     login_start: datetime | None = None
     """Start time of login process if one is in progress."""
 
+    @override
     @classmethod
     async def from_cookie(
         cls, cookie: str, request: Request | None = None
@@ -95,6 +96,7 @@ class State(BaseState):
             login_start=login_start,
         )
 
+    @override
     def to_cookie(self) -> str:
         """Build an encrypted cookie representation of the state.
 

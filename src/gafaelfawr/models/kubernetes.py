@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Literal, Self
+from typing import Literal, Self, override
 
 from kubernetes_asyncio.client import (
     V1HTTPIngressPath,
@@ -205,16 +205,19 @@ class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
     all: list[str]
     """All of these scopes are required to allow access."""
 
+    @override
     @property
     def satisfy(self) -> Satisfy:
         """The authorization satisfy strategy."""
         return Satisfy.ALL
 
+    @override
     @property
     def scopes(self) -> list[str]:
         """List of scopes."""
         return self.all
 
+    @override
     def is_anonymous(self) -> bool:
         """Whether this ingress is anonymous."""
         return False
@@ -226,16 +229,19 @@ class GafaelfawrIngressScopesAny(GafaelfawrIngressScopesBase):
     any: list[str]
     """Any of these scopes is sufficient to allow access."""
 
+    @override
     @property
     def satisfy(self) -> Satisfy:
         """The authorization satisfy strategy."""
         return Satisfy.ANY
 
+    @override
     @property
     def scopes(self) -> list[str]:
         """List of scopes."""
         return self.any
 
+    @override
     def is_anonymous(self) -> bool:
         """Whether this ingress is anonymous."""
         return False
@@ -247,16 +253,19 @@ class GafaelfawrIngressScopesAnonymous(GafaelfawrIngressScopesBase):
     anonymous: Literal[True]
     """Mark this ingress as anonymous."""
 
+    @override
     @property
     def satisfy(self) -> Satisfy:
         """The authorization satisfy strategy."""
         return Satisfy.ANY
 
+    @override
     @property
     def scopes(self) -> list[str]:
         """List of scopes."""
         return []
 
+    @override
     def is_anonymous(self) -> bool:
         """Whether this ingress is anonymous."""
         return True

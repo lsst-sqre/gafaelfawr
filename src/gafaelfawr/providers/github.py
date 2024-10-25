@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import override
 from urllib.parse import urlencode
 
 from httpx import AsyncClient, HTTPError
@@ -67,6 +68,7 @@ class GitHubProvider(Provider):
         self._http_client = http_client
         self._logger = logger
 
+    @override
     def get_redirect_url(self, state: str) -> str:
         """Get the login URL to which to redirect the user.
 
@@ -88,6 +90,7 @@ class GitHubProvider(Provider):
         self._logger.info("Redirecting user to GitHub for authentication")
         return f"{self._LOGIN_URL}?{urlencode(params)}"
 
+    @override
     async def create_user_info(
         self, code: str, state: str, session: State
     ) -> TokenUserInfo:
@@ -176,6 +179,7 @@ class GitHubProvider(Provider):
             groups=sorted(groups, key=lambda g: g.name),
         )
 
+    @override
     async def logout(self, session: State) -> None:
         """Revoke the OAuth authorization grant for this user.
 
