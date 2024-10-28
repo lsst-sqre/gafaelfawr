@@ -10,7 +10,7 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, BasicAuth
 from safir.datetime import current_datetime, format_datetime_for_logging
 from safir.testing.slack import MockSlackWebhook
 
@@ -47,6 +47,7 @@ async def authenticate(
     *,
     client_secret: str,
     expires: datetime,
+    use_basic_auth: bool = False,
 ) -> OIDCTokenReply:
     """Authenticate to Gafaelfawr with OpenID Connect.
 
@@ -62,6 +63,9 @@ async def authenticate(
         Secret used to authenticate to the token endpoint.
     expires
         Expected expiration of ID token.
+    use_basic_auth
+        Whether to use HTTP Basic Authentication instead of POSTing the
+        credentials.
 
     Returns
     -------
@@ -87,16 +91,29 @@ async def authenticate(
     code = query["code"][0]
 
     # Redeem the code for a token and check the result.
-    r = await client.post(
-        "/auth/openid/token",
-        data={
-            "grant_type": "authorization_code",
-            "client_id": request["client_id"],
-            "client_secret": client_secret,
-            "code": code,
-            "redirect_uri": request["redirect_uri"],
-        },
-    )
+    if use_basic_auth:
+        r = await client.post(
+            "/auth/openid/token",
+            auth=BasicAuth(
+                username=request["client_id"], password=client_secret
+            ),
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": request["redirect_uri"],
+            },
+        )
+    else:
+        r = await client.post(
+            "/auth/openid/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": request["client_id"],
+                "client_secret": client_secret,
+                "code": code,
+                "redirect_uri": request["redirect_uri"],
+            },
+        )
     assert r.status_code == 200
     assert r.headers["Cache-Control"] == "no-store"
     assert r.headers["Pragma"] == "no-cache"
@@ -862,7 +879,10 @@ async def test_well_known_oidc(
         "grant_types_supported": ["authorization_code"],
         "subject_types_supported": ["public"],
         "id_token_signing_alg_values_supported": [ALGORITHM],
-        "token_endpoint_auth_methods_supported": ["client_secret_post"],
+        "token_endpoint_auth_methods_supported": [
+            "client_secret_basic",
+            "client_secret_post",
+        ],
     }
 
 
@@ -1003,5 +1023,46 @@ async def test_data_rights(
         "email": token_data.email,
         "name": token_data.name,
         "preferred_username": token_data.username,
+        "sub": token_data.username,
+    }
+
+
+@pytest.mark.asyncio
+async def test_basic_auth(
+    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    redirect_uri = "https://example.org/"
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
+    config = await reconfigure(
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
+    )
+    assert config.oidc_server
+    token_data = await create_session_token(factory)
+    assert token_data.expires
+    await set_session_cookie(client, token_data.token)
+    oidc_service = factory.create_oidc_service()
+
+    reply = await authenticate(
+        factory,
+        client,
+        {
+            "response_type": "code",
+            "scope": "openid",
+            "client_id": "some-id",
+            "state": "random-state",
+            "redirect_uri": redirect_uri,
+        },
+        client_secret="some-secret",
+        expires=token_data.expires,
+        use_basic_auth=True,
+    )
+    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    assert id_token.claims == {
+        "aud": "some-id",
+        "exp": int(token_data.expires.timestamp()),
+        "iat": ANY,
+        "iss": str(config.oidc_server.issuer),
+        "jti": ANY,
+        "scope": "openid",
         "sub": token_data.username,
     }

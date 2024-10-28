@@ -456,8 +456,10 @@ class OIDCConfig(BaseModel):
     )
 
     token_endpoint_auth_methods_supported: list[str] = Field(
-        ["client_secret_post"],
+        ["client_secret_basic", "client_secret_post"],
         title="Supported client auth methods",
-        description="``client_secret_post`` is the only supported auth method",
-        examples=[["client_secret_post"]],
+        description=(
+            "``client_secret_basic`` and ``client_secret_post`` are supported"
+        ),
+        examples=[["client_secret_basic", "client_secret_post"]],
     )
