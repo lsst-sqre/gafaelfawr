@@ -9,7 +9,8 @@ from safir.metrics import EventManager, EventPayload
 __all__ = [
     "ActiveUserSessionsEvent",
     "ActiveUserTokensEvent",
-    "AuthEvent",
+    "AuthBotEvent",
+    "AuthUserEvent",
     "FrontendEvents",
     "LoginAttemptEvent",
     "LoginEnrollmentEvent",
@@ -78,10 +79,24 @@ class StateEvents(EventMaker):
         )
 
 
-class AuthEvent(EventPayload):
-    """An authentication to a service.
+class AuthBotEvent(EventPayload):
+    """An authentication to a service by a bot user."""
 
-    Authentications from mobu bot users are not logged via this event.
+    username: str = Field(
+        ..., title="Username", description="Username of bot user"
+    )
+
+    service: str | None = Field(
+        None,
+        title="Service",
+        description="Service to which the user was authenticated",
+    )
+
+
+class AuthUserEvent(EventPayload):
+    """An authentication to a service by a user.
+
+    Bot users are not included in this metric.
     """
 
     username: str = Field(
@@ -161,7 +176,12 @@ class FrontendEvents(EventMaker):
     """
 
     async def initialize(self, manager: EventManager) -> None:
-        self.auth = await manager.create_publisher("auth", AuthEvent)
+        self.auth_bot = await manager.create_publisher(
+            "auth_bot", AuthBotEvent
+        )
+        self.auth_user = await manager.create_publisher(
+            "auth_user", AuthUserEvent
+        )
         self.login_attempt = await manager.create_publisher(
             "login_attempt", LoginAttemptEvent
         )

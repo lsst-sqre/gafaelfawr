@@ -15,8 +15,13 @@ Frontend metrics
 
 The following events are logged by the Gafaelfawr frontend:
 
-auth
-    A user was successfully authenticated to a service.
+auth_bot
+    A bot user was successfully authenticated to a service.
+    The username is present as the ``username`` tag.
+    The service name is present as the ``service`` tag, if known.
+
+auth_user
+    A non-bot user was successfully authenticated to a service.
     The username is present as the ``username`` tag.
     The service name is present as the ``service`` tag, if known.
 
