@@ -8,6 +8,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse
 
 from fastapi import APIRouter, Depends, Form, Query, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
@@ -40,6 +41,11 @@ authenticate = AuthenticateRead(
     require_session=True, redirect_if_unauthenticated=True
 )
 authenticate_token = AuthenticateRead(require_bearer_token=True)
+client_basic = HTTPBasic(
+    scheme_name="oidc",
+    description="OpenID Connect client authentication",
+    auto_error=False,
+)
 
 
 @router.get(
@@ -236,6 +242,7 @@ async def post_token(
             examples=["gc-W74I5HltJZRc0fOUAapgVQ.3T1xQQgeD063KgmNinw-tA"],
         ),
     ] = None,
+    credentials: Annotated[HTTPBasicCredentials | None, Depends(client_basic)],
     redirect_uri: Annotated[
         str | None,
         Form(
@@ -248,6 +255,9 @@ async def post_token(
     response: Response,
 ) -> OIDCTokenReply | JSONResponse:
     oidc_service = context.factory.create_oidc_service()
+    if credentials:
+        client_id = credentials.username
+        client_secret = credentials.password
     async with context.session.begin():
         try:
             reply = await oidc_service.redeem_code(

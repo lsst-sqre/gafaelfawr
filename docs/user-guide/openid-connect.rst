@@ -37,11 +37,14 @@ For clients that require more manual configuration, the OpenID Connect routes ar
 - userinfo endpoint: ``/auth/openid/userinfo``.
 - JWKS endpoint: ``/.well-known/jwks.json``.
 
-As with any other protected service, the client must run on the same URL host as Gafaelfawr.
-These endpoints are all at that shared host (and should be specified using ``https``).
+The hostname for those routes is whatever host Gafaelfawr itself is configured to use.
+(Generally this will be the default domain of the Phalanx cluster.)
 
 The client must use the authentication code OpenID Connect flow (see `OpenID Connect Core 1.0 section 3.1 <https://openid.net/specs/openid-connect-core-1_0.html#CodeFlowAuth>`__).
 The other authentication flows are not supported.
+
+The authentication methods ``client_secret_basic`` and ``client_secret_post`` are supported.
+Gafaelfawr does not register a specific authentication method for a client and supports either authentication method for any client.
 
 OpenID scopes
 -------------
