@@ -8,6 +8,16 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.1.0'></a>
+## 12.1.0 (2024-10-28)
+
+### New features
+
+- Add support for `client_secret_basic` to the token endpoint for the OpenID Connect server. This is the recommended default authentication strategy and some clients don't support negotiating `client_secret_post` instead.
+- Add a `config.baseInternalUrl` Helm setting to override Gafaelfawr's understanding of its own internal URL, used when constructing `Ingress` resources from `GafaelfawrIngress`.
+- Gafaelfawr now adds the `app.kubernetes.io/managed-by` label with value `Gafaelfawr` to all `Ingress` resources generated from `GafaelfawrIngress` resources.
+- Separate `auth` metrics into `auth_bot` and `auth_user` metrics, where the former are authentications to services from bot users and the latter are authentications from non-bot users. Stop excluding mobu bot users now that they can be included in the `auth_bot` metric instead.
+
 <a id='changelog-12.0.1'></a>
 ## 12.0.1 (2024-10-21)
 
