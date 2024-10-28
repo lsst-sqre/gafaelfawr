@@ -26,7 +26,7 @@ from ..auth import (
 from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
-from ..events import AuthEvent
+from ..events import AuthBotEvent, AuthUserEvent
 from ..exceptions import (
     ExternalUserInfoError,
     InsufficientScopeError,
@@ -37,7 +37,7 @@ from ..exceptions import (
 )
 from ..models.auth import AuthType, Satisfy
 from ..models.token import TokenData
-from ..util import is_mobu_bot_user
+from ..util import is_bot_user
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 
@@ -359,11 +359,16 @@ async def get_auth(
     headers = await build_success_headers(context, auth_config, token_data)
     for key, value in headers:
         response.headers.append(key, value)
-    if not is_mobu_bot_user(token_data.username):
-        event = AuthEvent(
+    if is_bot_user(token_data.username):
+        bot_event = AuthBotEvent(
             username=token_data.username, service=auth_config.service
         )
-        await context.events.auth.publish(event)
+        await context.events.auth_bot.publish(bot_event)
+    else:
+        user_event = AuthUserEvent(
+            username=token_data.username, service=auth_config.service
+        )
+        await context.events.auth_user.publish(user_event)
     return {"status": "ok"}
 
 
