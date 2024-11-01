@@ -7,7 +7,6 @@ help:
 	@echo "make update - Update pinned dependencies and run make init"
 	@echo "make update-deps - Update pinned dependencies"
 
-# npm dependencies have to be installed for pre-commit eslint to work.
 .PHONY: init
 init:
 	pip install --upgrade uv
