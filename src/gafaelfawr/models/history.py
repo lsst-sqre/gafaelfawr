@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Generic, Self, TypeVar
 from urllib.parse import parse_qs, urlencode
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from safir.datetime import current_datetime
 from starlette.datastructures import URL
 
@@ -75,8 +75,6 @@ class AdminHistoryEntry(BaseModel):
         description="When the change was made",
         examples=[1614986130],
     )
-
-    model_config = ConfigDict(from_attributes=True)
 
     _normalize_ip_address = field_validator("ip_address", mode="before")(
         normalize_ip_address
@@ -335,8 +333,6 @@ class TokenChangeHistoryEntry(BaseModel):
         title="Whent he change was made",
         examples=[1614985631],
     )
-
-    model_config = ConfigDict(from_attributes=True)
 
     _normalize_scopes = field_validator("scopes", "old_scopes", mode="before")(
         normalize_scopes
