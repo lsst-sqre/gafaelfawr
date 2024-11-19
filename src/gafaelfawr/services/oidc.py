@@ -125,7 +125,7 @@ class OIDCService:
 
     def get_openid_configuration(self) -> OIDCConfig:
         """Return the OpenID Connect configuration for the internal server."""
-        base_url = str(self._config.issuer)
+        base_url = str(self._config.issuer).rstrip("/")
         return OIDCConfig(
             issuer=base_url,
             authorization_endpoint=base_url + "/auth/openid/login",
