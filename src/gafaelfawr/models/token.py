@@ -6,13 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Self
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    ValidationInfo,
-    field_validator,
-)
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from safir.datetime import current_datetime
 
 from ..constants import USERNAME_REGEX
@@ -241,8 +235,6 @@ class TokenInfo(TokenBase):
         min_length=22,
         max_length=22,
     )
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenUserInfo(BaseModel):

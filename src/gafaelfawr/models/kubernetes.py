@@ -65,6 +65,8 @@ __all__ = [
 class KubernetesMetadata(BaseModel):
     """The metadata section of a Kubernetes resource."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     name: str
     """The name of the object."""
 
@@ -82,8 +84,6 @@ class KubernetesMetadata(BaseModel):
 
     generation: int
     """The generation of the object."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     @field_validator("annotations")
     @classmethod
@@ -108,10 +108,10 @@ class KubernetesResource(BaseModel):
     be extended with resource-specific data.
     """
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     metadata: KubernetesMetadata
     """Metadata section of the Kubernetes resource."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     @property
     def key(self) -> str:
@@ -122,13 +122,13 @@ class KubernetesResource(BaseModel):
 class GafaelfawrIngressDelegateInternal(BaseModel):
     """Configuration for a delegated internal token."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     service: str
     """The name of the service to which the token is being delegated."""
 
     scopes: list[str]
     """The requested scopes of the delegated token."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class GafaelfawrIngressDelegateNotebook(BaseModel):
@@ -148,6 +148,8 @@ class GafaelfawrIngressDelegateNotebook(BaseModel):
 class GafaelfawrIngressDelegate(BaseModel):
     """Configuration for delegated tokens requested for a service."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     notebook: GafaelfawrIngressDelegateNotebook | None = None
     """Whether the delegated token requested is a notebook token."""
 
@@ -159,8 +161,6 @@ class GafaelfawrIngressDelegate(BaseModel):
 
     use_authorization: bool = False
     """Whether to put the delegated token in the ``Authorization`` header."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     _normalize_minimum_lifetime = field_validator(
         "minimum_lifetime", mode="before"
@@ -180,6 +180,10 @@ class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
     rest of Gafaelfawr.
     """
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
     @property
     @abstractmethod
     def satisfy(self) -> Satisfy:
@@ -193,10 +197,6 @@ class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
     @abstractmethod
     def is_anonymous(self) -> bool:
         """Whether this ingress is anonymous."""
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
 
 
 class GafaelfawrIngressScopesAll(GafaelfawrIngressScopesBase):
@@ -274,6 +274,8 @@ class GafaelfawrIngressScopesAnonymous(GafaelfawrIngressScopesBase):
 class GafaelfawrIngressConfig(BaseModel):
     """Configuration settings for an ingress using Gafaelfawr for auth."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     auth_cache_duration: str | None = None
     """How long NGINX should cache the Gafaelfawr authorization response."""
 
@@ -307,8 +309,6 @@ class GafaelfawrIngressConfig(BaseModel):
 
     username: str | None = None
     """Restrict access to the given user."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     @model_validator(mode="after")
     def _validate_conflicts(self) -> Self:
@@ -391,6 +391,8 @@ class GafaelfawrIngressConfig(BaseModel):
 class GafaelfawrIngressMetadata(BaseModel):
     """Metadata used to create an ``Ingress`` object."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     name: str
     """Name of the ingress."""
 
@@ -399,8 +401,6 @@ class GafaelfawrIngressMetadata(BaseModel):
 
     labels: dict[str, str] | None = None
     """Labels to add to the ingress."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class PathType(Enum):
@@ -419,12 +419,12 @@ class PathType(Enum):
 class GafaelfawrServicePortName(BaseModel):
     """Port for a service."""
 
-    name: str
-    """Port name."""
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    name: str
+    """Port name."""
 
     def to_kubernetes(self) -> V1ServiceBackendPort:
         """Convert to the Kubernetes API object."""
@@ -434,12 +434,12 @@ class GafaelfawrServicePortName(BaseModel):
 class GafaelfawrServicePortNumber(BaseModel):
     """Port for a service."""
 
-    number: int
-    """Port number."""
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    number: int
+    """Port number."""
 
     def to_kubernetes(self) -> V1ServiceBackendPort:
         """Convert to the Kubernetes API object."""
@@ -449,13 +449,13 @@ class GafaelfawrServicePortNumber(BaseModel):
 class GafaelfawrIngressPathService(BaseModel):
     """Service that serves a given path."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     name: str
     """Name of the service to which to route the request."""
 
     port: GafaelfawrServicePortName | GafaelfawrServicePortNumber
     """Port to which to route the request."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     def to_kubernetes(self) -> V1IngressServiceBackend:
         """Convert to the Kubernetes API object."""
@@ -467,10 +467,10 @@ class GafaelfawrIngressPathService(BaseModel):
 class GafaelfawrIngressPathBackend(BaseModel):
     """Backend that serves a given path."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     service: GafaelfawrIngressPathService
     """The underlying service that serves this path."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     def to_kubernetes(self) -> V1IngressBackend:
         """Convert to the Kubernetes API object."""
@@ -480,6 +480,8 @@ class GafaelfawrIngressPathBackend(BaseModel):
 class GafaelfawrIngressPath(BaseModel):
     """A path routing rule for an ingress."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     path: str
     """Path match, interpreted based on the ``path_type`` field."""
 
@@ -488,8 +490,6 @@ class GafaelfawrIngressPath(BaseModel):
 
     backend: GafaelfawrIngressPathBackend
     """Backend that serves this path."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     def to_kubernetes(self) -> V1HTTPIngressPath:
         """Convert to the Kubernetes API object."""
@@ -503,10 +503,10 @@ class GafaelfawrIngressPath(BaseModel):
 class GafaelfawrIngressRuleHTTP(BaseModel):
     """Routing rules for HTTP access."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     paths: list[GafaelfawrIngressPath]
     """Path routing rules for this host."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     def to_kubernetes(self) -> V1HTTPIngressRuleValue:
         """Convert to the Kubernetes API object."""
@@ -518,13 +518,13 @@ class GafaelfawrIngressRuleHTTP(BaseModel):
 class GafaelfawrIngressRule(BaseModel):
     """A routing rule for an ingress."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     host: str
     """Hostname to which to attach the rule."""
 
     http: GafaelfawrIngressRuleHTTP
     """Path routing rules for this host."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     def to_kubernetes(self) -> V1IngressRule:
         """Convert to the Kubernetes API object."""
@@ -534,6 +534,8 @@ class GafaelfawrIngressRule(BaseModel):
 class GafaelfawrIngressTLS(BaseModel):
     """A TLS certificate rule for an ingress."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     hosts: list[str]
     """The hosts to which this certificate applies.
 
@@ -541,8 +543,6 @@ class GafaelfawrIngressTLS(BaseModel):
 
     secret_name: str
     """The name of the secret containing the TLS certificate."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     def to_kubernetes(self) -> V1IngressTLS:
         """Convert to the Kubernetes API object."""
@@ -552,25 +552,25 @@ class GafaelfawrIngressTLS(BaseModel):
 class GafaelfawrIngressSpec(BaseModel):
     """Template for ``spec`` portion of ``Ingress`` resource."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     rules: list[GafaelfawrIngressRule]
     """The ingress routing rules."""
 
     tls: list[GafaelfawrIngressTLS] | None = None
     """The TLS certificate rules."""
 
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
 
 class GafaelfawrIngressTemplate(BaseModel):
     """Template for ``Ingress`` created from ``GafaelfawrIngress`` resource."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     metadata: GafaelfawrIngressMetadata
     """Template for the metadata of the created ``Ingress``."""
 
     spec: GafaelfawrIngressSpec
     """Template for the ``spec`` of the created ``Ingress``."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class GafaelfawrIngress(KubernetesResource):
@@ -586,13 +586,13 @@ class GafaelfawrIngress(KubernetesResource):
 class GafaelfawrServiceTokenSpec(BaseModel):
     """Holds the ``spec`` section of a ``GafaelfawrServiceToken`` resource."""
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     service: str
     """The username of the service token."""
 
     scopes: list[str]
     """The scopes to grant to the service token."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class GafaelfawrServiceToken(KubernetesResource):

@@ -157,7 +157,7 @@ class TokenDatabaseStore:
         )
         tokens = await self._session.execute(stmt)
         for token, parent in tokens.all():
-            info = TokenInfo.model_validate(token)
+            info = TokenInfo.model_validate(token, from_attributes=True)
             info.parent = parent
             deleted.append(info)
 
@@ -226,7 +226,7 @@ class TokenDatabaseStore:
         if not result:
             return None
         token, parent = result
-        info = TokenInfo.model_validate(token)
+        info = TokenInfo.model_validate(token, from_attributes=True)
         info.parent = parent
         return info
 
@@ -336,7 +336,10 @@ class TokenDatabaseStore:
         if limit:
             stmt = stmt.limit(limit)
         result = await self._session.scalars(stmt)
-        return [TokenInfo.model_validate(t) for t in result.all()]
+        return [
+            TokenInfo.model_validate(t, from_attributes=True)
+            for t in result.all()
+        ]
 
     async def list_orphaned(self) -> list[TokenInfo]:
         """List all orphaned tokens.
@@ -355,7 +358,10 @@ class TokenDatabaseStore:
             .where(Subtoken.parent.is_(None))
         )
         result = await self._session.scalars(stmt)
-        return [TokenInfo.model_validate(t) for t in result.all()]
+        return [
+            TokenInfo.model_validate(t, from_attributes=True)
+            for t in result.all()
+        ]
 
     async def list_with_parents(self) -> list[TokenInfo]:
         """List all tokens including parent information.
@@ -381,7 +387,7 @@ class TokenDatabaseStore:
         token_info = []
         for result in results.all():
             token, parent = result
-            info = TokenInfo.model_validate(token)
+            info = TokenInfo.model_validate(token, from_attributes=True)
             info.parent = parent
             token_info.append(info)
         return token_info
@@ -434,7 +440,7 @@ class TokenDatabaseStore:
             token.expires = None
         elif expires:
             token.expires = datetime_to_db(expires)
-        return TokenInfo.model_validate(token)
+        return TokenInfo.model_validate(token, from_attributes=True)
 
     async def _check_name_conflict(
         self, username: str, token_name: str

@@ -549,14 +549,14 @@ class LDAPConfig(EnvFirstSettings):
 class FirestoreConfig(BaseModel):
     """Configuration for Firestore-based UID/GID assignment."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
     project: str = Field(
         ...,
         title="Firestore GCP project",
         description="Project containing the Firestore collections",
-    )
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
 
@@ -566,6 +566,8 @@ class OIDCClient(BaseModel):
     Unlike the other configuration models, this model parses the value of a
     secret rather than the Helm values file and does not support camel-case.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(
         ..., title="Client ID", description="Unique identifier of the client"
@@ -584,8 +586,6 @@ class OIDCClient(BaseModel):
             "Acceptable return URL when authenticating users for this client"
         ),
     )
-
-    model_config = ConfigDict(extra="forbid")
 
 
 class OIDCServerConfig(EnvFirstSettings):
@@ -660,6 +660,8 @@ class OIDCServerConfig(EnvFirstSettings):
 class NotebookQuota(BaseModel):
     """Quota settings for the Notebook Aspect."""
 
+    model_config = ConfigDict(extra="forbid")
+
     cpu: float = Field(
         ..., title="CPU limit", description="Maximum number of CPU equivalents"
     )
@@ -670,8 +672,6 @@ class NotebookQuota(BaseModel):
         description="Maximum memory usage in GiB",
     )
 
-    model_config = ConfigDict(extra="forbid")
-
 
 class QuotaGrant(BaseModel):
     """One grant of quotas.
@@ -679,6 +679,8 @@ class QuotaGrant(BaseModel):
     There may be one of these per group, as well as a default one, in the
     overall quota configuration.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     api: dict[str, int] = Field(
         {},
@@ -694,11 +696,11 @@ class QuotaGrant(BaseModel):
         description="Quota settings for the Notebook Aspect",
     )
 
-    model_config = ConfigDict(extra="forbid")
-
 
 class QuotaConfig(BaseModel):
     """Quota configuration."""
+
+    model_config = ConfigDict(extra="forbid")
 
     default: QuotaGrant = Field(
         ..., title="Default quota", description="Default quotas for all users"
@@ -710,17 +712,15 @@ class QuotaConfig(BaseModel):
         description="Additional quota grants by group name",
     )
 
-    model_config = ConfigDict(extra="forbid")
-
 
 class GitHubGroupTeam(BaseModel):
     """Specification for a GitHub team."""
 
+    model_config = ConfigDict(extra="forbid")
+
     organization: str = Field(..., title="Name of the organization")
 
     team: str = Field(..., title="Slug of the team")
-
-    model_config = ConfigDict(extra="forbid")
 
     def __str__(self) -> str:
         return group_name_for_github_team(self.organization, self.team)
@@ -729,9 +729,9 @@ class GitHubGroupTeam(BaseModel):
 class GitHubGroup(BaseModel):
     """An individual GitHub team."""
 
-    github: GitHubGroupTeam = Field(..., title="Details of the GitHub team")
-
     model_config = ConfigDict(extra="forbid")
+
+    github: GitHubGroupTeam = Field(..., title="Details of the GitHub team")
 
     def __str__(self) -> str:
         return str(self.github)

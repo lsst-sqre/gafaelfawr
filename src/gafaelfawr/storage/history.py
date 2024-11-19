@@ -180,7 +180,8 @@ class TokenChangeHistoryStore:
         entries = result.all()
         return PaginatedHistory[TokenChangeHistoryEntry](
             entries=[
-                TokenChangeHistoryEntry.model_validate(e) for e in entries
+                TokenChangeHistoryEntry.model_validate(e, from_attributes=True)
+                for e in entries
             ],
             count=len(entries),
             prev_cursor=None,
@@ -249,7 +250,8 @@ class TokenChangeHistoryStore:
         # Return the results.
         return PaginatedHistory[TokenChangeHistoryEntry](
             entries=[
-                TokenChangeHistoryEntry.model_validate(e) for e in entries
+                TokenChangeHistoryEntry.model_validate(e, from_attributes=True)
+                for e in entries
             ],
             count=count,
             prev_cursor=prev_cursor,
