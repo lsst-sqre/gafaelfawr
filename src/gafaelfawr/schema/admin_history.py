@@ -13,12 +13,12 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.history import AdminChange
-from .base import Base
+from .base import SchemaBase
 
 __all__ = ["AdminHistory"]
 
 
-class AdminHistory(Base):
+class AdminHistory(SchemaBase):
     """History of changes to the list of admins."""
 
     __tablename__ = "admin_history"

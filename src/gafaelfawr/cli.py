@@ -33,7 +33,7 @@ from .factory import Factory
 from .keypair import RSAKeyPair
 from .main import create_openapi
 from .models.token import Token
-from .schema import Base
+from .schema import SchemaBase
 
 __all__ = [
     "audit",
@@ -134,7 +134,7 @@ async def delete_all_data(*, config_path: Path | None) -> None:
     engine = create_database_engine(
         config.database_url, config.database_password
     )
-    tables = (t.name for t in Base.metadata.sorted_tables)
+    tables = (t.name for t in SchemaBase.metadata.sorted_tables)
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():

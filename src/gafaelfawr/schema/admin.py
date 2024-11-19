@@ -9,12 +9,12 @@ from __future__ import annotations
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base
+from .base import SchemaBase
 
 __all__ = ["Admin"]
 
 
-class Admin(Base):
+class Admin(SchemaBase):
     """List of users with admin privileges."""
 
     __tablename__ = "admin"

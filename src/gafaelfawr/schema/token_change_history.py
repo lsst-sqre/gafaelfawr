@@ -10,12 +10,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.history import TokenChange
 from ..models.token import TokenType
-from .base import Base
+from .base import SchemaBase
 
 __all__ = ["TokenChangeHistory"]
 
 
-class TokenChangeHistory(Base):
+class TokenChangeHistory(SchemaBase):
     """History of changes to tokens."""
 
     __tablename__ = "token_change_history"

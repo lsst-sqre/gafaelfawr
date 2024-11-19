@@ -14,23 +14,19 @@ from asgi_lifespan import LifespanManager
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from safir.database import (
-    create_database_engine,
-    initialize_database,
-    stamp_database_async,
-)
+from safir.database import create_database_engine, stamp_database_async
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from seleniumwire import webdriver
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
+from gafaelfawr.database import initialize_gafaelfawr_database
 from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.main import create_app
 from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenType
-from gafaelfawr.schema import Base
 
 from .pages.tokens import TokensPage
 from .support.config import config_path, configure
@@ -135,11 +131,8 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     required.
     """
     logger = structlog.get_logger(__name__)
-    await initialize_database(engine, logger, schema=Base.metadata, reset=True)
+    await initialize_gafaelfawr_database(config, logger, engine, reset=True)
     async with Factory.standalone(config, engine) as factory:
-        admin_service = factory.create_admin_service()
-        async with factory.session.begin():
-            await admin_service.add_initial_admins(config.initial_admins)
         await factory._context.redis.flushdb()
     await stamp_database_async(engine)
 

@@ -8,12 +8,12 @@ from sqlalchemy import Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.token import TokenType
-from .base import Base
+from .base import SchemaBase
 
 __all__ = ["Token"]
 
 
-class Token(Base):
+class Token(SchemaBase):
     """Metadata for a token."""
 
     __tablename__ = "token"
