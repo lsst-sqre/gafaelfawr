@@ -141,22 +141,13 @@ python_files = [
     "tests/*/*.py"
 ]
 
-# The rule used with Ruff configuration is to disable every lint that has
-# legitimate exceptions that are not dodgy code, rather than cluttering code
-# with noqa markers. This is therefore a reiatively relaxed configuration that
-# errs on the side of disabling legitimate lints.
-#
-# Reference for settings: https://docs.astral.sh/ruff/settings/
-# Reference for rules: https://docs.astral.sh/ruff/rules/
+# Use the generic Ruff configuration in ruff.toml and extend it with only
+# project-specific settings.
 [tool.ruff]
 extend = "ruff-shared.toml"
 
 [tool.ruff.lint.extend-per-file-ignores]
-"alembic/**" = [
-    "INP001",   # Alembic files are magical
-    "D103",     # no docstrings for Alembic migrations
-]
-"tests/**" = [
+"tests/cli_test.py" = [
     "ASYNC221", # useful to run subprocess in async tests for Alembic
 ]
 
