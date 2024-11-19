@@ -866,7 +866,7 @@ async def test_well_known_oidc(
     r = await client.get("/.well-known/openid-configuration")
     assert r.status_code == 200
 
-    base_url = str(config.oidc_server.issuer)
+    base_url = str(config.oidc_server.issuer).rstrip("/")
     assert r.json() == {
         "issuer": base_url,
         "authorization_endpoint": base_url + "/auth/openid/login",
