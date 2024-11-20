@@ -629,10 +629,13 @@ Set this with ``config.proxies``:
 If not set, defaults to the `RFC 1918 private address spaces <https://datatracker.ietf.org/doc/html/rfc1918>`__.
 See :ref:`client-ips` for more details.
 
+Alerts, metrics, and tracing
+============================
+
 .. _config-metrics:
 
 Metrics
-========
+-------
 
 Gafaelfawr can export events and metrics to Sasquatch_, the metrics system for Rubin Observatory.
 Metrics reporting is disabled by default.
@@ -670,7 +673,7 @@ There are some additional configuration settings, which normally will not need t
 .. _slack-alerts:
 
 Slack alerts
-============
+------------
 
 Gafaelfawr can optionally report uncaught exceptions to Slack.
 To enable this, set ``config.slackAlerts``:
@@ -681,6 +684,19 @@ To enable this, set ``config.slackAlerts``:
      slackAlerts: true
 
 You will also have to set the ``slack-webhook`` key in the Gafaelfawr secret to the URL of the incoming webhook to use to post these alerts.
+
+Sentry
+------
+
+Gafaelfawr can optionally report uncaught exceptions, traces, and performance information to Sentry_.
+To enable this, set ``config.enableSentry``:
+
+.. code-block:: yaml
+
+   config:
+     enableSentry: true
+
+You will also have to set the ``sentry-dsn`` key in the Gafaelfawr secret to the URL to which the telemetry will be sent.
 
 Maintenance
 ===========

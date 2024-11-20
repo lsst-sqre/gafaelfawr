@@ -29,6 +29,7 @@ from .exceptions import DatabaseSchemaError
 from .handlers import api, cadc, ingress, internal, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
+from .sentry import enable_telemetry
 
 __all__ = ["create_app"]
 
@@ -186,6 +187,10 @@ def create_app(
             config.slack_webhook, "Gafaelfawr", logger
         )
         logger.debug("Initialized Slack webhook")
+
+    # Configure Sentry.
+    if config and config.enable_sentry:
+        enable_telemetry()
 
     # Handle exceptions descended from ClientRequestError.
     app.exception_handler(ClientRequestError)(client_request_error_handler)

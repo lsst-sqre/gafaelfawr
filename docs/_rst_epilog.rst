@@ -12,6 +12,7 @@
 .. _Sasquatch: https://sasquatch.lsst.io/
 .. _scriv: https://scriv.readthedocs.io/en/latest/
 .. _semver: https://semver.org/
+.. _Sentry: https://sentry.io/welcome/
 .. _structlog: https://www.structlog.org/en/stable/
 .. _tox: https://tox.wiki/en/latest/
 .. _uvicorn: https://www.uvicorn.org/
