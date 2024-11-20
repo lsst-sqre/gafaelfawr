@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
-from gafaelfawr.schema import Base
+from gafaelfawr.schema import SchemaBase
 
 __all__ = [
     "create_old_database",
@@ -58,5 +58,5 @@ async def drop_database(engine: AsyncEngine) -> None:
         Engine to use to issue the SQL commands.
     """
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(SchemaBase.metadata.drop_all)
     await unstamp_database(engine)

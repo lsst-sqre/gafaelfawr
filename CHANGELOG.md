@@ -6,6 +6,8 @@ Dependencies are updated to the latest available version during each release. Th
 
 Find changes for the upcoming release in the project's [changelog.d directory](https://github.com/lsst-sqre/gafaelfawr/tree/main/changelog.d/).
 
+Gafaelfawr does not support direct upgrades from versions older than 10.0.0. When upgrading from an older version, first upgrade to a version of Gafaelfawr between 10.0.0 and 12.1.0, inclusive, and complete the schema migration. Then you can safely upgrade to the latest version.
+
 <!-- scriv-insert-here -->
 
 <a id='changelog-12.1.0'></a>

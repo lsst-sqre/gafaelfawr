@@ -229,69 +229,7 @@ Gafaelfawr uses Alembic_ to manage and perform database migrations.
 Alembic is invoked automatically when the Gafaelfawr server is started.
 
 Whenever the database schema changes, you will need to create an Alembic migration.
-To do this, take the following steps.
-You must have Docker running locally on your system and have the :command:`docker-compose` command installed.
-
-#. Start a PostgreSQL server into which the current database schema can be created.
-
-   .. prompt:: bash
-
-      docker-compose -f alembic/docker-compose.yaml up
-
-#. Install the *current* database schema into that PostgreSQL server.
-   This must be done with a Gafaelfawr working tree that does not contain any changes to the database schema.
-   If you have already made changes that would change the database schema, use :command:`git stash`, switch to another branch, or otherwise temporarily revert those changes before running this command.
-
-   .. prompt:: bash
-
-      tox run -e gafaelfawr -- init
-
-#. Apply the code changes that will change the database schema.
-
-#. Ask Alembic to autogenerate a database migration to the new schema.
-
-   .. prompt:: bash
-
-      tox run -e alembic -- revision --autogenerate -m "<message>"
-
-   Replace ``<message>`` with a short human-readable summary of the change, ending in a period.
-   This will create a new file in :file:`alembic/versions`.
-
-#. Edit the created file in :file:`alembic/versions` and adjust it as necessary.
-   See the `Alembic documentation <https://alembic.sqlalchemy.org/en/latest/autogenerate.html>`__ for details about what Alembic can and cannot autodetect.
-
-   One common change that Alembic cannot autodetect is changes to the valid values of enum types.
-   You will need to add Alembic code to the ``upgrade`` function of the migration such as:
-
-   .. code-block:: python
-
-      op.execute("ALTER TYPE tokentype ADD VALUE 'oidc' IF NOT EXISTS")
-
-   You may want to connect to the PostgreSQL database with the :command:`psql` command-line tool so that you can examine the schema to understand what the migration needs to do.
-   For example, you can see a description of a table with :samp:`\d {table}`, which will tell you the name of an enum type that you may need to modify.
-   To do this, run:
-
-   .. prompt:: bash
-
-      psql <uri>
-
-   where ``<uri>`` is the URI to the local PostgreSQL database, which you can find in the ``databaseUrl`` configuration parameter in :file:`alembic/gafaelfawr.yaml`.
-
-#. Stop the running PostgreSQL container.
-
-   .. prompt:: bash
-
-      docker-compose -f alembic/docker-compose.yaml down
-
-#. Generate and save the new schema:
-
-   .. prompt:: bash
-
-      tox run -e gafaelfawr -- generate-schema -o tests/data/schemas/<version>
-
-   Replace ``<version>`` with the version of the Gafaelfawr release that will contain this schema version.
-   Then update the version in :file:`tests/support/constants.py` to match that new schema version.
-   This will update the test that ensures that there are no changes to the Gafaelfawr schema definition that would affect the SQL schema.
+To do this, follow the `Safir schema migration documentation <https://safir.lsst.io/user-guide/database/schema.html#creating-database-migrations>`__.
 
 Building documentation
 ======================

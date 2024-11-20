@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import subprocess
 from datetime import timedelta
 from pathlib import Path
 
@@ -32,7 +34,7 @@ from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCScope
 from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
-from gafaelfawr.schema import Base
+from gafaelfawr.schema import SchemaBase
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
@@ -120,7 +122,7 @@ def test_delete_all_data(
     logger = structlog.get_logger("gafaelfawr")
 
     async def setup() -> OIDCAuthorizationCode:
-        await initialize_database(engine, logger, schema=Base.metadata)
+        await initialize_database(engine, logger, schema=SchemaBase.metadata)
         async with Factory.standalone(config, engine) as factory:
             token_service = factory.create_token_service()
             user_info = TokenUserInfo(username="some-user")
@@ -368,8 +370,14 @@ def test_validate_schema(
     assert "Database has not been initialized" in result.output
 
     # Initialize the database from an old schema. This was the database schema
-    # before Alembic was introduced, so it should run all migrations.
+    # before Alembic was introduced, so it has to be stamped with the version
+    # of the Alembic database migration that includes the original schema.
     event_loop.run_until_complete(create_old_database(config, engine, "9.6.1"))
+    env = {
+        **os.environ,
+        "GAFAELFAWR_CONFIG_PATH": str(config_dependency.config_path),
+    }
+    subprocess.run(["alembic", "stamp", "5c28ed7092c2"], check=True, env=env)
 
     # Validating should fail with an appropriate error message.
     result = runner.invoke(main, ["validate-schema"], catch_exceptions=False)

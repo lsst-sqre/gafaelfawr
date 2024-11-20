@@ -5,12 +5,12 @@ from __future__ import annotations
 from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base
+from .base import SchemaBase
 
 __all__ = ["Subtoken"]
 
 
-class Subtoken(Base):
+class Subtoken(SchemaBase):
     """Records parent/child relationships for tokens."""
 
     __tablename__ = "subtoken"

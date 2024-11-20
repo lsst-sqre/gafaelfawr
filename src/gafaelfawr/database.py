@@ -13,7 +13,7 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .factory import Factory
-from .schema import Base, Token
+from .schema import SchemaBase, Token
 
 __all__ = [
     "initialize_gafaelfawr_database",
@@ -36,12 +36,16 @@ def generate_schema_sql(config: Config) -> str:
         result += str(sql.compile(dialect=engine.dialect)) + ";\n"
 
     engine = create_mock_engine(str(config.database_url), dump)
-    Base.metadata.create_all(engine, checkfirst=False)
+    SchemaBase.metadata.create_all(engine, checkfirst=False)
     return result
 
 
 async def initialize_gafaelfawr_database(
-    config: Config, logger: BoundLogger, engine: AsyncEngine | None = None
+    config: Config,
+    logger: BoundLogger,
+    engine: AsyncEngine | None = None,
+    *,
+    reset: bool = False,
 ) -> None:
     """Initialize the database.
 
@@ -59,12 +63,18 @@ async def initialize_gafaelfawr_database(
     engine
         If given, database engine to use, which avoids the need to create
         another one.
+    reset
+        Whether to reset the database.
     """
+    engine_created = False
     if not engine:
         engine = create_database_engine(
             config.database_url, config.database_password
         )
-    await initialize_database(engine, logger, schema=Base.metadata)
+        engine_created = True
+    await initialize_database(
+        engine, logger, schema=SchemaBase.metadata, reset=reset
+    )
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         logger.debug("Adding initial administrators")
@@ -74,7 +84,8 @@ async def initialize_gafaelfawr_database(
             firestore = factory.create_firestore_storage()
             logger.debug("Initializing Firestore")
             await firestore.initialize()
-    await engine.dispose()
+    if engine_created:
+        await engine.dispose()
 
 
 async def is_database_initialized(
@@ -99,10 +110,12 @@ async def is_database_initialized(
         exist, `False` otherwise. This may misdetect partial schemas that
         contain some tables and not others or that are missing indices.
     """
+    engine_created = False
     if not engine:
         engine = create_database_engine(
             config.database_url, config.database_password
         )
+        engine_created = True
     statement = select(Token).limit(1)
     try:
         for _ in range(5):
@@ -124,3 +137,6 @@ async def is_database_initialized(
     except ProgrammingError:
         logger.info("Database appears not to be initialized")
         return False
+    finally:
+        if engine_created:
+            await engine.dispose()

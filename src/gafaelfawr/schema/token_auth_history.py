@@ -9,12 +9,12 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.token import TokenType
-from .base import Base
+from .base import SchemaBase
 
 __all__ = ["TokenAuthHistory"]
 
 
-class TokenAuthHistory(Base):
+class TokenAuthHistory(SchemaBase):
     """Authentication history by token."""
 
     __tablename__ = "token_auth_history"
