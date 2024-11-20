@@ -543,6 +543,7 @@ class Factory:
             token_db_store=TokenDatabaseStore(self.session),
             token_redis_store=self.create_token_redis_store(),
             token_change_store=TokenChangeHistoryStore(self.session),
+            session=self.session,
             logger=self._logger,
         )
 
@@ -582,6 +583,7 @@ class Factory:
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
+            session=self.session,
             logger=self._logger,
         )
         return TokenService(

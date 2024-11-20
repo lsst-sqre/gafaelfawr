@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from safir.datetime import current_datetime, format_datetime_for_logging
+from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..cache import InternalTokenCache, NotebookTokenCache
@@ -42,6 +43,9 @@ class TokenCacheService:
         The Redis backing store for tokens.
     token_change_store
         The backing store for history of changes to tokens.
+    session
+        Database session, used to create a transaction if a new token needs to
+        be created.
     logger
         Logger to use.
 
@@ -69,6 +73,7 @@ class TokenCacheService:
         token_redis_store: TokenRedisStore,
         token_db_store: TokenDatabaseStore,
         token_change_store: TokenChangeHistoryStore,
+        session: async_scoped_session,
         logger: BoundLogger,
     ) -> None:
         self._config = config
@@ -77,6 +82,7 @@ class TokenCacheService:
         self._token_redis_store = token_redis_store
         self._token_db_store = token_db_store
         self._token_change_store = token_change_store
+        self._session = session
         self._logger = logger
 
     async def clear(self) -> None:
@@ -134,9 +140,10 @@ class TokenCacheService:
             valid = await self._is_token_valid(token, minimum_lifetime, scopes)
             if token and valid:
                 return token
-            token = await self._create_internal_token(
-                token_data, service, scopes, ip_address, minimum_lifetime
-            )
+            async with self._session.begin():
+                token = await self._create_internal_token(
+                    token_data, service, scopes, ip_address, minimum_lifetime
+                )
             self._internal_cache.store(token_data, service, scopes, token)
             return token
 
@@ -178,9 +185,10 @@ class TokenCacheService:
             token = self._notebook_cache.get(token_data)
             if token and await self._is_token_valid(token, minimum_lifetime):
                 return token
-            token = await self._create_notebook_token(
-                token_data, ip_address, minimum_lifetime
-            )
+            async with self._session.begin():
+                token = await self._create_notebook_token(
+                    token_data, ip_address, minimum_lifetime
+                )
             self._notebook_cache.store(token_data, token)
             return token
 

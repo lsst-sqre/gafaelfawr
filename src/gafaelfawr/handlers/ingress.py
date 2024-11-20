@@ -587,12 +587,11 @@ async def build_delegated_token(
     """
     if auth_config.notebook:
         token_service = context.factory.create_token_service()
-        async with context.session.begin():
-            token = await token_service.get_notebook_token(
-                token_data,
-                ip_address=context.ip_address,
-                minimum_lifetime=auth_config.minimum_lifetime,
-            )
+        token = await token_service.get_notebook_token(
+            token_data,
+            ip_address=context.ip_address,
+            minimum_lifetime=auth_config.minimum_lifetime,
+        )
         return str(token)
     elif auth_config.delegate_to:
         # Delegated scopes are optional; if the authenticating token doesn't
@@ -604,14 +603,13 @@ async def build_delegated_token(
         # token.
         delegate_scopes = auth_config.delegate_scopes & set(token_data.scopes)
         token_service = context.factory.create_token_service()
-        async with context.session.begin():
-            token = await token_service.get_internal_token(
-                token_data,
-                service=auth_config.delegate_to,
-                scopes=sorted(delegate_scopes),
-                ip_address=context.ip_address,
-                minimum_lifetime=auth_config.minimum_lifetime,
-            )
+        token = await token_service.get_internal_token(
+            token_data,
+            service=auth_config.delegate_to,
+            scopes=sorted(delegate_scopes),
+            ip_address=context.ip_address,
+            minimum_lifetime=auth_config.minimum_lifetime,
+        )
         return str(token)
     else:
         return None
