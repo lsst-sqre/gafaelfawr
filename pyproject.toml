@@ -38,7 +38,7 @@ dependencies = [
     "kopf",
     "kubernetes-asyncio",
     "jinja2",
-    "pydantic>2",
+    "pydantic>=2.10",
     "pydantic-settings!=2.6.0",
     "pyjwt",
     "pyyaml",
