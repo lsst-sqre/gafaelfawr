@@ -10,6 +10,17 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.1.1'></a>
+## 12.1.1 (2024-11-19)
+
+### Bug fixes
+
+- Avoid double slashes in the endpoint URLs returned by `/.well-known/openid-configuration`, fixing a bug introduced in Gafaelfawr 12.0.0.
+
+### Other changes
+
+- Gafaelfawr no longer supports direct upgrades from versions older than 10.0.0. When upgrading from an older version, upgrade to 12.1.0 or earlier first and complete the database schema migration, and then upgrade to the latest version.
+
 <a id='changelog-12.1.0'></a>
 ## 12.1.0 (2024-10-28)
 
