@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import sentry_sdk
+
 __all__ = ["enable_telemetry"]
 
 
@@ -13,7 +15,6 @@ def enable_telemetry() -> None:
     This may include secrets and other sensitive data, so currently should
     only be used in a development environment.
     """
-    import sentry_sdk
 
     def traces_sampler(context: dict[str, Any]) -> float:
         asgi_scope = context.get("asgi_scope")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import sentry_sdk
 from safir.datetime import current_datetime, format_datetime_for_logging
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
@@ -93,6 +94,7 @@ class TokenCacheService:
         await self._internal_cache.clear()
         await self._notebook_cache.clear()
 
+    @sentry_sdk.trace
     async def get_internal_token(
         self,
         token_data: TokenData,
@@ -147,6 +149,7 @@ class TokenCacheService:
             self._internal_cache.store(token_data, service, scopes, token)
             return token
 
+    @sentry_sdk.trace
     async def get_notebook_token(
         self,
         token_data: TokenData,

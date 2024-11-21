@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sentry_sdk
 from structlog.stdlib import BoundLogger
 
 from ..cache import LDAPCache
@@ -47,6 +48,7 @@ class LDAPService:
         self._user_cache = user_cache
         self._logger = logger
 
+    @sentry_sdk.trace
     async def get_group_names(
         self, username: str, gid: int | None, *, uncached: bool = False
     ) -> list[str]:
@@ -82,6 +84,7 @@ class LDAPService:
             self._group_name_cache.store(username, groups)
             return groups
 
+    @sentry_sdk.trace
     async def get_groups(
         self, username: str, gid: int | None, *, uncached: bool = False
     ) -> list[Group]:
@@ -123,6 +126,7 @@ class LDAPService:
             self._group_cache.store(username, groups)
             return groups
 
+    @sentry_sdk.trace
     async def get_data(
         self, username: str, *, uncached: bool = False
     ) -> LDAPUserData:

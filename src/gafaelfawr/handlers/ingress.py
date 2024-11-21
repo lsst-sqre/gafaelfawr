@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Annotated
 
+import sentry_sdk
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from safir.datetime import current_datetime
 from safir.models import ErrorModel
@@ -359,16 +360,18 @@ async def get_auth(
     headers = await build_success_headers(context, auth_config, token_data)
     for key, value in headers:
         response.headers.append(key, value)
-    if is_bot_user(token_data.username):
-        bot_event = AuthBotEvent(
-            username=token_data.username, service=auth_config.service
-        )
-        await context.events.auth_bot.publish(bot_event)
-    else:
-        user_event = AuthUserEvent(
-            username=token_data.username, service=auth_config.service
-        )
-        await context.events.auth_user.publish(user_event)
+
+    with sentry_sdk.start_span(name="events.publish"):
+        if is_bot_user(token_data.username):
+            bot_event = AuthBotEvent(
+                username=token_data.username, service=auth_config.service
+            )
+            await context.events.auth_bot.publish(bot_event)
+        else:
+            user_event = AuthUserEvent(
+                username=token_data.username, service=auth_config.service
+            )
+            await context.events.auth_user.publish(user_event)
     return {"status": "ok"}
 
 
