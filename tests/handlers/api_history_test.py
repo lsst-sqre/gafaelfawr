@@ -42,56 +42,56 @@ async def build_history(
     build enough history that we can make interesting paginated queries of it.
     """
     token_service = factory.create_token_service()
+    user_info_one = TokenUserInfo(username="one")
     async with factory.session.begin():
-        user_info_one = TokenUserInfo(username="one")
         token_one = await token_service.create_session_token(
             user_info_one,
             scopes=["admin:token", "exec:test", "read:all", "user:token"],
             ip_address="192.0.2.3",
         )
-        token_data_one = await token_service.get_data(token_one)
-        assert token_data_one
-        await token_service.get_internal_token(
-            token_data_one,
-            "foo",
-            scopes=["exec:test", "read:all"],
-            ip_address="192.0.2.4",
-        )
-        internal_token_one_bar = await token_service.get_internal_token(
-            token_data_one, "bar", scopes=["read:all"], ip_address="192.0.2.3"
-        )
-        token_data_internal_one_bar = await token_service.get_data(
-            internal_token_one_bar
-        )
-        assert token_data_internal_one_bar
-        await token_service.get_internal_token(
-            token_data_internal_one_bar,
-            "baz",
-            scopes=[],
-            ip_address="10.10.10.10",
-        )
-        notebook_token_one = await token_service.get_notebook_token(
-            token_data_one, ip_address="198.51.100.5"
-        )
-        token_data_notebook_one = await token_service.get_data(
-            notebook_token_one
-        )
-        assert token_data_notebook_one
-        await token_service.get_internal_token(
-            token_data_notebook_one,
-            "foo",
-            scopes=["exec:test"],
-            ip_address="10.10.10.20",
-        )
+    token_data_one = await token_service.get_data(token_one)
+    assert token_data_one
+    await token_service.get_internal_token(
+        token_data_one,
+        "foo",
+        scopes=["exec:test", "read:all"],
+        ip_address="192.0.2.4",
+    )
+    internal_token_one_bar = await token_service.get_internal_token(
+        token_data_one, "bar", scopes=["read:all"], ip_address="192.0.2.3"
+    )
+    token_data_internal_one_bar = await token_service.get_data(
+        internal_token_one_bar
+    )
+    assert token_data_internal_one_bar
+    await token_service.get_internal_token(
+        token_data_internal_one_bar,
+        "baz",
+        scopes=[],
+        ip_address="10.10.10.10",
+    )
+    notebook_token_one = await token_service.get_notebook_token(
+        token_data_one, ip_address="198.51.100.5"
+    )
+    token_data_notebook_one = await token_service.get_data(notebook_token_one)
+    assert token_data_notebook_one
+    await token_service.get_internal_token(
+        token_data_notebook_one,
+        "foo",
+        scopes=["exec:test"],
+        ip_address="10.10.10.20",
+    )
 
-        user_info_two = TokenUserInfo(username="two")
+    user_info_two = TokenUserInfo(username="two")
+    async with factory.session.begin():
         token_two = await token_service.create_session_token(
             user_info_two,
             scopes=["admin:token", "read:some", "user:token"],
             ip_address="192.0.2.20",
         )
-        token_data_two = await token_service.get_data(token_two)
-        assert token_data_two
+    token_data_two = await token_service.get_data(token_two)
+    assert token_data_two
+    async with factory.session.begin():
         user_token_two = await token_service.create_user_token(
             token_data_two,
             token_data_two.username,
@@ -99,14 +99,15 @@ async def build_history(
             scopes=["admin:token", "read:some", "user:token"],
             ip_address="192.0.2.20",
         )
-        token_data_user_two = await token_service.get_data(user_token_two)
-        assert token_data_user_two
-        await token_service.get_internal_token(
-            token_data_user_two,
-            "foo",
-            scopes=["read:some"],
-            ip_address="10.10.10.10",
-        )
+    token_data_user_two = await token_service.get_data(user_token_two)
+    assert token_data_user_two
+    await token_service.get_internal_token(
+        token_data_user_two,
+        "foo",
+        scopes=["read:some"],
+        ip_address="10.10.10.10",
+    )
+    async with factory.session.begin():
         assert await token_service.modify_token(
             user_token_two.key,
             token_data_user_two,
@@ -115,18 +116,20 @@ async def build_history(
             token_name="happy token",
         )
 
-        request = AdminTokenRequest(
-            username="bot-service",
-            token_type=TokenType.service,
-            scopes=["admin:token"],
-        )
+    request = AdminTokenRequest(
+        username="bot-service",
+        token_type=TokenType.service,
+        scopes=["admin:token"],
+    )
+    async with factory.session.begin():
         service_token = await token_service.create_token_from_admin_request(
             request,
             TokenData.bootstrap_token(),
             ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
         )
-        service_token_data = await token_service.get_data(service_token)
-        assert service_token_data
+    service_token_data = await token_service.get_data(service_token)
+    assert service_token_data
+    async with factory.session.begin():
         assert await token_service.modify_token(
             user_token_two.key,
             service_token_data,

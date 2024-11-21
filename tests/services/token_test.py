@@ -208,10 +208,8 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
     data = await token_service.get_data(session_token)
     assert data
 
+    token = await token_service.get_notebook_token(data, ip_address="1.0.0.1")
     async with factory.session.begin():
-        token = await token_service.get_notebook_token(
-            data, ip_address="1.0.0.1"
-        )
         info = await token_service.get_token_info_unchecked(token.key)
     assert info
     assert info == TokenInfo(
@@ -246,10 +244,9 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
 
     # Try again with the cache cleared to force a database lookup.
     await token_service._token_cache.clear()
-    async with factory.session.begin():
-        new_token = await token_service.get_notebook_token(
-            data, ip_address="127.0.0.1"
-        )
+    new_token = await token_service.get_notebook_token(
+        data, ip_address="127.0.0.1"
+    )
     assert token == new_token
 
     async with factory.session.begin():
@@ -296,10 +293,9 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
             notebook_token_data, parent=data.token.key
         )
     await token_service._token_cache.clear()
-    async with factory.session.begin():
-        dup_notebook_token = await token_service.get_notebook_token(
-            data, ip_address="127.0.0.1"
-        )
+    dup_notebook_token = await token_service.get_notebook_token(
+        data, ip_address="127.0.0.1"
+    )
     assert dup_notebook_token in (token, second_token)
 
     # Check that the expiration time is capped by creating a user token that
@@ -315,11 +311,11 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         )
     data = await token_service.get_data(user_token)
     assert data
+    new_token = await token_service.get_notebook_token(
+        data, ip_address="127.0.0.1"
+    )
+    assert new_token != token
     async with factory.session.begin():
-        new_token = await token_service.get_notebook_token(
-            data, ip_address="127.0.0.1"
-        )
-        assert new_token != token
         info = await token_service.get_token_info_unchecked(new_token.key)
     assert info
     expires = info.created + config.token_lifetime
@@ -344,13 +340,13 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     data = await token_service.get_data(session_token)
     assert data
 
+    internal_token = await token_service.get_internal_token(
+        data,
+        service="some-service",
+        scopes=["read:all"],
+        ip_address="2001:db8::45",
+    )
     async with factory.session.begin():
-        internal_token = await token_service.get_internal_token(
-            data,
-            service="some-service",
-            scopes=["read:all"],
-            ip_address="2001:db8::45",
-        )
         info = await token_service.get_token_info_unchecked(internal_token.key)
     assert info
     assert info == TokenInfo(
@@ -399,13 +395,12 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
 
     # Try again with the cache cleared to force a database lookup.
     await token_service._token_cache.clear()
-    async with factory.session.begin():
-        new_internal_token = await token_service.get_internal_token(
-            data,
-            service="some-service",
-            scopes=["read:all"],
-            ip_address="127.0.0.1",
-        )
+    new_internal_token = await token_service.get_internal_token(
+        data,
+        service="some-service",
+        scopes=["read:all"],
+        ip_address="127.0.0.1",
+    )
     assert internal_token == new_internal_token
 
     async with factory.session.begin():
@@ -456,31 +451,28 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
             internal_token_data, parent=data.token.key
         )
     await token_service._token_cache.clear()
-    async with factory.session.begin():
-        dup_internal_token = await token_service.get_internal_token(
-            data,
-            service="some-service",
-            scopes=["read:all"],
-            ip_address="127.0.0.1",
-        )
+    dup_internal_token = await token_service.get_internal_token(
+        data,
+        service="some-service",
+        scopes=["read:all"],
+        ip_address="127.0.0.1",
+    )
     assert dup_internal_token in (internal_token, second_internal_token)
 
     # A different scope or a different service results in a new token.
-    async with factory.session.begin():
-        new_internal_token = await token_service.get_internal_token(
-            data,
-            service="some-service",
-            scopes=["exec:admin"],
-            ip_address="127.0.0.1",
-        )
+    new_internal_token = await token_service.get_internal_token(
+        data,
+        service="some-service",
+        scopes=["exec:admin"],
+        ip_address="127.0.0.1",
+    )
     assert internal_token != new_internal_token
-    async with factory.session.begin():
-        new_internal_token = await token_service.get_internal_token(
-            data,
-            service="another-service",
-            scopes=["read:all"],
-            ip_address="127.0.0.1",
-        )
+    new_internal_token = await token_service.get_internal_token(
+        data,
+        service="another-service",
+        scopes=["read:all"],
+        ip_address="127.0.0.1",
+    )
     assert internal_token != new_internal_token
 
     # Check that the expiration time is capped by creating a user token that
@@ -497,11 +489,11 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         )
     data = await token_service.get_data(user_token)
     assert data
+    new_internal_token = await token_service.get_internal_token(
+        data, service="some-service", scopes=[], ip_address="127.0.0.1"
+    )
+    assert new_internal_token != internal_token
     async with factory.session.begin():
-        new_internal_token = await token_service.get_internal_token(
-            data, service="some-service", scopes=[], ip_address="127.0.0.1"
-        )
-        assert new_internal_token != internal_token
         info = await token_service.get_token_info_unchecked(
             new_internal_token.key
         )
@@ -539,10 +531,9 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     assert user_token_data
 
     # Get an internal token and ensure we get the same one when we ask again.
-    async with factory.session.begin():
-        internal_token = await token_service.get_internal_token(
-            user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
-        )
+    internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
     internal_token_data = await token_service.get_data(internal_token)
     assert internal_token_data
     assert internal_token_data.expires == user_token_data.expires
@@ -552,10 +543,9 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     assert new_internal_token == internal_token
 
     # Do the same thing with a notebook token.
-    async with factory.session.begin():
-        notebook_token = await token_service.get_notebook_token(
-            user_token_data, ip_address="127.0.0.1"
-        )
+    notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
     notebook_token_data = await token_service.get_data(notebook_token)
     assert notebook_token_data
     assert notebook_token_data.expires == user_token_data.expires
@@ -581,20 +571,18 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
 
     # Now, request an internal and notebook token.  We should get different
     # ones with a longer expiration.
-    async with factory.session.begin():
-        new_internal_token = await token_service.get_internal_token(
-            user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
-        )
+    new_internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
     assert new_internal_token != internal_token
     internal_token = new_internal_token
     internal_token_data = await token_service.get_data(internal_token)
     assert internal_token_data
     delta = config.token_lifetime
     assert internal_token_data.expires == internal_token_data.created + delta
-    async with factory.session.begin():
-        new_notebook_token = await token_service.get_notebook_token(
-            user_token_data, ip_address="127.0.0.1"
-        )
+    new_notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
     assert new_notebook_token != notebook_token
     notebook_token = new_notebook_token
     notebook_token_data = await token_service.get_data(notebook_token)
@@ -616,15 +604,14 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
 
     # Get an internal and notebook token again.  We should get the same ones
     # as last time.
-    async with factory.session.begin():
-        new_internal_token = await token_service.get_internal_token(
-            user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
-        )
-        assert new_internal_token == internal_token
-        new_notebook_token = await token_service.get_notebook_token(
-            user_token_data, ip_address="127.0.0.1"
-        )
-        assert new_notebook_token == notebook_token
+    new_internal_token = await token_service.get_internal_token(
+        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+    )
+    assert new_internal_token == internal_token
+    new_notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    assert new_notebook_token == notebook_token
 
 
 @pytest.mark.asyncio
@@ -1049,64 +1036,51 @@ async def test_delete_cascade(factory: Factory) -> None:
         assert service_token_data
 
     # Build a tree of tokens hung off of the session token.
-    async with factory.session.begin():
-        notebook_token = await token_service.get_notebook_token(
-            session_token_data, ip_address="127.0.0.1"
+    notebook_token = await token_service.get_notebook_token(
+        session_token_data, ip_address="127.0.0.1"
+    )
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    session_children = [
+        notebook_token,
+        await token_service.get_internal_token(
+            session_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_internal_token(
+            notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_internal_token(
+            notebook_token_data,
+            "service-a",
+            scopes=["read:all"],
+            ip_address="127.0.0.1",
+        ),
+    ]
+    internal_token_data = await token_service.get_data(session_children[-1])
+    assert internal_token_data
+    session_children.append(
+        await token_service.get_internal_token(
+            internal_token_data,
+            "service-b",
+            scopes=["read:all"],
+            ip_address="127.0.0.1",
         )
-        notebook_token_data = await token_service.get_data(notebook_token)
-        assert notebook_token_data
-        session_children = [
-            notebook_token,
-            await token_service.get_internal_token(
-                session_token_data,
-                "service-a",
-                scopes=[],
-                ip_address="127.0.0.1",
-            ),
-            await token_service.get_internal_token(
-                notebook_token_data,
-                "service-b",
-                scopes=[],
-                ip_address="127.0.0.1",
-            ),
-            await token_service.get_internal_token(
-                notebook_token_data,
-                "service-a",
-                scopes=["read:all"],
-                ip_address="127.0.0.1",
-            ),
-        ]
-        internal_token_data = await token_service.get_data(
-            session_children[-1]
-        )
-        assert internal_token_data
-        session_children.append(
-            await token_service.get_internal_token(
-                internal_token_data,
-                "service-b",
-                scopes=["read:all"],
-                ip_address="127.0.0.1",
-            )
-        )
+    )
 
     # Shorter trees of tokens from the user and service tokens.
-    async with factory.session.begin():
-        user_children = [
-            await token_service.get_internal_token(
-                user_token_data, "service-c", scopes=[], ip_address="127.0.0.1"
-            ),
-            await token_service.get_notebook_token(
-                user_token_data, ip_address="127.0.0.1"
-            ),
-        ]
-        service_children = [
-            await token_service.get_internal_token(
-                service_token_data,
-                "service-a",
-                scopes=[],
-                ip_address="127.0.0.1",
-            )
-        ]
+    user_children = [
+        await token_service.get_internal_token(
+            user_token_data, "service-c", scopes=[], ip_address="127.0.0.1"
+        ),
+        await token_service.get_notebook_token(
+            user_token_data, ip_address="127.0.0.1"
+        ),
+    ]
+    service_children = [
+        await token_service.get_internal_token(
+            service_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+        )
+    ]
 
     # Deleting the session token should invalidate all of its children.
     async with factory.session.begin():
@@ -1163,23 +1137,23 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
             scopes=["user:token"],
             ip_address="127.0.0.1",
         )
-        user_token_data = await token_service.get_data(user_token)
-        assert user_token_data
-        notebook_token = await token_service.get_notebook_token(
-            user_token_data, ip_address="127.0.0.1"
-        )
-        notebook_token_data = await token_service.get_data(notebook_token)
-        assert notebook_token_data
-        internal_token = await token_service.get_internal_token(
-            user_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
-        )
-        internal_token_data = await token_service.get_data(internal_token)
-        assert internal_token_data
-        nested_token = await token_service.get_internal_token(
-            notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
-        )
-        nested_token_data = await token_service.get_data(nested_token)
-        assert nested_token_data
+    user_token_data = await token_service.get_data(user_token)
+    assert user_token_data
+    notebook_token = await token_service.get_notebook_token(
+        user_token_data, ip_address="127.0.0.1"
+    )
+    notebook_token_data = await token_service.get_data(notebook_token)
+    assert notebook_token_data
+    internal_token = await token_service.get_internal_token(
+        user_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+    )
+    internal_token_data = await token_service.get_data(internal_token)
+    assert internal_token_data
+    nested_token = await token_service.get_internal_token(
+        notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
+    )
+    nested_token_data = await token_service.get_data(nested_token)
+    assert nested_token_data
 
     # Check the expiration of all of those tokens matches the default
     # expiration for generated tokens.
