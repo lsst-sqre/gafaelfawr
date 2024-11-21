@@ -35,6 +35,7 @@ nitpick_ignore = [
     # by having Sphinx complain about a new symbol.
     ["py:class", "dataclasses_avroschema.pydantic.main.AvroBaseModel"],
     ["py:class", "dataclasses_avroschema.main.AvroModel"],
+    ["py:class", "google.cloud.firestore_v1.async_client.AsyncClient"],
     ["py:class", "fastapi.applications.FastAPI"],
     ["py:class", "fastapi.datastructures.DefaultPlaceholder"],
     ["py:class", "fastapi.exceptions.HTTPException"],

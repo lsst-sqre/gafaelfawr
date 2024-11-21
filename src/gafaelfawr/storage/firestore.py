@@ -5,7 +5,6 @@ from __future__ import annotations
 from google.cloud import firestore
 from structlog.stdlib import BoundLogger
 
-from ..config import FirestoreConfig
 from ..constants import (
     GID_MAX,
     GID_MIN,
@@ -33,22 +32,26 @@ class FirestoreStorage:
     """Google Firestore storage layer.
 
     Gafaelfawr supports assigning UIDs and GIDs from Google Firestore rather
-    than getting them from LDAP or upstream authentication tokens.  This
-    module provides the read/write layer and transaction management for that
-    storage.  It's used from inside a per-process cache.
+    than getting them from LDAP or upstream authentication tokens. This module
+    provides the read/write layer and transaction management for that
+    storage. It's used from inside a per-process cache.
+
+    This class authenticates to Google on creation, so it should not be
+    created fresh for every request.
 
     Parameters
     ----------
-    config
-        Configuration for Google Firestore.
+    client
+        Firestore client to use.
     logger
         Logger for debug messages and errors.
     """
 
-    def __init__(self, config: FirestoreConfig, logger: BoundLogger) -> None:
-        self._config = config
+    def __init__(
+        self, client: firestore.AsyncClient, logger: BoundLogger
+    ) -> None:
+        self._client = client
         self._logger = logger
-        self._db = firestore.AsyncClient(project=config.project)
 
     async def get_gid(self, group: str) -> int:
         """Get the GID for a group.
@@ -73,9 +76,9 @@ class FirestoreStorage:
         NoAvailableGidError
             Raised if no more GIDs are available in that range.
         """
-        transaction = self._db.transaction()
-        group_ref = self._db.collection("groups").document(group)
-        counter_ref = self._db.collection("counters").document("gid")
+        transaction = self._client.transaction()
+        group_ref = self._client.collection("groups").document(group)
+        counter_ref = self._client.collection("counters").document("gid")
         return await _get_or_assign_gid(
             transaction,
             group_name=group,
@@ -111,10 +114,10 @@ class FirestoreStorage:
         NoAvailableUidError
             Raised if no more UIDs are available in that range.
         """
-        transaction = self._db.transaction()
-        user_ref = self._db.collection("users").document(username)
-        counter_name = "bot-uid" if bot else "uid"
-        counter_ref = self._db.collection("counters").document(counter_name)
+        transaction = self._client.transaction()
+        user_ref = self._client.collection("users").document(username)
+        counter = "bot-uid" if bot else "uid"
+        counter_ref = self._client.collection("counters").document(counter)
         return await _get_or_assign_uid(
             transaction,
             username=username,
@@ -131,10 +134,10 @@ class FirestoreStorage:
         silently do nothing.
         """
         counter_refs = {
-            n: self._db.collection("counters").document(n)
+            n: self._client.collection("counters").document(n)
             for n in _INITIAL_COUNTERS
         }
-        transaction = self._db.transaction()
+        transaction = self._client.transaction()
         await _initialize_in_transaction(
             transaction, counter_refs, self._logger
         )

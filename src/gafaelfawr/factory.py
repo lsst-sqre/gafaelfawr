@@ -10,6 +10,7 @@ from typing import Self
 import structlog
 from bonsai import LDAPClient
 from bonsai.asyncio import AIOConnectionPool
+from google.cloud import firestore
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from redis.asyncio import BlockingConnectionPool, Redis
@@ -82,6 +83,9 @@ class ProcessContext:
     config: Config
     """Gafaelfawr's configuration."""
 
+    firestore: firestore.AsyncClient | None
+    """Client to talk to Firestore, if configured."""
+
     http_client: AsyncClient
     """Shared HTTP client."""
 
@@ -126,6 +130,11 @@ class ProcessContext:
         ProcessContext
             Shared context for a Gafaelfawr process.
         """
+        firestore_client = None
+        if config.firestore:
+            firestore_project = config.firestore.project
+            firestore_client = firestore.AsyncClient(project=firestore_project)
+
         ldap_pool = None
         if config.ldap:
             client = LDAPClient(str(config.ldap.url))
@@ -161,6 +170,7 @@ class ProcessContext:
 
         return cls(
             config=config,
+            firestore=firestore_client,
             http_client=await http_client_dependency(),
             ldap_pool=ldap_pool,
             redis=redis_client,
@@ -352,9 +362,9 @@ class Factory:
         FirestoreStorage
             Newly-created Firestore storage.
         """
-        if not self._context.config.firestore:
+        if not self._context.firestore:
             raise NotConfiguredError("Firestore is not configured")
-        return FirestoreStorage(self._context.config.firestore, self._logger)
+        return FirestoreStorage(self._context.firestore, self._logger)
 
     def create_health_check_service(self) -> HealthCheckService:
         """Create a service for performing health checks.
