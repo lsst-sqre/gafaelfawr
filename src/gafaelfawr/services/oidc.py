@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import jwt
-from pydantic_core import Url
+from pydantic import HttpUrl
 from safir.datetime import current_datetime
 from safir.redis import DeserializeError
 from safir.slack.webhook import SlackWebhookClient
@@ -545,7 +545,7 @@ class OIDCService:
         }
 
     def _return_uri_matches(
-        self, allowed_str: Url | str, given_str: str
+        self, allowed_str: HttpUrl | str, given_str: str
     ) -> bool:
         """Check whether a return URI is allowed.
 
