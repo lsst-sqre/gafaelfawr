@@ -310,7 +310,7 @@ async def get_userinfo(
     token_data: Annotated[TokenData, Depends(authenticate_token)],
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> Mapping[str, Any]:
-    if token_data.token_type != TokenType.oidc:
+    if token_data.token_type not in (TokenType.internal, TokenType.oidc):
         msg = f"Token of type {token_data.token_type.value} not allowed"
         exc = InvalidTokenError(msg)
         raise generate_challenge(context, AuthType.Bearer, exc)
