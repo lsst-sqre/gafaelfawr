@@ -23,13 +23,12 @@ async def test_metrics(factory: Factory) -> None:
     async with factory.session.begin():
         assert await token_db_store.count_user_tokens() == 0
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        await token_service.create_user_token(
-            token_data,
-            "someuser",
-            token_name="some-token",
-            scopes=[],
-            ip_address="192.168.0.1",
-        )
+    await token_service.create_user_token(
+        token_data,
+        "someuser",
+        token_name="some-token",
+        scopes=[],
+        ip_address="192.168.0.1",
+    )
     async with factory.session.begin():
         assert await token_db_store.count_user_tokens() == 1

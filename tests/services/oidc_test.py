@@ -110,15 +110,14 @@ async def test_redeem_code(
         scopes=[OIDCScope.openid, OIDCScope.profile],
     )
 
-    async with factory.session.begin():
-        reply = await oidc_service.redeem_code(
-            grant_type="authorization_code",
-            client_id="client-2",
-            client_secret="client-2-secret",
-            redirect_uri=redirect_uri,
-            code=str(code),
-            ip_address="127.0.0.1",
-        )
+    reply = await oidc_service.redeem_code(
+        grant_type="authorization_code",
+        client_id="client-2",
+        client_secret="client-2-secret",
+        redirect_uri=redirect_uri,
+        code=str(code),
+        ip_address="127.0.0.1",
+    )
     assert reply.scope == "openid profile"
     assert reply.token_type == "Bearer"
     id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
@@ -158,10 +157,9 @@ async def test_redeem_code(
 
     # If the parent session token is revoked, the oidc token returned as an
     # access token should also be revoked.
-    async with factory.session.begin():
-        await token_service.delete_token(
-            token.key, token_data, token_data.username, ip_address="127.0.0.1"
-        )
+    await token_service.delete_token(
+        token.key, token_data, token_data.username, ip_address="127.0.0.1"
+    )
     assert await token_service.get_data(access_token) is None
 
 
@@ -190,96 +188,94 @@ async def test_redeem_code_errors(
         scopes=[OIDCScope.openid],
     )
 
-    async with factory.session.begin():
-        with pytest.raises(InvalidRequestError):
-            await oidc_service.redeem_code(
-                grant_type=None,
-                client_id="some-client",
-                client_secret="some-secret",
-                redirect_uri=redirect_uri,
-                code=str(code),
-                ip_address="127.0.0.1",
-            )
-        with pytest.raises(UnsupportedGrantTypeError):
-            await oidc_service.redeem_code(
-                grant_type="something_else",
-                client_id="some-client",
-                client_secret="some-secret",
-                redirect_uri=redirect_uri,
-                code=str(code),
-                ip_address="127.0.0.1",
-            )
-        with pytest.raises(InvalidClientError):
-            await oidc_service.redeem_code(
-                grant_type="authorization_code",
-                client_id="some-client",
-                client_secret="some-secret",
-                redirect_uri=redirect_uri,
-                code=str(code),
-                ip_address="127.0.0.1",
-            )
-        with pytest.raises(InvalidClientError):
-            await oidc_service.redeem_code(
-                grant_type="authorization_code",
-                client_id="client-2",
-                client_secret="some-secret",
-                redirect_uri=redirect_uri,
-                code=str(code),
-                ip_address="127.0.0.1",
-            )
-        with pytest.raises(InvalidGrantError):
-            await oidc_service.redeem_code(
-                grant_type="authorization_code",
-                client_id="client-2",
-                client_secret="client-2-secret",
-                redirect_uri=redirect_uri,
-                code=str(OIDCAuthorizationCode()),
-                ip_address="127.0.0.1",
-            )
-        with pytest.raises(InvalidGrantError):
-            await oidc_service.redeem_code(
-                grant_type="authorization_code",
-                client_id="client-1",
-                client_secret="client-1-secret",
-                redirect_uri=redirect_uri,
-                code=str(code),
-                ip_address="127.0.0.1",
-            )
-        with pytest.raises(InvalidGrantError):
-            await oidc_service.redeem_code(
-                grant_type="authorization_code",
-                client_id="client-2",
-                client_secret="client-2-secret",
-                redirect_uri="https://foo.example.com/",
-                code=str(code),
-                ip_address="127.0.0.1",
-            )
-        with pytest.raises(InvalidGrantError):
-            wrong_secret = OIDCAuthorizationCode(key=code.key)
-            await oidc_service.redeem_code(
-                grant_type="authorization_code",
-                client_id="client-2",
-                client_secret="client-2-secret",
-                redirect_uri="https://foo.example.com/",
-                code=str(wrong_secret),
-                ip_address="127.0.0.1",
-            )
+    with pytest.raises(InvalidRequestError):
+        await oidc_service.redeem_code(
+            grant_type=None,
+            client_id="some-client",
+            client_secret="some-secret",
+            redirect_uri=redirect_uri,
+            code=str(code),
+            ip_address="127.0.0.1",
+        )
+    with pytest.raises(UnsupportedGrantTypeError):
+        await oidc_service.redeem_code(
+            grant_type="something_else",
+            client_id="some-client",
+            client_secret="some-secret",
+            redirect_uri=redirect_uri,
+            code=str(code),
+            ip_address="127.0.0.1",
+        )
+    with pytest.raises(InvalidClientError):
+        await oidc_service.redeem_code(
+            grant_type="authorization_code",
+            client_id="some-client",
+            client_secret="some-secret",
+            redirect_uri=redirect_uri,
+            code=str(code),
+            ip_address="127.0.0.1",
+        )
+    with pytest.raises(InvalidClientError):
+        await oidc_service.redeem_code(
+            grant_type="authorization_code",
+            client_id="client-2",
+            client_secret="some-secret",
+            redirect_uri=redirect_uri,
+            code=str(code),
+            ip_address="127.0.0.1",
+        )
+    with pytest.raises(InvalidGrantError):
+        await oidc_service.redeem_code(
+            grant_type="authorization_code",
+            client_id="client-2",
+            client_secret="client-2-secret",
+            redirect_uri=redirect_uri,
+            code=str(OIDCAuthorizationCode()),
+            ip_address="127.0.0.1",
+        )
+    with pytest.raises(InvalidGrantError):
+        await oidc_service.redeem_code(
+            grant_type="authorization_code",
+            client_id="client-1",
+            client_secret="client-1-secret",
+            redirect_uri=redirect_uri,
+            code=str(code),
+            ip_address="127.0.0.1",
+        )
+    with pytest.raises(InvalidGrantError):
+        await oidc_service.redeem_code(
+            grant_type="authorization_code",
+            client_id="client-2",
+            client_secret="client-2-secret",
+            redirect_uri="https://foo.example.com/",
+            code=str(code),
+            ip_address="127.0.0.1",
+        )
+    with pytest.raises(InvalidGrantError):
+        wrong_secret = OIDCAuthorizationCode(key=code.key)
+        await oidc_service.redeem_code(
+            grant_type="authorization_code",
+            client_id="client-2",
+            client_secret="client-2-secret",
+            redirect_uri="https://foo.example.com/",
+            code=str(wrong_secret),
+            ip_address="127.0.0.1",
+        )
     assert mock_slack.messages == []
 
     # Malformed data in Redis.
     fernet = Fernet(config.session_secret.get_secret_value().encode())
     raw_data = fernet.encrypt(b"malformed json")
     await factory.redis.set(f"oidc:{code.key}", raw_data, ex=expires)
-    async with factory.session.begin():
-        with pytest.raises(InvalidGrantError):
-            await oidc_service.redeem_code(
-                grant_type="authorization_code",
-                client_id="client-2",
-                client_secret="client-2-secret",
-                redirect_uri=redirect_uri,
-                code=str(code),
-                ip_address="127.0.0.1",
-            )
+    with pytest.raises(InvalidGrantError):
+        await oidc_service.redeem_code(
+            grant_type="authorization_code",
+            client_id="client-2",
+            client_secret="client-2-secret",
+            redirect_uri=redirect_uri,
+            code=str(code),
+            ip_address="127.0.0.1",
+        )
     assert mock_slack.messages == [
         {
             "blocks": [
@@ -330,19 +326,18 @@ async def test_redeem_code_errors(
         scopes=[OIDCScope.openid],
     )
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        await token_service.delete_token(
-            token.key, token_data, token_data.username, ip_address="127.0.0.1"
+    await token_service.delete_token(
+        token.key, token_data, token_data.username, ip_address="127.0.0.1"
+    )
+    with pytest.raises(InvalidGrantError):
+        await oidc_service.redeem_code(
+            grant_type="authorization_code",
+            client_id="client-2",
+            client_secret="client-2-secret",
+            redirect_uri=redirect_uri,
+            code=str(code),
+            ip_address="127.0.0.1",
         )
-        with pytest.raises(InvalidGrantError):
-            await oidc_service.redeem_code(
-                grant_type="authorization_code",
-                client_id="client-2",
-                client_secret="client-2-secret",
-                redirect_uri=redirect_uri,
-                code=str(code),
-                ip_address="127.0.0.1",
-            )
 
 
 @pytest.mark.asyncio

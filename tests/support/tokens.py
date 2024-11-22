@@ -129,10 +129,9 @@ async def create_session_token(
     if not scopes:
         scopes = ["user:token"]
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        token = await token_service.create_session_token(
-            user_info, scopes=scopes, ip_address="127.0.0.1"
-        )
+    token = await token_service.create_session_token(
+        user_info, scopes=scopes, ip_address="127.0.0.1"
+    )
     data = await token_service.get_data(token)
     assert data
     return data

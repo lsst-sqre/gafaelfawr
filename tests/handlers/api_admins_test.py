@@ -40,10 +40,9 @@ async def test_admins(
     assert r.json() == [{"username": "admin"}]
 
     admin_service = factory.create_admin_service()
-    async with factory.session.begin():
-        await admin_service.add_admin(
-            "example", actor="admin", ip_address="127.0.0.1"
-        )
+    await admin_service.add_admin(
+        "example", actor="admin", ip_address="127.0.0.1"
+    )
 
     r = await client.get(
         "/auth/api/v1/admins",
@@ -67,7 +66,7 @@ async def test_add_delete(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 401
 
     # Adding or deleting without the appropriate scopes should fail.
-    token_data = await create_session_token(factory, username="admin")
+    token_data = await create_session_token(factory, username="not-admin")
     csrf = await set_session_cookie(client, token_data.token)
     r = await client.post(
         "/auth/api/v1/admins",
@@ -90,9 +89,7 @@ async def test_add_delete(client: AsyncClient, factory: Factory) -> None:
 
     # Adding without the appropriate CSRF token should fail, but with a CSRF
     # token should succeed.
-    token_data = await create_session_token(
-        factory, username="admin", scopes=["admin:token"]
-    )
+    token_data = await create_session_token(factory, username="admin")
     csrf = await set_session_cookie(client, token_data.token)
     r = await client.post(
         "/auth/api/v1/admins", json={"username": "new-admin"}

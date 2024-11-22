@@ -48,10 +48,9 @@ async def test_health(
     # server is responding.
     await reconfigure("oidc")
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        await token_service.delete_token(
-            token.token.key, token, token.username, ip_address="127.0.0.1"
-        )
+    await token_service.delete_token(
+        token.token.key, token, token.username, ip_address="127.0.0.1"
+    )
     token = await create_session_token(factory)
     r = await client.get("/health")
     assert r.status_code == 200

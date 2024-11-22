@@ -32,9 +32,7 @@ from ..support.cookies import set_session_cookie
 from ..support.tokens import create_session_token
 
 
-async def build_history(
-    factory: Factory,
-) -> list[TokenChangeHistoryEntry]:
+async def build_history(factory: Factory) -> list[TokenChangeHistoryEntry]:
     """Perform a bunch of token manipulations and return the history entries.
 
     Assume that all token manipulations generate the correct history entries,
@@ -43,12 +41,11 @@ async def build_history(
     """
     token_service = factory.create_token_service()
     user_info_one = TokenUserInfo(username="one")
-    async with factory.session.begin():
-        token_one = await token_service.create_session_token(
-            user_info_one,
-            scopes=["admin:token", "exec:test", "read:all", "user:token"],
-            ip_address="192.0.2.3",
-        )
+    token_one = await token_service.create_session_token(
+        user_info_one,
+        scopes=["admin:token", "exec:test", "read:all", "user:token"],
+        ip_address="192.0.2.3",
+    )
     token_data_one = await token_service.get_data(token_one)
     assert token_data_one
     await token_service.get_internal_token(
@@ -83,22 +80,20 @@ async def build_history(
     )
 
     user_info_two = TokenUserInfo(username="two")
-    async with factory.session.begin():
-        token_two = await token_service.create_session_token(
-            user_info_two,
-            scopes=["admin:token", "read:some", "user:token"],
-            ip_address="192.0.2.20",
-        )
+    token_two = await token_service.create_session_token(
+        user_info_two,
+        scopes=["admin:token", "read:some", "user:token"],
+        ip_address="192.0.2.20",
+    )
     token_data_two = await token_service.get_data(token_two)
     assert token_data_two
-    async with factory.session.begin():
-        user_token_two = await token_service.create_user_token(
-            token_data_two,
-            token_data_two.username,
-            token_name="some token",
-            scopes=["admin:token", "read:some", "user:token"],
-            ip_address="192.0.2.20",
-        )
+    user_token_two = await token_service.create_user_token(
+        token_data_two,
+        token_data_two.username,
+        token_name="some token",
+        scopes=["admin:token", "read:some", "user:token"],
+        ip_address="192.0.2.20",
+    )
     token_data_user_two = await token_service.get_data(user_token_two)
     assert token_data_user_two
     await token_service.get_internal_token(
@@ -107,53 +102,51 @@ async def build_history(
         scopes=["read:some"],
         ip_address="10.10.10.10",
     )
-    async with factory.session.begin():
-        assert await token_service.modify_token(
-            user_token_two.key,
-            token_data_user_two,
-            token_data_user_two.username,
-            ip_address="192.0.2.20",
-            token_name="happy token",
-        )
+    assert await token_service.modify_token(
+        user_token_two.key,
+        token_data_user_two,
+        token_data_user_two.username,
+        ip_address="192.0.2.20",
+        token_name="happy token",
+    )
 
     request = AdminTokenRequest(
         username="bot-service",
         token_type=TokenType.service,
         scopes=["admin:token"],
     )
-    async with factory.session.begin():
-        service_token = await token_service.create_token_from_admin_request(
-            request,
-            TokenData.bootstrap_token(),
-            ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
-        )
+    service_token = await token_service.create_token_from_admin_request(
+        request,
+        TokenData.bootstrap_token(),
+        ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
+    )
     service_token_data = await token_service.get_data(service_token)
     assert service_token_data
-    async with factory.session.begin():
-        assert await token_service.modify_token(
-            user_token_two.key,
-            service_token_data,
-            ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
-            scopes=["admin:token", "read:all"],
-        )
-        assert await token_service.modify_token(
-            user_token_two.key,
-            service_token_data,
-            ip_address="2001:db8:034a:ea78:4278:4562:6578:af42",
-            token_name="other name",
-            expires=current_datetime() + timedelta(days=30),
-            scopes=["read:all"],
-        )
-        assert await token_service.delete_token(
-            token_one.key,
-            service_token_data,
-            username=token_data_one.username,
-            ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
-        )
+    assert await token_service.modify_token(
+        user_token_two.key,
+        service_token_data,
+        ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
+        scopes=["admin:token", "read:all"],
+    )
+    assert await token_service.modify_token(
+        user_token_two.key,
+        service_token_data,
+        ip_address="2001:db8:034a:ea78:4278:4562:6578:af42",
+        token_name="other name",
+        expires=current_datetime() + timedelta(days=30),
+        scopes=["read:all"],
+    )
+    assert await token_service.delete_token(
+        token_one.key,
+        service_token_data,
+        username=token_data_one.username,
+        ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
+    )
 
-        # Spread out the timestamps so that we can test date range queries.
-        # Every other entry has the same timestamp as the previous entry to
-        # test that queries handle entries with the same timestamp.
+    # Spread out the timestamps so that we can test date range queries.  Every
+    # other entry has the same timestamp as the previous entry to test that
+    # queries handle entries with the same timestamp.
+    async with factory.session.begin():
         stmt = select(TokenChangeHistory).order_by(TokenChangeHistory.id)
         result = await factory.session.execute(stmt)
         entries = [e[0] for e in result.all()]
@@ -163,8 +156,7 @@ async def build_history(
             if i % 2 != 0:
                 event_time += timedelta(seconds=5)
 
-        history = await token_service.get_change_history(service_token_data)
-
+    history = await token_service.get_change_history(service_token_data)
     assert history.count == 20
     assert len(history.entries) == 20
     return history.entries
@@ -516,14 +508,13 @@ async def test_no_scope(
     token_data = await create_session_token(factory)
     username = token_data.username
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        token = await token_service.create_user_token(
-            token_data,
-            token_data.username,
-            token_name="user",
-            scopes=[],
-            ip_address="127.0.0.1",
-        )
+    token = await token_service.create_user_token(
+        token_data,
+        token_data.username,
+        token_name="user",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
 
     r = await client.get(
         f"/auth/api/v1/users/{username}/token-change-history",

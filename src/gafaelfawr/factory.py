@@ -291,8 +291,7 @@ class Factory:
 
            async with Factory.standalone(config, engine) as factory:
                token_service = factory.create_token_service()
-               async with factory.session.begin():
-                   alerts = await token_service.audit(fix=fix)
+               alerts = await token_service.audit(fix=fix)
         """
         factory = await cls.create(config, engine, check_db=check_db)
         async with aclosing(factory):
@@ -334,7 +333,12 @@ class Factory:
         """
         admin_store = AdminStore(self.session)
         admin_history_store = AdminHistoryStore(self.session)
-        return AdminService(admin_store, admin_history_store, self._logger)
+        return AdminService(
+            admin_store=admin_store,
+            admin_history_store=admin_history_store,
+            session=self.session,
+            logger=self._logger,
+        )
 
     def create_firestore_service(self) -> FirestoreService:
         """Create the Firestore service layer.
@@ -378,6 +382,7 @@ class Factory:
             user_info_service=self.create_user_info_service(),
             token_db_store=TokenDatabaseStore(self.session),
             token_redis_store=self.create_token_redis_store(),
+            session=self.session,
         )
 
     def create_kubernetes_ingress_service(
@@ -420,7 +425,6 @@ class Factory:
         return KubernetesTokenService(
             token_service=token_service,
             storage=storage,
-            session=self.session,
             logger=self._logger,
         )
 
@@ -592,6 +596,8 @@ class Factory:
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
+            admin_store=AdminStore(self.session),
+            session=self.session,
             logger=self._logger,
         )
 

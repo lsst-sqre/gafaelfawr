@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from datetime import datetime, timedelta
 
 from safir.datetime import current_datetime, format_datetime_for_logging
+from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
@@ -41,6 +42,7 @@ from ..models.token import (
     TokenType,
     TokenUserInfo,
 )
+from ..storage.admin import AdminStore
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
 from ..util import is_bot_user
@@ -59,11 +61,15 @@ class TokenService:
     token_cache
         Cache of internal and notebook tokens.
     token_db_store
-        The database backing store for tokens.
+        Database backing store for tokens.
     token_redis_store
-        The Redis backing store for tokens.
+        Redis backing store for tokens.
     token_change_store
-        The backing store for history of changes to tokens.
+        Backing store for history of changes to tokens.
+    admin_store
+        Backing store for Gafaelfawr admins.
+    session
+        Database session.
     logger
         Logger to use.
     """
@@ -76,6 +82,8 @@ class TokenService:
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
         token_change_store: TokenChangeHistoryStore,
+        admin_store: AdminStore,
+        session: async_scoped_session,
         logger: BoundLogger,
     ) -> None:
         self._config = config
@@ -83,6 +91,8 @@ class TokenService:
         self._token_db_store = token_db_store
         self._token_redis_store = token_redis_store
         self._token_change_store = token_change_store
+        self._admin_store = admin_store
+        self._session = session
         self._logger = logger
 
     async def audit(self, *, fix: bool = False) -> list[str]:
@@ -105,9 +115,12 @@ class TokenService:
         alert: str | None
         alerts = []
         now = current_datetime()
-        db_tokens = {
-            t.token: t for t in await self._token_db_store.list_with_parents()
-        }
+
+        async with self._session.begin():
+            db_tokens = {
+                t.token: t
+                for t in await self._token_db_store.list_with_parents()
+            }
         db_token_keys = set(db_tokens.keys())
         redis_tokens = {}
         for key in await self._token_redis_store.list():
@@ -131,7 +144,8 @@ class TokenService:
                 " database but not Redis"
             )
             if fix:
-                await self._token_db_store.modify(key, expires=now)
+                async with self._session.begin():
+                    await self._token_db_store.modify(key, expires=now)
                 alert += " (fixed)"
             alerts.append(alert)
 
@@ -181,7 +195,8 @@ class TokenService:
         user_info
             The user information to associate with the token.
         scopes
-            The scopes of the token.
+            The scopes of the token. ``admin:token`` will be added to these
+            scopes if the user is an admin.
         ip_address
             The IP address from which the request came.
 
@@ -193,14 +208,19 @@ class TokenService:
         Raises
         ------
         PermissionDeniedError
-            If the provided username is invalid.
+            Raised if the provided username is invalid.
         """
         self._validate_username(user_info.username)
-        scopes = sorted(scopes)
-
         token = Token()
         created = current_datetime()
         expires = created + self._config.token_lifetime
+        async with self._session.begin():
+            admins = await self._admin_store.list()
+        if any(user_info.username == a.username for a in admins):
+            scopes = sorted({*scopes, "admin:token"})
+        else:
+            scopes = sorted(scopes)
+
         data = TokenData(
             token=token,
             token_type=TokenType.session,
@@ -223,8 +243,9 @@ class TokenService:
 
         await self._token_redis_store.store_data(data)
         try:
-            await self._token_db_store.add(data)
-            await self._token_change_store.add(history_entry)
+            async with self._session.begin():
+                await self._token_db_store.add(data)
+                await self._token_change_store.add(history_entry)
         except Exception:
             await self._token_redis_store.delete(data.token.key)
             raise
@@ -297,8 +318,10 @@ class TokenService:
         # Store the new token in Redis and the database.
         await self._token_redis_store.store_data(data)
         try:
-            await self._token_db_store.add(data, parent=auth_data.token.key)
-            await self._token_change_store.add(history_entry)
+            parent = auth_data.token.key
+            async with self._session.begin():
+                await self._token_db_store.add(data, parent=parent)
+                await self._token_change_store.add(history_entry)
         except Exception:
             await self._token_redis_store.delete(data.token.key)
             raise
@@ -350,12 +373,12 @@ class TokenService:
         Raises
         ------
         DuplicateTokenNameError
-            A token with this name for this user already exists.
+            Raised if a token with this name for this user already exists.
         InvalidExpiresError
-            The provided expiration time was invalid.
+            Raised if the provided expiration time was invalid.
         PermissionDeniedError
-            If the given username didn't match the user information in the
-            authentication token, or if the specified username is invalid.
+            Raised if the given username didn't match the user information in
+            the authentication token, or if the specified username is invalid.
 
         Notes
         -----
@@ -402,8 +425,9 @@ class TokenService:
 
         await self._token_redis_store.store_data(data)
         try:
-            await self._token_db_store.add(data, token_name=token_name)
-            await self._token_change_store.add(history_entry)
+            async with self._session.begin():
+                await self._token_db_store.add(data, token_name=token_name)
+                await self._token_change_store.add(history_entry)
         except Exception:
             await self._token_redis_store.delete(data.token.key)
             raise
@@ -446,11 +470,11 @@ class TokenService:
         Raises
         ------
         InvalidExpiresError
-            The provided expiration time is not valid.
+            Raised if the provided expiration time is not valid.
         InvalidScopesError
-            The requested scopes are not permitted.
+            Raised if the requested scopes are not permitted.
         PermissionDeniedError
-            If the provided username is invalid.
+            Raised if the provided username is invalid.
         """
         self._check_authorization(
             request.username, auth_data, require_admin=True
@@ -498,8 +522,10 @@ class TokenService:
 
         await self._token_redis_store.store_data(data)
         try:
-            await self._token_db_store.add(data, token_name=request.token_name)
-            await self._token_change_store.add(history_entry)
+            name = request.token_name
+            async with self._session.begin():
+                await self._token_db_store.add(data, token_name=name)
+                await self._token_change_store.add(history_entry)
         except Exception:
             await self._token_redis_store.delete(data.token.key)
             raise
@@ -567,49 +593,51 @@ class TokenService:
             return False
         self._check_authorization(info.username, auth_data)
 
-        # Recursively delete the children of this token first.  Children are
+        # Recursively delete the children of this token first. Children are
         # returned in breadth-first order, so delete them in reverse order to
         # delete the tokens farthest down in the tree first.  This minimizes
         # the number of orphaned children at any given point.
-        children = await self._token_db_store.get_children(key)
-        children.reverse()
-        for child in children:
-            await self._delete_one_token(child, auth_data, ip_address)
-        return await self._delete_one_token(key, auth_data, ip_address)
+        async with self._session.begin():
+            children = await self._token_db_store.get_children(key)
+            children.reverse()
+            for child in children:
+                await self._delete_one_token(child, auth_data, ip_address)
+            return await self._delete_one_token(key, auth_data, ip_address)
 
     async def expire_tokens(self) -> None:
         """Bookkeeping for expired tokens.
 
         Token expiration is primarily controlled by the Redis expiration,
         after which the token disappears from Redis and effectively expires
-        from an authentication standpoint.  However, we want to do some
+        from an authentication standpoint. However, we want to do some
         additional bookkeeping of expired tokens: remove them from the
         database and add an expiration entry to the token history table.
 
         This method is meant to be run periodically, outside of any given user
         request.
         """
-        expired_tokens = await self._token_db_store.delete_expired()
-        for info in expired_tokens:
-            self._logger.info(
-                "Expired token",
-                user=info.username,
-                token_type=info.token_type.value,
-                token=info.token,
-            )
-            history_entry = TokenChangeHistoryEntry(
-                token=info.token,
-                username=info.username,
-                token_type=info.token_type,
-                token_name=info.token_name,
-                parent=info.parent,
-                scopes=info.scopes,
-                service=info.service,
-                expires=info.expires,
-                actor="<internal>",
-                action=TokenChange.expire,
-            )
-            await self._token_change_store.add(history_entry)
+        async with self._session.begin():
+            expired_tokens = await self._token_db_store.delete_expired()
+            for info in expired_tokens:
+                self._logger.info(
+                    "Expired token",
+                    user=info.username,
+                    token_type=info.token_type.value,
+                    token=info.token,
+                )
+                history_entry = TokenChangeHistoryEntry(
+                    token=info.token,
+                    username=info.username,
+                    token_type=info.token_type,
+                    token_name=info.token_name,
+                    parent=info.parent,
+                    scopes=info.scopes,
+                    service=info.service,
+                    expires=info.expires,
+                    actor="<internal>",
+                    action=TokenChange.expire,
+                )
+                await self._token_change_store.add(history_entry)
 
     async def gather_state_metrics(self, events: StateEvents) -> None:
         """Gather metrics from the stored state and record them.
@@ -619,14 +647,15 @@ class TokenService:
         events
             Publishers for state events.
         """
-        session_count = await self._token_db_store.count_unique_sessions()
-        await events.active_user_sessions.publish(
-            ActiveUserSessionsEvent(count=session_count)
-        )
-        token_count = await self._token_db_store.count_user_tokens()
-        await events.active_user_tokens.publish(
-            ActiveUserTokensEvent(count=token_count)
-        )
+        async with self._session.begin():
+            session_count = await self._token_db_store.count_unique_sessions()
+            await events.active_user_sessions.publish(
+                ActiveUserSessionsEvent(count=session_count)
+            )
+            token_count = await self._token_db_store.count_user_tokens()
+            await events.active_user_tokens.publish(
+                ActiveUserTokensEvent(count=token_count)
+            )
 
     async def get_change_history(
         self,
@@ -681,25 +710,26 @@ class TokenService:
         Raises
         ------
         InvalidCursorError
-            The provided cursor was invalid.
+            Raised if the provided cursor was invalid.
         InvalidIPAddressError
-            The provided argument was syntactically invalid for both an
-            IP address and a CIDR block.
+            Raised if the provided argument was syntactically invalid for both
+            an IP address and a CIDR block.
         """
         self._check_authorization(username, auth_data)
         self._validate_ip_or_cidr(ip_or_cidr)
-        return await self._token_change_store.list(
-            cursor=HistoryCursor.from_str(cursor) if cursor else None,
-            limit=limit,
-            since=since,
-            until=until,
-            username=username,
-            actor=actor,
-            key=key,
-            token=token,
-            token_type=token_type,
-            ip_or_cidr=ip_or_cidr,
-        )
+        async with self._session.begin():
+            return await self._token_change_store.list(
+                cursor=HistoryCursor.from_str(cursor) if cursor else None,
+                limit=limit,
+                since=since,
+                until=until,
+                username=username,
+                actor=actor,
+                key=key,
+                token=token,
+                token_type=token_type,
+                ip_or_cidr=ip_or_cidr,
+            )
 
     async def get_data(self, token: Token) -> TokenData | None:
         """Retrieve the data for a token from Redis.
@@ -751,7 +781,7 @@ class TokenService:
         Raises
         ------
         PermissionDeniedError
-            If the username is invalid.
+            Raised if the username is invalid.
         """
         self._validate_scopes(scopes, token_data)
         self._validate_username(token_data.username)
@@ -790,7 +820,7 @@ class TokenService:
         Raises
         ------
         PermissionDeniedError
-            If the username is invalid.
+            Raised if the username is invalid.
         """
         self._validate_username(token_data.username)
         return await self._token_cache.get_notebook_token(
@@ -823,8 +853,8 @@ class TokenService:
         Raises
         ------
         PermissionDeniedError
-            The authenticated user doesn't have permission to manipulate
-            tokens for that user.
+            Raised if the authenticated user doesn't have permission to
+            manipulate tokens for that user.
         """
         info = await self.get_token_info_unchecked(key, username)
         if not info:
@@ -852,12 +882,8 @@ class TokenService:
             not found or username was given and the token was for another
             user.
         """
-        info = await self._token_db_store.get_info(key)
-        if not info:
-            return None
-        if username and info.username != username:
-            return None
-        return info
+        async with self._session.begin():
+            return await self._get_token_info_internal(key, username)
 
     async def list_tokens(
         self, auth_data: TokenData, username: str | None = None
@@ -880,11 +906,12 @@ class TokenService:
         Raises
         ------
         PermissionDeniedError
-            The user whose tokens are being listed does not match the
-            authentication information.
+            Raised if the user whose tokens are being listed does not match
+            the authentication information.
         """
         self._check_authorization(username, auth_data)
-        return await self._token_db_store.list_tokens(username=username)
+        async with self._session.begin():
+            return await self._token_db_store.list_tokens(username=username)
 
     async def modify_token(
         self,
@@ -900,9 +927,9 @@ class TokenService:
     ) -> TokenInfo | None:
         """Modify a token.
 
-        Token modification is only allowed for token administrators.  Users
-        who want to modify their own tokens should instead create a new token
-        and delete the old one.  Arguably, it shouldn't be allowed for token
+        Token modification is only allowed for token administrators. Users who
+        want to modify their own tokens should instead create a new token and
+        delete the old one. Arguably, it shouldn't be allowed for token
         administrators either, but it allows them to fix bugs and the code is
         tested and working.
 
@@ -937,11 +964,12 @@ class TokenService:
         Raises
         ------
         InvalidExpiresError
-            The provided expiration time was invalid.
+            Raised if the provided expiration time was invalid.
         DuplicateTokenNameError
-            A token with this name for this user already exists.
+            Raised if a token with this name for this user already exists.
         PermissionDeniedError
-            The user modifiying the token is not a token administrator.
+            Raised if the user modifiying the token is not a token
+            administrator.
         """
         info = await self.get_token_info_unchecked(key, username)
         if not info:
@@ -976,36 +1004,38 @@ class TokenService:
             ip_address=ip_address,
         )
 
-        info = await self._token_db_store.modify(
-            key,
-            token_name=token_name,
-            scopes=sorted(scopes) if scopes else scopes,
-            expires=expires,
-            no_expire=no_expire,
-        )
-        if not info:
-            return None
-        await self._token_change_store.add(history_entry)
-
-        # Token names exist only in the database and don't require updating
-        # Redis, but scopes and expirations are stored in both places and
-        # require rewriting the token data in Redis as well.
-        if scopes or no_expire or expires:
-            data = await self._token_redis_store.get_data_by_key(key)
-            if not data:
+        async with self._session.begin():
+            info = await self._token_db_store.modify(
+                key,
+                token_name=token_name,
+                scopes=sorted(scopes) if scopes else scopes,
+                expires=expires,
+                no_expire=no_expire,
+            )
+            if not info:
                 return None
-            data.scopes = info.scopes
-            data.expires = info.expires
-            await self._token_redis_store.store_data(data)
+            await self._token_change_store.add(history_entry)
 
-        # Update subtokens if needed.
-        if update_subtoken_expires and info:
-            if not expires:
-                raise RuntimeError("expires not set updating subtoken expires")
-            for child in await self._token_db_store.get_children(key):
-                await self._modify_expires(
-                    child, auth_data, expires, ip_address
-                )
+            # Token names exist only in the database and don't require
+            # updating Redis, but scopes and expirations are stored in both
+            # places and require rewriting the token data in Redis as well.
+            if scopes or no_expire or expires:
+                data = await self._token_redis_store.get_data_by_key(key)
+                if not data:
+                    return None
+                data.scopes = info.scopes
+                data.expires = info.expires
+                await self._token_redis_store.store_data(data)
+
+            # Update subtokens if needed.
+            if update_subtoken_expires and info:
+                if not expires:
+                    msg = "expires not set updating subtoken expires"
+                    raise RuntimeError(msg)
+                for child in await self._token_db_store.get_children(key):
+                    await self._modify_expires(
+                        child, auth_data, expires, ip_address
+                    )
 
         self._logger.info(
             "Modified token",
@@ -1023,53 +1053,8 @@ class TokenService:
         request.
         """
         cutoff = current_datetime() - CHANGE_HISTORY_RETENTION
-        await self._token_change_store.delete(older_than=cutoff)
-
-    def _check_authorization(
-        self,
-        username: str | None,
-        auth_data: TokenData,
-        *,
-        require_admin: bool = False,
-        require_same_user: bool = False,
-    ) -> None:
-        """Check authorization for performing an action.
-
-        Arguments
-        ---------
-        username
-            The user whose tokens are being changed, or `None` if listing
-            all tokens.
-        auth_data
-            The authenticated user changing the tokens.
-        require_admin
-            If set to `True`, require the authenticated user have
-            ``admin:token`` scope.
-        require_same_user
-            If set to `True`, require that ``username`` match the
-            authenticated user as specified by ``auth_data`` and do not allow
-            token admins.
-
-        Raises
-        ------
-        PermissionDeniedError
-            The authenticated user doesn't have permission to manipulate
-            tokens for that user.
-        """
-        is_admin = "admin:token" in auth_data.scopes
-        if (username is None or require_admin) and not is_admin:
-            msg = "Missing required admin:token scope"
-            self._logger.warning("Permission denied", error=msg)
-            raise PermissionDeniedError(msg)
-        if username is not None and username != auth_data.username:
-            if require_same_user or not is_admin:
-                msg = f"Cannot act on tokens for user {username}"
-                self._logger.warning("Permission denied", error=msg)
-                raise PermissionDeniedError(msg)
-        if not is_admin and "user:token" not in auth_data.scopes:
-            msg = "Missing required user:token scope"
-            self._logger.warning("Permission denied", error=msg)
-            raise PermissionDeniedError(msg)
+        async with self._session.begin():
+            await self._token_change_store.delete(older_than=cutoff)
 
     async def _audit_orphaned(self) -> list[str]:
         """Audit for orphaned tokens.
@@ -1080,13 +1065,14 @@ class TokenService:
             Alerts to report.
         """
         alerts = []
-        for token in await self._token_db_store.list_orphaned():
-            key = token.token
-            username = token.username
-            msg = "Token has no parent"
-            self._logger.warning(msg, token=key, user=username)
-            alert = f"Token `{key}` for `{username}` has no parent token"
-            alerts.append(alert)
+        async with self._session.begin():
+            for token in await self._token_db_store.list_orphaned():
+                key = token.token
+                username = token.username
+                msg = "Token has no parent"
+                self._logger.warning(msg, token=key, user=username)
+                alert = f"Token `{key}` for `{username}` has no parent token"
+                alerts.append(alert)
         return alerts
 
     async def _audit_token(
@@ -1132,7 +1118,8 @@ class TokenService:
             # changed but the database was. Redis is canonical, so set the
             # database scopes to match.
             if fix:
-                await self._token_db_store.modify(key, scopes=redis.scopes)
+                async with self._session.begin():
+                    await self._token_db_store.modify(key, scopes=redis.scopes)
                 mismatches.append("scopes [fixed]")
             else:
                 mismatches.append("scopes")
@@ -1198,6 +1185,52 @@ class TokenService:
                     )
         return alerts
 
+    def _check_authorization(
+        self,
+        username: str | None,
+        auth_data: TokenData,
+        *,
+        require_admin: bool = False,
+        require_same_user: bool = False,
+    ) -> None:
+        """Check authorization for performing an action.
+
+        Arguments
+        ---------
+        username
+            The user whose tokens are being changed, or `None` if listing
+            all tokens.
+        auth_data
+            The authenticated user changing the tokens.
+        require_admin
+            If set to `True`, require the authenticated user have
+            ``admin:token`` scope.
+        require_same_user
+            If set to `True`, require that ``username`` match the
+            authenticated user as specified by ``auth_data`` and do not allow
+            token admins.
+
+        Raises
+        ------
+        PermissionDeniedError
+            Raised if the authenticated user doesn't have permission to
+            manipulate tokens for that user.
+        """
+        is_admin = "admin:token" in auth_data.scopes
+        if (username is None or require_admin) and not is_admin:
+            msg = "Missing required admin:token scope"
+            self._logger.warning("Permission denied", error=msg)
+            raise PermissionDeniedError(msg)
+        if username is not None and username != auth_data.username:
+            if require_same_user or not is_admin:
+                msg = f"Cannot act on tokens for user {username}"
+                self._logger.warning("Permission denied", error=msg)
+                raise PermissionDeniedError(msg)
+        if not is_admin and "user:token" not in auth_data.scopes:
+            msg = "Missing required user:token scope"
+            self._logger.warning("Permission denied", error=msg)
+            raise PermissionDeniedError(msg)
+
     async def _delete_one_token(
         self,
         key: str,
@@ -1207,7 +1240,7 @@ class TokenService:
         """Delete a single token.
 
         This does not do cascading delete and assumes authorization has
-        already been checked.
+        already been checked. Must be called from inside a transaction.
 
         Parameters
         ----------
@@ -1225,7 +1258,7 @@ class TokenService:
             `True` if the token was deleted, `False` if the token was not
             found.
         """
-        info = await self.get_token_info_unchecked(key)
+        info = await self._get_token_info_internal(key)
         if not info:
             return False
 
@@ -1252,6 +1285,36 @@ class TokenService:
             )
         return success
 
+    async def _get_token_info_internal(
+        self, key: str, username: str | None = None
+    ) -> TokenInfo | None:
+        """Get database information about a token.
+
+        This method is used inside transactions and neither opens a
+        transaction nor checks authorization.
+
+        Parameters
+        ----------
+        key
+            The key of the token.
+        username
+            If set, constrain the result to tokens from that user and return
+            `None` if the token exists but is for a different user.
+
+        Returns
+        -------
+        TokenInfo or None
+            Token information from the database, or `None` if the token was
+            not found or username was given and the token was for another
+            user.
+        """
+        info = await self._token_db_store.get_info(key)
+        if not info:
+            return None
+        if username and info.username != username:
+            return None
+        return info
+
     async def _modify_expires(
         self,
         key: str,
@@ -1262,7 +1325,7 @@ class TokenService:
         """Change the expiration of a token if necessary.
 
         Used to update the expiration of subtokens when the parent token
-        expiration has changed.
+        expiration has changed. Must be called within a transaction.
 
         Parameters
         ----------
@@ -1277,7 +1340,7 @@ class TokenService:
         ip_address
             The IP address from which the request came.
         """
-        info = await self.get_token_info_unchecked(key)
+        info = await self._get_token_info_internal(key)
         if not info:
             return
         if info.expires and info.expires <= expires:
@@ -1317,8 +1380,8 @@ class TokenService:
         Raises
         ------
         InvalidIPAddressError
-            The provided argument was syntactically invalid for both an
-            IP address and a CIDR block.
+            Raised if the provided argument was syntactically invalid for both
+            an IP address and a CIDR block.
         """
         if ip_or_cidr is None:
             return
@@ -1347,8 +1410,8 @@ class TokenService:
         -----
         This is not done in the model because we want to be able to return
         whatever expiration time is set in the backing store in replies, even
-        if it isn't valid.  (It could be done using multiple models, but
-        isn't currently.)
+        if it isn't valid. (It could be done using multiple models, but isn't
+        currently.)
         """
         if not expires:
             return
@@ -1368,13 +1431,13 @@ class TokenService:
         scopes
             The requested scopes.
         auth_data
-            The token used to authenticate the operation, if the scopes should
-            be checked to ensure they are a subset.
+            Token used to authenticate the operation, if the scopes should be
+            checked to ensure they are a subset.
 
         Raises
         ------
         InvalidScopesError
-            The requested scopes are not permitted.
+            Raised if the requested scopes are not permitted.
         """
         if not scopes:
             return
@@ -1407,8 +1470,8 @@ class TokenService:
         Raises
         ------
         PermissionDeniedError
-            The username is invalid or the authenticated user doesn't have
-            permission to manipulate tokens for that user.
+            Raised if the username is invalid or the authenticated user
+            doesn't have permission to manipulate tokens for that user.
         """
         if not re.match(USERNAME_REGEX, username):
             raise PermissionDeniedError(f"Invalid username: {username}")

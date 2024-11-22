@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from safir.datetime import current_datetime
+from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DuplicateAdminError, PermissionDeniedError
@@ -25,18 +26,23 @@ class AdminService:
         The backing store for token administrators.
     admin_history_store
         The backing store for history of changes to token administrators.
+    session
+        Database session.
     logger
         Logger to use for messages.
     """
 
     def __init__(
         self,
+        *,
         admin_store: AdminStore,
         admin_history_store: AdminHistoryStore,
+        session: async_scoped_session,
         logger: BoundLogger,
     ) -> None:
         self._admin_store = admin_store
         self._admin_history_store = admin_history_store
+        self._session = session
         self._logger = logger
 
     async def add_admin(
@@ -60,10 +66,12 @@ class AdminService:
         PermissionDeniedError
             Raised if the actor is not an admin.
         """
-        if not await self.is_admin(actor) and actor != "<bootstrap>":
-            raise PermissionDeniedError(f"{actor} is not an admin")
-        if await self.is_admin(username):
-            raise DuplicateAdminError(f"{username} is already an admin")
+        async with self._session.begin():
+            if not await self._is_admin(actor) and actor != "<bootstrap>":
+                raise PermissionDeniedError(f"{actor} is not an admin")
+            if await self._is_admin(username):
+                raise DuplicateAdminError(f"{username} is already an admin")
+
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(
             username=username,
@@ -72,8 +80,11 @@ class AdminService:
             ip_address=ip_address,
             event_time=current_datetime(),
         )
-        await self._admin_store.add(admin)
-        await self._admin_history_store.add(history_entry)
+
+        async with self._session.begin():
+            await self._admin_store.add(admin)
+            await self._admin_history_store.add(history_entry)
+
         self._logger.info(f"Added admin {admin.username}")
 
     async def add_initial_admins(self, admins: Iterable[str]) -> None:
@@ -88,10 +99,11 @@ class AdminService:
         admins
             Usernames of initial admins.
         """
-        if not await self._admin_store.list():
-            for admin in admins:
-                self._logger.info(f"Adding initial admin {admin}")
-                await self._admin_store.add(Admin(username=admin))
+        async with self._session.begin():
+            if not await self._admin_store.list():
+                for admin in admins:
+                    self._logger.info(f"Adding initial admin {admin}")
+                    await self._admin_store.add(Admin(username=admin))
 
     async def delete_admin(
         self, username: str, *, actor: str, ip_address: str
@@ -118,8 +130,6 @@ class AdminService:
         PermissionDeniedError
             If the actor is not an admin.
         """
-        if not await self.is_admin(actor) and actor != "<bootstrap>":
-            raise PermissionDeniedError(f"{actor} is not an admin")
         admin = Admin(username=username)
         history_entry = AdminHistoryEntry(
             username=username,
@@ -128,24 +138,34 @@ class AdminService:
             ip_address=ip_address,
             event_time=current_datetime(),
         )
-        if await self.get_admins() == [admin]:
+        admins = await self.get_admins()
+        if actor != "<bootstrap>":
+            if not any(username == a.username for a in admins):
+                raise PermissionDeniedError(f"{actor} is not an admin")
+        if admins == [admin]:
             raise PermissionDeniedError("Cannot delete the last admin")
-        result = await self._admin_store.delete(admin)
-        if result:
-            await self._admin_history_store.add(history_entry)
-            self._logger.info(f"Deleted admin {username}")
+        async with self._session.begin():
+            result = await self._admin_store.delete(admin)
+            if result:
+                await self._admin_history_store.add(history_entry)
+                self._logger.info(f"Deleted admin {username}")
         return result
 
     async def get_admins(self) -> list[Admin]:
         """Get the current administrators."""
-        return await self._admin_store.list()
+        async with self._session.begin():
+            return await self._admin_store.list()
 
-    async def is_admin(self, username: str) -> bool:
+    async def _is_admin(self, username: str) -> bool:
         """Return whether the given user is a token administrator.
+
+        Must be called from inside a transaction.
 
         Parameters
         ----------
         username
             Username to check.
         """
-        return any(username == a.username for a in await self.get_admins())
+        return any(
+            username == a.username for a in await self._admin_store.list()
+        )

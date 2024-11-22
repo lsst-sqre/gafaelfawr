@@ -19,10 +19,9 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         username="example", groups=[Group(name="bar", id=12312)]
     )
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        token = await token_service.create_session_token(
-            user_info, scopes=["user:token"], ip_address="127.0.0.1"
-        )
+    token = await token_service.create_session_token(
+        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+    )
 
     r = await client.get(
         "/auth/api/v1/user-info", headers={"Authorization": f"bearer {token}"}
@@ -38,10 +37,9 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
     }
 
     user_info.groups = [Group(name="foo", id=12313)]
-    async with factory.session.begin():
-        token = await token_service.create_session_token(
-            user_info, scopes=["user:token"], ip_address="127.0.0.1"
-        )
+    token = await token_service.create_session_token(
+        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+    )
 
     r = await client.get(
         "/auth/api/v1/user-info", headers={"Authorization": f"bearer {token}"}

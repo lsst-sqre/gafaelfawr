@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from sqlalchemy.ext.asyncio import async_scoped_session
+
 from ..models.token import TokenType
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
 from .userinfo import UserInfoService
@@ -23,6 +25,8 @@ class HealthCheckService:
         Redis backing store for tokens.
     user_info_service
         Service for retrieving user information from LDAP and Firestore.
+    session
+        Database session.
     """
 
     def __init__(
@@ -31,10 +35,12 @@ class HealthCheckService:
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
         user_info_service: UserInfoService,
+        session: async_scoped_session,
     ) -> None:
         self._db = token_db_store
         self._redis = token_redis_store
         self._userinfo = user_info_service
+        self._session = session
 
     async def check(self, *, check_user_info: bool = True) -> None:
         """Check the health of the underlying database and Redis.
@@ -49,9 +55,10 @@ class HealthCheckService:
             This is disabled for the Kubernetes operator, which doesn't need
             access to those.
         """
-        tokens = await self._db.list_tokens(
-            token_type=TokenType.session, limit=1
-        )
+        async with self._session.begin():
+            tokens = await self._db.list_tokens(
+                token_type=TokenType.session, limit=1
+            )
 
         # If we can't find a user session token, we don't have a token key for
         # Redis or a username for LDAP, and thus unfortunately can't test the

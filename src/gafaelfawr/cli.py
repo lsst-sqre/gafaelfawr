@@ -97,8 +97,7 @@ async def audit(*, fix: bool, config_path: Path | None) -> None:
             msg = "Slack alerting required for audit but not configured"
             raise click.UsageError(msg)
         token_service = factory.create_token_service()
-        async with factory.session.begin():
-            alerts = await token_service.audit(fix=fix)
+        alerts = await token_service.audit(fix=fix)
         if alerts:
             message = (
                 "Gafaelfawr data inconsistencies found:\n• "
@@ -141,7 +140,7 @@ async def delete_all_data(*, config_path: Path | None) -> None:
             stmt = text(f'TRUNCATE TABLE {", ".join(tables)}')
             logger.info("Truncating all tables")
             await factory.session.execute(stmt)
-            await admin_service.add_initial_admins(config.initial_admins)
+        await admin_service.add_initial_admins(config.initial_admins)
         token_service = factory.create_token_service()
         logger.info("Deleting all tokens from Redis")
         await token_service.delete_all_tokens()
@@ -256,17 +255,15 @@ async def maintenance(*, config_path: Path | None) -> None:
     logger.debug("Starting background maintenance")
     async with Factory.standalone(config, engine, check_db=True) as factory:
         token_service = factory.create_token_service()
-        async with factory.session.begin():
-            logger.info("Marking expired tokens in database")
-            await token_service.expire_tokens()
-            logger.info("Truncating token history")
-            await token_service.truncate_history()
+        logger.info("Marking expired tokens in database")
+        await token_service.expire_tokens()
+        logger.info("Truncating token history")
+        await token_service.truncate_history()
         event_manager = config.metrics.make_manager()
         await event_manager.initialize()
         events = StateEvents()
         await events.initialize(event_manager)
-        async with factory.session.begin():
-            await token_service.gather_state_metrics(events)
+        await token_service.gather_state_metrics(events)
     await engine.dispose()
     logger.debug("Finished background maintenance")
 

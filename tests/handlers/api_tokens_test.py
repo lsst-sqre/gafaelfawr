@@ -39,12 +39,11 @@ async def test_create_delete_modify(
         groups=[Group(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        session_token = await token_service.create_session_token(
-            user_info,
-            scopes=["read:all", "exec:admin", "user:token"],
-            ip_address="127.0.0.1",
-        )
+    session_token = await token_service.create_session_token(
+        user_info,
+        scopes=["read:all", "exec:admin", "user:token"],
+        ip_address="127.0.0.1",
+    )
     csrf = await set_session_cookie(client, session_token)
 
     caplog.clear()
@@ -157,10 +156,9 @@ async def test_create_delete_modify(
     assert r.json()["detail"][0]["type"] == "permission_denied"
 
     # Get a token admin token, which will be allowed to modify the token.
-    async with factory.session.begin():
-        admin_token = await token_service.create_session_token(
-            user_info, scopes=["admin:token"], ip_address="127.0.0.1"
-        )
+    admin_token = await token_service.create_session_token(
+        user_info, scopes=["admin:token"], ip_address="127.0.0.1"
+    )
     csrf = await set_session_cookie(client, admin_token)
 
     # Change the name, scope, and expiration of the token.
@@ -303,12 +301,11 @@ async def test_token_info(
         groups=[Group(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        session_token = await token_service.create_session_token(
-            user_info,
-            scopes=["exec:admin", "user:token"],
-            ip_address="127.0.0.1",
-        )
+    session_token = await token_service.create_session_token(
+        user_info,
+        scopes=["exec:admin", "user:token"],
+        ip_address="127.0.0.1",
+    )
 
     r = await client.get(
         "/auth/api/v1/token-info",
@@ -349,15 +346,14 @@ async def test_token_info(
     # data.
     expires = now + timedelta(days=100)
     data = await token_service.get_data(session_token)
-    async with factory.session.begin():
-        user_token = await token_service.create_user_token(
-            data,
-            data.username,
-            token_name="some-token",
-            scopes=["exec:admin"],
-            expires=expires,
-            ip_address="127.0.0.1",
-        )
+    user_token = await token_service.create_user_token(
+        data,
+        data.username,
+        token_name="some-token",
+        scopes=["exec:admin"],
+        expires=expires,
+        ip_address="127.0.0.1",
+    )
 
     r = await client.get(
         "/auth/api/v1/token-info",
@@ -450,14 +446,13 @@ async def test_csrf_required(
     token_data = await create_session_token(factory, scopes=["admin:token"])
     csrf = await set_session_cookie(client, token_data.token)
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        user_token = await token_service.create_user_token(
-            token_data,
-            token_data.username,
-            token_name="foo",
-            scopes=[],
-            ip_address="127.0.0.1",
-        )
+    user_token = await token_service.create_user_token(
+        token_data,
+        token_data.username,
+        token_name="foo",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
 
     r = await client.post(
         "/auth/api/v1/tokens",
@@ -564,14 +559,13 @@ async def test_no_scope(
 ) -> None:
     token_data = await create_session_token(factory)
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        token = await token_service.create_user_token(
-            token_data,
-            token_data.username,
-            token_name="user",
-            scopes=[],
-            ip_address="127.0.0.1",
-        )
+    token = await token_service.create_user_token(
+        token_data,
+        token_data.username,
+        token_name="user",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
 
     r = await client.get(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -639,20 +633,18 @@ async def test_wrong_user(
     user_info = TokenUserInfo(
         username="other-person", name="Some Other Person", uid=137123
     )
-    async with factory.session.begin():
-        other_session_token = await token_service.create_session_token(
-            user_info, scopes=["user:token"], ip_address="127.0.0.1"
-        )
+    other_session_token = await token_service.create_session_token(
+        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+    )
     other_session_data = await token_service.get_data(other_session_token)
     assert other_session_data
-    async with factory.session.begin():
-        other_token = await token_service.create_user_token(
-            other_session_data,
-            "other-person",
-            token_name="foo",
-            scopes=[],
-            ip_address="127.0.0.1",
-        )
+    other_token = await token_service.create_user_token(
+        other_session_data,
+        "other-person",
+        token_name="foo",
+        scopes=[],
+        ip_address="127.0.0.1",
+    )
 
     # Get a token list.
     r = await client.get("/auth/api/v1/users/other-person/tokens")
@@ -1348,12 +1340,11 @@ async def test_no_form_post(
         groups=[Group(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        session_token = await token_service.create_session_token(
-            user_info,
-            scopes=["read:all", "exec:admin", "user:token"],
-            ip_address="127.0.0.1",
-        )
+    session_token = await token_service.create_session_token(
+        user_info,
+        scopes=["read:all", "exec:admin", "user:token"],
+        ip_address="127.0.0.1",
+    )
     csrf = await set_session_cookie(client, session_token)
 
     expires = current_datetime() + timedelta(days=100)
@@ -1391,12 +1382,11 @@ async def test_scope_modify(
         groups=[Group(name="foo", id=12313)],
     )
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        session_token = await token_service.create_session_token(
-            user_info,
-            scopes=["admin:token", "read:all", "exec:admin", "user:token"],
-            ip_address="127.0.0.1",
-        )
+    session_token = await token_service.create_session_token(
+        user_info,
+        scopes=["admin:token", "read:all", "exec:admin", "user:token"],
+        ip_address="127.0.0.1",
+    )
     csrf = await set_session_cookie(client, session_token)
 
     expires = current_datetime() + timedelta(days=100)
