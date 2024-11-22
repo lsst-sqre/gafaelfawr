@@ -1054,3 +1054,32 @@ async def test_basic_auth(
         "scope": "openid",
         "sub": token_data.username,
     }
+
+
+@pytest.mark.asyncio
+async def test_userinfo_internal(
+    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test passing internal tokens to the userinfo endpoint."""
+    redirect_uri = "https://example.org/"
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
+    await reconfigure(
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
+    )
+    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_service = factory.create_token_service()
+    internal_token = await token_service.get_internal_token(
+        token_data, "some-service", ["read:all"], ip_address="127.0.0.1"
+    )
+
+    r = await client.get(
+        "/auth/openid/userinfo",
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "email": token_data.email,
+        "name": token_data.name,
+        "preferred_username": token_data.username,
+        "sub": token_data.username,
+    }
