@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Annotated
 
+import sentry_sdk
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -392,9 +393,8 @@ async def get_auth(
     headers = await build_success_headers(context, auth_config, token_data)
     for key, value in headers:
         response.headers.append(key, value)
-    background_tasks.add_task(
-        publish_auth_event, context.events, auth_config, token_data
-    )
+    with sentry_sdk.start_span(name="events.publish"):
+        await publish_auth_event(context.events, auth_config, token_data)
     return {"status": "ok"}
 
 
