@@ -15,7 +15,7 @@ from ..dependencies.config import config_dependency
 from ..exceptions import DatabaseSchemaError
 from ..factory import Factory
 
-__all__ = ["startup", "shutdown"]
+__all__ = ["shutdown", "startup"]
 
 
 @kopf.on.startup()

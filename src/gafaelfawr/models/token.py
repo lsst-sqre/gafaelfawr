@@ -24,8 +24,8 @@ __all__ = [
     "TokenInfo",
     "TokenType",
     "TokenUserInfo",
-    "UserTokenRequest",
     "UserTokenModifyRequest",
+    "UserTokenRequest",
 ]
 
 

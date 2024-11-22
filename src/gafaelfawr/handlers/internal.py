@@ -21,7 +21,6 @@ __all__ = ["router"]
         " exposed outside the cluster and therefore cannot be used by"
         " external clients."
     ),
-    response_model=Metadata,
     response_model_exclude_none=True,
     summary="Application metadata",
     tags=["internal"],
@@ -35,7 +34,6 @@ async def get_index() -> Metadata:
 @router.get(
     "/health",
     description="Perform an internal health check",
-    response_model=HealthCheck,
     summary="Health check",
     tags=["internal"],
 )
