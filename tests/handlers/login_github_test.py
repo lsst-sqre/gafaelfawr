@@ -367,10 +367,9 @@ async def test_github_admin(
 ) -> None:
     """Test that a token administrator gets the admin:token scope."""
     admin_service = factory.create_admin_service()
-    async with factory.session.begin():
-        await admin_service.add_admin(
-            "someuser", actor="admin", ip_address="127.0.0.1"
-        )
+    await admin_service.add_admin(
+        "someuser", actor="admin", ip_address="127.0.0.1"
+    )
     user_info = GitHubUserInfo(
         name="A User",
         username="someuser",

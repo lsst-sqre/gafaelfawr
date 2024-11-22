@@ -227,10 +227,9 @@ async def test_success(client: AsyncClient, factory: Factory) -> None:
 async def test_success_minimal(client: AsyncClient, factory: Factory) -> None:
     user_info = TokenUserInfo(username="user", uid=1234)
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        token = await token_service.create_session_token(
-            user_info, scopes=["read:all"], ip_address="127.0.0.1"
-        )
+    token = await token_service.create_session_token(
+        user_info, scopes=["read:all"], ip_address="127.0.0.1"
+    )
 
     r = await client.get(
         "/ingress/auth",
@@ -630,10 +629,9 @@ async def test_success_unicode_name(
 ) -> None:
     user_info = TokenUserInfo(username="user", uid=1234, name="名字")
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        token = await token_service.create_session_token(
-            user_info, scopes=["read:all"], ip_address="127.0.0.1"
-        )
+    token = await token_service.create_session_token(
+        user_info, scopes=["read:all"], ip_address="127.0.0.1"
+    )
 
     r = await client.get(
         "/ingress/auth",
@@ -650,14 +648,13 @@ async def test_minimum_lifetime(
 ) -> None:
     user_info = TokenUserInfo(username="user", uid=1234, name="Some User")
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        token = await token_service.create_session_token(
-            user_info,
-            scopes=["read:all", "user:token"],
-            ip_address="127.0.0.1",
-        )
-        token_data = await token_service.get_data(token)
-        assert token_data
+    token = await token_service.create_session_token(
+        user_info,
+        scopes=["read:all", "user:token"],
+        ip_address="127.0.0.1",
+    )
+    token_data = await token_service.get_data(token)
+    assert token_data
 
     # Required lifetime is within MINIMUM_LIFETIME of maximum token lifetime.
     minimum_lifetime = MINIMUM_LIFETIME - timedelta(seconds=1)
@@ -676,16 +673,15 @@ async def test_minimum_lifetime(
     assert r.json()["detail"][0]["type"] == "invalid_minimum_lifetime"
 
     # Create a user token with a short lifetime.
-    async with factory.session.begin():
-        expires = current_datetime() + timedelta(hours=1)
-        token = await token_service.create_user_token(
-            token_data,
-            "user",
-            token_name="token",
-            scopes=["read:all"],
-            expires=expires,
-            ip_address="127.0.0.1",
-        )
+    expires = current_datetime() + timedelta(hours=1)
+    token = await token_service.create_user_token(
+        token_data,
+        "user",
+        token_name="token",
+        scopes=["read:all"],
+        expires=expires,
+        ip_address="127.0.0.1",
+    )
 
     # Try to authenticate with a longer requested lifetime.
     r = await client.get(
@@ -747,14 +743,13 @@ async def test_default_minimum_lifetime(
     # Create a token and then change it to expire in one minute.  We only
     # change Redis, which is canonical; no need to change the database as
     # well.
-    async with factory.session.begin():
-        token = await token_service.create_session_token(
-            user_info, scopes=["user:token"], ip_address="127.0.0.1"
-        )
-        token_data = await token_service.get_data(token)
-        assert token_data
-        token_data.expires = current_datetime() + timedelta(minutes=1)
-        await token_service._token_redis_store.store_data(token_data)
+    token = await token_service.create_session_token(
+        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+    )
+    token_data = await token_service.get_data(token)
+    assert token_data
+    token_data.expires = current_datetime() + timedelta(minutes=1)
+    await token_service._token_redis_store.store_data(token_data)
 
     # Check that one can authenticate with this token.
     r = await client.get(

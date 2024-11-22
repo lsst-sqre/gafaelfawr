@@ -284,7 +284,6 @@ async def _construct_token(
         Raised if the user's username is invalid.
     """
     user_info_service = context.factory.create_user_info_service()
-    admin_service = context.factory.create_admin_service()
     token_service = context.factory.create_token_service()
 
     # Get the user's scopes.
@@ -295,12 +294,9 @@ async def _construct_token(
         raise NoScopesError(msg)
 
     # Construct a token.
-    async with context.session.begin():
-        if await admin_service.is_admin(user_info.username):
-            scopes = sorted([*scopes, "admin:token"])
-        return await token_service.create_session_token(
-            user_info, scopes=scopes, ip_address=context.ip_address
-        )
+    return await token_service.create_session_token(
+        user_info, scopes=scopes, ip_address=context.ip_address
+    )
 
 
 async def _error_system(

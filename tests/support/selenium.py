@@ -107,11 +107,11 @@ async def _selenium_startup(token_path: Path) -> None:
                 session=factory.session,
             )
 
-            # Add the valid session token.
-            token_service = factory.create_token_service()
-            token = await token_service.create_session_token(
-                user_info, scopes=scopes, ip_address="127.0.0.1"
-            )
+        # Add the valid session token.
+        token_service = factory.create_token_service()
+        token = await token_service.create_session_token(
+            user_info, scopes=scopes, ip_address="127.0.0.1"
+        )
     await engine.dispose()
 
     token_path.write_text(str(token))

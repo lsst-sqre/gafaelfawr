@@ -11,7 +11,6 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1Secret,
 )
-from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
@@ -268,21 +267,12 @@ class KubernetesTokenService:
     It is intended to be driven via Kopf_ and a thin layer of Kopf event
     handlers.
 
-    Notes
-    -----
-    This service unfortunately has to be aware of the database session since
-    it has to manage transactions around token issuance.  The token service is
-    transaction-unaware because it otherwise runs in the context of a request
-    handler, where we implement one transaction per request.
-
     Parameters
     ----------
     token_service
         Token management service.
     storage
         Storage layer for the Kubernetes cluster.
-    session
-        Database session, used for transaction management.
     logger
         Logger to report issues.
     """
@@ -292,12 +282,10 @@ class KubernetesTokenService:
         *,
         token_service: TokenService,
         storage: KubernetesTokenStorage,
-        session: async_scoped_session,
         logger: BoundLogger,
     ) -> None:
         self._token_service = token_service
         self._storage = storage
-        self._session = session
         self._logger = logger
 
     async def update(
@@ -340,10 +328,9 @@ class KubernetesTokenService:
             token_type=TokenType.service,
             scopes=parent.spec.scopes,
         )
-        async with self._session.begin():
-            return await self._token_service.create_token_from_admin_request(
-                request, TokenData.internal_token(), ip_address=None
-            )
+        return await self._token_service.create_token_from_admin_request(
+            request, TokenData.internal_token(), ip_address=None
+        )
 
     async def _is_token_valid(
         self, token: Token, parent: GafaelfawrServiceToken

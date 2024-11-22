@@ -78,8 +78,7 @@ async def initialize_gafaelfawr_database(
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         logger.debug("Adding initial administrators")
-        async with factory.session.begin():
-            await admin_service.add_initial_admins(config.initial_admins)
+        await admin_service.add_initial_admins(config.initial_admins)
         if config.firestore:
             firestore = factory.create_firestore_storage()
             logger.debug("Initializing Firestore")

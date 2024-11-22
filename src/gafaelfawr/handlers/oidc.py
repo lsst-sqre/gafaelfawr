@@ -258,25 +258,24 @@ async def post_token(
     if credentials:
         client_id = credentials.username
         client_secret = credentials.password
-    async with context.session.begin():
-        try:
-            reply = await oidc_service.redeem_code(
-                grant_type=grant_type,
-                client_id=client_id,
-                client_secret=client_secret,
-                redirect_uri=redirect_uri,
-                code=code,
-                ip_address=context.ip_address,
-            )
-        except OAuthError as e:
-            context.logger.warning("%s", e.message, error=str(e))
-            content = {
-                "error": e.error,
-                "error_description": e.message if e.hide_error else str(e),
-            }
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST, content=content
-            )
+    try:
+        reply = await oidc_service.redeem_code(
+            grant_type=grant_type,
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
+            code=code,
+            ip_address=context.ip_address,
+        )
+    except OAuthError as e:
+        context.logger.warning("%s", e.message, error=str(e))
+        content = {
+            "error": e.error,
+            "error_description": e.message if e.hide_error else str(e),
+        }
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST, content=content
+        )
 
     # Return the token to the caller.  The headers are mandated by RFC 6749.
     response.headers["Cache-Control"] = "no-store"

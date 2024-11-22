@@ -13,73 +13,54 @@ from gafaelfawr.models.admin import Admin
 async def test_add(factory: Factory) -> None:
     admin_service = factory.create_admin_service()
 
-    async with factory.session.begin():
-        assert await admin_service.get_admins() == [Admin(username="admin")]
+    assert await admin_service.get_admins() == [Admin(username="admin")]
+    await admin_service.add_admin(
+        "example", actor="admin", ip_address="192.168.0.1"
+    )
+    assert await admin_service.get_admins() == [
+        Admin(username="admin"),
+        Admin(username="example"),
+    ]
+
+    with pytest.raises(PermissionDeniedError):
         await admin_service.add_admin(
-            "example", actor="admin", ip_address="192.168.0.1"
+            "foo", actor="bar", ip_address="127.0.0.1"
         )
 
-    async with factory.session.begin():
-        assert await admin_service.get_admins() == [
-            Admin(username="admin"),
-            Admin(username="example"),
-        ]
-        assert await admin_service.is_admin("example")
-        assert not await admin_service.is_admin("foo")
-
-    async with factory.session.begin():
-        with pytest.raises(PermissionDeniedError):
-            await admin_service.add_admin(
-                "foo", actor="bar", ip_address="127.0.0.1"
-            )
-
-    async with factory.session.begin():
-        await admin_service.add_admin(
-            "foo", actor="<bootstrap>", ip_address="127.0.0.1"
-        )
-
-    async with factory.session.begin():
-        assert await admin_service.is_admin("foo")
-        assert not await admin_service.is_admin("<bootstrap>")
+    await admin_service.add_admin(
+        "foo", actor="<bootstrap>", ip_address="127.0.0.1"
+    )
+    assert await admin_service.get_admins() == [
+        Admin(username="admin"),
+        Admin(username="example"),
+        Admin(username="foo"),
+    ]
 
 
 @pytest.mark.asyncio
 async def test_delete(factory: Factory) -> None:
     admin_service = factory.create_admin_service()
+    assert await admin_service.get_admins() == [Admin(username="admin")]
 
-    async with factory.session.begin():
-        assert await admin_service.get_admins() == [Admin(username="admin")]
-
-    async with factory.session.begin():
-        with pytest.raises(PermissionDeniedError):
-            await admin_service.delete_admin(
-                "admin", actor="admin", ip_address="127.0.0.1"
-            )
-
-    async with factory.session.begin():
-        await admin_service.add_admin(
-            "example", actor="admin", ip_address="127.0.0.1"
-        )
-
-    async with factory.session.begin():
+    # Cannot delete the only admin.
+    with pytest.raises(PermissionDeniedError):
         await admin_service.delete_admin(
             "admin", actor="admin", ip_address="127.0.0.1"
         )
 
-    async with factory.session.begin():
-        assert await admin_service.is_admin("example")
-        assert not await admin_service.is_admin("admin")
-        assert await admin_service.get_admins() == [Admin(username="example")]
+    # Can delete the admin once there is another one.
+    await admin_service.add_admin(
+        "example", actor="admin", ip_address="127.0.0.1"
+    )
+    await admin_service.delete_admin(
+        "admin", actor="admin", ip_address="127.0.0.1"
+    )
+    assert await admin_service.get_admins() == [Admin(username="example")]
 
-    async with factory.session.begin():
-        await admin_service.add_admin(
-            "other", actor="example", ip_address="127.0.0.1"
-        )
-
-    async with factory.session.begin():
-        await admin_service.delete_admin(
-            "other", actor="<bootstrap>", ip_address="127.0.0.1"
-        )
-
-    async with factory.session.begin():
-        assert await admin_service.get_admins() == [Admin(username="example")]
+    await admin_service.add_admin(
+        "other", actor="example", ip_address="127.0.0.1"
+    )
+    await admin_service.delete_admin(
+        "other", actor="<bootstrap>", ip_address="127.0.0.1"
+    )
+    assert await admin_service.get_admins() == [Admin(username="example")]

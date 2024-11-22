@@ -171,16 +171,15 @@ async def test_secret_verification(
     await assert_secrets_match(factory, api_client, tokens)
 
     # Replace one secret with a valid token for the wrong service.
-    async with factory.session.begin():
-        token = await token_service.create_token_from_admin_request(
-            AdminTokenRequest(
-                username="bot-some-other-service",
-                token_type=TokenType.service,
-                scopes=["admin:token"],
-            ),
-            TokenData.internal_token(),
-            ip_address=None,
-        )
+    token = await token_service.create_token_from_admin_request(
+        AdminTokenRequest(
+            username="bot-some-other-service",
+            token_type=TokenType.service,
+            scopes=["admin:token"],
+        ),
+        TokenData.internal_token(),
+        ip_address=None,
+    )
     secret = V1Secret(
         api_version="v1",
         kind="Secret",
@@ -195,16 +194,15 @@ async def test_secret_verification(
     )
 
     # Replace the other token with a valid token with the wrong scopes.
-    async with factory.session.begin():
-        token = await token_service.create_token_from_admin_request(
-            AdminTokenRequest(
-                username=tokens[1]["spec"]["service"],
-                token_type=TokenType.service,
-                scopes=["read:all"],
-            ),
-            TokenData.internal_token(),
-            ip_address=None,
-        )
+    token = await token_service.create_token_from_admin_request(
+        AdminTokenRequest(
+            username=tokens[1]["spec"]["service"],
+            token_type=TokenType.service,
+            scopes=["read:all"],
+        ),
+        TokenData.internal_token(),
+        ip_address=None,
+    )
     secret = V1Secret(
         api_version="v1",
         kind="Secret",

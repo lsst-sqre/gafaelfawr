@@ -30,10 +30,9 @@ async def test_userinfo(
         expires=expires,
     )
     token_service = factory.create_token_service()
-    async with factory.session.begin():
-        token = await token_service.create_token_from_admin_request(
-            request, TokenData.internal_token(), ip_address=None
-        )
+    token = await token_service.create_token_from_admin_request(
+        request, TokenData.internal_token(), ip_address=None
+    )
 
     r = await client.get(
         "/auth/cadc/userinfo", headers={"Authorization": f"bearer {token}"}
