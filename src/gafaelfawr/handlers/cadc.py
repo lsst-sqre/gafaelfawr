@@ -41,7 +41,6 @@ authenticate_read = AuthenticateRead()
         " be temporary and to be merged into a different route in a future"
         " version."
     ),
-    response_model=CADCUserInfo,
     response_model_exclude_none=True,
     responses={
         401: {"description": "Unauthenticated"},
