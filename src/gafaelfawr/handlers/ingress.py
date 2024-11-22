@@ -12,15 +12,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    Header,
-    HTTPException,
-    Query,
-    Response,
-)
+import sentry_sdk
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from safir.datetime import current_datetime
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -34,7 +27,7 @@ from ..auth import (
 from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
-from ..events import AuthBotEvent, AuthUserEvent, FrontendEvents
+from ..events import AuthBotEvent, AuthUserEvent
 from ..exceptions import (
     ExternalUserInfoError,
     InsufficientScopeError,
@@ -312,30 +305,6 @@ async def authenticate_with_type(
     return await authenticate(context=context)
 
 
-async def publish_auth_event(
-    events: FrontendEvents, auth_config: AuthConfig, token_data: TokenData
-) -> None:
-    """Publish metrics events for a successful authentication.
-
-    Parameters
-    ----------
-    events
-        Event manager.
-    auth_config
-        Requested authentication parameters.
-    token_data
-        Successful authentication data.
-    """
-    username = token_data.username
-    service = auth_config.service
-    if is_bot_user(token_data.username):
-        bot_event = AuthBotEvent(username=username, service=service)
-        await events.auth_bot.publish(bot_event)
-    else:
-        user_event = AuthUserEvent(username=username, service=service)
-        await events.auth_user.publish(user_event)
-
-
 @router.get(
     "/ingress/auth",
     description="Meant to be used as an NGINX auth_request handler",
@@ -353,7 +322,6 @@ async def get_auth(
     token_data: Annotated[TokenData, Depends(authenticate_with_type)],
     context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
-    background_tasks: BackgroundTasks,
 ) -> dict[str, str]:
     check_lifetime(context, auth_config, token_data)
 
@@ -392,9 +360,18 @@ async def get_auth(
     headers = await build_success_headers(context, auth_config, token_data)
     for key, value in headers:
         response.headers.append(key, value)
-    background_tasks.add_task(
-        publish_auth_event, context.events, auth_config, token_data
-    )
+
+    # Send a metric event for the authentication.
+    with sentry_sdk.start_span(name="events.publish"):
+        username = token_data.username
+        service = auth_config.service
+        if is_bot_user(username):
+            bot_event = AuthBotEvent(username=username, service=service)
+            await context.events.auth_bot.publish(bot_event)
+        else:
+            user_event = AuthUserEvent(username=username, service=service)
+            await context.events.auth_user.publish(user_event)
+
     return {"status": "ok"}
 
 
