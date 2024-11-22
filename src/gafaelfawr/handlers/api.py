@@ -77,7 +77,6 @@ _pagination_headers = {
 @router.get(
     "/auth/api/v1/admins",
     dependencies=[Depends(authenticate_admin_read)],
-    response_model=list[Admin],
     summary="List all administrators",
     tags=["admin"],
 )
@@ -271,7 +270,6 @@ async def get_admin_token_change_history(
         "Used by the JavaScript UI to obtain a CSRF token, user metadata,"
         " and server configuration. Not used with regular API calls."
     ),
-    response_model=APILoginResponse,
     summary="Initialize UI",
     tags=["browser"],
 )
@@ -298,7 +296,6 @@ async def get_login(
 @router.get(
     "/auth/api/v1/token-info",
     description="Return metadata about the authentication token",
-    response_model=TokenInfo,
     response_model_exclude_none=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
     summary="Get token details",
@@ -334,7 +331,6 @@ async def get_token_info(
             }
         }
     },
-    response_model=NewToken,
     status_code=201,
     summary="Create a token",
     tags=["admin"],
@@ -359,7 +355,6 @@ async def post_admin_tokens(
 @router.get(
     "/auth/api/v1/user-info",
     description="Get metadata about the autheticated user",
-    response_model=UserInfo,
     response_model_exclude_none=True,
     summary="Get user metadata",
     tags=["user"],
@@ -495,7 +490,6 @@ async def get_user_token_change_history(
 
 @router.get(
     "/auth/api/v1/users/{username}/tokens",
-    response_model=list[TokenInfo],
     response_model_exclude_none=True,
     summary="List tokens",
     tags=["user"],
@@ -531,7 +525,6 @@ async def get_tokens(
             }
         }
     },
-    response_model=NewToken,
     status_code=201,
     summary="Create user token",
     tags=["user"],
@@ -569,7 +562,6 @@ async def post_tokens(
 
 @router.get(
     "/auth/api/v1/users/{username}/tokens/{key}",
-    response_model=TokenInfo,
     response_model_exclude_none=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
     summary="Get token metadata",
@@ -655,7 +647,6 @@ async def delete_token(
         " own tokens and should instead create a new token and delete the"
         " old one."
     ),
-    response_model=TokenInfo,
     response_model_exclude_none=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
     status_code=200,

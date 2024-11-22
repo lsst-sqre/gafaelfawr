@@ -3,8 +3,8 @@
 from gafaelfawr.keypair import RSAKeyPair
 
 __all__ = [
-    "TEST_KEYPAIR",
     "TEST_HOSTNAME",
+    "TEST_KEYPAIR",
 ]
 
 TEST_HOSTNAME = "example.com"
