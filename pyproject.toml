@@ -43,7 +43,7 @@ dependencies = [
     "pyjwt",
     "pyyaml",
     "redis>=4.2.0",
-    "safir[db,kubernetes]>=6.5.1",
+    "safir[db,kubernetes] @ git+https://github.com/lsst-sqre/safir@tickets/DM-47771/metrics-publishing-is-slow#subdirectory=safir",
     "sentry-sdk[fastapi]",
     "sqlalchemy>=2.0.0",
     "structlog",
