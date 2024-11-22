@@ -928,17 +928,16 @@ async def test_nonce(
     }
 
 
-@pytest.mark.asyncio
-async def test_data_rights(
-    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
+async def assert_data_rights_for_groups(
+    config: Config,
+    client: AsyncClient,
+    factory: Factory,
+    *,
+    groups: list[str],
+    data_rights: str | None,
 ) -> None:
-    redirect_uri = "https://www.example.org/"
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
     assert config.oidc_server
-    token_data = await create_session_token(factory, group_names=["foo"])
+    token_data = await create_session_token(factory, group_names=groups)
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
     oidc_service = factory.create_oidc_service()
@@ -949,17 +948,16 @@ async def test_data_rights(
         {
             "response_type": "code",
             "scope": "openid rubin",
-            "client_id": "some-id",
+            "client_id": config.oidc_server.clients[0].id,
             "state": "random-state",
-            "redirect_uri": redirect_uri,
+            "redirect_uri": str(config.oidc_server.clients[0].return_uri),
         },
         client_secret="some-secret",
         expires=token_data.expires,
     )
     id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
-    assert id_token.claims == {
-        "aud": "some-id",
-        "data_rights": "dp0.2 dp0.3",
+    expected_claims = {
+        "aud": config.oidc_server.clients[0].id,
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
         "iss": str(config.oidc_server.issuer),
@@ -967,6 +965,9 @@ async def test_data_rights(
         "scope": "openid rubin",
         "sub": token_data.username,
     }
+    if data_rights:
+        expected_claims["data_rights"] = data_rights
+    assert id_token.claims == expected_claims
 
     clear_session_cookie(client)
     r = await client.get(
@@ -974,56 +975,44 @@ async def test_data_rights(
         headers={"Authorization": f"Bearer {reply.access_token}"},
     )
     assert r.status_code == 200
-    assert r.json() == {
-        "data_rights": "dp0.2 dp0.3",
+    expected_userinfo = {
         "email": token_data.email,
         "name": token_data.name,
         "preferred_username": token_data.username,
         "sub": token_data.username,
     }
+    if data_rights:
+        expected_userinfo["data_rights"] = data_rights
+    assert r.json() == expected_userinfo
 
-    token_data = await create_session_token(factory, group_names=["admin"])
-    assert token_data.expires
-    await set_session_cookie(client, token_data.token)
 
-    reply = await authenticate(
-        factory,
+@pytest.mark.asyncio
+async def test_data_rights(
+    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    redirect_uri = "https://www.example.org/"
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
+    config = await reconfigure(
+        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
+    )
+    assert config.oidc_server
+
+    await assert_data_rights_for_groups(
+        config, client, factory, groups=["foo"], data_rights="dp0.2 dp0.3"
+    )
+    await assert_data_rights_for_groups(
+        config, client, factory, groups=["admin"], data_rights="dp0.1"
+    )
+    await assert_data_rights_for_groups(
+        config,
         client,
-        {
-            "response_type": "code",
-            "scope": "openid rubin",
-            "client_id": "some-id",
-            "state": "random-state",
-            "redirect_uri": redirect_uri,
-        },
-        client_secret="some-secret",
-        expires=token_data.expires,
+        factory,
+        groups=["foo", "admin"],
+        data_rights="dp0.1 dp0.2 dp0.3",
     )
-    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
-    assert id_token.claims == {
-        "aud": "some-id",
-        "data_rights": "dp0.1",
-        "exp": int(token_data.expires.timestamp()),
-        "iat": ANY,
-        "iss": str(config.oidc_server.issuer),
-        "jti": ANY,
-        "scope": "openid rubin",
-        "sub": token_data.username,
-    }
-
-    clear_session_cookie(client)
-    r = await client.get(
-        "/auth/openid/userinfo",
-        headers={"Authorization": f"Bearer {reply.access_token}"},
+    await assert_data_rights_for_groups(
+        config, client, factory, groups=["org-a-team"], data_rights=None
     )
-    assert r.status_code == 200
-    assert r.json() == {
-        "data_rights": "dp0.1",
-        "email": token_data.email,
-        "name": token_data.name,
-        "preferred_username": token_data.username,
-        "sub": token_data.username,
-    }
 
 
 @pytest.mark.asyncio

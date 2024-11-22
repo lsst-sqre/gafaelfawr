@@ -477,6 +477,8 @@ class OIDCService:
             mapping = self._config.data_rights_mapping.get(group.name)
             if mapping:
                 releases.update(mapping)
+        if not releases:
+            return None
         return " ".join(sorted(releases))
 
     def _check_client_secret(
