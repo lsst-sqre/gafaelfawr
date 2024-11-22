@@ -44,6 +44,7 @@ dependencies = [
     "pyyaml",
     "redis>=4.2.0",
     "safir[db,kubernetes]>=6.5.1",
+    "sentry-sdk[fastapi]",
     "sqlalchemy>=2.0.0",
     "structlog",
 ]

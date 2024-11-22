@@ -798,6 +798,15 @@ class Config(EnvFirstSettings):
         ),
     )
 
+    enable_sentry: bool = Field(
+        False,
+        title="Enable Sentry",
+        description=(
+            "Send trace and telemetry information to Sentry if the Sentry"
+            " environment variables are set"
+        ),
+    )
+
     error_footer: str | None = Field(
         None,
         title="HTML for error pages",

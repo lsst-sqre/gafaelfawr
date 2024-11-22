@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sentry_sdk
 from structlog.stdlib import BoundLogger
 
 from ..cache import IdCache
@@ -45,6 +46,7 @@ class FirestoreService:
         self._storage = storage
         self._logger = logger
 
+    @sentry_sdk.trace
     async def get_gid(self, group: str, *, uncached: bool = False) -> int:
         """Get the GID for a given group from Firestore.
 
@@ -78,6 +80,7 @@ class FirestoreService:
             self._gid_cache.store(group, gid)
             return gid
 
+    @sentry_sdk.trace
     async def get_uid(self, username: str, *, uncached: bool = False) -> int:
         """Get the UID for a given user.
 

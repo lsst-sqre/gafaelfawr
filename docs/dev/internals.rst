@@ -111,6 +111,9 @@ Python internal API
 .. automodapi:: gafaelfawr.pydantic
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.sentry
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.services.admin
    :include-all-objects:
 

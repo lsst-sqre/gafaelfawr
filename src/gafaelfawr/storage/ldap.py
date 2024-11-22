@@ -6,6 +6,7 @@ import re
 from collections.abc import AsyncIterator
 
 import bonsai
+import sentry_sdk
 from bonsai import LDAPSearchScope
 from bonsai.asyncio import AIOConnectionPool
 from structlog.stdlib import BoundLogger
@@ -39,6 +40,7 @@ class LDAPStorage:
         self._pool = pool
         self._logger = logger.bind(ldap_url=str(self._config.url))
 
+    @sentry_sdk.trace
     async def get_group_names(
         self, username: str, primary_gid: int | None
     ) -> list[str]:
@@ -73,6 +75,7 @@ class LDAPStorage:
                 groups.append(group.name)
         return groups
 
+    @sentry_sdk.trace
     async def get_groups(
         self, username: str, primary_gid: int | None
     ) -> list[Group]:
@@ -120,6 +123,7 @@ class LDAPStorage:
 
         return groups
 
+    @sentry_sdk.trace
     async def get_data(self, username: str) -> LDAPUserData:
         """Get the data for an LDAP user.
 

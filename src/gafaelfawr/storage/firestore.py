@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sentry_sdk
 from google.cloud import firestore
 from structlog.stdlib import BoundLogger
 
@@ -53,6 +54,7 @@ class FirestoreStorage:
         self._client = client
         self._logger = logger
 
+    @sentry_sdk.trace
     async def get_gid(self, group: str) -> int:
         """Get the GID for a group.
 
@@ -87,6 +89,7 @@ class FirestoreStorage:
             logger=self._logger,
         )
 
+    @sentry_sdk.trace
     async def get_uid(self, username: str, *, bot: bool = False) -> int:
         """Get the UID for a user.
 
