@@ -10,8 +10,8 @@ from safir.pydantic import UtcDatetime
 
 from ..constants import USERNAME_REGEX
 from ..exceptions import InvalidTokenError
-from ..pydantic import Timestamp
-from ..util import normalize_scopes, random_128_bits
+from ..pydantic import Scopes, Timestamp
+from ..util import random_128_bits
 from .enums import TokenType
 from .userinfo import Group
 
@@ -141,7 +141,7 @@ class TokenBase(BaseModel):
         max_length=64,
     )
 
-    scopes: list[str] = Field(
+    scopes: Scopes = Field(
         ...,
         title="Token scopes",
         description="Scopes of the token",
@@ -160,10 +160,6 @@ class TokenBase(BaseModel):
         title="Expiration time",
         description="Expiration timestamp of the token in seconds since epoch",
         examples=[1616986130],
-    )
-
-    _normalize_scopes = field_validator("scopes", mode="before")(
-        normalize_scopes
     )
 
 
@@ -383,8 +379,8 @@ class AdminTokenRequest(BaseModel):
         validate_default=True,
     )
 
-    scopes: list[str] = Field(
-        default_factory=list,
+    scopes: Scopes = Field(
+        [],
         title="Token scopes",
         examples=[["read:all"]],
     )
@@ -489,8 +485,8 @@ class UserTokenRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: list[str] = Field(
-        default_factory=list,
+    scopes: Scopes = Field(
+        [],
         title="Token scope",
         examples=[["read:all"]],
     )
@@ -518,7 +514,7 @@ class UserTokenModifyRequest(BaseModel):
         max_length=64,
     )
 
-    scopes: list[str] | None = Field(
+    scopes: Scopes | None = Field(
         None, title="Token scopes", examples=[["read:all"]]
     )
 
