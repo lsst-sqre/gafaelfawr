@@ -6,7 +6,6 @@ in manager objects and the output formatting should be handled by response
 models.
 """
 
-from datetime import datetime
 from typing import Annotated, Any
 from urllib.parse import quote
 
@@ -20,6 +19,7 @@ from fastapi import (
     status,
 )
 from safir.models import ErrorLocation, ErrorModel
+from safir.pydantic import UtcDatetime
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
@@ -180,7 +180,7 @@ async def get_admin_token_change_history(
         ),
     ] = None,
     since: Annotated[
-        datetime | None,
+        UtcDatetime | None,
         Query(
             title="Not before",
             description="Only show entries at or after this time",
@@ -188,7 +188,7 @@ async def get_admin_token_change_history(
         ),
     ] = None,
     until: Annotated[
-        datetime | None,
+        UtcDatetime | None,
         Query(
             title="Not after",
             description="Only show entries before or at this time",
@@ -430,7 +430,7 @@ async def get_user_token_change_history(
         ),
     ] = None,
     since: Annotated[
-        datetime | None,
+        UtcDatetime | None,
         Query(
             title="Not before",
             description="Only show entries at or after this time",
@@ -438,7 +438,7 @@ async def get_user_token_change_history(
         ),
     ] = None,
     until: Annotated[
-        datetime | None,
+        UtcDatetime | None,
         Query(
             title="Not after",
             description="Only show entries before or at this time",

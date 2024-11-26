@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Annotated, TypeAlias
 
-from pydantic import BeforeValidator, PlainSerializer
-from safir.pydantic import normalize_datetime
+from pydantic import PlainSerializer
+from safir.pydantic import UtcDatetime
 
 __all__ = ["Timestamp"]
 
 
 Timestamp: TypeAlias = Annotated[
-    datetime,
-    BeforeValidator(normalize_datetime),
+    UtcDatetime,
     PlainSerializer(lambda t: int(t.timestamp()), return_type=int),
 ]
-"""Type for a `datetime` field that only accepts seconds since epoch."""
+"""Type for a `datetime` field that serializes to seconds since epoch."""

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import Literal, Self, override
 
@@ -28,6 +27,7 @@ from pydantic.alias_generators import to_camel
 from safir.datetime import current_datetime
 from safir.pydantic import (
     SecondsTimedelta,
+    UtcDatetime,
     to_camel_case,
     validate_exactly_one_of,
 )
@@ -614,7 +614,7 @@ class KubernetesResourceStatus:
     """Represents the processing status of a Kubernetes resource.
 
     This is returned as the result of the Kopf_ operator handlers for changes
-    to a Kubernetes resource.  Kopf will then put this information into the
+    to a Kubernetes resource. Kopf will then put this information into the
     ``status`` field of the GafaelfawrServiceToken object.
     """
 
@@ -627,7 +627,7 @@ class KubernetesResourceStatus:
     reason: StatusReason
     """Reason for the status update."""
 
-    timestamp: datetime = field(default_factory=current_datetime)
+    timestamp: UtcDatetime = field(default_factory=current_datetime)
     """Time of the status event."""
 
     @classmethod
@@ -637,14 +637,14 @@ class KubernetesResourceStatus:
         Parameters
         ----------
         service_token
-            The object being processed.
+            Object being processed.
         message
-            The error message for the failure.
+            Error message for the failure.
 
         Returns
         -------
         KubernetesResourceStatus
-            The corresponding status object.
+            Corresponding status object.
         """
         return cls(
             message=message,

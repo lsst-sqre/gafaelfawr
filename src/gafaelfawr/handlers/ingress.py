@@ -16,6 +16,7 @@ import sentry_sdk
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from safir.datetime import current_datetime
 from safir.models import ErrorModel
+from safir.pydantic import SecondsTimedelta
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..auth import (
@@ -139,7 +140,7 @@ def auth_config(
         ),
     ] = None,
     minimum_lifetime: Annotated[
-        int | None,
+        SecondsTimedelta | None,
         Query(
             title="Required minimum lifetime",
             description=(
@@ -147,7 +148,7 @@ def auth_config(
                 " notebook) would have a shorter lifetime, in seconds, than"
                 " this parameter."
             ),
-            ge=MINIMUM_LIFETIME.total_seconds(),
+            ge=MINIMUM_LIFETIME,
             examples=[86400],
         ),
     ] = None,
@@ -266,16 +267,13 @@ def auth_config(
         delegate_scopes = {s.strip() for s in delegate_scope.split(",")}
     else:
         delegate_scopes = set()
-    lifetime = None
-    if minimum_lifetime:
-        lifetime = timedelta(seconds=minimum_lifetime)
-    elif not minimum_lifetime and (notebook or delegate_to):
-        lifetime = MINIMUM_LIFETIME
+    if not minimum_lifetime and (notebook or delegate_to):
+        minimum_lifetime = MINIMUM_LIFETIME
     return AuthConfig(
         auth_type=auth_type,
         delegate_scopes=delegate_scopes,
         delegate_to=delegate_to,
-        minimum_lifetime=lifetime,
+        minimum_lifetime=minimum_lifetime,
         only_services=set(only_service) if only_service else None,
         notebook=notebook,
         satisfy=satisfy,
