@@ -26,7 +26,6 @@ __all__ = [
     "InvalidCSRFError",
     "InvalidClientError",
     "InvalidClientIdError",
-    "InvalidCursorError",
     "InvalidDelegateToError",
     "InvalidExpiresError",
     "InvalidGrantError",
@@ -111,15 +110,6 @@ class InvalidCSRFError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.header, ["X-CSRF-Token"])
-
-
-class InvalidCursorError(InputValidationError):
-    """The provided cursor was invalid."""
-
-    error = "invalid_cursor"
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message, ErrorLocation.query, ["cursor"])
 
 
 class InvalidDelegateToError(InputValidationError):

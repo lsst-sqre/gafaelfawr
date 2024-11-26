@@ -709,8 +709,6 @@ class TokenService:
 
         Raises
         ------
-        InvalidCursorError
-            Raised if the provided cursor was invalid.
         InvalidIPAddressError
             Raised if the provided argument was syntactically invalid for both
             an IP address and a CIDR block.
