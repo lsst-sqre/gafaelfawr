@@ -6,19 +6,9 @@ import base64
 import hashlib
 import os
 import re
-from datetime import timedelta
 from ipaddress import IPv4Address, IPv6Address
 
 from .constants import BOT_USERNAME_REGEX
-
-_TIMEDELTA_PATTERN = re.compile(
-    r"((?P<weeks>\d+?)\s*(weeks|week|w))?\s*"
-    r"((?P<days>\d+?)\s*(days|day|d))?\s*"
-    r"((?P<hours>\d+?)\s*(hours|hour|hr|h))?\s*"
-    r"((?P<minutes>\d+?)\s*(minutes|minute|mins|min|m))?\s*"
-    r"((?P<seconds>\d+?)\s*(seconds|second|secs|sec|s))?$"
-)
-"""Regular expression pattern for a time duration."""
 
 __all__ = [
     "add_padding",
@@ -27,7 +17,6 @@ __all__ = [
     "is_bot_user",
     "normalize_ip_address",
     "normalize_scopes",
-    "normalize_timedelta",
     "number_to_base64",
     "random_128_bits",
 ]
@@ -168,32 +157,6 @@ def normalize_scopes(v: str | list[str] | None) -> list[str] | None:
         return v
 
 
-def normalize_timedelta(v: int | timedelta | None) -> timedelta | None:
-    """Pydantic validator for timedelta fields.
-
-    The only reason to use this validator over Pydantic's built-in behavior is
-    to ensure that ISO time durations are rejected and only an integer number
-    of seconds is supported.
-
-    Parameters
-    ----------
-    v
-        The field representing a duration, in seconds.
-
-    Returns
-    -------
-    datetime.timedelta or None
-        The corresponding `datetime.timedelta` or `None` if the input was
-        `None`.
-    """
-    if v is None or isinstance(v, timedelta):
-        return v
-    elif isinstance(v, int):
-        return timedelta(seconds=v)
-    else:
-        raise ValueError("invalid timedelta (should be in seconds)")
-
-
 def number_to_base64(data: int) -> bytes:
     """Convert an integer to base64-encoded bytes in big endian order.
 
@@ -216,37 +179,6 @@ def number_to_base64(data: int) -> bytes:
     byte_length = bit_length // 8 + 1
     data_as_bytes = data.to_bytes(byte_length, byteorder="big", signed=False)
     return base64.urlsafe_b64encode(data_as_bytes).rstrip(b"=")
-
-
-def parse_timedelta(text: str) -> timedelta:
-    """Parse a string into a `datetime.timedelta`.
-
-    This function can be used as a before-mode validator for Pydantic,
-    replacing Pydantic's default ISO 8601 duration support. Expects a string
-    consisting of one or more sequences of numbers and duration abbreviations,
-    separated by optional whitespace. The supported abbreviations are:
-
-    - Week: ``weeks``, ``week``, ``w``
-    - Day: ``days``, ``day``, ``d``
-    - Hour: ``hours``, ``hour``, ``hr``, ``h``
-    - Minute: ``minutes``, ``minute``, ``mins``, ``min``, ``m``
-    - Second: ``seconds``, ``second``, ``secs``, ``sec``, ``s``
-
-    Parameters
-    ----------
-    text
-        Input string.
-
-    Returns
-    -------
-    timedelta
-        Converted `datetime.timedelta`.
-    """
-    m = _TIMEDELTA_PATTERN.match(text.strip())
-    if m is None:
-        raise ValueError(f"Could not parse {text!r} as a time duration")
-    td_args = {k: int(v) for k, v in m.groupdict().items() if v is not None}
-    return timedelta(**td_args)
 
 
 def random_128_bits() -> str:
