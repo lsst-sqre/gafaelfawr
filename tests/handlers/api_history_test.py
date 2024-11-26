@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 
 import pytest
 from httpx import AsyncClient
-from safir.database import datetime_to_db
+from safir.database import PaginationLinkData, datetime_to_db
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
 from sqlalchemy import select
@@ -19,7 +19,6 @@ from sqlalchemy import select
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import TokenType
 from gafaelfawr.models.history import TokenChangeHistoryEntry
-from gafaelfawr.models.link import LinkData
 from gafaelfawr.models.token import AdminTokenRequest, TokenData, TokenUserInfo
 from gafaelfawr.schema import TokenChangeHistory
 
@@ -220,7 +219,7 @@ async def check_pagination(
 
         # Check the Link contents, except for the next URL, which we'll check
         # by using it to retrieve the next data.
-        link_data = LinkData.from_header(r.headers["Link"])
+        link_data = PaginationLinkData.from_header(r.headers["Link"])
         assert link_data.first_url == f"https://{TEST_HOSTNAME}{first_url}"
         if end == 5:
             assert not link_data.prev_url
@@ -230,7 +229,7 @@ async def check_pagination(
             assert r.status_code == 200
             assert r.json() == prev_data
             assert r.headers["X-Total-Count"] == str(len(history))
-            prev_link_data = LinkData.from_header(r.headers["Link"])
+            prev_link_data = PaginationLinkData.from_header(r.headers["Link"])
             assert prev_link_data.first_url == link_data.first_url
             assert prev_link_data.next_url == url
 
@@ -256,7 +255,7 @@ async def check_pagination(
         assert r.status_code == 200
         assert r.headers["X-Total-Count"] == str(len(history))
         backwards_data = r.json() + backwards_data
-        link_data = LinkData.from_header(r.headers["Link"])
+        link_data = PaginationLinkData.from_header(r.headers["Link"])
     assert all_data == backwards_data
 
 

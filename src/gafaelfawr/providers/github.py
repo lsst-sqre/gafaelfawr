@@ -8,13 +8,13 @@ from urllib.parse import urlencode
 
 from httpx import AsyncClient, HTTPError
 from pydantic import ValidationError
+from safir.database import PaginationLinkData
 from structlog.stdlib import BoundLogger
 
 from ..config import GitHubConfig
 from ..constants import USERNAME_REGEX
 from ..exceptions import GitHubError, GitHubWebError, PermissionDeniedError
 from ..models.github import GitHubTeam, GitHubUserInfo
-from ..models.link import LinkData
 from ..models.state import State
 from ..models.token import TokenUserInfo
 from ..models.userinfo import Group
@@ -388,7 +388,7 @@ class GitHubProvider(Provider):
 
         # If the data was paginated, there will be a Link header with a next
         # URL.  Retrieve each page until we run out of Link headers.
-        link_data = LinkData.from_header(r.headers.get("Link"))
+        link_data = PaginationLinkData.from_header(r.headers.get("Link"))
         while link_data.next_url:
             next_url = link_data.next_url
             if not next_url.startswith(self._TEAMS_URL):
@@ -404,7 +404,7 @@ class GitHubProvider(Provider):
             )
             r.raise_for_status()
             teams_data.extend(r.json())
-            link_data = LinkData.from_header(r.headers.get("Link"))
+            link_data = PaginationLinkData.from_header(r.headers.get("Link"))
 
         return [
             GitHubTeam(

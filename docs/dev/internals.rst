@@ -68,10 +68,6 @@ Python internal API
    :include-all-objects:
    :inherited-members:
 
-.. automodapi:: gafaelfawr.models.link
-   :include-all-objects:
-   :inherited-members:
-
 .. automodapi:: gafaelfawr.models.oidc
    :include-all-objects:
    :inherited-members:
