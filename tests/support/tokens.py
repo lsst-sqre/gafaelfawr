@@ -8,8 +8,9 @@ from safir.datetime import current_datetime
 from sqlalchemy.ext.asyncio import async_scoped_session
 
 from gafaelfawr.factory import Factory
-from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
-from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
+from gafaelfawr.models.enums import TokenChange, TokenType
+from gafaelfawr.models.history import TokenChangeHistoryEntry
+from gafaelfawr.models.token import Token, TokenData, TokenUserInfo
 from gafaelfawr.models.userinfo import Group
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore

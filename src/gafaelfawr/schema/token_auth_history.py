@@ -8,7 +8,7 @@ from sqlalchemy import Index, String
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ..models.token import TokenType
+from ..models.enums import TokenType
 from .base import SchemaBase
 
 __all__ = ["TokenAuthHistory"]

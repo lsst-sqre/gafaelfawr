@@ -25,8 +25,9 @@ from gafaelfawr.database import initialize_gafaelfawr_database
 from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.main import create_app
+from gafaelfawr.models.enums import TokenType
 from gafaelfawr.models.state import State
-from gafaelfawr.models.token import Token, TokenType
+from gafaelfawr.models.token import Token
 
 from .pages.tokens import TokensPage
 from .support.config import config_path, configure

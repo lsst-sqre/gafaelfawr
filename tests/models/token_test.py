@@ -6,7 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from gafaelfawr.exceptions import InvalidTokenError
-from gafaelfawr.models.token import AdminTokenRequest, Token, TokenType
+from gafaelfawr.models.enums import TokenType
+from gafaelfawr.models.token import AdminTokenRequest, Token
 
 
 def test_token() -> None:

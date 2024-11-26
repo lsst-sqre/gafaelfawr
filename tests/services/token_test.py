@@ -21,13 +21,16 @@ from gafaelfawr.exceptions import (
     PermissionDeniedError,
 )
 from gafaelfawr.factory import Factory
-from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
+from gafaelfawr.models.enums import TokenChange, TokenType
+from gafaelfawr.models.history import (
+    TokenChangeHistoryEntry,
+    TokenChangeHistoryRecord,
+)
 from gafaelfawr.models.token import (
     AdminTokenRequest,
     Token,
     TokenData,
     TokenInfo,
-    TokenType,
     TokenUserInfo,
 )
 from gafaelfawr.models.userinfo import Group
@@ -87,7 +90,8 @@ async def test_session_token(config: Config, factory: Factory) -> None:
         data, token=token.key, username=data.username
     )
     assert history.entries == [
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=1,
             token=token.key,
             username=data.username,
             token_type=TokenType.session,
@@ -168,7 +172,8 @@ async def test_user_token(factory: Factory) -> None:
         data, token=user_token.key, username=data.username
     )
     assert history.entries == [
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=2,
             token=user_token.key,
             username=data.username,
             token_type=TokenType.user,
@@ -244,7 +249,8 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         data, token=token.key, username=data.username
     )
     assert history.entries == [
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=2,
             token=token.key,
             username=data.username,
             token_type=TokenType.notebook,
@@ -393,7 +399,8 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         data, token=internal_token.key, username=data.username
     )
     assert history.entries == [
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=2,
             token=internal_token.key,
             username=data.username,
             token_type=TokenType.internal,
@@ -658,7 +665,8 @@ async def test_token_from_admin_request(factory: Factory) -> None:
         admin_data, token=token.key, username=request.username
     )
     assert history.entries == [
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=3,
             token=token.key,
             username=request.username,
             token_type=TokenType.user,
@@ -696,7 +704,8 @@ async def test_token_from_admin_request(factory: Factory) -> None:
         admin_data, token=token.key, username=request.username
     )
     assert history.entries == [
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=4,
             token=token.key,
             username=request.username,
             token_type=TokenType.service,
@@ -828,7 +837,8 @@ async def test_modify(factory: Factory) -> None:
         data, token=user_token.key, username=data.username
     )
     assert history.entries == [
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=5,
             token=user_token.key,
             username=data.username,
             token_type=TokenType.user,
@@ -841,7 +851,8 @@ async def test_modify(factory: Factory) -> None:
             ip_address="127.0.4.5",
             event_time=history.entries[0].event_time,
         ),
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=4,
             token=user_token.key,
             username=data.username,
             token_type=TokenType.user,
@@ -855,7 +866,8 @@ async def test_modify(factory: Factory) -> None:
             ip_address="192.168.0.4",
             event_time=history.entries[1].event_time,
         ),
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=3,
             token=user_token.key,
             username=data.username,
             token_type=TokenType.user,
@@ -868,7 +880,8 @@ async def test_modify(factory: Factory) -> None:
             ip_address="127.0.0.1",
             event_time=history.entries[2].event_time,
         ),
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=2,
             token=user_token.key,
             username=data.username,
             token_type=TokenType.user,
@@ -911,7 +924,8 @@ async def test_delete(factory: Factory) -> None:
         data, token=token.key, username=data.username
     )
     assert history.entries == [
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=3,
             token=token.key,
             username=data.username,
             token_type=TokenType.user,
@@ -923,7 +937,8 @@ async def test_delete(factory: Factory) -> None:
             ip_address="127.0.0.1",
             event_time=history.entries[0].event_time,
         ),
-        TokenChangeHistoryEntry(
+        TokenChangeHistoryRecord(
+            id=2,
             token=token.key,
             username=data.username,
             token_type=TokenType.user,
@@ -1497,7 +1512,7 @@ async def test_expire_tokens(factory: Factory) -> None:
             username=token_data.username,
             token=token_data.token.key,
         )
-        assert history.entries == [
+        assert [e.model_dump() for e in history.entries] == [
             TokenChangeHistoryEntry(
                 token=token_data.token.key,
                 username=token_data.username,
@@ -1510,7 +1525,7 @@ async def test_expire_tokens(factory: Factory) -> None:
                 actor="<internal>",
                 action=TokenChange.expire,
                 event_time=history.entries[0].event_time,
-            )
+            ).model_dump()
         ]
 
     async with factory.session.begin():
@@ -1568,7 +1583,8 @@ async def test_truncate_history(factory: Factory) -> None:
     history = await token_service.get_change_history(
         auth_data=session_token_data, username="other-user"
     )
-    assert history.entries == [new_entry]
+    expected = [new_entry.model_dump()]
+    assert [e.model_dump() for e in history.entries] == expected
 
 
 @pytest.mark.asyncio

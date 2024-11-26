@@ -21,13 +21,14 @@ from ..exceptions import (
     KubernetesError,
     PermissionDeniedError,
 )
+from ..models.enums import TokenType
 from ..models.kubernetes import (
     GafaelfawrIngress,
     GafaelfawrIngressScopesBase,
     GafaelfawrServiceToken,
     KubernetesResourceStatus,
 )
-from ..models.token import AdminTokenRequest, Token, TokenData, TokenType
+from ..models.token import AdminTokenRequest, Token, TokenData
 from ..storage.kubernetes import (
     KubernetesIngressStorage,
     KubernetesTokenStorage,

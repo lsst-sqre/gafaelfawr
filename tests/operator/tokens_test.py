@@ -20,17 +20,13 @@ from safir.datetime import current_datetime
 
 from gafaelfawr.constants import KUBERNETES_TIMER_DELAY
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.enums import TokenType
 from gafaelfawr.models.kubernetes import (
     GafaelfawrServiceTokenSpec,
     KubernetesResourceStatus,
     StatusReason,
 )
-from gafaelfawr.models.token import (
-    AdminTokenRequest,
-    Token,
-    TokenData,
-    TokenType,
-)
+from gafaelfawr.models.token import AdminTokenRequest, Token, TokenData
 from gafaelfawr.services.token import TokenService
 
 from ..support.kubernetes import (

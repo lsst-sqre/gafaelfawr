@@ -9,8 +9,9 @@ from httpx import AsyncClient
 from seleniumwire import webdriver
 
 from gafaelfawr.constants import COOKIE_NAME
+from gafaelfawr.models.enums import TokenType
 from gafaelfawr.models.state import State
-from gafaelfawr.models.token import Token, TokenType
+from gafaelfawr.models.token import Token
 
 from ..pages.tokens import TokenDataPage, TokensPage
 from ..support.selenium import SeleniumConfig

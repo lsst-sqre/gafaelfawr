@@ -17,6 +17,7 @@ from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidRequestError, InvalidTokenError, OAuthError
 from ..models.auth import AuthType
+from ..models.enums import TokenType
 from ..models.oidc import (
     JWKS,
     OIDCConfig,
@@ -24,7 +25,7 @@ from ..models.oidc import (
     OIDCScope,
     OIDCTokenReply,
 )
-from ..models.token import TokenData, TokenType
+from ..models.token import TokenData
 
 __all__ = ["router"]
 

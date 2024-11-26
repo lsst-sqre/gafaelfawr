@@ -31,9 +31,10 @@ from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
-from gafaelfawr.models.history import TokenChange, TokenChangeHistoryEntry
+from gafaelfawr.models.enums import TokenChange, TokenType
+from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCScope
-from gafaelfawr.models.token import Token, TokenData, TokenType, TokenUserInfo
+from gafaelfawr.models.token import Token, TokenData, TokenUserInfo
 from gafaelfawr.schema import SchemaBase
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore

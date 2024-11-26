@@ -11,7 +11,8 @@ from safir.redis import EncryptedPydanticRedisStorage
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
-from gafaelfawr.models.token import Token, TokenData, TokenType
+from gafaelfawr.models.enums import TokenType
+from gafaelfawr.models.token import Token, TokenData
 from gafaelfawr.storage.token import TokenRedisStore
 
 from ..support.tokens import create_session_token

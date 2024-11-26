@@ -12,7 +12,7 @@ from sqlalchemy import Index, String
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ..models.history import AdminChange
+from ..models.enums import AdminChange
 from .base import SchemaBase
 
 __all__ = ["AdminHistory"]

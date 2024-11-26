@@ -11,8 +11,9 @@ from structlog.stdlib import BoundLogger
 
 from ..cache import InternalTokenCache, NotebookTokenCache
 from ..config import Config
-from ..models.history import TokenChange, TokenChangeHistoryEntry
-from ..models.token import Token, TokenData, TokenType
+from ..models.enums import TokenChange, TokenType
+from ..models.history import TokenChangeHistoryEntry
+from ..models.token import Token, TokenData
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
 
