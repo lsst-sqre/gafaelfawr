@@ -19,7 +19,7 @@ import pytest
 import structlog
 from click.testing import CliRunner
 from cryptography.fernet import Fernet
-from safir.database import initialize_database
+from safir.database import drop_database, initialize_database
 from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -40,7 +40,7 @@ from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
 from .support.config import build_oidc_client, configure
-from .support.database import create_old_database, drop_database
+from .support.database import create_old_database
 
 
 def test_audit(
@@ -331,7 +331,7 @@ def test_update_schema(
 
     # Start with an empty database. This should produce exactly the same
     # results as gafaelfawr init.
-    event_loop.run_until_complete(drop_database(engine))
+    event_loop.run_until_complete(drop_database(engine, SchemaBase.metadata))
     result = runner.invoke(
         main,
         [
@@ -363,7 +363,7 @@ def test_validate_schema(
     runner = CliRunner()
 
     # Start with an empty database.
-    event_loop.run_until_complete(drop_database(engine))
+    event_loop.run_until_complete(drop_database(engine, SchemaBase.metadata))
 
     # Validating should fail with an appropriate error message.
     result = runner.invoke(main, ["validate-schema"], catch_exceptions=False)

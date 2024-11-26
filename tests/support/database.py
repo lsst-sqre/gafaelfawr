@@ -4,18 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from safir.database import unstamp_database
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
-from gafaelfawr.schema import SchemaBase
 
-__all__ = [
-    "create_old_database",
-    "drop_database",
-]
+__all__ = ["create_old_database"]
 
 
 async def create_old_database(
@@ -47,16 +42,3 @@ async def create_old_database(
                     if statement.endswith(";"):
                         await factory.session.execute(text(statement))
                         statement = ""
-
-
-async def drop_database(engine: AsyncEngine) -> None:
-    """Drop all tables from the database.
-
-    Parameters
-    ----------
-    engine
-        Engine to use to issue the SQL commands.
-    """
-    async with engine.begin() as conn:
-        await conn.run_sync(SchemaBase.metadata.drop_all)
-    await unstamp_database(engine)
