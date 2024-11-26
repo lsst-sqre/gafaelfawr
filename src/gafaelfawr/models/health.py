@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 
-class HealthStatus(str, Enum):
+class HealthStatus(Enum):
     """Status of health check.
 
     Since errors are returned as HTTP 500 errors, currently the only status is
