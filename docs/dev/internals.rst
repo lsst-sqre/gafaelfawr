@@ -52,6 +52,10 @@ Python internal API
    :include-all-objects:
    :inherited-members:
 
+.. automodapi:: gafaelfawr.models.enums
+   :include-all-objects:
+   :inherited-members:
+
 .. automodapi:: gafaelfawr.models.history
    :include-all-objects:
    :inherited-members:

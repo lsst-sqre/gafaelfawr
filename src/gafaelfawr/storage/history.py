@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from safir.database import datetime_from_db, datetime_to_db
-from sqlalchemy import and_, delete, func, or_, select
+from safir.database import PaginatedQueryRunner, datetime_to_db
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.sql import Select, text
 
+from ..models.enums import TokenType
 from ..models.history import (
     AdminHistoryEntry,
-    HistoryCursor,
     PaginatedHistory,
+    TokenChangeHistoryCursor,
     TokenChangeHistoryEntry,
+    TokenChangeHistoryRecord,
 )
-from ..models.token import TokenType
 from ..schema import AdminHistory, TokenChangeHistory
 
 __all__ = ["AdminHistoryStore", "TokenChangeHistoryStore"]
@@ -57,6 +58,9 @@ class TokenChangeHistoryStore:
 
     def __init__(self, session: async_scoped_session) -> None:
         self._session = session
+        self._paginated_runner = PaginatedQueryRunner(
+            TokenChangeHistoryRecord, TokenChangeHistoryCursor
+        )
 
     async def add(self, entry: TokenChangeHistoryEntry) -> None:
         """Record a change to a token.
@@ -96,7 +100,7 @@ class TokenChangeHistoryStore:
     async def list(
         self,
         *,
-        cursor: HistoryCursor | None = None,
+        cursor: TokenChangeHistoryCursor | None = None,
         limit: int | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
@@ -106,7 +110,7 @@ class TokenChangeHistoryStore:
         token: str | None = None,
         token_type: TokenType | None = None,
         ip_or_cidr: str | None = None,
-    ) -> PaginatedHistory[TokenChangeHistoryEntry]:
+    ) -> PaginatedHistory[TokenChangeHistoryRecord]:
         """Return all changes to a specific token.
 
         Parameters
@@ -138,11 +142,10 @@ class TokenChangeHistoryStore:
 
         Returns
         -------
-        list of TokenChangeHistoryEntry
+        PaginatedHistory of TokenChangeHistoryEntry
             List of change history entries, which may be empty.
         """
         stmt = select(TokenChangeHistory)
-
         if since:
             since = datetime_to_db(since)
             stmt = stmt.where(TokenChangeHistory.event_time >= since)
@@ -167,133 +170,17 @@ class TokenChangeHistoryStore:
         if ip_or_cidr:
             stmt = self._apply_ip_or_cidr_filter(stmt, ip_or_cidr)
 
-        # Shunt the complicated case of a paginated query to a separate
-        # function to keep the logic more transparent.
-        if cursor or limit:
-            return await self._paginated_query(stmt, cursor, limit)
-
-        # Perform the query and return the results.
-        stmt = stmt.order_by(
-            TokenChangeHistory.event_time.desc(), TokenChangeHistory.id.desc()
+        # Perform the paginated query.
+        result = await self._paginated_runner.query_object(
+            self._session, stmt, cursor=cursor, limit=limit
         )
-        result = await self._session.scalars(stmt)
-        entries = result.all()
-        return PaginatedHistory[TokenChangeHistoryEntry](
-            entries=[
-                TokenChangeHistoryEntry.model_validate(e, from_attributes=True)
-                for e in entries
-            ],
-            count=len(entries),
-            prev_cursor=None,
-            next_cursor=None,
-        )
-
-    async def _paginated_query(
-        self,
-        stmt: Select,
-        cursor: HistoryCursor | None = None,
-        limit: int | None = None,
-    ) -> PaginatedHistory[TokenChangeHistoryEntry]:
-        """Run a paginated query (one with a limit or a cursor)."""
-        limited_stmt = stmt
-
-        # Apply the cursor, if there is one.
-        if cursor:
-            limited_stmt = self._apply_cursor(limited_stmt, cursor)
-
-        # When retrieving a previous set of results using a previous
-        # cursor, we have to reverse the sort algorithm so that the cursor
-        # boundary can be applied correctly.  We'll then later reverse the
-        # result set to return it in proper forward-sorted order.
-        if cursor and cursor.previous:
-            limited_stmt = limited_stmt.order_by(
-                TokenChangeHistory.event_time, TokenChangeHistory.id
-            )
-        else:
-            limited_stmt = limited_stmt.order_by(
-                TokenChangeHistory.event_time.desc(),
-                TokenChangeHistory.id.desc(),
-            )
-
-        # Grab one more element than the query limit so that we know whether
-        # to create a cursor (because there are more elements) and what the
-        # cursor value should be (for forward cursors).
-        if limit:
-            limited_stmt = limited_stmt.limit(limit + 1)
-
-        # Execute the query twice, once to get the next bach of results and
-        # once to get the count of all entries without pagination.
-        result = await self._session.scalars(limited_stmt)
-        entries = list(result.all())
-        count_stmt = select(func.count()).select_from(stmt.subquery())
-        count = await self._session.scalar(count_stmt) or 0
-
-        # Calculate the cursors, remove the extra element we asked for, and
-        # reverse the results again if we did a reverse sort because we were
-        # using a previous cursor.
-        prev_cursor = None
-        next_cursor = None
-        if cursor and cursor.previous:
-            if limit:
-                next_cursor = HistoryCursor.invert(cursor)
-                if len(entries) > limit:
-                    prev_cursor = self._build_prev_cursor(entries[limit - 1])
-                    entries = entries[:limit]
-            entries.reverse()
-        elif limit:
-            if cursor:
-                prev_cursor = HistoryCursor.invert(cursor)
-            if len(entries) > limit:
-                next_cursor = self._build_next_cursor(entries[limit])
-                entries = entries[:limit]
-
-        # Return the results.
-        return PaginatedHistory[TokenChangeHistoryEntry](
-            entries=[
-                TokenChangeHistoryEntry.model_validate(e, from_attributes=True)
-                for e in entries
-            ],
+        count = await self._paginated_runner.query_count(self._session, stmt)
+        return PaginatedHistory[TokenChangeHistoryRecord](
+            entries=result.entries,
+            next_cursor=result.next_cursor,
+            prev_cursor=result.prev_cursor,
             count=count,
-            prev_cursor=prev_cursor,
-            next_cursor=next_cursor,
         )
-
-    @staticmethod
-    def _apply_cursor(stmt: Select, cursor: HistoryCursor) -> Select:
-        """Apply a cursor to a query."""
-        time = datetime_to_db(cursor.time)
-        if cursor.previous:
-            return stmt.where(
-                or_(
-                    TokenChangeHistory.event_time > time,
-                    and_(
-                        TokenChangeHistory.event_time == time,
-                        TokenChangeHistory.id > cursor.id,
-                    ),
-                )
-            )
-        else:
-            return stmt.where(
-                or_(
-                    TokenChangeHistory.event_time < time,
-                    and_(
-                        TokenChangeHistory.event_time == time,
-                        TokenChangeHistory.id <= cursor.id,
-                    ),
-                )
-            )
-
-    @staticmethod
-    def _build_next_cursor(entry: TokenChangeHistory) -> HistoryCursor:
-        """Construct a next cursor for entries >= the given entry."""
-        next_time = datetime_from_db(entry.event_time)
-        return HistoryCursor(time=next_time, id=entry.id)
-
-    @staticmethod
-    def _build_prev_cursor(entry: TokenChangeHistory) -> HistoryCursor:
-        """Construct a prev cursor for entries before the given entry."""
-        prev_time = datetime_from_db(entry.event_time)
-        return HistoryCursor(time=prev_time, id=entry.id, previous=True)
 
     def _apply_ip_or_cidr_filter(
         self, stmt: Select, ip_or_cidr: str

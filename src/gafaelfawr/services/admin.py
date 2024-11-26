@@ -10,7 +10,8 @@ from structlog.stdlib import BoundLogger
 
 from ..exceptions import DuplicateAdminError, PermissionDeniedError
 from ..models.admin import Admin
-from ..models.history import AdminChange, AdminHistoryEntry
+from ..models.enums import AdminChange
+from ..models.history import AdminHistoryEntry
 from ..storage.admin import AdminStore
 from ..storage.history import AdminHistoryStore
 

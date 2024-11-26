@@ -28,22 +28,24 @@ from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import ExternalUserInfoError, NotFoundError
 from ..models.admin import Admin
 from ..models.auth import APIConfig, APILoginResponse, Scope
-from ..models.history import TokenChangeHistoryEntry
+from ..models.enums import TokenType
+from ..models.history import TokenChangeHistoryCursor, TokenChangeHistoryEntry
 from ..models.token import (
     AdminTokenRequest,
     NewToken,
     TokenData,
     TokenInfo,
-    TokenType,
     UserTokenModifyRequest,
     UserTokenRequest,
 )
 from ..models.userinfo import UserInfo
 from ..util import random_128_bits
 
+router = APIRouter(route_class=SlackRouteErrorHandler)
+"""Router for API routes."""
+
 __all__ = ["router"]
 
-router = APIRouter(route_class=SlackRouteErrorHandler)
 authenticate_read = AuthenticateRead()
 authenticate_write = AuthenticateWrite()
 authenticate_admin_read = AuthenticateRead(
@@ -246,9 +248,12 @@ async def get_admin_token_change_history(
     response: Response,
 ) -> list[dict[str, Any]]:
     token_service = context.factory.create_token_service()
+    parsed_cursor = None
+    if cursor:
+        parsed_cursor = TokenChangeHistoryCursor.from_str(cursor)
     results = await token_service.get_change_history(
         auth_data,
-        cursor=cursor,
+        cursor=parsed_cursor,
         limit=limit,
         since=since,
         until=until,
@@ -471,9 +476,12 @@ async def get_user_token_change_history(
     response: Response,
 ) -> list[dict[str, Any]]:
     token_service = context.factory.create_token_service()
+    parsed_cursor = None
+    if cursor:
+        parsed_cursor = TokenChangeHistoryCursor.from_str(cursor)
     results = await token_service.get_change_history(
         auth_data,
-        cursor=cursor,
+        cursor=parsed_cursor,
         username=username,
         limit=limit,
         since=since,

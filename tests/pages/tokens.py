@@ -6,7 +6,7 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from gafaelfawr.models.token import TokenType
+from gafaelfawr.models.enums import TokenType
 
 from .base import BaseElement, BaseModal, BasePage
 

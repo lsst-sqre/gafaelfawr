@@ -21,13 +21,14 @@ from gafaelfawr.exceptions import (
     UnsupportedGrantTypeError,
 )
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.enums import TokenType
 from gafaelfawr.models.oidc import (
     OIDCAuthorization,
     OIDCAuthorizationCode,
     OIDCScope,
     OIDCToken,
 )
-from gafaelfawr.models.token import Token, TokenType
+from gafaelfawr.models.token import Token
 
 from ..support.config import build_oidc_client, reconfigure
 from ..support.tokens import create_session_token

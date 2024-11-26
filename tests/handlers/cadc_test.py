@@ -10,12 +10,8 @@ from safir.datetime import current_datetime
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
-from gafaelfawr.models.token import (
-    AdminTokenRequest,
-    Token,
-    TokenData,
-    TokenType,
-)
+from gafaelfawr.models.enums import TokenType
+from gafaelfawr.models.token import AdminTokenRequest, Token, TokenData
 
 
 @pytest.mark.asyncio

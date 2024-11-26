@@ -3,39 +3,36 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from enum import Enum
+from datetime import datetime  # noqa: F401: needed for docs
 from typing import Any, Generic, Self, TypeVar
-from urllib.parse import parse_qs, urlencode
 
 from pydantic import BaseModel, Field, field_validator
+from safir.database import DatetimeIdCursor, PaginatedList, PaginationCursor
 from safir.datetime import current_datetime
-from starlette.datastructures import URL
+from sqlalchemy.orm import InstrumentedAttribute
 
-from ..exceptions import InvalidCursorError
 from ..pydantic import Timestamp
+from ..schema import TokenChangeHistory
 from ..util import normalize_ip_address, normalize_scopes
-from .token import TokenType
+from .enums import AdminChange, TokenChange, TokenType
+
+# Not used directly but needed to prevent documentation build errors because
+# Sphinx cannot understand that this inherited type variable is defined in
+# Safir.
+C = TypeVar("C", bound="PaginationCursor")
+"""Type of a cursor for a paginated list."""
 
 E = TypeVar("E", bound="BaseModel")
 """Type of a history entry in a paginated list."""
 
 __all__ = [
-    "AdminChange",
     "AdminHistoryEntry",
     "E",
-    "HistoryCursor",
     "PaginatedHistory",
-    "TokenChange",
+    "TokenChangeHistoryCursor",
     "TokenChangeHistoryEntry",
+    "TokenChangeHistoryRecord",
 ]
-
-
-class AdminChange(Enum):
-    """Type of change made to a token admin."""
-
-    add = "add"
-    remove = "remove"
 
 
 class AdminHistoryEntry(BaseModel):
@@ -79,129 +76,6 @@ class AdminHistoryEntry(BaseModel):
     _normalize_ip_address = field_validator("ip_address", mode="before")(
         normalize_ip_address
     )
-
-
-@dataclass
-class HistoryCursor:
-    """Pagination cursor for history entries."""
-
-    time: datetime
-    """Time position."""
-
-    id: int
-    """Unique ID position."""
-
-    previous: bool = False
-    """Whether to search backwards instead of forwards."""
-
-    @classmethod
-    def from_str(cls, cursor: str) -> Self:
-        """Build cursor from the string serialization form.
-
-        Parameters
-        ----------
-        cursor
-            Serialized form of the cursor.
-
-        Returns
-        -------
-        HistoryCursor
-            The cursor represented as an object.
-
-        Raises
-        ------
-        InvalidCursorError
-            Raised if the cursor is not valid.
-        """
-        previous = cursor.startswith("p")
-        if previous:
-            cursor = cursor[1:]
-        try:
-            time, id = cursor.split("_")
-            return cls(
-                time=datetime.fromtimestamp(int(time), tz=UTC),
-                id=int(id),
-                previous=previous,
-            )
-        except Exception as e:
-            raise InvalidCursorError(f"Invalid cursor: {e!s}") from e
-
-    @classmethod
-    def invert(cls, cursor: HistoryCursor) -> Self:
-        """Return the inverted cursor (going the opposite direction).
-
-        Parameters
-        ----------
-        cursor
-            Cursor to invert.
-
-        Returns
-        -------
-        HistoryCursor
-            The inverted cursor.
-        """
-        return cls(
-            time=cursor.time, id=cursor.id, previous=not cursor.previous
-        )
-
-    def __str__(self) -> str:
-        """Serialize to a string."""
-        previous = "p" if self.previous else ""
-        timestamp = str(int(self.time.timestamp()))
-        return f"{previous}{timestamp}_{self.id!s}"
-
-
-@dataclass
-class PaginatedHistory(Generic[E]):
-    """Encapsulates paginated history entries with pagination information.
-
-    Holds a paginated list of a generic type, complete with a count and
-    cursors.  Can hold any type of entry, but uses a `HistoryCursor`, so
-    implicitly requires the type be one that is meaningfully paginated by that
-    type of cursor.
-    """
-
-    entries: list[E]
-    """The history entries."""
-
-    count: int
-    """Total available entries."""
-
-    next_cursor: HistoryCursor | None = None
-    """Cursor for the next batch of entries."""
-
-    prev_cursor: HistoryCursor | None = None
-    """Cursor for the previous batch of entries."""
-
-    def link_header(self, base_url: URL) -> str:
-        """Construct an RFC 8288 ``Link`` header for a paginated result.
-
-        Parameters
-        ----------
-        base_url
-            The starting URL of the current group of entries.
-        """
-        first_url = base_url.remove_query_params("cursor")
-        header = f' <{first_url!s}>; rel="first"'
-        params = parse_qs(first_url.query)
-        if self.next_cursor:
-            params["cursor"] = [str(self.next_cursor)]
-            next_url = first_url.replace(query=urlencode(params, doseq=True))
-            header += f', <{next_url!s}>; rel="next"'
-        if self.prev_cursor:
-            params["cursor"] = [str(self.prev_cursor)]
-            prev_url = first_url.replace(query=urlencode(params, doseq=True))
-            header += f', <{prev_url!s}>; rel="prev"'
-        return header
-
-
-class TokenChange(Enum):
-    """Type of change made to a token."""
-
-    create = "create"
-    revoke = "revoke"
-    expire = "expire"
-    edit = "edit"
 
 
 class TokenChangeHistoryEntry(BaseModel):
@@ -312,9 +186,9 @@ class TokenChangeHistoryEntry(BaseModel):
     # automatic validation, but the corresponding query takes either an IP
     # address or a CIDR block (so can't use the same type), and all of the
     # type conversions and calcuations made for ugly code, particularly since
-    # the underlying database layer wants a string.  It turned out to be
-    # easier to manually validate the query and to otherwise store and
-    # manipulate strings.
+    # the underlying database layer wants a string. It turned out to be easier
+    # to manually validate the query and to otherwise store and manipulate
+    # strings.
     #
     # We don't gain very much from the Pydantic validation since these entries
     # are created either in code or sourced from a trusted database.
@@ -377,3 +251,45 @@ class TokenChangeHistoryEntry(BaseModel):
             del v["old_token_name"]
 
         return v
+
+
+class TokenChangeHistoryRecord(TokenChangeHistoryEntry):
+    """A token change history entry populated from the database.
+
+    This model adds the unique row ID, which is not part of the public API but
+    which is required for cursors to work correctly.
+    """
+
+    id: int = Field(
+        ...,
+        title="Unique ID",
+        description="Database unique row ID, not included in the API",
+        exclude=True,
+    )
+
+
+@dataclass
+class PaginatedHistory(PaginatedList, Generic[E]):
+    """A paginated list of history entries, including total count."""
+
+    count: int | None = None
+    """Total count of entries."""
+
+
+@dataclass
+class TokenChangeHistoryCursor(DatetimeIdCursor[TokenChangeHistoryRecord]):
+    """Pagination cursor for token history entries."""
+
+    @staticmethod
+    def id_column() -> InstrumentedAttribute:
+        return TokenChangeHistory.id
+
+    @staticmethod
+    def time_column() -> InstrumentedAttribute:
+        return TokenChangeHistory.event_time
+
+    @classmethod
+    def from_entry(
+        cls, entry: TokenChangeHistoryRecord, *, reverse: bool = False
+    ) -> Self:
+        return cls(id=entry.id, time=entry.event_time, previous=reverse)

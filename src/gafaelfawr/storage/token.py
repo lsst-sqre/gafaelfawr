@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DuplicateTokenNameError
-from ..models.token import Token, TokenData, TokenInfo, TokenType
+from ..models.enums import TokenType
+from ..models.token import Token, TokenData, TokenInfo
 from ..schema.subtoken import Subtoken
 from ..schema.token import Token as SQLToken
 

@@ -17,14 +17,10 @@ from safir.testing.slack import MockSlackWebhook
 from sqlalchemy import select
 
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.enums import TokenType
 from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.link import LinkData
-from gafaelfawr.models.token import (
-    AdminTokenRequest,
-    TokenData,
-    TokenType,
-    TokenUserInfo,
-)
+from gafaelfawr.models.token import AdminTokenRequest, TokenData, TokenUserInfo
 from gafaelfawr.schema import TokenChangeHistory
 
 from ..support.constants import TEST_HOSTNAME

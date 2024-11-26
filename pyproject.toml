@@ -43,7 +43,7 @@ dependencies = [
     "pyjwt",
     "pyyaml",
     "redis>=4.2.0",
-    "safir[db,kubernetes]>=6.5.1",
+    "safir[db,kubernetes]>=8.0.0",
     "sentry-sdk[fastapi]",
     "sqlalchemy>=2.0.0",
     "structlog",

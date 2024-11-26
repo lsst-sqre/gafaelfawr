@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import async_scoped_session
 
-from ..models.token import TokenType
+from ..models.enums import TokenType
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
 from .userinfo import UserInfoService
 

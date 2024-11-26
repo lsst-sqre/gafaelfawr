@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
 from typing import Any, Self
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
@@ -13,6 +12,7 @@ from ..constants import USERNAME_REGEX
 from ..exceptions import InvalidTokenError
 from ..pydantic import Timestamp
 from ..util import normalize_scopes, random_128_bits
+from .enums import TokenType
 from .userinfo import Group
 
 __all__ = [
@@ -22,7 +22,6 @@ __all__ = [
     "TokenBase",
     "TokenData",
     "TokenInfo",
-    "TokenType",
     "TokenUserInfo",
     "UserTokenModifyRequest",
     "UserTokenRequest",
@@ -106,36 +105,6 @@ class Token(BaseModel):
     def __str__(self) -> str:
         """Return the encoded token."""
         return f"gt-{self.key}.{self.secret}"
-
-
-class TokenType(Enum):
-    """The class of token."""
-
-    session = "session"
-    """An interactive user web session."""
-
-    user = "user"
-    """A user-generated token that may be used programmatically."""
-
-    notebook = "notebook"
-    """The token delegated to a Jupyter notebook for the user."""
-
-    internal = "internal"
-    """Service-to-service token chained from a user request.
-
-    A service-to-service token used for internal sub-calls made as part of
-    processing a user request.
-    """
-
-    service = "service"
-    """Service-to-service token independent of a user request.
-
-    A service-to-service token used for internal calls initiated by
-    services, unrelated to a user request.
-    """
-
-    oidc = "oidc"
-    """Access token for an OpenID Connect client."""
 
 
 class TokenBase(BaseModel):

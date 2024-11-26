@@ -28,18 +28,18 @@ from ..exceptions import (
     InvalidScopesError,
     PermissionDeniedError,
 )
+from ..models.enums import TokenChange, TokenType
 from ..models.history import (
-    HistoryCursor,
     PaginatedHistory,
-    TokenChange,
+    TokenChangeHistoryCursor,
     TokenChangeHistoryEntry,
+    TokenChangeHistoryRecord,
 )
 from ..models.token import (
     AdminTokenRequest,
     Token,
     TokenData,
     TokenInfo,
-    TokenType,
     TokenUserInfo,
 )
 from ..storage.admin import AdminStore
@@ -661,7 +661,7 @@ class TokenService:
         self,
         auth_data: TokenData,
         *,
-        cursor: str | None = None,
+        cursor: TokenChangeHistoryCursor | None = None,
         limit: int | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
@@ -671,7 +671,7 @@ class TokenService:
         token: str | None = None,
         token_type: TokenType | None = None,
         ip_or_cidr: str | None = None,
-    ) -> PaginatedHistory[TokenChangeHistoryEntry]:
+    ) -> PaginatedHistory[TokenChangeHistoryRecord]:
         """Retrieve the change history of a token.
 
         Parameters
@@ -719,7 +719,7 @@ class TokenService:
         self._validate_ip_or_cidr(ip_or_cidr)
         async with self._session.begin():
             return await self._token_change_store.list(
-                cursor=HistoryCursor.from_str(cursor) if cursor else None,
+                cursor=cursor,
                 limit=limit,
                 since=since,
                 until=until,
