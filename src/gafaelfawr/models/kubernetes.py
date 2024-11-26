@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Literal, Self, override
 
@@ -26,9 +26,12 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 from safir.datetime import current_datetime
-from safir.pydantic import to_camel_case, validate_exactly_one_of
+from safir.pydantic import (
+    SecondsTimedelta,
+    to_camel_case,
+    validate_exactly_one_of,
+)
 
-from ..util import normalize_timedelta
 from .auth import AuthType, Satisfy
 
 __all__ = [
@@ -156,15 +159,11 @@ class GafaelfawrIngressDelegate(BaseModel):
     internal: GafaelfawrIngressDelegateInternal | None = None
     """Configuration for a delegated internal token."""
 
-    minimum_lifetime: timedelta | None = None
+    minimum_lifetime: SecondsTimedelta | None = None
     """The minimum lifetime of the delegated token."""
 
     use_authorization: bool = False
     """Whether to put the delegated token in the ``Authorization`` header."""
-
-    _normalize_minimum_lifetime = field_validator(
-        "minimum_lifetime", mode="before"
-    )(normalize_timedelta)
 
     _validate_type = model_validator(mode="after")(
         validate_exactly_one_of("notebook", "internal")
