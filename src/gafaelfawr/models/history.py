@@ -11,9 +11,9 @@ from safir.database import DatetimeIdCursor, PaginatedList, PaginationCursor
 from safir.datetime import current_datetime
 from sqlalchemy.orm import InstrumentedAttribute
 
-from ..pydantic import Timestamp
+from ..pydantic import IpAddress, Timestamp
 from ..schema import TokenChangeHistory
-from ..util import normalize_ip_address, normalize_scopes
+from ..util import normalize_scopes
 from .enums import AdminChange, TokenChange, TokenType
 
 # Not used directly but needed to prevent documentation build errors because
@@ -57,7 +57,7 @@ class AdminHistoryEntry(BaseModel):
         max_length=64,
     )
 
-    ip_address: str | None = Field(
+    ip_address: IpAddress | None = Field(
         None,
         title="IP address",
         description=(
@@ -71,10 +71,6 @@ class AdminHistoryEntry(BaseModel):
         title="Timestamp",
         description="When the change was made",
         examples=[1614986130],
-    )
-
-    _normalize_ip_address = field_validator("ip_address", mode="before")(
-        normalize_ip_address
     )
 
 
@@ -192,7 +188,7 @@ class TokenChangeHistoryEntry(BaseModel):
     #
     # We don't gain very much from the Pydantic validation since these entries
     # are created either in code or sourced from a trusted database.
-    ip_address: str | None = Field(
+    ip_address: IpAddress | None = Field(
         None,
         title="IP address from which the change was made",
         description=(
@@ -210,9 +206,6 @@ class TokenChangeHistoryEntry(BaseModel):
 
     _normalize_scopes = field_validator("scopes", "old_scopes", mode="before")(
         normalize_scopes
-    )
-    _normalize_ip_address = field_validator("ip_address", mode="before")(
-        normalize_ip_address
     )
 
     def model_dump_reduced(self) -> dict[str, Any]:
