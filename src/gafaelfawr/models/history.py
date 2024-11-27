@@ -6,14 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime  # noqa: F401: needed for docs
 from typing import Any, Generic, Self, TypeVar
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from safir.database import DatetimeIdCursor, PaginatedList, PaginationCursor
 from safir.datetime import current_datetime
 from sqlalchemy.orm import InstrumentedAttribute
 
-from ..pydantic import IpAddress, Timestamp
+from ..pydantic import IpAddress, Scopes, Timestamp
 from ..schema import TokenChangeHistory
-from ..util import normalize_scopes
 from .enums import AdminChange, TokenChange, TokenType
 
 # Not used directly but needed to prevent documentation build errors because
@@ -115,7 +114,7 @@ class TokenChangeHistoryEntry(BaseModel):
         examples=["1NOV_8aPwhCWj6rM-p1XgQ"],
     )
 
-    scopes: list[str] = Field(
+    scopes: Scopes = Field(
         ..., title="Scopes of the token", examples=[["read:all"]]
     )
 
@@ -158,7 +157,7 @@ class TokenChangeHistoryEntry(BaseModel):
         examples=["old name"],
     )
 
-    old_scopes: list[str] | None = Field(
+    old_scopes: Scopes | None = Field(
         None,
         title="Previous scopes of the token",
         description=(
@@ -202,10 +201,6 @@ class TokenChangeHistoryEntry(BaseModel):
         default_factory=current_datetime,
         title="Whent he change was made",
         examples=[1614985631],
-    )
-
-    _normalize_scopes = field_validator("scopes", "old_scopes", mode="before")(
-        normalize_scopes
     )
 
     def model_dump_reduced(self) -> dict[str, Any]:

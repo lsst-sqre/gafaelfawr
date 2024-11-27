@@ -47,6 +47,7 @@ nitpick_ignore = [
     ["py:class", "pydantic.functional_serializers.PlainSerializer"],
     ["py:class", "pydantic.functional_validators.AfterValidator"],
     ["py:class", "pydantic.functional_validators.BeforeValidator"],
+    ["py:class", "pydantic.functional_validators.PlainValidator"],
     ["py:class", "pydantic.main.BaseModel"],
     ["py:class", "pydantic.networks.UrlConstraints"],
     ["py:class", "pydantic.types.SecretStr"],

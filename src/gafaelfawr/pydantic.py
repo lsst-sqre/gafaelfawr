@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from ipaddress import IPv4Address, IPv6Address
 from typing import Annotated, TypeAlias
 
-from pydantic import BeforeValidator, PlainSerializer
+from pydantic import BeforeValidator, PlainSerializer, PlainValidator
 from safir.pydantic import UtcDatetime
 
 __all__ = [
     "IpAddress",
+    "Scopes",
     "Timestamp",
 ]
 
@@ -42,6 +44,36 @@ IpAddress: TypeAlias = Annotated[str, BeforeValidator(_normalize_ip_address)]
 Used instead of ``pydantic.networks.IPvAnyAddress`` because most of Gafaelfawr
 deals with IP addresses as strings and the type conversion is tedious and
 serves no real purpose.
+"""
+
+
+def _normalize_scopes(v: str | Iterable[str]) -> list[str]:
+    """Pydantic validator for scope fields.
+
+    Scopes are stored in the database as a comma-delimited, sorted list.
+    Convert to the list representation we want to use in Python, ensuring the
+    scopes remain sorted.
+
+    Parameters
+    ----------
+    v
+        Field representing token scopes.
+
+    Returns
+    -------
+    set of str
+        Scopes as a set.
+    """
+    if isinstance(v, str):
+        return [] if not v else sorted(v.split(","))
+    else:
+        return sorted(v)
+
+
+Scopes: TypeAlias = Annotated[list[str], PlainValidator(_normalize_scopes)]
+"""Type for a list of scopes.
+
+The scopes will be forced to sorted order by validation.
 """
 
 

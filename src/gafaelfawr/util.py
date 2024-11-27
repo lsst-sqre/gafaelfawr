@@ -14,7 +14,6 @@ __all__ = [
     "base64_to_number",
     "group_name_for_github_team",
     "is_bot_user",
-    "normalize_scopes",
     "number_to_base64",
     "random_128_bits",
 ]
@@ -102,31 +101,6 @@ def group_name_for_github_team(organization: str, team: str) -> str:
         suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
         group_name = group_name[:25] + "-" + suffix
     return group_name
-
-
-def normalize_scopes(v: str | list[str] | None) -> list[str] | None:
-    """Pydantic validator for scope fields.
-
-    Scopes are stored in the database as a comma-delimited, sorted list.
-    Convert to the list representation we want to use in Python, preserving
-    `None`.
-
-    Parameters
-    ----------
-    v
-        The field representing token scopes.
-
-    Returns
-    -------
-    list of str or None
-        The scopes as a list.
-    """
-    if v is None:
-        return None
-    elif isinstance(v, str):
-        return [] if not v else v.split(",")
-    else:
-        return v
 
 
 def number_to_base64(data: int) -> bytes:
