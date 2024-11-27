@@ -943,7 +943,7 @@ async def test_create_admin(
     # Intentionally pass in a datetime with microseconds. They should be
     # stripped off so that the expiration is rounded to seconds, which we will
     # check when examining the log message.
-    now = current_datetime(microseconds=True)
+    now = datetime.now(tz=UTC)
     expires = now + timedelta(days=2)
     caplog.clear()
     r = await client.post(

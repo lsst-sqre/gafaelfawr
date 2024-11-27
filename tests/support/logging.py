@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from safir.datetime import current_datetime
 
 __all__ = ["parse_log"]
 
@@ -33,7 +32,7 @@ def parse_log(
         List of parsed JSON dictionaries with the common log attributes
         removed (after validation).
     """
-    now = current_datetime(microseconds=True)
+    now = datetime.now(tz=UTC)
     messages = []
 
     for log_tuple in caplog.record_tuples:

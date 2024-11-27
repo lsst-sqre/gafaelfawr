@@ -6,7 +6,6 @@ import base64
 import hashlib
 import os
 import re
-from ipaddress import IPv4Address, IPv6Address
 
 from .constants import BOT_USERNAME_REGEX
 
@@ -15,7 +14,6 @@ __all__ = [
     "base64_to_number",
     "group_name_for_github_team",
     "is_bot_user",
-    "normalize_ip_address",
     "normalize_scopes",
     "number_to_base64",
     "random_128_bits",
@@ -104,32 +102,6 @@ def group_name_for_github_team(organization: str, team: str) -> str:
         suffix = base64.urlsafe_b64encode(name_hash).decode()[:6]
         group_name = group_name[:25] + "-" + suffix
     return group_name
-
-
-def normalize_ip_address(
-    v: str | IPv4Address | IPv6Address | None,
-) -> str | None:
-    """Pydantic validator for IP address fields.
-
-    Convert the PostgreSQL INET type to `str` to support reading entries from
-    a PostgreSQL database.
-
-    Parameters
-    ----------
-    v
-        The field representing an IP address.
-
-    Returns
-    -------
-    str or None
-        The converted IP address.
-    """
-    if v is None:
-        return v
-    elif isinstance(v, IPv4Address | IPv6Address):
-        return str(v)
-    else:
-        return v
 
 
 def normalize_scopes(v: str | list[str] | None) -> list[str] | None:
