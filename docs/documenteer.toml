@@ -30,9 +30,10 @@ nitpick_ignore = [
     # Ignore missing cross-references for modules that don't provide
     # intersphinx. The documentation itself should use double-quotes instead
     # of single-quotes to not generate a reference, but automatic references
-    # are generated from the type signatures and can't be avoided. These are
-    # intentionally listed specifically because I've caught documentation bugs
-    # by having Sphinx complain about a new symbol.
+    # are generated from the type signatures and can't be avoided.
+    #
+    # These are listed specifically rather than with regexesbecause I've
+    # caught documentation bugs by having Sphinx complain about a new symbol.
     ["py:class", "dataclasses_avroschema.pydantic.main.AvroBaseModel"],
     ["py:class", "dataclasses_avroschema.main.AvroModel"],
     ["py:class", "google.cloud.firestore_v1.async_client.AsyncClient"],
@@ -42,10 +43,6 @@ nitpick_ignore = [
     ["py:class", "fastapi.params.Depends"],
     ["py:class", "fastapi.routing.APIRoute"],
     ["py:class", "httpx.AsyncClient"],
-    ["py:exc", "fastapi.HTTPException"],
-    ["py:exc", "fastapi.exceptions.RequestValidationError"],
-    ["py:exc", "httpx.HTTPError"],
-    ["py:obj", "fastapi.routing.APIRoute"],
     ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
     ["py:class", "pydantic.functional_serializers.PlainSerializer"],
     ["py:class", "pydantic.functional_validators.AfterValidator"],
@@ -64,7 +61,11 @@ nitpick_ignore = [
     ["py:class", "starlette.responses.Response"],
     ["py:class", "starlette.routing.Route"],
     ["py:class", "starlette.routing.BaseRoute"],
+    ["py:exc", "fastapi.HTTPException"],
+    ["py:exc", "fastapi.exceptions.RequestValidationError"],
+    ["py:exc", "httpx.HTTPError"],
     ["py:exc", "starlette.exceptions.HTTPException"],
+    ["py:obj", "fastapi.routing.APIRoute"],
     # Broken links created by autodoc_pydantic.
     ["py:class", "lambda"],
     ["py:class", "safir.pydantic._validators.normalize_datetime"],

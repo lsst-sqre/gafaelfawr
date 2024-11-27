@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Self
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from safir.datetime import current_datetime
+from safir.pydantic import UtcDatetime
 
 from ..constants import USERNAME_REGEX
 from ..exceptions import InvalidTokenError
@@ -318,7 +318,6 @@ class TokenData(TokenBase, TokenUserInfo):
             username="<bootstrap>",
             token_type=TokenType.service,
             scopes=["admin:token"],
-            created=current_datetime(),
         )
 
     @classmethod
@@ -338,7 +337,6 @@ class TokenData(TokenBase, TokenUserInfo):
             username="<internal>",
             token_type=TokenType.service,
             scopes=["admin:token"],
-            created=current_datetime(),
         )
 
 
@@ -391,7 +389,7 @@ class AdminTokenRequest(BaseModel):
         examples=[["read:all"]],
     )
 
-    expires: datetime | None = Field(
+    expires: UtcDatetime | None = Field(
         None,
         title="Token expiration",
         description=(
@@ -497,7 +495,7 @@ class UserTokenRequest(BaseModel):
         examples=[["read:all"]],
     )
 
-    expires: datetime | None = Field(
+    expires: UtcDatetime | None = Field(
         None,
         title="Expiration time",
         description="Expiration timestamp of the token in seconds since epoch",
@@ -524,7 +522,7 @@ class UserTokenModifyRequest(BaseModel):
         None, title="Token scopes", examples=[["read:all"]]
     )
 
-    expires: datetime | None = Field(
+    expires: UtcDatetime | None = Field(
         None,
         title="Expiration time",
         description=(

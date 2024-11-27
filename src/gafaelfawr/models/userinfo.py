@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field
 
 from ..constants import GROUPNAME_REGEX
+from ..pydantic import Timestamp
 
 __all__ = [
     "CADCUserInfo",
@@ -24,7 +23,7 @@ class CADCUserInfo(BaseModel):
     support with the OpenID Connect support.
     """
 
-    exp: datetime | None = Field(
+    exp: Timestamp | None = Field(
         None,
         title="Expiration time",
         description=(
@@ -51,10 +50,6 @@ class CADCUserInfo(BaseModel):
         ),
         examples=["someuser"],
     )
-
-    @field_serializer("exp")
-    def _serialize_datetime(self, time: datetime | None) -> int | None:
-        return int(time.timestamp()) if time is not None else None
 
 
 class Group(BaseModel):
