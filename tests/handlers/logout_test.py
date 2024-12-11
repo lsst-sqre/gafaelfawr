@@ -26,7 +26,7 @@ async def test_logout(
     factory: Factory,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
     await set_session_cookie(client, token_data.token)
 
     # Confirm that we're logged in.
@@ -59,7 +59,7 @@ async def test_logout(
 
 @pytest.mark.asyncio
 async def test_logout_with_url(client: AsyncClient, factory: Factory) -> None:
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
     await set_session_cookie(client, token_data.token)
 
     # Confirm that we're logged in.

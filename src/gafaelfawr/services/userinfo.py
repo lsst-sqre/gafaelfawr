@@ -123,7 +123,7 @@ class UserInfoService:
             quota=self._calculate_quota(groups),
         )
 
-    async def get_scopes(self, user_info: TokenUserInfo) -> list[str] | None:
+    async def get_scopes(self, user_info: TokenUserInfo) -> set[str] | None:
         """Get scopes from user information.
 
         Used to determine the scope claim of a token issued based on an OpenID
@@ -136,7 +136,7 @@ class UserInfoService:
 
         Returns
         -------
-        list of str or None
+        set of str or None
             The scopes generated from the group membership based on the
             ``group_mapping`` configuration parameter, or `None` if the user
             was not a member of any known group.
@@ -157,7 +157,7 @@ class UserInfoService:
         for group in groups:
             scopes.update(self._config.get_scopes_for_group(group))
 
-        return sorted(scopes | {"user:token"}) if scopes else None
+        return (scopes | {"user:token"}) if scopes else None
 
     async def invalidate_cache(self, username: str) -> None:
         """Invalidate any cached data for a given user.

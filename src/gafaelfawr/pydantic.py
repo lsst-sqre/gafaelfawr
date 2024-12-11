@@ -47,7 +47,7 @@ serves no real purpose.
 """
 
 
-def _normalize_scopes(v: str | Iterable[str]) -> list[str]:
+def _normalize_scopes(v: str | Iterable[str]) -> set[str]:
     """Pydantic validator for scope fields.
 
     Scopes are stored in the database as a comma-delimited, sorted list.
@@ -65,15 +65,21 @@ def _normalize_scopes(v: str | Iterable[str]) -> list[str]:
         Scopes as a set.
     """
     if isinstance(v, str):
-        return [] if not v else sorted(v.split(","))
+        return set() if not v else set(v.split(","))
     else:
-        return sorted(v)
+        return set(v)
 
 
-Scopes: TypeAlias = Annotated[list[str], PlainValidator(_normalize_scopes)]
+Scopes: TypeAlias = Annotated[
+    set[str],
+    PlainValidator(_normalize_scopes),
+    PlainSerializer(
+        lambda s: sorted(s), return_type=list[str], when_used="json"
+    ),
+]
 """Type for a list of scopes.
 
-The scopes will be forced to sorted order by validation.
+The scopes will be forced to sorted order on serialization.
 """
 
 

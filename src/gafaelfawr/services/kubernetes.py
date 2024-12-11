@@ -327,7 +327,7 @@ class KubernetesTokenService:
         request = AdminTokenRequest(
             username=parent.spec.service,
             token_type=TokenType.service,
-            scopes=parent.spec.scopes,
+            scopes=set(parent.spec.scopes),
         )
         return await self._token_service.create_token_from_admin_request(
             request, TokenData.internal_token(), ip_address=None
@@ -342,7 +342,7 @@ class KubernetesTokenService:
             return False
         if token_data.username != parent.spec.service:
             return False
-        return sorted(token_data.scopes) == sorted(parent.spec.scopes)
+        return token_data.scopes == set(parent.spec.scopes)
 
     async def _secret_needs_update(
         self, parent: GafaelfawrServiceToken, secret: V1Secret | None

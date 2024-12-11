@@ -8,6 +8,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from ..pydantic import Scopes
+
 __all__ = [
     "APIConfig",
     "APILoginResponse",
@@ -165,11 +167,11 @@ class APILoginResponse(BaseModel):
         examples=["someuser"],
     )
 
-    scopes: list[str] = Field(
+    scopes: Scopes = Field(
         ...,
         title="Access scopes",
         description="Access scopes for this authenticated user",
-        examples=["read:all", "user:token"],
+        examples=[["read:all", "user:token"]],
     )
 
     config: APIConfig = Field(

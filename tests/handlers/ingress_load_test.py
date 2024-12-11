@@ -22,7 +22,7 @@ from ..support.tokens import create_session_token
 @pytest.mark.asyncio
 async def test_notebook(client: AsyncClient, factory: Factory) -> None:
     data = await create_session_token(
-        factory, scopes=["exec:test", "read:all"]
+        factory, scopes={"exec:test", "read:all"}
     )
     await set_session_cookie(client, data.token)
 
@@ -41,7 +41,7 @@ async def test_notebook(client: AsyncClient, factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_internal(client: AsyncClient, factory: Factory) -> None:
     data = await create_session_token(
-        factory, scopes=["exec:test", "read:all"]
+        factory, scopes={"exec:test", "read:all"}
     )
     await set_session_cookie(client, data.token)
 

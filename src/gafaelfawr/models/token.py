@@ -313,7 +313,7 @@ class TokenData(TokenBase, TokenUserInfo):
             token=Token(),
             username="<bootstrap>",
             token_type=TokenType.service,
-            scopes=["admin:token"],
+            scopes={"admin:token"},
         )
 
     @classmethod
@@ -332,7 +332,7 @@ class TokenData(TokenBase, TokenUserInfo):
             token=Token(),
             username="<internal>",
             token_type=TokenType.service,
-            scopes=["admin:token"],
+            scopes={"admin:token"},
         )
 
 
@@ -380,7 +380,7 @@ class AdminTokenRequest(BaseModel):
     )
 
     scopes: Scopes = Field(
-        [],
+        set(),
         title="Token scopes",
         examples=[["read:all"]],
     )
@@ -486,7 +486,7 @@ class UserTokenRequest(BaseModel):
     )
 
     scopes: Scopes = Field(
-        [],
+        set(),
         title="Token scope",
         examples=[["read:all"]],
     )

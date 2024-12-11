@@ -1066,10 +1066,10 @@ async def test_userinfo_internal(
     await reconfigure(
         "github-oidc-server", factory, monkeypatch, oidc_clients=clients
     )
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
     token_service = factory.create_token_service()
     internal_token = await token_service.get_internal_token(
-        token_data, "some-service", ["read:all"], ip_address="127.0.0.1"
+        token_data, "some-service", {"read:all"}, ip_address="127.0.0.1"
     )
 
     r = await client.get(

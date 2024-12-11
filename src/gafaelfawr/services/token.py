@@ -186,7 +186,7 @@ class TokenService:
         return alerts
 
     async def create_session_token(
-        self, user_info: TokenUserInfo, *, scopes: list[str], ip_address: str
+        self, user_info: TokenUserInfo, *, scopes: set[str], ip_address: str
     ) -> Token:
         """Create a new session token.
 
@@ -217,9 +217,7 @@ class TokenService:
         async with self._session.begin():
             admins = await self._admin_store.list()
         if any(user_info.username == a.username for a in admins):
-            scopes = sorted({*scopes, "admin:token"})
-        else:
-            scopes = sorted(scopes)
+            scopes.add("admin:token")
 
         data = TokenData(
             token=token,
@@ -256,7 +254,7 @@ class TokenService:
             token_key=token.key,
             token_username=data.username,
             token_expires=format_datetime_for_logging(expires),
-            token_scopes=scopes,
+            token_scopes=sorted(scopes),
             token_userinfo=data.to_userinfo_dict(),
         )
 
@@ -294,7 +292,7 @@ class TokenService:
             token=token,
             username=auth_data.username,
             token_type=TokenType.oidc,
-            scopes=[],
+            scopes=set(),
             created=created,
             expires=expires,
             name=auth_data.name,
@@ -342,7 +340,7 @@ class TokenService:
         username: str,
         *,
         token_name: str,
-        scopes: list[str],
+        scopes: set[str],
         expires: datetime | None = None,
         ip_address: str,
     ) -> Token:
@@ -393,7 +391,6 @@ class TokenService:
         self._validate_scopes(scopes, auth_data)
         if expires:
             expires = expires.replace(microsecond=0)
-        scopes = sorted(scopes)
 
         token = Token()
         created = current_datetime()
@@ -498,7 +495,7 @@ class TokenService:
             token=token,
             username=request.username,
             token_type=request.token_type,
-            scopes=sorted(request.scopes),
+            scopes=request.scopes,
             created=created,
             expires=expires,
             name=request.name,
@@ -537,7 +534,7 @@ class TokenService:
                 token_username=request.username,
                 token_expires=format_datetime_for_logging(expires),
                 token_name=request.token_name,
-                token_scopes=data.scopes,
+                token_scopes=sorted(data.scopes),
                 token_userinfo=data.to_userinfo_dict(),
             )
         else:
@@ -546,7 +543,7 @@ class TokenService:
                 token_key=token.key,
                 token_username=request.username,
                 token_expires=format_datetime_for_logging(expires),
-                token_scopes=data.scopes,
+                token_scopes=sorted(data.scopes),
                 token_userinfo=data.to_userinfo_dict(),
             )
         return token
@@ -751,7 +748,7 @@ class TokenService:
         self,
         token_data: TokenData,
         service: str,
-        scopes: list[str],
+        scopes: set[str],
         *,
         ip_address: str,
         minimum_lifetime: timedelta | None = None,
@@ -783,7 +780,6 @@ class TokenService:
         """
         self._validate_scopes(scopes, token_data)
         self._validate_username(token_data.username)
-        scopes = sorted(scopes)
         return await self._token_cache.get_internal_token(
             token_data,
             service,
@@ -919,7 +915,7 @@ class TokenService:
         *,
         ip_address: str,
         token_name: str | None = None,
-        scopes: list[str] | None = None,
+        scopes: set[str] | None = None,
         expires: datetime | None = None,
         no_expire: bool = False,
     ) -> TokenInfo | None:
@@ -992,7 +988,7 @@ class TokenService:
             username=info.username,
             token_type=TokenType.user,
             token_name=token_name if token_name else info.token_name,
-            scopes=sorted(scopes) if scopes is not None else info.scopes,
+            scopes=scopes if scopes is not None else info.scopes,
             expires=info.expires if not (expires or no_expire) else expires,
             actor=auth_data.username,
             action=TokenChange.edit,
@@ -1006,7 +1002,7 @@ class TokenService:
             info = await self._token_db_store.modify(
                 key,
                 token_name=token_name,
-                scopes=sorted(scopes) if scopes else scopes,
+                scopes=scopes,
                 expires=expires,
                 no_expire=no_expire,
             )
@@ -1111,7 +1107,7 @@ class TokenService:
             mismatches.append("username")
         if db.token_type != redis.token_type:
             mismatches.append("type")
-        if db.scopes != sorted(redis.scopes):
+        if db.scopes != redis.scopes:
             # There was a bug where Redis wasn't updated when the scopes were
             # changed but the database was. Redis is canonical, so set the
             # database scopes to match.
@@ -1168,19 +1164,18 @@ class TokenService:
         alerts = []
         for token_data in tokens:
             known_scopes = set(self._config.known_scopes.keys())
-            for scope in token_data.scopes:
-                if scope not in known_scopes:
-                    self._logger.warning(
-                        "Token has unknown scope",
-                        token=token_data.token.key,
-                        user=token_data.username,
-                        scope=scope,
-                    )
-                    alerts.append(
-                        f"Token `{token_data.token.key}` for"
-                        f" `{token_data.username}` has unknown scope"
-                        f" (`{scope}`)"
-                    )
+            for scope in token_data.scopes - known_scopes:
+                self._logger.warning(
+                    "Token has unknown scope",
+                    token=token_data.token.key,
+                    user=token_data.username,
+                    scope=scope,
+                )
+                alerts.append(
+                    f"Token `{token_data.token.key}` for"
+                    f" `{token_data.username}` has unknown scope"
+                    f" (`{scope}`)"
+                )
         return alerts
 
     def _check_authorization(
@@ -1419,7 +1414,7 @@ class TokenService:
 
     def _validate_scopes(
         self,
-        scopes: list[str],
+        scopes: set[str],
         auth_data: TokenData | None = None,
     ) -> None:
         """Check that the requested scopes are valid.
@@ -1439,12 +1434,11 @@ class TokenService:
         """
         if not scopes:
             return
-        scopes_set = set(scopes)
         if auth_data and "admin:token" not in auth_data.scopes:
-            if not (scopes_set <= set(auth_data.scopes)):
+            if not (scopes <= auth_data.scopes):
                 msg = "Requested scopes are broader than your current scopes"
                 raise InvalidScopesError(msg)
-        if not (scopes_set <= self._config.known_scopes.keys()):
+        if not (scopes <= set(self._config.known_scopes.keys())):
             msg = "Unknown scopes requested"
             raise InvalidScopesError(msg)
 

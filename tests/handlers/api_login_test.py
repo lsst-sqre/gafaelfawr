@@ -26,7 +26,7 @@ async def test_login(
     client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     token_data = await create_session_token(
-        factory, username="example", scopes=["read:all", "exec:admin"]
+        factory, username="example", scopes={"read:all", "exec:admin"}
     )
     cookie = State(token=token_data.token).to_cookie()
     client.cookies.set(COOKIE_NAME, cookie, domain=TEST_HOSTNAME)

@@ -21,7 +21,7 @@ from ..support.tokens import create_session_token
 async def test_success(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
-    token_data = await create_session_token(factory, scopes=["exec:admin"])
+    token_data = await create_session_token(factory, scopes={"exec:admin"})
 
     # Successful request with X-Forwarded-For and a bearer token.
     caplog.clear()
@@ -94,7 +94,7 @@ async def test_success(
 async def test_authz_failed(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
-    token_data = await create_session_token(factory, scopes=["exec:admin"])
+    token_data = await create_session_token(factory, scopes={"exec:admin"})
 
     caplog.clear()
     r = await client.get(
@@ -264,7 +264,7 @@ async def test_notebook(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(
-        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
+        factory, group_names=["admin"], scopes={"exec:admin", "read:all"}
     )
     assert token_data.expires
 
@@ -330,7 +330,7 @@ async def test_internal(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     token_data = await create_session_token(
-        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
+        factory, group_names=["admin"], scopes={"exec:admin", "read:all"}
     )
     assert token_data.expires
 

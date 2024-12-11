@@ -20,7 +20,7 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
     )
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
-        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+        user_info, scopes={"user:token"}, ip_address="127.0.0.1"
     )
 
     r = await client.get(
@@ -38,7 +38,7 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
 
     user_info.groups = [Group(name="foo", id=12313)]
     token = await token_service.create_session_token(
-        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+        user_info, scopes={"user:token"}, ip_address="127.0.0.1"
     )
 
     r = await client.get(

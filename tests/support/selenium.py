@@ -91,7 +91,7 @@ async def _selenium_startup(token_path: Path) -> None:
     """Startup hook for the app run in Selenium testing mode."""
     config = await config_dependency()
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
-    scopes = list(config.known_scopes.keys())
+    scopes = set(config.known_scopes.keys())
 
     engine = create_database_engine(
         config.database_url, config.database_password

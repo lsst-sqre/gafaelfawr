@@ -137,10 +137,10 @@ async def test_redeem_code(
     access_token = Token.from_str(reply.access_token)
     access_data = await token_service.get_data(access_token)
     assert access_data
-    assert access_data.model_dump() == {
+    assert access_data.model_dump(mode="json") == {
         "token": access_token.model_dump(),
         "username": token_data.username,
-        "token_type": TokenType.oidc,
+        "token_type": TokenType.oidc.value,
         "service": None,
         "scopes": [],
         "created": ANY,

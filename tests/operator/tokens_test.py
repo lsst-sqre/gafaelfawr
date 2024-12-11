@@ -72,7 +72,7 @@ async def assert_secret_token_matches_spec(
         token=data.token,
         username=spec.service,
         token_type=TokenType.service,
-        scopes=spec.scopes,
+        scopes=set(spec.scopes),
         created=data.created,
         expires=None,
         name=None,
@@ -171,7 +171,7 @@ async def test_secret_verification(
         AdminTokenRequest(
             username="bot-some-other-service",
             token_type=TokenType.service,
-            scopes=["admin:token"],
+            scopes={"admin:token"},
         ),
         TokenData.internal_token(),
         ip_address=None,
@@ -194,7 +194,7 @@ async def test_secret_verification(
         AdminTokenRequest(
             username=tokens[1]["spec"]["service"],
             token_type=TokenType.service,
-            scopes=["read:all"],
+            scopes={"read:all"},
         ),
         TokenData.internal_token(),
         ip_address=None,

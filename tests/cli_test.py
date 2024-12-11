@@ -55,7 +55,7 @@ def test_audit(
         token=Token(),
         username="some-user",
         token_type=TokenType.session,
-        scopes=["user:token"],
+        scopes={"user:token"},
         created=now,
         expires=now + timedelta(days=7),
     )
@@ -128,7 +128,7 @@ def test_delete_all_data(
             token_service = factory.create_token_service()
             user_info = TokenUserInfo(username="some-user")
             token = await token_service.create_session_token(
-                user_info, scopes=[], ip_address="127.0.0.1"
+                user_info, scopes=set(), ip_address="127.0.0.1"
             )
             oidc_service = factory.create_oidc_service()
             return await oidc_service.issue_code(
@@ -249,7 +249,7 @@ def test_maintenance(
         token=Token(),
         username="some-user",
         token_type=TokenType.session,
-        scopes=["read:all", "user:token"],
+        scopes={"read:all", "user:token"},
         created=now - timedelta(minutes=60),
         expires=now - timedelta(minutes=30),
     )
@@ -257,7 +257,7 @@ def test_maintenance(
         token=Token(),
         username="some-user",
         token_type=TokenType.session,
-        scopes=["read:all", "user:token"],
+        scopes={"read:all", "user:token"},
         created=now - timedelta(minutes=60),
         expires=now + timedelta(minutes=30),
     )
@@ -265,7 +265,7 @@ def test_maintenance(
         token=Token().key,
         username="other-user",
         token_type=TokenType.session,
-        scopes=[],
+        scopes=set(),
         expires=now - CHANGE_HISTORY_RETENTION + timedelta(days=10),
         actor="other-user",
         action=TokenChange.create,
