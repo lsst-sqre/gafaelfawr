@@ -159,7 +159,7 @@ spec:
     - host: foo.example.com
       http:
         paths:
-          - path: /foo
+          - path: /foo/bar
             pathType: Prefix
             backend:
               service:
@@ -198,7 +198,7 @@ spec:
     - host: foo.example.com
       http:
         paths:
-          - path: /foo
+          - path: /foo/baz
             pathType: Prefix
             backend:
               service:
@@ -238,7 +238,7 @@ spec:
     - host: foo.example.com
       http:
         paths:
-          - path: /foo
+          - path: /username
             pathType: Prefix
             backend:
               service:
@@ -278,7 +278,47 @@ spec:
     - host: foo.example.com
       http:
         paths:
-          - path: /foo
+          - path: /service
+            pathType: Prefix
+            backend:
+              service:
+                name: something
+                port:
+                  name: http
+status: {any}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: service-any
+  namespace: {namespace}
+  annotations:
+    nginx.ingress.kubernetes.io/auth-method: GET
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
+    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?only_service=vo-cutouts&service=uws"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      {snippet}
+  creationTimestamp: {any}
+  generation: {any}
+  labels:
+    app.kubernetes.io/managed-by: Gafaelfawr
+  managedFields: {any}
+  ownerReferences:
+    - apiVersion: gafaelfawr.lsst.io/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: GafaelfawrIngress
+      name: service-any-ingress
+      uid: {any}
+  resourceVersion: {any}
+  uid: {any}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: foo.example.com
+      http:
+        paths:
+          - path: /service/any
             pathType: Prefix
             backend:
               service:

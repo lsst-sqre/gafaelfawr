@@ -188,7 +188,7 @@ def auth_config(
         ),
     ] = Satisfy.ALL,
     scope: Annotated[
-        list[str],
+        list[str] | None,
         Query(
             title="Required scopes",
             description=(
@@ -197,7 +197,7 @@ def auth_config(
             ),
             examples=["read:all"],
         ),
-    ],
+    ] = None,
     service: Annotated[
         str | None,
         Query(
@@ -252,7 +252,7 @@ def auth_config(
     if service and delegate_to and service != delegate_to:
         msg = "service must be the same as delegate_to"
         raise InvalidServiceError(msg)
-    scopes = set(scope)
+    scopes = set(scope) if scope else set()
     context.rebind_logger(
         auth_uri=auth_uri,
         required_scopes=sorted(scopes),
@@ -322,12 +322,13 @@ async def get_auth(
     response: Response,
 ) -> dict[str, str]:
     check_lifetime(context, auth_config, token_data)
+    token_scopes = set(token_data.scopes)
 
     # Determine whether the request is authorized.
     if auth_config.satisfy == Satisfy.ANY:
-        authorized = any(s in token_data.scopes for s in auth_config.scopes)
+        authorized = not token_scopes.isdisjoint(auth_config.scopes)
     else:
-        authorized = all(s in token_data.scopes for s in auth_config.scopes)
+        authorized = token_scopes.issuperset(auth_config.scopes)
     if not authorized:
         raise generate_challenge(
             context,
