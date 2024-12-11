@@ -29,4 +29,4 @@ async def get_health(memo: kopf.Memo, **_: Any) -> dict[str, Any]:
     health_check_service = factory.create_health_check_service()
     await health_check_service.check(check_user_info=False)
     await factory.session.remove()
-    return HealthCheck(status=HealthStatus.HEALTHY).model_dump()
+    return HealthCheck(status=HealthStatus.HEALTHY).model_dump(mode="json")
