@@ -235,7 +235,7 @@ class TokenDatabaseStore:
         self,
         token_data: TokenData,
         service: str,
-        scopes: list[str],
+        scopes: set[str],
         min_expires: datetime,
     ) -> str | None:
         """Retrieve an existing internal child token.
@@ -398,7 +398,7 @@ class TokenDatabaseStore:
         key: str,
         *,
         token_name: str | None = None,
-        scopes: list[str] | None = None,
+        scopes: set[str] | None = None,
         expires: datetime | None = None,
         no_expire: bool = False,
     ) -> TokenInfo | None:
@@ -407,13 +407,13 @@ class TokenDatabaseStore:
         Parameters
         ----------
         token
-            The token to modify.
+            Token to modify.
         token_name
-            The new name for the token.
+            New name for the token.
         scopes
-            The new scopes for the token.
+            New scopes for the token.
         expires
-            The new expiration time for the token.
+            New expiration time for the token.
         no_expire
             If set, the token should not expire.  This is a separate parameter
             because passing `None` to ``expires`` is ambiguous.

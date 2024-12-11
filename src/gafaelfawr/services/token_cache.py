@@ -100,7 +100,7 @@ class TokenCacheService:
         self,
         token_data: TokenData,
         service: str,
-        scopes: list[str],
+        scopes: set[str],
         ip_address: str,
         *,
         minimum_lifetime: timedelta | None = None,
@@ -118,20 +118,20 @@ class TokenCacheService:
         Parameters
         ----------
         token_data
-            The authentication data for the parent token.
+            Authentication data for the parent token.
         service
-            The service of the internal token.
+            Service of the internal token.
         scopes
-            The scopes the internal token should have.
+            Scopes the internal token should have.
         ip_address
-            The IP address from which the request came.
+            IP address from which the request came.
         minimum_lifetime
             If set, the minimum required lifetime of the token.
 
         Returns
         -------
         Token
-            The cached token or newly-created token.
+            Cached token or newly-created token.
         """
         # Awkward code is to convince mypy that token is not None.
         token = self._internal_cache.get(token_data, service, scopes)
@@ -200,7 +200,7 @@ class TokenCacheService:
         self,
         token_data: TokenData,
         service: str,
-        scopes: list[str],
+        scopes: set[str],
         ip_address: str,
         minimum_lifetime: timedelta | None = None,
     ) -> Token:
@@ -213,20 +213,20 @@ class TokenCacheService:
         Parameters
         ----------
         token_data
-            The authentication data for the parent token.
+            Authentication data for the parent token.
         service
-            The service of the internal token.
+            Service of the internal token.
         scopes
-            The scopes the internal token should have.
+            Scopes the internal token should have.
         ip_address
-            The IP address from which the request came.
+            IP address from which the request came.
         minimum_lifetime
             If set, the minimum required lifetime of the token.
 
         Returns
         -------
         Token
-            The retrieved or newly-created internal token.
+            Retrieved or newly-created internal token.
         """
         # See if there's already a matching internal token.
         key = await self._token_db_store.get_internal_token_key(
@@ -381,7 +381,7 @@ class TokenCacheService:
         self,
         token: Token | None,
         minimum_lifetime: timedelta | None = None,
-        scopes: list[str] | None = None,
+        scopes: set[str] | None = None,
     ) -> bool:
         """Check whether a token is valid.
 
@@ -392,13 +392,13 @@ class TokenCacheService:
         Parameters
         ----------
         token
-            The token to check for validity.  `None` is accepted to simplify
-            type checking, but will always return `False`.
+            Token to check for validity. `None` is accepted to simplify type
+            checking, but will always return `False`.
         scopes
             If provided, ensure that the token has scopes that are a subset of
-            this scope list.  This is used to force a cache miss if an
-            internal token is requested but the requesting token no longer has
-            the scopes that the internal token provides.
+            this scope list. This is used to force a cache miss if an internal
+            token is requested but the requesting token no longer has the
+            scopes that the internal token provides.
         minimum_lifetime
             If set, the minimum required lifetime of the token.
 
@@ -412,7 +412,7 @@ class TokenCacheService:
         data = await self._token_redis_store.get_data(token)
         if not data:
             return False
-        if scopes is not None and not (set(data.scopes) <= set(scopes)):
+        if scopes is not None and not (data.scopes <= scopes):
             return False
         if data.expires:
             if minimum_lifetime:

@@ -179,7 +179,7 @@ async def test_satisfy_all(
     factory: Factory,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    token_data = await create_session_token(factory, scopes=["exec:test"])
+    token_data = await create_session_token(factory, scopes={"exec:test"})
 
     r = await client.get(
         "/ingress/auth",
@@ -203,7 +203,7 @@ async def test_satisfy_all(
 @pytest.mark.asyncio
 async def test_success(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
-        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
+        factory, group_names=["admin"], scopes={"exec:admin", "read:all"}
     )
 
     r = await client.get(
@@ -230,7 +230,7 @@ async def test_success_minimal(client: AsyncClient, factory: Factory) -> None:
     user_info = TokenUserInfo(username="user", uid=1234)
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
-        user_info, scopes=["read:all"], ip_address="127.0.0.1"
+        user_info, scopes={"read:all"}, ip_address="127.0.0.1"
     )
 
     r = await client.get(
@@ -246,7 +246,7 @@ async def test_success_minimal(client: AsyncClient, factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_notebook(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
-        factory, group_names=["admin"], scopes=["exec:admin", "read:all"]
+        factory, group_names=["admin"], scopes={"exec:admin", "read:all"}
     )
     assert token_data.expires
     assert token_data.groups
@@ -304,7 +304,7 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
         factory,
         group_names=["admin"],
-        scopes=["exec:admin", "read:all", "read:some"],
+        scopes={"exec:admin", "read:all", "read:some"},
     )
     assert token_data.expires
     assert token_data.groups
@@ -379,7 +379,7 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_internal_scopes(client: AsyncClient, factory: Factory) -> None:
     """Delegated scopes are optional and dropped if not available."""
-    token_data = await create_session_token(factory, scopes=["read:some"])
+    token_data = await create_session_token(factory, scopes={"read:some"})
     assert token_data.expires
 
     r = await client.get(
@@ -445,7 +445,7 @@ async def test_internal_scopes(client: AsyncClient, factory: Factory) -> None:
 async def test_internal_errors(
     client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
-    token_data = await create_session_token(factory, scopes=["read:some"])
+    token_data = await create_session_token(factory, scopes={"read:some"})
 
     # Cannot request a notebook token and an internal token at the same time.
     r = await client.get(
@@ -485,7 +485,7 @@ async def test_success_any(client: AsyncClient, factory: Factory) -> None:
     with only ``exec:test``.  Ensure they are accepted.
     """
     token_data = await create_session_token(
-        factory, group_names=["test"], scopes=["exec:test"]
+        factory, group_names=["test"], scopes={"exec:test"}
     )
 
     r = await client.get(
@@ -506,7 +506,7 @@ async def test_basic(
     client: AsyncClient, config: Config, factory: Factory
 ) -> None:
     token_data = await create_session_token(
-        factory, group_names=["test"], scopes=["exec:admin"]
+        factory, group_names=["test"], scopes={"exec:admin"}
     )
 
     basic = f"{token_data.token}:blahblahblah".encode()
@@ -632,7 +632,7 @@ async def test_success_unicode_name(
     user_info = TokenUserInfo(username="user", uid=1234, name="名字")
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
-        user_info, scopes=["read:all"], ip_address="127.0.0.1"
+        user_info, scopes={"read:all"}, ip_address="127.0.0.1"
     )
 
     r = await client.get(
@@ -652,7 +652,7 @@ async def test_minimum_lifetime(
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
         user_info,
-        scopes=["read:all", "user:token"],
+        scopes={"read:all", "user:token"},
         ip_address="127.0.0.1",
     )
     token_data = await token_service.get_data(token)
@@ -680,7 +680,7 @@ async def test_minimum_lifetime(
         token_data,
         "user",
         token_name="token",
-        scopes=["read:all"],
+        scopes={"read:all"},
         expires=expires,
         ip_address="127.0.0.1",
     )
@@ -746,7 +746,7 @@ async def test_default_minimum_lifetime(
     # change Redis, which is canonical; no need to change the database as
     # well.
     token = await token_service.create_session_token(
-        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+        user_info, scopes={"user:token"}, ip_address="127.0.0.1"
     )
     token_data = await token_service.get_data(token)
     assert token_data
@@ -790,7 +790,7 @@ async def test_default_minimum_lifetime(
 async def test_authorization_filtering(
     client: AsyncClient, factory: Factory
 ) -> None:
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
 
     r = await client.get(
         "/ingress/auth",
@@ -865,7 +865,7 @@ async def test_authorization_filtering(
 
 @pytest.mark.asyncio
 async def test_cookie_filtering(client: AsyncClient, factory: Factory) -> None:
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
     await set_session_cookie(client, token_data.token)
 
     r = await client.get("/ingress/auth", params={"scope": "read:all"})
@@ -912,7 +912,7 @@ async def test_cookie_filtering(client: AsyncClient, factory: Factory) -> None:
 async def test_delegate_authorization(
     client: AsyncClient, factory: Factory
 ) -> None:
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
 
     r = await client.get(
         "/ingress/auth",
@@ -963,7 +963,7 @@ async def test_delegate_authorization(
 
 @pytest.mark.asyncio
 async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
     await set_session_cookie(client, token_data.token)
 
     r = await client.get("/ingress/anonymous")
@@ -1038,7 +1038,7 @@ async def test_ldap_error(
         [{"uidNumber": ["bogus"]}],
     )
     token_data = await create_session_token(
-        factory, username="ldap-user", scopes=["read:all"], minimal=True
+        factory, username="ldap-user", scopes={"read:all"}, minimal=True
     )
     await set_session_cookie(client, token_data.token)
 
@@ -1054,7 +1054,7 @@ async def test_ldap_error(
 @pytest.mark.asyncio
 async def test_user(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
-        factory, group_names=["admin"], scopes=["read:all"]
+        factory, group_names=["admin"], scopes={"read:all"}
     )
 
     r = await client.get(
@@ -1080,7 +1080,7 @@ async def test_user(client: AsyncClient, factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_only_service(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
-        factory, group_names=["admin"], scopes=["read:all"]
+        factory, group_names=["admin"], scopes={"read:all"}
     )
 
     # Directly authenticating to an ingress restricted to specific services

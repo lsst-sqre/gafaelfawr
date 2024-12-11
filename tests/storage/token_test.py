@@ -27,7 +27,7 @@ async def test_metrics(factory: Factory) -> None:
         token_data,
         "someuser",
         token_name="some-token",
-        scopes=[],
+        scopes=set(),
         ip_address="192.168.0.1",
     )
     async with factory.session.begin():

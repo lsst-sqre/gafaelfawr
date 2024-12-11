@@ -597,18 +597,18 @@ async def build_delegated_token(
         return str(token)
     elif auth_config.delegate_to:
         # Delegated scopes are optional; if the authenticating token doesn't
-        # have the scope, it's omitted from the delegated token.  (To make it
+        # have the scope, it's omitted from the delegated token. (To make it
         # mandatory, require that scope via the scope parameter as well, and
-        # then the authenticating token will always have it.)  Therefore,
+        # then the authenticating token will always have it.) Therefore,
         # reduce the scopes of the internal token to the intersection between
         # the requested delegated scopes and the scopes of the authenticating
         # token.
-        delegate_scopes = auth_config.delegate_scopes & set(token_data.scopes)
+        delegate_scopes = auth_config.delegate_scopes & token_data.scopes
         token_service = context.factory.create_token_service()
         token = await token_service.get_internal_token(
             token_data,
             service=auth_config.delegate_to,
-            scopes=sorted(delegate_scopes),
+            scopes=delegate_scopes,
             ip_address=context.ip_address,
             minimum_lifetime=auth_config.minimum_lifetime,
         )

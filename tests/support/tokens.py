@@ -24,7 +24,7 @@ __all__ = [
 async def add_expired_session_token(
     user_info: TokenUserInfo,
     *,
-    scopes: list[str],
+    scopes: set[str],
     ip_address: str,
     session: async_scoped_session,
 ) -> None:
@@ -41,13 +41,13 @@ async def add_expired_session_token(
     Parameters
     ----------
     user_info
-        The user information to associate with the token.
+        User information to associate with the token.
     scopes
-        The scopes of the token.
+        Scopes of the token.
     ip_address
-        The IP address from which the request came.
+        IP address from which the request came.
     session
-        The database session.
+        Database session.
     """
     token_db_store = TokenDatabaseStore(session)
     token_change_store = TokenChangeHistoryStore(session)
@@ -84,7 +84,7 @@ async def create_session_token(
     *,
     username: str | None = None,
     group_names: list[str] | None = None,
-    scopes: list[str] | None = None,
+    scopes: set[str] | None = None,
     minimal: bool = False,
 ) -> TokenData:
     """Create a session token.
@@ -127,8 +127,8 @@ async def create_session_token(
             gid=2000,
             groups=groups,
         )
-    if not scopes:
-        scopes = ["user:token"]
+    if scopes is None:
+        scopes = {"user:token"}
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
         user_info, scopes=scopes, ip_address="127.0.0.1"

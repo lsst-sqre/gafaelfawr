@@ -31,7 +31,7 @@ async def test_admins(
         "type": "permission_denied",
     }
 
-    token_data = await create_session_token(factory, scopes=["admin:token"])
+    token_data = await create_session_token(factory, scopes={"admin:token"})
     r = await client.get(
         "/auth/api/v1/admins",
         headers={"Authorization": f"bearer {token_data.token}"},

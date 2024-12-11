@@ -53,7 +53,7 @@ async def test_session_token(config: Config, factory: Factory) -> None:
     )
 
     token = await token_service.create_session_token(
-        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+        user_info, scopes={"user:token"}, ip_address="127.0.0.1"
     )
     data = await token_service.get_data(token)
     assert data
@@ -61,7 +61,7 @@ async def test_session_token(config: Config, factory: Factory) -> None:
         token=token,
         username="example",
         token_type=TokenType.session,
-        scopes=["user:token"],
+        scopes={"user:token"},
         created=data.created,
         expires=data.expires,
         name="Example Person",
@@ -95,7 +95,7 @@ async def test_session_token(config: Config, factory: Factory) -> None:
             token=token.key,
             username=data.username,
             token_type=TokenType.session,
-            scopes=["user:token"],
+            scopes={"user:token"},
             expires=data.expires,
             actor=data.username,
             action=TokenChange.create,
@@ -107,15 +107,15 @@ async def test_session_token(config: Config, factory: Factory) -> None:
     # Test a session token with scopes.
     token = await token_service.create_session_token(
         user_info,
-        scopes=["read:all", "exec:admin"],
+        scopes={"read:all", "exec:admin"},
         ip_address="127.0.0.1",
     )
     data = await token_service.get_data(token)
     assert data
-    assert data.scopes == ["exec:admin", "read:all"]
+    assert data.scopes == {"exec:admin", "read:all"}
     info = await token_service.get_token_info_unchecked(token.key)
     assert info
-    assert info.scopes == ["exec:admin", "read:all"]
+    assert info.scopes == {"exec:admin", "read:all"}
 
 
 @pytest.mark.asyncio
@@ -126,20 +126,18 @@ async def test_user_token(factory: Factory) -> None:
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["read:all", "exec:admin", "user:token"],
+        scopes={"read:all", "exec:admin", "user:token"},
         ip_address="127.0.0.1",
     )
     data = await token_service.get_data(session_token)
     assert data
     expires = current_datetime() + timedelta(days=2)
 
-    # Scopes are provided not in sorted order to ensure they're sorted when
-    # creating the token.
     user_token = await token_service.create_user_token(
         data,
         "example",
         token_name="some-token",
-        scopes=["read:all", "exec:admin"],
+        scopes={"read:all", "exec:admin"},
         expires=expires,
         ip_address="192.168.0.1",
     )
@@ -150,7 +148,7 @@ async def test_user_token(factory: Factory) -> None:
         username=user_info.username,
         token_name="some-token",
         token_type=TokenType.user,
-        scopes=["exec:admin", "read:all"],
+        scopes={"exec:admin", "read:all"},
         created=info.created,
         last_used=None,
         expires=expires,
@@ -161,7 +159,7 @@ async def test_user_token(factory: Factory) -> None:
         token=user_token,
         username=user_info.username,
         token_type=TokenType.user,
-        scopes=["exec:admin", "read:all"],
+        scopes={"exec:admin", "read:all"},
         created=info.created,
         expires=info.expires,
         name=user_info.name,
@@ -178,7 +176,7 @@ async def test_user_token(factory: Factory) -> None:
             username=data.username,
             token_type=TokenType.user,
             token_name="some-token",
-            scopes=["exec:admin", "read:all"],
+            scopes={"exec:admin", "read:all"},
             expires=info.expires,
             actor=data.username,
             action=TokenChange.create,
@@ -199,7 +197,7 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["read:all", "exec:admin", "user:token"],
+        scopes={"read:all", "exec:admin", "user:token"},
         ip_address="127.0.0.1",
     )
     data = await token_service.get_data(session_token)
@@ -212,7 +210,7 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         token=token.key,
         username=user_info.username,
         token_type=TokenType.notebook,
-        scopes=["exec:admin", "read:all", "user:token"],
+        scopes={"exec:admin", "read:all", "user:token"},
         created=info.created,
         last_used=None,
         expires=data.expires,
@@ -223,7 +221,7 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         token=token,
         username=user_info.username,
         token_type=TokenType.notebook,
-        scopes=["exec:admin", "read:all", "user:token"],
+        scopes={"exec:admin", "read:all", "user:token"},
         created=info.created,
         expires=data.expires,
         name=user_info.name,
@@ -255,7 +253,7 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
             username=data.username,
             token_type=TokenType.notebook,
             parent=data.token.key,
-            scopes=["exec:admin", "read:all", "user:token"],
+            scopes={"exec:admin", "read:all", "user:token"},
             expires=data.expires,
             actor=data.username,
             action=TokenChange.create,
@@ -275,7 +273,7 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         token=second_token,
         username=data.username,
         token_type=TokenType.notebook,
-        scopes=["exec:admin", "read:all", "user:token"],
+        scopes={"exec:admin", "read:all", "user:token"},
         created=info.created,
         expires=data.expires,
         name=data.name,
@@ -300,7 +298,7 @@ async def test_notebook_token(config: Config, factory: Factory) -> None:
         data,
         data.username,
         token_name="some token",
-        scopes=[],
+        scopes=set(),
         expires=None,
         ip_address="127.0.0.1",
     )
@@ -327,7 +325,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["read:all", "exec:admin", "user:token"],
+        scopes={"read:all", "exec:admin", "user:token"},
         ip_address="127.0.0.1",
     )
     data = await token_service.get_data(session_token)
@@ -336,7 +334,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     internal_token = await token_service.get_internal_token(
         data,
         service="some-service",
-        scopes=["read:all"],
+        scopes={"read:all"},
         ip_address="2001:db8::45",
     )
     info = await token_service.get_token_info_unchecked(internal_token.key)
@@ -346,7 +344,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         username=user_info.username,
         token_type=TokenType.internal,
         service="some-service",
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=info.created,
         last_used=None,
         expires=data.expires,
@@ -358,7 +356,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         username=user_info.username,
         token_type=TokenType.internal,
         service="some-service",
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=info.created,
         expires=data.expires,
         name=user_info.name,
@@ -371,7 +369,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         await token_service.get_internal_token(
             data,
             service="some-service",
-            scopes=["read:some"],
+            scopes={"read:some"},
             ip_address="127.0.0.1",
         )
 
@@ -380,7 +378,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     new_internal_token = await token_service.get_internal_token(
         data,
         service="some-service",
-        scopes=["read:all"],
+        scopes={"read:all"},
         ip_address="127.0.0.1",
     )
     assert internal_token == new_internal_token
@@ -390,7 +388,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     new_internal_token = await token_service.get_internal_token(
         data,
         service="some-service",
-        scopes=["read:all"],
+        scopes={"read:all"},
         ip_address="127.0.0.1",
     )
     assert internal_token == new_internal_token
@@ -406,7 +404,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
             token_type=TokenType.internal,
             parent=data.token.key,
             service="some-service",
-            scopes=["read:all"],
+            scopes={"read:all"},
             expires=data.expires,
             actor=data.username,
             action=TokenChange.create,
@@ -429,7 +427,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         username=data.username,
         token_type=TokenType.internal,
         service="some-service",
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=created,
         expires=expires,
         name=data.name,
@@ -446,7 +444,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     dup_internal_token = await token_service.get_internal_token(
         data,
         service="some-service",
-        scopes=["read:all"],
+        scopes={"read:all"},
         ip_address="127.0.0.1",
     )
     assert dup_internal_token in (internal_token, second_internal_token)
@@ -455,14 +453,14 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     new_internal_token = await token_service.get_internal_token(
         data,
         service="some-service",
-        scopes=["exec:admin"],
+        scopes={"exec:admin"},
         ip_address="127.0.0.1",
     )
     assert internal_token != new_internal_token
     new_internal_token = await token_service.get_internal_token(
         data,
         service="another-service",
-        scopes=["read:all"],
+        scopes={"read:all"},
         ip_address="127.0.0.1",
     )
     assert internal_token != new_internal_token
@@ -474,19 +472,19 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
         data,
         data.username,
         token_name="some token",
-        scopes=["exec:admin"],
+        scopes={"exec:admin"},
         expires=None,
         ip_address="127.0.0.1",
     )
     data = await token_service.get_data(user_token)
     assert data
     new_internal_token = await token_service.get_internal_token(
-        data, service="some-service", scopes=[], ip_address="127.0.0.1"
+        data, service="some-service", scopes=set(), ip_address="127.0.0.1"
     )
     assert new_internal_token != internal_token
     info = await token_service.get_token_info_unchecked(new_internal_token.key)
     assert info
-    assert info.scopes == []
+    assert info.scopes == set()
     expires = info.created + config.token_lifetime
     assert info.expires == expires
 
@@ -495,7 +493,7 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
 async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     """Test that a new internal token is generated at half its lifetime."""
     session_token_data = await create_session_token(
-        factory, scopes=["admin:token", "user:token"]
+        factory, scopes={"admin:token", "user:token"}
     )
     token_service = factory.create_token_service()
 
@@ -511,7 +509,7 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
         session_token_data.username,
         token_name="n",
         expires=expires,
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
     user_token_data = await token_service.get_data(user_token)
@@ -519,13 +517,13 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
 
     # Get an internal token and ensure we get the same one when we ask again.
     internal_token = await token_service.get_internal_token(
-        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+        user_token_data, service="a", scopes=set(), ip_address="127.0.0.1"
     )
     internal_token_data = await token_service.get_data(internal_token)
     assert internal_token_data
     assert internal_token_data.expires == user_token_data.expires
     new_internal_token = await token_service.get_internal_token(
-        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+        user_token_data, service="a", scopes=set(), ip_address="127.0.0.1"
     )
     assert new_internal_token == internal_token
 
@@ -558,7 +556,7 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     # Now, request an internal and notebook token.  We should get different
     # ones with a longer expiration.
     new_internal_token = await token_service.get_internal_token(
-        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+        user_token_data, service="a", scopes=set(), ip_address="127.0.0.1"
     )
     assert new_internal_token != internal_token
     internal_token = new_internal_token
@@ -590,7 +588,7 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     # Get an internal and notebook token again.  We should get the same ones
     # as last time.
     new_internal_token = await token_service.get_internal_token(
-        user_token_data, service="a", scopes=[], ip_address="127.0.0.1"
+        user_token_data, service="a", scopes=set(), ip_address="127.0.0.1"
     )
     assert new_internal_token == internal_token
     new_notebook_token = await token_service.get_notebook_token(
@@ -606,7 +604,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
     )
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
-        user_info, scopes=[], ip_address="127.0.0.1"
+        user_info, scopes=set(), ip_address="127.0.0.1"
     )
     data = await token_service.get_data(token)
     assert data
@@ -615,7 +613,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
         username="otheruser",
         token_type=TokenType.user,
         token_name="some token",
-        scopes=["read:all"],
+        scopes={"read:all"},
         expires=expires,
         name="Other User",
         uid=1345,
@@ -631,18 +629,18 @@ async def test_token_from_admin_request(factory: Factory) -> None:
 
     # Get a token with an appropriate scope.
     session_token = await token_service.create_session_token(
-        user_info, scopes=["admin:token"], ip_address="127.0.0.1"
+        user_info, scopes={"admin:token"}, ip_address="127.0.0.1"
     )
     admin_data = await token_service.get_data(session_token)
     assert admin_data
 
     # Test a few more errors.
-    request.scopes = ["bogus:scope"]
+    request.scopes = {"bogus:scope"}
     with pytest.raises(InvalidScopesError):
         await token_service.create_token_from_admin_request(
             request, admin_data, ip_address="127.0.0.1"
         )
-    request.scopes = ["read:all"]
+    request.scopes = {"read:all"}
     request.expires = current_datetime()
     with pytest.raises(InvalidExpiresError):
         await token_service.create_token_from_admin_request(
@@ -671,7 +669,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
             username=request.username,
             token_type=TokenType.user,
             token_name=request.token_name,
-            scopes=["read:all"],
+            scopes={"read:all"},
             expires=request.expires,
             actor=admin_data.username,
             action=TokenChange.create,
@@ -709,7 +707,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
             token=token.key,
             username=request.username,
             token_type=TokenType.service,
-            scopes=[],
+            scopes=set(),
             expires=None,
             actor=admin_data.username,
             action=TokenChange.create,
@@ -726,7 +724,7 @@ async def test_list(factory: Factory) -> None:
     )
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
-        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+        user_info, scopes={"user:token"}, ip_address="127.0.0.1"
     )
     data = await token_service.get_data(session_token)
     assert data
@@ -734,14 +732,14 @@ async def test_list(factory: Factory) -> None:
         data,
         data.username,
         token_name="some-token",
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
     other_user_info = TokenUserInfo(
         username="other", name="Other Person", uid=1313
     )
     other_session_token = await token_service.create_session_token(
-        other_user_info, scopes=["admin:token"], ip_address="1.1.1.1"
+        other_user_info, scopes={"admin:token"}, ip_address="1.1.1.1"
     )
     admin_data = await token_service.get_data(other_session_token)
     assert admin_data
@@ -785,7 +783,7 @@ async def test_modify(factory: Factory) -> None:
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["admin:token", "read:all", "user:token"],
+        scopes={"admin:token", "read:all", "user:token"},
         ip_address="127.0.0.1",
     )
     data = await token_service.get_data(session_token)
@@ -794,7 +792,7 @@ async def test_modify(factory: Factory) -> None:
         data,
         data.username,
         token_name="some-token",
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
 
@@ -808,7 +806,7 @@ async def test_modify(factory: Factory) -> None:
     await token_service.modify_token(
         user_token.key,
         data,
-        scopes=["read:all"],
+        scopes={"read:all"},
         expires=expires,
         ip_address="192.168.0.4",
     )
@@ -819,7 +817,7 @@ async def test_modify(factory: Factory) -> None:
         username="example",
         token_type=TokenType.user,
         token_name="happy token",
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=info.created,
         expires=expires,
         last_used=None,
@@ -843,7 +841,7 @@ async def test_modify(factory: Factory) -> None:
             username=data.username,
             token_type=TokenType.user,
             token_name="happy token",
-            scopes=["read:all"],
+            scopes={"read:all"},
             expires=None,
             actor=data.username,
             action=TokenChange.edit,
@@ -857,11 +855,11 @@ async def test_modify(factory: Factory) -> None:
             username=data.username,
             token_type=TokenType.user,
             token_name="happy token",
-            scopes=["read:all"],
+            scopes={"read:all"},
             expires=expires,
             actor=data.username,
             action=TokenChange.edit,
-            old_scopes=[],
+            old_scopes=set(),
             old_expires=None,
             ip_address="192.168.0.4",
             event_time=history.entries[1].event_time,
@@ -872,7 +870,7 @@ async def test_modify(factory: Factory) -> None:
             username=data.username,
             token_type=TokenType.user,
             token_name="happy token",
-            scopes=[],
+            scopes=set(),
             expires=None,
             actor=data.username,
             action=TokenChange.edit,
@@ -886,7 +884,7 @@ async def test_modify(factory: Factory) -> None:
             username=data.username,
             token_type=TokenType.user,
             token_name="some-token",
-            scopes=[],
+            scopes=set(),
             expires=None,
             actor=data.username,
             action=TokenChange.create,
@@ -904,7 +902,7 @@ async def test_delete(factory: Factory) -> None:
         data,
         data.username,
         token_name="some token",
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
 
@@ -930,7 +928,7 @@ async def test_delete(factory: Factory) -> None:
             username=data.username,
             token_type=TokenType.user,
             token_name="some token",
-            scopes=[],
+            scopes=set(),
             expires=None,
             actor=data.username,
             action=TokenChange.revoke,
@@ -943,7 +941,7 @@ async def test_delete(factory: Factory) -> None:
             username=data.username,
             token_type=TokenType.user,
             token_name="some token",
-            scopes=[],
+            scopes=set(),
             expires=None,
             actor=data.username,
             action=TokenChange.create,
@@ -957,7 +955,7 @@ async def test_delete(factory: Factory) -> None:
         data,
         data.username,
         token_name="some token",
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
     other_data = await create_session_token(factory, username="other")
@@ -968,7 +966,7 @@ async def test_delete(factory: Factory) -> None:
 
     # Admins can delete soemone else's token.
     admin_data = await create_session_token(
-        factory, username="admin", scopes=["admin:token"]
+        factory, username="admin", scopes={"admin:token"}
     )
     assert await token_service.get_data(token)
     assert await token_service.delete_token(
@@ -982,13 +980,13 @@ async def test_delete_cascade(factory: Factory) -> None:
     """Test that deleting a token cascades to child tokens."""
     token_service = factory.create_token_service()
     session_token_data = await create_session_token(
-        factory, scopes=["admin:token", "read:all", "user:token"]
+        factory, scopes={"admin:token", "read:all", "user:token"}
     )
     user_token = await token_service.create_user_token(
         session_token_data,
         session_token_data.username,
         token_name="user-token",
-        scopes=["user:token"],
+        scopes={"user:token"},
         ip_address="127.0.0.1",
     )
     user_token_data = await token_service.get_data(user_token)
@@ -996,7 +994,7 @@ async def test_delete_cascade(factory: Factory) -> None:
     admin_request = AdminTokenRequest(
         username="bot-service",
         token_type=TokenType.service,
-        scopes=["read:all", "user:token"],
+        scopes={"read:all", "user:token"},
         name="Some Service",
     )
     service_token = await token_service.create_token_from_admin_request(
@@ -1014,15 +1012,21 @@ async def test_delete_cascade(factory: Factory) -> None:
     session_children = [
         notebook_token,
         await token_service.get_internal_token(
-            session_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+            session_token_data,
+            "service-a",
+            scopes=set(),
+            ip_address="127.0.0.1",
         ),
         await token_service.get_internal_token(
-            notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
+            notebook_token_data,
+            "service-b",
+            scopes=set(),
+            ip_address="127.0.0.1",
         ),
         await token_service.get_internal_token(
             notebook_token_data,
             "service-a",
-            scopes=["read:all"],
+            scopes={"read:all"},
             ip_address="127.0.0.1",
         ),
     ]
@@ -1032,7 +1036,7 @@ async def test_delete_cascade(factory: Factory) -> None:
         await token_service.get_internal_token(
             internal_token_data,
             "service-b",
-            scopes=["read:all"],
+            scopes={"read:all"},
             ip_address="127.0.0.1",
         )
     )
@@ -1040,7 +1044,7 @@ async def test_delete_cascade(factory: Factory) -> None:
     # Shorter trees of tokens from the user and service tokens.
     user_children = [
         await token_service.get_internal_token(
-            user_token_data, "service-c", scopes=[], ip_address="127.0.0.1"
+            user_token_data, "service-c", scopes=set(), ip_address="127.0.0.1"
         ),
         await token_service.get_notebook_token(
             user_token_data, ip_address="127.0.0.1"
@@ -1048,7 +1052,10 @@ async def test_delete_cascade(factory: Factory) -> None:
     ]
     service_children = [
         await token_service.get_internal_token(
-            service_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+            service_token_data,
+            "service-a",
+            scopes=set(),
+            ip_address="127.0.0.1",
         )
     ]
 
@@ -1091,7 +1098,7 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
     """Test that expiration changes cascade to subtokens."""
     token_service = factory.create_token_service()
     session_token_data = await create_session_token(
-        factory, scopes=["admin:token", "user:token"]
+        factory, scopes={"admin:token", "user:token"}
     )
 
     # Create a user token with no expiration and some additional tokens
@@ -1100,7 +1107,7 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
         session_token_data,
         session_token_data.username,
         token_name="user-token",
-        scopes=["user:token"],
+        scopes={"user:token"},
         ip_address="127.0.0.1",
     )
     user_token_data = await token_service.get_data(user_token)
@@ -1111,12 +1118,12 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
     notebook_token_data = await token_service.get_data(notebook_token)
     assert notebook_token_data
     internal_token = await token_service.get_internal_token(
-        user_token_data, "service-a", scopes=[], ip_address="127.0.0.1"
+        user_token_data, "service-a", scopes=set(), ip_address="127.0.0.1"
     )
     internal_token_data = await token_service.get_data(internal_token)
     assert internal_token_data
     nested_token = await token_service.get_internal_token(
-        notebook_token_data, "service-b", scopes=[], ip_address="127.0.0.1"
+        notebook_token_data, "service-b", scopes=set(), ip_address="127.0.0.1"
     )
     nested_token_data = await token_service.get_data(nested_token)
     assert nested_token_data
@@ -1186,7 +1193,7 @@ async def test_invalid(
         token=Token(),
         username="example",
         token_type=TokenType.session,
-        scopes=[],
+        scopes=set(),
         created=current_datetime(),
         name="Some User",
         uid=12345,
@@ -1349,7 +1356,7 @@ async def test_invalid_username(factory: Factory) -> None:
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["read:all", "admin:token"],
+        scopes={"read:all", "admin:token"},
         ip_address="127.0.0.1",
     )
     data = await token_service.get_data(session_token)
@@ -1372,12 +1379,16 @@ async def test_invalid_username(factory: Factory) -> None:
         user_info.username = user
         with pytest.raises(PermissionDeniedError):
             await token_service.create_session_token(
-                user_info, scopes=[], ip_address="127.0.0.1"
+                user_info, scopes=set(), ip_address="127.0.0.1"
             )
         data.username = user
         with pytest.raises(PermissionDeniedError):
             await token_service.create_user_token(
-                data, user, token_name="n", scopes=[], ip_address="127.0.0.1"
+                data,
+                user,
+                token_name="n",
+                scopes=set(),
+                ip_address="127.0.0.1",
             )
         with pytest.raises(PermissionDeniedError):
             await token_service.get_notebook_token(
@@ -1385,7 +1396,7 @@ async def test_invalid_username(factory: Factory) -> None:
             )
         with pytest.raises(PermissionDeniedError):
             await token_service.get_internal_token(
-                data, service="s", scopes=[], ip_address="127.0.0.1"
+                data, service="s", scopes=set(), ip_address="127.0.0.1"
             )
         with pytest.raises(ValidationError):
             AdminTokenRequest(username=user, token_type=TokenType.service)
@@ -1415,7 +1426,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         token=Token(),
         username="some-user",
         token_type=TokenType.session,
-        scopes=["read:all", "user:token"],
+        scopes={"read:all", "user:token"},
         created=now - timedelta(minutes=60),
         expires=now - timedelta(minutes=30),
     )
@@ -1423,7 +1434,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         token=Token(),
         username=session_token_data.username,
         token_type=TokenType.user,
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=now - timedelta(minutes=50),
         expires=now - timedelta(minutes=30),
     )
@@ -1431,7 +1442,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         token=Token(),
         username=session_token_data.username,
         token_type=TokenType.user,
-        scopes=["admin:token", "read:all"],
+        scopes={"admin:token", "read:all"},
         created=now - timedelta(minutes=50),
         expires=now + timedelta(minutes=30),
     )
@@ -1439,7 +1450,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         token=Token(),
         username=session_token_data.username,
         token_type=TokenType.notebook,
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=now - timedelta(minutes=59),
         expires=now - timedelta(minutes=30),
     )
@@ -1448,7 +1459,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         username=session_token_data.username,
         token_type=TokenType.internal,
         service="tap",
-        scopes=[],
+        scopes=set(),
         created=now - timedelta(minutes=58),
         expires=now - timedelta(minutes=30),
     )
@@ -1457,7 +1468,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         username=session_token_data.username,
         token_type=TokenType.internal,
         service="tap",
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=now - timedelta(minutes=58),
         expires=now - timedelta(minutes=30),
     )
@@ -1465,7 +1476,7 @@ async def test_expire_tokens(factory: Factory) -> None:
         token=Token(),
         username="bot-service",
         token_type=TokenType.service,
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=now - timedelta(minutes=45),
         expires=now - timedelta(minutes=30),
     )
@@ -1548,14 +1559,14 @@ async def test_truncate_history(factory: Factory) -> None:
     now = current_datetime()
     token_service = factory.create_token_service()
     session_token_data = await create_session_token(
-        factory, scopes=["admin:token"]
+        factory, scopes={"admin:token"}
     )
     history_store = TokenChangeHistoryStore(factory.session)
     old_entry = TokenChangeHistoryEntry(
         token=Token().key,
         username="other-user",
         token_type=TokenType.session,
-        scopes=[],
+        scopes=set(),
         expires=now - CHANGE_HISTORY_RETENTION + timedelta(days=10),
         actor="other-user",
         action=TokenChange.create,
@@ -1566,7 +1577,7 @@ async def test_truncate_history(factory: Factory) -> None:
         token=Token().key,
         username="other-user",
         token_type=TokenType.session,
-        scopes=[],
+        scopes=set(),
         expires=now - CHANGE_HISTORY_RETENTION + timedelta(days=5),
         actor="other-user",
         action=TokenChange.create,
@@ -1599,7 +1610,7 @@ async def test_audit(factory: Factory) -> None:
         token=Token(),
         username="some-user",
         token_type=TokenType.session,
-        scopes=["user:token"],
+        scopes={"user:token"},
         created=now,
         expires=now + timedelta(days=7),
     )
@@ -1611,7 +1622,7 @@ async def test_audit(factory: Factory) -> None:
         token=Token(),
         username="other-user",
         token_type=TokenType.session,
-        scopes=["user:token"],
+        scopes={"user:token"},
         created=now,
         expires=now + timedelta(days=7),
     )
@@ -1622,7 +1633,7 @@ async def test_audit(factory: Factory) -> None:
         token=Token(),
         username="some-user",
         token_type=TokenType.user,
-        scopes=[],
+        scopes=set(),
         created=now - timedelta(days=1),
         expires=now + timedelta(days=7),
     )
@@ -1630,7 +1641,7 @@ async def test_audit(factory: Factory) -> None:
         token=db_user_token_data.token,
         username=db_user_token_data.username,
         token_type=db_user_token_data.token_type,
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=now,
         expires=db_user_token_data.expires,
     )
@@ -1644,7 +1655,7 @@ async def test_audit(factory: Factory) -> None:
         username="some-user",
         token_type=TokenType.internal,
         service="some-service",
-        scopes=[],
+        scopes=set(),
         created=now,
         expires=now + timedelta(days=14),
     )
@@ -1661,7 +1672,7 @@ async def test_audit(factory: Factory) -> None:
         username="some-user",
         token_type=TokenType.internal,
         service="some-service",
-        scopes=[],
+        scopes=set(),
         created=now,
         expires=now + timedelta(days=7),
     )
@@ -1676,7 +1687,7 @@ async def test_audit(factory: Factory) -> None:
         token=Token(),
         username="some-user",
         token_type=TokenType.session,
-        scopes=["bogus:scope"],
+        scopes={"bogus:scope"},
         created=now,
         expires=now + timedelta(days=7),
     )
@@ -1690,7 +1701,7 @@ async def test_audit(factory: Factory) -> None:
         token=Token(),
         username="some-user",
         token_type=TokenType.session,
-        scopes=["user:token"],
+        scopes={"user:token"},
         created=now - timedelta(days=7),
         expires=now - timedelta(seconds=5),
     )
@@ -1750,7 +1761,7 @@ async def test_state_metrics(config: Config, factory: Factory) -> None:
         token_data,
         token_data.username,
         token_name="something",
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
 

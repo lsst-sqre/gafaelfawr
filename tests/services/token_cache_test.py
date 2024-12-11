@@ -20,18 +20,18 @@ from ..support.tokens import create_session_token
 
 @pytest.mark.asyncio
 async def test_basic(factory: Factory) -> None:
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
     token_service = factory.create_token_service()
     token_cache = factory.create_token_cache_service()
     internal_token = await token_service.get_internal_token(
-        token_data, "some-service", ["read:all"], ip_address="127.0.0.1"
+        token_data, "some-service", {"read:all"}, ip_address="127.0.0.1"
     )
     notebook_token = await token_service.get_notebook_token(
         token_data, ip_address="127.0.0.1"
     )
 
     assert internal_token == await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"], "127.0.0.1"
+        token_data, "some-service", {"read:all"}, "127.0.0.1"
     )
     assert notebook_token == await token_cache.get_notebook_token(
         token_data, "127.0.0.1"
@@ -39,17 +39,17 @@ async def test_basic(factory: Factory) -> None:
 
     # Requesting different internal tokens doesn't work.
     assert internal_token != await token_cache.get_internal_token(
-        token_data, "other-service", ["read:all"], "127.0.0.1"
+        token_data, "other-service", {"read:all"}, "127.0.0.1"
     )
     assert notebook_token != await token_cache.get_internal_token(
-        token_data, "some-service", [], "127.0.0.1"
+        token_data, "some-service", set(), "127.0.0.1"
     )
 
     # A different service token for the same user requesting the same
     # information creates a different internal token.
-    new_token_data = await create_session_token(factory, scopes=["read:all"])
+    new_token_data = await create_session_token(factory, scopes={"read:all"})
     assert internal_token != await token_cache.get_internal_token(
-        new_token_data, "some-service", ["read:all"], "127.0.0.1"
+        new_token_data, "some-service", {"read:all"}, "127.0.0.1"
     )
     assert notebook_token != await token_cache.get_notebook_token(
         new_token_data, "127.0.0.1"
@@ -59,30 +59,30 @@ async def test_basic(factory: Factory) -> None:
     # internal token is requested with the same scope.  Cases where the parent
     # token no longer has that scope are caught one level up by the token
     # service and thus aren't tested here.
-    token_data.scopes = ["read:all", "admin:token"]
+    token_data.scopes = {"read:all", "admin:token"}
     assert internal_token == await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"], "127.0.0.1"
+        token_data, "some-service", {"read:all"}, "127.0.0.1"
     )
     assert internal_token != await token_cache.get_internal_token(
-        token_data, "some-service", ["admin:token"], "127.0.0.1"
+        token_data, "some-service", {"admin:token"}, "127.0.0.1"
     )
 
 
 @pytest.mark.asyncio
 async def test_invalid(factory: Factory) -> None:
     """Invalid tokens should not be returned even if cached."""
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
     token_cache = factory.create_token_cache_service()
     internal_token = Token()
     notebook_token = Token()
 
     token_cache._internal_cache.store(
-        token_data, "some-service", ["read:all"], internal_token
+        token_data, "some-service", {"read:all"}, internal_token
     )
     token_cache._notebook_cache.store(token_data, notebook_token)
 
     assert internal_token != await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"], "127.0.0.1"
+        token_data, "some-service", {"read:all"}, "127.0.0.1"
     )
     assert notebook_token != await token_cache.get_notebook_token(
         token_data, "127.0.0.1"
@@ -92,7 +92,7 @@ async def test_invalid(factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_expiration(config: Config, factory: Factory) -> None:
     """The cache is valid until half the lifetime of the child token."""
-    token_data = await create_session_token(factory, scopes=["read:all"])
+    token_data = await create_session_token(factory, scopes={"read:all"})
     lifetime = config.token_lifetime
     now = current_datetime()
     logger = structlog.get_logger("gafaelfawr")
@@ -115,18 +115,18 @@ async def test_expiration(config: Config, factory: Factory) -> None:
         token=Token(),
         username=token_data.username,
         token_type=TokenType.internal,
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=created,
         expires=expires,
     )
     await token_store.store_data(internal_token_data)
     token_cache._internal_cache.store(
-        token_data, "some-service", ["read:all"], internal_token_data.token
+        token_data, "some-service", {"read:all"}, internal_token_data.token
     )
 
     # The cache should return this token.
     assert internal_token_data.token == await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"], "127.0.0.1"
+        token_data, "some-service", {"read:all"}, "127.0.0.1"
     )
 
     # Now change the expiration to be ten seconds earlier, which should make
@@ -138,7 +138,7 @@ async def test_expiration(config: Config, factory: Factory) -> None:
     # The cache should now decline to return the token and generate a new one.
     old_token = internal_token_data.token
     assert old_token != await token_cache.get_internal_token(
-        token_data, "some-service", ["read:all"], "127.0.0.1"
+        token_data, "some-service", {"read:all"}, "127.0.0.1"
     )
 
     # Do the same test with a notebook token.
@@ -146,7 +146,7 @@ async def test_expiration(config: Config, factory: Factory) -> None:
         token=Token(),
         username=token_data.username,
         token_type=TokenType.notebook,
-        scopes=["read:all"],
+        scopes={"read:all"},
         created=created,
         expires=expires,
     )

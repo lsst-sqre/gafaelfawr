@@ -41,7 +41,7 @@ async def test_create_delete_modify(
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["read:all", "exec:admin", "user:token"],
+        scopes={"read:all", "exec:admin", "user:token"},
         ip_address="127.0.0.1",
     )
     csrf = await set_session_cookie(client, session_token)
@@ -157,7 +157,7 @@ async def test_create_delete_modify(
 
     # Get a token admin token, which will be allowed to modify the token.
     admin_token = await token_service.create_session_token(
-        user_info, scopes=["admin:token"], ip_address="127.0.0.1"
+        user_info, scopes={"admin:token"}, ip_address="127.0.0.1"
     )
     csrf = await set_session_cookie(client, admin_token)
 
@@ -303,7 +303,7 @@ async def test_token_info(
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["exec:admin", "user:token"],
+        scopes={"exec:admin", "user:token"},
         ip_address="127.0.0.1",
     )
 
@@ -350,7 +350,7 @@ async def test_token_info(
         data,
         data.username,
         token_name="some-token",
-        scopes=["exec:admin"],
+        scopes={"exec:admin"},
         expires=expires,
         ip_address="127.0.0.1",
     )
@@ -443,14 +443,14 @@ async def test_auth_required(
 async def test_csrf_required(
     client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
-    token_data = await create_session_token(factory, scopes=["admin:token"])
+    token_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, token_data.token)
     token_service = factory.create_token_service()
     user_token = await token_service.create_user_token(
         token_data,
         token_data.username,
         token_name="foo",
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
 
@@ -563,7 +563,7 @@ async def test_no_scope(
         token_data,
         token_data.username,
         token_name="user",
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
 
@@ -634,7 +634,7 @@ async def test_wrong_user(
         username="other-person", name="Some Other Person", uid=137123
     )
     other_session_token = await token_service.create_session_token(
-        user_info, scopes=["user:token"], ip_address="127.0.0.1"
+        user_info, scopes={"user:token"}, ip_address="127.0.0.1"
     )
     other_session_data = await token_service.get_data(other_session_token)
     assert other_session_data
@@ -642,7 +642,7 @@ async def test_wrong_user(
         other_session_data,
         "other-person",
         token_name="foo",
-        scopes=[],
+        scopes=set(),
         ip_address="127.0.0.1",
     )
 
@@ -724,7 +724,7 @@ async def test_wrong_user(
 async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
     """Test creating a user token that doesn't expire."""
     token_data = await create_session_token(
-        factory, scopes=["admin:token", "user:token"]
+        factory, scopes={"admin:token", "user:token"}
     )
     csrf = await set_session_cookie(client, token_data.token)
 
@@ -779,7 +779,7 @@ async def test_duplicate_token_name(
 ) -> None:
     """Test duplicate token names."""
     token_data = await create_session_token(
-        factory, scopes=["admin:token", "user:token"]
+        factory, scopes={"admin:token", "user:token"}
     )
     csrf = await set_session_cookie(client, token_data.token)
 
@@ -824,7 +824,7 @@ async def test_bad_expires(
 ) -> None:
     """Test creating or modifying a token with bogus expirations."""
     token_data = await create_session_token(
-        factory, scopes=["user:token", "admin:token"]
+        factory, scopes={"user:token", "admin:token"}
     )
     csrf = await set_session_cookie(client, token_data.token)
 
@@ -877,7 +877,7 @@ async def test_bad_scopes(
     known_scopes = list(config.known_scopes.keys())
     assert len(known_scopes) > 4
     token_data = await create_session_token(
-        factory, scopes=known_scopes[:3] + ["other:scope", "user:token"]
+        factory, scopes=set(known_scopes[:3]) | {"other:scope", "user:token"}
     )
     csrf = await set_session_cookie(client, token_data.token)
 
@@ -927,7 +927,7 @@ async def test_create_admin(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test creating a token through the admin interface."""
-    token_data = await create_session_token(factory, scopes=["exec:admin"])
+    token_data = await create_session_token(factory, scopes={"exec:admin"})
     csrf = await set_session_cookie(client, token_data.token)
 
     r = await client.post(
@@ -937,7 +937,7 @@ async def test_create_admin(
     )
     assert r.status_code == 403
 
-    token_data = await create_session_token(factory, scopes=["admin:token"])
+    token_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, token_data.token)
 
     # Intentionally pass in a datetime with microseconds. They should be
@@ -1164,7 +1164,7 @@ async def test_create_admin_ldap(
 ) -> None:
     """Create a token through the admin interface with LDAP user data."""
     await reconfigure("oidc", factory)
-    token_data = await create_session_token(factory, scopes=["admin:token"])
+    token_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, token_data.token)
     mock_ldap.add_test_user(
         UserInfo(
@@ -1282,7 +1282,7 @@ async def test_create_admin_firestore(
     await reconfigure("oidc-firestore", factory)
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
-    token_data = await create_session_token(factory, scopes=["admin:token"])
+    token_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, token_data.token)
 
     # Create a new service token with no user metadata.
@@ -1342,7 +1342,7 @@ async def test_no_form_post(
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["read:all", "exec:admin", "user:token"],
+        scopes={"read:all", "exec:admin", "user:token"},
         ip_address="127.0.0.1",
     )
     csrf = await set_session_cookie(client, session_token)
@@ -1384,7 +1384,7 @@ async def test_scope_modify(
     token_service = factory.create_token_service()
     session_token = await token_service.create_session_token(
         user_info,
-        scopes=["admin:token", "read:all", "exec:admin", "user:token"],
+        scopes={"admin:token", "read:all", "exec:admin", "user:token"},
         ip_address="127.0.0.1",
     )
     csrf = await set_session_cookie(client, session_token)
@@ -1481,7 +1481,7 @@ async def test_ldap_error(
         [{"uidNumber": ["bogus"]}],
     )
     token_data = await create_session_token(
-        factory, username="ldap-user", scopes=["read:all"], minimal=True
+        factory, username="ldap-user", scopes={"read:all"}, minimal=True
     )
     await set_session_cookie(client, token_data.token)
 

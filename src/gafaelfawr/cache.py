@@ -335,18 +335,18 @@ class InternalTokenCache(TokenCache):
     """Cache for internal tokens."""
 
     def get(
-        self, token_data: TokenData, service: str, scopes: list[str]
+        self, token_data: TokenData, service: str, scopes: set[str]
     ) -> Token | None:
         """Retrieve an internal token from the cache.
 
         Parameters
         ----------
         token_data
-            The authentication data for the parent token.
+            Authentication data for the parent token.
         service
-            The service of the internal token.
+            Service of the internal token.
         scopes
-            The scopes the internal token should have.
+            Scopes the internal token should have.
 
         Returns
         -------
@@ -367,7 +367,7 @@ class InternalTokenCache(TokenCache):
         self,
         token_data: TokenData,
         service: str,
-        scopes: list[str],
+        scopes: set[str],
         token: Token,
     ) -> None:
         """Store an internal token in the cache.
@@ -377,19 +377,19 @@ class InternalTokenCache(TokenCache):
         Parameters
         ----------
         token_data
-            The authentication data for the parent token.
+            Authentication data for the parent token.
         service
-            The service of the internal token.
+            Service of the internal token.
         scopes
-            The scopes the internal token should have.
+            Scopes the internal token should have.
         token
-            The token to cache.
+            Token to cache.
         """
         key = self._build_key(token_data, service, scopes)
         self._cache[key] = token
 
     def _build_key(
-        self, token_data: TokenData, service: str, scopes: list[str]
+        self, token_data: TokenData, service: str, scopes: set[str]
     ) -> tuple[str, ...]:
         """Build the cache key for an internal token.
 
@@ -407,9 +407,12 @@ class InternalTokenCache(TokenCache):
         tuple
             An object suitable for use as a hash key for this internal token.
         """
-        expires = str(token_data.expires) if token_data.expires else "None"
-        scope = ",".join(sorted(scopes))
-        return (token_data.token.key, expires, service, scope)
+        return (
+            token_data.token.key,
+            str(token_data.expires) if token_data.expires else "None",
+            service,
+            " ".join(sorted(scopes)),
+        )
 
 
 class NotebookTokenCache(TokenCache):
