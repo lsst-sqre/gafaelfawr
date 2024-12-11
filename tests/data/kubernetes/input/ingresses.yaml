@@ -124,7 +124,7 @@ template:
       - host: foo.example.com
         http:
           paths:
-            - path: /foo
+            - path: /foo/bar
               pathType: Prefix
               backend:
                 service:
@@ -151,7 +151,7 @@ template:
       - host: foo.example.com
         http:
           paths:
-            - path: /foo
+            - path: /foo/baz
               pathType: Prefix
               backend:
                 service:
@@ -177,7 +177,7 @@ template:
       - host: foo.example.com
         http:
           paths:
-            - path: /foo
+            - path: /username
               pathType: Prefix
               backend:
                 service:
@@ -205,7 +205,34 @@ template:
       - host: foo.example.com
         http:
           paths:
-            - path: /foo
+            - path: /service
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: service-any-ingress
+  namespace: {namespace}
+config:
+  scopes:
+    all: []
+  onlyServices:
+    - vo-cutouts
+  service: uws
+template:
+  metadata:
+    name: service-any
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /service/any
               pathType: Prefix
               backend:
                 service:

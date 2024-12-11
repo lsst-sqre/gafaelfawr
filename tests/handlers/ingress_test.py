@@ -61,12 +61,6 @@ async def test_invalid(
     token = await create_session_token(factory)
 
     r = await client.get(
-        "/ingress/auth", headers={"Authorization": f"bearer {token.token}"}
-    )
-    assert r.status_code == 422
-    assert r.json()["detail"][0]["type"] == "missing"
-
-    r = await client.get(
         "/ingress/auth",
         headers={"Authorization": f"bearer {token.token}"},
         params={"scope": "exec:admin", "satisfy": "foo"},
@@ -221,6 +215,14 @@ async def test_success(client: AsyncClient, factory: Factory) -> None:
     assert r.headers["X-Auth-Request-User"] == token_data.username
     assert r.headers["X-Auth-Request-Email"] == token_data.email
     assert "X-Auth-Request-Service" not in r.headers
+
+    # Request with no required scopes is always valid.
+    r = await client.get(
+        "/ingress/auth",
+        headers={"Authorization": f"bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == token_data.username
 
 
 @pytest.mark.asyncio
@@ -1117,6 +1119,16 @@ async def test_only_service(client: AsyncClient, factory: Factory) -> None:
             ("only_service", "tap"),
             ("only_service", "vo-cutouts"),
         ),
+        headers={"Authorization": f"Bearer {internal_token}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-Auth-Request-User"] == token_data.username
+    assert r.headers["X-Auth-Request-Service"] == "tap"
+
+    # It still works if no scope restrictions are present.
+    r = await client.get(
+        "/ingress/auth",
+        params=(("only_service", "tap"), ("only_service", "vo-cutouts")),
         headers={"Authorization": f"Bearer {internal_token}"},
     )
     assert r.status_code == 200
