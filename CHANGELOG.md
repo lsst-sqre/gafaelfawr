@@ -10,6 +10,17 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.3.0'></a>
+## 12.3.0 (2024-12-11)
+
+### New features
+
+- Allow an authenticated `GafaelfawrIngress` with no required scopes. This is useful for an `onlyService` case where the token may have any scope but must be delegated to one of the listed services.
+
+### Bug fixes
+
+- Return a JSON-serializable object from the health probe for the Kubernetes operator.
+
 <a id='changelog-12.2.0'></a>
 ## 12.2.0 (2024-11-26)
 
