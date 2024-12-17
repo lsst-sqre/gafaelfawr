@@ -1,14 +1,17 @@
-"""Tests for logging in the ``/ingress/auth`` route."""
+"""Tests for logging and metrics in the ``/ingress/auth`` route."""
 
 from __future__ import annotations
 
 import base64
+from typing import Any
 from unittest.mock import ANY
 
 import pytest
 from httpx import AsyncClient
 from safir.datetime import format_datetime_for_logging
+from safir.metrics import MockEventPublisher
 
+from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token
 
@@ -35,7 +38,7 @@ async def test_success(
         },
     )
     assert r.status_code == 200
-    expected_log = {
+    expected_log: dict[str, Any] = {
         "auth_uri": "/foo",
         "event": "Token authorized",
         "httpRequest": {
@@ -61,7 +64,7 @@ async def test_success(
     caplog.clear()
     r = await client.get(
         "/ingress/auth",
-        params={"scope": "exec:admin"},
+        params={"scope": "exec:admin", "service": "service-one"},
         headers={
             "Authorization": f"Basic {basic_b64}",
             "X-Original-Uri": "/foo",
@@ -69,6 +72,8 @@ async def test_success(
         },
     )
     assert r.status_code == 200
+    url = expected_log["httpRequest"]["requestUrl"]
+    expected_log["httpRequest"]["requestUrl"] += "&service=service-one"
     expected_log["token_source"] = "basic-username"
     assert parse_log(caplog) == [expected_log]
 
@@ -78,7 +83,7 @@ async def test_success(
     caplog.clear()
     r = await client.get(
         "/ingress/auth",
-        params={"scope": "exec:admin"},
+        params={"scope": "exec:admin", "service": "service-two"},
         headers={
             "Authorization": f"Basic {basic_b64}",
             "X-Original-Uri": "/foo",
@@ -86,8 +91,23 @@ async def test_success(
         },
     )
     assert r.status_code == 200
+    expected_log["httpRequest"]["requestUrl"] = url + "&service=service-two"
     expected_log["token_source"] = "basic-password"
     assert parse_log(caplog) == [expected_log]
+
+    # Check the logged metrics events.
+    events = context_dependency._events
+    assert events
+    assert isinstance(events.auth_user, MockEventPublisher)
+    events.auth_user.published.assert_published_all(
+        [
+            {"username": token_data.username, "service": None},
+            {"username": token_data.username, "service": "service-one"},
+            {"username": token_data.username, "service": "service-two"},
+        ]
+    )
+    assert isinstance(events.auth_bot, MockEventPublisher)
+    events.auth_bot.published.assert_published_all([])
 
 
 @pytest.mark.asyncio
@@ -395,3 +415,25 @@ async def test_internal(
             "user": token_data.username,
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_bot_metrics(client: AsyncClient, factory: Factory) -> None:
+    token_data = await create_session_token(
+        factory, username="bot-something", scopes={"read:all"}
+    )
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "service"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+
+    events = context_dependency._events
+    assert events
+    assert isinstance(events.auth_bot, MockEventPublisher)
+    events.auth_bot.published.assert_published_all(
+        [{"username": "bot-something", "service": "service"}]
+    )
+    assert isinstance(events.auth_user, MockEventPublisher)
+    events.auth_user.published.assert_published_all([])

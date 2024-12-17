@@ -264,6 +264,7 @@ async def maintenance(*, config_path: Path | None) -> None:
         events = StateEvents()
         await events.initialize(event_manager)
         await token_service.gather_state_metrics(events)
+        await event_manager.aclose()
     await engine.dispose()
     logger.debug("Finished background maintenance")
 
