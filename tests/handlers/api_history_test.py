@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
 from typing import Any
@@ -18,7 +18,10 @@ from sqlalchemy import select
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import TokenType
-from gafaelfawr.models.history import TokenChangeHistoryEntry
+from gafaelfawr.models.history import (
+    TokenChangeHistoryEntry,
+    TokenChangeHistoryRecord,
+)
 from gafaelfawr.models.token import AdminTokenRequest, TokenData, TokenUserInfo
 from gafaelfawr.schema import TokenChangeHistory
 
@@ -27,7 +30,7 @@ from ..support.cookies import set_session_cookie
 from ..support.tokens import create_session_token
 
 
-async def build_history(factory: Factory) -> list[TokenChangeHistoryEntry]:
+async def build_history(factory: Factory) -> list[TokenChangeHistoryRecord]:
     """Perform a bunch of token manipulations and return the history entries.
 
     Assume that all token manipulations generate the correct history entries,
@@ -166,7 +169,7 @@ def entry_to_dict(entry: TokenChangeHistoryEntry) -> dict[str, Any]:
 async def check_history_request(
     client: AsyncClient,
     query: dict[str, str | int],
-    history: list[TokenChangeHistoryEntry],
+    history: Sequence[TokenChangeHistoryEntry],
     selector: Callable[[TokenChangeHistoryEntry], bool],
     *,
     username: str | None = None,
@@ -190,7 +193,7 @@ async def check_history_request(
 
 async def check_pagination(
     client: AsyncClient,
-    history: list[TokenChangeHistoryEntry],
+    history: Sequence[TokenChangeHistoryEntry],
     *,
     username: str | None = None,
 ) -> None:

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from safir.database import PaginatedQueryRunner, datetime_to_db
+from safir.database import (
+    CountedPaginatedList,
+    CountedPaginatedQueryRunner,
+    datetime_to_db,
+)
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.sql import Select, text
@@ -12,7 +16,6 @@ from sqlalchemy.sql import Select, text
 from ..models.enums import TokenType
 from ..models.history import (
     AdminHistoryEntry,
-    PaginatedHistory,
     TokenChangeHistoryCursor,
     TokenChangeHistoryEntry,
     TokenChangeHistoryRecord,
@@ -58,7 +61,7 @@ class TokenChangeHistoryStore:
 
     def __init__(self, session: async_scoped_session) -> None:
         self._session = session
-        self._paginated_runner = PaginatedQueryRunner(
+        self._paginated_runner = CountedPaginatedQueryRunner(
             TokenChangeHistoryRecord, TokenChangeHistoryCursor
         )
 
@@ -110,7 +113,9 @@ class TokenChangeHistoryStore:
         token: str | None = None,
         token_type: TokenType | None = None,
         ip_or_cidr: str | None = None,
-    ) -> PaginatedHistory[TokenChangeHistoryRecord]:
+    ) -> CountedPaginatedList[
+        TokenChangeHistoryRecord, TokenChangeHistoryCursor
+    ]:
         """Return all changes to a specific token.
 
         Parameters
@@ -142,7 +147,7 @@ class TokenChangeHistoryStore:
 
         Returns
         -------
-        PaginatedHistory of TokenChangeHistoryEntry
+        safir.database.CountedPaginatedList of TokenChangeHistoryEntry
             List of change history entries, which may be empty.
         """
         stmt = select(TokenChangeHistory)
@@ -171,15 +176,8 @@ class TokenChangeHistoryStore:
             stmt = self._apply_ip_or_cidr_filter(stmt, ip_or_cidr)
 
         # Perform the paginated query.
-        result = await self._paginated_runner.query_object(
+        return await self._paginated_runner.query_object(
             self._session, stmt, cursor=cursor, limit=limit
-        )
-        count = await self._paginated_runner.query_count(self._session, stmt)
-        return PaginatedHistory[TokenChangeHistoryRecord](
-            entries=result.entries,
-            next_cursor=result.next_cursor,
-            prev_cursor=result.prev_cursor,
-            count=count,
         )
 
     def _apply_ip_or_cidr_filter(

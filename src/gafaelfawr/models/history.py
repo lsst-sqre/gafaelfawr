@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime  # noqa: F401: needed for docs
-from typing import Any, Generic, Self, TypeVar
+from typing import Any, Self, TypeVar
 
 from pydantic import BaseModel, Field
-from safir.database import DatetimeIdCursor, PaginatedList, PaginationCursor
+from safir.database import DatetimeIdCursor, PaginationCursor
 from safir.datetime import current_datetime
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -27,7 +27,6 @@ E = TypeVar("E", bound="BaseModel")
 __all__ = [
     "AdminHistoryEntry",
     "E",
-    "PaginatedHistory",
     "TokenChangeHistoryCursor",
     "TokenChangeHistoryEntry",
     "TokenChangeHistoryRecord",
@@ -254,14 +253,6 @@ class TokenChangeHistoryRecord(TokenChangeHistoryEntry):
         description="Database unique row ID, not included in the API",
         exclude=True,
     )
-
-
-@dataclass
-class PaginatedHistory(PaginatedList, Generic[E]):
-    """A paginated list of history entries, including total count."""
-
-    count: int | None = None
-    """Total count of entries."""
 
 
 @dataclass

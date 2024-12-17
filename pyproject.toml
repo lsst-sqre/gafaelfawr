@@ -21,18 +21,13 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    # FastAPI including some optional features
-    "fastapi>=0.100",
-    "python-multipart",
-    "starlette",
-    "uvicorn[standard]",
-    # Other dependencies
     "alembic[tz]",
     "asyncpg",
     "bonsai>=1.5.0",
     "cachetools",
     "click>8.1.4",
     "cryptography",
+    "fastapi>=0.100",
     "google-cloud-firestore",
     "httpx",
     "kopf",
@@ -40,13 +35,16 @@ dependencies = [
     "jinja2",
     "pydantic>=2.10",
     "pydantic-settings!=2.6.0",
+    "python-multipart",
     "pyjwt",
     "pyyaml",
     "redis>=4.2.0",
-    "safir[db,kubernetes]>=8.0.0",
+    "safir[db,kubernetes]>=9.1.0",
     "sentry-sdk[fastapi]",
     "sqlalchemy>=2.0.0",
+    "starlette",
     "structlog",
+    "uvicorn[standard]",
 ]
 dynamic = ["version"]
 
