@@ -10,6 +10,7 @@ import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
 from safir.datetime import current_datetime
+from safir.metrics import MockEventPublisher
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
@@ -1754,6 +1755,17 @@ async def test_audit(factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_state_metrics(config: Config, factory: Factory) -> None:
     token_service = factory.create_token_service()
+    event_manager = config.metrics.make_manager()
+    await event_manager.initialize()
+    events = StateEvents()
+    await events.initialize(event_manager)
+    await token_service.gather_state_metrics(events)
+
+    assert isinstance(events.active_user_sessions, MockEventPublisher)
+    events.active_user_sessions.published.assert_published_all([{"count": 0}])
+    assert isinstance(events.active_user_tokens, MockEventPublisher)
+    events.active_user_tokens.published.assert_published_all([{"count": 0}])
+
     await create_session_token(factory, username="someone")
     await create_session_token(factory, username="someone")
     token_data = await create_session_token(factory, username="other")
@@ -1765,9 +1777,16 @@ async def test_state_metrics(config: Config, factory: Factory) -> None:
         ip_address="127.0.0.1",
     )
 
+    await event_manager.aclose()
     event_manager = config.metrics.make_manager()
     await event_manager.initialize()
     events = StateEvents()
     await events.initialize(event_manager)
     await token_service.gather_state_metrics(events)
+
+    assert isinstance(events.active_user_sessions, MockEventPublisher)
+    events.active_user_sessions.published.assert_published_all([{"count": 2}])
+    assert isinstance(events.active_user_tokens, MockEventPublisher)
+    events.active_user_tokens.published.assert_published_all([{"count": 1}])
+
     await event_manager.aclose()

@@ -8,9 +8,11 @@ from urllib.parse import parse_qs, urljoin, urlparse
 import pytest
 import respx
 from httpx import AsyncClient, ConnectError
+from safir.metrics import MockEventPublisher
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.constants import GID_MIN, UID_USER_MIN
+from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.userinfo import Group, UserInfo
 
@@ -1008,6 +1010,18 @@ async def test_enrollment_url(
     )
     assert r.status_code == 307
     assert r.headers["Cache-Control"] == "no-cache, no-store"
+
+    # Check that the correct metrics events were logged.
+    events = context_dependency._events
+    assert events
+    assert isinstance(events.login_attempt, MockEventPublisher)
+    events.login_attempt.published.assert_published_all([{}])
+    assert isinstance(events.login_success, MockEventPublisher)
+    events.login_success.published.assert_published_all([])
+    assert isinstance(events.login_enrollment, MockEventPublisher)
+    events.login_enrollment.published.assert_published_all([{}])
+    assert isinstance(events.login_failure, MockEventPublisher)
+    events.login_failure.published.assert_published_all([])
 
 
 @pytest.mark.asyncio

@@ -10,11 +10,13 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 import respx
 from httpx import AsyncClient, Response
+from safir.metrics import NOT_NONE, MockEventPublisher
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
 from gafaelfawr.models.state import State
@@ -199,6 +201,20 @@ async def test_login(
             {"name": "other-org-team-with-very--F279yg", "id": 1002},
         ],
     }
+
+    # Check that the correct metrics events were logged.
+    events = context_dependency._events
+    assert events
+    assert isinstance(events.login_attempt, MockEventPublisher)
+    events.login_attempt.published.assert_published_all([{}])
+    assert isinstance(events.login_success, MockEventPublisher)
+    events.login_success.published.assert_published_all(
+        [{"username": "githubuser", "elapsed": NOT_NONE}]
+    )
+    assert isinstance(events.login_enrollment, MockEventPublisher)
+    events.login_enrollment.published.assert_published_all([])
+    assert isinstance(events.login_failure, MockEventPublisher)
+    events.login_failure.published.assert_published_all([])
 
 
 @pytest.mark.asyncio
@@ -519,6 +535,18 @@ async def test_no_valid_groups(
 
     # None of these errors should have resulted in Slack alerts.
     assert mock_slack.messages == []
+
+    # Check that the correct metrics events were logged.
+    events = context_dependency._events
+    assert events
+    assert isinstance(events.login_attempt, MockEventPublisher)
+    events.login_attempt.published.assert_published_all([{}])
+    assert isinstance(events.login_success, MockEventPublisher)
+    events.login_success.published.assert_published_all([])
+    assert isinstance(events.login_enrollment, MockEventPublisher)
+    events.login_enrollment.published.assert_published_all([])
+    assert isinstance(events.login_failure, MockEventPublisher)
+    events.login_failure.published.assert_published_all([{}])
 
 
 @pytest.mark.asyncio

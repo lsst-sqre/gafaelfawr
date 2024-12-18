@@ -1520,9 +1520,9 @@ safir==9.1.0 \
     --hash=sha256:38718de0d2e5f9623eddc511700a15fb56fee88da7bba0e1210dc831276aa9aa \
     --hash=sha256:630b2e59ae87edab25fb2c3d5ccd6ca156c0d525eb543624532bbf4fd3c85536
     # via gafaelfawr (pyproject.toml)
-safir-logging==9.0.1 \
-    --hash=sha256:775ab8b2c1a62fe5779f8d4504797df7affb5dbebc70fcad00307cda419d637e \
-    --hash=sha256:e5dfdfbdafb0a60dd2b8cdd63f8171cb703830cd5d433d60c27028cc9a4044f1
+safir-logging==9.1.0 \
+    --hash=sha256:614cf63ec2f54dec640df8da9ece69d8e5fb43b19f98a943430ceefac7b2f267 \
+    --hash=sha256:c486c4406ed9ffc41e3ff977ac8938cb89cd57ba7f20436a03f9b336bf0008e0
     # via safir
 sentry-sdk==2.19.2 \
     --hash=sha256:467df6e126ba242d39952375dd816fbee0f217d119bf454a8ce74cf1e7909e8d \
