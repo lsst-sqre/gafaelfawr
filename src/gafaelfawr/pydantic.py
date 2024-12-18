@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from ipaddress import IPv4Address, IPv6Address
-from typing import Annotated, TypeAlias
+from typing import Annotated
 
 from pydantic import BeforeValidator, PlainSerializer, PlainValidator
 from safir.pydantic import UtcDatetime
@@ -38,7 +38,7 @@ def _normalize_ip_address(v: str | IPv4Address | IPv6Address) -> str:
         return v
 
 
-IpAddress: TypeAlias = Annotated[str, BeforeValidator(_normalize_ip_address)]
+type IpAddress = Annotated[str, BeforeValidator(_normalize_ip_address)]
 """Type for an IP address.
 
 Used instead of ``pydantic.networks.IPvAnyAddress`` because most of Gafaelfawr
@@ -70,7 +70,7 @@ def _normalize_scopes(v: str | Iterable[str]) -> set[str]:
         return set(v)
 
 
-Scopes: TypeAlias = Annotated[
+type Scopes = Annotated[
     set[str],
     PlainValidator(_normalize_scopes),
     PlainSerializer(
@@ -83,7 +83,7 @@ The scopes will be forced to sorted order on serialization.
 """
 
 
-Timestamp: TypeAlias = Annotated[
+type Timestamp = Annotated[
     UtcDatetime,
     PlainSerializer(lambda t: int(t.timestamp()), return_type=int),
 ]
