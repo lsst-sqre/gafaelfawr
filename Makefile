@@ -16,7 +16,7 @@ init:
 	rm -rf .tox
 	uv pip install --upgrade pre-commit
 	pre-commit install
-	cd ui && npm install --legacy-peer-deps
+	cd ui && npm install --force
 
 # This is defined as a Makefile target instead of only a tox command because
 # if the command fails we want to cat output.txt, which contains the

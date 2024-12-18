@@ -57,7 +57,7 @@ jobs:
       # --legacy-peer-deps is currently required because react-aria-modal
       # hasn't been updated for the latest React.
       - name: Install Node dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci --force
         if: steps.node-cache.outputs.cache-hit != 'true'
         working-directory: ./ui
 
