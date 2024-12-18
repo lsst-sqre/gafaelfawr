@@ -1,22 +1,16 @@
 """State cookie management."""
 
-from __future__ import annotations
-
 import copy
 from abc import ABCMeta, abstractmethod
 from collections.abc import Awaitable, Callable
-from typing import Generic, Self, TypeVar
+from typing import Self
 
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-T = TypeVar("T", bound="BaseState")
-"""Type of data stored in the state cookie."""
-
 __all__ = [
     "BaseState",
     "StateMiddleware",
-    "T",
 ]
 
 
@@ -58,7 +52,7 @@ class BaseState(metaclass=ABCMeta):
         """
 
 
-class StateMiddleware(BaseHTTPMiddleware, Generic[T]):
+class StateMiddleware[T: BaseState](BaseHTTPMiddleware):
     """Middleware to read and update an encrypted state cookie.
 
     If a cookie by the given name exists, it will be parsed by the given class

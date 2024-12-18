@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime  # noqa: F401: needed for docs
-from typing import Any, Self, TypeVar
+from typing import Any, Self
 
 from pydantic import BaseModel, Field
-from safir.database import DatetimeIdCursor, PaginationCursor
+from safir.database import DatetimeIdCursor
 from safir.datetime import current_datetime
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -15,18 +15,8 @@ from ..pydantic import IpAddress, Scopes, Timestamp
 from ..schema import TokenChangeHistory
 from .enums import AdminChange, TokenChange, TokenType
 
-# Not used directly but needed to prevent documentation build errors because
-# Sphinx cannot understand that this inherited type variable is defined in
-# Safir.
-C = TypeVar("C", bound="PaginationCursor")
-"""Type of a cursor for a paginated list."""
-
-E = TypeVar("E", bound="BaseModel")
-"""Type of a history entry in a paginated list."""
-
 __all__ = [
     "AdminHistoryEntry",
-    "E",
     "TokenChangeHistoryCursor",
     "TokenChangeHistoryEntry",
     "TokenChangeHistoryRecord",

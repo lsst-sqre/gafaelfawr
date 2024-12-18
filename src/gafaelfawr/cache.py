@@ -10,12 +10,10 @@ only intended for use via their service layer
 `~gafaelfawr.services.firestore.FirestoreService`).
 """
 
-from __future__ import annotations
-
 import asyncio
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Generic, Literal, TypeVar, override
+from typing import Literal, override
 
 from cachetools import LRUCache, TTLCache
 
@@ -27,9 +25,6 @@ from .constants import (
 )
 from .models.token import Token, TokenData
 
-S = TypeVar("S")
-"""Type of content stored in a cache."""
-
 _LRUTokenCache = LRUCache[tuple[str, ...], Token]
 """Type for the underlying token cache."""
 
@@ -40,7 +35,6 @@ __all__ = [
     "LDAPCache",
     "NotebookTokenCache",
     "PerUserCache",
-    "S",
     "TokenCache",
     "UserLockManager",
 ]
@@ -258,7 +252,7 @@ class PerUserCache(BaseCache):
             return UserLockManager(self._lock, self._user_locks[username])
 
 
-class LDAPCache(PerUserCache, Generic[S]):
+class LDAPCache[S](PerUserCache):
     """A cache of LDAP data.
 
     Parameters
