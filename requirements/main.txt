@@ -1622,7 +1622,6 @@ typing-extensions==4.12.2 \
     # via
     #   aiokafka
     #   alembic
-    #   anyio
     #   dataclasses-avroschema
     #   fastapi
     #   faststream

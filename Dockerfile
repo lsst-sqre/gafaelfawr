@@ -12,7 +12,7 @@
 #   - Runs as a non-root user.
 #   - Sets up the entrypoint and port.
 
-FROM python:3.12.8-slim-bookworm AS base-image
+FROM python:3.13.1-slim-bookworm AS base-image
 
 # Update system packages
 COPY scripts/install-base-packages.sh .
@@ -21,7 +21,7 @@ RUN ./install-base-packages.sh && rm ./install-base-packages.sh
 FROM base-image AS install-image
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.5.8 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.5.10 /uv /bin/uv
 
 # Determine the Node version that we want to install
 COPY .nvmrc /opt/.nvmrc
