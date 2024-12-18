@@ -74,6 +74,10 @@ nitpick_ignore = [
     # the combination of Sphinx extensions we're using confuse themselves and
     # there doesn't seem to be any way to fix this.
     ["py:class", "asyncio.locks.Lock"],
+    # Pydantic FilePath types create a reference to Path that is unresolved
+    # unless Path is imported locally, but the import is removed because the
+    # symbol isn't referenced.
+    ["py:class", "pathlib._local.Path"],
     # Cannot be represented by intersphinx.
     ["py:obj", "safir.pydantic._validators.validate_exactly_one_of.<locals>.validator"],
 ]
