@@ -7,6 +7,7 @@ import re
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 
+from safir.database import CountedPaginatedList
 from safir.datetime import current_datetime, format_datetime_for_logging
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
@@ -30,7 +31,6 @@ from ..exceptions import (
 )
 from ..models.enums import TokenChange, TokenType
 from ..models.history import (
-    PaginatedHistory,
     TokenChangeHistoryCursor,
     TokenChangeHistoryEntry,
     TokenChangeHistoryRecord,
@@ -668,7 +668,9 @@ class TokenService:
         token: str | None = None,
         token_type: TokenType | None = None,
         ip_or_cidr: str | None = None,
-    ) -> PaginatedHistory[TokenChangeHistoryRecord]:
+    ) -> CountedPaginatedList[
+        TokenChangeHistoryRecord, TokenChangeHistoryCursor
+    ]:
         """Retrieve the change history of a token.
 
         Parameters
@@ -701,7 +703,7 @@ class TokenService:
 
         Returns
         -------
-        PaginatedHistory
+        safir.database.CountedPaginatedList of TokenChangeHistoryEntry
             A list of changes matching the search criteria.
 
         Raises
