@@ -5,7 +5,6 @@ from __future__ import annotations
 from base64 import b64encode
 from collections.abc import Callable, Coroutine
 from functools import wraps
-from typing import ParamSpec, TypeVar
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
@@ -27,16 +26,13 @@ from ..models.kubernetes import (
 )
 from ..models.token import Token
 
-T = TypeVar("T")
-P = ParamSpec("P")
-
 __all__ = [
     "KubernetesIngressStorage",
     "KubernetesTokenStorage",
 ]
 
 
-def _convert_exception(
+def _convert_exception[**P, T](
     f: Callable[P, Coroutine[None, None, T]],
 ) -> Callable[P, Coroutine[None, None, T]]:
     """Convert Kubernetes ApiException to KubernetesError."""
