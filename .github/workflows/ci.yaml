@@ -54,8 +54,8 @@ jobs:
           path: ./ui/node_modules
           key: node-${{ steps.node_version.outputs.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
 
-      # --legacy-peer-deps is currently required because react-aria-modal
-      # hasn't been updated for the latest React.
+      # --force is currently required because react-aria-modal hasn't been
+      # updated for the latest React.
       - name: Install Node dependencies
         run: npm ci --force
         if: steps.node-cache.outputs.cache-hit != 'true'
