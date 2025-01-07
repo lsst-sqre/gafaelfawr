@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, Self, override
 
 import kopf
 from fastapi import status
+from google.api_core.exceptions import GoogleAPICallError
 from pydantic import ValidationError
 from safir.fastapi import ClientRequestError
 from safir.models import ErrorLocation
-from safir.slack.blockkit import SlackException, SlackWebException
+from safir.slack.blockkit import (
+    SlackCodeBlock,
+    SlackException,
+    SlackMessage,
+    SlackTextBlock,
+    SlackWebException,
+)
 
 __all__ = [
     "DatabaseSchemaError",
@@ -341,6 +348,52 @@ class ExternalUserInfoError(SlackException):
 
 class FirestoreError(ExternalUserInfoError):
     """An error occurred while reading or updating Firestore data."""
+
+
+class FirestoreAPIError(FirestoreError):
+    """A Google API error occurred while talking to Firestore."""
+
+    @classmethod
+    def from_exception(cls, exc: GoogleAPICallError) -> Self:
+        """Create an exception from a Google API failure exception.
+
+        Parameters
+        ----------
+        exc
+            Underlying Google API exception.
+
+        Returns
+        -------
+        FirestoreAPIError
+            Corresponding wrapped exception.
+        """
+        msg = f"Firestore API call failed (status {exc.code!s}): {exc!s}"
+        return cls(msg, errors=[str(e) for e in exc.errors], reason=exc.reason)
+
+    def __init__(
+        self, message: str, *, errors: list[str], reason: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self._errors = errors
+        self._reason = reason
+
+    @override
+    def to_slack(self) -> SlackMessage:
+        """Format the exception for Slack reporting.
+
+        Returns
+        -------
+        SlackMessage
+            Message suitable for sending to Slack.
+        """
+        result = super().to_slack()
+        if self._reason:
+            block = SlackTextBlock(heading="Reason", text=self._reason)
+            result.blocks.append(block)
+        if self._errors:
+            errors = "\n".join(self._errors)
+            result.blocks.append(SlackCodeBlock(heading="Errors", code=errors))
+        return result
 
 
 class FirestoreNotInitializedError(FirestoreError):
