@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
+from functools import wraps
+
 import sentry_sdk
+from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import firestore
 from structlog.stdlib import BoundLogger
 
@@ -14,6 +18,7 @@ from ..constants import (
     UID_USER_MIN,
 )
 from ..exceptions import (
+    FirestoreAPIError,
     FirestoreNotInitializedError,
     NoAvailableGidError,
     NoAvailableUidError,
@@ -27,6 +32,21 @@ _INITIAL_COUNTERS = {
 """Initial values for Firestore ID allocation counters."""
 
 __all__ = ["FirestoreStorage"]
+
+
+def _convert_exception[**P, T](
+    f: Callable[P, Coroutine[None, None, T]],
+) -> Callable[P, Coroutine[None, None, T]]:
+    """Convert Firestore API exceptions to `FirestoreAPIError`."""
+
+    @wraps(f)
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        try:
+            return await f(*args, **kwargs)
+        except GoogleAPICallError as e:
+            raise FirestoreAPIError.from_exception(e) from e
+
+    return wrapper
 
 
 class FirestoreStorage:
@@ -55,6 +75,7 @@ class FirestoreStorage:
         self._logger = logger
 
     @sentry_sdk.trace
+    @_convert_exception
     async def get_gid(self, group: str) -> int:
         """Get the GID for a group.
 
@@ -90,6 +111,7 @@ class FirestoreStorage:
         )
 
     @sentry_sdk.trace
+    @_convert_exception
     async def get_uid(self, username: str, *, bot: bool = False) -> int:
         """Get the UID for a user.
 
@@ -112,6 +134,8 @@ class FirestoreStorage:
 
         Raises
         ------
+        FirestoreError
+            Raised if some error occurs talking to Firestore.
         FirestoreNotInitializedError
             Raised if Firestore has not been initialized.
         NoAvailableUidError
@@ -130,11 +154,17 @@ class FirestoreStorage:
             logger=self._logger,
         )
 
+    @_convert_exception
     async def initialize(self) -> None:
         """Initialize a Firestore document store for UID/GID assignment.
 
         This is safe to call on an already-initialized document store and will
         silently do nothing.
+
+        Raises
+        ------
+        FirestoreError
+            Raised if some error occurs talking to Firestore.
         """
         counter_refs = {
             n: self._client.collection("counters").document(n)
