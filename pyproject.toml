@@ -2,12 +2,9 @@
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 name = "gafaelfawr"
 description = "Token-based authentication and authorization system"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 readme = "README.md"
-keywords = [
-    "rubin",
-    "lsst",
-]
+keywords = ["rubin", "lsst"]
 # https://pypi.org/classifiers/
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -28,6 +25,7 @@ dependencies = [
     "click>8.1.4",
     "cryptography",
     "fastapi>=0.100",
+    "google-api-core",
     "google-cloud-firestore",
     "httpx",
     "kopf",
@@ -59,10 +57,7 @@ Source = "https://github.com/lsst-sqre/gafaelfawr"
 "Issue tracker" = "https://github.com/lsst-sqre/gafaelfawr/issues"
 
 [build-system]
-requires = [
-    "setuptools>=61",
-    "setuptools_scm[toml]>=6.2",
-]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 
 [project.scripts]
 gafaelfawr = "gafaelfawr.cli:main"
@@ -90,7 +85,7 @@ exclude_lines = [
     "raise NotImplementedError",
     "if 0:",
     "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:"
+    "if TYPE_CHECKING:",
 ]
 
 [tool.mypy]
@@ -99,10 +94,7 @@ disallow_incomplete_defs = true
 ignore_missing_imports = true
 local_partial_types = true
 no_implicit_reexport = true
-plugins = [
-    "pydantic.mypy",
-    "sqlalchemy.ext.mypy.plugin",
-]
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 show_error_codes = true
 strict_equality = true
 warn_redundant_casts = true
@@ -135,10 +127,7 @@ filterwarnings = [
 # enables magical assert processing (showing a full diff on assert failures
 # with complex data structures rather than only the assert message) in files
 # listed in python_files.
-python_files = [
-    "tests/*.py",
-    "tests/*/*.py"
-]
+python_files = ["tests/*.py", "tests/*/*.py"]
 
 # Use the generic Ruff configuration in ruff.toml and extend it with only
 # project-specific settings.

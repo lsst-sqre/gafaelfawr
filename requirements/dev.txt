@@ -1093,9 +1093,9 @@ pytest==8.3.4 \
     #   pytest-asyncio
     #   pytest-cov
     #   pytest-sugar
-pytest-asyncio==0.25.1 \
-    --hash=sha256:79be8a72384b0c917677e00daa711e07db15259f4d23203c59012bcd989d4aee \
-    --hash=sha256:c84878849ec63ff2ca509423616e071ef9cd8cc93c053aa33b5b8fb70a990671
+pytest-asyncio==0.25.2 \
+    --hash=sha256:0d0bb693f7b99da304a0634afc0a4b19e49d5e0de2d670f38dc4bfa5727c5075 \
+    --hash=sha256:3f8ef9a98f45948ea91a0ed3dc4268b5326c0e7bce73892acc654df4262ad45f
     # via -r requirements/dev.in
 pytest-cov==6.0.0 \
     --hash=sha256:eee6f1b9e61008bd34975a4d5bab25801eb31898b032dd55addc93e96fcaaa35 \

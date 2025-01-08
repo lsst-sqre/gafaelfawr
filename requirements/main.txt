@@ -508,9 +508,9 @@ fastavro==1.10.0 \
     # via
     #   dataclasses-avroschema
     #   python-schema-registry-client
-faststream==0.5.33 \
-    --hash=sha256:24b3b48dff4195c63141864fae24608c4e3e08c9172faccc74b0c46d6d88f665 \
-    --hash=sha256:d40761c9f5db9b2cee69748832c4ead20d61805c439d3fbe3107fe4c9a066b2d
+faststream==0.5.34 \
+    --hash=sha256:84615968c5768ebaa89b72ae66b53e5302c08e7d18b341ef5193e54cb6ba8623 \
+    --hash=sha256:aa7f61d6968a68f13ebf755cce9e8bf11b00717c28b2ef66e896b5d652a6c6a2
     # via safir
 frozenlist==1.5.0 \
     --hash=sha256:000a77d6034fbad9b6bb880f7ec073027908f1b40254b5d6f26210d2dab1240e \
@@ -616,6 +616,7 @@ google-api-core==2.24.0 \
     --hash=sha256:10d82ac0fca69c82a25b3efdeefccf6f28e02ebb97925a8cce8edbfe379929d9 \
     --hash=sha256:e255640547a597a4da010876d333208ddac417d60add22b6851a0c66a831fcaf
     # via
+    #   gafaelfawr (pyproject.toml)
     #   google-cloud-core
     #   google-cloud-firestore
 google-auth==2.37.0 \
