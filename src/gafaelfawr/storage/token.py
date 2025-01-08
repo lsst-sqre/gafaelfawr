@@ -15,7 +15,7 @@ from structlog.stdlib import BoundLogger
 from ..exceptions import DuplicateTokenNameError
 from ..models.enums import TokenType
 from ..models.token import Token, TokenData, TokenInfo
-from ..schema.subtoken import Subtoken
+from ..schema.subtoken import Subtoken as SQLSubtoken
 from ..schema.token import Token as SQLToken
 
 __all__ = ["TokenDatabaseStore", "TokenRedisStore"]
@@ -79,7 +79,7 @@ class TokenDatabaseStore:
         self._session.add(new)
         await self._session.flush()
         if parent:
-            subtoken = Subtoken(parent=parent, child=data.token.key)
+            subtoken = SQLSubtoken(parent=parent, child=data.token.key)
             self._session.add(subtoken)
 
     async def count_unique_sessions(self) -> int:
@@ -152,9 +152,11 @@ class TokenDatabaseStore:
         # round trips.
         deleted = []
         stmt = (
-            select(SQLToken, Subtoken.parent)
+            select(SQLToken, SQLSubtoken.parent)
             .where(SQLToken.expires <= now)
-            .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
+            .join(
+                SQLSubtoken, SQLSubtoken.child == SQLToken.token, isouter=True
+            )
         )
         tokens = await self._session.execute(stmt)
         for token, parent in tokens.all():
@@ -192,7 +194,9 @@ class TokenDatabaseStore:
         all_children: list[str] = []
         parents = [key]
         while parents:
-            stmt = select(Subtoken.child).where(Subtoken.parent.in_(parents))
+            stmt = select(SQLSubtoken.child).where(
+                SQLSubtoken.parent.in_(parents)
+            )
             result = await self._session.scalars(stmt)
             children = result.all()
             all_children.extend(children)
@@ -219,9 +223,11 @@ class TokenDatabaseStore:
         # does only one database query without fancy ORM mappings at the cost
         # of some irritating mangling of the return value.
         stmt = (
-            select(SQLToken, Subtoken.parent)
+            select(SQLToken, SQLSubtoken.parent)
             .where(SQLToken.token == key)
-            .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
+            .join(
+                SQLSubtoken, SQLSubtoken.child == SQLToken.token, isouter=True
+            )
         )
         result = (await self._session.execute(stmt)).one_or_none()
         if not result:
@@ -258,9 +264,9 @@ class TokenDatabaseStore:
             properties, or `None` if none exist.
         """
         stmt = (
-            select(Subtoken.child)
-            .where(Subtoken.parent == token_data.token.key)
-            .join(SQLToken, Subtoken.child == SQLToken.token)
+            select(SQLSubtoken.child)
+            .where(SQLSubtoken.parent == token_data.token.key)
+            .join(SQLToken, SQLSubtoken.child == SQLToken.token)
             .where(
                 SQLToken.token_type == TokenType.internal,
                 SQLToken.service == service,
@@ -290,9 +296,9 @@ class TokenDatabaseStore:
             exist.
         """
         stmt = (
-            select(Subtoken.child)
-            .where(Subtoken.parent == token_data.token.key)
-            .join(SQLToken, Subtoken.child == SQLToken.token)
+            select(SQLSubtoken.child)
+            .where(SQLSubtoken.parent == token_data.token.key)
+            .join(SQLToken, SQLSubtoken.child == SQLToken.token)
             .where(
                 SQLToken.token_type == TokenType.notebook,
                 SQLToken.expires >= datetime_to_db(min_expires),
@@ -355,8 +361,8 @@ class TokenDatabaseStore:
         """
         stmt = (
             select(SQLToken)
-            .join(Subtoken, Subtoken.child == SQLToken.token)
-            .where(Subtoken.parent.is_(None))
+            .join(SQLSubtoken, SQLSubtoken.child == SQLToken.token)
+            .where(SQLSubtoken.parent.is_(None))
         )
         result = await self._session.scalars(stmt)
         return [
@@ -376,8 +382,10 @@ class TokenDatabaseStore:
             Information about the tokens.
         """
         stmt = (
-            select(SQLToken, Subtoken.parent)
-            .join(Subtoken, Subtoken.child == SQLToken.token, isouter=True)
+            select(SQLToken, SQLSubtoken.parent)
+            .join(
+                SQLSubtoken, SQLSubtoken.child == SQLToken.token, isouter=True
+            )
             .order_by(
                 SQLToken.last_used.desc(),
                 SQLToken.created.desc(),
