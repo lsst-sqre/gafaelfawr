@@ -12,7 +12,7 @@ from safir.datetime import current_datetime
 from sqlalchemy.orm import InstrumentedAttribute
 
 from ..pydantic import IpAddress, Scopes, Timestamp
-from ..schema import TokenChangeHistory
+from ..schema import TokenChangeHistory as SQLTokenChangeHistory
 from .enums import AdminChange, TokenChange, TokenType
 
 __all__ = [
@@ -251,11 +251,11 @@ class TokenChangeHistoryCursor(DatetimeIdCursor[TokenChangeHistoryRecord]):
 
     @staticmethod
     def id_column() -> InstrumentedAttribute:
-        return TokenChangeHistory.id
+        return SQLTokenChangeHistory.id
 
     @staticmethod
     def time_column() -> InstrumentedAttribute:
-        return TokenChangeHistory.event_time
+        return SQLTokenChangeHistory.event_time
 
     @classmethod
     def from_entry(

@@ -20,7 +20,8 @@ from ..models.history import (
     TokenChangeHistoryEntry,
     TokenChangeHistoryRecord,
 )
-from ..schema import AdminHistory, TokenChangeHistory
+from ..schema import AdminHistory as SQLAdminHistory
+from ..schema import TokenChangeHistory as SQLTokenChangeHistory
 
 __all__ = ["AdminHistoryStore", "TokenChangeHistoryStore"]
 
@@ -45,7 +46,7 @@ class AdminHistoryStore:
         entry
             The change to record.
         """
-        new = AdminHistory(**entry.model_dump())
+        new = SQLAdminHistory(**entry.model_dump())
         new.event_time = datetime_to_db(entry.event_time)
         self._session.add(new)
 
@@ -81,7 +82,7 @@ class TokenChangeHistoryStore:
         if entry.old_scopes is not None:
             entry_dict["old_scopes"] = ",".join(sorted(entry.old_scopes))
 
-        new = TokenChangeHistory(**entry_dict)
+        new = SQLTokenChangeHistory(**entry_dict)
         new.expires = datetime_to_db(entry.expires)
         new.old_expires = datetime_to_db(entry.old_expires)
         new.event_time = datetime_to_db(entry.event_time)
@@ -95,8 +96,8 @@ class TokenChangeHistoryStore:
         older_than
             Delete entries created prior to this date.
         """
-        stmt = delete(TokenChangeHistory).where(
-            TokenChangeHistory.event_time < datetime_to_db(older_than)
+        stmt = delete(SQLTokenChangeHistory).where(
+            SQLTokenChangeHistory.event_time < datetime_to_db(older_than)
         )
         await self._session.execute(stmt)
 
@@ -150,28 +151,28 @@ class TokenChangeHistoryStore:
         safir.database.CountedPaginatedList of TokenChangeHistoryEntry
             List of change history entries, which may be empty.
         """
-        stmt = select(TokenChangeHistory)
+        stmt = select(SQLTokenChangeHistory)
         if since:
             since = datetime_to_db(since)
-            stmt = stmt.where(TokenChangeHistory.event_time >= since)
+            stmt = stmt.where(SQLTokenChangeHistory.event_time >= since)
         if until:
             until = datetime_to_db(until)
-            stmt = stmt.where(TokenChangeHistory.event_time <= until)
+            stmt = stmt.where(SQLTokenChangeHistory.event_time <= until)
         if username:
-            stmt = stmt.where(TokenChangeHistory.username == username)
+            stmt = stmt.where(SQLTokenChangeHistory.username == username)
         if actor:
-            stmt = stmt.where(TokenChangeHistory.actor == actor)
+            stmt = stmt.where(SQLTokenChangeHistory.actor == actor)
         if key:
             stmt = stmt.where(
                 or_(
-                    TokenChangeHistory.token == key,
-                    TokenChangeHistory.parent == key,
+                    SQLTokenChangeHistory.token == key,
+                    SQLTokenChangeHistory.parent == key,
                 )
             )
         if token:
-            stmt = stmt.where(TokenChangeHistory.token == token)
+            stmt = stmt.where(SQLTokenChangeHistory.token == token)
         if token_type:
-            stmt = stmt.where(TokenChangeHistory.token_type == token_type)
+            stmt = stmt.where(SQLTokenChangeHistory.token_type == token_type)
         if ip_or_cidr:
             stmt = self._apply_ip_or_cidr_filter(stmt, ip_or_cidr)
 
@@ -194,4 +195,6 @@ class TokenChangeHistoryStore:
         if "/" in ip_or_cidr:
             return stmt.where(text(":c >> ip_address")).params(c=ip_or_cidr)
         else:
-            return stmt.where(TokenChangeHistory.ip_address == str(ip_or_cidr))
+            return stmt.where(
+                SQLTokenChangeHistory.ip_address == str(ip_or_cidr)
+            )
