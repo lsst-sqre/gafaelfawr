@@ -109,7 +109,7 @@ class KubernetesIngressService:
         auth_url = (
             str(self._config.base_internal_url).rstrip("/")
             + "/ingress/auth?"
-            + urlencode(ingress.config.to_auth_query())
+            + urlencode(ingress.config.to_auth_query(), safe=":/")
         )
         base_url = ingress.config.base_url or str(self._config.base_url)
         snippet_key = "nginx.ingress.kubernetes.io/configuration-snippet"
