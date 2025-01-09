@@ -372,8 +372,10 @@ class GafaelfawrIngressConfig(BaseModel):
             elif self.delegate.internal:
                 service = self.delegate.internal.service
                 query.append(("delegate_to", service))
-                scopes = ",".join(self.delegate.internal.scopes)
-                query.append(("delegate_scope", scopes))
+                query.extend(
+                    ("delegate_scope", s)
+                    for s in self.delegate.internal.scopes
+                )
             if self.delegate.minimum_lifetime:
                 minimum_lifetime = self.delegate.minimum_lifetime
                 minimum_str = str(int(minimum_lifetime.total_seconds()))
