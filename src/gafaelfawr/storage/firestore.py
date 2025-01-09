@@ -19,6 +19,7 @@ from ..constants import (
 )
 from ..exceptions import (
     FirestoreAPIError,
+    FirestoreError,
     FirestoreNotInitializedError,
     NoAvailableGidError,
     NoAvailableUidError,
@@ -94,6 +95,8 @@ class FirestoreStorage:
 
         Raises
         ------
+        FirestoreAPIError
+            Raised if some error occurs talking to Firestore.
         FirestoreNotInitializedError
             Raised if Firestore has not been initialized.
         NoAvailableGidError
@@ -102,13 +105,18 @@ class FirestoreStorage:
         transaction = self._client.transaction()
         group_ref = self._client.collection("groups").document(group)
         counter_ref = self._client.collection("counters").document("gid")
-        return await _get_or_assign_gid(
-            transaction,
-            group_name=group,
-            group_ref=group_ref,
-            counter_ref=counter_ref,
-            logger=self._logger,
-        )
+        try:
+            return await _get_or_assign_gid(
+                transaction,
+                group_name=group,
+                group_ref=group_ref,
+                counter_ref=counter_ref,
+                logger=self._logger,
+            )
+        except ValueError as e:
+            # We have seen this error occasionally, claiming that the
+            # transaction being rolled back has no transaction ID.
+            raise FirestoreError(f"{type(e).__name__}: {e!s}") from e
 
     @sentry_sdk.trace
     @_convert_exception
@@ -134,7 +142,7 @@ class FirestoreStorage:
 
         Raises
         ------
-        FirestoreError
+        FirestoreAPIError
             Raised if some error occurs talking to Firestore.
         FirestoreNotInitializedError
             Raised if Firestore has not been initialized.
@@ -145,14 +153,19 @@ class FirestoreStorage:
         user_ref = self._client.collection("users").document(username)
         counter = "bot-uid" if bot else "uid"
         counter_ref = self._client.collection("counters").document(counter)
-        return await _get_or_assign_uid(
-            transaction,
-            username=username,
-            user_ref=user_ref,
-            counter_ref=counter_ref,
-            bot=bot,
-            logger=self._logger,
-        )
+        try:
+            return await _get_or_assign_uid(
+                transaction,
+                username=username,
+                user_ref=user_ref,
+                counter_ref=counter_ref,
+                bot=bot,
+                logger=self._logger,
+            )
+        except ValueError as e:
+            # We have seen this error occasionally, claiming that the
+            # transaction being rolled back has no transaction ID.
+            raise FirestoreError(f"{type(e).__name__}: {e!s}") from e
 
     @_convert_exception
     async def initialize(self) -> None:

@@ -8,17 +8,13 @@ doc_path = "api"
 
 [project.openapi.generator]
 function = "gafaelfawr.main:create_openapi"
-keyword_args = {add_back_link = true}
+keyword_args = { add_back_link = true }
 
 [project.python]
 package = "gafaelfawr"
 
 [sphinx]
-disable_primary_sidebars = [
-    "**/index",
-    "changelog",
-    "dev/internals",
-]
+disable_primary_sidebars = ["**/index", "changelog", "dev/internals"]
 extensions = [
     "sphinx_click",
     "sphinx_diagrams",
@@ -36,6 +32,7 @@ nitpick_ignore = [
     # caught documentation bugs by having Sphinx complain about a new symbol.
     ["py:class", "dataclasses_avroschema.pydantic.main.AvroBaseModel"],
     ["py:class", "dataclasses_avroschema.main.AvroModel"],
+    ["py:class", "google.api_core.exceptions.GoogleAPICallError"],
     ["py:class", "google.cloud.firestore_v1.async_client.AsyncClient"],
     ["py:class", "fastapi.applications.FastAPI"],
     ["py:class", "fastapi.datastructures.DefaultPlaceholder"],
@@ -76,13 +73,13 @@ nitpick_ignore = [
     ["py:class", "asyncio.locks.Lock"],
     # See https://github.com/sphinx-doc/sphinx/issues/13178
     ["py:class", "pathlib._local.Path"],
-    # Cannot be represented by intersphinx.
-    ["py:obj", "safir.pydantic._validators.validate_exactly_one_of.<locals>.validator"],
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
     # Bug in autodoc_pydantic.
     ["py:obj", ".*\\.all fields"],
+    # Cannot be represented by intersphinx.
+    ["py:obj", "safir\\.pydantic\\._validators\\.validate_exactly_one_of.*"],
 ]
 python_api_dir = "dev/internals"
 rst_epilog_file = "_rst_epilog.rst"

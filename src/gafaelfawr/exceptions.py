@@ -24,6 +24,7 @@ __all__ = [
     "DuplicateTokenNameError",
     "ExternalUserInfoError",
     "FetchKeysError",
+    "FirestoreAPIError",
     "FirestoreError",
     "FirestoreNotInitializedError",
     "GitHubError",
@@ -383,7 +384,7 @@ class FirestoreAPIError(FirestoreError):
 
         Returns
         -------
-        SlackMessage
+        safir.slack.blockkit.SlackMessage
             Message suitable for sending to Slack.
         """
         result = super().to_slack()
