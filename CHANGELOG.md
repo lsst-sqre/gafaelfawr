@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.3.1'></a>
+## 12.3.1 (2025-01-08)
+
+### Bug fixes
+
+- Do not escape `:` characters in the `auth-url` `Ingress` annotation. ingress-nginx 4.12.0 has added a restrictive regex filter to acceptable URLs that disallows `%` and therefore all escaped characters.
+
 <a id='changelog-12.3.0'></a>
 ## 12.3.0 (2024-12-11)
 
