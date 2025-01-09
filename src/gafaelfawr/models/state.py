@@ -7,14 +7,13 @@ holds the data that Gafaelfawr stores in a session cookie.
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass
-from datetime import UTC, datetime
-from typing import Self, override
+from typing import Annotated, Self, override
 
 from cryptography.fernet import Fernet
 from fastapi import Request
+from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer
 from safir.dependencies.logger import logger_dependency
+from safir.pydantic import UtcDatetime
 
 from ..dependencies.config import config_dependency
 from ..middleware.state import BaseState
@@ -23,27 +22,56 @@ from .token import Token
 __all__ = ["State"]
 
 
-@dataclass
-class State(BaseState):
+class State(BaseState, BaseModel):
     """State information stored in a cookie."""
 
-    csrf: str | None = None
-    """CSRF token for form submissions."""
+    csrf: Annotated[
+        str | None,
+        Field(
+            title="CSRF token", description="CSRF token for form submissions"
+        ),
+    ] = None
 
-    token: Token | None = None
-    """Token if the user is authenticated."""
+    token: Annotated[
+        Token | None,
+        BeforeValidator(
+            lambda t: Token.from_str(t) if isinstance(t, str) else t
+        ),
+        PlainSerializer(lambda t: str(t)),
+        Field(title="Token", description="Token if the user is authenticated"),
+    ] = None
 
-    github: str | None = None
-    """GitHub OAuth token if user authenticated via GitHub."""
+    github: Annotated[
+        str | None,
+        Field(
+            title="GitHub OAuth token",
+            description="GitHub OAuth token if user authenticated via GitHub",
+        ),
+    ] = None
 
-    return_url: str | None = None
-    """Destination URL after completion of login."""
+    return_url: Annotated[
+        str | None,
+        Field(
+            title="Destination after login",
+            description="Destination URL after completion of login",
+        ),
+    ] = None
 
-    state: str | None = None
-    """State token for OAuth 2.0 and OpenID Connect logins."""
+    state: Annotated[
+        str | None,
+        Field(
+            title="Login state",
+            description="State token for OAuth 2.0 and OpenID Connect logins",
+        ),
+    ] = None
 
-    login_start: datetime | None = None
-    """Start time of login process if one is in progress."""
+    login_start: Annotated[
+        UtcDatetime | None,
+        Field(
+            title="Login start time",
+            description="Start time of login process if one is in progress",
+        ),
+    ] = None
 
     @override
     @classmethod
@@ -70,14 +98,8 @@ class State(BaseState):
         config = await config_dependency()
         fernet = Fernet(config.session_secret.get_secret_value().encode())
         try:
-            data = json.loads(fernet.decrypt(cookie.encode()).decode())
-            token = None
-            if "token" in data:
-                token = Token.from_str(data["token"])
-            login_start = None
-            if "login_start" in data:
-                timestamp = data["login_start"]
-                login_start = datetime.fromtimestamp(timestamp, tz=UTC)
+            data = fernet.decrypt(cookie.encode()).decode()
+            return cls.model_validate_json(data)
         except Exception as e:
             if request:
                 logger = await logger_dependency(request)
@@ -86,15 +108,6 @@ class State(BaseState):
                     error += f": {e!s}"
                 logger.warning("Discarding invalid state cookie", error=error)
             return cls()
-
-        return cls(
-            csrf=data.get("csrf"),
-            token=token,
-            github=data.get("github"),
-            return_url=data.get("return_url"),
-            state=data.get("state"),
-            login_start=login_start,
-        )
 
     @override
     def to_cookie(self) -> str:
@@ -105,20 +118,7 @@ class State(BaseState):
         str
             The encrypted cookie value.
         """
-        data: dict[str, str | float] = {}
-        if self.csrf:
-            data["csrf"] = self.csrf
-        if self.token:
-            data["token"] = str(self.token)
-        if self.github:
-            data["github"] = self.github
-        if self.return_url:
-            data["return_url"] = self.return_url
-        if self.state:
-            data["state"] = self.state
-        if self.login_start:
-            data["login_start"] = self.login_start.timestamp()
-
         config = config_dependency.config()
         fernet = Fernet(config.session_secret.get_secret_value().encode())
-        return fernet.encrypt(json.dumps(data).encode()).decode()
+        json_data = self.model_dump_json(exclude_none=True)
+        return fernet.encrypt(json_data.encode()).decode()

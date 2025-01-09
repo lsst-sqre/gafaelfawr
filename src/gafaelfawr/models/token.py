@@ -91,16 +91,15 @@ class Token(BaseModel):
         Returns
         -------
         bool
-            Whether that string looks like a Gafaelfawr token.  The token
+            Whether that string looks like a Gafaelfawr token. The token
             isn't checked for validity, only format.
         """
-        if not token.startswith("gt-"):
+        try:
+            cls.from_str(token)
+        except InvalidTokenError:
             return False
-        trimmed_token = token[len("gt-") :]
-        if "." not in trimmed_token:
-            return False
-        key, secret = trimmed_token.split(".", 1)
-        return len(key) == 22 and len(secret) == 22
+        else:
+            return True
 
     def __str__(self) -> str:
         """Return the encoded token."""
