@@ -311,12 +311,13 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
 
     r = await client.get(
         "/ingress/auth",
-        params={
-            "scope": "exec:admin",
-            "service": "a-service",
-            "delegate_to": "a-service",
-            "delegate_scope": " read:some  ,read:all  ",
-        },
+        params=[
+            ("scope", "exec:admin"),
+            ("service", "a-service"),
+            ("delegate_to", "a-service"),
+            ("delegate_scope", "read:some"),
+            ("delegate_scope", "read:all"),
+        ],
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 200
@@ -365,11 +366,12 @@ async def test_internal(client: AsyncClient, factory: Factory) -> None:
     # Requesting a token with the same parameters returns the same token.
     r = await client.get(
         "/ingress/auth",
-        params={
-            "scope": "exec:admin",
-            "delegate_to": "a-service",
-            "delegate_scope": "read:all,read:some",
-        },
+        params=(
+            ("scope", "exec:admin"),
+            ("delegate_to", "a-service"),
+            ("delegate_scope", "read:all"),
+            ("delegate_scope", "read:some"),
+        ),
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 200
@@ -384,11 +386,12 @@ async def test_internal_scopes(client: AsyncClient, factory: Factory) -> None:
 
     r = await client.get(
         "/ingress/auth",
-        params={
-            "scope": "read:some",
-            "delegate_to": "a-service",
-            "delegate_scope": "read:all,read:some",
-        },
+        params=(
+            ("scope", "read:some"),
+            ("delegate_to", "a-service"),
+            ("delegate_scope", "read:all"),
+            ("delegate_scope", "read:some"),
+        ),
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 200

@@ -95,7 +95,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?scope=read:all&scope=read:some&delegate_to=some-service&delegate_scope=read:all%2Cread:some&auth_type=basic"
+    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?scope=read:all&scope=read:some&delegate_to=some-service&delegate_scope=read:all&delegate_scope=read:some&auth_type=basic"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       {snippet}
   creationTimestamp: {any}

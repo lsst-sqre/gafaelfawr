@@ -128,15 +128,14 @@ def auth_config(
         ),
     ] = None,
     delegate_scope: Annotated[
-        str | None,
+        list[str] | None,
         Query(
             title="Scope of delegated token",
             description=(
-                "Comma-separated list of scopes to add to the delegated token."
-                " All listed scopes are implicitly added to the scope"
-                " requirements for authorization."
+                "Scopes to add to the delegated token if present in the"
+                " token used for authentication"
             ),
-            examples=["read:all,write:all"],
+            examples=[["read:all", "write:all"]],
         ),
     ] = None,
     minimum_lifetime: Annotated[
@@ -195,7 +194,7 @@ def auth_config(
                 "If given more than once, meaning is determined by the"
                 " `satisfy` parameter"
             ),
-            examples=["read:all"],
+            examples=[["read:all"]],
         ),
     ] = None,
     service: Annotated[
@@ -263,15 +262,11 @@ def auth_config(
     if username:
         context.rebind_logger(required_user=username)
 
-    if delegate_scope:
-        delegate_scopes = {s.strip() for s in delegate_scope.split(",")}
-    else:
-        delegate_scopes = set()
     if not minimum_lifetime and (notebook or delegate_to):
         minimum_lifetime = MINIMUM_LIFETIME
     return AuthConfig(
         auth_type=auth_type,
-        delegate_scopes=delegate_scopes,
+        delegate_scopes=set(delegate_scope) if delegate_scope else set(),
         delegate_to=delegate_to,
         minimum_lifetime=minimum_lifetime,
         only_services=set(only_service) if only_service else None,
