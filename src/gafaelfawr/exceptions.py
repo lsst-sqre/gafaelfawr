@@ -302,7 +302,7 @@ class InvalidRequestError(OAuthBearerError):
     message = "Invalid request"
 
 
-class InvalidTokenError(OAuthBearerError):
+class InvalidTokenError(OAuthBearerError, ValueError):
     """The provided token was invalid.
 
     This corresponds to the ``invalid_token`` error in RFC 6750: "The access
