@@ -360,30 +360,29 @@ class GafaelfawrIngressConfig(BaseModel):
             List of query parameters corresponding to this ingress
             configuration to pass to the Gafaelfawr ``/ingress/auth`` route.
         """
-        query = [("scope", s) for s in self.scopes.scopes]
-        query.extend(("only_service", s) for s in self.only_services or [])
-        if self.service:
-            query.append(("service", self.service))
-        if self.scopes.satisfy != Satisfy.ALL:
-            query.append(("satisfy", self.scopes.satisfy.value))
+        query = []
+        if self.auth_type:
+            query.append(("auth_type", self.auth_type.value))
         if self.delegate:
             if self.delegate.notebook:
                 query.append(("notebook", "true"))
             elif self.delegate.internal:
                 service = self.delegate.internal.service
                 query.append(("delegate_to", service))
-                query.extend(
-                    ("delegate_scope", s)
-                    for s in self.delegate.internal.scopes
-                )
+                scopes = self.delegate.internal.scopes
+                query.extend(("delegate_scope", s) for s in scopes)
             if self.delegate.minimum_lifetime:
                 minimum_lifetime = self.delegate.minimum_lifetime
                 minimum_str = str(int(minimum_lifetime.total_seconds()))
                 query.append(("minimum_lifetime", minimum_str))
             if self.delegate.use_authorization:
                 query.append(("use_authorization", "true"))
-        if self.auth_type:
-            query.append(("auth_type", self.auth_type.value))
+        query.extend(("only_service", s) for s in self.only_services or [])
+        query.extend(("scope", s) for s in self.scopes.scopes)
+        if self.scopes.satisfy != Satisfy.ALL:
+            query.append(("satisfy", self.scopes.satisfy.value))
+        if self.service:
+            query.append(("service", self.service))
         if self.username:
             query.append(("username", self.username))
         return query

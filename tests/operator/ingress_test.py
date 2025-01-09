@@ -80,7 +80,7 @@ async def test_replace(
 
         expected_url = (
             "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth"
-            "?scope=read:all&service=tap&auth_type=basic"
+            "?auth_type=basic&scope=read:all&service=tap"
         )
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-url"
@@ -111,7 +111,7 @@ async def test_replace(
 
         expected_url = (
             "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth"
-            "?scope=read:all&service=tap&auth_type=bearer"
+            "?auth_type=bearer&scope=read:all&service=tap"
         )
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-url"

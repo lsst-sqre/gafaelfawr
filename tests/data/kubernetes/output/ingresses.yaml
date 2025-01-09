@@ -50,7 +50,7 @@ metadata:
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
     nginx.ingress.kubernetes.io/auth-signin: "https://foo.example.com/login"
-    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?scope=read:all&satisfy=any&notebook=true&minimum_lifetime=600"
+    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?notebook=true&minimum_lifetime=600&scope=read:all&satisfy=any"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       {snippet}
   creationTimestamp: {any}
@@ -95,7 +95,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?scope=read:all&scope=read:some&delegate_to=some-service&delegate_scope=read:all&delegate_scope=read:some&auth_type=basic"
+    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?auth_type=basic&delegate_to=some-service&delegate_scope=read:all&delegate_scope=read:some&scope=read:all&scope=read:some"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       {snippet}
   creationTimestamp: {any}
@@ -135,7 +135,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?scope=read:all&delegate_to=some-service&delegate_scope=read:all&use_authorization=true"
+    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?delegate_to=some-service&delegate_scope=read:all&use_authorization=true&scope=read:all"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       add_header "X-Foo" "bar";
       {snippet}
@@ -255,7 +255,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?scope=read:all&only_service=portal&only_service=vo-cutouts&service=uws"
+    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?only_service=portal&only_service=vo-cutouts&scope=read:all&service=uws"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       {snippet}
   creationTimestamp: {any}
