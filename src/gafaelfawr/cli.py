@@ -137,7 +137,7 @@ async def delete_all_data(*, config_path: Path | None) -> None:
     async with Factory.standalone(config, engine) as factory:
         admin_service = factory.create_admin_service()
         async with factory.session.begin():
-            stmt = text(f'TRUNCATE TABLE {", ".join(tables)}')
+            stmt = text(f"TRUNCATE TABLE {', '.join(tables)}")
             logger.info("Truncating all tables")
             await factory.session.execute(stmt)
         await admin_service.add_initial_admins(config.initial_admins)
