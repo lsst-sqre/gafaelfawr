@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.3.2'></a>
+## 12.3.2 (2025-01-09)
+
+### Bug fixes
+
+- Pass multiple delegate scopes to the `/auth` route by repeating the `delegate_scope` query parameter instead of passing a comma-separated list as a single value. ingress-nginx 4.12.0 no longer allows `%` in the `auth-url` annotation and `,` was not initially allowed, and this matches how `scope` was handled.
+
 <a id='changelog-12.3.1'></a>
 ## 12.3.1 (2025-01-08)
 

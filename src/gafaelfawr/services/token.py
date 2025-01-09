@@ -1132,7 +1132,7 @@ class TokenService:
             )
             alerts.append(
                 f"Token `{key}` for `{redis.username}` does not match"
-                f' between database and Redis ({", ".join(mismatches)})'
+                f" between database and Redis ({', '.join(mismatches)})"
             )
         if parent:
             exp = db.expires
