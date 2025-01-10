@@ -98,7 +98,7 @@ async def test_expiration(config: Config, factory: Factory) -> None:
     logger = structlog.get_logger("gafaelfawr")
     storage = EncryptedPydanticRedisStorage(
         datatype=TokenData,
-        redis=factory.redis,
+        redis=factory.persistent_redis,
         encryption_key=config.session_secret.get_secret_value(),
         key_prefix="token:",
     )

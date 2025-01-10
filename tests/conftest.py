@@ -134,7 +134,8 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     logger = structlog.get_logger(__name__)
     await initialize_gafaelfawr_database(config, logger, engine, reset=True)
     async with Factory.standalone(config, engine) as factory:
-        await factory._context.redis.flushdb()
+        await factory._context.ephemeral_redis.flushdb()
+        await factory._context.persistent_redis.flushdb()
     await stamp_database_async(engine)
 
 

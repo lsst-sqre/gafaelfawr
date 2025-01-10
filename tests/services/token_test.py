@@ -1139,7 +1139,11 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
     # Check that Redis also has an appropriate TTL.
     ttl = delta.total_seconds()
     for token in (notebook_token, internal_token, nested_token):
-        assert ttl - 5 <= await factory.redis.ttl(f"token:{token.key}") <= ttl
+        assert (
+            ttl - 5
+            <= await factory.persistent_redis.ttl(f"token:{token.key}")
+            <= ttl
+        )
 
     # Change the expiration of the user token.
     new_delta = timedelta(seconds=config.token_lifetime.total_seconds() / 2)
@@ -1165,7 +1169,11 @@ async def test_modify_expires(config: Config, factory: Factory) -> None:
     # Check that the Redis TTL has also been updated.
     ttl = new_delta.total_seconds()
     for token in (notebook_token, internal_token, nested_token):
-        assert ttl - 5 <= await factory.redis.ttl(f"token:{token.key}") <= ttl
+        assert (
+            ttl - 5
+            <= await factory.persistent_redis.ttl(f"token:{token.key}")
+            <= ttl
+        )
 
 
 @pytest.mark.asyncio
@@ -1180,13 +1188,15 @@ async def test_invalid(
     assert await token_service.get_data(token) is None
 
     # Invalid encrypted blob.
-    await factory.redis.set(f"token:{token.key}", "foo", ex=expires)
+    await factory.persistent_redis.set(f"token:{token.key}", "foo", ex=expires)
     assert await token_service.get_data(token) is None
 
     # Malformed session.
     fernet = Fernet(config.session_secret.get_secret_value().encode())
     raw_data = fernet.encrypt(b"malformed json")
-    await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
+    await factory.persistent_redis.set(
+        f"token:{token.key}", raw_data, ex=expires
+    )
     assert await token_service.get_data(token) is None
 
     # Mismatched token.
@@ -1200,7 +1210,9 @@ async def test_invalid(
         uid=12345,
     )
     session = fernet.encrypt(data.model_dump_json().encode())
-    await factory.redis.set(f"token:{token.key}", session, ex=expires)
+    await factory.persistent_redis.set(
+        f"token:{token.key}", session, ex=expires
+    )
     assert await token_service.get_data(token) is None
 
     # Missing required fields.
@@ -1215,14 +1227,18 @@ async def test_invalid(
         "name": "Some User",
     }
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
-    await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
+    await factory.persistent_redis.set(
+        f"token:{token.key}", raw_data, ex=expires
+    )
     assert await token_service.get_data(token) is None
 
     # Fix the session store and confirm we can retrieve the manually-stored
     # session.
     json_data["username"] = "example"
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
-    await factory.redis.set(f"token:{token.key}", raw_data, ex=expires)
+    await factory.persistent_redis.set(
+        f"token:{token.key}", raw_data, ex=expires
+    )
     new_data = await token_service.get_data(token)
     assert new_data == TokenData.model_validate(json_data)
 

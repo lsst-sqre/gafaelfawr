@@ -855,17 +855,28 @@ class Config(EnvFirstSettings):
         validation_alias="GAFAELFAWR_REALM",
     )
 
-    redis_url: EnvRedisDsn = Field(
+    redis_ephemeral_url: EnvRedisDsn = Field(
+        ...,
+        title="Ephemeral Redis DSN",
+        description="DSN for the Redis server that stores ephemeral data",
+        validation_alias=AliasChoices(
+            "GAFAELFAWR_REDIS_EPHEMERAL_URL", "redisEphemeralUrl"
+        ),
+    )
+
+    redis_persistent_url: EnvRedisDsn = Field(
         ...,
         title="Persistent Redis DSN",
         description="DSN for the Redis server that stores tokens",
-        validation_alias=AliasChoices("GAFAELFAWR_REDIS_URL", "redisUrl"),
+        validation_alias=AliasChoices(
+            "GAFAELFAWR_REDIS_PERSISTENT_URL", "redisPersistentUrl"
+        ),
     )
 
     redis_password: SecretStr | None = Field(
         None,
-        title="Persistent Redis password",
-        description="Password for the Redis server that stores tokens",
+        title="Redis password",
+        description="Password for both Redis servers",
         validation_alias=AliasChoices(
             "GAFAELFAWR_REDIS_PASSWORD", "redisPassword"
         ),
