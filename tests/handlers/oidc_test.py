@@ -626,7 +626,7 @@ async def test_token_errors(
     assert log["error"] == f"Unknown authorization code {bogus_code.key}"
 
     # Corrupt stored data.
-    await factory.redis.set(bogus_code.key, "XXXXXXX")
+    await factory.ephemeral_redis.set(bogus_code.key, "XXXXXXX")
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
     assert r.json() == {

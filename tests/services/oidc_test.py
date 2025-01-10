@@ -64,7 +64,7 @@ async def test_issue_code(
         token=token,
         scopes=[OIDCScope.openid, OIDCScope.profile],
     )
-    encrypted_code = await factory.redis.get(f"oidc:{code.key}")
+    encrypted_code = await factory.ephemeral_redis.get(f"oidc:{code.key}")
     assert encrypted_code
     fernet = Fernet(config.session_secret.get_secret_value().encode())
     serialized_code = json.loads(fernet.decrypt(encrypted_code))
@@ -154,7 +154,7 @@ async def test_redeem_code(
     now = current_datetime()
     assert now - timedelta(seconds=2) <= access_data.created <= now
 
-    assert not await factory.redis.get(f"oidc:{code.key}")
+    assert not await factory.ephemeral_redis.get(f"oidc:{code.key}")
 
     # If the parent session token is revoked, the oidc token returned as an
     # access token should also be revoked.
@@ -267,7 +267,7 @@ async def test_redeem_code_errors(
     # Malformed data in Redis.
     fernet = Fernet(config.session_secret.get_secret_value().encode())
     raw_data = fernet.encrypt(b"malformed json")
-    await factory.redis.set(f"oidc:{code.key}", raw_data, ex=expires)
+    await factory.ephemeral_redis.set(f"oidc:{code.key}", raw_data, ex=expires)
     with pytest.raises(InvalidGrantError):
         await oidc_service.redeem_code(
             grant_type="authorization_code",

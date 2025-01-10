@@ -92,8 +92,11 @@ class ProcessContext:
     ldap_pool: AIOConnectionPool | None
     """Connection pool to talk to LDAP, if configured."""
 
-    redis: Redis
-    """Connection pool to use to talk to Redis."""
+    ephemeral_redis: Redis
+    """Connection pool to use to talk to ephemeral Redis."""
+
+    persistent_redis: Redis
+    """Connection pool to use to talk to persistent Redis."""
 
     uid_cache: IdCache
     """Shared UID cache."""
@@ -151,29 +154,39 @@ class ProcessContext:
         redis_password = None
         if config.redis_password:
             redis_password = config.redis_password.get_secret_value()
-        redis_pool = BlockingConnectionPool.from_url(
-            str(config.redis_url),
+        backoff = ExponentialBackoff(
+            base=REDIS_BACKOFF_START, cap=REDIS_BACKOFF_MAX
+        )
+        ephemeral_redis_pool = BlockingConnectionPool.from_url(
+            str(config.redis_ephemeral_url),
             password=redis_password,
             max_connections=REDIS_POOL_SIZE,
-            retry=Retry(
-                ExponentialBackoff(
-                    base=REDIS_BACKOFF_START, cap=REDIS_BACKOFF_MAX
-                ),
-                REDIS_RETRIES,
-            ),
+            retry=Retry(backoff, REDIS_RETRIES),
             retry_on_timeout=True,
             socket_keepalive=True,
             socket_timeout=REDIS_TIMEOUT,
             timeout=REDIS_POOL_TIMEOUT,
         )
-        redis_client = Redis.from_pool(redis_pool)
+        ephemeral_redis_client = Redis.from_pool(ephemeral_redis_pool)
+        persistent_redis_pool = BlockingConnectionPool.from_url(
+            str(config.redis_persistent_url),
+            password=redis_password,
+            max_connections=REDIS_POOL_SIZE,
+            retry=Retry(backoff, REDIS_RETRIES),
+            retry_on_timeout=True,
+            socket_keepalive=True,
+            socket_timeout=REDIS_TIMEOUT,
+            timeout=REDIS_POOL_TIMEOUT,
+        )
+        persistent_redis_client = Redis.from_pool(persistent_redis_pool)
 
         return cls(
             config=config,
             firestore=firestore_client,
             http_client=await http_client_dependency(),
             ldap_pool=ldap_pool,
-            redis=redis_client,
+            ephemeral_redis=ephemeral_redis_client,
+            persistent_redis=persistent_redis_client,
             uid_cache=IdCache(),
             gid_cache=IdCache(),
             ldap_group_cache=LDAPCache(list[Group]),
@@ -189,7 +202,8 @@ class ProcessContext:
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
-        await self.redis.aclose()
+        await self.ephemeral_redis.aclose()
+        await self.persistent_redis.aclose()
         if self.ldap_pool:
             await self.ldap_pool.close()
         await self.uid_cache.clear()
@@ -308,9 +322,14 @@ class Factory:
         self._logger = logger
 
     @property
-    def redis(self) -> Redis:
-        """Underlying Redis connection pool, mainly for tests."""
-        return self._context.redis
+    def ephemeral_redis(self) -> Redis:
+        """Underlying ephemeral Redis connection pool, mainly for tests."""
+        return self._context.ephemeral_redis
+
+    @property
+    def persistent_redis(self) -> Redis:
+        """Underlying persistent Redis connection pool, mainly for tests."""
+        return self._context.persistent_redis
 
     async def aclose(self) -> None:
         """Shut down the factory.
@@ -442,7 +461,7 @@ class Factory:
         session_secret = self._context.config.session_secret.get_secret_value()
         storage = EncryptedPydanticRedisStorage(
             datatype=OIDCAuthorization,
-            redis=self._context.redis,
+            redis=self._context.ephemeral_redis,
             encryption_key=session_secret,
             key_prefix="oidc:",
         )
@@ -562,7 +581,7 @@ class Factory:
         session_secret = self._context.config.session_secret.get_secret_value()
         storage = EncryptedPydanticRedisStorage(
             datatype=TokenData,
-            redis=self._context.redis,
+            redis=self._context.persistent_redis,
             encryption_key=session_secret,
             key_prefix="token:",
         )
