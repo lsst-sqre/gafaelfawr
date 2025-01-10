@@ -623,3 +623,14 @@ async def test_invalid_state(
     )
     assert r.status_code == 307
     assert r.headers["Location"] == return_url
+
+    # Also drop the return URL, which is a more realistic case.
+    state.return_url = None
+    client.cookies.set(COOKIE_NAME, state.to_cookie(), domain=TEST_HOSTNAME)
+
+    # Now we should get a redirect to the after logout URL.
+    r = await client.get(
+        "/login", params={"code": "some-code", "state": query["state"][0]}
+    )
+    assert r.status_code == 307
+    assert r.headers["Location"] == str(config.after_logout_url)

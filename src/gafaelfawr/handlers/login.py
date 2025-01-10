@@ -395,13 +395,16 @@ async def _construct_login_response(
 ) -> Response:
     """Handle the return from an external authentication provider.
 
-    Handles the target of the redirect back from an external authentication
-    provider with new authentication state information.
+    Handles the target of the redirect back from an external
+    authentication provider with new authentication state information.
 
-    If there is no authentication state in the user's cookie, it is likely
-    that the user was attempting logins in multiple tabs and already logged in
-    via some other tab. Redirect the user to their destination, which in the
-    worst case will just restart the authentication with proper state.
+    If there is no authentication state in the user's cookie, it is
+    likely that the user was attempting logins in multiple tabs and
+    already logged in via some other tab. Unfortunately, in this case we
+    have also normally lost the user's final destination, so redirect
+    them to the after logout page. We do not want to fail with an error
+    here, since that confuses the user and often causes them to try to
+    reload the login page, which will not work.
 
     Parameters
     ----------
@@ -416,15 +419,15 @@ async def _construct_login_response(
     Returns
     -------
     fastapi.Response
-        Either a redirect to the resource the user was trying to reach before
-        authentication, to the login URL, or an HTML page with an error
-        message if the authentication failed.
+        Either a redirect to the resource the user was trying to reach
+        before authentication, to the login URL, or an HTML page with an
+        error message if the authentication failed.
 
     Raises
     ------
     ExternalUserInfoError
-        Raised if an error is encountered retrieving user information from a
-        user information provider.
+        Raised if an error is encountered retrieving user information
+        from a user information provider.
     NoScopesError
         Raised if the user has no valid scopes.
     PermissionDeniedError
@@ -434,15 +437,17 @@ async def _construct_login_response(
         authentication provider.
     """
     return_url = context.state.return_url
-    if not return_url:
-        return await _error_user(context, LoginError.RETURN_URL_MISSING)
-    context.rebind_logger(return_url=return_url)
+    if return_url:
+        context.rebind_logger(return_url=return_url)
     if not context.state.state:
         msg = "Login state missing, redirecting without authentication"
         context.logger.info(msg)
-        return RedirectResponse(return_url)
+        redirect_url = return_url or str(context.config.after_logout_url)
+        return RedirectResponse(redirect_url)
     if state != context.state.state:
         return await _error_user(context, LoginError.STATE_INVALID)
+    if not return_url:
+        return await _error_user(context, LoginError.RETURN_URL_MISSING)
 
     # Retrieve the user identity and authorization information based on the
     # reply from the authentication provider, and construct a token.
