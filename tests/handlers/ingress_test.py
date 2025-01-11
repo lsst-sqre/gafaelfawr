@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import base64
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from unittest.mock import ANY
 
 import pytest
@@ -1150,3 +1151,40 @@ async def test_only_service(client: AsyncClient, factory: Factory) -> None:
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
     assert authenticate.error == AuthError.insufficient_scope
+
+
+@pytest.mark.asyncio
+async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
+    await reconfigure("github-quota", factory)
+    token_data = await create_session_token(
+        factory, group_names=["foo"], scopes={"read:all"}
+    )
+
+    # Two requests should be allowed, one from the default quota and a second
+    # from the additional quota from the foo group.
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+
+    # The third request should be rejected due to rate limiting, with a
+    # Retry-After header set to approximately fifteen minutes from now.
+    expected = (
+        datetime.now(tz=UTC) + timedelta(minutes=15) - timedelta(seconds=1)
+    )
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 429
+    retry_after = parsedate_to_datetime(r.headers["Retry-After"])
+    assert expected <= retry_after <= expected + timedelta(seconds=2)

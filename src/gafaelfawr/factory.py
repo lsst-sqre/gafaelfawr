@@ -13,6 +13,8 @@ from bonsai.asyncio import AIOConnectionPool
 from google.cloud import firestore
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
+from limits.aio.storage import RedisStorage
+from limits.aio.strategies import FixedWindowRateLimiter, RateLimiter
 from redis.asyncio import BlockingConnectionPool, Redis
 from redis.asyncio.retry import Retry
 from redis.backoff import ExponentialBackoff
@@ -98,6 +100,9 @@ class ProcessContext:
     persistent_redis: Redis
     """Connection pool to use to talk to persistent Redis."""
 
+    rate_limiter: RateLimiter
+    """API rate limiter."""
+
     uid_cache: IdCache
     """Shared UID cache."""
 
@@ -168,6 +173,7 @@ class ProcessContext:
             timeout=REDIS_POOL_TIMEOUT,
         )
         ephemeral_redis_client = Redis.from_pool(ephemeral_redis_pool)
+        rate_limiter_storage = RedisStorage(config.redis_rate_limit_url)
         persistent_redis_pool = BlockingConnectionPool.from_url(
             str(config.redis_persistent_url),
             password=redis_password,
@@ -187,6 +193,7 @@ class ProcessContext:
             ldap_pool=ldap_pool,
             ephemeral_redis=ephemeral_redis_client,
             persistent_redis=persistent_redis_client,
+            rate_limiter=FixedWindowRateLimiter(rate_limiter_storage),
             uid_cache=IdCache(),
             gid_cache=IdCache(),
             ldap_group_cache=LDAPCache(list[Group]),

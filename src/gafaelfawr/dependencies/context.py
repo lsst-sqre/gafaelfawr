@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
+from limits.aio.strategies import RateLimiter
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.logger import logger_dependency
 from safir.metrics import EventManager
@@ -55,6 +56,9 @@ class RequestContext:
 
     session: async_scoped_session
     """The database session."""
+
+    rate_limiter: RateLimiter
+    """API rate limiter."""
 
     factory: Factory
     """The component factory."""
@@ -124,6 +128,7 @@ class ContextDependency:
             logger=logger,
             events=self._events,
             session=session,
+            rate_limiter=self._process_context.rate_limiter,
             factory=Factory(self._process_context, session, logger),
         )
 
