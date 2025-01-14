@@ -41,7 +41,7 @@ from ..exceptions import (
 )
 from ..models.auth import AuthType, Satisfy
 from ..models.token import TokenData
-from ..models.userinfo import UserInfo
+from ..models.userinfo import RateLimitStatus, UserInfo
 from ..util import is_bot_user
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -353,26 +353,10 @@ async def get_auth(
         )
 
     # Get user information and check rate limits.
-    info_service = context.factory.create_user_info_service()
-    try:
-        user_info = await info_service.get_user_info_from_token(token_data)
-    except ExternalUserInfoError as e:
-        # Catch these exceptions rather than raising an uncaught exception or
-        # reporting the exception to Slack. This route is called on every user
-        # request and may be called multiple times per second, so if we
-        # reported every exception during an LDAP outage to Slack, we would
-        # get rate-limited or destroy the Slack channel. Instead, log the
-        # exception and return 403 and rely on failures during login (which
-        # are reported to Slack) and external testing to detect these
-        # problems.
-        msg = "Unable to get user information"
-        context.logger.exception(msg, user=token_data.username, error=str(e))
-        raise HTTPException(
-            headers={"Cache-Control": "no-cache, no-store"},
-            status_code=500,
-            detail=[{"msg": msg, "type": "user_info_failed"}],
-        ) from e
-    await check_rate_limit(context, auth_config, user_info)
+    user_info = await get_user_info(context, token_data)
+    rate_status = await check_rate_limit(context, auth_config, user_info)
+    if rate_status:
+        response.headers.update(rate_status.to_http_headers())
 
     # Log and return the results.
     context.logger.info("Token authorized")
@@ -423,6 +407,50 @@ async def get_anonymous(
         for cookie in cookies:
             response.headers.append("Cookie", cookie)
     return {"status": "ok"}
+
+
+async def get_user_info(
+    context: RequestContext, token_data: TokenData
+) -> UserInfo:
+    """Get user information for the user authenticated by a token.
+
+    Parameters
+    ----------
+    context
+        Request context.
+    token_data
+        Data for authenticated and verified token.
+
+    Returns
+    -------
+    UserInfo
+        User information corresponding to that authenticated user.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        Raised if an error occurred while retrieving the user information for
+        the user.
+    """
+    info_service = context.factory.create_user_info_service()
+    try:
+        return await info_service.get_user_info_from_token(token_data)
+    except ExternalUserInfoError as e:
+        # Catch these exceptions rather than raising an uncaught exception or
+        # reporting the exception to Slack. This route is called on every user
+        # request and may be called multiple times per second, so if we
+        # reported every exception during an LDAP outage to Slack, we would
+        # get rate-limited or destroy the Slack channel. Instead, log the
+        # exception and return 403 and rely on failures during login (which
+        # are reported to Slack) and external testing to detect these
+        # problems.
+        msg = "Unable to get user information"
+        context.logger.exception(msg, user=token_data.username, error=str(e))
+        raise HTTPException(
+            headers={"Cache-Control": "no-cache, no-store"},
+            status_code=500,
+            detail=[{"msg": msg, "type": "user_info_failed"}],
+        ) from e
 
 
 def check_lifetime(
@@ -494,7 +522,7 @@ def check_lifetime(
 
 async def check_rate_limit(
     context: RequestContext, auth_config: AuthConfig, user_info: UserInfo
-) -> None:
+) -> RateLimitStatus | None:
     """Check whether this request is allowed by rate limits.
 
     Any failure inside the rate limiting library, such as a failure to contact
@@ -510,6 +538,11 @@ async def check_rate_limit(
     user_info
         Information about the user, including their quotas.
 
+    Returns
+    -------
+    RateLimitStatus or None
+        Current status of rate limit, or `None` if no rate limit applies.
+
     Raises
     ------
     fastapi.HTTPException
@@ -517,10 +550,10 @@ async def check_rate_limit(
         will use a 429 response code.
     """
     if not user_info.quota or not auth_config.service:
-        return
+        return None
     quota = user_info.quota.api.get(auth_config.service)
     if not quota:
-        return
+        return None
     key = ("api", user_info.username)
     limit = RateLimitItemPerMinute(quota, 15)
     try:
@@ -535,12 +568,20 @@ async def check_rate_limit(
         # configured.
         error = f"{type(e).__name__}: {e!s}"
         context.logger.exception("Rate limiting failed", error=error)
-        return
+        return None
 
     # Handle the results of the rate limiting, either returning statistics for
     # inclusion in HTTP response headers or raising an exception.
-    if not allowed:
-        retry_after = datetime.fromtimestamp(stats.reset_time, tz=UTC)
+    retry_after = datetime.fromtimestamp(stats.reset_time, tz=UTC)
+    status = RateLimitStatus(
+        limit=quota,
+        remaining=stats.remaining,
+        reset=retry_after,
+        resource=auth_config.service,
+    )
+    if allowed:
+        return status
+    else:
         msg = f"Rate limit ({quota}/15m) exceeded"
         raise HTTPException(
             detail=[{"msg": msg, "type": "rate_limited"}],
@@ -548,6 +589,7 @@ async def check_rate_limit(
             headers={
                 "Cache-Control": "no-cache, no-store",
                 "Retry-After": format_datetime(retry_after, usegmt=True),
+                **status.to_http_headers(),
             },
         )
 
