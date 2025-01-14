@@ -225,6 +225,11 @@ class UserInfoService:
         """
         if not self._config.quota:
             return None
+        group_names = {g.name for g in groups}
+        if group_names & self._config.quota.bypass:
+            return Quota()
+
+        # Start with the defaults.
         api = dict(self._config.quota.default.api)
         notebook = None
         if self._config.quota.default.notebook:
@@ -232,23 +237,28 @@ class UserInfoService:
                 cpu=self._config.quota.default.notebook.cpu,
                 memory=self._config.quota.default.notebook.memory,
             )
-        for group in groups or []:
-            if group.name in self._config.quota.groups:
-                extra = self._config.quota.groups[group.name]
-                if extra.notebook:
-                    if notebook:
-                        notebook.cpu += extra.notebook.cpu
-                        notebook.memory += extra.notebook.memory
-                    else:
-                        notebook = NotebookQuota(
-                            cpu=extra.notebook.cpu,
-                            memory=extra.notebook.memory,
-                        )
-                for service in extra.api:
-                    if service in api:
-                        api[service] += extra.api[service]
-                    else:
-                        api[service] = extra.api[service]
+
+        # Look for group-specific rules.
+        for group in group_names:
+            if group not in self._config.quota.groups:
+                continue
+            extra = self._config.quota.groups[group]
+            if extra.notebook:
+                if notebook:
+                    notebook.cpu += extra.notebook.cpu
+                    notebook.memory += extra.notebook.memory
+                else:
+                    notebook = NotebookQuota(
+                        cpu=extra.notebook.cpu,
+                        memory=extra.notebook.memory,
+                    )
+            for service in extra.api:
+                if service in api:
+                    api[service] += extra.api[service]
+                else:
+                    api[service] = extra.api[service]
+
+        # Return the results.
         return Quota(api=api, notebook=notebook)
 
     async def _get_groups_from_ldap(

@@ -712,6 +712,12 @@ class QuotaConfig(BaseModel):
         description="Additional quota grants by group name",
     )
 
+    bypass: set[str] = Field(
+        set(),
+        title="Groups without quotas",
+        description="Groups whose members bypass all quota restrictions",
+    )
+
 
 class GitHubGroupTeam(BaseModel):
     """Specification for a GitHub team."""
