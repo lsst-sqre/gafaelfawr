@@ -54,6 +54,7 @@ from .constants import MINIMUM_LIFETIME, SCOPE_REGEX, USERNAME_REGEX
 from .exceptions import InvalidTokenError
 from .keypair import RSAKeyPair
 from .models.token import Token
+from .models.userinfo import Quota
 from .util import group_name_for_github_team
 
 HttpsUrl = Annotated[
@@ -79,12 +80,10 @@ __all__ = [
     "GitHubGroupTeam",
     "HttpsUrl",
     "LDAPConfig",
-    "NotebookQuota",
     "OIDCClient",
     "OIDCConfig",
     "OIDCServerConfig",
     "QuotaConfig",
-    "QuotaGrant",
 ]
 
 
@@ -657,56 +656,16 @@ class OIDCServerConfig(EnvFirstSettings):
         return self._keypair
 
 
-class NotebookQuota(BaseModel):
-    """Quota settings for the Notebook Aspect."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    cpu: float = Field(
-        ..., title="CPU limit", description="Maximum number of CPU equivalents"
-    )
-
-    memory: float = Field(
-        ...,
-        title="Memory limit (GiB)",
-        description="Maximum memory usage in GiB",
-    )
-
-
-class QuotaGrant(BaseModel):
-    """One grant of quotas.
-
-    There may be one of these per group, as well as a default one, in the
-    overall quota configuration.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    api: dict[str, int] = Field(
-        {},
-        title="Service quotas",
-        description=(
-            "Mapping of service names to quota of requests per 15 minutes"
-        ),
-    )
-
-    notebook: NotebookQuota | None = Field(
-        None,
-        title="Notebook quota",
-        description="Quota settings for the Notebook Aspect",
-    )
-
-
 class QuotaConfig(BaseModel):
     """Quota configuration."""
 
     model_config = ConfigDict(extra="forbid")
 
-    default: QuotaGrant = Field(
+    default: Quota = Field(
         ..., title="Default quota", description="Default quotas for all users"
     )
 
-    groups: dict[str, QuotaGrant] = Field(
+    groups: dict[str, Quota] = Field(
         {},
         title="Quota grants by group",
         description="Additional quota grants by group name",
@@ -717,6 +676,46 @@ class QuotaConfig(BaseModel):
         title="Groups without quotas",
         description="Groups whose members bypass all quota restrictions",
     )
+
+    def calculate_quota(self, groups: set[str]) -> Quota | None:
+        """Calculate user's quota given their group membership.
+
+        Parameters
+        ----------
+        groups
+            Group membership of the user.
+
+        Returns
+        -------
+        Quota or None
+            Quota information for that user or `None` if no quotas apply.
+        """
+        if groups & self.bypass:
+            return None
+
+        # Start with the defaults.
+        api = dict(self.default.api)
+        notebook = None
+        if self.default.notebook:
+            notebook = self.default.notebook.model_copy()
+
+        # Look for group-specific rules.
+        for group in groups & set(self.groups.keys()):
+            extra = self.groups[group]
+            if extra.notebook:
+                if notebook:
+                    notebook.cpu += extra.notebook.cpu
+                    notebook.memory += extra.notebook.memory
+                else:
+                    notebook = extra.notebook.model_copy()
+            for service, quota in extra.api.items():
+                if service in api:
+                    api[service] += quota
+                else:
+                    api[service] = quota
+
+        # Return the results.
+        return Quota(api=api, notebook=notebook)
 
 
 class GitHubGroupTeam(BaseModel):

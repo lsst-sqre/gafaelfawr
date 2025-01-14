@@ -8,7 +8,7 @@ from ..config import Config
 from ..exceptions import FirestoreError
 from ..models.ldap import LDAPUserData
 from ..models.token import TokenData, TokenUserInfo
-from ..models.userinfo import Group, NotebookQuota, Quota, UserInfo
+from ..models.userinfo import Group, UserInfo
 from .firestore import FirestoreService
 from .ldap import LDAPService
 
@@ -112,6 +112,12 @@ class UserInfoService:
         if not gid and not ldap_data.gid and self._config.add_user_group:
             gid = uid or ldap_data.uid
 
+        # Calculate the quota.
+        quota = None
+        if self._config.quota:
+            group_names = {g.name for g in groups}
+            quota = self._config.quota.calculate_quota(group_names)
+
         # Return the results.
         return UserInfo(
             username=username,
@@ -120,7 +126,7 @@ class UserInfoService:
             gid=gid or ldap_data.gid,
             email=token_data.email or ldap_data.email,
             groups=sorted(groups, key=lambda g: g.name),
-            quota=self._calculate_quota(groups),
+            quota=quota,
         )
 
     async def get_scopes(self, user_info: TokenUserInfo) -> set[str] | None:
@@ -209,57 +215,6 @@ class UserInfoService:
         """
         if self._ldap:
             await self._ldap.invalidate_cache(username)
-
-    def _calculate_quota(self, groups: list[Group]) -> Quota | None:
-        """Calculate the quota for a user.
-
-        Parameters
-        ----------
-        groups
-            The user's group membership.
-
-        Returns
-        -------
-        gafaelfawr.models.token.Quota
-            Quota information for that user.
-        """
-        if not self._config.quota:
-            return None
-        group_names = {g.name for g in groups}
-        if group_names & self._config.quota.bypass:
-            return Quota()
-
-        # Start with the defaults.
-        api = dict(self._config.quota.default.api)
-        notebook = None
-        if self._config.quota.default.notebook:
-            notebook = NotebookQuota(
-                cpu=self._config.quota.default.notebook.cpu,
-                memory=self._config.quota.default.notebook.memory,
-            )
-
-        # Look for group-specific rules.
-        for group in group_names:
-            if group not in self._config.quota.groups:
-                continue
-            extra = self._config.quota.groups[group]
-            if extra.notebook:
-                if notebook:
-                    notebook.cpu += extra.notebook.cpu
-                    notebook.memory += extra.notebook.memory
-                else:
-                    notebook = NotebookQuota(
-                        cpu=extra.notebook.cpu,
-                        memory=extra.notebook.memory,
-                    )
-            for service in extra.api:
-                if service in api:
-                    api[service] += extra.api[service]
-                else:
-                    api[service] = extra.api[service]
-
-        # Return the results.
-        return Quota(api=api, notebook=notebook)
 
     async def _get_groups_from_ldap(
         self,
