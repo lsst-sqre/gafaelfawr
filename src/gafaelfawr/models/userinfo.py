@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..constants import GROUPNAME_REGEX
 from ..pydantic import Timestamp
@@ -77,6 +77,8 @@ class Group(BaseModel):
 class NotebookQuota(BaseModel):
     """Notebook Aspect quota information for a user."""
 
+    model_config = ConfigDict(extra="forbid")
+
     cpu: float = Field(..., title="CPU equivalents", examples=[4.0])
 
     memory: float = Field(
@@ -86,6 +88,8 @@ class NotebookQuota(BaseModel):
 
 class Quota(BaseModel):
     """Quota information for a user."""
+
+    model_config = ConfigDict(extra="forbid")
 
     api: dict[str, int] = Field(
         {},
