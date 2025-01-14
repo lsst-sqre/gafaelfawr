@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from ..constants import GROUPNAME_REGEX
@@ -12,6 +15,7 @@ __all__ = [
     "Group",
     "NotebookQuota",
     "Quota",
+    "RateLimitStatus",
     "UserInfo",
 ]
 
@@ -154,3 +158,39 @@ class UserInfo(BaseModel):
     )
 
     quota: Quota | None = Field(None, title="Quota")
+
+
+@dataclass
+class RateLimitStatus:
+    """Current status of rate limiting for a user for one API.
+
+    This is an internal model used to hold rate limiting status information
+    that will be returned to the user in HTTP headers. It represents a fixed
+    window rate limit algorithm.
+    """
+
+    limit: int
+    """Total number of API requests allowed to this service."""
+
+    remaining: int
+    """Number of API requests remaining in the rate limit period."""
+
+    reset: datetime
+    """Time at which the rate limit window will reset."""
+
+    resource: str
+    """Name of the resource being rate limited (the API service name)."""
+
+    def to_http_headers(self) -> dict[str, str]:
+        """Return the rate limit status as HTTP headers.
+
+        The headers were chosen to match the `GitHub rate limit
+        implementation`_.
+        """
+        return {
+            "X-RateLimit-Limit": str(self.limit),
+            "X-RateLimit-Remaining": str(self.remaining),
+            "X-RateLimit-Used": str(self.limit - self.remaining),
+            "X-RateLimit-Reset": str(int(self.reset.timestamp())),
+            "X-RateLimit-Resource": self.resource,
+        }

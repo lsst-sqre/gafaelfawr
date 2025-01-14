@@ -1,4 +1,5 @@
 .. _Alembic: https://alembic.sqlalchemy.org/en/latest/index.html
+.. _Github rate limit implementation: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28
 .. _ingress-nginx: https://kubernetes.github.io/ingress-nginx/
 .. _Keycloak: https://www.keycloak.org/
 .. _Kopf: https://kopf.readthedocs.io/en/stable/

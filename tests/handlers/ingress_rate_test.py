@@ -1,0 +1,69 @@
+"""Tests for API rate limiting."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
+
+import pytest
+from httpx import AsyncClient
+
+from gafaelfawr.factory import Factory
+
+from ..support.config import reconfigure
+from ..support.tokens import create_session_token
+
+
+@pytest.mark.asyncio
+async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
+    await reconfigure("github-quota", factory)
+    token_data = await create_session_token(
+        factory, group_names=["foo"], scopes={"read:all"}
+    )
+    now = datetime.now(tz=UTC)
+    expected = now + timedelta(minutes=15) - timedelta(seconds=1)
+
+    # Two requests should be allowed, one from the default quota and a second
+    # from the additional quota from the foo group.
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-RateLimit-Limit"] == "2"
+    assert r.headers["X-RateLimit-Remaining"] == "1"
+    assert r.headers["X-RateLimit-Used"] == "1"
+    assert r.headers["X-RateLimit-Resource"] == "test"
+    reset = int(r.headers["X-RateLimit-Reset"])
+    assert expected.timestamp() <= reset <= expected.timestamp() + 5
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    assert r.headers["X-RateLimit-Limit"] == "2"
+    assert r.headers["X-RateLimit-Remaining"] == "0"
+    assert r.headers["X-RateLimit-Used"] == "2"
+    assert r.headers["X-RateLimit-Resource"] == "test"
+    reset = int(r.headers["X-RateLimit-Reset"])
+    assert expected.timestamp() <= reset <= expected.timestamp() + 5
+
+    # The third request should be rejected due to rate limiting, with a
+    # Retry-After header set to approximately fifteen minutes from now.
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 429
+    retry_after = parsedate_to_datetime(r.headers["Retry-After"])
+    assert expected <= retry_after
+    assert retry_after <= expected + timedelta(seconds=5)
+    assert r.headers["X-RateLimit-Limit"] == "2"
+    assert r.headers["X-RateLimit-Remaining"] == "0"
+    assert r.headers["X-RateLimit-Used"] == "2"
+    assert r.headers["X-RateLimit-Resource"] == "test"
+    reset = int(r.headers["X-RateLimit-Reset"])
+    assert expected.timestamp() <= reset <= expected.timestamp() + 5
