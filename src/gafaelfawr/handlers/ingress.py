@@ -497,6 +497,10 @@ async def check_rate_limit(
 ) -> None:
     """Check whether this request is allowed by rate limits.
 
+    Any failure inside the rate limiting library, such as a failure to contact
+    Redis, causes the request to succeed. (In other words, rate limiting fails
+    open.)
+
     Parameters
     ----------
     context
@@ -509,8 +513,8 @@ async def check_rate_limit(
     Raises
     ------
     fastapi.HTTPException
-        Raised if the requet was rejected by rate limiting. This error will
-        use a 429 response code.
+        Raised if the requet was rejected by rate limiting. This error
+        will use a 429 response code.
     """
     if not user_info.quota or not auth_config.service:
         return
@@ -519,8 +523,23 @@ async def check_rate_limit(
         return
     key = ("api", user_info.username)
     limit = RateLimitItemPerMinute(quota, 15)
-    if not await context.rate_limiter.hit(limit, *key):
+    try:
+        allowed = await context.rate_limiter.hit(limit, *key)
         stats = await context.rate_limiter.get_window_stats(limit, *key)
+    except Exception as e:
+        # Ideally the failure would be reported to Slack, but if the Redis pool
+        # in which rate limiting information is stored is unavailable, every
+        # request with quotas would produce an error and we would hammer the
+        # Slack API into the ground. Settle for reporting exceptions to the
+        # application logs and continuing as if no rate limiting were
+        # configured.
+        error = f"{type(e).__name__}: {e!s}"
+        context.logger.exception("Rate limiting failed", error=error)
+        return
+
+    # Handle the results of the rate limiting, either returning statistics for
+    # inclusion in HTTP response headers or raising an exception.
+    if not allowed:
         retry_after = datetime.fromtimestamp(stats.reset_time, tz=UTC)
         msg = f"Rate limit ({quota}/15m) exceeded"
         raise HTTPException(
