@@ -1140,6 +1140,23 @@ class Config(EnvFirstSettings):
         """Whether to add a synthetic private user group."""
         return bool(self.github or (self.ldap and self.ldap.add_user_group))
 
+    @property
+    def redis_rate_limit_url(self) -> str:
+        """Redis DSN to use for rate limiting.
+
+        The limits_ package requires the Redis DSN in a specific format with
+        the password already included.
+        """
+        host = self.redis_ephemeral_url.host
+        port = self.redis_ephemeral_url.port
+        netloc = f"{host}:{port}" if port else host
+        path = self.redis_ephemeral_url.path
+        if self.redis_password:
+            password = self.redis_password.get_secret_value()
+            return f"async+redis://:{password}@{netloc}{path}"
+        else:
+            return f"async+redis://{netloc}{path}"
+
     def configure_logging(self) -> None:
         """Configure logging based on the Gafaelfawr configuration."""
         configure_logging(name="gafaelfawr", log_level=self.log_level)

@@ -31,7 +31,7 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         "username": "example",
         "groups": [{"name": "bar", "id": 12312}],
         "quota": {
-            "api": {"datalinker": 1000},
+            "api": {"datalinker": 1000, "test": 1},
             "notebook": {"cpu": 8.0, "memory": 4.0},
         },
     }
@@ -49,7 +49,7 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         "username": "example",
         "groups": [{"name": "foo", "id": 12313}],
         "quota": {
-            "api": {"datalinker": 1000},
+            "api": {"datalinker": 1000, "test": 2},
             "notebook": {"cpu": 8.0, "memory": 8.0},
         },
     }

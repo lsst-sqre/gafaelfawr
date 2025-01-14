@@ -21,11 +21,14 @@ quota:
   default:
     api:
       datalinker: 1000
+      test: 1
     notebook:
       cpu: 8
       memory: 4.0
   groups:
     foo:
+      api:
+        test: 1
       notebook:
         cpu: 0.0
         memory: 4.0

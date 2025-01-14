@@ -28,6 +28,7 @@ dependencies = [
     "google-api-core",
     "google-cloud-firestore",
     "httpx",
+    "limits[async-redis]",
     "kopf",
     "kubernetes-asyncio",
     "jinja2",
