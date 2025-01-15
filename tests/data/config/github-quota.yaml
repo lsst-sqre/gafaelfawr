@@ -26,6 +26,11 @@ quota:
       cpu: 8
       memory: 4.0
   groups:
+    blocked:
+      notebook:
+        cpu: 0
+        memory: 0
+        spawn: false
     foo:
       api:
         test: 1

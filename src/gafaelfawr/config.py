@@ -706,6 +706,7 @@ class QuotaConfig(BaseModel):
                 if notebook:
                     notebook.cpu += extra.notebook.cpu
                     notebook.memory += extra.notebook.memory
+                    notebook.spawn &= extra.notebook.spawn
                 else:
                     notebook = extra.notebook.model_copy()
             for service, quota in extra.api.items():

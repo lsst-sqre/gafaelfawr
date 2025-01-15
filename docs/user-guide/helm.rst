@@ -523,14 +523,26 @@ Here is an example:
        groups:
          g_developers:
            notebook:
-             cpu: 8.0
+             cpu: 0.0
              memory: 4.0
+        g_limited:
+          notebook:
+            cpu: 0.0
+            memory: 0.0
+            spawn: false
+      bypass:
+        - "g_admins"
 
 API quotas are in requests per 15 minutes.
 Notebook quotas are in CPU equivalents and GiB of memory.
+If spawn is set to false, users should not be allowed to spawn a new user notebook.
+Members of groups listed in ``bypass`` ignore all quota restrictions.
 
 The above example sets an API quota for the ``datalinker`` service of 1000 requests per 15 minutes, and a default quota for user notebooks of 2.0 CPU equivalents and 4.0GiB of memory.
 Users who are members of the ``g_developers`` group get an additional 4.0GiB of memory for their notebooks.
+Users who are members of the ``g_limited`` group are not allowed to spawn notebooks.
+(Note that the CPU and memory quota additions must be specified, even if they are zero.)
+Users who are members of the ``g_admins`` group ignore all quota restrictions.
 
 The keys for API quotas are names of services.
 This is the same name the service should use in the ``config.service`` key of a ``GafaelfawrIngress`` resource (see :ref:`ingress`).

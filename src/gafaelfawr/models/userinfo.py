@@ -85,6 +85,12 @@ class NotebookQuota(BaseModel):
         ..., title="Maximum memory use (GiB)", examples=[16.0]
     )
 
+    spawn: bool = Field(
+        True,
+        title="Spawning allowed",
+        description="Whether the user is allowed to spawn a notebook",
+    )
+
 
 class Quota(BaseModel):
     """Quota information for a user."""
