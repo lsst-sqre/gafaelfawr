@@ -20,6 +20,7 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
     token_data = await create_session_token(
         factory, group_names=["foo"], scopes={"read:all"}
     )
+    headers = {"Authorization": f"bearer {token_data.token}"}
     now = datetime.now(tz=UTC)
     expected = now + timedelta(minutes=15) - timedelta(seconds=1)
 
@@ -28,7 +29,7 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
     r = await client.get(
         "/ingress/auth",
         params={"scope": "read:all", "service": "test"},
-        headers={"Authorization": f"Bearer {token_data.token}"},
+        headers=headers,
     )
     assert r.status_code == 200
     assert r.headers["X-RateLimit-Limit"] == "2"
@@ -40,7 +41,7 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
     r = await client.get(
         "/ingress/auth",
         params={"scope": "read:all", "service": "test"},
-        headers={"Authorization": f"Bearer {token_data.token}"},
+        headers=headers,
     )
     assert r.status_code == 200
     assert r.headers["X-RateLimit-Limit"] == "2"
@@ -55,7 +56,7 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
     r = await client.get(
         "/ingress/auth",
         params={"scope": "read:all", "service": "test"},
-        headers={"Authorization": f"Bearer {token_data.token}"},
+        headers=headers,
     )
     assert r.status_code == 429
     retry_after = parsedate_to_datetime(r.headers["Retry-After"])
@@ -77,10 +78,12 @@ async def test_rate_limit_bypass(
     token_data = await create_session_token(
         factory, group_names=["admin"], scopes={"read:all"}
     )
+    headers = {"Authorization": f"bearer {token_data.token}"}
+
     r = await client.get(
         "/ingress/auth",
         params={"scope": "read:all", "service": "test"},
-        headers={"Authorization": f"Bearer {token_data.token}"},
+        headers=headers,
     )
     assert r.status_code == 200
 

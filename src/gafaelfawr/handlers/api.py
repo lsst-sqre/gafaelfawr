@@ -1,7 +1,7 @@
-"""Route handlers for the ``/auth/api/v1`` API.
+"""Route handlers for the token API.
 
 All the route handlers are intentionally defined in a single file to encourage
-the implementation to be very short.  All the business logic should be defined
+the implementation to be very short. All the business logic should be defined
 in manager objects and the output formatting should be handled by response
 models.
 """
@@ -30,6 +30,7 @@ from ..models.admin import Admin
 from ..models.auth import APIConfig, APILoginResponse, Scope
 from ..models.enums import TokenType
 from ..models.history import TokenChangeHistoryCursor, TokenChangeHistoryEntry
+from ..models.quota import QuotaConfig
 from ..models.token import (
     AdminTokenRequest,
     NewToken,
@@ -296,6 +297,74 @@ async def get_login(
         scopes=auth_data.scopes,
         config=api_config,
     )
+
+
+@router.get(
+    "/auth/api/v1/quota-overrides",
+    description="Return the current quota overrides if any",
+    response_model_exclude_none=True,
+    responses={
+        404: {"description": "No quota overrides set", "model": ErrorModel}
+    },
+    summary="Get quota overrides",
+    tags=["admin"],
+)
+async def get_quota_overrides(
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> QuotaConfig:
+    user_info_service = context.factory.create_user_info_service()
+    overrides = await user_info_service.get_quota_overrides()
+    if overrides:
+        return overrides
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=[{"type": "not_found", "msg": "No quota overrides set"}],
+        )
+
+
+@router.delete(
+    "/auth/api/v1/quota-overrides",
+    description="Remove any existing quota overrides",
+    responses={
+        404: {"description": "No quota overrides set", "model": ErrorModel}
+    },
+    status_code=204,
+    summary="Remove quota overrides",
+    tags=["admin"],
+)
+async def delete_quota_overrides(
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> None:
+    user_info_service = context.factory.create_user_info_service()
+    success = await user_info_service.delete_quota_overrides()
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=[{"type": "not_found", "msg": "No quota overrides set"}],
+        )
+
+
+@router.put(
+    "/auth/api/v1/quota-overrides",
+    description="Set the quota overrides",
+    response_model_exclude_none=True,
+    summary="Set quota overrides",
+    tags=["admin"],
+)
+async def put_quota_overrides(
+    overrides: QuotaConfig,
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> QuotaConfig:
+    user_info_service = context.factory.create_user_info_service()
+    await user_info_service.set_quota_overrides(overrides)
+    return overrides
 
 
 @router.get(
