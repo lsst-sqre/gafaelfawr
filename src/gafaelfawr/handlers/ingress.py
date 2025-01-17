@@ -8,6 +8,7 @@ URLs.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
@@ -582,12 +583,17 @@ async def check_rate_limit(
     if allowed:
         return status
     else:
+        # Return a 403 error with the actual status code and body in the
+        # headers, where they will be parsed by the ingress-nginx integration.
         msg = f"Rate limit ({quota}/15m) exceeded"
+        detail = [{"msg": msg, "type": "rate_limited"}]
         raise HTTPException(
-            detail=[{"msg": msg, "type": "rate_limited"}],
-            status_code=429,
+            detail=detail,
+            status_code=403,
             headers={
                 "Cache-Control": "no-cache, no-store",
+                "X-Error-Body": json.dumps({"detail": detail}),
+                "X-Error-Status": "429",
                 "Retry-After": format_datetime(retry_after, usegmt=True),
                 **status.to_http_headers(),
             },

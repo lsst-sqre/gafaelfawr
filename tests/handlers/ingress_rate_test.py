@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
@@ -58,10 +59,13 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
         params={"scope": "read:all", "service": "test"},
         headers=headers,
     )
-    assert r.status_code == 429
+    assert r.status_code == 403
     retry_after = parsedate_to_datetime(r.headers["Retry-After"])
     assert expected <= retry_after
     assert retry_after <= expected + timedelta(seconds=5)
+    body = json.loads(r.headers["X-Error-Body"])
+    assert body["detail"][0]["type"] == "rate_limited"
+    assert r.headers["X-Error-Status"] == "429"
     assert r.headers["X-RateLimit-Limit"] == "2"
     assert r.headers["X-RateLimit-Remaining"] == "0"
     assert r.headers["X-RateLimit-Used"] == "2"

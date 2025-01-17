@@ -27,6 +27,7 @@ Also see the `Phalanx Gafaelfawr application documentation <https://phalanx.lsst
 .. toctree::
    :caption: Reference
 
+   headers
    logging
    cli
    metrics
