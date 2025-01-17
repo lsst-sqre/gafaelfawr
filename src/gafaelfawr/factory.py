@@ -20,7 +20,7 @@ from redis.asyncio.retry import Retry
 from redis.backoff import ExponentialBackoff
 from safir.database import create_async_session
 from safir.dependencies.http_client import http_client_dependency
-from safir.redis import EncryptedPydanticRedisStorage
+from safir.redis import EncryptedPydanticRedisStorage, PydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
@@ -39,6 +39,7 @@ from .constants import (
 from .exceptions import NotConfiguredError
 from .models.ldap import LDAPUserData
 from .models.oidc import OIDCAuthorization
+from .models.quota import QuotaConfig
 from .models.token import TokenData
 from .models.userinfo import Group
 from .providers.base import Provider
@@ -66,6 +67,7 @@ from .storage.kubernetes import (
 )
 from .storage.ldap import LDAPStorage
 from .storage.oidc import OIDCAuthorizationStore
+from .storage.quota import QuotaOverridesStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
 
 __all__ = ["Factory", "ProcessContext"]
@@ -657,10 +659,18 @@ class Factory:
                 user_cache=self._context.ldap_user_cache,
                 logger=self._logger,
             )
+        quota_overrides_store = QuotaOverridesStore(
+            PydanticRedisStorage(
+                datatype=QuotaConfig, redis=self._context.persistent_redis
+            ),
+            self.create_slack_client(),
+            self._logger,
+        )
         return UserInfoService(
             config=self._context.config,
             ldap=ldap,
             firestore=firestore,
+            quota_overrides_store=quota_overrides_store,
             logger=self._logger,
         )
 

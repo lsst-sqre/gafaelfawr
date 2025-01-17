@@ -5,15 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from ..constants import GROUPNAME_REGEX
 from ..pydantic import Timestamp
+from .quota import Quota
 
 __all__ = [
     "CADCUserInfo",
     "Group",
-    "NotebookQuota",
     "Quota",
     "RateLimitStatus",
     "UserInfo",
@@ -71,50 +71,6 @@ class Group(BaseModel):
         ...,
         title="Numeric GID of the group",
         examples=[123181],
-    )
-
-
-class NotebookQuota(BaseModel):
-    """Notebook Aspect quota information for a user."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    cpu: float = Field(..., title="CPU equivalents", examples=[4.0])
-
-    memory: float = Field(
-        ..., title="Maximum memory use (GiB)", examples=[16.0]
-    )
-
-    spawn: bool = Field(
-        True,
-        title="Spawning allowed",
-        description="Whether the user is allowed to spawn a notebook",
-    )
-
-
-class Quota(BaseModel):
-    """Quota information for a user."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    api: dict[str, int] = Field(
-        {},
-        title="API quotas",
-        description=(
-            "Mapping of service names to allowed requests per 15 minutes."
-        ),
-        examples=[
-            {
-                "datalinker": 500,
-                "hips": 2000,
-                "tap": 500,
-                "vo-cutouts": 100,
-            }
-        ],
-    )
-
-    notebook: NotebookQuota | None = Field(
-        None, title="Notebook Aspect quotas"
     )
 
 

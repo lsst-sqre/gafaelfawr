@@ -7,8 +7,10 @@ from structlog.stdlib import BoundLogger
 from ..config import Config
 from ..exceptions import FirestoreError
 from ..models.ldap import LDAPUserData
+from ..models.quota import Quota, QuotaConfig
 from ..models.token import TokenData, TokenUserInfo
 from ..models.userinfo import Group, UserInfo
+from ..storage.quota import QuotaOverridesStore
 from .firestore import FirestoreService
 from .ldap import LDAPService
 
@@ -36,6 +38,8 @@ class UserInfoService:
         LDAP service for user metadata, if LDAP was configured.
     firestore
         Service for Firestore UID/GID lookups, if Firestore was configured.
+    quota_overrides_store
+        Storage for quota overrides.
     logger
         Logger to use.
     """
@@ -46,12 +50,34 @@ class UserInfoService:
         config: Config,
         ldap: LDAPService | None,
         firestore: FirestoreService | None,
+        quota_overrides_store: QuotaOverridesStore,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._ldap = ldap
         self._firestore = firestore
+        self._quota_overrides = quota_overrides_store
         self._logger = logger
+
+    async def delete_quota_overrides(self) -> bool:
+        """Delete any existing quota overrides.
+
+        Returns
+        -------
+        bool
+            `True` if quota overrides were deleted, `False` if none were set.
+        """
+        return await self._quota_overrides.delete()
+
+    async def get_quota_overrides(self) -> QuotaConfig | None:
+        """Get the current quota overrides, if any.
+
+        Returns
+        -------
+        QuotaConfig or None
+            Current quota overrides, or `None` if there are none.
+        """
+        return await self._quota_overrides.get()
 
     async def get_user_info_from_token(
         self, token_data: TokenData, *, uncached: bool = False
@@ -112,12 +138,6 @@ class UserInfoService:
         if not gid and not ldap_data.gid and self._config.add_user_group:
             gid = uid or ldap_data.uid
 
-        # Calculate the quota.
-        quota = None
-        if self._config.quota:
-            group_names = {g.name for g in groups}
-            quota = self._config.quota.calculate_quota(group_names)
-
         # Return the results.
         return UserInfo(
             username=username,
@@ -126,7 +146,7 @@ class UserInfoService:
             gid=gid or ldap_data.gid,
             email=token_data.email or ldap_data.email,
             groups=sorted(groups, key=lambda g: g.name),
-            quota=quota,
+            quota=await self._calculate_quota(groups),
         )
 
     async def get_scopes(self, user_info: TokenUserInfo) -> set[str] | None:
@@ -215,6 +235,54 @@ class UserInfoService:
         """
         if self._ldap:
             await self._ldap.invalidate_cache(username)
+
+    async def set_quota_overrides(self, overrides: QuotaConfig) -> None:
+        """Store quota overrides, overwriting any existing ones.
+
+        Parameters
+        ----------
+        overrides
+            New quota overrides to store.
+        """
+        return await self._quota_overrides.store(overrides)
+
+    async def _calculate_quota(self, groups: list[Group]) -> Quota | None:
+        """Calculate the quota for a user.
+
+        Parameters
+        ----------
+        groups
+            Group membership of the user.
+
+        Returns
+        -------
+        Quota or None
+            Quota information for that user, or `None` if no quotas apply.
+        """
+        group_names = {g.name for g in groups}
+        quota = None
+        if self._config.quota:
+            quota = self._config.quota.calculate_quota(group_names)
+
+        # Check if there are quota overrides.
+        overrides = await self.get_quota_overrides()
+        if not overrides:
+            return quota
+
+        # Apply the override on top of the existing quota, if any.
+        override_quota = overrides.calculate_quota(group_names)
+        if not override_quota:
+            return quota
+        elif not quota:
+            return override_quota
+        elif overrides.bypass & group_names:
+            return Quota()
+        else:
+            api = quota.api
+            api.update(override_quota.api)
+            return Quota(
+                notebook=override_quota.notebook or quota.notebook, api=api
+            )
 
     async def _get_groups_from_ldap(
         self,

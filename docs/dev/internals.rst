@@ -159,6 +159,9 @@ Python internal API
 .. automodapi:: gafaelfawr.storage.oidc
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.storage.quota
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.storage.token
    :include-all-objects:
 
