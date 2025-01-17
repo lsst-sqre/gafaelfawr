@@ -106,9 +106,21 @@ deleted entirely if the subrequest doesn't return one of these headers.
 """
 
 NGINX_SNIPPET = """\
+auth_request_set $auth_error_body $upstream_http_x_error_body;
+auth_request_set $auth_ratelimit_limit $upstream_http_x_ratelimit_limit;
+auth_request_set $auth_ratelimit_remaining\
+ $upstream_http_x_ratelimit_remaining;
+auth_request_set $auth_ratelimit_reset $upstream_http_x_ratelimit_reset;
+auth_request_set $auth_ratelimit_resource $upstream_http_x_ratelimit_resource;
+auth_request_set $auth_ratelimit_used $upstream_http_x_ratelimit_used;
+auth_request_set $auth_retry_after $upstream_http_retry_after;
 auth_request_set $auth_www_authenticate $upstream_http_www_authenticate;
 auth_request_set $auth_status $upstream_http_x_error_status;
-auth_request_set $auth_error_body $upstream_http_x_error_body;
+more_set_headers "X-RateLimit-Limit: $auth_ratelimit_limit";
+more_set_headers "X-RateLimit-Remaining: $auth_ratelimit_remaining";
+more_set_headers "X-RateLimit-Reset: $auth_ratelimit_reset";
+more_set_headers "X-RateLimit-Resource: $auth_ratelimit_resource";
+more_set_headers "X-RateLimit-Used: $auth_ratelimit_used";
 error_page 403 = @autherror;
 """
 """Code snippet to put into NGINX configuration for each ingress."""
