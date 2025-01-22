@@ -31,8 +31,10 @@ from .config import Config
 from .constants import (
     REDIS_BACKOFF_MAX,
     REDIS_BACKOFF_START,
-    REDIS_POOL_SIZE,
+    REDIS_EPHEMERAL_POOL_SIZE,
+    REDIS_PERSISTENT_POOL_SIZE,
     REDIS_POOL_TIMEOUT,
+    REDIS_RATE_LIMIT_POOL_SIZE,
     REDIS_RETRIES,
     REDIS_TIMEOUT,
 )
@@ -167,7 +169,7 @@ class ProcessContext:
         ephemeral_redis_pool = BlockingConnectionPool.from_url(
             str(config.redis_ephemeral_url),
             password=redis_password,
-            max_connections=REDIS_POOL_SIZE,
+            max_connections=REDIS_EPHEMERAL_POOL_SIZE,
             retry=Retry(backoff, REDIS_RETRIES),
             retry_on_timeout=True,
             socket_keepalive=True,
@@ -175,11 +177,16 @@ class ProcessContext:
             timeout=REDIS_POOL_TIMEOUT,
         )
         ephemeral_redis_client = Redis.from_pool(ephemeral_redis_pool)
-        rate_limiter_storage = RedisStorage(config.redis_rate_limit_url)
+        rate_limiter_storage = RedisStorage(
+            config.redis_rate_limit_url,
+            max_connections=REDIS_RATE_LIMIT_POOL_SIZE,
+            stream_timeout=REDIS_TIMEOUT,
+            connect_timeout=REDIS_TIMEOUT,
+        )
         persistent_redis_pool = BlockingConnectionPool.from_url(
             str(config.redis_persistent_url),
             password=redis_password,
-            max_connections=REDIS_POOL_SIZE,
+            max_connections=REDIS_PERSISTENT_POOL_SIZE,
             retry=Retry(backoff, REDIS_RETRIES),
             retry_on_timeout=True,
             socket_keepalive=True,

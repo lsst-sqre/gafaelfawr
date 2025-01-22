@@ -26,8 +26,10 @@ __all__ = [
     "OIDC_AUTHORIZATION_LIFETIME",
     "REDIS_BACKOFF_MAX",
     "REDIS_BACKOFF_START",
-    "REDIS_POOL_SIZE",
+    "REDIS_EPHEMERAL_POOL_SIZE",
+    "REDIS_PERSISTENT_POOL_SIZE",
     "REDIS_POOL_TIMEOUT",
+    "REDIS_RATE_LIMIT_POOL_SIZE",
     "REDIS_RETRIES",
     "REDIS_TIMEOUT",
     "SCOPE_REGEX",
@@ -141,8 +143,14 @@ REDIS_BACKOFF_MAX = 1.0
 REDIS_RETRIES = 10
 """How many times to try to connect to Redis before giving up."""
 
-REDIS_POOL_SIZE = 25
-"""Size of the Redis connection pool."""
+REDIS_EPHEMERAL_POOL_SIZE = 5
+"""Size of the ephemeral Redis connection pool (without rate limiting.)"""
+
+REDIS_PERSISTENT_POOL_SIZE = 25
+"""Size of the persistent Redis connection pool."""
+
+REDIS_RATE_LIMIT_POOL_SIZE = 25
+"""Size of the rate limiting Redis connection pool."""
 
 REDIS_POOL_TIMEOUT = 30
 """Seconds to wait for a connection from the pool before giving up."""
