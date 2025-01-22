@@ -474,11 +474,10 @@ class Factory:
         if not self._context.config.oidc_server:
             msg = "OpenID Connect server not configured"
             raise NotConfiguredError(msg)
-        session_secret = self._context.config.session_secret.get_secret_value()
         storage = EncryptedPydanticRedisStorage(
             datatype=OIDCAuthorization,
             redis=self._context.ephemeral_redis,
-            encryption_key=session_secret,
+            encryption_key=self._context.config.session_secret,
             key_prefix="oidc:",
         )
         authorization_store = OIDCAuthorizationStore(storage)
@@ -594,11 +593,10 @@ class Factory:
         TokenRedisStore
             New token database store.
         """
-        session_secret = self._context.config.session_secret.get_secret_value()
         storage = EncryptedPydanticRedisStorage(
             datatype=TokenData,
             redis=self._context.persistent_redis,
-            encryption_key=session_secret,
+            encryption_key=self._context.config.session_secret,
             key_prefix="token:",
         )
         slack_client = self.create_slack_client()

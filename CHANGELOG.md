@@ -10,6 +10,24 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.4.0'></a>
+## 12.4.0 (2025-01-22)
+
+### New features
+
+- API rate limits are now enforced if configured. If a request exceeds the rate limit, Gafaelfawr will return a 429 response with a `Retry-After` header. Rate limit data is recorded in the new ephemeral Redis pool.
+- Add support for quota overrides. Overrides can be set via a new REST API at `/auth/api/v1/quota-overrides` and take precedence over the configured quotas if present and applicable.
+- Add a `bypass` key to the quota configuration containing a group list. Any member of one of those groups ignores all quota restrictions.
+- Add a flag to notebook quotas, defaulting to true, that indicates whether the user is allowed to spawn a new lab. This is not enforced by Gafaelfawr; it will be read and acted on by [Nublado](https://nublado.lsst.io).
+
+### Bug fixes
+
+- If the user returns to the login route without login state and no return URL is set (which will be the common case), redirect them to the after logout URL instead of returning a 403 error. Often this means the user previously authenticated via another tab and is now logged on, but we have lost the return URL and do not know where to send them. Returning the error is more confusing and often causes the user to attempt to reload the error page, which then fails.
+
+### Other changes
+
+- OpenID Connect authentication codes are now stored in an ephemeral Redis instance rather than in the same database as data, such as tokens, that should persist.
+
 <a id='changelog-12.3.2'></a>
 ## 12.3.2 (2025-01-09)
 
