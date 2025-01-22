@@ -170,7 +170,7 @@ def generate_challenge(
         error_description=str(exc),
         scope=" ".join(sorted(scopes)) if scopes else None,
     )
-    detail = {"msg": str(exc), "type": exc.error}
+    detail = [{"msg": str(exc), "type": exc.error}]
     headers = {
         "Cache-Control": "no-cache, no-store",
         "WWW-Authenticate": challenge.to_header(),
