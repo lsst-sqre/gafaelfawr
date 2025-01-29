@@ -230,6 +230,13 @@ The value must be an `NGINX time interval <https://nginx.org/en/docs/syntax.html
 
 The cache is automatically invalidated if the ``Cookie`` or ``Authorization`` HTTP headers change.
 
+.. warning::
+
+   Enabling authentication caching means that not all requests to the service will be passed to Gafaelfawr.
+   That, in turn, means that Gafaelfawr cannot enforce rate limiting.
+   Only the uncached requests will count against the rate limit.
+   For services that require rate limiting, either do not use ``authCacheDuration`` or implement rate limiting some other way, such as directly inside the protected service.
+
 .. _ingress-service-only:
 
 Service-only ingresses
