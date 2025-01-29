@@ -109,7 +109,7 @@ jobs:
         run: sudo apt install -y libpq-dev libldap2-dev libsasl2-dev
 
       - name: Set up Minikube
-        uses: medyagh/setup-minikube@v0.0.18
+        uses: medyagh/setup-minikube@v0.0.19
         with:
           kubernetes-version: "v1.27.3"
 
