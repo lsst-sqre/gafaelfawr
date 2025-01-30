@@ -501,14 +501,28 @@ A user who is a member of the ``bar`` and ``other`` groups will have the ``exec:
 Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
 The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
 
+.. _helm-quota:
+
 Quotas
 ======
 
 Gafaelfawr supports calculating user quotas based on group membership and providing quota information through its API.
-These quotas are not enforced by Gafaelfawr.
+API quotas are also enforced directly by Gafaelfawr.
 
-To configure quotas, set a base quota for all users, and then optionally add additional quota for members of specific groups.
-Here is an example:
+Default quota
+-------------
+
+The default quota setting controls the quotas that all users get when there are no more specific rules (discussed below).
+
+The ``api`` key should contain a mapping of service names to number of requests per 15 minutes.
+The keys for API quotas are names of services.
+This is the same name the service should use in the ``config.service`` key of a ``GafaelfawrIngress`` resource (see :ref:`ingress`).
+If a service name has no corresponding quota setting, access to that service will be unrestricted.
+
+The ``notebook`` key should contain ``cpu`` and ``memory`` keys specifying the default CPU and memory limits.
+The memory limit is given in a floating point number of GiB.
+
+For example:
 
 .. code-block:: yaml
 
@@ -520,38 +534,73 @@ Here is an example:
          notebook:
            cpu: 2.0
            memory: 4.0
+
+This sets a quota of 1000 requests per 15 minutes for the ``datalinker`` service, no quotas for any other API service, and a default limit of 2.0 CPU equivalents and 4.0 GiB of memory for notebooks.
+
+The default quota for all API services not listed is unlimited.
+To set a default quota of 0, explicitly list the API service with a quota of 0.
+
+Group quota
+-----------
+
+Second, the ``groups`` key sets **additional** quota granted to members of specific groups.
+The quota for every group of which the user is a member is added to the default quota.
+For example:
+
+.. code-block:: yaml
+
+   config:
+     quota:
        groups:
          g_developers:
+           api:
+             datalinker: 500
            notebook:
              cpu: 0.0
              memory: 4.0
-        g_limited:
-          notebook:
-            cpu: 0.0
-            memory: 0.0
-            spawn: false
-      bypass:
-        - "g_admins"
 
-API quotas are in requests per 15 minutes.
-Notebook quotas are in CPU equivalents and GiB of memory.
-If spawn is set to false, users should not be allowed to spawn a new user notebook.
-Members of groups listed in ``bypass`` ignore all quota restrictions.
-
-The above example sets an API quota for the ``datalinker`` service of 1000 requests per 15 minutes, and a default quota for user notebooks of 2.0 CPU equivalents and 4.0GiB of memory.
-Users who are members of the ``g_developers`` group get an additional 4.0GiB of memory for their notebooks.
-Users who are members of the ``g_limited`` group are not allowed to spawn notebooks.
-(Note that the CPU and memory quota additions must be specified, even if they are zero.)
-Users who are members of the ``g_admins`` group ignore all quota restrictions.
-
-The keys for API quotas are names of services.
-This is the same name the service should use in the ``config.service`` key of a ``GafaelfawrIngress`` resource (see :ref:`ingress`).
-If a service name has no corresponding quota setting, access to that service will be unrestricted.
-
-All group stanzas matching the group membership of a user are added to the ``default`` quota, and the results are reported as the quota for that user by the user information API.
+If this were combined with the above default quota, members of the ``g_developers`` group would receive a total of 1500 requests per 15 minutes for datalinker, and a total of 8.0 GiB of memory for notebooks.
+The CPU quota for notebooks would be unchanged.
 
 Members of specific groups cannot be granted unrestricted access to an API service since a missing key for a service instead means that this group contributes no additional quota for that service.
 Instead, grant effectively unlimited access by granting a very large quota number.
+
+Normally, the group quota can only add to the individual quota.
+There are two exceptions: the ``spawn`` flag for notebooks, and any API quotas for services that have no default quotas.
+Consider the following addditional configuration:
+
+.. code-block:: yaml
+
+   config:
+     quota:
+       groups:
+         g_limited:
+           api:
+             tap: 1000
+           notebook:
+             cpu: 0.0
+             memory: 0.0
+             spawn: false
+
+If combined with the previous default configuration, members of the ``g_limited`` group will have a quota of 1000 requests per 15 minutes to the tap service.
+Users who are not a member of that group will continue to have unlimited access to the tap service.
+Also, members of the ``g_limited`` group will not be allowed to spawn new notebooks, because their ``spawn`` flag is set to false instead of the default of true.
+Note that ``cpu`` and ``memory`` are also set because they are required fields, but are set to 0.0 so they don't add anything to the quota.
+
+Bypass groups
+-------------
+
+Finally, some groups can be allowed to bypass all quota limits.
+This is done with the ``bypass`` key.
+
+.. code-block:: yaml
+
+   config:
+     quota:
+       bypass:
+         - "g_admins"
+
+All members of any group listed under ``bypass`` will ignore all quota restrictions, including the ``spawn`` flag for notebook quotas.
 
 Redis storage
 =============

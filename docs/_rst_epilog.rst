@@ -5,6 +5,7 @@
 .. _Kopf: https://kopf.readthedocs.io/en/stable/
 .. _limits: https://limits.readthedocs.io/en/stable/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
+.. _Nublado: https://nublado.lsst.io/
 .. _Phalanx: https://phalanx.lsst.io/
 .. _pre-commit: https://pre-commit.com
 .. _pytest: https://docs.pytest.org/en/latest/
