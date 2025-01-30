@@ -5,6 +5,8 @@ Response headers
 The following headers may be added to the response from a service protected by Gafaelfawr.
 They will only be added for services behind an authenticated ``GafaelfawrIngress`` resource, not an anonymous one.
 
+.. _headers-rate-limit:
+
 Rate limit headers
 ==================
 
