@@ -311,7 +311,7 @@ async def get_login(
 )
 async def get_quota_overrides(
     *,
-    auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> QuotaConfig:
     user_info_service = context.factory.create_user_info_service()
