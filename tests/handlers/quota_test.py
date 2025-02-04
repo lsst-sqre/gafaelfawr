@@ -240,3 +240,42 @@ async def test_rate_limit_override_only(
     r = await client.get("/auth/api/v1/user-info", headers=headers)
     assert r.status_code == 200
     assert r.json() == expected_user_info
+
+
+@pytest.mark.asyncio
+async def test_permissions(client: AsyncClient, factory: Factory) -> None:
+    user_token_data = await create_session_token(
+        factory, group_names=["foo"], scopes=set()
+    )
+    user_headers = {"Authorization": f"bearer {user_token_data.token}"}
+    admin_token_data = await create_session_token(
+        factory, group_names=["admin"], scopes={"admin:token"}
+    )
+    admin_headers = {"Authorization": f"bearer {admin_token_data.token}"}
+
+    r = await client.get("/auth/api/v1/quota-overrides", headers=user_headers)
+    assert r.status_code == 404
+    overrides: dict[str, Any] = {
+        "bypass": [],
+        "default": {"api": {"test": 10}},
+        "groups": {},
+    }
+    r = await client.put(
+        "/auth/api/v1/quota-overrides", json=overrides, headers=user_headers
+    )
+    assert r.status_code == 403
+    r = await client.put(
+        "/auth/api/v1/quota-overrides", json=overrides, headers=admin_headers
+    )
+    assert r.status_code == 200
+    r = await client.get("/auth/api/v1/quota-overrides", headers=user_headers)
+    assert r.status_code == 200
+    assert r.json() == overrides
+    r = await client.delete(
+        "/auth/api/v1/quota-overrides", headers=user_headers
+    )
+    assert r.status_code == 403
+    r = await client.delete(
+        "/auth/api/v1/quota-overrides", headers=admin_headers
+    )
+    assert r.status_code == 204
