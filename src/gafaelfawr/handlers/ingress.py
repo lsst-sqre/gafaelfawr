@@ -31,7 +31,7 @@ from ..auth import (
 from ..constants import MINIMUM_LIFETIME
 from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
-from ..events import AuthBotEvent, AuthUserEvent
+from ..events import AuthBotEvent, AuthUserEvent, RateLimitEvent
 from ..exceptions import (
     ExternalUserInfoError,
     InsufficientScopeError,
@@ -369,13 +369,21 @@ async def get_auth(
 
     # Send a metric event for the authentication.
     with sentry_sdk.start_span(name="events.publish"):
-        username = token_data.username
-        service = auth_config.service
-        if is_bot_user(username):
-            bot_event = AuthBotEvent(username=username, service=service)
+        if is_bot_user(token_data.username):
+            bot_event = AuthBotEvent(
+                username=token_data.username,
+                service=auth_config.service,
+                quota=rate_status.limit if rate_status else None,
+                quota_used=rate_status.used if rate_status else None,
+            )
             await context.events.auth_bot.publish(bot_event)
         else:
-            user_event = AuthUserEvent(username=username, service=service)
+            user_event = AuthUserEvent(
+                username=token_data.username,
+                service=auth_config.service,
+                quota=rate_status.limit if rate_status else None,
+                quota_used=rate_status.used if rate_status else None,
+            )
             await context.events.auth_user.publish(user_event)
 
     return {"status": "ok"}
@@ -576,6 +584,7 @@ async def check_rate_limit(
     retry_after = datetime.fromtimestamp(stats.reset_time, tz=UTC)
     status = RateLimitStatus(
         limit=quota,
+        used=quota - stats.remaining,
         remaining=stats.remaining,
         reset=retry_after,
         resource=auth_config.service,
@@ -583,6 +592,15 @@ async def check_rate_limit(
     if allowed:
         return status
     else:
+        with sentry_sdk.start_span(name="events.publish"):
+            event = RateLimitEvent(
+                username=user_info.username,
+                is_bot=is_bot_user(user_info.username),
+                service=auth_config.service,
+                quota=quota,
+            )
+            await context.events.rate_limit.publish(event)
+
         # Return a 403 error with the actual status code and body in the
         # headers, where they will be parsed by the ingress-nginx integration.
         msg = f"Rate limit ({quota}/15m) exceeded"

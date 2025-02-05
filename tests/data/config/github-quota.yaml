@@ -42,3 +42,4 @@ quota:
 metrics:
   enabled: false
   application: "gafaelfawr"
+  mock: true

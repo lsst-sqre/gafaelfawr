@@ -15,6 +15,7 @@ from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token
 
+from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.logging import parse_log
 from ..support.tokens import create_session_token
@@ -24,6 +25,7 @@ from ..support.tokens import create_session_token
 async def test_success(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
+    await reconfigure("github-quota", factory)
     token_data = await create_session_token(factory, scopes={"exec:admin"})
 
     # Successful request with X-Forwarded-For and a bearer token.
@@ -58,7 +60,8 @@ async def test_success(
     }
     assert parse_log(caplog) == [expected_log]
 
-    # Successful request with HTTP Basic authentication in the username.
+    # Successful request with HTTP Basic authentication in the username, using
+    # a service without a quota.
     basic = f"{token_data.token}:x-oauth-basic".encode()
     basic_b64 = base64.b64encode(basic).decode()
     caplog.clear()
@@ -77,13 +80,13 @@ async def test_success(
     expected_log["token_source"] = "basic-username"
     assert parse_log(caplog) == [expected_log]
 
-    # The same with HTTP Basic in the password.
+    # The same with HTTP Basic in the password, using a service with a quota.
     basic = f"x-oauth-basic:{token_data.token}".encode()
     basic_b64 = base64.b64encode(basic).decode()
     caplog.clear()
     r = await client.get(
         "/ingress/auth",
-        params={"scope": "exec:admin", "service": "service-two"},
+        params={"scope": "exec:admin", "service": "test"},
         headers={
             "Authorization": f"Basic {basic_b64}",
             "X-Original-Uri": "/foo",
@@ -91,7 +94,7 @@ async def test_success(
         },
     )
     assert r.status_code == 200
-    expected_log["httpRequest"]["requestUrl"] = url + "&service=service-two"
+    expected_log["httpRequest"]["requestUrl"] = url + "&service=test"
     expected_log["token_source"] = "basic-password"
     assert parse_log(caplog) == [expected_log]
 
@@ -101,9 +104,24 @@ async def test_success(
     assert isinstance(events.auth_user, MockEventPublisher)
     events.auth_user.published.assert_published_all(
         [
-            {"username": token_data.username, "service": None},
-            {"username": token_data.username, "service": "service-one"},
-            {"username": token_data.username, "service": "service-two"},
+            {
+                "username": token_data.username,
+                "service": None,
+                "quota": None,
+                "quota_used": None,
+            },
+            {
+                "username": token_data.username,
+                "service": "service-one",
+                "quota": None,
+                "quota_used": None,
+            },
+            {
+                "username": token_data.username,
+                "service": "test",
+                "quota": 1,
+                "quota_used": 1,
+            },
         ]
     )
     assert isinstance(events.auth_bot, MockEventPublisher)
@@ -418,22 +436,94 @@ async def test_internal(
 
 
 @pytest.mark.asyncio
+async def test_rate_limit_metrics(
+    client: AsyncClient, factory: Factory
+) -> None:
+    await reconfigure("github-quota", factory)
+    token_data = await create_session_token(factory, scopes={"read:all"})
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 200
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "429"
+
+    events = context_dependency._events
+    assert events
+    assert isinstance(events.auth_user, MockEventPublisher)
+    events.auth_user.published.assert_published_all(
+        [
+            {
+                "username": token_data.username,
+                "service": "test",
+                "quota": 1,
+                "quota_used": 1,
+            }
+        ]
+    )
+    assert isinstance(events.rate_limit, MockEventPublisher)
+    events.rate_limit.published.assert_published_all(
+        [
+            {
+                "username": token_data.username,
+                "is_bot": False,
+                "service": "test",
+                "quota": 1,
+            }
+        ]
+    )
+
+
+@pytest.mark.asyncio
 async def test_bot_metrics(client: AsyncClient, factory: Factory) -> None:
+    await reconfigure("github-quota", factory)
     token_data = await create_session_token(
         factory, username="bot-something", scopes={"read:all"}
     )
     r = await client.get(
         "/ingress/auth",
-        params={"scope": "read:all", "service": "service"},
+        params={"scope": "read:all", "service": "test"},
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 200
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers={"Authorization": f"Bearer {token_data.token}"},
+    )
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "429"
 
     events = context_dependency._events
     assert events
     assert isinstance(events.auth_bot, MockEventPublisher)
     events.auth_bot.published.assert_published_all(
-        [{"username": "bot-something", "service": "service"}]
+        [
+            {
+                "username": "bot-something",
+                "service": "test",
+                "quota": 1,
+                "quota_used": 1,
+            }
+        ]
     )
     assert isinstance(events.auth_user, MockEventPublisher)
     events.auth_user.published.assert_published_all([])
+    assert isinstance(events.rate_limit, MockEventPublisher)
+    events.rate_limit.published.assert_published_all(
+        [
+            {
+                "username": "bot-something",
+                "is_bot": True,
+                "service": "test",
+                "quota": 1,
+            }
+        ]
+    )
