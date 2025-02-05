@@ -138,6 +138,9 @@ class RateLimitStatus:
     limit: int
     """Total number of API requests allowed to this service."""
 
+    used: int
+    """Number of API requests used in the rate limit period."""
+
     remaining: int
     """Number of API requests remaining in the rate limit period."""
 
@@ -156,7 +159,7 @@ class RateLimitStatus:
         return {
             "X-RateLimit-Limit": str(self.limit),
             "X-RateLimit-Remaining": str(self.remaining),
-            "X-RateLimit-Used": str(self.limit - self.remaining),
             "X-RateLimit-Reset": str(int(self.reset.timestamp())),
             "X-RateLimit-Resource": self.resource,
+            "X-RateLimit-Used": str(self.used),
         }

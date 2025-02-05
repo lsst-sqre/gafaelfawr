@@ -11,11 +11,13 @@ __all__ = [
     "ActiveUserTokensEvent",
     "AuthBotEvent",
     "AuthUserEvent",
+    "BaseAuthEvent",
     "FrontendEvents",
     "LoginAttemptEvent",
     "LoginEnrollmentEvent",
     "LoginFailureEvent",
     "LoginSuccessEvent",
+    "RateLimitEvent",
     "StateEvents",
 ]
 
@@ -79,25 +81,8 @@ class StateEvents(EventMaker):
         )
 
 
-class AuthBotEvent(EventPayload):
-    """An authentication to a service by a bot user."""
-
-    username: str = Field(
-        ..., title="Username", description="Username of bot user"
-    )
-
-    service: str | None = Field(
-        None,
-        title="Service",
-        description="Service to which the user was authenticated",
-    )
-
-
-class AuthUserEvent(EventPayload):
-    """An authentication to a service by a user.
-
-    Bot users are not included in this metric.
-    """
+class BaseAuthEvent(EventPayload):
+    """Base class for authentication events."""
 
     username: str = Field(
         ..., title="Username", description="Username of authenticated user"
@@ -108,6 +93,29 @@ class AuthUserEvent(EventPayload):
         title="Service",
         description="Service to which the user was authenticated",
     )
+
+    quota: int | None = Field(
+        None,
+        title="Quota",
+        description="API quota for this service, if one is imposed",
+    )
+
+    quota_used: int | None = Field(
+        None,
+        title="Quota used",
+        description="Amount of API quota used as of this request",
+    )
+
+
+class AuthBotEvent(BaseAuthEvent):
+    """An authentication to a service by a bot user."""
+
+
+class AuthUserEvent(BaseAuthEvent):
+    """An authentication to a service by a user.
+
+    Bot users are not included in this metric.
+    """
 
 
 class LoginAttemptEvent(EventPayload):
@@ -155,6 +163,32 @@ class LoginSuccessEvent(EventPayload):
     )
 
 
+class RateLimitEvent(EventPayload):
+    """Authentication request rejected by API rate limits."""
+
+    username: str = Field(
+        ..., title="Username", description="Username of authenticated user"
+    )
+
+    is_bot: bool = Field(
+        ...,
+        title="Whether user is a bot",
+        description="Whether this user is a bot user",
+    )
+
+    service: str = Field(
+        ...,
+        title="Service",
+        description="Service to which the user was authenticated",
+    )
+
+    quota: int = Field(
+        ...,
+        title="Quota",
+        description="API quota amount that was exceeded",
+    )
+
+
 class FrontendEvents(EventMaker):
     """Event publishers for Gafaelfawr frontend events.
 
@@ -173,6 +207,8 @@ class FrontendEvents(EventMaker):
         Event publisher for authentications that fail in Gafaelfawr.
     login_success
         Event publisher for login successes.
+    rate_limit
+        Event publisher for rate limit rejections.
     """
 
     async def initialize(self, manager: EventManager) -> None:
@@ -193,4 +229,7 @@ class FrontendEvents(EventMaker):
         )
         self.login_success = await manager.create_publisher(
             "login_success", LoginSuccessEvent
+        )
+        self.rate_limit = await manager.create_publisher(
+            "rate_limit", RateLimitEvent
         )
