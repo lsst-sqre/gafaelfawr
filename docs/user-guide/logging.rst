@@ -36,11 +36,18 @@ The ``/ingress/auth`` route adds the following attributes:
     The URL being authenticated.
     This is the URL (withough the scheme and host) of the original request that Gafaelfawr is being asked to authenticate via a subrequest.
 
+``quota``
+    Information about the API quota, if there is any.
+    If set, this will be a dictionary with three keys: ``limit``, set to the API quota limit applied to this user and service; ``used``, set to the number of requests in the current quota interval; and ``reset``, set to the time at which the current quota interval ends.
+
 ``required_scope``
     The list of scopes required, taken from the ``scope`` query parameter
 
 ``satisfy``
     The authorization strategy, taken from the ``satisfy`` query parameter.
+
+``service``
+    The name of the underlying service, if known.
 
 The ``/login`` route adds the following attributes:
 

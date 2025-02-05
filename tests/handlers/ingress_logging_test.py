@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import ANY
 
@@ -53,6 +54,7 @@ async def test_success(
         "required_scopes": ["exec:admin"],
         "satisfy": "all",
         "scopes": ["exec:admin"],
+        "service": None,
         "severity": "info",
         "token": token_data.token.key,
         "token_source": "bearer",
@@ -77,6 +79,7 @@ async def test_success(
     assert r.status_code == 200
     url = expected_log["httpRequest"]["requestUrl"]
     expected_log["httpRequest"]["requestUrl"] += "&service=service-one"
+    expected_log["service"] = "service-one"
     expected_log["token_source"] = "basic-username"
     assert parse_log(caplog) == [expected_log]
 
@@ -95,8 +98,15 @@ async def test_success(
     )
     assert r.status_code == 200
     expected_log["httpRequest"]["requestUrl"] = url + "&service=test"
+    expected_log["quota"] = {"limit": 1, "used": 1, "reset": ANY}
+    expected_log["service"] = "test"
     expected_log["token_source"] = "basic-password"
-    assert parse_log(caplog) == [expected_log]
+    seen_log = parse_log(caplog)
+    assert seen_log == [expected_log]
+    reset_time = datetime.fromisoformat(seen_log[0]["quota"]["reset"])
+    reset_time = reset_time.replace(tzinfo=UTC)
+    expected_reset = datetime.now(tz=UTC) + timedelta(minutes=15)
+    assert expected_reset - timedelta(seconds=1) < reset_time < expected_reset
 
     # Check the logged metrics events.
     events = context_dependency._events
@@ -161,6 +171,7 @@ async def test_authz_failed(
             "required_scopes": ["exec:test"],
             "satisfy": "any",
             "scopes": ["exec:admin"],
+            "service": None,
             "severity": "warning",
             "token": token_data.token.key,
             "token_source": "bearer",
@@ -199,6 +210,7 @@ async def test_original_url(
         "required_scopes": ["exec:admin"],
         "satisfy": "all",
         "scopes": ["user:token"],
+        "service": None,
         "severity": "warning",
         "token": token_data.token.key,
         "token_source": "bearer",
@@ -257,6 +269,7 @@ async def test_x_forwarded(
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
             "scopes": ["user:token"],
+            "service": None,
             "severity": "warning",
             "token": token_data.token.key,
             "token_source": "bearer",
@@ -291,6 +304,7 @@ async def test_invalid_token(
             },
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
+            "service": None,
             "severity": "warning",
             "token_source": "bearer",
         }
@@ -321,22 +335,6 @@ async def test_notebook(
     assert parse_log(caplog) == [
         {
             "auth_uri": "/foo",
-            "event": "Token authorized",
-            "httpRequest": {
-                "requestMethod": "GET",
-                "requestUrl": ANY,
-                "remoteIp": "127.0.0.1",
-            },
-            "required_scopes": ["exec:admin"],
-            "satisfy": "all",
-            "scopes": ["exec:admin", "read:all"],
-            "severity": "info",
-            "token": token_data.token.key,
-            "token_source": "bearer",
-            "user": token_data.username,
-        },
-        {
-            "auth_uri": "/foo",
             "event": "Created new notebook token",
             "httpRequest": {
                 "requestMethod": "GET",
@@ -346,6 +344,7 @@ async def test_notebook(
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
             "scopes": ["exec:admin", "read:all"],
+            "service": None,
             "severity": "info",
             "token": token_data.token.key,
             "token_key": notebook_token.key,
@@ -358,6 +357,23 @@ async def test_notebook(
                 "gid": token_data.gid,
                 "groups": [{"id": 1000, "name": "admin"}],
             },
+            "user": token_data.username,
+        },
+        {
+            "auth_uri": "/foo",
+            "event": "Token authorized",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
+            "required_scopes": ["exec:admin"],
+            "satisfy": "all",
+            "scopes": ["exec:admin", "read:all"],
+            "service": None,
+            "severity": "info",
+            "token": token_data.token.key,
+            "token_source": "bearer",
             "user": token_data.username,
         },
     ]
@@ -391,22 +407,6 @@ async def test_internal(
     assert parse_log(caplog) == [
         {
             "auth_uri": "/foo",
-            "event": "Token authorized",
-            "httpRequest": {
-                "requestMethod": "GET",
-                "requestUrl": ANY,
-                "remoteIp": "127.0.0.1",
-            },
-            "required_scopes": ["exec:admin"],
-            "satisfy": "all",
-            "scopes": ["exec:admin", "read:all"],
-            "severity": "info",
-            "token": token_data.token.key,
-            "token_source": "bearer",
-            "user": token_data.username,
-        },
-        {
-            "auth_uri": "/foo",
             "event": "Created new internal token",
             "httpRequest": {
                 "requestMethod": "GET",
@@ -416,6 +416,7 @@ async def test_internal(
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
             "scopes": ["exec:admin", "read:all"],
+            "service": None,
             "severity": "info",
             "token": token_data.token.key,
             "token_key": notebook_token.key,
@@ -432,12 +433,29 @@ async def test_internal(
             },
             "user": token_data.username,
         },
+        {
+            "auth_uri": "/foo",
+            "event": "Token authorized",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": ANY,
+                "remoteIp": "127.0.0.1",
+            },
+            "required_scopes": ["exec:admin"],
+            "satisfy": "all",
+            "scopes": ["exec:admin", "read:all"],
+            "service": None,
+            "severity": "info",
+            "token": token_data.token.key,
+            "token_source": "bearer",
+            "user": token_data.username,
+        },
     ]
 
 
 @pytest.mark.asyncio
 async def test_rate_limit_metrics(
-    client: AsyncClient, factory: Factory
+    client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     await reconfigure("github-quota", factory)
     token_data = await create_session_token(factory, scopes={"read:all"})
@@ -447,13 +465,47 @@ async def test_rate_limit_metrics(
         headers={"Authorization": f"Bearer {token_data.token}"},
     )
     assert r.status_code == 200
+    caplog.clear()
     r = await client.get(
         "/ingress/auth",
         params={"scope": "read:all", "service": "test"},
-        headers={"Authorization": f"Bearer {token_data.token}"},
+        headers={
+            "Authorization": f"Bearer {token_data.token}",
+            "X-Forwarded-For": "192.0.2.1",
+            "X-Original-Uri": "/foo",
+        },
     )
     assert r.status_code == 403
     assert r.headers["X-Error-Status"] == "429"
+
+    assert parse_log(caplog) == [
+        {
+            "auth_uri": "/foo",
+            "error": "Rate limit (1/15m) exceeded",
+            "event": "Request rejected due to rate limits",
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": (
+                    f"https://{TEST_HOSTNAME}/ingress/auth?scope=read%3Aall&"
+                    "service=test"
+                ),
+                "remoteIp": "192.0.2.1",
+            },
+            "quota": {
+                "limit": 1,
+                "reset": ANY,
+                "used": 1,
+            },
+            "required_scopes": ["read:all"],
+            "satisfy": "all",
+            "scopes": ["read:all"],
+            "service": "test",
+            "severity": "info",
+            "token": token_data.token.key,
+            "token_source": "bearer",
+            "user": token_data.username,
+        }
+    ]
 
     events = context_dependency._events
     assert events
