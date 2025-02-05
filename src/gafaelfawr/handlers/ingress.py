@@ -17,7 +17,7 @@ from typing import Annotated
 import sentry_sdk
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from limits import RateLimitItemPerMinute
-from safir.datetime import current_datetime
+from safir.datetime import current_datetime, format_datetime_for_logging
 from safir.models import ErrorModel
 from safir.pydantic import SecondsTimedelta
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -260,6 +260,7 @@ def auth_config(
         auth_uri=auth_uri,
         required_scopes=sorted(scopes),
         satisfy=satisfy.name.lower(),
+        service=service,
     )
     if only_service:
         context.rebind_logger(only_services=only_service)
@@ -359,8 +360,7 @@ async def get_auth(
     if rate_status:
         response.headers.update(rate_status.to_http_headers())
 
-    # Log and return the results.
-    context.logger.info("Token authorized")
+    # Construct the response headers.
     headers = await build_success_headers(
         context, auth_config, token_data, user_info
     )
@@ -386,6 +386,8 @@ async def get_auth(
             )
             await context.events.auth_user.publish(user_event)
 
+    # Log and return the results.
+    context.logger.info("Token authorized")
     return {"status": "ok"}
 
 
@@ -589,33 +591,42 @@ async def check_rate_limit(
         reset=retry_after,
         resource=auth_config.service,
     )
+    context.rebind_logger(
+        quota={
+            "limit": quota,
+            "used": status.used,
+            "reset": format_datetime_for_logging(retry_after),
+        }
+    )
     if allowed:
         return status
-    else:
-        with sentry_sdk.start_span(name="events.publish"):
-            event = RateLimitEvent(
-                username=user_info.username,
-                is_bot=is_bot_user(user_info.username),
-                service=auth_config.service,
-                quota=quota,
-            )
-            await context.events.rate_limit.publish(event)
 
-        # Return a 403 error with the actual status code and body in the
-        # headers, where they will be parsed by the ingress-nginx integration.
-        msg = f"Rate limit ({quota}/15m) exceeded"
-        detail = [{"msg": msg, "type": "rate_limited"}]
-        raise HTTPException(
-            detail=detail,
-            status_code=403,
-            headers={
-                "Cache-Control": "no-cache, no-store",
-                "X-Error-Body": json.dumps({"detail": detail}),
-                "X-Error-Status": "429",
-                "Retry-After": format_datetime(retry_after, usegmt=True),
-                **status.to_http_headers(),
-            },
+    # The user ran out of API quota. Log the relevant metric and the error.
+    with sentry_sdk.start_span(name="events.publish"):
+        event = RateLimitEvent(
+            username=user_info.username,
+            is_bot=is_bot_user(user_info.username),
+            service=auth_config.service,
+            quota=quota,
         )
+        await context.events.rate_limit.publish(event)
+
+    # Return a 403 error with the actual status code and body in the
+    # headers, where they will be parsed by the ingress-nginx integration.
+    msg = f"Rate limit ({quota}/15m) exceeded"
+    context.logger.info("Request rejected due to rate limits", error=msg)
+    detail = [{"msg": msg, "type": "rate_limited"}]
+    raise HTTPException(
+        detail=detail,
+        status_code=403,
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "X-Error-Body": json.dumps({"detail": detail}),
+            "X-Error-Status": "429",
+            "Retry-After": format_datetime(retry_after, usegmt=True),
+            **status.to_http_headers(),
+        },
+    )
 
 
 async def build_success_headers(
