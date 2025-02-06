@@ -10,6 +10,26 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.5.0'></a>
+## 12.5.0 (2025-02-05)
+
+### New features
+
+- Treat an API quota of 0 as an administrative block and return a 403 error instead of a 429 error. This allows quotas to be used as an emergency way to block access to a specific service without changing scopes.
+- Include information on total quota and requests within the current window in `auth_user` and `auth_bot` metrics events if the request was subject to an API quota.
+- Record a `rate_limit` metrics event when a request is rejected due to API rate limits.
+
+### Bug fixes
+
+- Allow any authenticated user to see the current quota overrides, rather than restricting them to admins. Changing the quota overrides still requires an admin scope.
+
+### Other changes
+
+- Include the name of the service, if known, in authorization log messages.
+- Include API quota information in the log messages for successful authorization if an API quota applies.
+- Log the successful authorization message after any messages about creating new notebook or internal tokens, reflecting the true order of operations.
+- Log requests rejected due to rate limiting.
+
 <a id='changelog-12.4.0'></a>
 ## 12.4.0 (2025-01-22)
 
