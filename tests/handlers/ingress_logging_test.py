@@ -454,7 +454,7 @@ async def test_internal(
 
 
 @pytest.mark.asyncio
-async def test_rate_limit_metrics(
+async def test_rate_limit_events(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
     await reconfigure("github-quota", factory)
@@ -534,7 +534,7 @@ async def test_rate_limit_metrics(
 
 
 @pytest.mark.asyncio
-async def test_bot_metrics(client: AsyncClient, factory: Factory) -> None:
+async def test_bot_events(client: AsyncClient, factory: Factory) -> None:
     await reconfigure("github-quota", factory)
     token_data = await create_session_token(
         factory, username="bot-something", scopes={"read:all"}
