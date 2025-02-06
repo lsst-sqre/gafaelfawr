@@ -563,8 +563,21 @@ async def check_rate_limit(
     if not user_info.quota or not auth_config.service:
         return None
     quota = user_info.quota.api.get(auth_config.service)
-    if not quota:
+    if quota is None:
         return None
+
+    # If the quota is zero, treat this as an administrative block and return a
+    # 403 error.
+    if quota == 0:
+        msg = (
+            f"User {user_info.username} not allowed to access service"
+            f" {auth_config.service}"
+        )
+        raise generate_challenge(
+            context, auth_config.auth_type, exc=InsufficientScopeError(msg)
+        )
+
+    # Check the usage against Redis.
     key = ("api", user_info.username)
     limit = RateLimitItemPerMinute(quota, 15)
     try:

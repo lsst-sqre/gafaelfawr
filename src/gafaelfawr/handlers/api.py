@@ -342,7 +342,9 @@ async def delete_quota_overrides(
 ) -> None:
     user_info_service = context.factory.create_user_info_service()
     success = await user_info_service.delete_quota_overrides()
-    if not success:
+    if success:
+        context.logger.info("Deleted quota overrides")
+    else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=[{"type": "not_found", "msg": "No quota overrides set"}],
@@ -364,6 +366,10 @@ async def put_quota_overrides(
 ) -> QuotaConfig:
     user_info_service = context.factory.create_user_info_service()
     await user_info_service.set_quota_overrides(overrides)
+    context.logger.info(
+        "Updated quota overrides",
+        quota_overrides=overrides.model_dump(mode="json"),
+    )
     return overrides
 
 

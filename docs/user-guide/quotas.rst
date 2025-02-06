@@ -33,6 +33,14 @@ These headers are based on the rate limiting used by GitHub.
 If the user exceeds their quota, subsequent requests will be rejected with an HTTP 429 response code.
 That response will include the same ``X-RateLimit-*`` headers, as well as the HTTP-standard ``Retry-After`` header, which specifies the time at which the user's quota will reset.
 
+Blocking a service
+^^^^^^^^^^^^^^^^^^
+
+Setting the API quota to zero is a special case.
+This is treated as an administrative block of the accesses to the service that it affects, and all requests are rejected with a 403 error (not a 429 error).
+
+This is normally only useful when done in quota overrides (see :ref:`quota-overrides`).
+
 Notebook quotas
 ---------------
 
@@ -41,6 +49,8 @@ The notebook quota also includes a boolean flag, ``spawn``, which controls wheth
 
 Notebook quotas are only calculated by Gafaelfawr, not tracked.
 Normally, they are enforced by Nublado_.
+
+.. _quota-overrides:
 
 Overriding quotas
 =================
