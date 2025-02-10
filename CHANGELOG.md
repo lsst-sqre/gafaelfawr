@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.5.1'></a>
+## 12.5.1 (2025-02-10)
+
+### Bug fixes
+
+- Escape the Redis passsword when constructing a URL for the limits library.
+
 <a id='changelog-12.5.0'></a>
 ## 12.5.0 (2025-02-05)
 
