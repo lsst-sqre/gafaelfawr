@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.5.2'></a>
+## 12.5.2 (2025-02-10)
+
+### Bug fixes
+
+- Fix escaping of the Redis password to use the correct library function.
+
 <a id='changelog-12.5.1'></a>
 ## 12.5.1 (2025-02-10)
 
