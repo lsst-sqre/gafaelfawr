@@ -25,7 +25,7 @@ from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
 from typing import Annotated, Any, Self
-from urllib.parse import urlencode
+from urllib.parse import quote
 
 import yaml
 from pydantic import (
@@ -1096,7 +1096,7 @@ class Config(EnvFirstSettings):
         netloc = f"{host}:{port}" if port else host
         path = self.redis_ephemeral_url.path
         if self.redis_password:
-            password = urlencode(self.redis_password.get_secret_value())
+            password = quote(self.redis_password.get_secret_value(), safe="")
             return f"async+redis://:{password}@{netloc}{path}"
         else:
             return f"async+redis://{netloc}{path}"
