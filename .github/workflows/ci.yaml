@@ -1,11 +1,10 @@
 name: CI
 
 env:
-  # Current supported Python version. For applications, there is generally no
-  # reason to support multiple Python versions, so all actions are run with
-  # this version. Quote the version to avoid interpretation as a floating
-  # point number.
-  PYTHON_VERSION: "3.13"
+  # Current supported uv version. The uv documentation recommends pinning
+  # this. The version should match the version used in .pre-commit-config.yaml
+  # and frozen in uv.lock.
+  UV_VERSION: "0.6.3"
 
 "on":
   merge_group: {}
@@ -61,20 +60,8 @@ jobs:
         if: steps.node-cache.outputs.cache-hit != 'true'
         working-directory: ./ui
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      # This has to happen after installing Node modules because we run eslint
-      # and it wants react to be already installed. We therefore do all the
-      # linting here instead of during the test job.
-      - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
-
-      - name: Build the UI
-        run: npm run build
-        working-directory: ./ui
+      - name: Lint and build the UI
+        run: make ui
 
       # Cache the built web UI in a build artifact so that it can be used by
       # both the test job and the docker job. We only use this artifact
@@ -95,6 +82,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
       # Reuse the built UI from the ui job.
       - name: Restore UI artifact
         uses: actions/download-artifact@v4
@@ -102,27 +99,49 @@ jobs:
           name: ui
           path: ui/public
 
-      - name: Update package lists
-        run: sudo apt-get update
-
       - name: Install extra packages
-        run: sudo apt install -y libpq-dev libldap2-dev libsasl2-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev libldap2-dev libsasl2-dev
 
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.19
         with:
           kubernetes-version: "v1.27.3"
 
-      - uses: lsst-sqre/run-tox@v1
+      - name: Install tox dependencies
+        run: uv sync --only-group tox
+
+      - name: Run tox
+        run: uv run tox run -e lint,typing,py-full,coverage-report
+
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      pull-requests: read
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      docs-specific: ${{ steps.filter.outputs.docs-specific }}
+
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          tox-envs: "typing,py-full,coverage-report"
-          tox-requirements: "requirements/tox.txt"
-          cache-key-prefix: test
+          filters: |
+            docs:
+              - "docs/**"
+              - "src/gafaelfawr/**"
+            docs-specific:
+              - "docs/**"
 
   docs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    needs: changes
+    if: ${{ needs.changes.outputs.docs == 'true' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -130,31 +149,30 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
-      - name: Filter paths
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            docs:
-              - "docs/**"
-
-      - name: Update package lists
-        run: sudo apt-get update
-
       - name: Install extra packages
-        run: sudo apt install -y graphviz libpq-dev libldap2-dev libsasl2-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
-      - uses: lsst-sqre/run-tox@v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          tox-envs: docs
-          tox-requirements: "requirements/tox.txt"
-          cache-key-prefix: docs
+          version: ${{ env.UV_VERSION }}
 
-      # Only attempt documentation uploads for long-lived branches, tagged
-      # releases, and pull requests from ticket branches. This avoids version
-      # clutter in the docs and failures when a PR doesn't have access to
-      # secrets.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install tox dependencies
+        run: uv sync --only-group tox
+
+      - name: Run tox
+        run: uv run tox run -e docs
+
+      # Upload docs:
+      # - on pushes to main, merge queues, and workflow dispatches
+      # - on pushes to tickets/ branches if docs/ directory content changed
       - uses: lsst-sqre/ltd-upload@v1
         with:
           project: gafaelfawr
@@ -162,30 +180,43 @@ jobs:
           username: ${{ secrets.LTD_USERNAME }}
           password: ${{ secrets.LTD_PASSWORD }}
         if: >
-          github.event_name != 'merge_group'
-          && (github.event_name != 'pull_request'
-              || (startsWith(github.head_ref, 'tickets/')
-                  && steps.filter.outputs.docs == 'true'))
+          (github.event_name == 'push' && github.ref_name == 'main')
+          || (github.event_name == 'merge_group')
+          || (github.event_name == 'workflow_dispatch')
+          || (github.event_name == 'pull_request'
+              && startsWith(github.head_ref, 'tickets/')
+              && steps.filter.outputs.docs-specific == 'true')
 
   linkcheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    needs: changes
+    if: ${{ needs.changes.outputs.docs == 'true' }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update package lists
-        run: sudo apt-get update
-
       - name: Install extra packages
-        run: sudo apt install -y graphviz libpq-dev libldap2-dev libsasl2-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
-      - name: Check links
-        uses: lsst-sqre/run-tox@v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          tox-envs: docs-linkcheck
-          tox-requirements: "requirements/tox.txt"
+          version: ${{ env.UV_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install tox dependencies
+        run: uv sync --only-group tox
+
+      - name: Run tox
+        run: uv run tox run -e docs-linkcheck
 
   build:
     runs-on: ubuntu-latest

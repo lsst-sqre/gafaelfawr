@@ -21,27 +21,51 @@ Gafaelfawr is developed by the LSST SQuaRE team.
 Setting up a local development environment
 ==========================================
 
-To develop Gafaelfawr, create a virtual environment with your method of choice (like virtualenvwrapper) and then clone or fork, and install:
+Prerequisites
+-------------
+
+Gafaelfawr uses uv_ for all dependency management.
+A reasonably recent version of :command:`uv` must already be installed.
+See `the uv installation instructions <https://docs.astral.sh/uv/getting-started/installation/>`__ if needed.
+
+Gafaelfawr development requires Docker be installed locally.
+The user doing development must be able to start and manage Docker containers.
+
+Set up development environment
+------------------------------
+
+To develop Gafaelfawr, create a virtual environment with :command:`uv venv` and then run :command:`make init`.
 
 .. prompt:: bash
 
    git clone https://github.com/lsst-sqre/gafaelfawr.git
    cd gafaelfawr
+   uv venv
    make init
 
 This init step does three things:
 
-1. Installs Gafaelfawr in an editable mode with its "dev" extra that includes test and documentation dependencies.
-2. Installs pre-commit, tox, and tox-docker.
+1. Installs Gafaelfawr in a virtualenv in the :file:`.venv` directory, including the dependency groups for local development.
+2. Installs pre-commit_, tox_, and the necessary tox plugins.
 3. Installs the pre-commit hooks.
 
-On macOS hosts, you may also need to run the following in the terminal window where you run ``make init`` and where you intend to run ``tox`` commands:
+On macOS hosts, you may need to run the following before running :command:`make init` and in the same terminal window.
 
 .. prompt:: bash
 
    export LDFLAGS="-L/usr/local/opt/openssl/lib"
 
 Otherwise, OpenSSL isn't on the default linker path and some Python extensions may not build.
+This must be set in any terminal window where you may run :command:`tox`.
+
+Finally, you can optionally enter the Gafaelfawr development virtualenv with:
+
+.. prompt:: bash
+
+   source .venv/bin/activate
+
+This is optional; you do not have to activate the virtualenv to do development.
+However, if you do, you can omit :command:`uv run` from the start of all commands described below.
 
 .. _pre-commit-hooks:
 
@@ -49,13 +73,16 @@ Pre-commit hooks
 ================
 
 The pre-commit hooks, which are automatically installed by running the :command:`make init` command on :ref:`set up <dev-environment>`, ensure that files are valid and properly formatted.
-Some pre-commit hooks automatically reformat code:
+Some pre-commit hooks may automatically reformat code or update files:
 
-``ruff``
+blacken-docs
+    Automatically formats Python code in reStructuredText documentation and docstrings.
+
+ruff
     Lint Python code and attempt to automatically fix some problems.
 
-``blacken-docs``
-    Automatically formats Python code in reStructuredText documentation and docstrings.
+uv-lock
+    Update the :file:`uv.lock` file if dependencies in :file:`pyproject.toml` have changed.
 
 When these hooks fail, your Git commit will be aborted.
 To proceed, stage the new modifications and proceed with your Git commit.
@@ -64,7 +91,7 @@ Building the UI
 ===============
 
 Before running tests, you must build the UI.
-The Gafaelfawr UI is written in JavaScript and contained in the ``ui`` subdirectory.
+The Gafaelfawr UI is written in JavaScript and contained in the :file:`ui` subdirectory.
 To build it, run (from the top level):
 
 .. prompt:: bash
@@ -73,7 +100,7 @@ To build it, run (from the top level):
 
 You will need to have `Node.js <https://nodejs.org/en/>`__ and npm installed.
 The easiest way to do this is generally to use `nvm <https://github.com/nvm-sh/nvm>`__.
-Gafaelfawr provides an ``.nvmrc`` file that sets the version of Node.js to what is currently used to build the UI in GitHub Actions for the official Docker image.
+Gafaelfawr provides an :file:`.nvmrc` file that sets the version of Node.js to what is currently used to build the UI in GitHub Actions for the official Docker image.
 
 .. _dev-run-tests:
 
@@ -84,31 +111,31 @@ To test all components of Gafaelfawr other than the Kubernetes operator (see bel
 
 .. prompt:: bash
 
-   tox run
+   uv run tox run
 
 This uses tox-docker to start PostgreSQL and Redis Docker containers for the tess to use, so Docker must be installed and the user running tox must have permission to create Docker containers.
 
-To run the Selenium tests, you will need to have ``chromedriver`` installed.
-On Debian and Ubuntu systems, you can install this with ``apt install chromium-driver``.
+To run the Selenium tests, you will need to have the ``chromedriver`` package installed.
+On Debian and Ubuntu systems, you can install this with :command:`apt install chromium-driver`.
 
 To run the tests with coverage analysis and generate a report, run:
 
 .. prompt:: bash
 
-   tox run -e py-coverage,coverage-report
+   uv run tox run -e py-coverage,coverage-report
 
 To see a listing of test environments, run:
 
 .. prompt:: bash
 
-   tox list
+   uv run tox list
 
 To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` or ``py-full`` tox environment.
 For example:
 
 .. prompt:: bash
 
-   tox run -e py -- tests/handlers/api_tokens_test.py
+   uv run tox run -e py -- tests/handlers/api_tokens_test.py
 
 You can run a specific test function by appending two colons and the function name to the end of the file name.
 
@@ -157,7 +184,7 @@ Then, run:
 
 .. prompt:: bash
 
-   tox run -e py-full
+   uv run tox run -e py-full
 
 Add the ``coverage-report`` environment to also get a test coverage report.
 
@@ -191,33 +218,54 @@ Slashes will be replaced with underscores.
 Updating dependencies
 =====================
 
-Runtime Python dependencies for Gafaelfawr are recorded in :file:`pyproject.toml` like a regular Python package.
-Development dependencies are separately recorded in :file:`requirements/dev.in`.
-Dependencies needed to run :command:`tox` are recorded in :file:`requirements/tox.in`.
+All Gafaelfawr dependencies are configured in :file:`pyproject.toml` like a regular Python package.
+Runtime dependencies are configured in ``project.dependencies``, and development dependencies are configured under ``dependency-groups``.
+The following dependency groups are used:
 
-After changing any of those files, run :command:`make update-deps` to rebuild the frozen dependency files in :file:`requirements/*.txt`.
-Those frozen dependency files are used to build the release Docker image, and are used as the dependencies in tox environments for testing, documentation builds, and other checks.
+dev
+    Dependencies required to run the test suite, not including the dependencies required to run tox itself.
 
-:command:`make update-deps` should also be run as part of the release process to update frozen dependencies to their latest versions.
+docs
+    Dependencies required to build the documentation.
+
+lint
+    Dependencies required to run pre-commit_ and to lint the code base.
+
+tox
+    Dependencies required to run tox_.
+
+typing
+    Dependencies required to run mypy_
+
+These dependency groups are used by the tox configuration in :file:`tox.ini` to install the appropriate dependencies based on the tox action.
+The development virtualenv in :file:`.venv` will have all of these dependency groups installed so the developer can freely use commands such as :command:`ruff` and :command:`mypy`.
+
+A frozen version of all of these dependencies is managed by uv_ in the file :file:`uv.lock`.
+This is used to pin all dependencies so that they only change when a developer intends to update them and is prepared to run tests to ensure nothing broke.
+
+After changing any dependency, run :command:`make update-deps` to rebuild the :file:`uv.lock` file and update any JavaScript dependencies.
+To also update the development virtualenv, run :command:`make update` instead.
 
 Temporary Git dependencies
 --------------------------
 
-By default, :command:`make update-deps` records the hashes of all dependencies.
-It therefore cannot be used for Git dependencies, which are sometimes convenient during development.
-If you need to depend on, for example, a Git version of Safir, change the ``safir`` dependency in :file:`pyproject.toml` to something like:
+By default, all Python dependencies are retrieved from PyPI.
+
+Sometimes during development it may be useful to test Gafaelfawr against an unreleased version of one of its dependencies.
+uv_ supports this by setting a `dependency source <https://docs.astral.sh/uv/concepts/projects/dependencies/#dependency-sources>`__.
+
+For example, to use the current main branch of Safir_ instead of the latest released version, add the following to the end of :file:`pyproject.toml`:
 
 .. code-block:: toml
 
-   dependencies = [
-      # ...
-      "safir[db,kubernetes] @ git+https://github.com/lsst-sqre/safir@main#subdirectory=safir",
-      # ...
-   ]
+   [tool.uv.sources]
+   safir = { git = "https://github.com/lsst-sqre/safir", branch = "main", subdirectory = "safir" }
 
-Then, run :command:`make update-deps` to regenerate frozen dependencies.
+The :command:`uv add` command can be used to configure these sources if desired.
+As always, after changing dependencies, run :command:`make update` or :command:`make update-deps`.
+Gafaelfawr will now use the unreleased version of Safir.
 
-Do not release new non-alpha versions of Gafaelfawr with Git dependencies.
+Do not release new non-alpha versions of Gafaelfawr with these types of Git dependencies.
 The other package should be released first before a new version of Gafaelfawr is released.
 
 .. _db-migrations:
@@ -230,6 +278,7 @@ Alembic is invoked automatically when the Gafaelfawr server is started.
 
 Whenever the database schema changes, you will need to create an Alembic migration.
 To do this, follow the `Safir schema migration documentation <https://safir.lsst.io/user-guide/database/schema.html#creating-database-migrations>`__.
+Add :command:`uv run` to the start of all tox commands shown there, unless you have activated the Gafaelfawr development virtualenv.
 
 Building documentation
 ======================
@@ -240,7 +289,7 @@ Documentation is built with Sphinx_:
 
 .. prompt:: bash
 
-   tox run -e docs
+   uv run tox run -e docs
 
 The build documentation is located in the :file:`docs/_build/html` directory.
 
@@ -248,7 +297,7 @@ To check the documentation for broken links, run:
 
 .. prompt:: bash
 
-   tox run -e docs-linkcheck
+   uv run tox run -e docs-linkcheck
 
 .. _dev-change-log:
 
@@ -257,10 +306,10 @@ Updating the change log
 
 Gafaelfawr uses scriv_ to maintain its change log.
 
-When preparing a pull request, run :command:`scriv create`.
+When preparing a pull request, run :command:`uv run scriv create`.
 This will create a change log fragment in :file:`changelog.d`.
 Edit that fragment, removing the sections that do not apply and adding entries fo this pull request.
-You can pass the ``--edit`` flag to :command:`scriv create` to open the created fragment automatically in an editor.
+You can pass the ``--edit`` flag to :command:`uv run scriv create` to open the created fragment automatically in an editor.
 
 Change log entries use the following sections:
 
@@ -295,13 +344,14 @@ Code
 - The code formatting follows :pep:`8`, though in practice lean on Black and isort to format the code for you.
 
 - Use :pep:`484` type annotations.
-  The ``tox run -e typing`` test environment, which runs mypy_, ensures that the project's types are consistent.
+  The :command:`uv run tox run -e typing` command, which runs mypy_, ensures that the project's types are consistent.
 
 - Gafaelfawr uses the Ruff_ linter with most checks enabled.
+  Its primary configuration is in :file:`ruff-shared.toml`, which should be an exact copy of the version from the `FastAPI Safir app template <https://github.com/lsst/templates/blob/main/project_templates/fastapi_safir_app/example/ruff-shared.toml>`__.
   Try to avoid ``noqa`` markers except for issues that need to be fixed in the future.
   Tests that generate false positives should normally be disabled, but if the lint error can be avoided with minor rewriting that doesn't make the code harder to read, prefer the rewriting.
 
-- Write tests for Pytest_.
+- Write tests for pytest_.
 
 Documentation
 -------------

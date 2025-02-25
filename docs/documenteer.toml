@@ -73,6 +73,8 @@ nitpick_ignore = [
     ["py:class", "asyncio.locks.Lock"],
     # See https://github.com/sphinx-doc/sphinx/issues/13178
     ["py:class", "pathlib._local.Path"],
+    # Bug in Sphinx with type declarations
+    ["py:class", "safir.pydantic._types.TypeAliasType"],
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],

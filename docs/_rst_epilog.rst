@@ -18,6 +18,7 @@
 .. _Sentry: https://sentry.io/welcome/
 .. _structlog: https://www.structlog.org/en/stable/
 .. _tox: https://tox.wiki/en/latest/
+.. _uv: https://docs.astral.sh/uv/
 .. _uvicorn: https://www.uvicorn.org/
 .. _Vault: https://www.vaultproject.io/
 .. _Vault Secrets Operator: https://github.com/ricoberger/vault-secrets-operator

@@ -11,7 +11,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Typing :: Typed",
@@ -40,7 +40,7 @@ dependencies = [
     "redis>=4.2.0",
     "safir[db,kubernetes]>=9.2.0",
     "sentry-sdk[fastapi]",
-    "sqlalchemy>=2.0.0",
+    "sqlalchemy>=2",
     "starlette",
     "structlog",
     "uvicorn[standard]",
@@ -51,6 +51,9 @@ dynamic = ["version"]
 name = "Association of Universities for Research in Astronomy, Inc. (AURA)"
 email = "sqre-admin@lists.lsst.org"
 
+[project.scripts]
+gafaelfawr = "gafaelfawr.cli:main"
+
 [project.urls]
 Homepage = "https://gafaelfawr.lsst.io/"
 Source = "https://github.com/lsst-sqre/gafaelfawr"
@@ -60,8 +63,47 @@ Source = "https://github.com/lsst-sqre/gafaelfawr"
 [build-system]
 requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 
-[project.scripts]
-gafaelfawr = "gafaelfawr.cli:main"
+[dependency-groups]
+dev = [
+    "asgi-lifespan",
+    "coverage[toml]",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "pytest-cov>=6",
+    "pytest-sugar>=1",
+    "respx>=0.22",
+    "selenium-wire>=5.1",
+    # selenium-wire is no longer maintained and is incompatible with blinker
+    # 1.8 due to use of internal modules in its vendored mitmproxy module.
+    "blinker<1.8",
+    # selenium-wire requires pkg_resources, which comes with setuptools, but
+    # doesn't declare a dependency on it.
+    "setuptools",
+]
+docs = [
+    "autodoc-pydantic",
+    "documenteer[guide]>1",
+    "scriv[toml]>=1.5",
+    "sphinx-click>=6",
+    "sphinx-diagrams>=0.4",
+    "sphinxcontrib-redoc>=1.6",
+]
+lint = [
+    "pre-commit",
+    "pre-commit-uv",
+    "ruff>=0.9",
+]
+tox = [
+    "tox>=4.24",
+    "tox-docker>=5",
+    "tox-uv>=1.25",
+]
+typing = [
+    "mypy>=1.15",
+    "sqlalchemy[mypy]>=2",
+    "types-cachetools>=5.5",
+    "types-pyyaml>=6",
+]
 
 [tool.black]
 line-length = 79

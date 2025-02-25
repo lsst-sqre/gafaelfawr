@@ -5,11 +5,10 @@
 name: Periodic CI
 
 env:
-  # Current supported Python version. For applications, there is generally no
-  # reason to support multiple Python versions, so all actions are run with
-  # this version. Quote the version to avoid interpretation as a floating
-  # point number.
-  PYTHON_VERSION: "3.13"
+  # Current supported uv version. The uv documentation recommends pinning
+  # this. The version should match the version used in .pre-commit-config.yaml
+  # and frozen in uv.lock.
+  UV_VERSION: "0.6.3"
 
 "on":
   schedule:
@@ -24,18 +23,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version-file: ".python-version"
 
-      - name: Update dependencies
+      - name: Set up Minikube
+        uses: medyagh/setup-minikube@v0.0.19
+        with:
+          kubernetes-version: "v1.27.3"
+
+      - name: Install extra packages
         run: |
-          pip install --upgrade uv
-          uv venv
-          source .venv/bin/activate
-          make update-deps
-        shell: bash
+          sudo apt-get update
+          sudo apt-get install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -66,27 +72,24 @@ jobs:
         if: steps.node-cache.outputs.cache-hit != 'true'
         working-directory: ./ui
 
-      - name: Update package lists
-        run: sudo apt-get update
-
-      - name: Install extra packages
-        run: sudo apt install -y graphviz libpq-dev libldap2-dev libsasl2-dev
-
       - name: Build the UI
         run: npm run build
         working-directory: ./ui
 
-      - name: Set up Minikube
-        uses: medyagh/setup-minikube@v0.0.19
-        with:
-          kubernetes-version: "v1.27.3"
+      # Do not use make update-deps because it also tries to upgrade the NPM
+      # dependencies, which we do not want to check periodically.
+      - name: Update dependencies
+        run: |
+          uv lock --upgrade
+          uv sync --only-group lint --inexact
+          uv run pre-commit autoupdate
+        shell: bash
 
-      - uses: lsst-sqre/run-tox@v1
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          tox-envs: "lint,typing,py-full,docs,docs-linkcheck"
-          tox-requirements: "requirements/tox.txt"
-          use-cache: false
+      - name: Install tox dependencies
+        run: uv sync --only-group tox --inexact
+
+      - name: Run tox
+        run: uv run tox run -e lint,typing,py-full,docs,docs-linkcheck
 
       - name: Report status
         if: failure()
