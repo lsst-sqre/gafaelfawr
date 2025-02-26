@@ -158,7 +158,7 @@ def test_anonymous() -> None:
             }
         )
 
-    # Boolean fields should produce an error if set to True, but not if False.
+    # Boolean fields should produce an error if set to true, but not if false.
     for field in ("loginRedirect", "replace403"):
         GafaelfawrIngressConfig.model_validate(
             {
@@ -175,3 +175,26 @@ def test_anonymous() -> None:
                     "scopes": {"anonymous": True},
                 }
             )
+
+    # allowCookeis should only produce an error if it's set to false.
+    GafaelfawrIngressConfig.model_validate(
+        {"allowCookies": True, "scopes": {"anonymous": True}}
+    )
+    with pytest.raises(ValidationError):
+        GafaelfawrIngressConfig.model_validate(
+            {"allowCookies": False, "scopes": {"anonymous": True}}
+        )
+
+
+def test_allow_cookies() -> None:
+    GafaelfawrIngressConfig.model_validate(
+        {"allowCookies": False, "scopes": {"all": ["read:all"]}}
+    )
+    with pytest.raises(ValidationError):
+        GafaelfawrIngressConfig.model_validate(
+            {
+                "allowCookies": False,
+                "loginRedirect": True,
+                "scopes": {"all": ["read:all"]},
+            }
+        )

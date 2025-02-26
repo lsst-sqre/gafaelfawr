@@ -39,6 +39,9 @@ class Authenticate:
 
     Parameters
     ----------
+    allow_cookies
+        Whether to allow cookie authentication. If set to `False`, only
+        authentication via an ``Authorization`` header is allowed.
     require_session
         Require that the credentials come from a cookie, not an
         ``Authorization`` header.
@@ -63,6 +66,7 @@ class Authenticate:
     def __init__(
         self,
         *,
+        allow_cookies: bool = True,
         require_session: bool = False,
         require_bearer_token: bool = False,
         require_scope: str | None = None,
@@ -71,6 +75,7 @@ class Authenticate:
         auth_type: AuthType = AuthType.Bearer,
         ajax_forbidden: bool = False,
     ) -> None:
+        self.allow_cookies = allow_cookies
         self.require_session = require_session
         self.require_bearer_token = require_bearer_token
         self.require_scope = require_scope
@@ -166,7 +171,7 @@ class Authenticate:
         fastapi.HTTPException
             Raised if authentication is not provided or is not valid.
         """
-        if not self.require_bearer_token:
+        if self.allow_cookies and not self.require_bearer_token:
             token = context.state.token
             if token:
                 context.rebind_logger(token_source="cookie")

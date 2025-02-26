@@ -286,6 +286,14 @@ def auth_config(
 
 async def authenticate_with_type(
     *,
+    allow_cookies: Annotated[
+        bool,
+        Query(
+            title="Whether to allow cookies",
+            description="Set to false to disallow cookie authentication",
+            examples=[False],
+        ),
+    ] = True,
     auth_type: Annotated[
         AuthType,
         Query(
@@ -299,7 +307,9 @@ async def authenticate_with_type(
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> TokenData:
     """Set authentication challenge based on auth_type parameter."""
-    authenticate = AuthenticateRead(auth_type=auth_type, ajax_forbidden=True)
+    authenticate = AuthenticateRead(
+        allow_cookies=allow_cookies, auth_type=auth_type, ajax_forbidden=True
+    )
     return await authenticate(context=context)
 
 

@@ -51,7 +51,7 @@ async def create(
     if not name or not namespace:
         return None
 
-    # Parse the GafaelafwrServiceToken resource.
+    # Parse the GafaelafwrIngress resource.
     try:
         ingress = GafaelfawrIngress.model_validate(body)
     except ValidationError as e:

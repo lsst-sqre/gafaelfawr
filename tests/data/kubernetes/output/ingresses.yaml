@@ -135,7 +135,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-method: GET
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?delegate_to=some-service&delegate_scope=read:all&use_authorization=true&scope=read:all"
+    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?allow_cookies=false&delegate_to=some-service&delegate_scope=read:all&use_authorization=true&scope=read:all"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       add_header "X-Foo" "bar";
       {snippet}

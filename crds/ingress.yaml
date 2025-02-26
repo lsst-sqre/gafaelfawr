@@ -57,6 +57,11 @@ spec:
               type: object
               description: "Configuration for the ingress to create."
               properties:
+                allowCookies:
+                  type: boolean
+                  description: >-
+                    Whether to allow cookie authentication or only token
+                    authentication via the `Authorization` header.
                 authCacheDuration:
                   type: string
                   description: >-

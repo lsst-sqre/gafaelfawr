@@ -104,6 +104,7 @@ metadata:
   name: authorization-ingress
   namespace: {namespace}
 config:
+  allowCookies: false
   baseUrl: "https://foo.example.com"
   scopes:
     all: ["read:all"]
