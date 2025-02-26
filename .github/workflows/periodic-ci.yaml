@@ -85,11 +85,8 @@ jobs:
           uv run pre-commit autoupdate
         shell: bash
 
-      - name: Install tox dependencies
-        run: uv sync --only-group tox --inexact
-
       - name: Run tox
-        run: uv run tox run -e lint,typing,py-full,docs,docs-linkcheck
+        run: uv run --only-group=tox tox run -e lint,typing,py-full,docs,docs-linkcheck
 
       - name: Report status
         if: failure()

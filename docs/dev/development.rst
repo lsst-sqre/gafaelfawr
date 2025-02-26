@@ -66,6 +66,7 @@ Finally, you can optionally enter the Gafaelfawr development virtualenv with:
 
 This is optional; you do not have to activate the virtualenv to do development.
 However, if you do, you can omit :command:`uv run` from the start of all commands described below.
+Also, editors with Python integration, such as VSCode, may work more smoothly if you activate the virtualenv before starting them.
 
 .. _pre-commit-hooks:
 

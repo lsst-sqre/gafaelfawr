@@ -34,6 +34,5 @@ update: update-deps init
 .PHONY: update-deps
 update-deps:
 	uv lock --upgrade
-	uv sync --only-group lint --inexact
-	uv run pre-commit autoupdate
+	uv run --only-group=lint pre-commit autoupdate
 	cd ui && npm upgrade --legacy-peer-deps

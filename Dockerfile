@@ -43,12 +43,12 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --compile-bytecode --no-install-project
+    uv sync --frozen --no-default-groups --compile-bytecode --no-install-project
 
 # Install the Gafaelfawr Python application.
 ADD . /app
 RUN --mount=type=cache,target=/.root/.cache/uv \
-    uv pip install --compile-bytecode .
+    uv pip install --no-deps --compile-bytecode .
 
 FROM base-image AS runtime-image
 
