@@ -24,7 +24,7 @@ from collections import defaultdict
 from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, NotRequired, Self, TypedDict
 from urllib.parse import quote
 
 import yaml
@@ -74,6 +74,7 @@ LdapDsn = Annotated[
 __all__ = [
     "CamelCaseSettings",
     "Config",
+    "CookieParameters",
     "EnvFirstSettings",
     "FirestoreConfig",
     "GitHubConfig",
@@ -681,6 +682,14 @@ class GitHubGroup(BaseModel):
         return str(self.github)
 
 
+class CookieParameters(TypedDict):
+    """Settings passed to `fastapi.Response.set_cookie` to set cookies."""
+
+    domain: NotRequired[str]
+    httponly: bool
+    secure: bool
+
+
 class Config(EnvFirstSettings):
     """Configuration for Gafaelfawr."""
 
@@ -1083,6 +1092,11 @@ class Config(EnvFirstSettings):
     def add_user_group(self) -> bool:
         """Whether to add a synthetic private user group."""
         return bool(self.github or (self.ldap and self.ldap.add_user_group))
+
+    @property
+    def cookie_parameters(self) -> CookieParameters:
+        """Parameters to pass to `fastapi.Response.set_cookie`."""
+        return CookieParameters(secure=True, httponly=True)
 
     @property
     def redis_rate_limit_url(self) -> str:
