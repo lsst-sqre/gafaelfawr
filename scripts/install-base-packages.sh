@@ -32,7 +32,3 @@ apt-get -y upgrade
 apt-get -y install --no-install-recommends curl krb5-user kstart        \
         libldap2-dev libldap-common libsasl2-dev libsasl2-modules       \
         libsasl2-modules-gssapi-mit libpq-dev
-
-# Delete cached files we don't need anymore:
-apt-get clean
-rm -rf /var/lib/apt/lists/*

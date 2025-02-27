@@ -35,9 +35,9 @@ Gafaelfawr follows semver_, so follow its rules to pick the next version:
 - If there are any new features, increment the minor version number and set the patch version to 0.
 - Otherwise, increment the patch version number.
 
-Then, run ``scriv collect --version <version>`` specifying the version number you decided on.
+Then, run :command:`uv run scriv collect --version <version>` specifying the version number you decided on.
 This will delete the fragment files and collect them into :file:`CHANGELOG.md` under an entry for the new release.
-Review that entry and edit it as needed (proofread, change the order to put more important things first, etc.).
+Review that entry and edit it as needed (proofread, change the order to put more important things first, remove blank lines between entries, etc.).
 
 Update dependencies by running :command:`make update-deps`.
 
