@@ -1,6 +1,5 @@
 # Test too short of a token lifetime.
 
-realm: "example.com"
 slackAlerts: true
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"

@@ -48,7 +48,7 @@ every configuration file.
 @pytest.fixture(autouse=True)
 def environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set default values of environment variables for testing."""
-    monkeypatch.setenv("GAFAELFAWR_BASE_URL", "https://foo.example.com")
+    monkeypatch.setenv("GAFAELFAWR_BASE_URL", f"https://{TEST_HOSTNAME}")
     monkeypatch.setenv(
         "GAFAELFAWR_BASE_INTERNAL_URL",
         "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080",

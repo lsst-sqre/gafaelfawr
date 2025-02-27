@@ -122,12 +122,6 @@ The default limits and requests were set based on a fairly lightly loaded deploy
 For a heavily-loaded environment, you may need to increase the resource requests to reflect the expected resource consumption of your instance of Gafaelfawr and allow Kubernetes to do better scheduling.
 You will hopefully not need to increase the limits, which are generous.
 
-Authentication realm
---------------------
-
-The default authentication realm for ``WWW-Authenticate`` headers, which is displayed as part of the HTTP Basic Authentication prompt in browsers, is the hostname of the Phalanx environment in which Gafaelfawr is installed.
-This default can be overridden by setting ``config.realm``.
-
 Base internal URL
 -----------------
 

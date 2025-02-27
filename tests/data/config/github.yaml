@@ -1,6 +1,5 @@
 # Use GitHub as the authentication provider.
 
-realm: "example.com"
 slackAlerts: true
 initialAdmins: ["admin"]
 proxies:

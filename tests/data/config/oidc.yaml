@@ -1,6 +1,5 @@
 # Use OpenID Connect as the authentication provider.
 
-realm: "example.com"
 logLevel: "DEBUG"
 slackAlerts: true
 initialAdmins: ["admin"]

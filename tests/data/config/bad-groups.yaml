@@ -1,6 +1,5 @@
 # Configuration with an invalid group mapping.
 
-realm: "example.com"
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:

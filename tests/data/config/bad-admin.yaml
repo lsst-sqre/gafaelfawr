@@ -1,6 +1,5 @@
 # Bad configuration file with invalid admin.
 
-realm: "testing"
 initialAdmins: ["admin", "weird:admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:

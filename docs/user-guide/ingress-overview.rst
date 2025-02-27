@@ -19,6 +19,8 @@ If the user is already authenticated but does not have the desired scope, Gafael
 If the user's authentication is syntactically invalid, Gafaelfawr will still return a 403 error, but with additional HTTP headers that will be converted to a 400 error by the NGINX configuration.
 See :ref:`error-handling` for more details.
 
+If a challenge is presented, either 401 or 403, the realm of the challenge will be the hostname of the base public URL at which Gafaelfawr is installed.
+
 If the user is authenticated and authorized, Gafaelfawr will return a 200 response with some additional headers containing information about the user and (optionally) a delegated token.
 See :ref:`auth-headers` for the complete list.
 NGINX will then send the user's HTTP request along to the protected service, including those headers in the request.

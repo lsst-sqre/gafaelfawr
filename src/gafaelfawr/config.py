@@ -801,13 +801,6 @@ class Config(EnvFirstSettings):
         ),
     )
 
-    realm: str = Field(
-        ...,
-        title="Authentication realm",
-        description="Realm for HTTP authentication",
-        validation_alias="GAFAELFAWR_REALM",
-    )
-
     redis_ephemeral_url: EnvRedisDsn = Field(
         ...,
         title="Ephemeral Redis DSN",
@@ -1097,6 +1090,13 @@ class Config(EnvFirstSettings):
     def cookie_parameters(self) -> CookieParameters:
         """Parameters to pass to `fastapi.Response.set_cookie`."""
         return CookieParameters(secure=True, httponly=True)
+
+    @property
+    def realm(self) -> str:
+        """Realm to use for HTTP authentication."""
+        if not self.base_url.host:
+            raise RuntimeError("baseUrl does not contain a hostname")
+        return self.base_url.host
 
     @property
     def redis_rate_limit_url(self) -> str:

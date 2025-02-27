@@ -1,6 +1,5 @@
 # Use CILogon as the authentication provider.
 
-realm: "example.com"
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:

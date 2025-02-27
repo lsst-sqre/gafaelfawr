@@ -1,6 +1,5 @@
 # Bad configuration file with missing required scope user:token.
 
-realm: "testing"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

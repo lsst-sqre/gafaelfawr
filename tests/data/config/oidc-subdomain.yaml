@@ -1,6 +1,5 @@
 # Use OpenID Connect with an issuer that uses a subdomain and URL path.
 
-realm: "example.com"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

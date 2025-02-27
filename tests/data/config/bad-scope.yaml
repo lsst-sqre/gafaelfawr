@@ -1,6 +1,5 @@
 # Bad configuration file with invalid scope.
 
-realm: "testing"
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
