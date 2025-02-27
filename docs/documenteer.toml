@@ -64,6 +64,7 @@ nitpick_ignore = [
     ["py:exc", "httpx.HTTPError"],
     ["py:exc", "starlette.exceptions.HTTPException"],
     ["py:obj", "fastapi.routing.APIRoute"],
+    ["py:obj", "fastapi.Response.set_cookie"],
     # Broken links created by autodoc_pydantic.
     ["py:class", "lambda"],
     ["py:class", "safir.pydantic._validators.normalize_datetime"],

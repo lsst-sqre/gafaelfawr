@@ -172,13 +172,14 @@ def create_app(
         configure_uvicorn_logging()
 
     # Install the middleware.
-    app.add_middleware(
-        StateMiddleware, cookie_name=COOKIE_NAME, state_class=State
-    )
     if config:
         app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
-    else:
-        app.add_middleware(XForwardedMiddleware)
+        app.add_middleware(
+            StateMiddleware,
+            cookie_name=COOKIE_NAME,
+            state_class=State,
+            parameters=config.cookie_parameters,
+        )
 
     # Configure Slack alerts.
     if config and config.slack_alerts and config.slack_webhook:
