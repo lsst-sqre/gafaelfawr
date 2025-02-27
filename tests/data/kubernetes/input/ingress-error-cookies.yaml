@@ -1,0 +1,24 @@
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: small-ingress
+  namespace: {namespace}
+config:
+  allowCookies: false
+  baseUrl: "https://foo.example.com"
+  loginRedirect: true
+template:
+  metadata:
+    name: small
+  spec:
+    rules:
+      - host: foo.example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http

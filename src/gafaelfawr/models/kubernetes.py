@@ -169,6 +169,31 @@ class GafaelfawrIngressDelegate(BaseModel):
         validate_exactly_one_of("notebook", "internal")
     )
 
+    def to_auth_query(self) -> list[tuple[str, str]]:
+        """Generate the query parameters corresponding to this delegation.
+
+        Returns
+        -------
+        list of tuple
+            List of query parameters corresponding to this ingress delegation
+            configuration to pass to the Gafaelfawr ``/ingress/auth`` route.
+        """
+        query = []
+        if self.notebook:
+            query.append(("notebook", "true"))
+        elif self.internal:
+            service = self.internal.service
+            query.append(("delegate_to", service))
+            scopes = self.internal.scopes
+            query.extend(("delegate_scope", s) for s in scopes)
+        if self.minimum_lifetime:
+            minimum_lifetime = self.minimum_lifetime
+            minimum_str = str(int(minimum_lifetime.total_seconds()))
+            query.append(("minimum_lifetime", minimum_str))
+        if self.use_authorization:
+            query.append(("use_authorization", "true"))
+        return query
+
 
 class GafaelfawrIngressScopesBase(BaseModel, metaclass=ABCMeta):
     """Base class for specifying the required scopes.
@@ -275,6 +300,9 @@ class GafaelfawrIngressConfig(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
+    allow_cookies: bool = True
+    """Whether to allow cookie authentication to this ingress."""
+
     auth_cache_duration: str | None = None
     """How long NGINX should cache the Gafaelfawr authorization response."""
 
@@ -323,6 +351,10 @@ class GafaelfawrIngressConfig(BaseModel):
             msg = "authType: basic has no effect when loginRedirect is set"
             raise ValueError(msg)
 
+        if not self.allow_cookies and self.login_redirect:
+            msg = "loginRedirect incompatible with allowCookies: false"
+            raise ValueError(msg)
+
         if self.scopes and self.scopes.is_anonymous():
             fields = (
                 "auth_cache_duration",
@@ -338,6 +370,9 @@ class GafaelfawrIngressConfig(BaseModel):
                     camel_name = to_camel_case(snake_name)
                     msg = f"{camel_name} has no effect for anonymous ingresses"
                     raise ValueError(msg)
+            if not self.allow_cookies:
+                msg = "allowCookies has no effect for anonymous ingresses"
+                raise ValueError(msg)
 
         if self.service and self.delegate and self.delegate.internal:
             if self.service != self.delegate.internal.service:
@@ -361,22 +396,12 @@ class GafaelfawrIngressConfig(BaseModel):
             configuration to pass to the Gafaelfawr ``/ingress/auth`` route.
         """
         query = []
+        if not self.allow_cookies:
+            query.append(("allow_cookies", "false"))
         if self.auth_type:
             query.append(("auth_type", self.auth_type.value))
         if self.delegate:
-            if self.delegate.notebook:
-                query.append(("notebook", "true"))
-            elif self.delegate.internal:
-                service = self.delegate.internal.service
-                query.append(("delegate_to", service))
-                scopes = self.delegate.internal.scopes
-                query.extend(("delegate_scope", s) for s in scopes)
-            if self.delegate.minimum_lifetime:
-                minimum_lifetime = self.delegate.minimum_lifetime
-                minimum_str = str(int(minimum_lifetime.total_seconds()))
-                query.append(("minimum_lifetime", minimum_str))
-            if self.delegate.use_authorization:
-                query.append(("use_authorization", "true"))
+            query.extend(self.delegate.to_auth_query())
         query.extend(("only_service", s) for s in self.only_services or [])
         query.extend(("scope", s) for s in self.scopes.scopes)
         if self.scopes.satisfy != Satisfy.ALL:

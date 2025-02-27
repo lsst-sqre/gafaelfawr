@@ -97,10 +97,34 @@ If you want unauthorized users to be redirected to the login page instead, use t
    config:
      loginRedirect: true
 
-This setting should be used for services that are accessed interactively from a web browser.
+This setting should be used for services that are normally accessed interactively from a web browser.
+It cannot be used with the ``config.allowCookies`` parameter set to false (see :ref:`allow-cookies`).
 
 Do not set this to true if the ingress is not running under the same host and port as the Gafaelfawr base URL for the environment.
 It will not work correctly.
+
+.. _allow-cookies:
+
+Disallowing cookie authentication
+=================================
+
+Normally, Gafaelfawr supports either cookie authentication (set for users who log in interactively with a web browser) or token authentication (using the ``Authorization`` header, normally used by programs).
+Both are treated equivalently.
+
+In some cases, it may be desirable to disallow cookie authentication.
+This protects that ingress from many :abbr:`CSRF (Cross-Site Request Forgery)` attacks, for example, since the attacker cannot make use of browser cookies and must somehow obtain a token to put into the ``Authorization`` header.
+
+Enabling this option blocks normal access from a web browser and therefore should only be used for ingresses that are only accessed via programs and other tools that use user tokens.
+
+To disallow cookie authentication, set the ``config.allowCookies`` parameter to false:
+
+.. code-block:: yaml
+
+   config:
+     allowCookies: false
+
+This setting cannot be used in conjunction with ``config.loginRedirect`` (see :ref:`login-redirect`), since the purpose of a login redirect is to set a cookie and return.
+That combination of settings would create a redirect loop that would never allow access.
 
 Changing the challenge type
 ===========================
