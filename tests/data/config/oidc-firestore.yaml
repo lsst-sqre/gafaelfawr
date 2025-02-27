@@ -1,6 +1,5 @@
 # Use OpenID Connect with Firestore for UID and GID assignment.
 
-realm: "example.com"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

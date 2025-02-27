@@ -1,6 +1,5 @@
 # Bad configuration file with invalid logLevel setting.
 
-realm: "testing"
 logLevel: "INVALID"
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"

@@ -1,6 +1,5 @@
 # Use OpenID Connect as the provider and configure an enrollment URL.
 
-realm: "example.com"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

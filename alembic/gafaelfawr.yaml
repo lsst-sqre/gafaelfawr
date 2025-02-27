@@ -4,7 +4,6 @@
 # actually work. Do not use the secrets contained in this file for any other
 # purpose; they are completely insecure.
 
-realm: "localhost"
 logLevel: "DEBUG"
 
 # Dummy secrets so that Gafaelfawr will start.

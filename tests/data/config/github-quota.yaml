@@ -1,6 +1,5 @@
 # Use GitHub as the provider and configure quota limits.
 
-realm: "example.com"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

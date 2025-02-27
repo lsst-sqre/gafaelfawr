@@ -1,6 +1,5 @@
 # Use OpenID Connect with LDAP but disable optional LDAP attributes.
 
-realm: "example.com"
 logLevel: "DEBUG"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:

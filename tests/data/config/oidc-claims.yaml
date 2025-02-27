@@ -1,6 +1,5 @@
 # Use OpenID Connect as the provider and change the username claim.
 
-realm: "example.com"
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

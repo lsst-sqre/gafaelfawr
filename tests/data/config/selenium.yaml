@@ -1,6 +1,5 @@
 # Configuration for Selenium testing.
 
-realm: "localhost"
 initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:

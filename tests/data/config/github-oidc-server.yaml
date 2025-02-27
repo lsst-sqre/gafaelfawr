@@ -1,6 +1,5 @@
 # Use GitHub as the provider and configure an OpenID Connect server.
 
-realm: "example.com"
 slackAlerts: true
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
