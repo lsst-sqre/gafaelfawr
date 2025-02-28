@@ -37,25 +37,23 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
 
     Returns
     -------
-    urllib.parse.ParseResult
+    ParseResult
         The parsed URL.
 
     Raises
     ------
-    fastapi.HTTPException
-        An appropriate error if the return URL was invalid.
+    InvalidReturnURLError
+        Raised if the return URL was invalid.
     """
-    # If X-Forwarded-Host was validated by XForwardedMiddleware, use that
-    # instead of the host information from the request URL.
-    if context.request.state.forwarded_host:
-        hostname = context.request.state.forwarded_host
-    else:
-        hostname = context.config.realm
-
-    # Check the return URL.
+    domain = context.config.base_url.host
     parsed_url = urlparse(url)
-    if parsed_url.hostname != hostname:
-        msg = f"URL is not at {hostname}"
+    if context.config.allow_subdomains:
+        hostname = parsed_url.hostname
+        okay = hostname and hostname.endswith(f".{domain}")
+    else:
+        okay = parsed_url.hostname == domain
+    if not okay:
+        msg = f"URL is not at {context.config.base_url.host}"
         context.logger.warning("Bad return URL", error=msg)
         raise InvalidReturnURLError(msg, param)
 
@@ -79,13 +77,13 @@ async def return_url(
 
     Returns
     -------
-    urllib.parse.ParseResult
+    ParseResult
         The verified return URL, or `None` if none was given.
 
     Raises
     ------
-    fastapi.HTTPException
-        An appropriate error if the return URL was invalid.
+    InvalidReturnURLError
+        Raised if the return URL was invalid.
     """
     if not rd:
         return None
@@ -125,13 +123,13 @@ async def return_url_with_header(
 
     Returns
     -------
-    urllib.parse.ParseResult
+    ParseResult
         The verified return URL, or `None` if none was given.
 
     Raises
     ------
-    fastapi.HTTPException
-        An appropriate error if the return URL was invalid.
+    InvalidReturnURLError
+        Raised if the return URL was invalid.
     """
     if not rd and x_auth_request_redirect:
         rd = x_auth_request_redirect

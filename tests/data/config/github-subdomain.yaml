@@ -1,0 +1,23 @@
+# Allow subdomains, which should change cookie handling and redirect URL
+# support.
+
+afterLogoutUrl: "https://example.com/landing"
+allowSubdomains: true
+groupMapping:
+  "exec:admin": ["admin"]
+  "read:all":
+    - "admin"
+    - github:
+        organization: "org"
+        team: "a-team"
+knownScopes:
+  "admin:token": "token administration"
+  "exec:admin": "admin description"
+  "read:all": "can read everything"
+  "user:token": "Can create and modify user tokens"
+github:
+  clientId: "some-github-client-id"
+metrics:
+  enabled: false
+  application: "gafaelfawr"
+  mock: true
