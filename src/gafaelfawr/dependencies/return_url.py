@@ -6,8 +6,6 @@ must be located at the same hostname as the route being called.  Provide
 several variations of a dependency to check this.
 """
 
-from __future__ import annotations
-
 from typing import Annotated
 from urllib.parse import ParseResult, urlparse
 
@@ -77,7 +75,7 @@ async def return_url(
 
     Returns
     -------
-    ParseResult
+    urllib.parse.ParseResult
         The verified return URL, or `None` if none was given.
 
     Raises
@@ -123,7 +121,7 @@ async def return_url_with_header(
 
     Returns
     -------
-    ParseResult
+    urllib.parse.ParseResult
         The verified return URL, or `None` if none was given.
 
     Raises

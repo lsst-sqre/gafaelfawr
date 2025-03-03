@@ -9,7 +9,7 @@ Currently, this capability is only available via the API, not the UI.
 If a username is marked as a token administrator, that user will be automatically granted the ``admin:token`` scope when they authenticate (via either GitHub or OpenID Connect), regardless of their group membership.
 They can then choose whether to delegate that scope to any user tokens they create.
 
-The initial set of administrators can be added with the ``config.initialAdmins`` Helm variable (see :ref:`basic-settings`) or via the bootstrap token.
+The initial set of administrators can be added with the ``config.initialAdmins`` Helm variable (see :ref:`helm-administrators`) or via the bootstrap token.
 
 .. _bootstrapping:
 

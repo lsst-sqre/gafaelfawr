@@ -213,7 +213,7 @@ In other words, they will receive either a 401 response or be redirected to the 
 Presumably logging in again will create a token with sufficient remaining lifetime to satisfy this restriction.
 
 Obviously, do not request a minimum lifetime longer than the default token lifetime!
-See :ref:`basic-settings` for more details.
+See :ref:`helm-token-lifetime` for more details.
 
 .. _delegate-authorization:
 
