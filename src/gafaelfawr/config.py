@@ -702,6 +702,19 @@ class Config(EnvFirstSettings):
         ),
     )
 
+    allow_subdomains: bool = Field(
+        False,
+        title="Allow subdomains",
+        description=(
+            "Allow authenticated ingresses in subdomains of the base URL."
+            " This requires use of domain-scoped cookies instead of host"
+            " cookies and therefore requires every subdomain of the domain"
+            " in the base URL be under the full control of Gafaelfawr."
+            " Otherwise, enabling this may cause cookies to leak and"
+            " compromise the security of the protected applications."
+        ),
+    )
+
     base_url: HttpUrl = Field(
         ...,
         title="Base URL",
@@ -1089,7 +1102,12 @@ class Config(EnvFirstSettings):
     @property
     def cookie_parameters(self) -> CookieParameters:
         """Parameters to pass to `fastapi.Response.set_cookie`."""
-        return CookieParameters(secure=True, httponly=True)
+        parameters = CookieParameters(secure=True, httponly=True)
+        if self.allow_subdomains:
+            if not self.base_url.host:
+                raise RuntimeError("baseUrl does not contain a hostname")
+            parameters["domain"] = self.base_url.host
+        return parameters
 
     @property
     def realm(self) -> str:

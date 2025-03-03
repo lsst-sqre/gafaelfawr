@@ -11,6 +11,7 @@ from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
 
+from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import set_session_cookie
 from ..support.github import mock_github
@@ -117,6 +118,14 @@ async def test_logout_bad_url(
 
     # None of these errors should have resulted in Slack alerts.
     assert mock_slack.messages == []
+
+
+@pytest.mark.asyncio
+async def test_logout_subdomain(client: AsyncClient) -> None:
+    await reconfigure("github-subdomain")
+    r = await client.get("/logout", params={"rd": "https://foo.example.com/"})
+    assert r.status_code == 307
+    assert r.headers["Location"] == "https://foo.example.com/"
 
 
 @pytest.mark.asyncio

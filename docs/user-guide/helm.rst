@@ -23,13 +23,56 @@ For example, there should be one top-level ``config:`` key and all parameters th
 You should also read the `Gafaelfawr application documentation <https://phalanx.lsst.io/applications/gafaelfawr/index.html>`__.
 In particular, when bootstrapping a new Phalanx environment, see the `Gafaelfawr bootstrapping instructions <https://phalanx.lsst.io/applications/gafaelfawr/bootstrap.html>`__.
 
-.. _basic-settings:
+Subdomains
+==========
 
-Basic settings
-==============
+By default, Gafaelfawr only supports cookie-based authentication to a single domain.
+The base hostname of the Rubin Science Platform environment is the only host to which any authentication cookies will be sent by user browsers, and therefore only ingresses for that hostname can use cookie authentication.
 
-Database
---------
+Anonymous ingresses and ingresses that only allow token authentication via the ``Authorization`` header can use any hostname, at least from Gafaelfawr's perspective.
+
+Optionally, Gafaelfawr can extend cookie authentication to subdomains of the base hostname of the Science Platform environment.
+To do this, set the ``config.allowSubdomains`` configuration option:
+
+.. code-block:: yaml
+
+   config
+     allowSubdomains: true
+
+With this configuration cookies will also be sent to any subdomain.
+
+For example, if the base hostname of the Science Platform environment is ``rsp.example.com``, by default an ingress at ``portal.rsp.example.com`` cannot use cookie authentication.
+If ``config.allowSubdomains`` is set to true, cookie authentication will work for ``portal.rsp.example.com``.
+It will continue to not work for ``portal.example.com`` or any other hostname that is not a subdomain of ``rsp.example.com``.
+
+.. warning::
+
+   This option is only safe to enable if every web service hosted below the base hostname of the Science Platform environment is managed by Gafaelfawr.
+   When this option is enabled, any web server at any hostname at a subdomain will receive the user's authentication cookies by default, and can use those cookies to impersonate any user that visits that web server.
+   Gafaelfawr will filter out those cookies (see :ref:`header-filtering`), so any service behind Gafaelfawr will not be able to steal cookies in this way, but Gafaelfawr cannot do anything about web services that are not protected by it with at least an anonymous ingress.
+
+   Therefore, before enabling this setting, ensure that you have tight control over creation of new DNS entries in any subdomain (even multiple levels down) from the baes hostname of the Science Platform environment, and ensure that all of those hostnames point to Phalanx-managed Kubernetes services for that Science Platform environment.
+
+Environent URLs and storage
+===========================
+
+Base internal URL
+-----------------
+
+Gafaelfawr needs to know the internal cluster DNS domain when creating ``Ingress`` resources from ``GafaelfawrIngress`` resources.
+By default, Gafaelfawr assumes that the cluster DNS domain is ``svc.cluster.local`` and the address to Gafaelfawr can be constructed by adding the name of the service and the name of the Gafaelfawr deployment namespace to the front of that domain.
+If your cluster sets it to something else (by using the ``--cluster-domain`` flag, for example), or if you are running Gafaelfawr in a vCluster but running the ingress outside of that vCluster, you will need to override the internal URL to Gafaelfawr by setting ``config.baseInternalUrl``.
+
+.. code-block:: yaml
+
+   config:
+     baseInternalUrl: "http://gafaelfawr.gafaelfawr.svc.example.com:8080"
+
+The first component of the host name is the name of the ``Service`` resource and therefore must be ``gafaelfawr``.
+Always use a port of 8080.
+
+Database URL
+------------
 
 Set the URL to the PostgreSQL database that Gafaelfawr will use:
 
@@ -62,27 +105,69 @@ This setting should be left off by default and only enabled when you know you wa
 When updating the schema of an existing installation, all Gafaelfawr components should be stopped before syncing Gafaelfawr.
 See `the Phalanx documentation <https://phalanx.lsst.io/applications/gafaelfawr/manage-schema.html>`__ for step-by-step instructions.
 
-Error pages
------------
+.. _cloudsql:
 
-To add additional information to the error page from a failed login, set ``config.errorFooter`` to a string.
-This string will be embedded verbatim, inside a ``<p>`` tag, in all login error messages.
-It may include HTML and will not be escaped.
-This is a suitable place to direct the user to support information or bug reporting instructions.
+Cloud SQL
+---------
 
-Scaling
--------
+If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL database, Gafaelfawr supports using the Cloud SQL Auth Proxy via Workload Identity.
 
-Consider increasing the number of Gafaelfawr processes to run.
-This improves robustness and performance scaling.
-Production deployments should use at least two replicas.
+First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
+You do not need to create the Kubernetes service account; two service accounts will be created by the Gafaelfawr Helm chart.
+The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-operator``, both in Gafaelfawr's Kubernetes namespace (by default, ``gafaelfawr``).
+
+Then, once you have the name of the Google service account for the Cloud SQL Auth Proxy (created in the above instructions), enable the Cloud SQL Auth Proxy sidecar in the Gafaelfawr Helm chart.
+An example configuration:
 
 .. code-block:: yaml
 
-   replicaCount: 2
+   cloudsql:
+     enabled: true
+     instanceConnectionName: "dev-7696:us-central1:dev-e9e11de2"
+     serviceAccount: "gafaelfawr@dev-7696.iam.gserviceaccount.com"
+
+Replace ``instanceConnectionName`` and ``serviceAccount`` with the values for your environment.
+You will still need to set ``config.databaseUrl`` and the ``database-password`` key in the Vault secret with appropriate values, but use ``localhost`` for the hostname in ``config.databaseUrl``.
+
+As mentioned in the Google documentation, the Cloud SQL Auth Proxy does not support IAM authentication to the database, only password authentication, and IAM authentication is not recommended for connection pools for long-lived processes.
+Gafaelfawr therefore doesn't support IAM authentication to the database.
+
+Redis storage
+-------------
+
+For any Gafaelfawr deployment other than a test instance, you will want to configure persistent storage for Redis.
+Otherwise, each upgrade of Gafaelfawr's Redis component will invalidate all of the tokens.
+
+By default, the Gafaelfawr Helm chart uses auto-provisioning to create a ``PersistentVolumeClaim`` with the default storage class, requesting 1GiB of storage with the ``ReadWriteOnce`` access mode.
+If this is suitable for your deployment, you can leave the configuration as is.
+Otherwise, you can adjust the size (you probably won't need to make it larger; Gafaelfawr's storage needs are modest), storage class, or access mode by setting ``redis.persistence.size``, ``redis.persistence.storageClass``, and ``redis.persistence.accessMode``.
+
+If you instead want to manage the persistent volume directly rather than using auto-provisioning, use a configuration such as:
+
+.. code-block:: yaml
+
+   redis:
+     persistence:
+       volumeClaimName: "gafaelfawr-pvc"
+
+to point to an existing ``PersistentVolumeClaim``.
+You can then create that ``PersistentVolumeClaim`` and its associated ``PersistentVolume`` via any mechanism you choose, and the volume pointed to by that claim will be mounted as the Redis volume.
+Gafaelfawr uses the standard Redis Docker image, so the volume must be writable by UID 999, GID 999 (which the ``StatefulSet`` will attempt to ensure using the Kubernetes ``fsGroup`` setting).
+
+Finally, if you do have a test installation where you don't mind invalidating all tokens whenever Redis is restarted, you can use:
+
+.. code-block:: yaml
+
+   redis:
+     persistence:
+       enabled: false
+
+This will use an ephemeral ``emptyDir`` volume for Redis storage.
+
+.. _helm-token-lifetime:
 
 Token lifetime
---------------
+==============
 
 Change the token lifetime by setting ``config.tokenLifetime``.
 The default is 30 days.
@@ -95,47 +180,6 @@ The default is 30 days.
 Supported interval suffixes are ``w`` (weeks), ``d`` (days), ``h`` (hours), ``m`` (minutes), and ``s`` (seconds).
 Several values can be specified together.
 For example, ``1d6h23m`` specifies a token lifetime of one day, six hours, and 23 minutes.
-
-Administrators
---------------
-
-You may want to define the initial set of administrators:
-
-.. code-block:: yaml
-
-   config:
-     initialAdmins:
-       - "username"
-       - "otheruser"
-
-This makes the users ``username`` and ``otheruser`` (as authenticated by the upstream authentication provider configured below) admins, meaning that they can create, delete, and modify any authentication tokens.
-This value is only used when initializing a new Gafaelfawr database that does not contain any admins.
-Setting this is optional; you can instead use the bootstrap token (see :ref:`bootstrapping`) to perform any administrative actions through the API.
-
-Resource requests and limits
-----------------------------
-
-Every component of Gafaelfawr defines Kubernetes resource requests and limits.
-Look for the ``resources`` key at the top level of the chart and in the portions of the chart for the underlying Gafaelfawr components.
-
-The default limits and requests were set based on a fairly lightly loaded deployment that uses OpenID Connect as the authentication provider and LDAP for user metadata.
-For a heavily-loaded environment, you may need to increase the resource requests to reflect the expected resource consumption of your instance of Gafaelfawr and allow Kubernetes to do better scheduling.
-You will hopefully not need to increase the limits, which are generous.
-
-Base internal URL
------------------
-
-Gafaelfawr needs to know the internal cluster DNS domain when creating ``Ingress`` resources from ``GafaelfawrIngress`` resources.
-By default, Gafaelfawr assumes that the cluster DNS domain is ``svc.cluster.local`` and the address to Gafaelfawr can be constructed by adding the name of the service and the name of the Gafaelfawr deployment namespace to the front of that domain.
-If your cluster sets it to something else (by using the ``--cluster-domain`` flag, for example), or if you are running Gafaelfawr in a vCluster but running the ingress outside of that vCluster, you will need to override the internal URL to Gafaelfawr by setting ``config.baseInternalUrl``.
-
-.. code-block:: yaml
-
-   config:
-     baseInternalUrl: "http://gafaelfawr.gafaelfawr.svc.example.com:8080"
-
-The first component of the host name is the name of the ``Service`` resource and therefore must be ``gafaelfawr``.
-Always use a port of 8080.
 
 .. _providers:
 
@@ -222,6 +266,32 @@ There are some additional options under ``config.oidc`` that you may want to set
 ``config.oidc.usernameClaim``
     The claim of the OpenID Connect ID token from which to take the username.
     The default is ``uid``.
+
+Error pages
+===========
+
+To add additional information to the error page from a failed login, set ``config.errorFooter`` to a string.
+This string will be embedded verbatim, inside a ``<p>`` tag, in all login error messages.
+It may include HTML and will not be escaped.
+This is a suitable place to direct the user to support information or bug reporting instructions.
+
+.. _helm-administrators:
+
+Administrators
+==============
+
+You may want to define the initial set of administrators:
+
+.. code-block:: yaml
+
+   config:
+     initialAdmins:
+       - "username"
+       - "otheruser"
+
+This makes the users ``username`` and ``otheruser`` (as authenticated by the upstream authentication provider configured below) admins, meaning that they can create, delete, and modify any authentication tokens.
+This value is only used when initializing a new Gafaelfawr database that does not contain any admins.
+Setting this is optional; you can instead use the bootstrap token (see :ref:`bootstrapping`) to perform any administrative actions through the API.
 
 .. _ldap:
 
@@ -382,7 +452,7 @@ You may need to set the following additional options under ``config.ldap`` depen
 .. _firestore:
 
 Firestore UID/GID assignment
-============================
+----------------------------
 
 Gafaelfawr can manage UID and GID assignment internally, using `Google Firestore <https://cloud.google.com/firestore>`__ as the storage mechanism.
 :ref:`Cloud SQL <cloudsql>` must also be enabled.
@@ -596,64 +666,28 @@ This is done with the ``bypass`` key.
 
 All members of any group listed under ``bypass`` will ignore all quota restrictions, including the ``spawn`` flag for notebook quotas.
 
-Redis storage
-=============
+Scaling
+=======
 
-For any Gafaelfawr deployment other than a test instance, you will want to configure persistent storage for Redis.
-Otherwise, each upgrade of Gafaelfawr's Redis component will invalidate all of the tokens.
-
-By default, the Gafaelfawr Helm chart uses auto-provisioning to create a ``PersistentVolumeClaim`` with the default storage class, requesting 1GiB of storage with the ``ReadWriteOnce`` access mode.
-If this is suitable for your deployment, you can leave the configuration as is.
-Otherwise, you can adjust the size (you probably won't need to make it larger; Gafaelfawr's storage needs are modest), storage class, or access mode by setting ``redis.persistence.size``, ``redis.persistence.storageClass``, and ``redis.persistence.accessMode``.
-
-If you instead want to manage the persistent volume directly rather than using auto-provisioning, use a configuration such as:
+Consider increasing the number of Gafaelfawr processes to run.
+This improves robustness and performance scaling.
+Production deployments should use at least two replicas.
 
 .. code-block:: yaml
 
-   redis:
-     persistence:
-       volumeClaimName: "gafaelfawr-pvc"
+   replicaCount: 2
 
-to point to an existing ``PersistentVolumeClaim``.
-You can then create that ``PersistentVolumeClaim`` and its associated ``PersistentVolume`` via any mechanism you choose, and the volume pointed to by that claim will be mounted as the Redis volume.
-Gafaelfawr uses the standard Redis Docker image, so the volume must be writable by UID 999, GID 999 (which the ``StatefulSet`` will attempt to ensure using the Kubernetes ``fsGroup`` setting).
+Gafaelfawr does not (yet) support Kubernetes auto-scaling.
 
-Finally, if you do have a test installation where you don't mind invalidating all tokens whenever Redis is restarted, you can use:
+Resource requests and limits
+----------------------------
 
-.. code-block:: yaml
+Every component of Gafaelfawr defines Kubernetes resource requests and limits.
+Look for the ``resources`` key at the top level of the chart and in the portions of the chart for the underlying Gafaelfawr components.
 
-   redis:
-     persistence:
-       enabled: false
-
-This will use an ephemeral ``emptyDir`` volume for Redis storage.
-
-.. _cloudsql:
-
-Cloud SQL
-=========
-
-If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL database, Gafaelfawr supports using the Cloud SQL Auth Proxy via Workload Identity.
-
-First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
-You do not need to create the Kubernetes service account; two service accounts will be created by the Gafaelfawr Helm chart.
-The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-operator``, both in Gafaelfawr's Kubernetes namespace (by default, ``gafaelfawr``).
-
-Then, once you have the name of the Google service account for the Cloud SQL Auth Proxy (created in the above instructions), enable the Cloud SQL Auth Proxy sidecar in the Gafaelfawr Helm chart.
-An example configuration:
-
-.. code-block:: yaml
-
-   cloudsql:
-     enabled: true
-     instanceConnectionName: "dev-7696:us-central1:dev-e9e11de2"
-     serviceAccount: "gafaelfawr@dev-7696.iam.gserviceaccount.com"
-
-Replace ``instanceConnectionName`` and ``serviceAccount`` with the values for your environment.
-You will still need to set ``config.databaseUrl`` and the ``database-password`` key in the Vault secret with appropriate values, but use ``localhost`` for the hostname in ``config.databaseUrl``.
-
-As mentioned in the Google documentation, the Cloud SQL Auth Proxy does not support IAM authentication to the database, only password authentication, and IAM authentication is not recommended for connection pools for long-lived processes.
-Gafaelfawr therefore doesn't support IAM authentication to the database.
+The default limits and requests were set based on a fairly lightly loaded deployment that uses OpenID Connect as the authentication provider and LDAP for user metadata.
+For a heavily-loaded environment, you may need to increase the resource requests to reflect the expected resource consumption of your instance of Gafaelfawr and allow Kubernetes to do better scheduling.
+You will hopefully not need to increase the limits, which are generous.
 
 .. _helm-proxies:
 

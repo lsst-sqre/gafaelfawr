@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import base64
 import os
+from collections.abc import AsyncIterator
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import pytest_asyncio
 import respx
-from httpx import AsyncClient, Response
+from asgi_lifespan import LifespanManager
+from httpx import ASGITransport, AsyncClient, Response
 from safir.metrics import NOT_NONE, MockEventPublisher
 from safir.testing.slack import MockSlackWebhook
 
@@ -18,10 +21,12 @@ from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
+from gafaelfawr.main import create_app
 from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
 from gafaelfawr.models.state import State
 from gafaelfawr.providers.github import GitHubProvider
 
+from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.github import mock_github
 from ..support.logging import parse_log
@@ -175,6 +180,8 @@ async def test_login(
     cookie = next(c for c in r.cookies.jar if c.name == "gafaelfawr")
     assert cookie.secure
     assert cookie.discard
+    assert cookie.domain == TEST_HOSTNAME
+    assert not cookie.domain_specified
     assert cookie.has_nonstandard_attr("HttpOnly")
     assert cookie.get_nonstandard_attr("SameSite") == "lax"
 
@@ -301,14 +308,6 @@ async def test_cookie_and_token(
 async def test_bad_redirect(
     client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
 ) -> None:
-    user_info = GitHubUserInfo(
-        name="GitHub User",
-        username="githubuser",
-        uid=123456,
-        email="githubuser@example.com",
-        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
-    )
-
     r = await client.get("/login", params={"rd": "https://foo.example.com/"})
     assert r.status_code == 422
 
@@ -318,19 +317,18 @@ async def test_bad_redirect(
     )
     assert r.status_code == 422
 
-    # But if we're deployed under foo.example.com as determined by the
-    # X-Forwarded-Host header, this will be allowed.
-    r = await simulate_github_login(
-        client,
-        respx_mock,
-        user_info,
+    # Even if we're deployed under foo.example.com as determined by the
+    # X-Forwarded-Host header, this will not be allowed. Only the base URL is
+    # checked.
+    r = await client.get(
+        "/login",
+        params={"rd": "https://foo.example.com/"},
         headers={
             "X-Forwarded-For": "192.168.0.1",
             "X-Forwarded-Host": "foo.example.com",
         },
-        return_url="https://foo.example.com/",
     )
-    assert r.status_code == 307
+    assert r.status_code == 422
 
     # None of these errors should have resulted in Slack alerts.
     assert mock_slack.messages == []
@@ -634,3 +632,51 @@ async def test_invalid_state(
     )
     assert r.status_code == 307
     assert r.headers["Location"] == str(config.after_logout_url)
+
+
+@pytest_asyncio.fixture
+async def subdomain_client(empty_database: None) -> AsyncIterator[AsyncClient]:
+    """Create an application configured to support subdomains.
+
+    Because middleware is configured when the application is created,
+    testing a different cookie policy unfortunately requires ignoring the
+    fixtures and making our own application.
+    """
+    await reconfigure("github-subdomain")
+    app = create_app(validate_schema=False)
+    async with LifespanManager(app):
+        async with AsyncClient(
+            base_url=f"https://{TEST_HOSTNAME}",
+            headers={"X-Original-URL": "https://foo.example.com/bar"},
+            transport=ASGITransport(app=app),
+        ) as client:
+            yield client
+
+
+@pytest.mark.asyncio
+async def test_subdomain(
+    subdomain_client: AsyncClient, respx_mock: respx.Router
+) -> None:
+    user_info = GitHubUserInfo(
+        name="GitHub User",
+        username="githubuser",
+        uid=123456,
+        email="githubuser@example.com",
+        teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
+    )
+    return_url = f"https://foo.{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
+
+    # Simulate the GitHub login.
+    r = await simulate_github_login(
+        subdomain_client, respx_mock, user_info, return_url=return_url
+    )
+    assert r.status_code == 307
+
+    # Check the cookie parameters.
+    cookie = next(c for c in r.cookies.jar if c.name == "gafaelfawr")
+    assert cookie.secure
+    assert cookie.discard
+    assert cookie.domain == f".{TEST_HOSTNAME}"
+    assert cookie.domain_specified
+    assert cookie.has_nonstandard_attr("HttpOnly")
+    assert cookie.get_nonstandard_attr("SameSite") == "lax"
