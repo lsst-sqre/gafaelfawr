@@ -23,6 +23,36 @@ For example, there should be one top-level ``config:`` key and all parameters th
 You should also read the `Gafaelfawr application documentation <https://phalanx.lsst.io/applications/gafaelfawr/index.html>`__.
 In particular, when bootstrapping a new Phalanx environment, see the `Gafaelfawr bootstrapping instructions <https://phalanx.lsst.io/applications/gafaelfawr/bootstrap.html>`__.
 
+Subdomains
+==========
+
+By default, Gafaelfawr only supports cookie-based authentication to a single domain.
+The base hostname of the Rubin Science Platform environment is the only host to which any authentication cookies will be sent by user browsers, and therefore only ingresses for that hostname can use cookie authentication.
+
+Anonymous ingresses and ingresses that only allow token authentication via the ``Authorization`` header can use any hostname, at least from Gafaelfawr's perspective.
+
+Optionally, Gafaelfawr can extend cookie authentication to subdomains of the base hostname of the Science Platform environment.
+To do this, set the ``config.allowSubdomains`` configuration option:
+
+.. code-block:: yaml
+
+   config
+     allowSubdomains: true
+
+With this configuration cookies will also be sent to any subdomain.
+
+For example, if the base hostname of the Science Platform environment is ``rsp.example.com``, by default an ingress at ``portal.rsp.example.com`` cannot use cookie authentication.
+If ``config.allowSubdomains`` is set to true, cookie authentication will work for ``portal.rsp.example.com``.
+It will continue to not work for ``portal.example.com`` or any other hostname that is not a subdomain of ``rsp.example.com``.
+
+.. warning::
+
+   This option is only safe to enable if every web service hosted below the base hostname of the Science Platform environment is managed by Gafaelfawr.
+   When this option is enabled, any web server at any hostname at a subdomain will receive the user's authentication cookies by default, and can use those cookies to impersonate any user that visits that web server.
+   Gafaelfawr will filter out those cookies (see :ref:`header-filtering`), so any service behind Gafaelfawr will not be able to steal cookies in this way, but Gafaelfawr cannot do anything about web services that are not protected by it with at least an anonymous ingress.
+
+   Therefore, before enabling this setting, ensure that you have tight control over creation of new DNS entries in any subdomain (even multiple levels down) from the baes hostname of the Science Platform environment, and ensure that all of those hostnames point to Phalanx-managed Kubernetes services for that Science Platform environment.
+
 Environent URLs and storage
 ===========================
 
