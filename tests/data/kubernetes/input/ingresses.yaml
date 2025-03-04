@@ -13,7 +13,7 @@ template:
     name: small
   spec:
     rules:
-      - host: foo.example.com
+      - host: example.com
         http:
           paths:
             - path: /foo
@@ -49,7 +49,7 @@ template:
       another.annotation.example.com: bar
   spec:
     rules:
-      - host: foo.example.com
+      - host: example.com
         http:
           paths:
             - path: /bar
@@ -61,7 +61,7 @@ template:
                     number: 80
     tls:
       - hosts:
-          - foo.example.com
+          - example.com
         secretName: tls-secret
 ---
 apiVersion: gafaelfawr.lsst.io/v1alpha1
@@ -87,7 +87,7 @@ template:
     name: internal
   spec:
     rules:
-      - host: foo.example.com
+      - host: example.com
         http:
           paths:
             - path: /baz
@@ -149,7 +149,7 @@ template:
       some.annotation: foo
   spec:
     rules:
-      - host: foo.example.com
+      - host: example.org
         http:
           paths:
             - path: /foo/baz
@@ -175,7 +175,7 @@ template:
     name: username
   spec:
     rules:
-      - host: foo.example.com
+      - host: example.com
         http:
           paths:
             - path: /username
@@ -203,7 +203,7 @@ template:
     name: service
   spec:
     rules:
-      - host: foo.example.com
+      - host: example.com
         http:
           paths:
             - path: /service
@@ -230,7 +230,7 @@ template:
     name: service-any
   spec:
     rules:
-      - host: foo.example.com
+      - host: example.com
         http:
           paths:
             - path: /service/any

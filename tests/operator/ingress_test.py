@@ -152,6 +152,31 @@ async def test_resume(
 
 @requires_kubernetes
 @pytest.mark.asyncio
+async def test_errors_host(
+    config: Config, empty_database: None, api_client: ApiClient, namespace: str
+) -> None:
+    networking_api = client.NetworkingV1Api(api_client)
+    ingress = operator_test_input("ingress-error-host", namespace)[0]
+    name = ingress["template"]["metadata"]["name"]
+    status = KubernetesResourceStatus(
+        message="Host foo.example.com not allowed with cookie authentication",
+        generation=ANY,
+        reason=StatusReason.Failed,
+        timestamp=ANY,
+    )
+
+    with operator_running("gafaelfawr.operator"):
+        await create_custom_resources(api_client, [ingress])
+        await asyncio.sleep(1)
+
+    await assert_custom_resource_status_is(api_client, ingress, status)
+    with pytest.raises(ApiException) as excinfo:
+        await networking_api.read_namespaced_ingress(name, namespace)
+    assert excinfo.value.status == 404
+
+
+@requires_kubernetes
+@pytest.mark.asyncio
 async def test_errors_scope(
     config: Config, empty_database: None, api_client: ApiClient, namespace: str
 ) -> None:
