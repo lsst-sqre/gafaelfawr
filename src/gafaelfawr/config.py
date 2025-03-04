@@ -1100,21 +1100,21 @@ class Config(EnvFirstSettings):
         return bool(self.github or (self.ldap and self.ldap.add_user_group))
 
     @property
+    def base_hostname(self) -> str:
+        """Realm to use for HTTP authentication."""
+        # HttpUrl guarantees that the host is not None, but this is not
+        # reflected in the type system so we have to check for mypy purposes.
+        if not self.base_url.host:
+            raise RuntimeError("baseUrl does not contain a hostname")
+        return self.base_url.host
+
+    @property
     def cookie_parameters(self) -> CookieParameters:
         """Parameters to pass to `fastapi.Response.set_cookie`."""
         parameters = CookieParameters(secure=True, httponly=True)
         if self.allow_subdomains:
-            if not self.base_url.host:
-                raise RuntimeError("baseUrl does not contain a hostname")
-            parameters["domain"] = self.base_url.host
+            parameters["domain"] = self.base_hostname
         return parameters
-
-    @property
-    def realm(self) -> str:
-        """Realm to use for HTTP authentication."""
-        if not self.base_url.host:
-            raise RuntimeError("baseUrl does not contain a hostname")
-        return self.base_url.host
 
     @property
     def redis_rate_limit_url(self) -> str:

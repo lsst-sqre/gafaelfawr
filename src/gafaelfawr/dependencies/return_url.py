@@ -43,7 +43,7 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
     InvalidReturnURLError
         Raised if the return URL was invalid.
     """
-    domain = context.config.base_url.host
+    domain = context.config.base_hostname
     parsed_url = urlparse(url)
     if context.config.allow_subdomains:
         hostname = parsed_url.hostname
@@ -51,7 +51,7 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
     else:
         okay = parsed_url.hostname == domain
     if not okay:
-        msg = f"URL is not at {context.config.base_url.host}"
+        msg = f"URL is not at {context.config.base_hostname}"
         context.logger.warning("Bad return URL", error=msg)
         raise InvalidReturnURLError(msg, param)
 
