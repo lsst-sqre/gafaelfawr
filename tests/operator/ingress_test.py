@@ -118,7 +118,7 @@ async def test_replace(
         ] = expected_url
         expected["metadata"]["annotations"][
             "nginx.ingress.kubernetes.io/auth-signin"
-        ] = "https://foo.example.com/login"
+        ] = "https://example.com/login"
         await assert_resources_match(api_client, [expected])
 
 

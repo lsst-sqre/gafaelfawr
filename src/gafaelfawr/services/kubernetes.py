@@ -113,7 +113,6 @@ class KubernetesIngressService:
             + "/ingress/auth?"
             + urlencode(ingress.config.to_auth_query(), safe=":/")
         )
-        base_url = ingress.config.base_url or str(self._config.base_url)
         snippet_key = "nginx.ingress.kubernetes.io/configuration-snippet"
         snippet = ingress.template.metadata.annotations.get(snippet_key, "")
         if snippet and not snippet.endswith("\n"):
@@ -135,7 +134,7 @@ class KubernetesIngressService:
                 f"200 202 401 {ingress.config.auth_cache_duration}"
             )
         if ingress.config.login_redirect:
-            url = base_url.rstrip("/") + "/login"
+            url = str(self._config.base_url).rstrip("/") + "/login"
             annotations["nginx.ingress.kubernetes.io/auth-signin"] = url
 
         return annotations

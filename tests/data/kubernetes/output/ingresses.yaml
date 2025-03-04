@@ -49,7 +49,7 @@ metadata:
     nginx.ingress.kubernetes.io/auth-cache-duration: "200 202 401 5m"
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
-    nginx.ingress.kubernetes.io/auth-signin: "https://foo.example.com/login"
+    nginx.ingress.kubernetes.io/auth-signin: "https://example.com/login"
     nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?notebook=true&minimum_lifetime=600&scope=read:all&satisfy=any"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       {snippet}

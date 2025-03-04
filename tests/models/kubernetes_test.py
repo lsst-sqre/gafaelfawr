@@ -15,39 +15,28 @@ from gafaelfawr.models.kubernetes import (
 def test_scopes() -> None:
     """Test handling of ``all`` and ``any`` in configured scopes."""
     config = GafaelfawrIngressConfig.model_validate(
-        {
-            "baseUrl": "https://example.com/",
-            "scopes": {"any": ["read:all", "read:some"]},
-        }
+        {"scopes": {"any": ["read:all", "read:some"]}}
     )
     assert config.scopes.satisfy == Satisfy.ANY
     assert config.scopes.scopes == ["read:all", "read:some"]
 
     config = GafaelfawrIngressConfig.model_validate(
-        {
-            "baseUrl": "https://example.com/",
-            "scopes": {"all": ["read:all", "read:some"]},
-        }
+        {"scopes": {"all": ["read:all", "read:some"]}}
     )
     assert config.scopes.satisfy == Satisfy.ALL
     assert config.scopes.scopes == ["read:all", "read:some"]
 
-    config = GafaelfawrIngressConfig.model_validate(
-        {"baseUrl": "https://example.com/", "scopes": {"all": []}}
-    )
+    config = GafaelfawrIngressConfig.model_validate({"scopes": {"all": []}})
     assert config.scopes.satisfy == Satisfy.ALL
     assert config.scopes.scopes == []
 
-    config = GafaelfawrIngressConfig.model_validate(
-        {"baseUrl": "https://example.com/", "scopes": {"any": []}}
-    )
+    config = GafaelfawrIngressConfig.model_validate({"scopes": {"any": []}})
     assert config.scopes.satisfy == Satisfy.ANY
     assert config.scopes.scopes == []
 
     with pytest.raises(ValidationError):
         config = GafaelfawrIngressConfig.model_validate(
             {
-                "baseUrl": "https://example.com/",
                 "scopes": {
                     "all": ["read:all"],
                     "any": ["read:some", "read:image"],
@@ -56,16 +45,11 @@ def test_scopes() -> None:
         )
 
     with pytest.raises(ValidationError):
-        GafaelfawrIngressConfig.model_validate(
-            {"baseUrl": "https://example.com/", "scopes": {}}
-        )
+        GafaelfawrIngressConfig.model_validate({"scopes": {}})
 
     with pytest.raises(ValidationError):
         GafaelfawrIngressConfig.model_validate(
-            {
-                "baseUrl": "https://example.com/",
-                "scopes": {"all": [], "any": []},
-            }
+            {"scopes": {"all": [], "any": []}}
         )
 
 
@@ -74,7 +58,6 @@ def test_delegate() -> None:
     with pytest.raises(ValidationError) as excinfo:
         GafaelfawrIngressConfig.model_validate(
             {
-                "baseUrl": "https://example.com/",
                 "scopes": {"all": ["read:all"]},
                 "delegate": {
                     "notebook": {},
@@ -87,11 +70,7 @@ def test_delegate() -> None:
 
     with pytest.raises(ValidationError) as excinfo:
         GafaelfawrIngressConfig.model_validate(
-            {
-                "baseUrl": "https://example.com/",
-                "scopes": {"all": ["read:all"]},
-                "delegate": {},
-            }
+            {"scopes": {"all": ["read:all"]}, "delegate": {}}
         )
     assert "one of notebook and internal must be given" in str(excinfo.value)
 
@@ -109,7 +88,6 @@ def test_service_port() -> None:
 def test_basic_login_redirect() -> None:
     GafaelfawrIngressConfig.model_validate(
         {
-            "baseUrl": "https://example.com/",
             "authType": "bearer",
             "loginRedirect": True,
             "scopes": {"all": ["read:all"]},
@@ -118,7 +96,6 @@ def test_basic_login_redirect() -> None:
     with pytest.raises(ValidationError):
         GafaelfawrIngressConfig.model_validate(
             {
-                "baseUrl": "https://example.com/",
                 "authType": "basic",
                 "loginRedirect": True,
                 "scopes": {"all": ["read:all"]},
@@ -128,52 +105,28 @@ def test_basic_login_redirect() -> None:
 
 def test_anonymous() -> None:
     GafaelfawrIngressConfig.model_validate(
-        {
-            "baseUrl": "https://example.com/",
-            "authType": "basic",
-            "scopes": {"all": ["read:all"]},
-        }
+        {"authType": "basic", "scopes": {"all": ["read:all"]}}
     )
     with pytest.raises(ValidationError):
         GafaelfawrIngressConfig.model_validate(
-            {
-                "baseUrl": "https://example.com/",
-                "authType": "basic",
-                "scopes": {"anonymous": True},
-            }
+            {"authType": "basic", "scopes": {"anonymous": True}}
         )
     GafaelfawrIngressConfig.model_validate(
-        {
-            "baseUrl": "https://example.com/",
-            "delegate": {"notebook": {}},
-            "scopes": {"all": ["read:all"]},
-        }
+        {"delegate": {"notebook": {}}, "scopes": {"all": ["read:all"]}}
     )
     with pytest.raises(ValidationError):
         GafaelfawrIngressConfig.model_validate(
-            {
-                "baseUrl": "https://example.com/",
-                "delegate": {"notebook": {}},
-                "scopes": {"anonymous": True},
-            }
+            {"delegate": {"notebook": {}}, "scopes": {"anonymous": True}}
         )
 
     # Boolean fields should produce an error if set to true, but not if false.
     for field in ("loginRedirect", "replace403"):
         GafaelfawrIngressConfig.model_validate(
-            {
-                "baseUrl": "https://example.com/",
-                field: False,
-                "scopes": {"anonymous": True},
-            }
+            {field: False, "scopes": {"anonymous": True}}
         )
         with pytest.raises(ValidationError):
             GafaelfawrIngressConfig.model_validate(
-                {
-                    "baseUrl": "https://example.com/",
-                    field: True,
-                    "scopes": {"anonymous": True},
-                }
+                {field: True, "scopes": {"anonymous": True}}
             )
 
     # allowCookeis should only produce an error if it's set to false.

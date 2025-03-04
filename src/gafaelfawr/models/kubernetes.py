@@ -310,7 +310,7 @@ class GafaelfawrIngressConfig(BaseModel):
     """Auth type of challenge for 401 responses."""
 
     base_url: str | None = None
-    """The base URL for user-facing Gafaelfawr URLs in Ingress annotations."""
+    """Obsolete field, now ignored."""
 
     delegate: GafaelfawrIngressDelegate | None = None
     """Details of the requested delegated token, if any."""
@@ -322,7 +322,7 @@ class GafaelfawrIngressConfig(BaseModel):
     """If non-empty, restrict to tokens issued by one of the services."""
 
     replace_403: bool = False
-    """Whether to generate a custom error response for 403 errors."""
+    """Obsolete field, now ignored."""
 
     scopes: (
         GafaelfawrIngressScopesAll
@@ -383,11 +383,6 @@ class GafaelfawrIngressConfig(BaseModel):
 
     def to_auth_query(self) -> list[tuple[str, str]]:
         """Generate the query corresponding to this ingress configuration.
-
-        Parameters
-        ----------
-        base_url
-            Base URL for the internal Gafaelfawr service.
 
         Returns
         -------
