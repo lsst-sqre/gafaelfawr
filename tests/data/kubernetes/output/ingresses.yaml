@@ -26,7 +26,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: foo.example.com
+    - host: example.com
       http:
         paths:
           - path: /foo
@@ -71,7 +71,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: foo.example.com
+    - host: example.com
       http:
         paths:
           - path: /bar
@@ -83,7 +83,7 @@ spec:
                   number: 80
   tls:
     - hosts:
-        - foo.example.com
+        - example.com
       secretName: tls-secret
 status: {any}
 ---
@@ -115,7 +115,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: foo.example.com
+    - host: example.com
       http:
         paths:
           - path: /baz
@@ -195,7 +195,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: foo.example.com
+    - host: example.org
       http:
         paths:
           - path: /foo/baz
@@ -235,7 +235,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: foo.example.com
+    - host: example.com
       http:
         paths:
           - path: /username
@@ -275,7 +275,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: foo.example.com
+    - host: example.com
       http:
         paths:
           - path: /service
@@ -315,7 +315,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: foo.example.com
+    - host: example.com
       http:
         paths:
           - path: /service/any

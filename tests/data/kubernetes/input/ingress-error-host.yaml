@@ -5,13 +5,13 @@ metadata:
   namespace: {namespace}
 config:
   scopes:
-    all: ["invalid:scope"]
+    all: ["read:all"]
 template:
   metadata:
     name: small
   spec:
     rules:
-      - host: example.com
+      - host: foo.example.com
         http:
           paths:
             - path: /foo

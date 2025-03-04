@@ -49,6 +49,9 @@ The ``apiVersion`` and ``kind`` keys must always have those values.
 The ``metadata`` section is standard Kubernetes resource metadata.
 You can add labels and annotations here if you wish, but they will have no effect on the generated ``Ingress`` resource.
 
+For the configuration options discussed in the rest of this page, only the relevant portion of the ``GafaelfawrIngress`` resource is shown.
+Add the example configuration to the above full resource to get a valid ``GafaelfawrIngress`` resource.
+
 ``config`` section
 ------------------
 
@@ -80,8 +83,7 @@ Gafaelfawr will always add the ``app.kubernetes.io/managed-by`` label with the v
 Only the above structure is supported, but all standard ``pathType`` options are supported, as is using either ``name`` or ``number`` for the port.
 ``template.spec.tls`` may also be given and, if present, uses the same schema as the normal ``tls`` section of an ``Ingress``.
 
-For the configuration options discussed in the rest of this page, only the relevant portion of the ``GafaelfawrIngress`` resource is shown.
-Add the example configuration to the above full resource to get a valid ``GafaelfawrIngress`` resource.
+Unless the ingress is anonymous or disables cookie authentication, the hosts listed in all ingress rules must either match the host of the configured Gafaelfawr base URL or (only if ``config.allowSubdomains`` is enabled) be a subdomain of that host.
 
 .. _login-redirect:
 

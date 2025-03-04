@@ -46,6 +46,7 @@ __all__ = [
     "InvalidTokenClaimsError",
     "InvalidTokenError",
     "KubernetesError",
+    "KubernetesIngressError",
     "KubernetesObjectError",
     "LDAPError",
     "MissingGIDClaimError",
@@ -415,6 +416,10 @@ class LDAPError(ExternalUserInfoError):
 
 class KubernetesError(kopf.TemporaryError):
     """An error occurred during Kubernetes secret processing."""
+
+
+class KubernetesIngressError(kopf.PermanentError):
+    """The ``GafaelfawrIngress`` configuration is invalid."""
 
 
 class KubernetesObjectError(kopf.PermanentError):

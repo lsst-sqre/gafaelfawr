@@ -19,6 +19,7 @@ from ..exceptions import (
     InputValidationError,
     InvalidScopesError,
     KubernetesError,
+    KubernetesIngressError,
     PermissionDeniedError,
 )
 from ..models.enums import TokenType
@@ -88,8 +89,9 @@ class KubernetesIngressService:
             Raised if some error occurred while trying to write to Kubernetes.
         """
         try:
+            self._validate_hostnames(parent)
             self._validate_scopes(parent.config.scopes)
-        except InputValidationError as e:
+        except (InputValidationError, KubernetesIngressError) as e:
             msg = f"Invalid GafaelfawrIngress {parent.key}"
             self._logger.exception(msg, error=str(e))
             return KubernetesResourceStatus.failure(parent, str(e))
@@ -240,6 +242,41 @@ class KubernetesIngressService:
             msg = f"Created {key} ingress from {parent.key} GafaelfawrIngress"
         self._logger.info(msg)
         return status
+
+    def _validate_hostnames(self, ingress: GafaelfawrIngress) -> None:
+        """Verify that the hostnames in the ingress rules are allowed.
+
+        Any hostname is allowed for anonymous ingresses or for ingresses that
+        disable cookie authentication. Otherwise, all hostnames must exactly
+        match the hostname of the Gafaelfawr base URL, unless subdomains are
+        enabled. If subdomains are enabled, any subdomain is allowed.
+
+        Parameters
+        ----------
+        ingress
+           Ingress to check.
+
+        Raises
+        ------
+        KubernetesIngressError
+            Raised if there is a hostname in the ingress rules that is not
+            allowed.
+        """
+        if ingress.config.scopes.is_anonymous():
+            return
+        if not ingress.config.allow_cookies:
+            return
+        subdomain = self._config.allow_subdomains
+        base_hostname = self._config.base_url.host
+        if not base_hostname:
+            raise RuntimeError("config.baseUrl has no hostname")
+        for rule in ingress.template.spec.rules:
+            if rule.host == base_hostname:
+                continue
+            if subdomain and rule.host.endswith(f".{base_hostname}"):
+                continue
+            msg = f"Host {rule.host} not allowed with cookie authentication"
+            raise KubernetesIngressError(msg)
 
     def _validate_scopes(self, scopes: GafaelfawrIngressScopesBase) -> None:
         """Check that the requested scopes are valid.
