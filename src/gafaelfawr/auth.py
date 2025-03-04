@@ -165,7 +165,7 @@ def generate_challenge(
     context.logger.warning(exc.message, error=str(exc))
     challenge = AuthErrorChallenge(
         auth_type=auth_type,
-        realm=context.config.realm,
+        realm=context.config.base_hostname,
         error=AuthError[exc.error],
         error_description=str(exc),
         scope=" ".join(sorted(scopes)) if scopes else None,
@@ -242,7 +242,7 @@ def generate_unauthorized_challenge(
         context.logger.warning(exc.message, error=str(exc))
         challenge: AuthChallenge = AuthErrorChallenge(
             auth_type=auth_type,
-            realm=context.config.realm,
+            realm=context.config.base_hostname,
             error=AuthError[exc.error],
             error_description=str(exc),
         )
@@ -250,7 +250,7 @@ def generate_unauthorized_challenge(
         msg = str(exc)
     else:
         challenge = AuthChallenge(
-            auth_type=auth_type, realm=context.config.realm
+            auth_type=auth_type, realm=context.config.base_hostname
         )
         error_type = "no_authorization"
         msg = "Authentication required"

@@ -267,9 +267,7 @@ class KubernetesIngressService:
         if not ingress.config.allow_cookies:
             return
         subdomain = self._config.allow_subdomains
-        base_hostname = self._config.base_url.host
-        if not base_hostname:
-            raise RuntimeError("config.baseUrl has no hostname")
+        base_hostname = self._config.base_hostname
         for rule in ingress.template.spec.rules:
             if rule.host == base_hostname:
                 continue

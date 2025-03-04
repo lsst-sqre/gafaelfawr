@@ -42,7 +42,7 @@ def assert_unauthorized_is_correct(
     challenge = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(challenge, AuthErrorChallenge)
     assert challenge.auth_type == auth_type
-    assert challenge.realm == config.realm
+    assert challenge.realm == config.base_hostname
 
 
 def parse_www_authenticate(header: str) -> AuthChallenge:

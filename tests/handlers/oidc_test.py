@@ -720,7 +720,7 @@ async def test_invalid(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_request
     assert authenticate.error_description == "Unknown Authorization type token"
 
@@ -746,7 +746,7 @@ async def test_invalid(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_request
     assert authenticate.error_description == "Malformed Authorization header"
 
@@ -760,7 +760,7 @@ async def test_invalid(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_token
     assert authenticate.error_description
 
@@ -788,7 +788,7 @@ async def test_invalid(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_token
     msg = "Token of type session not allowed"
     assert authenticate.error_description == msg

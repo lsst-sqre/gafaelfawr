@@ -95,7 +95,7 @@ async def test_invalid_auth(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_request
 
     r = await client.get(
@@ -109,7 +109,7 @@ async def test_invalid_auth(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_request
 
     r = await client.get(
@@ -122,7 +122,7 @@ async def test_invalid_auth(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_token
 
     # Create a nonexistent token.
@@ -137,7 +137,7 @@ async def test_invalid_auth(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_token
 
     # None of these errors should have resulted in Slack alerts.
@@ -163,7 +163,7 @@ async def test_access_denied(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin"
     assert "Token missing required scope" in r.text
@@ -191,7 +191,7 @@ async def test_satisfy_all(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.insufficient_scope
     assert authenticate.scope == "exec:admin exec:test"
     assert "Token missing required scope" in r.text
@@ -585,7 +585,7 @@ async def test_basic(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_request
 
 
@@ -605,7 +605,7 @@ async def test_basic_failure(
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
     assert authenticate.error == AuthError.invalid_request
 
     for basic in (b"foo:foo", b"x-oauth-basic:foo", b"foo:x-oauth-basic"):
@@ -633,7 +633,7 @@ async def test_ajax_unauthorized(client: AsyncClient, config: Config) -> None:
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert not isinstance(authenticate, AuthErrorChallenge)
     assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.realm
+    assert authenticate.realm == config.base_hostname
 
 
 @pytest.mark.asyncio
