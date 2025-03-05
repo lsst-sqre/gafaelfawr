@@ -5,7 +5,6 @@ metadata:
   namespace: {namespace}
 config:
   allowCookies: false
-  baseUrl: "https://foo.example.com"
   loginRedirect: true
 template:
   metadata:

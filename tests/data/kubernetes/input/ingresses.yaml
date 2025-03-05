@@ -4,7 +4,6 @@ metadata:
   name: small-ingress
   namespace: {namespace}
 config:
-  baseUrl: "https://foo.example.com"
   scopes:
     all: ["read:all"]
   service: tap
@@ -30,7 +29,6 @@ metadata:
   name: notebook-ingress
   namespace: {namespace}
 config:
-  baseUrl: "https://foo.example.com"
   scopes:
     any: ["read:all"]
   authCacheDuration: 5m
@@ -70,7 +68,6 @@ metadata:
   name: internal-ingress
   namespace: {namespace}
 config:
-  baseUrl: "https://foo.example.com"
   authType: basic
   scopes:
     all:
@@ -105,7 +102,6 @@ metadata:
   namespace: {namespace}
 config:
   allowCookies: false
-  baseUrl: "https://foo.example.com"
   scopes:
     all: ["read:all"]
   delegate:
@@ -139,7 +135,6 @@ metadata:
   name: anonymous-ingress
   namespace: {namespace}
 config:
-  baseUrl: "https://foo.example.com"
   scopes:
     anonymous: true
 template:
@@ -166,7 +161,6 @@ metadata:
   name: username-ingress
   namespace: {namespace}
 config:
-  baseUrl: "https://foo.example.com"
   scopes:
     all: ["read:all"]
   username: some-user
