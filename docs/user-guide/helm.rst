@@ -23,6 +23,8 @@ For example, there should be one top-level ``config:`` key and all parameters th
 You should also read the `Gafaelfawr application documentation <https://phalanx.lsst.io/applications/gafaelfawr/index.html>`__.
 In particular, when bootstrapping a new Phalanx environment, see the `Gafaelfawr bootstrapping instructions <https://phalanx.lsst.io/applications/gafaelfawr/bootstrap.html>`__.
 
+.. _helm-subdomains:
+
 Subdomains
 ==========
 

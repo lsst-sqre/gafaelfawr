@@ -194,6 +194,12 @@ spec:
                     used for metrics reporting. When delegating internal
                     tokens, this must match config.delegate.internal.service.
                     This attribute will be required in the future.
+                userDomain:
+                  type: boolean
+                  description: >-
+                    Expect the last component of the request URL hostname to
+                    be a username and only allow access from matching
+                    usernames. Requires that the ingress host be a wildcard.
                 username:
                   type: string
                   description: >-
