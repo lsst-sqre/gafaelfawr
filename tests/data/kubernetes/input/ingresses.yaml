@@ -118,7 +118,7 @@ template:
         add_header "X-Foo" "bar";
   spec:
     rules:
-      - host: foo.example.com
+      - host: example.org
         http:
           paths:
             - path: /foo/bar
@@ -234,3 +234,33 @@ template:
                   name: something
                   port:
                     name: http
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: subdomain-ingress
+  namespace: {namespace}
+config:
+  loginRedirect: true
+  scopes:
+    all: ["read:all"]
+  userDomain: true
+template:
+  metadata:
+    name: subdomain
+  spec:
+    rules:
+      - host: "*.nb.example.com"
+        http:
+          paths:
+            - path: "/"
+              pathType: "Prefix"
+              backend:
+                service:
+                  name: "something"
+                  port:
+                    number: 80
+    tls:
+      - hosts:
+          - "*.nb.example.com"
+        secretName: "tls-secret"

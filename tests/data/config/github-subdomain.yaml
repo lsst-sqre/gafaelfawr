@@ -14,6 +14,7 @@ knownScopes:
   "admin:token": "token administration"
   "exec:admin": "admin description"
   "read:all": "can read everything"
+  "read:some": "can read some things"
   "user:token": "Can create and modify user tokens"
 github:
   clientId: "some-github-client-id"
