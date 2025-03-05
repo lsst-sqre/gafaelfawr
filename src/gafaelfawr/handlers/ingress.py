@@ -95,31 +95,6 @@ class AuthConfig:
     """Restrict access to the ingress to only this username."""
 
 
-def auth_uri(
-    *,
-    x_original_uri: Annotated[
-        str | None,
-        Header(description="URL for which authorization is being checked"),
-    ] = None,
-    x_original_url: Annotated[
-        str,
-        Header(
-            description=(
-                "URL for which authorization is being checked."
-                " `X-Original-URI` takes precedence if both are set."
-            ),
-        ),
-    ],
-) -> str:
-    """Determine URL for which we're validating authentication.
-
-    ``X-Original-URI`` will only be set if the auth-method annotation is set.
-    That should always be the case, but allow for it to be unset and fall back
-    on ``X-Original-URL``, which is set unconditionally.
-    """
-    return x_original_uri or x_original_url
-
-
 def auth_config(
     *,
     auth_type: Annotated[
@@ -251,7 +226,7 @@ def auth_config(
             examples=["rra"],
         ),
     ] = None,
-    auth_uri: Annotated[str, Depends(auth_uri)],
+    x_original_url: Annotated[str, Header()],
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> AuthConfig:
     """Construct the configuration for an authorization request.
@@ -275,7 +250,7 @@ def auth_config(
         raise InvalidServiceError(msg)
     scopes = set(scope) if scope else set()
     context.rebind_logger(
-        auth_uri=auth_uri,
+        auth_uri=x_original_url,
         required_scopes=sorted(scopes),
         satisfy=satisfy.name.lower(),
         service=service,
@@ -289,7 +264,7 @@ def auth_config(
         minimum_lifetime = MINIMUM_LIFETIME
     return AuthConfig(
         auth_type=auth_type,
-        auth_uri=auth_uri,
+        auth_uri=x_original_url,
         delegate_scopes=set(delegate_scope) if delegate_scope else set(),
         delegate_to=delegate_to,
         minimum_lifetime=minimum_lifetime,

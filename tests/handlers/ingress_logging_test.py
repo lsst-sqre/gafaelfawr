@@ -36,13 +36,13 @@ async def test_success(
         params={"scope": "exec:admin"},
         headers={
             "Authorization": f"Bearer {token_data.token}",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
             "X-Forwarded-For": "192.0.2.1",
         },
     )
     assert r.status_code == 200
     expected_log: dict[str, Any] = {
-        "auth_uri": "/foo",
+        "auth_uri": "https://example.com/foo",
         "event": "Token authorized",
         "httpRequest": {
             "requestMethod": "GET",
@@ -72,7 +72,7 @@ async def test_success(
         params={"scope": "exec:admin", "service": "service-one"},
         headers={
             "Authorization": f"Basic {basic_b64}",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
             "X-Forwarded-For": "192.0.2.1",
         },
     )
@@ -92,7 +92,7 @@ async def test_success(
         params={"scope": "exec:admin", "service": "test"},
         headers={
             "Authorization": f"Basic {basic_b64}",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
             "X-Forwarded-For": "192.0.2.1",
         },
     )
@@ -150,14 +150,14 @@ async def test_authz_failed(
         params={"scope": "exec:test", "satisfy": "any"},
         headers={
             "Authorization": f"Bearer {token_data.token}",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
         },
     )
 
     assert r.status_code == 403
     assert parse_log(caplog) == [
         {
-            "auth_uri": "/foo",
+            "auth_uri": "https://example.com/foo",
             "error": "Token missing required scope",
             "event": "Permission denied",
             "httpRequest": {
@@ -218,22 +218,6 @@ async def test_original_url(
     }
     assert parse_log(caplog) == [expected_log]
 
-    # Check with both X-Original-URI and X-Original-URL.  The former should
-    # override the latter.
-    caplog.clear()
-    r = await client.get(
-        "/ingress/auth",
-        params={"scope": "exec:admin"},
-        headers={
-            "Authorization": f"bearer {token_data.token}",
-            "X-Original-URI": "/foo",
-            "X-Original-URL": "https://example.com/test",
-        },
-    )
-    assert r.status_code == 403
-    expected_log["auth_uri"] = "/foo"
-    assert parse_log(caplog) == [expected_log]
-
 
 @pytest.mark.asyncio
 async def test_x_forwarded(
@@ -249,14 +233,14 @@ async def test_x_forwarded(
             "Authorization": f"bearer {token_data.token}",
             "X-Forwarded-For": "2001:db8:85a3:8d3:1319:8a2e:370:734, 10.0.0.1",
             "X-Forwarded-Proto": "https, http",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
         },
     )
 
     assert r.status_code == 403
     assert parse_log(caplog) == [
         {
-            "auth_uri": "/foo",
+            "auth_uri": "https://example.com/foo",
             "error": "Token missing required scope",
             "event": "Permission denied",
             "httpRequest": {
@@ -286,13 +270,16 @@ async def test_invalid_token(
     r = await client.get(
         "/ingress/auth",
         params={"scope": "exec:admin"},
-        headers={"Authorization": "Bearer blah", "X-Original-Uri": "/foo"},
+        headers={
+            "Authorization": "Bearer blah",
+            "X-Original-URL": "https://example.com/foo",
+        },
     )
 
     assert r.status_code == 401
     assert parse_log(caplog) == [
         {
-            "auth_uri": "/foo",
+            "auth_uri": "https://example.com/foo",
             "error": "Token does not start with gt-",
             "event": "Invalid token",
             "httpRequest": {
@@ -326,7 +313,7 @@ async def test_notebook(
         params={"scope": "exec:admin", "notebook": "true"},
         headers={
             "Authorization": f"Bearer {token_data.token}",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
         },
     )
     assert r.status_code == 200
@@ -334,7 +321,7 @@ async def test_notebook(
 
     assert parse_log(caplog) == [
         {
-            "auth_uri": "/foo",
+            "auth_uri": "https://example.com/foo",
             "event": "Created new notebook token",
             "httpRequest": {
                 "requestMethod": "GET",
@@ -360,7 +347,7 @@ async def test_notebook(
             "user": token_data.username,
         },
         {
-            "auth_uri": "/foo",
+            "auth_uri": "https://example.com/foo",
             "event": "Token authorized",
             "httpRequest": {
                 "requestMethod": "GET",
@@ -398,7 +385,7 @@ async def test_internal(
         },
         headers={
             "Authorization": f"Bearer {token_data.token}",
-            "X-Original-Uri": "/foo",
+            "X-Original-URL": "https://example.com/foo",
         },
     )
     assert r.status_code == 200
@@ -406,7 +393,7 @@ async def test_internal(
 
     assert parse_log(caplog) == [
         {
-            "auth_uri": "/foo",
+            "auth_uri": "https://example.com/foo",
             "event": "Created new internal token",
             "httpRequest": {
                 "requestMethod": "GET",
@@ -434,7 +421,7 @@ async def test_internal(
             "user": token_data.username,
         },
         {
-            "auth_uri": "/foo",
+            "auth_uri": "https://example.com/foo",
             "event": "Token authorized",
             "httpRequest": {
                 "requestMethod": "GET",
@@ -472,7 +459,7 @@ async def test_rate_limit_events(
         headers={
             "Authorization": f"Bearer {token_data.token}",
             "X-Forwarded-For": "192.0.2.1",
-            "X-Original-Uri": "/foo",
+            "X-Original-Url": "https://example.com/foo",
         },
     )
     assert r.status_code == 403
@@ -480,7 +467,7 @@ async def test_rate_limit_events(
 
     assert parse_log(caplog) == [
         {
-            "auth_uri": "/foo",
+            "auth_uri": "https://example.com/foo",
             "error": "Rate limit (1/15m) exceeded",
             "event": "Request rejected due to rate limits",
             "httpRequest": {
