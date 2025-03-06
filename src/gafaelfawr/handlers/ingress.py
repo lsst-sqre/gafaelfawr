@@ -9,6 +9,7 @@ URLs.
 from __future__ import annotations
 
 import json
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
@@ -34,12 +35,14 @@ from ..dependencies.auth import AuthenticateRead
 from ..dependencies.context import RequestContext, context_dependency
 from ..events import AuthBotEvent, AuthUserEvent, RateLimitEvent
 from ..exceptions import (
+    DisallowedCORSRequestError,
     ExternalUserInfoError,
     InsufficientScopeError,
     InvalidDelegateToError,
     InvalidMinimumLifetimeError,
     InvalidServiceError,
     InvalidTokenError,
+    OptionsNotSupportedError,
 )
 from ..models.auth import AuthType, Satisfy
 from ..models.token import TokenData
@@ -330,23 +333,23 @@ async def authenticate_with_type(
 )
 async def get_auth(
     *,
-    x_original_method: Annotated[str, Header()],
+    origin: Annotated[
+        str | None, Header(description="Origin header of original request")
+    ] = None,
+    x_original_method: Annotated[
+        str, Header(description="Method of original request")
+    ],
     auth_config: Annotated[AuthConfig, Depends(auth_config)],
     token_data: Annotated[TokenData | None, Depends(authenticate_with_type)],
     context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
 ) -> dict[str, str]:
-    # If token_data is None, this is an OPTIONS requests. Those requests are
-    # treated identically to anonymous requests: we strip any authentication
-    # credentials (which should not be included anyway) and always return
-    # success. We cannot really do anything else, since the standard says CORS
-    # pre-flight checks should not include credentials.
-    #
-    # Redo the verification that the method really is OPTIONS out of paranoia.
+    if x_original_method == "OPTIONS":
+        return handle_options_request(context, origin, response)
+
+    # token_data should only be None for OPTIONS requests, handled above.
     if not token_data:
-        if x_original_method != "OPTIONS":
-            raise RuntimeError("Unauthenticated request to /ingress/auth")
-        return await get_anonymous(context=context, response=response)
+        raise RuntimeError("Unauthenticated request to /ingress/auth")
 
     # Do some basic checks and analysis of the authentication data.
     check_lifetime(context, auth_config, token_data)
@@ -428,61 +431,97 @@ async def get_anonymous(
     context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
 ) -> dict[str, str]:
-    if "Authorization" in context.request.headers:
-        raw_authorizations = context.request.headers.getlist("Authorization")
-        authorizations = clean_authorization(raw_authorizations)
-        for authorization in authorizations:
-            response.headers.append("Authorization", authorization)
-    if "Cookie" in context.request.headers:
-        raw_cookies = context.request.headers.getlist("Cookie")
-        cookies = clean_cookies(raw_cookies)
-        for cookie in cookies:
-            response.headers.append("Cookie", cookie)
+    for header, value in build_anonymous_headers(context):
+        response.headers.append(header, value)
     return {"status": "ok"}
 
 
-async def get_user_info(
-    context: RequestContext, token_data: TokenData
-) -> UserInfo:
-    """Get user information for the user authenticated by a token.
+def handle_options_request(
+    context: RequestContext, origin: str | None, response: Response
+) -> dict[str, str]:
+    """Handle an ``OPTIONS`` request.
+
+    ``OPTIONS`` is a special case, since the standard for CORS pre-flight
+    checks says that they do not contain authentication information and
+    therefore we cannot do normal authentication and authorization.
+
+    The current policy is that they are passed to the backend service (and
+    hence Gafaelfawr returns 200) if the ``Origin`` of the request is within
+    the Gafaelfawr-protected domain. Otherwise, they are rejected with a 403
+    error.
+
+    It shouldn't be necessary to clean the ``Authorization`` and ``Cookie``
+    headers, since they shouldn't be sent in ``OPTIONS`` requests, but do it
+    anyway out of paranoia.
 
     Parameters
     ----------
     context
         Request context.
-    token_data
-        Data for authenticated and verified token.
+    origin
+        ``Origin`` header of the request.
+    response
+        Response, used to add stripped headers on success.
 
     Returns
     -------
-    UserInfo
-        User information corresponding to that authenticated user.
+    dict of str
+        JSON to return for success.
 
     Raises
     ------
     fastapi.HTTPException
-        Raised if an error occurred while retrieving the user information for
-        the user.
+        Raised for non-CORS ``OPTIONS`` requests or if the ``OPTIONS`` request
+        is rejected.
     """
-    info_service = context.factory.create_user_info_service()
-    try:
-        return await info_service.get_user_info_from_token(token_data)
-    except ExternalUserInfoError as e:
-        # Catch these exceptions rather than raising an uncaught exception or
-        # reporting the exception to Slack. This route is called on every user
-        # request and may be called multiple times per second, so if we
-        # reported every exception during an LDAP outage to Slack, we would
-        # get rate-limited or destroy the Slack channel. Instead, log the
-        # exception and return 403 and rely on failures during login (which
-        # are reported to Slack) and external testing to detect these
-        # problems.
-        msg = "Unable to get user information"
-        context.logger.exception(msg, user=token_data.username, error=str(e))
-        raise HTTPException(
-            headers={"Cache-Control": "no-cache, no-store"},
-            status_code=500,
-            detail=[{"msg": msg, "type": "user_info_failed"}],
-        ) from e
+    if not origin:
+        msg = "Non-CORS OPTIONS requests not supported"
+        raise generate_challenge(
+            context=context,
+            auth_type=None,
+            exc=OptionsNotSupportedError(msg),
+        )
+    okay = False
+    with suppress(Exception):
+        hostname = urlparse(origin).hostname
+        if hostname and context.config.is_hostname_allowed(hostname):
+            okay = True
+    if not okay:
+        raise generate_challenge(
+            context=context,
+            auth_type=None,
+            exc=DisallowedCORSRequestError("Cross-origin request not allowed"),
+        )
+    for header, value in build_anonymous_headers(context):
+        response.headers.append(header, value)
+    return {"status": "ok"}
+
+
+def build_anonymous_headers(context: RequestContext) -> list[tuple[str, str]]:
+    """Construct the headers returned in an anonymous ingress response.
+
+    This will contain only the stripped ``Authorization`` and ``Cookie``
+    headers from the request.
+
+    Parameters
+    ----------
+    context
+        Request context.
+
+    Returns
+    -------
+    list of tuple
+        Headers to add to the response.
+    """
+    headers: list[tuple[str, str]] = []
+    if "Authorization" in context.request.headers:
+        raw_authorizations = context.request.headers.getlist("Authorization")
+        authorizations = clean_authorization(raw_authorizations)
+        headers.extend(("Authorization", a) for a in authorizations)
+    if "Cookie" in context.request.headers:
+        raw_cookies = context.request.headers.getlist("Cookie")
+        headers.extend(("Cookie", c) for c in clean_cookies(raw_cookies))
+    return headers
 
 
 def check_lifetime(
@@ -661,6 +700,50 @@ async def check_rate_limit(
             **status.to_http_headers(),
         },
     )
+
+
+async def get_user_info(
+    context: RequestContext, token_data: TokenData
+) -> UserInfo:
+    """Get user information for the user authenticated by a token.
+
+    Parameters
+    ----------
+    context
+        Request context.
+    token_data
+        Data for authenticated and verified token.
+
+    Returns
+    -------
+    UserInfo
+        User information corresponding to that authenticated user.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        Raised if an error occurred while retrieving the user information for
+        the user.
+    """
+    info_service = context.factory.create_user_info_service()
+    try:
+        return await info_service.get_user_info_from_token(token_data)
+    except ExternalUserInfoError as e:
+        # Catch these exceptions rather than raising an uncaught exception or
+        # reporting the exception to Slack. This route is called on every user
+        # request and may be called multiple times per second, so if we
+        # reported every exception during an LDAP outage to Slack, we would
+        # get rate-limited or destroy the Slack channel. Instead, log the
+        # exception and return 403 and rely on failures during login (which
+        # are reported to Slack) and external testing to detect these
+        # problems.
+        msg = "Unable to get user information"
+        context.logger.exception(msg, user=token_data.username, error=str(e))
+        raise HTTPException(
+            headers={"Cache-Control": "no-cache, no-store"},
+            status_code=500,
+            detail=[{"msg": msg, "type": "user_info_failed"}],
+        ) from e
 
 
 def user_allowed(

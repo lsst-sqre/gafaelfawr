@@ -31,6 +31,8 @@ NGINX will then send the user's HTTP request along to the protected service, inc
    If they return a 403 error, the client will receive a response with the 403 HTTP status, but the body of the response will be lost, as will any ``WWW-Authenticate`` header.
    This is an unfortunate side effect of the limitations of the NGINX ``auth_request`` module.
 
+All authenticated ingresses are also subject to a :doc:`cross-origin request policy <cors>`.
+
 .. _header-filtering:
 
 Header filtering

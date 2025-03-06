@@ -21,6 +21,7 @@ Also see the `Phalanx Gafaelfawr application documentation <https://phalanx.lsst
 
    ingress-overview
    gafaelfawringress
+   cors
    quotas
    service-tokens
    openid-connect
