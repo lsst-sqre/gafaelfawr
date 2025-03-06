@@ -1229,3 +1229,40 @@ async def test_user_domain(client: AsyncClient, factory: Factory) -> None:
         assert isinstance(authenticate, AuthErrorChallenge)
         assert authenticate.auth_type == AuthType.Bearer
         assert authenticate.error == AuthError.insufficient_scope
+
+
+@pytest.mark.asyncio
+async def test_options(client: AsyncClient, factory: Factory) -> None:
+    """Test special handling of OPTIONS."""
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes={"read:all"}
+    )
+
+    # An OPTIONS request should always be allowed, even if there are no
+    # credentials provided at all and scopes are required.
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all"},
+        headers={
+            "X-Original-Method": "OPTIONS",
+            "X-Original-URL": "https://example.com/foo",
+        },
+    )
+    assert r.status_code == 200
+
+    # If credentials are included, they should be stripped.
+    await set_session_cookie(client, token_data.token)
+    client.cookies.set("_other", "somevalue", domain=TEST_HOSTNAME)
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all"},
+        headers=[
+            ("Authorization", "token some-other-token"),
+            ("Authorization", f"bearer {Token()}"),
+            ("X-Original-Method", "OPTIONS"),
+            ("X-Original-URL", "https://example.com/foo"),
+        ],
+    )
+    assert r.status_code == 200
+    assert r.headers["Authorization"] == "token some-other-token"
+    assert r.headers["Cookie"] == "_other=somevalue"
