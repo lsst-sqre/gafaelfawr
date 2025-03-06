@@ -45,11 +45,13 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
     """
     domain = context.config.base_hostname
     parsed_url = urlparse(url)
-    if context.config.allow_subdomains:
+    if parsed_url.hostname and parsed_url.hostname == domain:
+        okay = True
+    elif context.config.allow_subdomains:
         hostname = parsed_url.hostname
-        okay = hostname and hostname.endswith(f".{domain}")
+        okay = bool(hostname and hostname.endswith(f".{domain}"))
     else:
-        okay = parsed_url.hostname == domain
+        okay = False
     if not okay:
         msg = f"URL is not at {context.config.base_hostname}"
         context.logger.warning("Bad return URL", error=msg)
