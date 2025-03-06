@@ -74,7 +74,10 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
     async with AsyncClient(
         base_url=f"https://{TEST_HOSTNAME}",
-        headers={"X-Original-URL": "https://foo.example.com/bar"},
+        headers={
+            "X-Original-Method": "GET",
+            "X-Original-URL": "https://foo.example.com/bar",
+        },
         transport=ASGITransport(app=app),
     ) as client:
         yield client

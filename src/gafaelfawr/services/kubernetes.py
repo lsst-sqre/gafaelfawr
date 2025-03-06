@@ -128,7 +128,7 @@ class KubernetesIngressService:
         }
         if ingress.config.auth_cache_duration:
             annotations["nginx.ingress.kubernetes.io/auth-cache-key"] = (
-                "$http_cookie$http_authorization"
+                "$request_method$http_cookie$http_authorization"
             )
             annotations["nginx.ingress.kubernetes.io/auth-cache-duration"] = (
                 f"200 202 401 {ingress.config.auth_cache_duration}"
