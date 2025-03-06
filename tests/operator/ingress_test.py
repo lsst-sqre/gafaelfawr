@@ -161,7 +161,7 @@ async def test_errors_host(
     ingress = operator_test_input("ingress-error-host", namespace)[0]
     name = ingress["template"]["metadata"]["name"]
     status = KubernetesResourceStatus(
-        message="Host foo.example.com not allowed with cookie authentication",
+        message="Host foo.example.com must disable cookie authentication",
         generation=ANY,
         reason=StatusReason.Failed,
         timestamp=ANY,

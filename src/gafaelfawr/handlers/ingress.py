@@ -684,15 +684,13 @@ def user_allowed(
     if auth_config.user_domain:
         try:
             hostname = urlparse(auth_config.auth_uri).hostname
-            if hostname:
-                hostname, domain = hostname.split(".", 1)
-            else:
+            if not hostname:
                 return False
+            if not context.config.is_hostname_allowed(hostname):
+                return False
+            hostname, _ = hostname.split(".", 1)
             if hostname != token_data.username:
                 return False
-            if domain != context.config.base_hostname:
-                if not domain.endswith(f".{context.config.base_hostname}"):
-                    return False
         except Exception:
             return False
     return True
