@@ -1152,3 +1152,29 @@ class Config(EnvFirstSettings):
             set if the group was not recognized.
         """
         return self._group_to_scopes.get(group) or frozenset()
+
+    def is_hostname_allowed(self, hostname: str | None) -> bool:
+        """Check whether a hostname is within the Gafaelfawr domain.
+
+        Numerous places in Gafaelfawr want to allow only hostnames that fall
+        within the base domain of Gafaelfawr. If subdomains are disabled, the
+        hostname must match the base hostname exactly. If subdomains are
+        allowed, the hostname must be a subdomain of that base domain.
+
+        Parameters
+        ----------
+        hostname
+            Hostname to check. `None` is allowed for typing convenience but
+            is always rejected.
+
+        Returns
+        -------
+        bool
+            Whether that hostname is allowed for this Gafaelfawr instance.
+        """
+        if not hostname:
+            return False
+        domain = self.base_hostname
+        if hostname == domain:
+            return True
+        return self.allow_subdomains and hostname.endswith(f".{domain}")
