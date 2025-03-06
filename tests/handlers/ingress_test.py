@@ -1182,3 +1182,87 @@ async def test_allow_cookies(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 401
     authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
     assert authenticate.auth_type == AuthType.Bearer
+
+
+@pytest.mark.asyncio
+async def test_user_domain(client: AsyncClient, factory: Factory) -> None:
+    config = await reconfigure("github-subdomain")
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes={"read:all"}
+    )
+
+    # Successful authentications where the username matches the hostname.
+    for hostname in (
+        f"{token_data.username}.{config.base_hostname}",
+        f"{token_data.username}.nb.{config.base_hostname}",
+    ):
+        r = await client.get(
+            "/ingress/auth",
+            params={"scope": "read:all", "user_domain": "true"},
+            headers={
+                "Authorization": f"Bearer {token_data.token}",
+                "X-Original-URL": f"https://{hostname}/foo",
+            },
+        )
+        assert r.status_code == 200, hostname
+        assert r.headers["X-Auth-Request-User"] == token_data.username
+
+    # Failed authentications where either the username doesn't match or the
+    # hostname looks broken.
+    for hostname in (
+        config.base_hostname,
+        token_data.username,
+        f"{token_data.username}.example.org",
+        f"nb.{token_data.username}.{config.base_hostname}",
+        f"{token_data.username}.{config.base_hostname}.com",
+    ):
+        r = await client.get(
+            "/ingress/auth",
+            params={"scope": "read:all", "user_domain": "true"},
+            headers={
+                "Authorization": f"Bearer {token_data.token}",
+                "X-Original-URL": f"https://{hostname}/foo",
+            },
+        )
+        assert r.status_code == 403, hostname
+        authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+        assert isinstance(authenticate, AuthErrorChallenge)
+        assert authenticate.auth_type == AuthType.Bearer
+        assert authenticate.error == AuthError.insufficient_scope
+
+
+@pytest.mark.asyncio
+async def test_options(client: AsyncClient, factory: Factory) -> None:
+    """Test special handling of OPTIONS."""
+    token_data = await create_session_token(
+        factory, group_names=["admin"], scopes={"read:all"}
+    )
+
+    # An OPTIONS request should always be allowed, even if there are no
+    # credentials provided at all and scopes are required.
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all"},
+        headers={
+            "X-Original-Method": "OPTIONS",
+            "X-Original-URL": "https://example.com/foo",
+        },
+    )
+    assert r.status_code == 200
+
+    # If credentials are included, they should be stripped.
+    await set_session_cookie(client, token_data.token)
+    client.cookies.set("_other", "somevalue", domain=TEST_HOSTNAME)
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all"},
+        headers=[
+            ("Authorization", "token some-other-token"),
+            ("Authorization", f"bearer {Token()}"),
+            ("X-Original-Method", "OPTIONS"),
+            ("X-Original-URL", "https://example.com/foo"),
+        ],
+    )
+    assert r.status_code == 200
+    assert r.headers["Authorization"] == "token some-other-token"
+    assert r.headers["Cookie"] == "_other=somevalue"

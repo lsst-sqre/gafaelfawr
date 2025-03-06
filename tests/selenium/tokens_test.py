@@ -57,6 +57,7 @@ async def test_token_info(
             params={"scope": "exec:test", "notebook": "true"},
             headers={
                 "Cookie": f"{COOKIE_NAME}={cookie}",
+                "X-Original-Method": "GET",
                 "X-Original-URL": "https://foo.example.com/bar",
             },
         )
@@ -67,6 +68,7 @@ async def test_token_info(
             params={"scope": "exec:test", "delegate_to": "service"},
             headers={
                 "Cookie": f"{COOKIE_NAME}={cookie}",
+                "X-Original-Method": "GET",
                 "X-Original-URL": "https://foo.example.com/bar",
             },
         )

@@ -664,19 +664,23 @@ async def test_subdomain(
         email="githubuser@example.com",
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
-    return_url = f"https://foo.{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
 
-    # Simulate the GitHub login.
-    r = await simulate_github_login(
-        subdomain_client, respx_mock, user_info, return_url=return_url
-    )
-    assert r.status_code == 307
+    # Check both a subdomain and the parent domain, which was mishandled in
+    # the original implementation of this feature.
+    for return_url in (
+        f"https://foo.{TEST_HOSTNAME}:4444/foo?a=bar&b=baz",
+        f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz",
+    ):
+        r = await simulate_github_login(
+            subdomain_client, respx_mock, user_info, return_url=return_url
+        )
+        assert r.status_code == 307
 
-    # Check the cookie parameters.
-    cookie = next(c for c in r.cookies.jar if c.name == "gafaelfawr")
-    assert cookie.secure
-    assert cookie.discard
-    assert cookie.domain == f".{TEST_HOSTNAME}"
-    assert cookie.domain_specified
-    assert cookie.has_nonstandard_attr("HttpOnly")
-    assert cookie.get_nonstandard_attr("SameSite") == "lax"
+        # Check the cookie parameters.
+        cookie = next(c for c in r.cookies.jar if c.name == "gafaelfawr")
+        assert cookie.secure
+        assert cookie.discard
+        assert cookie.domain == f".{TEST_HOSTNAME}"
+        assert cookie.domain_specified
+        assert cookie.has_nonstandard_attr("HttpOnly")
+        assert cookie.get_nonstandard_attr("SameSite") == "lax"

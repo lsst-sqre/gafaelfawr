@@ -301,6 +301,9 @@ So, for example, if the internal token from a listed service doesn't have a requ
 Per-user ingresses
 ==================
 
+List of allowed users
+---------------------
+
 Access to an ingress may be restricted to a specific user as follows:
 
 .. code-block:: yaml
@@ -310,6 +313,28 @@ Access to an ingress may be restricted to a specific user as follows:
 
 Any user other than the one with the username ``<username>`` will then receive a 403 error.
 The scope requirements must still be met to allow access.
+
+Per-user hostnames
+------------------
+
+In some cases, you may wish Gafaelfawr to enforce that the hostname in the URL of the service that Gafaelfawr is protecting contain the username of the authenticated user.
+One common example of this use case is `per-user subdomains for Jupyter labs <https://z2jh.jupyter.org/en/latest/administrator/security.html#jupyterhub-subdomains>`__.
+In this case, every user gets their own hostname for their lab, which ensures that JavaScript origins are kept isolated, and only the matching user should be allowed to access that hostname.
+
+Gafaelfawr supports this in a ``GafaelfawrIngress`` with the following configuration:
+
+.. code-block:: yaml
+
+   config:
+     userDomain: true
+
+With this setting, Gafaelfawr requires that the first component of the hostname portion of the request URL match the authenticated username, and that the hostname as a whole be a subdomain of the domain of Gafaelfawr's base URL.
+For example, assuming a base URL of ``example.org``, user ``someone`` would be allowed access to URLs with hostnames ``someone.example.org`` or ``someone.nb.example.org`` but not ``other.example.org`` or ``someone.example.com``.
+
+With only this setting, this is the only restriction applied, but this setting stacks with all of Gafaelfawr's other access control settings, including ``scope``, ``username``, and ``service``.
+
+This option is normally used in conjunction with Gafaelfawr's subdomain support.
+See :ref:`helm-subdomains`.
 
 .. _anonymous:
 

@@ -127,6 +127,11 @@ async def test_logout_subdomain(client: AsyncClient) -> None:
     assert r.status_code == 307
     assert r.headers["Location"] == "https://foo.example.com/"
 
+    # Check with a hostname matching the parent domain as well.
+    r = await client.get("/logout", params={"rd": "https://example.com/"})
+    assert r.status_code == 307
+    assert r.headers["Location"] == "https://example.com/"
+
 
 @pytest.mark.asyncio
 async def test_logout_github(

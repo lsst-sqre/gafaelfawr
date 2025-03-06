@@ -128,7 +128,7 @@ class KubernetesIngressService:
         }
         if ingress.config.auth_cache_duration:
             annotations["nginx.ingress.kubernetes.io/auth-cache-key"] = (
-                "$http_cookie$http_authorization"
+                "$request_method$http_cookie$http_authorization"
             )
             annotations["nginx.ingress.kubernetes.io/auth-cache-duration"] = (
                 f"200 202 401 {ingress.config.auth_cache_duration}"
@@ -265,15 +265,10 @@ class KubernetesIngressService:
             return
         if not ingress.config.allow_cookies:
             return
-        subdomain = self._config.allow_subdomains
-        base_hostname = self._config.base_hostname
         for rule in ingress.template.spec.rules:
-            if rule.host == base_hostname:
-                continue
-            if subdomain and rule.host.endswith(f".{base_hostname}"):
-                continue
-            msg = f"Host {rule.host} not allowed with cookie authentication"
-            raise KubernetesIngressError(msg)
+            if not self._config.is_hostname_allowed(rule.host):
+                msg = f"Host {rule.host} must disable cookie authentication"
+                raise KubernetesIngressError(msg)
 
     def _validate_scopes(self, scopes: GafaelfawrIngressScopesBase) -> None:
         """Check that the requested scopes are valid.

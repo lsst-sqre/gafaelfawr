@@ -34,7 +34,7 @@ The ``/ingress/auth`` route adds the following attributes:
 
 ``auth_uri``
     The URL being authenticated.
-    This is the URL (withough the scheme and host) of the original request that Gafaelfawr is being asked to authenticate via a subrequest.
+    This is the URL of the original request that Gafaelfawr is being asked to authenticate via a subrequest.
 
 ``quota``
     Information about the API quota, if there is any.
