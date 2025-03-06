@@ -299,9 +299,18 @@ async def authenticate_with_type(
             examples=["basic"],
         ),
     ] = AuthType.Bearer,
+    x_original_method: Annotated[str, Header()],
     context: Annotated[RequestContext, Depends(context_dependency)],
-) -> TokenData:
-    """Set authentication challenge based on auth_type parameter."""
+) -> TokenData | None:
+    """Handle ``OPTIONS`` and user authentication.
+
+    If the request method is ``OPTIONS``, no authentication information will
+    be included. Return `None` in that case. Otherwise, authenticate the user
+    or, if they are not authenticated, send an authentication challenge based
+    on the ``auth_type`` parameter.
+    """
+    if x_original_method == "OPTIONS":
+        return None
     authenticate = AuthenticateRead(
         allow_cookies=allow_cookies, auth_type=auth_type, ajax_forbidden=True
     )
@@ -321,11 +330,25 @@ async def authenticate_with_type(
 )
 async def get_auth(
     *,
+    x_original_method: Annotated[str, Header()],
     auth_config: Annotated[AuthConfig, Depends(auth_config)],
-    token_data: Annotated[TokenData, Depends(authenticate_with_type)],
+    token_data: Annotated[TokenData | None, Depends(authenticate_with_type)],
     context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
 ) -> dict[str, str]:
+    # If token_data is None, this is an OPTIONS requests. Those requests are
+    # treated identically to anonymous requests: we strip any authentication
+    # credentials (which should not be included anyway) and always return
+    # success. We cannot really do anything else, since the standard says CORS
+    # pre-flight checks should not include credentials.
+    #
+    # Redo the verification that the method really is OPTIONS out of paranoia.
+    if not token_data:
+        if x_original_method != "OPTIONS":
+            raise RuntimeError("Unauthenticated request to /ingress/auth")
+        return await get_anonymous(context=context, response=response)
+
+    # Do some basic checks and analysis of the authentication data.
     check_lifetime(context, auth_config, token_data)
     token_scopes = set(token_data.scopes)
 
