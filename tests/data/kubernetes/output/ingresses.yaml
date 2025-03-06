@@ -156,7 +156,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: foo.example.com
+    - host: example.org
       http:
         paths:
           - path: /foo/bar
@@ -325,4 +325,49 @@ spec:
                 name: something
                 port:
                   name: http
+status: {any}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: subdomain
+  namespace: {namespace}
+  annotations:
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization,Cookie,X-Auth-Request-Email,X-Auth-Request-Service,X-Auth-Request-Token,X-Auth-Request-User"
+    nginx.ingress.kubernetes.io/auth-signin: "https://example.com/login"
+    nginx.ingress.kubernetes.io/auth-url: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080/ingress/auth?scope=read:all&user_domain=true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      {snippet}
+  creationTimestamp: {any}
+  generation: {any}
+  labels:
+    app.kubernetes.io/managed-by: Gafaelfawr
+  managedFields: {any}
+  ownerReferences:
+    - apiVersion: gafaelfawr.lsst.io/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: GafaelfawrIngress
+      name: subdomain-ingress
+      uid: {any}
+  resourceVersion: {any}
+  uid: {any}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "*.nb.example.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: something
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - "*.nb.example.com"
+      secretName: tls-secret
 status: {any}

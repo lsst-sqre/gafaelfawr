@@ -334,6 +334,13 @@ class GafaelfawrIngressConfig(BaseModel):
     service: str | None = None
     """Name of the service this ingress is for."""
 
+    user_domain: bool = False
+    """Restrict access to the user matching the last hostname component.
+
+    Used for per-user hostnames, such as the per-user domain names for
+    JupyterLab pods.
+    """
+
     username: str | None = None
     """Restrict access to the given user."""
 
@@ -363,6 +370,7 @@ class GafaelfawrIngressConfig(BaseModel):
                 "login_redirect",
                 "only_services",
                 "replace_403",
+                "user_domain",
                 "username",
             )
             for snake_name in fields:
@@ -403,6 +411,8 @@ class GafaelfawrIngressConfig(BaseModel):
             query.append(("satisfy", self.scopes.satisfy.value))
         if self.service:
             query.append(("service", self.service))
+        if self.user_domain:
+            query.append(("user_domain", "true"))
         if self.username:
             query.append(("username", self.username))
         return query

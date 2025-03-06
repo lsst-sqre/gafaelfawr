@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 from typing import Annotated
+from urllib.parse import urlparse
 
 import sentry_sdk
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
@@ -57,6 +58,9 @@ class AuthConfig:
     auth_type: AuthType
     """The authentication type to use in challenges."""
 
+    auth_uri: str
+    """URL for which Gafaelfawr is processing an authorization request."""
+
     delegate_scopes: set[str]
     """List of scopes the delegated token should have."""
 
@@ -84,33 +88,11 @@ class AuthConfig:
     use_authorization: bool
     """Whether to put any delegated token in the ``Authorization`` header."""
 
+    user_domain: bool
+    """Restrict access to the username matching the last hostname component."""
+
     username: str | None
     """Restrict access to the ingress to only this username."""
-
-
-def auth_uri(
-    *,
-    x_original_uri: Annotated[
-        str | None,
-        Header(description="URL for which authorization is being checked"),
-    ] = None,
-    x_original_url: Annotated[
-        str,
-        Header(
-            description=(
-                "URL for which authorization is being checked."
-                " `X-Original-URI` takes precedence if both are set."
-            ),
-        ),
-    ],
-) -> str:
-    """Determine URL for which we're validating authentication.
-
-    ``X-Original-URI`` will only be set if the auth-method annotation is set.
-    That should always be the case, but allow for it to be unset and fall back
-    on ``X-Original-URL``, which is set unconditionally.
-    """
-    return x_original_uri or x_original_url
 
 
 def auth_config(
@@ -220,6 +202,17 @@ def auth_config(
             examples=[True],
         ),
     ] = False,
+    user_domain: Annotated[
+        bool,
+        Query(
+            title="Enforce per-user hostnames",
+            description=(
+                "Restrict access to only the user whose username matches the"
+                " last component of the request hostname."
+            ),
+            examples=[True],
+        ),
+    ] = False,
     username: Annotated[
         str | None,
         Query(
@@ -233,7 +226,7 @@ def auth_config(
             examples=["rra"],
         ),
     ] = None,
-    auth_uri: Annotated[str, Depends(auth_uri)],
+    x_original_url: Annotated[str, Header()],
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> AuthConfig:
     """Construct the configuration for an authorization request.
@@ -257,7 +250,7 @@ def auth_config(
         raise InvalidServiceError(msg)
     scopes = set(scope) if scope else set()
     context.rebind_logger(
-        auth_uri=auth_uri,
+        auth_uri=x_original_url,
         required_scopes=sorted(scopes),
         satisfy=satisfy.name.lower(),
         service=service,
@@ -271,6 +264,7 @@ def auth_config(
         minimum_lifetime = MINIMUM_LIFETIME
     return AuthConfig(
         auth_type=auth_type,
+        auth_uri=x_original_url,
         delegate_scopes=set(delegate_scope) if delegate_scope else set(),
         delegate_to=delegate_to,
         minimum_lifetime=minimum_lifetime,
@@ -280,6 +274,7 @@ def auth_config(
         scopes=scopes,
         service=service,
         use_authorization=use_authorization,
+        user_domain=user_domain,
         username=username,
     )
 
@@ -350,14 +345,7 @@ async def get_auth(
     # Check a user or service constraint. InsufficientScopeError is not really
     # correct, but none of the RFC 6750 error codes are correct and it's the
     # closest.
-    if auth_config.only_services:
-        if token_data.service not in auth_config.only_services:
-            raise generate_challenge(
-                context,
-                auth_config.auth_type,
-                InsufficientScopeError("Access not allowed for this user"),
-            )
-    if auth_config.username and token_data.username != auth_config.username:
+    if not user_allowed(context, auth_config, token_data):
         raise generate_challenge(
             context,
             auth_config.auth_type,
@@ -650,6 +638,41 @@ async def check_rate_limit(
             **status.to_http_headers(),
         },
     )
+
+
+def user_allowed(
+    context: RequestContext, auth_config: AuthConfig, token_data: TokenData
+) -> bool:
+    """Check for special authorization rules for this user.
+
+    Verify that the request passes service restrictions, username
+    restrictions, and per-user hostname restrictions.
+
+    Returns
+    -------
+    bool
+        `True` if the user is allowed, `False` otherwise.
+    """
+    if auth_config.only_services:
+        if token_data.service not in auth_config.only_services:
+            return False
+    if auth_config.username and token_data.username != auth_config.username:
+        return False
+    if auth_config.user_domain:
+        try:
+            hostname = urlparse(auth_config.auth_uri).hostname
+            if hostname:
+                hostname, domain = hostname.split(".", 1)
+            else:
+                return False
+            if hostname != token_data.username:
+                return False
+            if domain != context.config.base_hostname:
+                if not domain.endswith(f".{context.config.base_hostname}"):
+                    return False
+        except Exception:
+            return False
+    return True
 
 
 async def build_success_headers(
