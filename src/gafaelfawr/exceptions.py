@@ -20,6 +20,7 @@ from safir.slack.blockkit import (
 
 __all__ = [
     "DatabaseSchemaError",
+    "DisallowedCORSRequestError",
     "DuplicateAdminError",
     "DuplicateTokenNameError",
     "ExternalUserInfoError",
@@ -62,6 +63,7 @@ __all__ = [
     "OIDCError",
     "OIDCNotEnrolledError",
     "OIDCWebError",
+    "OptionsNotSupportedError",
     "PermissionDeniedError",
     "ProviderError",
     "ProviderWebError",
@@ -290,6 +292,34 @@ class OAuthBearerError(OAuthError):
     """The status code to use for this HTTP error."""
 
 
+class DisallowedCORSRequestError(OAuthBearerError):
+    """The ``OPTIONS`` CORS preflight check was rejected."""
+
+    error = "cors_preflight_rejected"
+    message = "Cross-origin request not allowed"
+    status_code = status.HTTP_403_FORBIDDEN
+
+
+class OptionsNotSupportedError(OAuthBearerError):
+    """The ``OPTIONS`` request is not a valid CORS preflight request."""
+
+    error = "options_not_supported"
+    message = "Non-CORS OPTIONS requests not supported"
+    status_code = status.HTTP_404_NOT_FOUND
+
+
+class InsufficientScopeError(OAuthBearerError):
+    """The provided token does not have the right authorization scope.
+
+    This corresponds to the ``insufficient_scope`` error in RFC 6750: "The
+    request requires higher privileges than provided by the access token."
+    """
+
+    error = "insufficient_scope"
+    message = "Permission denied"
+    status_code = status.HTTP_403_FORBIDDEN
+
+
 class InvalidRequestError(OAuthBearerError):
     """The provided Authorization header could not be parsed.
 
@@ -314,18 +344,6 @@ class InvalidTokenError(OAuthBearerError, ValueError):
     error = "invalid_token"
     message = "Invalid token"
     status_code = status.HTTP_401_UNAUTHORIZED
-
-
-class InsufficientScopeError(OAuthBearerError):
-    """The provided token does not have the right authorization scope.
-
-    This corresponds to the ``insufficient_scope`` error in RFC 6750: "The
-    request requires higher privileges than provided by the access token."
-    """
-
-    error = "insufficient_scope"
-    message = "Permission denied"
-    status_code = status.HTTP_403_FORBIDDEN
 
 
 class DatabaseSchemaError(SlackException):

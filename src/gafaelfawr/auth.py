@@ -122,7 +122,7 @@ def clean_cookies(headers: list[str]) -> list[str]:
 
 def generate_challenge(
     context: RequestContext,
-    auth_type: AuthType,
+    auth_type: AuthType | None,
     exc: OAuthBearerError,
     scopes: set[str] | None = None,
     *,
@@ -132,21 +132,22 @@ def generate_challenge(
 
     Always return a status code of 401 or 403, even if we want to return a
     different status code to the client, but put the actual status code in
-    ``X-Error-Status``.  This works around limitations of the NGINX
+    ``X-Error-Status``. This works around limitations of the NGINX
     ``auth_request`` module, which can only handle 401 and 403 status codes.
     The status code will be retrieved from the headers and fixed by custom
     NGINX configuration in an ``error_page`` location.
 
     Similarly, put the actual body of the error in ``X-Error-Body`` so that it
-    can be retrieved and sent to the client.  Normally, NGINX discards the
-    body returned by an ``auth_request`` handler.
+    can be retrieved and sent to the client. Normally, NGINX discards the body
+    returned by an ``auth_request`` handler.
 
     Parameters
     ----------
     context
-        The context of the incoming request.
+        Context of the incoming request.
     auth_type
-        The type of authentication to request.
+        Type of authentication to request, or `None` to not set a
+        ``WWW-Authenticate`` challenge and only set the other headers.
     exc
         An exception representing a bearer token error.
     scopes
@@ -154,27 +155,26 @@ def generate_challenge(
         `~gafaelfawr.exceptions.InsufficientScopeError` exceptions.
     error_in_headers
         Whether to put the actual error status in ``X-Error-Status`` instead
-        of raising it.  Disable this for OpenID Connect routes.
+        of raising it. Disable this for OpenID Connect routes.
 
     Returns
     -------
     ``fastapi.HTTPException``
-        A prepopulated ``fastapi.HTTPException`` object ready for raising.
-        The headers will contain a ``WWW-Authenticate`` challenge.
+        A prepopulated ``fastapi.HTTPException`` object ready for raising. The
+        headers will contain a ``WWW-Authenticate`` challenge.
     """
     context.logger.warning(exc.message, error=str(exc))
-    challenge = AuthErrorChallenge(
-        auth_type=auth_type,
-        realm=context.config.base_hostname,
-        error=AuthError[exc.error],
-        error_description=str(exc),
-        scope=" ".join(sorted(scopes)) if scopes else None,
-    )
     detail = [{"msg": str(exc), "type": exc.error}]
-    headers = {
-        "Cache-Control": "no-cache, no-store",
-        "WWW-Authenticate": challenge.to_header(),
-    }
+    headers = {"Cache-Control": "no-cache, no-store"}
+    if auth_type:
+        challenge = AuthErrorChallenge(
+            auth_type=auth_type,
+            realm=context.config.base_hostname,
+            error=AuthError[exc.error],
+            error_description=str(exc),
+            scope=" ".join(sorted(scopes)) if scopes else None,
+        )
+        headers["WWW-Authenticate"] = challenge.to_header()
     if error_in_headers:
         headers["X-Error-Status"] = str(exc.status_code)
         headers["X-Error-Body"] = json.dumps({"detail": detail})

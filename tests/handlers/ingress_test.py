@@ -1238,8 +1238,7 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
         factory, group_names=["admin"], scopes={"read:all"}
     )
 
-    # An OPTIONS request should always be allowed, even if there are no
-    # credentials provided at all and scopes are required.
+    # Random OPTIONS requests without an Origin header should be rejected.
     r = await client.get(
         "/ingress/auth",
         params={"scope": "read:all"},
@@ -1248,7 +1247,56 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
             "X-Original-URL": "https://example.com/foo",
         },
     )
-    assert r.status_code == 200
+    assert r.status_code == 403
+    assert r.headers["X-Error-Status"] == "404"
+
+    # An OPTIONS request for the base domain should be accepted, even if the
+    # URL is for some other domain entirely.
+    for original_url in ("https://example.com/foo", "https://example.org/"):
+        r = await client.get(
+            "/ingress/auth",
+            params={"scope": "read:all"},
+            headers={
+                "Origin": f"https://{TEST_HOSTNAME}",
+                "X-Original-Method": "OPTIONS",
+                "X-Original-URL": original_url,
+            },
+        )
+        assert r.status_code == 200, f"X-Original-URL: {original_url}"
+
+    # OPTIONS requests outside of the domain or subdomain should result in a
+    # 403 error.
+    for origin in ("https://foo.example.com", "https://example.org"):
+        r = await client.get(
+            "/ingress/auth",
+            params={"scope": "read:all"},
+            headers={
+                "Origin": origin,
+                "X-Original-Method": "OPTIONS",
+                "X-Original-URL": "https://example.com/foo",
+            },
+        )
+        assert r.status_code == 403, f"Origin: {origin}"
+        assert r.headers["X-Error-Status"] == "403"
+
+    # Enable subdomain support. Now, an OPTIONS request for the domain or
+    # supported subdomain should always be allowed.
+    await reconfigure("github-subdomain")
+    for origin in (
+        "https://example.com",
+        "https://foo.example.com",
+        "https://user.nb.example.com",
+    ):
+        r = await client.get(
+            "/ingress/auth",
+            params={"scope": "read:all"},
+            headers={
+                "Origin": origin,
+                "X-Original-Method": "OPTIONS",
+                "X-Original-URL": "https://example.com/foo",
+            },
+        )
+        assert r.status_code == 200, f"Origin: {origin}"
 
     # If credentials are included, they should be stripped.
     await set_session_cookie(client, token_data.token)
@@ -1259,6 +1307,7 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
         headers=[
             ("Authorization", "token some-other-token"),
             ("Authorization", f"bearer {Token()}"),
+            ("Origin", f"https://{TEST_HOSTNAME}"),
             ("X-Original-Method", "OPTIONS"),
             ("X-Original-URL", "https://example.com/foo"),
         ],
