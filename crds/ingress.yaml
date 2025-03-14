@@ -62,6 +62,11 @@ spec:
                   description: >-
                     Whether to allow cookie authentication or only token
                     authentication via the `Authorization` header.
+                allowOptions:
+                  type: boolean
+                  description: >-
+                    Whether to allow non-CORS-preflight OPTIONS requests to
+                    this backend. This must be enabled for WebDAV servers.
                 authCacheDuration:
                   type: string
                   description: >-

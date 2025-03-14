@@ -143,6 +143,23 @@ Do this with the ``config.authType`` parameter:
 This will normally cause the browser to pop up a request for username and password.
 This setting cannot be used with ``config.loginRedirect``; Gafaelfawr can either redirect the user or present a challenge, but not both.
 
+.. _ingress-allow-options:
+
+Allowing non-CORS ``OPTIONS`` requests
+======================================
+
+Gafaelfawr by default rejects all ``OPTIONS`` requests other than CORS preflight requests with a 404 error.
+
+If the service behind Gafaelfawr is a WebDAV server, this will break, because the WebDAV protocol uses ``OPTIONS`` requests for negotiation.
+In this case, you will need to tell Gafaelfawr to pass ``OPTIONS`` requests that are not CORS preflight checks to the protected service.
+
+.. code-block:: yaml
+
+   config:
+     allowOptions: true
+
+This will not affect handling of CORS preflight checks, which will still be handled according to the rules described in :ref:`cors-preflight`.
+
 .. _delegated-tokens:
 
 Requesting delegated tokens
