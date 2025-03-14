@@ -163,7 +163,7 @@ def generate_challenge(
         A prepopulated ``fastapi.HTTPException`` object ready for raising. The
         headers will contain a ``WWW-Authenticate`` challenge.
     """
-    context.logger.warning(exc.message, error=str(exc))
+    context.logger.info(exc.message, error=str(exc))
     detail = [{"msg": str(exc), "type": exc.error}]
     headers = {"Cache-Control": "no-cache, no-store"}
     if auth_type:

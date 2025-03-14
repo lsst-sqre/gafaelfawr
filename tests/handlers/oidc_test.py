@@ -733,7 +733,7 @@ async def test_invalid(
                 "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/userinfo",
                 "remoteIp": "127.0.0.1",
             },
-            "severity": "warning",
+            "severity": "info",
         }
     ]
 
@@ -773,7 +773,7 @@ async def test_invalid(
                 "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/userinfo",
                 "remoteIp": "127.0.0.1",
             },
-            "severity": "warning",
+            "severity": "info",
             "token_source": "bearer",
         }
     ]
@@ -803,7 +803,7 @@ async def test_invalid(
                 "remoteIp": "127.0.0.1",
             },
             "scopes": ["user:token"],
-            "severity": "warning",
+            "severity": "info",
             "token": token_data.token.key,
             "token_source": "bearer",
             "user": "some-user",
