@@ -58,6 +58,9 @@ __all__ = ["router"]
 class AuthConfig:
     """Configuration for an authorization request."""
 
+    allow_options: bool
+    """Whether to allow non-CORS ``OPTIONS`` requests."""
+
     auth_type: AuthType
     """The authentication type to use in challenges."""
 
@@ -100,6 +103,14 @@ class AuthConfig:
 
 def auth_config(
     *,
+    allow_options: Annotated[
+        bool,
+        Query(
+            title="Allow OPTIONS",
+            description="Whether to allow non-CORS OPTIONS requests",
+            examples=["true"],
+        ),
+    ] = False,
     auth_type: Annotated[
         AuthType,
         Query(
@@ -266,6 +277,7 @@ def auth_config(
     if not minimum_lifetime and (notebook or delegate_to):
         minimum_lifetime = MINIMUM_LIFETIME
     return AuthConfig(
+        allow_options=allow_options,
         auth_type=auth_type,
         auth_uri=x_original_url,
         delegate_scopes=set(delegate_scope) if delegate_scope else set(),
@@ -302,15 +314,17 @@ async def authenticate_with_type(
             examples=["basic"],
         ),
     ] = AuthType.Bearer,
-    x_original_method: Annotated[str, Header()],
+    x_original_method: Annotated[str, Header(description="Request method")],
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> TokenData | None:
     """Handle ``OPTIONS`` and user authentication.
 
-    If the request method is ``OPTIONS``, no authentication information will
-    be included. Return `None` in that case. Otherwise, authenticate the user
-    or, if they are not authenticated, send an authentication challenge based
-    on the ``auth_type`` parameter.
+    If the request method is a CORS preflight ``OPTIONS`` request, no
+    authentication information will be included. For other ``OPTIONS``
+    requests, authentication is optional. Return `None` for any ``OPTIONS``
+    request. Otherwise, authenticate the user or, if they are not
+    authenticated, send an authentication challenge based on the ``auth_type``
+    parameter.
     """
     if x_original_method == "OPTIONS":
         return None
@@ -333,6 +347,9 @@ async def authenticate_with_type(
 )
 async def get_auth(
     *,
+    access_control_request_method: Annotated[
+        str | None, Header(description="Method for CORS preflight")
+    ] = None,
     origin: Annotated[
         str | None, Header(description="Origin header of original request")
     ] = None,
@@ -345,7 +362,13 @@ async def get_auth(
     response: Response,
 ) -> dict[str, str]:
     if x_original_method == "OPTIONS":
-        return handle_options_request(context, origin, response)
+        return handle_options(
+            context,
+            auth_config,
+            response,
+            access_control_request_method=access_control_request_method,
+            origin=origin,
+        )
 
     # token_data should only be None for OPTIONS requests, handled above.
     if not token_data:
@@ -436,19 +459,29 @@ async def get_anonymous(
     return {"status": "ok"}
 
 
-def handle_options_request(
-    context: RequestContext, origin: str | None, response: Response
+def handle_options(
+    context: RequestContext,
+    auth_config: AuthConfig,
+    response: Response,
+    *,
+    access_control_request_method: str | None,
+    origin: str | None,
 ) -> dict[str, str]:
     """Handle an ``OPTIONS`` request.
 
-    ``OPTIONS`` is a special case, since the standard for CORS pre-flight
+    ``OPTIONS`` is a special case, since the standard for CORS preflight
     checks says that they do not contain authentication information and
     therefore we cannot do normal authentication and authorization.
+    ``OPTIONS`` is also used for WebDAV, and in that case sending
+    authentication with the ``OPTIONS`` request is optional.
 
-    The current policy is that they are passed to the backend service (and
-    hence Gafaelfawr returns 200) if the ``Origin`` of the request is within
-    the Gafaelfawr-protected domain. Otherwise, they are rejected with a 403
-    error.
+    The current policy is that CORS preflight requests are passed to the
+    backend service (and hence Gafaelfawr returns 200) if the ``Origin`` of
+    the request is within the Gafaelfawr-protected domain. Otherwise, they are
+    rejected with a 403 error. ``OPTIONS`` requests that are not CORS
+    preflight requests (ones without an ``Origin`` header) are passed to the
+    backend if and only if the ingress is configured to allow ``OPTIONS``
+    requests.
 
     It shouldn't be necessary to clean the ``Authorization`` and ``Cookie``
     headers, since they shouldn't be sent in ``OPTIONS`` requests, but do it
@@ -458,10 +491,14 @@ def handle_options_request(
     ----------
     context
         Request context.
-    origin
-        ``Origin`` header of the request.
+    auth_config
+        Configuration for the ingress.
     response
         Response, used to add stripped headers on success.
+    access_control_request_method
+        ``Access-Control-Request-Method`` header of the request.
+    origin
+        ``Origin`` header of the request.
 
     Returns
     -------
@@ -474,13 +511,23 @@ def handle_options_request(
         Raised for non-CORS ``OPTIONS`` requests or if the ``OPTIONS`` request
         is rejected.
     """
-    if not origin:
-        msg = "Non-CORS OPTIONS requests not supported"
-        raise generate_challenge(
-            context=context,
-            auth_type=None,
-            exc=OptionsNotSupportedError(msg),
-        )
+    if not origin or not access_control_request_method:
+        if auth_config.allow_options:
+            if not (origin or access_control_request_method):
+                return {"status": "ok"}
+            else:
+                raise generate_challenge(
+                    context=context,
+                    auth_type=None,
+                    exc=OptionsNotSupportedError("Malformed CORS request"),
+                )
+        else:
+            msg = "Non-CORS OPTIONS requests not supported"
+            raise generate_challenge(
+                context=context,
+                auth_type=None,
+                exc=OptionsNotSupportedError(msg),
+            )
     okay = False
     with suppress(Exception):
         hostname = urlparse(origin).hostname

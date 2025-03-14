@@ -303,6 +303,9 @@ class GafaelfawrIngressConfig(BaseModel):
     allow_cookies: bool = True
     """Whether to allow cookie authentication to this ingress."""
 
+    allow_options: bool = False
+    """Whether to allow non-CORS preflight ``OPTIONS`` requests."""
+
     auth_cache_duration: str | None = None
     """How long NGINX should cache the Gafaelfawr authorization response."""
 
@@ -364,6 +367,7 @@ class GafaelfawrIngressConfig(BaseModel):
 
         if self.scopes and self.scopes.is_anonymous():
             fields = (
+                "allow_options",
                 "auth_cache_duration",
                 "auth_type",
                 "delegate",
@@ -401,6 +405,8 @@ class GafaelfawrIngressConfig(BaseModel):
         query = []
         if not self.allow_cookies:
             query.append(("allow_cookies", "false"))
+        if self.allow_options:
+            query.append(("allow_options", "true"))
         if self.auth_type:
             query.append(("auth_type", self.auth_type.value))
         if self.delegate:

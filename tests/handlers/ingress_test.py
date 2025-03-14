@@ -1238,17 +1238,53 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
         factory, group_names=["admin"], scopes={"read:all"}
     )
 
-    # Random OPTIONS requests without an Origin header should be rejected.
+    # An OPTIONS request with no Origin or Access-Control-Request-Method
+    # header should be rejected by default.
+    for headers in (
+        {},
+        {"Access-Control-Request-Method": "POST"},
+        {"Origin": f"https://{TEST_HOSTNAME}"},
+    ):
+        r = await client.get(
+            "/ingress/auth",
+            params={"scope": "read:all"},
+            headers={
+                "X-Original-Method": "OPTIONS",
+                "X-Original-URL": "https://example.com/foo",
+                **headers,
+            },
+        )
+        assert r.status_code == 403
+        assert r.headers["X-Error-Status"] == "404"
+
+    # If the ingress allows such requests, they should be accepted, but only
+    # if all CORS headers are missing. If one of the required headers is
+    # present but not the other, still reject the request to protect the
+    # backend service from malformed CORS requests that may be mishandled.
     r = await client.get(
         "/ingress/auth",
-        params={"scope": "read:all"},
+        params={"allow_options": "true", "scope": "read:all"},
         headers={
             "X-Original-Method": "OPTIONS",
             "X-Original-URL": "https://example.com/foo",
         },
     )
-    assert r.status_code == 403
-    assert r.headers["X-Error-Status"] == "404"
+    assert r.status_code == 200
+    for headers in (
+        {"Access-Control-Request-Method": "POST"},
+        {"Origin": f"https://{TEST_HOSTNAME}"},
+    ):
+        r = await client.get(
+            "/ingress/auth",
+            params={"allow_options": "true", "scope": "read:all"},
+            headers={
+                "X-Original-Method": "OPTIONS",
+                "X-Original-URL": "https://example.com/foo",
+                **headers,
+            },
+        )
+        assert r.status_code == 403
+        assert r.headers["X-Error-Status"] == "404"
 
     # An OPTIONS request for the base domain should be accepted, even if the
     # URL is for some other domain entirely.
@@ -1257,6 +1293,7 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
             "/ingress/auth",
             params={"scope": "read:all"},
             headers={
+                "Access-Control-Request-Method": "POST",
                 "Origin": f"https://{TEST_HOSTNAME}",
                 "X-Original-Method": "OPTIONS",
                 "X-Original-URL": original_url,
@@ -1271,6 +1308,7 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
             "/ingress/auth",
             params={"scope": "read:all"},
             headers={
+                "Access-Control-Request-Method": "POST",
                 "Origin": origin,
                 "X-Original-Method": "OPTIONS",
                 "X-Original-URL": "https://example.com/foo",
@@ -1291,6 +1329,7 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
             "/ingress/auth",
             params={"scope": "read:all"},
             headers={
+                "Access-Control-Request-Method": "POST",
                 "Origin": origin,
                 "X-Original-Method": "OPTIONS",
                 "X-Original-URL": "https://example.com/foo",
@@ -1305,6 +1344,7 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
         "/ingress/auth",
         params={"scope": "read:all"},
         headers=[
+            ("Access-Control-Request-Method", "POST"),
             ("Authorization", "token some-other-token"),
             ("Authorization", f"bearer {Token()}"),
             ("Origin", f"https://{TEST_HOSTNAME}"),

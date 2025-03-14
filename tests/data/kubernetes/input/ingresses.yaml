@@ -102,6 +102,7 @@ metadata:
   namespace: {namespace}
 config:
   allowCookies: false
+  allowOptions: true
   scopes:
     all: ["read:all"]
   delegate:

@@ -9,6 +9,8 @@ Gafaelfawr does not protect against cross-origin `simple requests <https://devel
 This is up to the protected web application.
 However, note that :ref:`disabling cookie authentication <allow-cookies>` is generally effective at forcing a CORS preflight check, since inclusion of an ``Authorization`` header requires preflight checking.
 
+.. _cors-preflight:
+
 CORS preflight policy
 =====================
 
@@ -28,7 +30,10 @@ Anonymous ingresses pass all requests through to the underlying application, inc
 Other ``OPTIONS`` requests
 ==========================
 
-All ``OPTIONS`` requests to authenticated ingresses that do not contain an ``Origin`` header are rejected with a 404 error.
+All ``OPTIONS`` requests to authenticated ingresses that do not contain an ``Origin`` header are rejected with a 404 error by default.
 
-This means that sites protected by Gafaelfawr do not support the non-CORS use of ``OPTIONS`` to determine supported HTTP methods.
+This means that sites protected by Gafaelfawr will normally not support the non-CORS use of ``OPTIONS`` to determine supported HTTP methods.
 This use of ``OPTIONS`` is not widely supported or used.
+
+Protected services that do use ``OPTIONS`` for operations other than CORS preflight checks, such as WebDAV servers, must explicitly enable them in the ``GafaelfawrIngress`` configuration.
+See :ref:`ingress-allow-options`.
