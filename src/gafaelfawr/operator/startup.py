@@ -64,10 +64,11 @@ async def startup(
     ingress_service = factory.create_kubernetes_ingress_service(api_client)
     token_service = factory.create_kubernetes_token_service(api_client)
 
+    memo.api_client = api_client
     memo.engine = engine
     memo.factory = factory
-    memo.api_client = api_client
     memo.ingress_service = ingress_service
+    memo.logger = logger
     memo.token_service = token_service
 
 

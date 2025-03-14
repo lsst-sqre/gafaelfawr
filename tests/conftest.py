@@ -16,20 +16,16 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from safir.database import create_database_engine, stamp_database_async
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
-from seleniumwire import webdriver
+from selenium import webdriver
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
-from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.database import initialize_gafaelfawr_database
 from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.main import create_app
-from gafaelfawr.models.enums import TokenType
-from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token
 
-from .pages.tokens import TokensPage
 from .support.config import config_path, configure
 from .support.constants import TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
@@ -210,18 +206,5 @@ def selenium_config(
         Configuration information for the server.
     """
     with run_app(tmp_path, config_path("selenium")) as selenium_config:
-        cookie = State(token=selenium_config.token).to_cookie()
-        driver.header_overrides = {"Cookie": f"{COOKIE_NAME}={cookie}"}
-
-        # The synthetic cookie doesn't have a CSRF token, so we want to
-        # replace it with a real cookie.  Do this by visiting the top-level
-        # page of the UI and waiting for the token list to appear, which will
-        # trigger fleshing out the state, and then dropping the header
-        # override for subsequent calls so that the cookie set in the browser
-        # will be used.
-        driver.get(urljoin(selenium_config.url, "/auth/tokens/"))
-        tokens_page = TokensPage(driver)
-        tokens_page.get_tokens(TokenType.session)
-        del driver.header_overrides
-
+        driver.get(urljoin(selenium_config.url, "/selenium-login"))
         yield selenium_config

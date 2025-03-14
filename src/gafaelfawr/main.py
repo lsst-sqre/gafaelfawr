@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import AsyncIterator, Coroutine
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from pathlib import Path
@@ -37,7 +37,7 @@ __all__ = ["create_app"]
 def create_app(
     *,
     load_config: bool = True,
-    extra_startup: Coroutine[None, None, None] | None = None,
+    extra_startup: Callable[[FastAPI], Awaitable[None]] | None = None,
     validate_schema: bool = True,
 ) -> FastAPI:
     """Create the FastAPI application.
@@ -69,7 +69,7 @@ def create_app(
     """
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         config = config_dependency.config()
         if validate_schema:
             logger = structlog.get_logger("gafaelfawr")
@@ -86,7 +86,7 @@ def create_app(
             config.database_url, config.database_password
         )
         if extra_startup:
-            await extra_startup
+            await extra_startup(app)
 
         yield
 

@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 
 import pytest
 from httpx import AsyncClient
-from seleniumwire import webdriver
+from selenium import webdriver
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.enums import TokenType
