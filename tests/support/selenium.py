@@ -8,16 +8,18 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Annotated
 
 from click.testing import CliRunner
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from safir.database import create_database_engine
 from safir.testing.uvicorn import spawn_uvicorn
-from seleniumwire import webdriver
+from selenium import webdriver
 
 from gafaelfawr.cli import main
 from gafaelfawr.config import Config
 from gafaelfawr.dependencies.config import config_dependency
+from gafaelfawr.dependencies.context import RequestContext, context_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.main import create_app
 from gafaelfawr.models.token import Token, TokenUserInfo
@@ -43,11 +45,11 @@ def selenium_driver() -> webdriver.Chrome:
     """Create a driver for Selenium testing.
 
     If the environment variable ``HEADLESS`` is set to false, the driver will
-    be run with its display enabled.  This is useful for debugging Selenium
+    be run with its display enabled. This is useful for debugging Selenium
     tests.
 
     Uses a 1920x1080 window size, which emulates a reasonably modern desktop
-    or laptop.  This (not a mobile device) is expected to be the normal use
+    or laptop. This (not a mobile device) is expected to be the normal use
     case for Gafaelfawr.
 
     Returns
@@ -60,11 +62,11 @@ def selenium_driver() -> webdriver.Chrome:
         options.add_argument("headless")
     options.add_argument("window-size=1920,1080")
 
-    # Required or Chromium 83 will not start.  Various pages on-line insist
+    # Required or Chromium 83 will not start. Various pages on-line insist
     # that this only happens if Chrome or Chromium is run as root and the
     # better solution is to not run it as root, but this appears not to be
-    # true.  Chromium immediately crashes for me without this option, no
-    # matter what user it is run as, when run via Selenium.
+    # true. Chromium immediately crashes for me without this option, no matter
+    # what user it is run as, when run via Selenium.
     options.add_argument("no-sandbox")
 
     # Isolate the running Chrome or Chromium instance from any local user
@@ -73,33 +75,24 @@ def selenium_driver() -> webdriver.Chrome:
     options.add_argument("disable-extensions")
     options.add_argument("incognito")
 
-    # selenium-wire, which we use to inject an authentication token during
-    # tests without having to go through a login process, works by injecting
-    # proxy configuration into Chrome and then starting a local proxy that
-    # manipulates requests and responses.  However, Chrome (at least Chromium
-    # 83) bypasses all proxies for accesses to localhost by default.  This is
-    # the magic incantation to tell Chrome to use the proxy even for localhost
-    # accesses.  See https://github.com/wkeeling/selenium-wire/issues/157.
-    options.add_argument("proxy-bypass-list=<-loopback>")
-
     driver = webdriver.Chrome(options=options)
     driver.implicitly_wait(1)
     return driver
 
 
-async def _selenium_startup(token_path: Path) -> None:
+async def _selenium_startup(app: FastAPI, token_path: Path) -> None:
     """Startup hook for the app run in Selenium testing mode."""
     config = await config_dependency()
     user_info = TokenUserInfo(username="testuser", name="Test User", uid=1000)
     scopes = set(config.known_scopes.keys())
 
+    # Set up some additional tokens.
     engine = create_database_engine(
         config.database_url, config.database_password
     )
     async with Factory.standalone(config, engine) as factory:
         async with factory.session.begin():
-            # Add an expired token so that we can test display of expired
-            # tokens.
+            # Add an expired token for testing display of expired tokens.
             await add_expired_session_token(
                 user_info,
                 scopes=scopes,
@@ -114,6 +107,17 @@ async def _selenium_startup(token_path: Path) -> None:
         )
     await engine.dispose()
 
+    # Add a special route to set a cookie in the browser with the session
+    # token so that all subsequent interactions act as if the user had logged
+    # on normally.
+    @app.get("/selenium-login")
+    async def set_token(
+        context: Annotated[RequestContext, Depends(context_dependency)],
+    ) -> dict[str, str]:
+        context.state.token = token
+        return {"status": "ok"}
+
+    # Also stuff the token in a file so that the test suite knows what it is.
     token_path.write_text(str(token))
 
 
@@ -125,10 +129,10 @@ def selenium_create_app() -> FastAPI:
     """
     token_path = Path(os.environ["GAFAELFAWR_TEST_TOKEN_PATH"])
 
-    async def selenium_startup() -> None:
-        await _selenium_startup(token_path)
+    async def selenium_startup(app: FastAPI) -> None:
+        await _selenium_startup(app, token_path)
 
-    return create_app(extra_startup=selenium_startup())
+    return create_app(extra_startup=selenium_startup)
 
 
 @contextmanager

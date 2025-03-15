@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import kopf
 from pydantic import ValidationError
+from structlog.stdlib import BoundLogger
 
 from ..constants import KUBERNETES_TIMER_DELAY, KUBERNETES_TOKEN_INTERVAL
 from ..exceptions import KubernetesObjectError
@@ -132,7 +132,8 @@ async def periodic(
     try:
         return await _update_token(name, namespace, body, memo)
     except Exception:
-        # We don't want to retry failures for the token updates.  Just ignore
+        # We don't want to retry failures for the token updates. Just ignore
         # them and we'll try again in the normal interval.
-        logging.exception(f"Processing of {namespace}/{name} failed")
+        logger: BoundLogger = memo.logger
+        logger.exception(f"Processing of {namespace}/{name} failed")
         return None

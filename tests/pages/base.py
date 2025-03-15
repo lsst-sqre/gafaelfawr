@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
-from seleniumwire import webdriver
 
 __all__ = [
     "BaseElement",

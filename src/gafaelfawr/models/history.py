@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime  # noqa: F401: needed for docs
 from typing import Any, Self
 
 from pydantic import BaseModel, Field

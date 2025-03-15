@@ -72,13 +72,7 @@ dev = [
     "pytest-cov>=6",
     "pytest-sugar>=1",
     "respx>=0.22",
-    "selenium-wire>=5.1",
-    # selenium-wire is no longer maintained and is incompatible with blinker
-    # 1.8 due to use of internal modules in its vendored mitmproxy module.
-    "blinker<1.8",
-    # selenium-wire requires pkg_resources, which comes with setuptools, but
-    # doesn't declare a dependency on it.
-    "setuptools",
+    "selenium>=4.29",
 ]
 docs = [
     "autodoc-pydantic",
@@ -153,16 +147,6 @@ warn_untyped_fields = true
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
-filterwarnings = [
-    # Bug in seleniumwire.
-    "ignore:.*X509Extension support in pyOpenSSL:DeprecationWarning",
-    "ignore:.*Passing PyOpenSSL PKey objects:DeprecationWarning",
-    "ignore:.*Passing PyOpenSSL X509 objects:DeprecationWarning",
-    "ignore:.*removed in a future version of pyOpenSSL:DeprecationWarning",
-    # Some sphinxcontrib package and seleniumwire use pkg_resources.
-    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
-    "ignore:.*pkg_resources\\.declare_namespace:DeprecationWarning",
-]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
 # assert processing in any non-test supporting files under tests. We
