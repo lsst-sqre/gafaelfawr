@@ -10,6 +10,29 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-13.0.0'></a>
+## 13.0.0 (2025-03-14)
+
+### Backwards-incompatible changes
+
+- Pass CORS preflight `OPTIONS` requests to a protected service, without checking authentication, if and only if the `Origin` header of the request indicates that the request comes from an origin that is protected by this instance of Gafaelfawr. Gafaelfawr previously effectively blocked all `OPTIONS` requests without authentication by replying with 302 or 401, but the CORS preflight specification says that credentials should not be included.
+- Block `OPTIONS` requests that are not CORS preflight requests (detected by not having an `Origin` or `Access-Control-Request-Method` header) with a 404 error unless the `GafaelfawrIngress` explicitly permits them by setting `config.allowOptions` to true. If they are allowed, pass them to the protected service without checking authentication. This is required to support WebDAV servers, which use `OPTIONS` for WebDAV protocol negotiation.
+- Reject with an error any `GafaelfawrIngress` Kubernetes resource that creates rules for a hostname that does not match the hostname of the base URL or, if `allowSubdomains` is enabled, is a subdomain of it, unless that ingress is anonymous or disables cookie authentication. Such ingresses will never work with web browsers and could create confusing redirect loops.
+- Ignore the `config.baseUrl` setting in a `GafaelfawrIngress` entirely. The URL to which the user is redirected when not logged in is now determined only by the global Gafaelfawr `baseUrl` configuration option (set automatically by the Phalanx chart).
+- Drop support for configuring the HTTP authentication realm. This support was not being used in Phalanx. The realm is now always the hostname of the base URL at which Gafaelfawr is installed.
+
+### New features
+
+- Add new configuration setting `config.allowSubdomains`. If set, Gafaelfawr authentication cookies will be sent to any subdomain of the base URL for the Gafaelfawr installation, allowing ingresses to use cookie authentication with more than one hostname as long as all hostnames are subdomains of the same base hostname. This in turn will allow JavaScript origin isolation between portions of the Rubin Science Platform without requiring complex cross-domain authentication management.
+- Add `config.allowCookies` setting for `GafaelfawrIngress` that can be set to false to disallow cookie authentication to that ingress and require use of the `Authorization` header.
+- Add new `config.userDomain` setting to `GafaelfawrIngress` that requires the authenticated username be the last component of the hostname of the requested URL. This is intended for use with ingresses that use per-user subdomains, such as [Jupyter labs with origin isolation](https://z2jh.jupyter.org/en/latest/administrator/security.html#jupyterhub-subdomains).
+
+### Other changes
+
+- Always mark cookies as secure rather than using more complex logic to see if the request is coming from `localhost`. Testing Gafaelfawr locally has not been supported for some time, but this will definitively break running a local instance for development.
+- Include the full URL of the original request in the ingress authorization logs, not just the path and query portion.
+- Downgrade log messages for failed authorization to info from warning. This is too likely to be a client error to warrant the warning log level.
+
 <a id='changelog-12.5.2'></a>
 ## 12.5.2 (2025-02-10)
 
