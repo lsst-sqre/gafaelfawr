@@ -3,9 +3,9 @@ Cross-origin requests
 #####################
 
 A cross-origin HTTP request is one initiated by a web site at a different origin (meaning the tuple of scheme, hostname, and port) than the target of the request.
-Cross-origin requests are restricted according to `complex rules <https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS>`__ in the HTTP security model.
+Cross-origin requests are restricted according to `complex rules <https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS>`__ in the HTTP security model.
 
-Gafaelfawr does not protect against cross-origin `simple requests <https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#simple_requests>`__ (requests that do not require CORS preflight).
+Gafaelfawr does not protect against cross-origin `simple requests <https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#simple_requests>`__ (requests that do not require CORS preflight).
 This is up to the protected web application.
 However, note that :ref:`disabling cookie authentication <allow-cookies>` is generally effective at forcing a CORS preflight check, since inclusion of an ``Authorization`` header requires preflight checking.
 
