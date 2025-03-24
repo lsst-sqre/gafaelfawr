@@ -456,7 +456,7 @@ You may need to set the following additional options under ``config.ldap`` depen
 Firestore UID/GID assignment
 ----------------------------
 
-Gafaelfawr can manage UID and GID assignment internally, using `Google Firestore <https://cloud.google.com/firestore>`__ as the storage mechanism.
+Gafaelfawr can manage UID and GID assignment internally, using `Google Firestore <https://cloud.google.com/products/firestore>`__ as the storage mechanism.
 :ref:`Cloud SQL <cloudsql>` must also be enabled.
 The same service account used for Cloud SQL must have read/write permissions to Firestore.
 
