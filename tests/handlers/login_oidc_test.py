@@ -671,7 +671,7 @@ async def test_callback_error(
                             "type": "section",
                             "text": {
                                 "type": "mrkdwn",
-                                "text": '*Response*\n```\n{"foo": "bar"}\n```',
+                                "text": '*Response*\n```\n{"foo":"bar"}\n```',
                                 "verbatim": True,
                             },
                         },

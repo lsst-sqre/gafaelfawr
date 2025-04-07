@@ -138,7 +138,7 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     await stamp_database_async(engine)
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def engine(config: Config) -> AsyncEngine:
     """Create a database engine for testing.
 
