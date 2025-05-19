@@ -20,5 +20,5 @@
 .. _tox: https://tox.wiki/en/latest/
 .. _uv: https://docs.astral.sh/uv/
 .. _uvicorn: https://www.uvicorn.org/
-.. _Vault: https://www.vaultproject.io/
+.. _Vault: https://developer.hashicorp.com/vault
 .. _Vault Secrets Operator: https://github.com/ricoberger/vault-secrets-operator
