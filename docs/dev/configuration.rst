@@ -47,8 +47,6 @@ Gafaelfawr uniformly uses the second approach.
 Neither approach is generally recommended by security experts.
 Instead, the most common recommendation is to not use the Kubernetes secret store at all (since it is not very secure), and instead have each service retrieve its secrets dynamically from a secret service, such as Vault_.
 
-.. _Vault: https://www.vaultproject.io/
-
 We've chosen to accept the higher risk of using the Kubernetes secret store, since it's much more convenient, avoids a hard external dependency on a running Vault server, and is more familiar with anyone who has administered Kubernetes.
 
 Given that, each service has to make a choice between passing secrets as environment variables or passing them as files.
