@@ -1,9 +1,9 @@
 """Tests for the command-line interface.
 
 Be careful when writing tests in this framework because the click command
-handling code spawns its own async worker pools when needed.  None of these
-tests can therefore be async, and should instead run coroutines using the
-``event_loop`` fixture when needed.
+handling code spawns its own async worker pools when needed. None of these
+tests can therefore be async, and should instead run coroutines by creating
+their own event loop.
 """
 
 from __future__ import annotations
@@ -44,12 +44,13 @@ from .support.database import create_old_database
 
 
 def test_audit(
+    *,
     tmp_path: Path,
     config: Config,
     engine: AsyncEngine,
-    event_loop: asyncio.AbstractEventLoop,
     mock_slack: MockSlackWebhook,
 ) -> None:
+    event_loop = asyncio.new_event_loop()
     now = current_datetime()
     token_data = TokenData(
         token=Token(),
@@ -113,8 +114,8 @@ def test_delete_all_data(
     engine: AsyncEngine,
     config: Config,
     monkeypatch: pytest.MonkeyPatch,
-    event_loop: asyncio.AbstractEventLoop,
 ) -> None:
+    event_loop = asyncio.new_event_loop()
     redirect_uri = "https://example.com/"
     clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
     config = configure(
@@ -222,9 +223,8 @@ def test_help() -> None:
     assert "Unknown help topic unknown-command" in result.output
 
 
-def test_init(
-    engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
-) -> None:
+def test_init(engine: AsyncEngine, config: Config) -> None:
+    event_loop = asyncio.new_event_loop()
     runner = CliRunner()
     result = runner.invoke(main, ["init"], catch_exceptions=False)
     assert result.exit_code == 0
@@ -241,9 +241,8 @@ def test_init(
     event_loop.run_until_complete(check_database())
 
 
-def test_maintenance(
-    engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
-) -> None:
+def test_maintenance(engine: AsyncEngine, config: Config) -> None:
+    event_loop = asyncio.new_event_loop()
     now = current_datetime()
     token_data = TokenData(
         token=Token(),
@@ -324,9 +323,8 @@ def test_openapi_schema(tmp_path: Path) -> None:
     assert "Return to Gafaelfawr documentation" in result.output
 
 
-def test_update_schema(
-    engine: AsyncEngine, config: Config, event_loop: asyncio.AbstractEventLoop
-) -> None:
+def test_update_schema(engine: AsyncEngine, config: Config) -> None:
+    event_loop = asyncio.new_event_loop()
     runner = CliRunner()
 
     # Start with an empty database. This should produce exactly the same
@@ -357,9 +355,8 @@ def test_update_schema(
     # Updating via Alembic migrations is tested in test_validate_schema
 
 
-def test_validate_schema(
-    config: Config, engine: AsyncEngine, event_loop: asyncio.AbstractEventLoop
-) -> None:
+def test_validate_schema(config: Config, engine: AsyncEngine) -> None:
+    event_loop = asyncio.new_event_loop()
     runner = CliRunner()
 
     # Start with an empty database.
