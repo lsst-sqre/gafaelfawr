@@ -14,6 +14,7 @@ import respx
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient, Response
 from safir.metrics import NOT_NONE, MockEventPublisher
+from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
@@ -29,7 +30,6 @@ from gafaelfawr.providers.github import GitHubProvider
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.github import mock_github
-from ..support.logging import parse_log
 
 
 async def simulate_github_login(
@@ -137,7 +137,7 @@ async def test_login(
         client, respx_mock, user_info, return_url=return_url
     )
     assert r.status_code == 307
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Redirecting user to GitHub for authentication",
             "httpRequest": {
