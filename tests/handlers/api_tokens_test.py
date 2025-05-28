@@ -9,6 +9,7 @@ from unittest.mock import ANY
 import pytest
 from httpx import AsyncClient
 from safir.datetime import current_datetime, format_datetime_for_logging
+from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
@@ -23,7 +24,6 @@ from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.firestore import MockFirestore
 from ..support.ldap import MockLDAP
-from ..support.logging import parse_log
 from ..support.tokens import create_session_token
 
 
@@ -64,7 +64,7 @@ async def test_create_delete_modify(
     assert token_url == f"/auth/api/v1/users/example/tokens/{user_token.key}"
 
     # Check the logging.
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Created new user token",
             "httpRequest": {
@@ -186,7 +186,7 @@ async def test_create_delete_modify(
 
     # Check the logging.  Regression test for a bug where new expirations
     # would be logged as raw datetime objects instead of formatted dates.
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Modified token",
             "httpRequest": {
@@ -215,7 +215,7 @@ async def test_create_delete_modify(
     assert r.status_code == 404
 
     # Check the logging.
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Deleted token",
             "httpRequest": {
@@ -969,7 +969,7 @@ async def test_create_admin(
 
     # Check the logging.
     expected_expires = expires.replace(microsecond=0)
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Created new service token",
             "httpRequest": {
@@ -1080,7 +1080,7 @@ async def test_create_admin(
     token_url = f"/auth/api/v1/users/a-user/tokens/{user_token.key}"
     assert r.headers["Location"] == token_url
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Created new user token as administrator",
             "httpRequest": {

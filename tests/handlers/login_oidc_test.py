@@ -9,6 +9,7 @@ import pytest
 import respx
 from httpx import AsyncClient, ConnectError
 from safir.metrics import MockEventPublisher
+from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.constants import GID_MIN, UID_USER_MIN
@@ -20,7 +21,6 @@ from ..support.config import reconfigure
 from ..support.firestore import MockFirestore
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.ldap import MockLDAP
-from ..support.logging import parse_log
 from ..support.oidc import mock_oidc_provider_token, simulate_oidc_login
 
 
@@ -76,7 +76,9 @@ async def test_login(
     # Verify the logging.
     expected_scopes = config.get_scopes_for_group("foo") | {"user:token"}
     username = token.claims[config.oidc.username_claim]
-    assert parse_log(caplog, ignore_debug=True) == [
+    assert parse_log_tuples(
+        "gafaelfawr", caplog.record_tuples, ignore_debug=True
+    ) == [
         {
             "event": "Redirecting user for authentication",
             "httpRequest": {
@@ -531,7 +533,9 @@ async def test_callback_error(
     )
     assert r.status_code == 500
     assert "error_code: description" in r.text
-    assert parse_log(caplog, ignore_debug=True) == [
+    assert parse_log_tuples(
+        "gafaelfawr", caplog.record_tuples, ignore_debug=True
+    ) == [
         {
             "event": "Retrieving ID token",
             "httpRequest": {

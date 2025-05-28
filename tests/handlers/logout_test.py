@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import respx
 from httpx import AsyncClient
+from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
@@ -16,7 +17,6 @@ from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import set_session_cookie
 from ..support.github import mock_github
 from ..support.headers import query_from_url
-from ..support.logging import parse_log
 from ..support.tokens import create_session_token
 
 
@@ -41,7 +41,7 @@ async def test_logout(
     # Check the redirect and logging.
     assert r.status_code == 307
     assert r.headers["Location"] == str(config.after_logout_url)
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Successful logout",
             "httpRequest": {
@@ -87,7 +87,7 @@ async def test_logout_not_logged_in(
 
     assert r.status_code == 307
     assert r.headers["Location"] == str(config.after_logout_url)
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Logout of already-logged-out session",
             "httpRequest": {
@@ -165,7 +165,7 @@ async def test_logout_github(
     # Check the redirect and logging.
     assert r.status_code == 307
     assert r.headers["Location"] == str(config.after_logout_url)
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Revoked GitHub OAuth authorization",
             "httpRequest": {

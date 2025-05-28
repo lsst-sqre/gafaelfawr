@@ -11,6 +11,7 @@ import pytest
 from httpx import AsyncClient
 from safir.datetime import format_datetime_for_logging
 from safir.metrics import MockEventPublisher
+from safir.testing.logging import parse_log_tuples
 
 from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
@@ -18,7 +19,6 @@ from gafaelfawr.models.token import Token
 
 from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
-from ..support.logging import parse_log
 from ..support.tokens import create_session_token
 
 
@@ -60,7 +60,9 @@ async def test_success(
         "token_source": "bearer",
         "user": token_data.username,
     }
-    assert parse_log(caplog) == [expected_log]
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
+        expected_log
+    ]
 
     # Successful request with HTTP Basic authentication in the username, using
     # a service without a quota.
@@ -81,7 +83,9 @@ async def test_success(
     expected_log["httpRequest"]["requestUrl"] += "&service=service-one"
     expected_log["service"] = "service-one"
     expected_log["token_source"] = "basic-username"
-    assert parse_log(caplog) == [expected_log]
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
+        expected_log
+    ]
 
     # The same with HTTP Basic in the password, using a service with a quota.
     basic = f"x-oauth-basic:{token_data.token}".encode()
@@ -101,7 +105,7 @@ async def test_success(
     expected_log["quota"] = {"limit": 1, "used": 1, "reset": ANY}
     expected_log["service"] = "test"
     expected_log["token_source"] = "basic-password"
-    seen_log = parse_log(caplog)
+    seen_log = parse_log_tuples("gafaelfawr", caplog.record_tuples)
     assert seen_log == [expected_log]
     reset_time = datetime.fromisoformat(seen_log[0]["quota"]["reset"])
     reset_time = reset_time.replace(tzinfo=UTC)
@@ -155,7 +159,7 @@ async def test_authz_failed(
     )
 
     assert r.status_code == 403
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "auth_uri": "https://example.com/foo",
             "error": "Token missing required scope",
@@ -216,7 +220,9 @@ async def test_original_url(
         "token_source": "bearer",
         "user": token_data.username,
     }
-    assert parse_log(caplog) == [expected_log]
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
+        expected_log
+    ]
 
 
 @pytest.mark.asyncio
@@ -238,7 +244,7 @@ async def test_x_forwarded(
     )
 
     assert r.status_code == 403
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "auth_uri": "https://example.com/foo",
             "error": "Token missing required scope",
@@ -277,7 +283,7 @@ async def test_invalid_token(
     )
 
     assert r.status_code == 401
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "auth_uri": "https://example.com/foo",
             "error": "Token does not start with gt-",
@@ -319,7 +325,7 @@ async def test_notebook(
     assert r.status_code == 200
     notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "auth_uri": "https://example.com/foo",
             "event": "Created new notebook token",
@@ -391,7 +397,7 @@ async def test_internal(
     assert r.status_code == 200
     notebook_token = Token.from_str(r.headers["X-Auth-Request-Token"])
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "auth_uri": "https://example.com/foo",
             "event": "Created new internal token",
@@ -465,7 +471,7 @@ async def test_rate_limit_events(
     assert r.status_code == 403
     assert r.headers["X-Error-Status"] == "429"
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "auth_uri": "https://example.com/foo",
             "error": "Rate limit (1/15m) exceeded",

@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import pytest
 from httpx import AsyncClient, BasicAuth
 from safir.datetime import current_datetime, format_datetime_for_logging
+from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
@@ -36,7 +37,6 @@ from ..support.headers import (
     parse_www_authenticate,
     query_from_url,
 )
-from ..support.logging import parse_log
 from ..support.tokens import create_session_token
 
 
@@ -198,7 +198,7 @@ async def test_login(
 
     # Check the logging.
     username = token_data.username
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Returned OpenID Connect authorization code",
             "httpRequest": {
@@ -332,7 +332,7 @@ async def test_unauthenticated(
     expected_url = f"https://{TEST_HOSTNAME}/auth/openid/login?{params}"
     assert query_from_url(r.headers["Location"]) == {"rd": [expected_url]}
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "event": "Redirecting user for authentication",
             "httpRequest": {
@@ -385,7 +385,7 @@ async def test_login_errors(
     assert data["detail"][0]["type"] == "invalid_client"
     assert "Unknown client ID bad-client" in data["detail"][0]["msg"]
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "error": "Unknown client ID bad-client in OpenID Connect request",
             "event": "Invalid request",
@@ -432,7 +432,7 @@ async def test_login_errors(
         "error_description": ["Missing response_type parameter"],
     }
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "error": "Missing response_type parameter",
             "event": "Invalid request",
@@ -519,7 +519,7 @@ async def test_token_errors(
         "error_description": "Invalid token request",
     }
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "error": "Invalid token request",
             "event": "Invalid request",
@@ -547,7 +547,7 @@ async def test_token_errors(
         "error_description": "Invalid grant type bogus",
     }
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "error": "Invalid grant type bogus",
             "event": "Unsupported grant type",
@@ -579,7 +579,7 @@ async def test_token_errors(
         "error_description": "No client_secret provided",
     }
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "error": "No client_secret provided",
             "event": "Unauthorized client",
@@ -724,7 +724,7 @@ async def test_invalid(
     assert authenticate.error == AuthError.invalid_request
     assert authenticate.error_description == "Unknown Authorization type token"
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "error": "Unknown Authorization type token",
             "event": "Invalid request",
@@ -764,7 +764,7 @@ async def test_invalid(
     assert authenticate.error == AuthError.invalid_token
     assert authenticate.error_description
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "error": ANY,
             "event": "Invalid token",
@@ -793,7 +793,7 @@ async def test_invalid(
     msg = "Token of type session not allowed"
     assert authenticate.error_description == msg
 
-    assert parse_log(caplog) == [
+    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "error": msg,
             "event": "Invalid token",
