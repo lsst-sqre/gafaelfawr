@@ -346,6 +346,7 @@ async def test_token_info(
     # data.
     expires = now + timedelta(days=100)
     data = await token_service.get_data(session_token)
+    assert data
     user_token = await token_service.create_user_token(
         data,
         data.username,
