@@ -173,9 +173,15 @@ def create_app(
 
     # Install the middleware.
     if config:
-        app.add_middleware(XForwardedMiddleware, proxies=config.proxies)
         app.add_middleware(
-            StateMiddleware,
+            XForwardedMiddleware,
+            proxies=config.proxies,  # type: ignore[arg-type] # needs Safir fix
+        )
+
+        # There is currently a deep typing mismatch inside Starlette. See
+        # https://github.com/encode/starlette/issues/2912
+        app.add_middleware(
+            StateMiddleware,  # type: ignore[arg-type]
             cookie_name=COOKIE_NAME,
             state_class=State,
             parameters=config.cookie_parameters,
