@@ -54,6 +54,7 @@ nitpick_ignore = [
     ["py:class", "pydantic_settings.main.BaseSettings"],
     ["py:class", "pydantic_settings.sources.CliSettingsSource"],
     ["py:class", "pydantic_settings.sources.providers.cli.CliSettingsSource"],
+    ["py:class", "redis.asyncio.client.Redis"],
     ["py:class", "starlette.datastructures.URL"],
     ["py:class", "starlette.middleware.base.BaseHTTPMiddleware"],
     ["py:class", "starlette.requests.Request"],
@@ -95,7 +96,6 @@ jwt = "https://pyjwt.readthedocs.io/en/latest"
 kopf = "https://kopf.readthedocs.io/en/stable"
 limits = "https://limits.readthedocs.io/en/stable"
 python = "https://docs.python.org/3"
-redis = "https://redis-py.readthedocs.io/en/stable"
 safir = "https://safir.lsst.io"
 sqlalchemy = "https://docs.sqlalchemy.org/en/latest"
 structlog = "https://www.structlog.org/en/stable"
