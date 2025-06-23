@@ -284,10 +284,7 @@ class TokenService:
         """
         token = Token()
         created = current_datetime()
-        if auth_data.expires:
-            expires = auth_data.expires
-        else:
-            expires = created + self._config.token_lifetime
+        expires = auth_data.expires or created + self._config.token_lifetime
         data = TokenData(
             token=token,
             username=auth_data.username,
