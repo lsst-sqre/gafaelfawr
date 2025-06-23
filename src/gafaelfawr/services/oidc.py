@@ -216,10 +216,7 @@ class OIDCService:
         # list of claims that were requested via either claims or scopes and
         # by dropping any claims that were None.
         now = current_datetime()
-        if token_data.expires:
-            expires = token_data.expires
-        else:
-            expires = now + self._token_lifetime
+        expires = token_data.expires or now + self._token_lifetime
         payload: dict[str, Any] = {
             "aud": authorization.client_id,
             "auth_time": int(token_data.created.timestamp()),
