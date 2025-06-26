@@ -1,3 +1,6 @@
+UV_VERSION = $(shell uv export -q --no-hashes --only-group tox \
+               | grep ^uv== | sed 's/.*=//')
+
 .PHONY: help
 help:
 	@echo "Make targets for Gafaelfawr"
@@ -35,4 +38,5 @@ update: update-deps init
 update-deps:
 	uv lock --upgrade
 	uv run --only-group=lint pre-commit autoupdate
+	./scripts/update-uv-version.sh
 	cd ui && npm upgrade --legacy-peer-deps

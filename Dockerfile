@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 FROM base-image AS install-image
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.7.14 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.7.15 /uv /bin/uv
 
 # Determine the Node version that we want to install
 COPY .nvmrc /opt/.nvmrc

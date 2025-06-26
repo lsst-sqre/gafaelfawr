@@ -3,8 +3,8 @@ name: CI
 env:
   # Current supported uv version. The uv documentation recommends pinning
   # this. The version should match the version used in .pre-commit-config.yaml
-  # and frozen in uv.lock.
-  UV_VERSION: "0.6.6"
+  # and frozen in uv.lock. It is updated by make update-deps.
+  UV_VERSION: "0.7.15"
 
 "on":
   merge_group: {}
@@ -39,7 +39,7 @@ jobs:
           cache-dependency-path: ui/package-lock.json
 
       - name: Read .nvmrc
-        id: node_version
+        id: node-version
         run: echo NODE_VERSION="$(cat .nvmrc)" >> $GITHUB_OUTPUT
 
       # First try to restore the fully-installed node modules. If that works
@@ -51,7 +51,7 @@ jobs:
         id: node-cache
         with:
           path: ./ui/node_modules
-          key: node-${{ steps.node_version.outputs.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
+          key: node-${{ steps.node-version.outputs.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
 
       # --force is currently required because react-aria-modal hasn't been
       # updated for the latest React.
@@ -82,15 +82,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: ${{ env.UV_VERSION }}
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version-file: ".python-version"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
 
       # Reuse the built UI from the ui job.
       - name: Restore UI artifact
@@ -148,20 +148,20 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
-      - name: Install extra packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz libpq-dev libldap2-dev libsasl2-dev
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
           version: ${{ env.UV_VERSION }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: ".python-version"
+      - name: Install extra packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
       - name: Run tox
         run: uv run --only-group=tox tox run -e docs
@@ -193,20 +193,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install extra packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz libpq-dev libldap2-dev libsasl2-dev
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
           version: ${{ env.UV_VERSION }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: ".python-version"
+      - name: Install extra packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
       - name: Run tox
         run: uv run --only-group=tox tox run -e docs-linkcheck
