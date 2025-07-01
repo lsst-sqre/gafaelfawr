@@ -189,10 +189,10 @@ async def test_firestore(
     assert config.oidc
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
-    token = create_upstream_oidc_jwt("ldap-user")
+    token = create_upstream_oidc_jwt("99digits99")
     mock_ldap.add_test_user(
         UserInfo(
-            username="ldap-user",
+            username="99digits99",
             name="LDAP User",
             email="ldap-user@example.com",
         )
@@ -202,7 +202,7 @@ async def test_firestore(
     # Add group memberships without GIDs to test that we don't fail.
     assert config.ldap
     base_dn = config.ldap.user_base_dn
-    search_value = f"{config.ldap.user_search_attr}=ldap-user,{base_dn}"
+    search_value = f"{config.ldap.user_search_attr}=99digits99,{base_dn}"
     mock_ldap.add_entries_for_test(
         config.ldap.group_base_dn,
         "member",
@@ -225,16 +225,16 @@ async def test_firestore(
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
     expected = {
-        "username": "ldap-user",
+        "username": "99digits99",
         "name": "LDAP User",
         "email": "ldap-user@example.com",
         "uid": UID_USER_MIN,
         "gid": UID_USER_MIN,
         "groups": [
+            {"name": "99digits99", "id": UID_USER_MIN},
             {"name": "foo", "id": GID_MIN},
             {"name": "group-1", "id": GID_MIN + 1},
             {"name": "group-2", "id": GID_MIN + 2},
-            {"name": "ldap-user", "id": UID_USER_MIN},
         ],
     }
     assert r.json() == expected
@@ -242,7 +242,7 @@ async def test_firestore(
     # Check that the headers returned by the auth endpoint are also correct.
     r = await client.get("/ingress/auth", params={"scope": "read:all"})
     assert r.status_code == 200
-    assert r.headers["X-Auth-Request-User"] == "ldap-user"
+    assert r.headers["X-Auth-Request-User"] == "99digits99"
     assert r.headers["X-Auth-Request-Email"] == "ldap-user@example.com"
 
     # Delete the user document and reauthenticate.  We should still get the
@@ -250,7 +250,7 @@ async def test_firestore(
     # Firestore API; it only works with our mock implementation.
     transaction = mock_firestore.transaction()
     transaction.delete(
-        mock_firestore.collection("users").document("ldap-user")
+        mock_firestore.collection("users").document("99digits99")
     )
     r = await simulate_oidc_login(client, respx_mock, token)
     assert r.status_code == 307

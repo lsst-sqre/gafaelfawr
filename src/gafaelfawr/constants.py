@@ -199,7 +199,7 @@ BOT_USERNAME_REGEX = "^bot-[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 CURSOR_REGEX = "^p?[0-9]+_[0-9]+$"
 """Regex matching a valid cursor."""
 
-GROUPNAME_REGEX = "^[a-zA-Z][a-zA-Z0-9._-]*$"
+GROUPNAME_REGEX = "^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z][a-zA-Z0-9._-]*$"
 """Regex matching all valid group names."""
 
 SCOPE_REGEX = "^[a-zA-Z0-9:._-]+$"
