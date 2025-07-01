@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-13.0.1'></a>
+## 13.0.1 (2025-07-01)
+
+### Bug fixes
+
+- Fix the group name validation regex so that it accepts all valid usernames, specifically including usernames that start with numbers. Otherwise, if `addUserGroup` is enabled, a user with a username starting with digits would trigger internal validation errors. If that user's token was the most recent created, this could in turn cause health check failures.
+
 <a id='changelog-13.0.0'></a>
 ## 13.0.0 (2025-03-14)
 
