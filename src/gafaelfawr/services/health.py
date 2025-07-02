@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from random import SystemRandom
+
 from sqlalchemy.ext.asyncio import async_scoped_session
 
 from ..models.enums import TokenType
@@ -57,7 +59,7 @@ class HealthCheckService:
         """
         async with self._session.begin():
             tokens = await self._db.list_tokens(
-                token_type=TokenType.session, limit=1
+                token_type=TokenType.session, limit=100
             )
 
         # If we can't find a user session token, we don't have a token key for
@@ -67,7 +69,23 @@ class HealthCheckService:
         # checks in this case.
         if not tokens:
             return
-        token_info = tokens[0]
+
+        # Randomly choose one of those 100 users. If a single user has an
+        # isolated problem, the health check will fail when that user is
+        # chosen but then pass for other users, which given the Kubernetes
+        # failure count tolerance should keep Kubernetes from considering the
+        # service to be down.
+        #
+        # In the past, we've had the database reliably return the most recent
+        # token, created by a user that triggered an internal error in
+        # Gafaelfawr, which brought down the service because all health checks
+        # failed reliably. The problems we're checking for here should be
+        # persistent across users (database issues, LDAP issues), so should be
+        # caught by checking on any user, and randomizing the choice of user
+        # should protect against a single user with some isolated issue.
+        token_info = SystemRandom().choice(tokens)
+
+        # Try to retrieve the token from Redis and get the user info.
         data = await self._redis.get_data_by_key(token_info.token)
         if data and check_user_info:
             await self._userinfo.get_user_info_from_token(data, uncached=True)
