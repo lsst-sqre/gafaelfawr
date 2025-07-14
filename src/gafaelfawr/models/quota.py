@@ -38,7 +38,7 @@ class Quota(BaseModel):
         {},
         title="API quotas",
         description=(
-            "Mapping of service names to allowed requests per 15 minutes."
+            "Mapping of service names to allowed requests per minute."
         ),
         examples=[
             {

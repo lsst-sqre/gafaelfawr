@@ -109,7 +109,7 @@ async def test_success(
     assert seen_log == [expected_log]
     reset_time = datetime.fromisoformat(seen_log[0]["quota"]["reset"])
     reset_time = reset_time.replace(tzinfo=UTC)
-    expected_reset = datetime.now(tz=UTC) + timedelta(minutes=15)
+    expected_reset = datetime.now(tz=UTC) + timedelta(minutes=1)
     assert expected_reset - timedelta(seconds=1) < reset_time < expected_reset
 
     # Check the logged metrics events.

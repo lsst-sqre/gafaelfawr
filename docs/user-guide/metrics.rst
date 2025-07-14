@@ -19,13 +19,13 @@ auth_bot
     A bot user was successfully authenticated to a service.
     The username is present as the ``username`` tag.
     The service name is present as the ``service`` tag, if known.
-    If the request was affected by an API quota, the quota limit is included in the ``quota`` field (an integer number of requests allowed per 15 minutes) and the number of requests seen in that window is included in the ``quota_used`` field.
+    If the request was affected by an API quota, the quota limit is included in the ``quota`` field (an integer number of requests allowed per minute) and the number of requests seen in that window is included in the ``quota_used`` field.
 
 auth_user
     A non-bot user was successfully authenticated to a service.
     The username is present as the ``username`` tag.
     The service name is present as the ``service`` tag, if known.
-    If the request was affected by an API quota, the quota limit is included in the ``quota`` field (an integer number of requests allowed per 15 minutes) and the number of requests seen in that window is included in the ``quota_used`` field.
+    If the request was affected by an API quota, the quota limit is included in the ``quota`` field (an integer number of requests allowed per minute) and the number of requests seen in that window is included in the ``quota_used`` field.
 
 login_attempt
     Gafaelfawr sent a user to the identity provider to authenticate, not including duplicate redirects when the user already has an authentication in progress.
@@ -49,7 +49,7 @@ rate_limit
     The username is present as the ``username`` tag.
     The ``is_bot`` field will be set to true if the user is a bot and false otherwise.
     The service name is present as the ``service`` tag.
-    The applicable API quota (in number of requests per 15 minutes) is present as the ``quota`` field.
+    The applicable API quota (in number of requests per minute) is present as the ``quota`` field.
 
 State metrics
 =============
