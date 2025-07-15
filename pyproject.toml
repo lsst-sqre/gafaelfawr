@@ -75,12 +75,10 @@ dev = [
     "selenium>=4.29",
 ]
 docs = [
-    "autodoc-pydantic",
-    "documenteer[guide]>1",
+    "documenteer[guide]>=2",
     "scriv[toml]>=1.5",
     "sphinx-click>=6",
     "sphinx-diagrams>=0.4",
-    "sphinxcontrib-redoc>=1.6",
 ]
 lint = [
     "pre-commit",

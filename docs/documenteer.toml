@@ -18,8 +18,6 @@ disable_primary_sidebars = ["**/index", "changelog", "dev/internals"]
 extensions = [
     "sphinx_click",
     "sphinx_diagrams",
-    "sphinxcontrib.autodoc_pydantic",
-    "sphinxcontrib.redoc",
 ]
 nitpicky = true
 nitpick_ignore = [
@@ -34,35 +32,18 @@ nitpick_ignore = [
     ["py:class", "dataclasses_avroschema.main.AvroModel"],
     ["py:class", "google.api_core.exceptions.GoogleAPICallError"],
     ["py:class", "google.cloud.firestore_v1.async_client.AsyncClient"],
-    ["py:class", "fastapi.applications.FastAPI"],
-    ["py:class", "fastapi.datastructures.DefaultPlaceholder"],
-    ["py:class", "fastapi.exceptions.HTTPException"],
-    ["py:class", "fastapi.params.Depends"],
-    ["py:class", "fastapi.routing.APIRoute"],
     ["py:class", "httpx.AsyncClient"],
     ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
-    ["py:class", "pydantic.functional_serializers.PlainSerializer"],
-    ["py:class", "pydantic.functional_validators.AfterValidator"],
-    ["py:class", "pydantic.functional_validators.BeforeValidator"],
-    ["py:class", "pydantic.functional_validators.PlainValidator"],
-    ["py:class", "pydantic.main.BaseModel"],
-    ["py:class", "pydantic.networks.UrlConstraints"],
-    ["py:class", "pydantic.types.SecretStr"],
-    ["py:class", "pydantic.utils.Representation"],
-    ["py:class", "pydantic_core._pydantic_core.Url"],
-    ["py:class", "pydantic_core._pydantic_core.ValidationError"],
-    ["py:class", "pydantic_settings.main.BaseSettings"],
-    ["py:class", "pydantic_settings.sources.CliSettingsSource"],
-    ["py:class", "pydantic_settings.sources.providers.cli.CliSettingsSource"],
     ["py:class", "redis.asyncio.client.Redis"],
+    ["py:class", "pydantic.networks.UrlConstraints"],
+    ["py:class", "pydantic_settings.sources.providers.cli.CliSettingsSource"],
+    ["py:class", "pydantic_settings.sources.base.PydanticBaseSettingsSource"],
     ["py:class", "starlette.datastructures.URL"],
     ["py:class", "starlette.middleware.base.BaseHTTPMiddleware"],
     ["py:class", "starlette.requests.Request"],
     ["py:class", "starlette.responses.Response"],
     ["py:class", "starlette.routing.Route"],
     ["py:class", "starlette.routing.BaseRoute"],
-    ["py:exc", "fastapi.HTTPException"],
-    ["py:exc", "fastapi.exceptions.RequestValidationError"],
     ["py:exc", "httpx.HTTPError"],
     ["py:exc", "starlette.exceptions.HTTPException"],
     ["py:obj", "fastapi.routing.APIRoute"],
@@ -70,6 +51,10 @@ nitpick_ignore = [
     # Broken links created by autodoc_pydantic.
     ["py:class", "lambda"],
     ["py:class", "safir.pydantic._validators.normalize_datetime"],
+    # Apparently Sphinx is no longer able to resolve references to parent
+    # classes of Pydantic models via intersphinx.
+    ["py:class", "safir.metrics._models.EventPayload"],
+    ["py:class", "safir.slack.blockkit.SlackMessage"],
     # asyncio.Lock is documented, and that's what all the code references, but
     # the combination of Sphinx extensions we're using confuse themselves and
     # there doesn't seem to be any way to fix this.
@@ -83,8 +68,6 @@ nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
     # Bug in autodoc_pydantic.
     ["py:obj", ".*\\.all fields"],
-    # Cannot be represented by intersphinx.
-    ["py:obj", "safir\\.pydantic\\._validators\\.validate_exactly_one_of.*"],
 ]
 python_api_dir = "dev/internals"
 rst_epilog_file = "_rst_epilog.rst"
