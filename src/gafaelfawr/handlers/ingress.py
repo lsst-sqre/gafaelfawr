@@ -686,7 +686,7 @@ async def check_rate_limit(
 
     # Check the usage against Redis.
     key = ("api", user_info.username)
-    limit = RateLimitItemPerMinute(quota, 15)
+    limit = RateLimitItemPerMinute(quota, 1)
     try:
         allowed = await context.rate_limiter.hit(limit, *key)
         stats = await context.rate_limiter.get_window_stats(limit, *key)

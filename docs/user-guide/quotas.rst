@@ -15,8 +15,8 @@ The notebook quotas are only calculated in Gafaelfawr and must be queried and en
 API quotas
 ----------
 
-An API quota limits a user to a number of requests in each 15 minute interval.
-After 15 minutes, the user's usage resets and they get their full quota again.
+An API quota limits a user to a number of requests in each one minute interval.
+After one minute, the user's usage resets and they get their full quota again.
 
 Every named service has a separate API quota.
 This quota may not exist, in which case requests to that service are not rate limited.

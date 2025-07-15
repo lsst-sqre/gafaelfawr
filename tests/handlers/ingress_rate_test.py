@@ -25,7 +25,7 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
     )
     headers = {"Authorization": f"bearer {token_data.token}"}
     now = datetime.now(tz=UTC)
-    expected = now + timedelta(minutes=15) - timedelta(seconds=1)
+    expected = now + timedelta(minutes=1) - timedelta(seconds=1)
 
     # Two requests should be allowed, one from the default quota and a second
     # from the additional quota from the foo group.

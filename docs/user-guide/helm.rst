@@ -580,7 +580,7 @@ Default quota
 
 The default quota setting controls the quotas that all users get when there are no more specific rules (discussed below).
 
-The ``api`` key should contain a mapping of service names to number of requests per 15 minutes.
+The ``api`` key should contain a mapping of service names to number of requests per minute.
 The keys for API quotas are names of services.
 This is the same name the service should use in the ``config.service`` key of a ``GafaelfawrIngress`` resource (see :ref:`ingress`).
 If a service name has no corresponding quota setting, access to that service will be unrestricted.
@@ -596,12 +596,12 @@ For example:
      quota:
        default:
          api:
-           datalinker: 1000
+           datalinker: 100
          notebook:
            cpu: 2.0
            memory: 4.0
 
-This sets a quota of 1000 requests per 15 minutes for the ``datalinker`` service, no quotas for any other API service, and a default limit of 2.0 CPU equivalents and 4.0 GiB of memory for notebooks.
+This sets a quota of 100 requests per minute for the ``datalinker`` service, no quotas for any other API service, and a default limit of 2.0 CPU equivalents and 4.0 GiB of memory for notebooks.
 
 The default quota for all API services not listed is unlimited.
 To set a default quota of 0, explicitly list the API service with a quota of 0.
@@ -620,12 +620,12 @@ For example:
        groups:
          g_developers:
            api:
-             datalinker: 500
+             datalinker: 50
            notebook:
              cpu: 0.0
              memory: 4.0
 
-If this were combined with the above default quota, members of the ``g_developers`` group would receive a total of 1500 requests per 15 minutes for datalinker, and a total of 8.0 GiB of memory for notebooks.
+If this were combined with the above default quota, members of the ``g_developers`` group would receive a total of 150 requests per minute for datalinker, and a total of 8.0 GiB of memory for notebooks.
 The CPU quota for notebooks would be unchanged.
 
 Members of specific groups cannot be granted unrestricted access to an API service since a missing key for a service instead means that this group contributes no additional quota for that service.
@@ -642,13 +642,13 @@ Consider the following addditional configuration:
        groups:
          g_limited:
            api:
-             tap: 1000
+             tap: 100
            notebook:
              cpu: 0.0
              memory: 0.0
              spawn: false
 
-If combined with the previous default configuration, members of the ``g_limited`` group will have a quota of 1000 requests per 15 minutes to the tap service.
+If combined with the previous default configuration, members of the ``g_limited`` group will have a quota of 100 requests per minute to the tap service.
 Users who are not a member of that group will continue to have unlimited access to the tap service.
 Also, members of the ``g_limited`` group will not be allowed to spawn new notebooks, because their ``spawn`` flag is set to false instead of the default of true.
 Note that ``cpu`` and ``memory`` are also set because they are required fields, but are set to 0.0 so they don't add anything to the quota.
