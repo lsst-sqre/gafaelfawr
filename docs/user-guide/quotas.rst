@@ -79,3 +79,43 @@ Quota overrides, unlike group quotas, are not additive.
 Instead, they override (as in the name) any quota from the default or group sections.
 If the quota override configuration generates a notebook quota or an API quota for a particular service, the default and group quota information for notebooks or that API are ignored completely.
 Otherwise, the normal quota default and group quota information applies.
+
+Examples
+--------
+
+Here are some examples of setting, retrieving, and clearing temporary quota overrides using cURL.
+Each of these commands requires a token with ``admin:token`` scope, represented below as ``<token>``.
+
+Get the existing quota overrides, if any.
+You may want to pipe the output through ``jq .`` to format the result more readably.
+
+.. prompt:: bash
+
+   curl -H 'Authorization: bearer <token>' \
+     https://<base-url>/auth/api/v1/quota-overrides
+
+Set a temporary API rate limit of one request per minute for all users to the ``tap`` service, replacing any existing quota override, but allow anyone in the ``g_admins`` group to bypass all quota restrictions.
+
+.. prompt:: bash
+
+   curl -X PUT -H 'Authorization: bearer <token>' \
+     --json '{"bypass": ["g_admins"], "default": {"api": {"tap": 1}}}' \
+     https://<base-url>/auth/api/v1/quota-overrides
+
+Block all access to the ``tap`` service from the user ``someuser``, replacing any existing quota override.
+This uses the special meaning of an API quota of 0 to block all access.
+Gafaelfawr can only apply quotas by groups, so this assumes that user-private groups are enabled for this Gafaelfawr instance.
+See :ref:`ldap-groups` for more information.
+
+.. prompt:: bash
+
+   curl -X PUT -H 'Authorization: bearer <token>' \
+     --json '{"default": {}, "groups": {"someuser": {"api": {"tap": 0}}}}' \
+     https://<base-url>/auth/api/v1/quota-overrides
+
+Delete any existing quota override.
+
+.. prompt:: bash
+
+   curl -X DELETE -H 'Authorization: bearer <token>' \
+     https://<base-url>/auth/api/v1/quota-overrides
