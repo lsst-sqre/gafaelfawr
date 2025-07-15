@@ -574,11 +574,16 @@ Quotas
 
 Gafaelfawr supports calculating user quotas based on group membership and providing quota information through its API.
 API quotas are also enforced directly by Gafaelfawr.
+See :doc:`quotas` for more information.
+
+Setting quotas is optional.
+Omit this setting if you don't want to set user quotas.
 
 Default quota
 -------------
 
 The default quota setting controls the quotas that all users get when there are no more specific rules (discussed below).
+All of these keys are optional and may be omitted to not set that type of quota.
 
 The ``api`` key should contain a mapping of service names to number of requests per minute.
 The keys for API quotas are names of services.
@@ -587,6 +592,9 @@ If a service name has no corresponding quota setting, access to that service wil
 
 The ``notebook`` key should contain ``cpu`` and ``memory`` keys specifying the default CPU and memory limits.
 The memory limit is given in a floating point number of GiB.
+
+The ``tap`` key should contain a mapping of TAP service names to quotas for that service.
+Currently, the per-TAP-service quota only supports one key: ``concurrent``, which specifies the number of concurrent TAP queries that a user may have in progress.
 
 For example:
 
@@ -600,8 +608,11 @@ For example:
          notebook:
            cpu: 2.0
            memory: 4.0
+         tap:
+           sso:
+             concurrent: 10
 
-This sets a quota of 100 requests per minute for the ``datalinker`` service, no quotas for any other API service, and a default limit of 2.0 CPU equivalents and 4.0 GiB of memory for notebooks.
+This sets a quota of 100 requests per minute for the ``datalinker`` service, no quotas for any other API service, a default limit of 2.0 CPU equivalents and 4.0 GiB of memory for notebooks, and allows 10 concurrent TAP queries per user to the ``sso`` TAP service.
 
 The default quota for all API services not listed is unlimited.
 To set a default quota of 0, explicitly list the API service with a quota of 0.
@@ -626,7 +637,7 @@ For example:
              memory: 4.0
 
 If this were combined with the above default quota, members of the ``g_developers`` group would receive a total of 150 requests per minute for datalinker, and a total of 8.0 GiB of memory for notebooks.
-The CPU quota for notebooks would be unchanged.
+The CPU quota for notebooks and the quota for TAP queries would be unchanged.
 
 Members of specific groups cannot be granted unrestricted access to an API service since a missing key for a service instead means that this group contributes no additional quota for that service.
 Instead, grant effectively unlimited access by granting a very large quota number.

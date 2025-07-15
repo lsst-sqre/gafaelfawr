@@ -281,7 +281,9 @@ class UserInfoService:
             api = quota.api
             api.update(override_quota.api)
             return Quota(
-                notebook=override_quota.notebook or quota.notebook, api=api
+                notebook=override_quota.notebook or quota.notebook,
+                api=api,
+                tap=override_quota.tap or quota.tap,
             )
 
     async def _get_groups_from_ldap(
