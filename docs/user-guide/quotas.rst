@@ -50,6 +50,16 @@ The notebook quota also includes a boolean flag, ``spawn``, which controls wheth
 Notebook quotas are only calculated by Gafaelfawr, not tracked.
 Normally, they are enforced by Nublado_.
 
+TAP quotas
+----------
+
+The user's TAP quota controls limits on the TAP queries that user may make.
+There is a separate quota for each TAP service.
+
+The TAP quota is represented as a mapping of TAP service names to quota restrictions for that TAP service.
+Currently, there is only one type of restriction: the number of concurrent queries a user is permitted to make to that TAP service.
+If a user attempts to start a new query when they already have that many concurrent queries in progress, the new query will be either rejected or deferred until another query finishes, depending on the configured behavior of the TAP service.
+
 .. _quota-overrides:
 
 Overriding quotas
@@ -76,8 +86,8 @@ These routes require a token with ``admin:token`` scope.
 The body sent via ``PUT`` and returned by ``GET`` is the same format as the ``config.quota`` key for the Gafaelfawr configuration except in JSON format.
 
 Quota overrides, unlike group quotas, are not additive.
-Instead, they override (as in the name) any quota from the default or group sections.
-If the quota override configuration generates a notebook quota or an API quota for a particular service, the default and group quota information for notebooks or that API are ignored completely.
+Instead, if set, they override (as in the name) any quota from the default or group sections.
+If the quota override configuration generates a notebook quota, a TAP quota for a particular TAP service, or an API quota for a particular service, the default and group quota information for notebooks or that service are ignored completely.
 Otherwise, the normal quota default and group quota information applies.
 
 Examples
@@ -94,15 +104,23 @@ You may want to pipe the output through ``jq .`` to format the result more reada
    curl -H 'Authorization: bearer <token>' \
      https://<base-url>/auth/api/v1/quota-overrides
 
-Set a temporary API rate limit of one request per minute for all users to the ``tap`` service, replacing any existing quota override, but allow anyone in the ``g_admins`` group to bypass all quota restrictions.
+Restrict all users to one concurrent TAP query for the ``qserv`` TAP service:
 
 .. prompt:: bash
 
    curl -X PUT -H 'Authorization: bearer <token>' \
-     --json '{"bypass": ["g_admins"], "default": {"api": {"tap": 1}}}' \
+     --json '{"default": {"tap": {"qserv": 1}}}' \
      https://<base-url>/auth/api/v1/quota-overrides
 
-Block all access to the ``tap`` service from the user ``someuser``, replacing any existing quota override.
+Set a temporary API rate limit of one request per minute for all users to the ``vo-cutouts`` service, replacing any existing quota override, but allow anyone in the ``g_admins`` group to bypass all quota restrictions.
+
+.. prompt:: bash
+
+   curl -X PUT -H 'Authorization: bearer <token>' \
+     --json '{"bypass": ["g_admins"], "default": {"api": {"vo-cutouts": 1}}}' \
+     https://<base-url>/auth/api/v1/quota-overrides
+
+Block all access to the ``vo-cutouts`` service from the user ``someuser``, replacing any existing quota override.
 This uses the special meaning of an API quota of 0 to block all access.
 Gafaelfawr can only apply quotas by groups, so this assumes that user-private groups are enabled for this Gafaelfawr instance.
 See :ref:`ldap-groups` for more information.
@@ -110,7 +128,7 @@ See :ref:`ldap-groups` for more information.
 .. prompt:: bash
 
    curl -X PUT -H 'Authorization: bearer <token>' \
-     --json '{"default": {}, "groups": {"someuser": {"api": {"tap": 0}}}}' \
+     --json '{"default": {}, "groups": {"someuser": {"api": {"vo-cutouts": 0}}}}' \
      https://<base-url>/auth/api/v1/quota-overrides
 
 Delete any existing quota override.

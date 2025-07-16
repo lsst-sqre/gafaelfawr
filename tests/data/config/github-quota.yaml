@@ -24,6 +24,9 @@ quota:
     notebook:
       cpu: 8
       memory: 4.0
+    tap:
+      qserv:
+        concurrent: 10
   groups:
     blocked:
       notebook:
@@ -36,6 +39,11 @@ quota:
       notebook:
         cpu: 0.0
         memory: 4.0
+      tap:
+        qserv:
+          concurrent: 5
+        sso:
+          concurrent: 5
   bypass:
     - "admin"
 metrics:
