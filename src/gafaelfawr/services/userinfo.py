@@ -5,7 +5,11 @@ from __future__ import annotations
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..exceptions import FirestoreError
+from ..exceptions import (
+    FirestoreError,
+    NotConfiguredError,
+    PermissionDeniedError,
+)
 from ..models.ldap import LDAPUserData
 from ..models.quota import Quota, QuotaConfig
 from ..models.token import TokenData, TokenUserInfo
@@ -78,6 +82,82 @@ class UserInfoService:
             Current quota overrides, or `None` if there are none.
         """
         return await self._quota_overrides.get()
+
+    async def get_user_info_from_ldap(
+        self, auth_data: TokenData, username: str
+    ) -> UserInfo:
+        """Get the user information from a username from LDAP and Firestore.
+
+        This will not include any override information from tokens, only the
+        information from LDAP and (optionally) Firestore, and therefore is not
+        useful or supported when LDAP is not configured.
+
+        Authorization must be handled by the caller.
+
+        Parameters
+        ----------
+        auth_data
+            Authenticated user making the request.
+        username
+            Username of the user to get information for.
+
+        Returns
+        -------
+        UserInfo
+            User information for that user.
+
+        Raises
+        ------
+        FirestoreError
+            Raised if UID/GID allocation using Firestore failed.
+        LDAPError
+            Raised if the attempt to get user information from LDAP failed.
+        NotConfiguredError
+            Raised if LDAP is not configured.
+        PermissionDeniedError
+            Raised if the authenticated user does not have access to retrieve
+            user information for this user.
+        """
+        if not self._ldap:
+            msg = "No external user information source configured"
+            raise NotConfiguredError(msg)
+        self._check_authorization(auth_data, username)
+
+        # Get the basic user information from LDAP. We don't want to assign
+        # a UID with Firestore if the user isn't found in LDAP, since this may
+        # just be a typo from an admin trying to get user information.
+        ldap_data = await self._ldap.get_data(username)
+
+        # Get the UID and GID from firestore if it is configured.
+        uid = None
+        gid = None
+        if self._firestore and not ldap_data.is_empty():
+            uid = await self._firestore.get_uid(username)
+            if self._config.add_user_group:
+                gid = uid
+
+        # Get group data from LDAP.
+        groups = []
+        if not ldap_data.is_empty():
+            groups = await self._get_groups_from_ldap(
+                username, uid or ldap_data.uid, gid or ldap_data.gid
+            )
+
+        # If the primary GID isn't set and we're adding a user private group,
+        # set the primary GID to the same as the UID.
+        if not gid and not ldap_data.gid and self._config.add_user_group:
+            gid = uid or ldap_data.uid
+
+        # Return the results.
+        return UserInfo(
+            username=username,
+            name=ldap_data.name,
+            uid=uid or ldap_data.uid,
+            gid=gid or ldap_data.gid,
+            email=ldap_data.email,
+            groups=sorted(groups, key=lambda g: g.name),
+            quota=await self._calculate_quota(groups),
+        )
 
     async def get_user_info_from_token(
         self, token_data: TokenData, *, uncached: bool = False
@@ -285,6 +365,30 @@ class UserInfoService:
                 api=api,
                 tap=override_quota.tap or quota.tap,
             )
+
+    def _check_authorization(
+        self, auth_data: TokenData, username: str
+    ) -> None:
+        """Check authorization for performing an action.
+
+        Arguments
+        ---------
+        auth_data
+            Aauthenticated user performing the action.
+        username
+            User whose user information will be returned.
+
+        Raises
+        ------
+        PermissionDeniedError
+            Raised if the authenticated user doesn't have permission to
+            manipulate tokens for that user.
+        """
+        is_admin = "admin:userinfo" in auth_data.scopes
+        if username != auth_data.username and not is_admin:
+            msg = f"Cannot get information for user {username}"
+            self._logger.warning("Permission denied", error=msg)
+            raise PermissionDeniedError(msg)
 
     async def _get_groups_from_ldap(
         self,

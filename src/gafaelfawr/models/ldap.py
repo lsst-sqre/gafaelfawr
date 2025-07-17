@@ -27,3 +27,12 @@ class LDAPUserData:
 
     gid: int | None = None
     """Primary GID."""
+
+    def is_empty(self) -> bool:
+        """Whether any information was found in LDAP for this user."""
+        return (
+            self.name is None
+            and self.email is None
+            and self.uid is None
+            and self.gid is None
+        )

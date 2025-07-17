@@ -494,6 +494,7 @@ The default includes:
    config:
      knownScopes:
        "admin:token": "Can create and modify tokens for any user"
+       "admin:userinfo": "Can see user information for any user"
        "user:token": "Can create and modify user tokens"
 
 which are used internally by Gafaelfawr, plus the scopes that are used by the Rubin Science Platform.
@@ -523,6 +524,10 @@ A complete setting for GitHub might look something like this:
    config:
      groupMapping:
        "admin:token":
+         - github:
+             organization: "lsst-sqre"
+             team: "square"
+       "admin:userinfo":
          - github:
              organization: "lsst-sqre"
              team: "square"
@@ -566,6 +571,8 @@ A user who is a member of the ``bar`` and ``other`` groups will have the ``exec:
 
 Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
 The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
+
+You will probably want to grant ``admin:userinfo`` scope to platform administrators so that they can use the :samp:`/auth/api/v1/users/{username}` route to retrieve the user information for a user from LDAP while debugging problems.
 
 .. _helm-quota:
 

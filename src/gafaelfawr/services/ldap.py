@@ -128,7 +128,10 @@ class LDAPService:
 
     @sentry_sdk.trace
     async def get_data(
-        self, username: str, *, uncached: bool = False
+        self,
+        username: str,
+        *,
+        uncached: bool = False,
     ) -> LDAPUserData:
         """Get configured data from LDAP.
 

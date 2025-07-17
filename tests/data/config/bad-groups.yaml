@@ -6,6 +6,7 @@ groupMapping:
   "exec:admin": "admin"
 knownScopes:
   "admin:token": "token administration"
+  "admin:userinfo": "Can see user information for any user"
   "exec:admin": "admin description"
   "user:token": "Can create and modify user tokens"
 github:

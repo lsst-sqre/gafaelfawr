@@ -11,6 +11,7 @@ groupMapping:
         team: "a-team"
 knownScopes:
   "admin:token": "token administration"
+  "admin:userinfo": "Can see user information for any user"
   "exec:admin": "admin description"
   "read:all": "can read everything"
   "user:token": "Can create and modify user tokens"

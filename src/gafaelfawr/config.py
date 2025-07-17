@@ -980,7 +980,7 @@ class Config(EnvFirstSettings):
         for scope in v:
             if not re.match(SCOPE_REGEX, scope):
                 raise ValueError(f"invalid scope {scope}")
-        for required in ("admin:token", "user:token"):
+        for required in ("admin:token", "admin:userinfo", "user:token"):
             if required not in v:
                 raise ValueError(f"required scope {required} missing")
         return v

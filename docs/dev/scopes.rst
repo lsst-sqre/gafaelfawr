@@ -23,12 +23,13 @@ Reserved scopes
 ===============
 
 Gafaelfawr reserves scopes beginning with ``admin:`` and ``user:`` for internal use by the identity management system.
-Currently, two scopes in that reserved namespace are used:
+Currently, three scopes in that reserved namespace are used:
 
 * ``admin:token`` grants token administrator powers.
   Users authenticated with a token with this scope can view, create, modify, and delete tokens for any user.
   Administrators are automatically granted this scope when they authenticate.
   The bootstrap token (configured with the ``bootstrap-token`` Kubernetes secret) is automatically granted ``admin:token`` scope.
+* ``admin:userinfo`` grants access to the :samp:`/auth/api/v1/users/{username}` route, which allows retrieval of user information from LDAP (and Firestore if configured) for arbitrary usernames without having a delegated token for that user.
 * ``user:token`` grants the ability to view and delete all tokens for the same user, and create and modify user tokens for that user.
   All session tokens are automatically granted this scope.
 
