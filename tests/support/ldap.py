@@ -51,7 +51,7 @@ class MockLDAP(Mock):
         self._entries[base_dn][key] = entries
 
     def add_test_group_membership(
-        self, username: str, groups: list[Group]
+        self, username: str, groups: list[Group], *, omit_gid: bool = False
     ) -> None:
         """Add group membership entries for a test user.
 
@@ -61,6 +61,8 @@ class MockLDAP(Mock):
             Username of user
         groups
             Group memberships to add.
+        omit_gid
+            Whether to omit the GID from the record.
         """
         config = config_dependency.config()
         assert config.ldap
@@ -70,7 +72,12 @@ class MockLDAP(Mock):
             search_value = f"{attr}={username},{base_dn}"
         else:
             search_value = username
-        entries = [{"cn": [g.name], "gidNumber": [str(g.id)]} for g in groups]
+        if omit_gid:
+            entries = [{"cn": [g.name]} for g in groups]
+        else:
+            entries = [
+                {"cn": [g.name], "gidNumber": [str(g.id)]} for g in groups
+            ]
         self.add_entries_for_test(
             config.ldap.group_base_dn,
             config.ldap.group_member_attr,

@@ -1190,10 +1190,9 @@ class TokenService:
         Arguments
         ---------
         username
-            The user whose tokens are being changed, or `None` if listing
-            all tokens.
+            User whose tokens are affected, or `None` if listing all tokens.
         auth_data
-            The authenticated user changing the tokens.
+            Aauthenticated user performing the action.
         require_admin
             If set to `True`, require the authenticated user have
             ``admin:token`` scope.

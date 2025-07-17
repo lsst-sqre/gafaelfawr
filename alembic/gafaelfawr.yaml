@@ -26,6 +26,7 @@ initialAdmins:
 # Only the built-in scopes.
 knownScopes:
   "admin:token": "Can create and modify tokens for any user"
+  "admin:userinfo": "Can see user information for any user"
   "user:token": "Can create and modify user tokens"
 
 # A minimal mapping sufficient for Gafaelfawr to start.

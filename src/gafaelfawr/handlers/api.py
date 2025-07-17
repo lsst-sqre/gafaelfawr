@@ -572,6 +572,38 @@ async def get_user_token_change_history(
 
 
 @router.get(
+    "/auth/api/v1/users/{username}",
+    response_model_exclude_defaults=True,
+    summary="Get user information",
+    description=(
+        "Only information from LDAP is displayed. Queries for bot users will"
+        " not contain any useful information unless they also exist in LDAP,"
+        " and Gafaelfawr installations using GitHub for authentication will"
+        " return 404 errors for all users since LDAP is not configured."
+    ),
+    responses={404: {"description": "LDAP is not configured"}},
+    tags=["admin"],
+)
+async def get_user(
+    *,
+    username: Annotated[
+        str,
+        Path(
+            title="Username",
+            examples=["someuser"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ],
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> UserInfo:
+    user_info_service = context.factory.create_user_info_service()
+    return await user_info_service.get_user_info_from_ldap(auth_data, username)
+
+
+@router.get(
     "/auth/api/v1/users/{username}/tokens",
     response_model_exclude_none=True,
     summary="List tokens",
@@ -671,7 +703,7 @@ async def get_token(
             max_length=22,
         ),
     ],
-    auth_data: Annotated[TokenData, Depends(authenticate_write)],
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> TokenInfo:
     token_service = context.factory.create_token_service()

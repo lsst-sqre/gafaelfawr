@@ -200,21 +200,22 @@ async def test_firestore(
     mock_ldap.add_test_user(UserInfo(username="other-user"))
 
     # Add group memberships without GIDs to test that we don't fail.
-    assert config.ldap
-    base_dn = config.ldap.user_base_dn
-    search_value = f"{config.ldap.user_search_attr}=99digits99,{base_dn}"
-    mock_ldap.add_entries_for_test(
-        config.ldap.group_base_dn,
-        "member",
-        search_value,
-        [{"cn": ["foo"]}, {"cn": ["group-1"]}, {"cn": ["group-2"]}],
+    mock_ldap.add_test_group_membership(
+        "99digits99",
+        [
+            Group(name="foo", id=1111),
+            Group(name="group-1", id=1111),
+            Group(name="group-2", id=1111),
+        ],
+        omit_gid=True,
     )
-    search_value = f"{config.ldap.user_search_attr}=other-user,{base_dn}"
-    mock_ldap.add_entries_for_test(
-        config.ldap.group_base_dn,
-        "member",
-        search_value,
-        [{"cn": ["foo"]}, {"cn": ["group-1"]}],
+    mock_ldap.add_test_group_membership(
+        "other-user",
+        [
+            Group(name="foo", id=1111),
+            Group(name="group-1", id=1111),
+        ],
+        omit_gid=True,
     )
 
     # Simulate the OIDC login.

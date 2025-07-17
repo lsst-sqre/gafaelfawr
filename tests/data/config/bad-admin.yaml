@@ -8,6 +8,7 @@ groupMapping:
   "read:all": ["foo", "admin", "org-a-team"]
 knownScopes:
   "admin:token": "Can create and modify tokens for any user"
+  "admin:userinfo": "Can see user information for any user"
   "user:token": "Can create and modify user tokens"
 github:
   clientId: "some-github-client-id"

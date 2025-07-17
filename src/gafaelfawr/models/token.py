@@ -267,9 +267,9 @@ class TokenUserInfo(BaseModel):
         -------
         dict
             Dictionary of information, roughly equivalent to calling
-            ``dict(exclude_none=True)`` on the `TokenUserInfo` object, but
-            ensuring that only its data is included even if called on a
-            subclass such as `TokenData`.
+            ``model_dump(mode="json", exclude_none=True)`` on the
+            `TokenUserInfo` object, but ensuring that only its data is
+            included even if called on a subclass such as `TokenData`.
         """
         token_userinfo: dict[str, Any] = {}
         if self.name is not None:
@@ -281,7 +281,9 @@ class TokenUserInfo(BaseModel):
         if self.gid is not None:
             token_userinfo["gid"] = self.gid
         if self.groups is not None:
-            token_userinfo["groups"] = [g.model_dump() for g in self.groups]
+            token_userinfo["groups"] = [
+                g.model_dump(mode="json") for g in self.groups
+            ]
         return token_userinfo
 
 
