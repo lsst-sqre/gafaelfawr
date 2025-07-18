@@ -474,7 +474,7 @@ async def test_rate_limit_events(
     assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
             "auth_uri": "https://example.com/foo",
-            "error": "Rate limit (1/15m) exceeded",
+            "error": "Rate limit (1/minute) exceeded",
             "event": "Request rejected due to rate limits",
             "httpRequest": {
                 "requestMethod": "GET",

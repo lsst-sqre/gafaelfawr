@@ -685,7 +685,7 @@ async def check_rate_limit(
         )
 
     # Check the usage against Redis.
-    key = ("api", user_info.username)
+    key = ("api", user_info.username, auth_config.service)
     limit = RateLimitItemPerMinute(quota, 1)
     try:
         allowed = await context.rate_limiter.hit(limit, *key)
@@ -733,7 +733,7 @@ async def check_rate_limit(
 
     # Return a 403 error with the actual status code and body in the
     # headers, where they will be parsed by the ingress-nginx integration.
-    msg = f"Rate limit ({quota}/15m) exceeded"
+    msg = f"Rate limit ({quota}/minute) exceeded"
     context.logger.info("Request rejected due to rate limits", error=msg)
     detail = [{"msg": msg, "type": "rate_limited"}]
     raise HTTPException(

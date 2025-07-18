@@ -35,7 +35,7 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         "username": "example",
         "groups": [{"name": "bar", "id": 12312}],
         "quota": {
-            "api": {"datalinker": 1000, "test": 1},
+            "api": {"datalinker": 1000, "test": 1, "other": 2},
             "notebook": {"cpu": 8.0, "memory": 4.0, "spawn": True},
             "tap": {"qserv": {"concurrent": 10}},
         },
@@ -54,7 +54,7 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         "username": "example",
         "groups": [{"name": "foo", "id": 12313}],
         "quota": {
-            "api": {"datalinker": 1000, "test": 2},
+            "api": {"datalinker": 1000, "test": 2, "other": 2},
             "notebook": {"cpu": 8.0, "memory": 8.0, "spawn": True},
             "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
         },
@@ -85,7 +85,7 @@ async def test_no_spawn(client: AsyncClient, factory: Factory) -> None:
             for g in sorted(token_data.groups, key=lambda g: g.name)
         ],
         "quota": {
-            "api": {"datalinker": 1000, "test": 1},
+            "api": {"datalinker": 1000, "test": 1, "other": 2},
             "notebook": {"cpu": 8.0, "memory": 4.0, "spawn": False},
             "tap": {"qserv": {"concurrent": 10}},
         },
@@ -138,7 +138,7 @@ async def test_rate_limit_override(
             for g in sorted(token_data.groups, key=lambda g: g.name)
         ],
         "quota": {
-            "api": {"datalinker": 1000, "test": 10},
+            "api": {"datalinker": 1000, "test": 10, "other": 2},
             "notebook": {"cpu": 8.0, "memory": 8.0, "spawn": True},
             "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
         },

@@ -75,6 +75,32 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
     reset = int(r.headers["X-RateLimit-Reset"])
     assert expected.timestamp() <= reset <= expected.timestamp() + 5
 
+    # A request for a service with no rate limit should be allowed and, since
+    # there is no quota set, should not return any of the rate limit headers.
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "unknown"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    for header in ("Limit", "Remaining", "Used", "Resource", "Reset"):
+        assert f"X-RateLimit-{header}" not in r.headers
+
+    # A request for a service with a different rate should get its own rate
+    # limit headers and be allowed.
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "other"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.headers["X-RateLimit-Limit"] == "2"
+    assert r.headers["X-RateLimit-Remaining"] == "1"
+    assert r.headers["X-RateLimit-Used"] == "1"
+    assert r.headers["X-RateLimit-Resource"] == "other"
+    reset = int(r.headers["X-RateLimit-Reset"])
+    assert expected.timestamp() <= reset <= expected.timestamp() + 5
+
 
 @pytest.mark.asyncio
 async def test_rate_limit_bypass(
