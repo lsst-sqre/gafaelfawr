@@ -4,7 +4,7 @@ env:
   # Current supported uv version. The uv documentation recommends pinning
   # this. The version should match the version used in .pre-commit-config.yaml
   # and frozen in uv.lock. It is updated by make update-deps.
-  UV_VERSION: "0.7.21"
+  UV_VERSION: "0.8.0"
 
 "on":
   merge_group: {}
@@ -192,6 +192,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Ensure the documentation gets the right version.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
