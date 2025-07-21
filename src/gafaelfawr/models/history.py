@@ -10,8 +10,8 @@ from safir.database import DatetimeIdCursor
 from safir.datetime import current_datetime
 from sqlalchemy.orm import InstrumentedAttribute
 
-from ..pydantic import IpAddress, Scopes, Timestamp
 from ..schema import TokenChangeHistory as SQLTokenChangeHistory
+from ..types import IpAddress, Scopes, Timestamp
 from .enums import AdminChange, TokenChange, TokenType
 
 __all__ = [

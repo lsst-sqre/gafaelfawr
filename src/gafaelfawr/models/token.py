@@ -10,7 +10,7 @@ from safir.pydantic import UtcDatetime
 
 from ..constants import USERNAME_REGEX
 from ..exceptions import InvalidTokenError
-from ..pydantic import Scopes, Timestamp
+from ..types import Scopes, Timestamp
 from ..util import random_128_bits
 from .enums import TokenType
 from .userinfo import Group

@@ -11,7 +11,7 @@ from safir.datetime import current_datetime
 
 from ..constants import ALGORITHM, OIDC_AUTHORIZATION_LIFETIME
 from ..exceptions import InvalidGrantError
-from ..pydantic import Timestamp
+from ..types import Timestamp
 from ..util import random_128_bits
 from .token import Token
 
