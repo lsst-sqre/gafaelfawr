@@ -8,7 +8,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from ..pydantic import Scopes
+from ..types import Scopes
 
 __all__ = [
     "APIConfig",
