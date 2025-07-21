@@ -26,7 +26,7 @@ from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
 from .exceptions import DatabaseSchemaError
-from .handlers import api, cadc, ingress, internal, login, logout, oidc
+from .handlers import api, ingress, internal, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
 from .sentry import enable_telemetry
@@ -142,7 +142,6 @@ def create_app(
             403: {"description": "Permission denied", "model": ErrorModel},
         },
     )
-    app.include_router(cadc.router)
     app.include_router(ingress.router)
     app.include_router(internal.router)
     app.include_router(login.router)

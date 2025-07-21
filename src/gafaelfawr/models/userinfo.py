@@ -8,52 +8,14 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from ..constants import GROUPNAME_REGEX
-from ..pydantic import Timestamp
 from .quota import Quota
 
 __all__ = [
-    "CADCUserInfo",
     "Group",
     "Quota",
     "RateLimitStatus",
     "UserInfo",
 ]
-
-
-class CADCUserInfo(BaseModel):
-    """User metadata required by the CADC authentication code.
-
-    This model is hopefully temporary and will be retired by merging the CADC
-    support with the OpenID Connect support.
-    """
-
-    exp: Timestamp | None = Field(
-        None,
-        title="Expiration time",
-        description=(
-            "Expiration timestamp of the token in seconds since epoch. If"
-            " not present, the token never expires."
-        ),
-        examples=[1625986130],
-    )
-
-    preferred_username: str = Field(
-        ...,
-        title="Username",
-        description="Username of user",
-        examples=["someuser"],
-    )
-
-    sub: str = Field(
-        ...,
-        title="Unique identifier",
-        description=(
-            "For now, Gafaelfawr uses the username for this field as well,"
-            " even though this is not entirely correct in the presence of"
-            " username changes."
-        ),
-        examples=["someuser"],
-    )
 
 
 class Group(BaseModel):
