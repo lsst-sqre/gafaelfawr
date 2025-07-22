@@ -10,6 +10,26 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-14.0.0'></a>
+## 14.0.0 (2025-07-21)
+
+### Backwards-incompatible changes
+
+- API rate limits now specify the number of requests per minute instead of per 15 minutes. All configured rate limits should be updated accordingly. The rate limiting algorithm is otherwise unchanged.
+- Remove the deprecated `/auth/cadc/userinfo` route. CADC applications can now use `/auth/openid/userinfo` with a delegated token and do not need a special endpoint.
+
+### New features
+
+- Add new `/auth/api/v1/users/<username>` API route that returns the LDAP and, if configured, Firestore information about the given username. This route is only available on Gafaelfawr installations that use LDAP and only returns useful information for users in LDAP.
+- Add new reserved `admin:userinfo` scope, which controls access to the new `/auth/api/v1/users/<username>` route for usernames other than the one associated with the authenticating token. A token with this scope can be used to look up user information for other users without having a token for that user.
+- Add TAP quotas. Currently, this allows specifying the allowable number of concurrent TAP queries for each of a list of TAP services, with the same override and group-specific addition behavior as API quotas. These quotas are not applied by Gafaelfawr; they are intended for use by TAP services that retrieve quota information from Gafaelfawr and apply it internally.
+- When setting quota overrides, the `default` section can be entirely omitted. This simplifies overriding the quota for only one group.
+
+### Bug fixes
+
+- Rather than asking the database for one token for health checks, ask the database for 100 session tokens and randomly choose one of them. This, coupled with Kubernetes failure tolerance for the liveness check, should hopefully prevent an isolated problem with a single user from causing `/health` to reliably fail and bring down the service.
+- Fix tracking of API quotas to use separate counters for each service and user pair. A bug in previous releases caused usage counters to be shared for a user between services with the same quota.
+
 <a id='changelog-13.0.1'></a>
 ## 13.0.1 (2025-07-01)
 
