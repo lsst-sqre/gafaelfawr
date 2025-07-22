@@ -252,6 +252,65 @@ async def test_rate_limit_override_only(
 
 
 @pytest.mark.asyncio
+async def test_rate_limit_override_groups(
+    client: AsyncClient, factory: Factory
+) -> None:
+    config = await reconfigure("github-quota", factory)
+    assert config.quota
+    token_data = await create_session_token(
+        factory,
+        group_names=["foo"],
+        scopes={"admin:token", "read:all"},
+    )
+    assert token_data.groups
+    headers = {"Authorization": f"bearer {token_data.token}"}
+
+    r = await client.put(
+        "/auth/api/v1/quota-overrides",
+        json={"groups": {"foo": {"api": {"test": 10}}}},
+        headers=headers,
+    )
+    assert r.status_code == 200
+
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "test"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.headers["X-RateLimit-Limit"] == "10"
+    assert r.headers["X-RateLimit-Remaining"] == "9"
+
+    r = await client.get(
+        "/ingress/auth",
+        params={"scope": "read:all", "service": "other"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.headers["X-RateLimit-Limit"] == "2"
+    assert r.headers["X-RateLimit-Remaining"] == "1"
+
+    r = await client.get("/auth/api/v1/user-info", headers=headers)
+    expected_user_info = {
+        "username": token_data.username,
+        "name": token_data.name,
+        "email": token_data.email,
+        "uid": token_data.uid,
+        "gid": token_data.gid,
+        "groups": [
+            g.model_dump(mode="json")
+            for g in sorted(token_data.groups, key=lambda g: g.name)
+        ],
+        "quota": {
+            "api": {"datalinker": 1000, "other": 2, "test": 10},
+            "notebook": {"cpu": 8.0, "memory": 8.0, "spawn": True},
+            "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
+        },
+    }
+    assert r.json() == expected_user_info
+
+
+@pytest.mark.asyncio
 async def test_permissions(client: AsyncClient, factory: Factory) -> None:
     user_token_data = await create_session_token(
         factory, group_names=["foo"], scopes=set()
