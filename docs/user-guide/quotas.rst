@@ -86,12 +86,53 @@ These routes require a token with ``admin:token`` scope.
 The body sent via ``PUT`` and returned by ``GET`` is the same format as the ``config.quota`` key for the Gafaelfawr configuration except in JSON format.
 
 Quota overrides, unlike group quotas, are not additive.
-Instead, if set, they override (as in the name) any quota from the default or group sections.
-If the quota override configuration generates a notebook quota, a TAP quota for a particular TAP service, or an API quota for a particular service, the default and group quota information for notebooks or that service are ignored completely.
-Otherwise, the normal quota default and group quota information applies.
+Instead, if there is a quota override and it generates a quota for a particular service for a user, that overrides the corresponding quota from the Gafaelfawr configuration.
+If the quota override does not generate quota for a particular service (if, for example, it contains no notebook quota), then the quota from the Gafaelfawr configuration is used.
 
-Examples
---------
+Override example
+----------------
+
+For example, suppose the default quota configuration is:
+
+.. code-block:: yaml
+
+   quota:
+     default:
+       api:
+         datalinker: 50
+         sia: 20
+       notebook:
+         cpu: 8
+         memory: 4
+   groups:
+     users:
+       api:
+         datalinker: 50
+         sia: 10
+
+and the override configuration is:
+
+.. code-block:: json
+
+   {
+     "groups": {
+       "users": {
+         "api": {
+           "datalinker": 70
+         }
+       }
+     }
+   }
+
+If the user is a member of the ``users`` group, their ``datalinker`` quota will be 70 (ignoring both the default and the group quota).
+Their ``sia`` quota will be 30, applying the normal rules, since the override doesn't say anything about ``sia`` quota.
+Similarly, their notebook quota will be 8 CPUs and 4GB of memory.
+Notice that the override quota is not added to the default quota even though it is in an additive group section.
+
+If the user is not in the ``users`` group, their ``datalinker`` quota will be 50 (the output of the normal quota rules).
+
+Setting overrides
+-----------------
 
 Here are some examples of setting, retrieving, and clearing temporary quota overrides using cURL.
 Each of these commands requires a token with ``admin:token`` scope, represented below as ``<token>``.
@@ -128,7 +169,7 @@ See :ref:`ldap-groups` for more information.
 .. prompt:: bash
 
    curl -X PUT -H 'Authorization: bearer <token>' \
-     --json '{"default": {}, "groups": {"someuser": {"api": {"vo-cutouts": 0}}}}' \
+     --json '{"groups": {"someuser": {"api": {"vo-cutouts": 0}}}}' \
      https://<base-url>/auth/api/v1/quota-overrides
 
 Delete any existing quota override.
@@ -137,3 +178,20 @@ Delete any existing quota override.
 
    curl -X DELETE -H 'Authorization: bearer <token>' \
      https://<base-url>/auth/api/v1/quota-overrides
+
+Checking overrides
+------------------
+
+After you set a quota override, you should consider checking the quota information for a user that you expect to be affected and a user that you do not expect to be affected.
+You can do this by retrieving the user information for a given user:
+
+.. prompt:: bash
+
+   curl -H 'Authorization: bearer <token>' \
+     https://<base-url>/auth/api/v1/users/<username>
+
+You may want to pipe the output through ``jq .`` for nicer formatting.
+
+.. caution::
+
+   The :samp:`/users/{username}` route is only available if Gafaelfawr is configured to use LDAP as its source for user information.

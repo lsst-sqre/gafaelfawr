@@ -92,7 +92,9 @@ class QuotaConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     default: Quota = Field(
-        ..., title="Default quota", description="Default quotas for all users"
+        default_factory=Quota,
+        title="Default quota",
+        description="Default quotas for all users",
     )
 
     groups: dict[str, Quota] = Field(
