@@ -130,9 +130,11 @@ jobs:
         with:
           filters: |
             docs:
+              - "CHANGELOG.md"
               - "docs/**"
               - "src/gafaelfawr/**"
             docs-specific:
+              - "CHANGELOG.md"
               - "docs/**"
 
   docs:
@@ -140,7 +142,9 @@ jobs:
     timeout-minutes: 15
 
     needs: changes
-    if: ${{ needs.changes.outputs.docs == 'true' }}
+    if: >
+      (needs.changes.outputs.docs == 'true')
+      || (github.event_name == 'workflow_dispatch')
 
     steps:
       - uses: actions/checkout@v4
