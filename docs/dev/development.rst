@@ -131,6 +131,15 @@ To see a listing of test environments, run:
 
    uv run tox list
 
+To run a specific test environment, run:
+
+.. prompt:: bash
+
+   uv run tox -e <environment>
+
+For example, ``uv run tox -e typing`` will only run mypy and not the rest of th
+e tests.
+
 To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` or ``py-full`` tox environment.
 For example:
 
@@ -342,7 +351,7 @@ Code
 
 - Gafaelfawr follows the :sqr:`072` Python style guide.
 
-- The code formatting follows :pep:`8`, though in practice lean on Black and isort to format the code for you.
+- The code formatting follows :pep:`8`, though in practice lean on Ruff to format the code for you.
 
 - Use :pep:`484` type annotations.
   The :command:`uv run tox run -e typing` command, which runs mypy_, ensures that the project's types are consistent.
