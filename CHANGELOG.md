@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-14.0.1'></a>
+## 14.0.1 (2025-08-08)
+
+### Bug fixes
+
+- Allow group names where the only alphabetic character is the first character. This fixes a regression introduced in Gafaelfawr 13.0.1.
+
 <a id='changelog-14.0.0'></a>
 ## 14.0.0 (2025-07-21)
 
