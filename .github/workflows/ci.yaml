@@ -171,7 +171,7 @@ jobs:
         run: uv run --only-group=tox tox run -e docs
 
       # Upload docs:
-      # - on pushes to main, merge queues, and workflow dispatches
+      # - on pushes to main and workflow dispatches
       # - on pushes to tickets/ branches if docs/ directory content changed
       - uses: lsst-sqre/ltd-upload@v1
         with:
@@ -181,7 +181,6 @@ jobs:
           password: ${{ secrets.LTD_PASSWORD }}
         if: >
           (github.event_name == 'push' && github.ref_name == 'main')
-          || (github.event_name == 'merge_group')
           || (github.event_name == 'workflow_dispatch')
           || (github.event_name == 'pull_request'
               && startsWith(github.head_ref, 'tickets/')
