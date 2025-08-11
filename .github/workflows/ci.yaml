@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -80,7 +80,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -123,7 +123,7 @@ jobs:
       docs-specific: ${{ steps.filter.outputs.docs-specific }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dorny/paths-filter@v3
         id: filter
@@ -147,7 +147,7 @@ jobs:
       || (github.event_name == 'workflow_dispatch')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
@@ -194,7 +194,7 @@ jobs:
     if: ${{ needs.changes.outputs.docs == 'true' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
@@ -233,7 +233,7 @@ jobs:
           || startsWith(github.head_ref, 'tickets/'))
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
