@@ -94,7 +94,7 @@ jobs:
 
       # Reuse the built UI from the ui job.
       - name: Restore UI artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ui
           path: ui/public
@@ -239,7 +239,7 @@ jobs:
 
       # Reuse the built UI from the ui job.
       - name: Restore UI artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ui
           path: ui/public
