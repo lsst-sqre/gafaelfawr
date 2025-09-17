@@ -4,7 +4,7 @@ Gafaelfawr
 
 Gafaelfawr is the authentication and authorization front-end for the Vera C. Rubin Observatory Science Platform.
 
-It's primary purpose is to serve as an NGINX ``auth_request`` backend.
+Its primary purpose is to serve as an NGINX ``auth_request`` backend.
 It also provides a web page where people can create and manage long-lived tokens for use outside of a web browser, and can serve as a simple OpenID Connect server.
 As a component of the Science Platform, it is designed for deployment with Kubernetes using the `Phalanx infrastructure <https://github.com/lsst-sqre/phalanx>`__.
 Gafaelfawr requires the Kubernetes `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__.
