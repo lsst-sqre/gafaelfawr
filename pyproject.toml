@@ -52,7 +52,7 @@ name = "Association of Universities for Research in Astronomy, Inc. (AURA)"
 email = "sqre-admin@lists.lsst.org"
 
 [project.scripts]
-gafaelfawr = "gafaelfawr.cli:main"
+gafaelfawr = "gafaelfawr.cli:main_with_sentry"
 
 [project.urls]
 Homepage = "https://gafaelfawr.lsst.io/"

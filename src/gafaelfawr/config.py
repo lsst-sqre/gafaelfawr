@@ -690,6 +690,25 @@ class CookieParameters(TypedDict):
     secure: bool
 
 
+class SentryConfig(CamelCaseSettings):
+    """Sentry configuration for Gafaelfawr.
+
+    This configuration is not used internally, but has to be present in the
+    model so that we can forbid unknown configuration settings. Otherwise,
+    Phalanx wouldn't be able to use the full ``config`` key of the Helm values
+    as the configuration file.
+    """
+
+    enabled: bool = Field(False, title="Whether to send exceptions to Sentry")
+    traces_sample_rate: float = Field(
+        0.0,
+        title="Sentry trace sample rate",
+        description="The percentage of traces to be sent to sentry.",
+        ge=0.0,
+        le=1.0,
+    )
+
+
 class Config(EnvFirstSettings):
     """Configuration for Gafaelfawr."""
 
@@ -764,15 +783,6 @@ class Config(EnvFirstSettings):
         ),
     )
 
-    enable_sentry: bool = Field(
-        False,
-        title="Enable Sentry",
-        description=(
-            "Send trace and telemetry information to Sentry if the Sentry"
-            " environment variables are set"
-        ),
-    )
-
     error_footer: str | None = Field(
         None,
         title="HTML for error pages",
@@ -840,6 +850,8 @@ class Config(EnvFirstSettings):
             "GAFAELFAWR_REDIS_PASSWORD", "redisPassword"
         ),
     )
+
+    sentry: SentryConfig | None = Field(None, title="Sentry configuration")
 
     session_secret: SecretStr = Field(
         ...,

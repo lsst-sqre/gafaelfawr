@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from safir.redis import DeserializeError, PydanticRedisStorage
+from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -58,8 +59,7 @@ class QuotaOverridesStore:
         except DeserializeError as e:
             msg = "Cannot retrieve quota overrides"
             self._logger.exception(msg, error=str(e))
-            if self._slack:
-                await self._slack.post_exception(e)
+            await report_exception(e, slack_client=self._slack)
             return None
 
     async def store(self, overrides: QuotaConfig) -> None:

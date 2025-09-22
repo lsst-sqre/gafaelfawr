@@ -19,9 +19,11 @@ from safir.database import (
     is_database_current,
     stamp_database,
 )
+from safir.sentry import initialize_sentry
 from safir.slack.blockkit import SlackMessage
 from sqlalchemy import text
 
+from . import __version__
 from .database import (
     generate_schema_sql,
     initialize_gafaelfawr_database,
@@ -368,3 +370,9 @@ async def validate_schema(*, config_path: Path | None) -> None:
         raise click.ClickException("Database has not been initialized")
     if not await is_database_current(engine, logger):
         raise click.ClickException("Database schema is not current")
+
+
+def main_with_sentry() -> None:
+    """Call the main command group after initializing Sentry."""
+    initialize_sentry(release=__version__)
+    main()

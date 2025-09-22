@@ -17,6 +17,7 @@ from safir.slack.blockkit import (
     SlackTextBlock,
     SlackWebException,
 )
+from safir.slack.sentry import SentryEventInfo
 
 __all__ = [
     "DatabaseSchemaError",
@@ -413,6 +414,22 @@ class FirestoreAPIError(FirestoreError):
         if self._errors:
             errors = "\n".join(self._errors)
             result.blocks.append(SlackCodeBlock(heading="Errors", code=errors))
+        return result
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Return metadata to be added to Sentry events.
+
+        Returns
+        -------
+        safir.slack.sentry.SentryEventInfo
+            Metadata to be added to Sentry events sent from this error.
+        """
+        result = super().to_sentry()
+        result.contexts["Google Error Info"] = {
+            "Reason": self._reason,
+            "Errors": self._errors,
+        }
         return result
 
 

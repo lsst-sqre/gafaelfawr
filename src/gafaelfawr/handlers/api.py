@@ -20,6 +20,7 @@ from fastapi import (
 )
 from safir.models import ErrorLocation, ErrorModel
 from safir.pydantic import UtcDatetime
+from safir.sentry import report_exception
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
@@ -451,8 +452,7 @@ async def get_user_info(
         msg = "Unable to get user information"
         context.logger.exception(msg, error=str(e))
         slack_client = context.factory.create_slack_client()
-        if slack_client:
-            await slack_client.post_exception(e)
+        await report_exception(e, slack_client=slack_client)
         raise HTTPException(
             headers={"Cache-Control": "no-cache, no-store"},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
