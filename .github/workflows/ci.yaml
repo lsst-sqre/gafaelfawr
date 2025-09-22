@@ -4,7 +4,7 @@ env:
   # Current supported uv version. The uv documentation recommends pinning
   # this. The version should match the version used in .pre-commit-config.yaml
   # and frozen in uv.lock. It is updated by make update-deps.
-  UV_VERSION: "0.8.7"
+  UV_VERSION: "0.8.19"
 
 "on":
   merge_group: {}
@@ -105,9 +105,7 @@ jobs:
           sudo apt-get install -y libpq-dev libldap2-dev libsasl2-dev
 
       - name: Set up Minikube
-        uses: medyagh/setup-minikube@v0.0.20
-        with:
-          kubernetes-version: "v1.27.3"
+        uses: medyagh/setup-minikube@latest
 
       - name: Run tox
         run: uv run --only-group=tox tox run -e lint,typing,py-full,coverage-report
