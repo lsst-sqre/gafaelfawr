@@ -7,6 +7,7 @@ from datetime import datetime
 from safir.database import datetime_to_db
 from safir.datetime import current_datetime
 from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
+from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy import delete, distinct, func, or_, select
 from sqlalchemy.ext.asyncio import async_scoped_session
@@ -569,8 +570,7 @@ class TokenRedisStore:
             data = await self._storage.get(key)
         except DeserializeError as e:
             self._logger.exception("Cannot retrieve token", error=str(e))
-            if self._slack:
-                await self._slack.post_exception(e)
+            await report_exception(e, slack_client=self._slack)
             return None
         return data
 

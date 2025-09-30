@@ -798,12 +798,13 @@ Sentry
 ------
 
 Gafaelfawr can optionally report uncaught exceptions, traces, and performance information to Sentry_.
-To enable this, set ``config.enableSentry``:
+To enable this, set ``config.sentry.enabled``:
 
 .. code-block:: yaml
 
    config:
-     enableSentry: true
+     sentry:
+       enabled: true
 
 You will also have to set the ``sentry-dsn`` key in the Gafaelfawr secret to the URL to which the telemetry will be sent.
 

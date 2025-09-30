@@ -20,8 +20,10 @@ from safir.fastapi import ClientRequestError, client_request_error_handler
 from safir.logging import configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.models import ErrorModel
+from safir.sentry import initialize_sentry
 from safir.slack.webhook import SlackRouteErrorHandler
 
+from . import __version__
 from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
@@ -29,7 +31,6 @@ from .exceptions import DatabaseSchemaError
 from .handlers import api, ingress, internal, login, logout, oidc
 from .middleware.state import StateMiddleware
 from .models.state import State
-from .sentry import enable_telemetry
 
 __all__ = ["create_app"]
 
@@ -67,6 +68,9 @@ def create_app(
         Raised if schema validation was requested and the current schema is
         out of date.
     """
+    # Configure Sentry. If the SENTRY_DSN environment variable is not set, then
+    # the Sentry integration won't be enabled.
+    initialize_sentry(release=__version__)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
@@ -193,10 +197,6 @@ def create_app(
             config.slack_webhook, "Gafaelfawr", logger
         )
         logger.debug("Initialized Slack webhook")
-
-    # Configure Sentry.
-    if config and config.enable_sentry:
-        enable_telemetry()
 
     # Handle exceptions descended from ClientRequestError.
     app.exception_handler(ClientRequestError)(client_request_error_handler)

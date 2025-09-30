@@ -8,6 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse, Response
+from safir.sentry import report_exception
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackRouteErrorHandler
 
@@ -325,8 +326,7 @@ async def _error_system(
     """
     context.logger.error(error.value, error=str(exc))
     slack_client = context.factory.create_slack_client()
-    if slack_client:
-        await slack_client.post_exception(exc)
+    await report_exception(exc, slack_client=slack_client)
     context.state.state = None
     context.state.return_url = None
     context.state.login_start = None

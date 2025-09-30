@@ -38,7 +38,7 @@ dependencies = [
     "pyjwt",
     "pyyaml",
     "redis>=4.2.0",
-    "safir[db,kafka,kubernetes]>=11.0.0",
+    "safir[db,kafka,kubernetes]>=14.0.0",
     "sentry-sdk[fastapi]",
     "sqlalchemy>=2",
     "starlette",
@@ -52,7 +52,7 @@ name = "Association of Universities for Research in Astronomy, Inc. (AURA)"
 email = "sqre-admin@lists.lsst.org"
 
 [project.scripts]
-gafaelfawr = "gafaelfawr.cli:main"
+gafaelfawr = "gafaelfawr.cli:main_with_sentry"
 
 [project.urls]
 Homepage = "https://gafaelfawr.lsst.io/"

@@ -11,6 +11,7 @@ import jwt
 from pydantic import HttpUrl
 from safir.datetime import current_datetime
 from safir.redis import DeserializeError
+from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -304,8 +305,7 @@ class OIDCService:
         except DeserializeError as e:
             msg = f"Cannot get authorization for {auth_code.key}: {e!s}"
             self._logger.exception(msg)
-            if self._slack:
-                await self._slack.post_exception(e)
+            await report_exception(e, slack_client=self._slack)
             raise InvalidGrantError(msg) from e
         if not authorization:
             msg = f"Unknown authorization code {auth_code.key}"
