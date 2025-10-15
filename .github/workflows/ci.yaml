@@ -216,10 +216,11 @@ jobs:
         run: uv run --only-group=tox tox run -e docs-linkcheck
 
   build:
-    runs-on: ubuntu-latest
+    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v1
     needs: [test]
-    timeout-minutes: 10
-
+    secrets: inherit
+    with:
+      images: ghcr.io/${{ github.repository }}
     # Only do Docker builds of tagged releases and pull requests from ticket
     # branches. This will still trigger on pull requests from untrusted
     # repositories whose branch names match our tickets/* branch convention,
@@ -228,22 +229,5 @@ jobs:
     if: >
       github.event_name != 'merge_group'
       && (startsWith(github.ref, 'refs/tags/')
-          || startsWith(github.head_ref, 'tickets/'))
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      # Reuse the built UI from the ui job.
-      - name: Restore UI artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: ui
-          path: ui/public
-
-      - uses: lsst-sqre/build-and-push-to-ghcr@v1
-        id: build
-        with:
-          image: ${{ github.repository }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          || startsWith(github.head_ref, 'tickets/')
+          || startsWith(github.head_ref, 't/') )
