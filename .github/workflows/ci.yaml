@@ -217,15 +217,15 @@ jobs:
 
   build:
     needs: [test]
-    runs-on: ${{ matrix.platform.runs_on }}
+    runs-on: ${{ matrix.platform.runs-on }}
     timeout-minutes: 10
     strategy:
       matrix:
         platform:
           - arch: "amd64"
-            runs_on: "ubuntu-latest"
+            runs-on: "ubuntu-latest"
           - arch: "arm64"
-            runs_on: "ubuntu-24.04-arm"
+            runs-on: "ubuntu-24.04-arm"
     outputs:
       tag: ${{ steps.build.outputs.tag }}
 
@@ -269,7 +269,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: make_manifest
+      - name: Assemble Manifest
         uses: Noelware/docker-manifest-action@v1
         with:
           inputs: ghcr.io/${{ github.repository }}-amd64:${{ needs.build.outputs.tag }},ghcr.io/${{ github.repository }}-arm64:${{ needs.build.outputs.tag }}
