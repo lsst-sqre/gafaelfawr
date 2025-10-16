@@ -216,9 +216,18 @@ jobs:
         run: uv run --only-group=tox tox run -e docs-linkcheck
 
   build:
-    runs-on: ubuntu-latest
     needs: [test]
+    runs-on: ${{ matrix.platform.runs_on }}
     timeout-minutes: 10
+    strategy:
+      matrix:
+        platform:
+          - arch: "amd64"
+            runs_on: "ubuntu-latest"
+          - arch: "arm64"
+            runs_on: "ubuntu-24.04-arm"
+    outputs:
+      tag: ${{ steps.build.outputs.tag }}
 
     # Only do Docker builds of tagged releases and pull requests from ticket
     # branches. This will still trigger on pull requests from untrusted
@@ -245,5 +254,23 @@ jobs:
       - uses: lsst-sqre/build-and-push-to-ghcr@v1
         id: build
         with:
-          image: ${{ github.repository }}
+          image: ${{ github.repository }}-${{ matrix.platform.arch }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  unify_manifest:
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: login
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: make_manifest
+        uses: Noelware/docker-manifest-action@v1
+        with:
+          inputs: ghcr.io/${{ github.repository }}-amd64:${{ needs.build.outputs.tag }},ghcr.io/${{ github.repository }}-arm64:${{ needs.build.outputs.tag }}
+          tags: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.tag }}
