@@ -160,7 +160,7 @@ To set up Minikube:
 
    The ``--kubernetes-version`` option can be used to specify the Kubernetes version to use.
 
-#. Enable the NGINX Ingress Controller using the  `Minikube ingress addon <https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/>`__:
+#. Enable ingress support:
 
    .. prompt:: bash
 
