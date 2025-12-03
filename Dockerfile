@@ -52,11 +52,11 @@ FROM base-image AS runtime-image
 # Create a non-root user
 RUN useradd --create-home appuser
 
-# Copy the virtualenv.
+# Copy the virtualenv, Alembic configuration, and startup script.
 COPY --from=install-image /app/.venv /app/.venv
-
-# Install the startup script.
-COPY scripts/start.sh /app/scripts/start.sh
+COPY --from=install-image /app/alembic /app/alembic
+COPY --from=install-image /app/alembic.ini /app/alembic.ini
+COPY --from=install-image /app/scripts/start.sh /app/scripts/start.sh
 
 # Set the working directory.
 WORKDIR /app
